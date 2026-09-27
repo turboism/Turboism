@@ -10,5 +10,6 @@ package dev.turboism.sdk.config;
  */
 public interface ConfigCodec<T> {
 
+    /** Returns the stable type identifier this codec is registered under. */
     String typeId();
 }

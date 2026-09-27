@@ -6,6 +6,10 @@ param(
     [string]$HomePath,
     # Retained for callers of older installers; provisioning does not use it.
     [string]$Java = "",
+    # Wizard-page integration: the installer polls StatusFile for progress and
+    # drops CancelFile to request cancellation. Both are caller-owned paths.
+    [string]$StatusFile = "",
+    [string]$CancelFile = "",
     [switch]$Gui
 )
 
@@ -15,6 +19,8 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script:graalUi = $null
 $script:graalCancelled = $false
 $script:graalLogPath = ""
+$script:graalStatusPath = ""
+$script:graalCancelPath = ""
 
 function Get-ManagedGraalManifest {
     # Keep these pins identical to ManagedGraalRuntimeService.Platform.WINDOWS_X64.
@@ -35,9 +41,25 @@ function Write-ManagedGraalLog {
     }
 }
 
+function Write-ManagedGraalStatus {
+    param([string]$Record)
+    if ([string]::IsNullOrWhiteSpace($script:graalStatusPath)) { return }
+    try {
+        [System.IO.File]::WriteAllLines(
+            $script:graalStatusPath,
+            @("TURBOISM_GRAAL_STATUS_V1", $Record),
+            [System.Text.UnicodeEncoding]::new($false, $true, $true))
+    }
+    catch { }
+}
+
 function Test-ManagedGraalCancellation {
     if ($null -ne $script:graalUi) { [System.Windows.Forms.Application]::DoEvents() }
     if ($script:graalCancelled) { throw [System.OperationCanceledException]::new("GraalVM installation was cancelled.") }
+    if (-not [string]::IsNullOrWhiteSpace($script:graalCancelPath) -and
+        (Test-Path -LiteralPath $script:graalCancelPath -PathType Leaf)) {
+        throw [System.OperationCanceledException]::new("GraalVM installation was cancelled.")
+    }
 }
 
 function Write-ManagedGraalProgress {
@@ -45,6 +67,7 @@ function Write-ManagedGraalProgress {
     $line = "GRAAL_RUNTIME_PROGRESS $State $Done/$Total"
     [Console]::Out.WriteLine($line)
     Write-ManagedGraalLog $line
+    Write-ManagedGraalStatus ("STATE|" + $State + "|" + $Done + "|" + $Total)
     if ($null -ne $script:graalUi) {
         $ui = $script:graalUi
         $ui.Status.Text = $ui.Strings[$State]
@@ -374,7 +397,10 @@ function New-ManagedGraalWindow {
 # The same production functions are used by the offline regression suite.
 if ($MyInvocation.InvocationName -eq '.') { return }
 $result = 1
+$script:graalStatusPath = $StatusFile
+$script:graalCancelPath = $CancelFile
 try {
+    Write-ManagedGraalStatus "STATE|STARTING|0|0"
     $turboismHome = [System.IO.Path]::GetFullPath($HomePath).TrimEnd('\', '/')
     if (-not (Test-CubismNormalDirectory $turboismHome)) { throw "Turboism home is not an existing ordinary directory: $turboismHome" }
     $logs = Join-Path $turboismHome "logs\installer"
@@ -396,6 +422,7 @@ try {
     $result = 1
 } finally {
     Write-ManagedGraalLog ("GRAAL_INSTALL_EXIT code=" + $result)
+    Write-ManagedGraalStatus ("EXIT|" + $result)
     if ($null -ne $script:graalUi) { $script:graalUi.Form.Dispose(); $script:graalUi = $null }
 }
 exit $result

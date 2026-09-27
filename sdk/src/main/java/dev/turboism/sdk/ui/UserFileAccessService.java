@@ -1,5 +1,7 @@
 package dev.turboism.sdk.ui;
 
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -15,25 +17,118 @@ import java.util.concurrent.CompletionStage;
  */
 public interface UserFileAccessService {
 
+    /**
+     * Shows the user chooser for {@code request} and completes with the granted handle or the
+     * reason none was granted.
+     */
     CompletionStage<UserFileRequestResult> request(UserFileRequest request);
 
+    /**
+     * Reads up to {@code maxBytes} of the handle's file as UTF-8 text, asynchronously.
+     */
     CompletionStage<UserFileReadResult<String>> readUtf8(
         UserFileHandle handle,
         int maxBytes
     );
 
+    /**
+     * Reads up to {@code maxBytes} of the handle's file as raw bytes, asynchronously.
+     */
     CompletionStage<UserFileReadResult<byte[]>> readBytes(
         UserFileHandle handle,
         int maxBytes
     );
 
+    /**
+     * Atomically replaces the handle's file content with {@code content} as UTF-8,
+     * asynchronously.
+     */
     CompletionStage<UserFileWriteResult> writeUtf8Atomic(
         UserFileHandle handle,
         String content
     );
 
+    /**
+     * Atomically replaces the handle's file content with {@code content}, asynchronously.
+     */
     CompletionStage<UserFileWriteResult> writeBytesAtomic(
         UserFileHandle handle,
         byte[] content
     );
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static UserFileAccessService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: calls that report outcomes complete with the structured unavailability result; and queries report empty results. */
+    enum Unavailable implements UserFileAccessService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public CompletionStage<UserFileRequestResult> request(
+            final UserFileRequest request
+        ) {
+            return CompletableFuture.completedFuture(new UserFileRequestResult(
+                UserFileRequestStatus.UNAVAILABLE,
+                Optional.empty(),
+                Optional.of(unavailable())
+            ));
+        }
+
+        @Override public CompletionStage<UserFileReadResult<String>> readUtf8(
+            final UserFileHandle handle,
+            final int maxBytes
+        ) {
+            return CompletableFuture.completedFuture(new UserFileReadResult<>(
+                Optional.empty(), Optional.of(unavailable()), false));
+        }
+
+        @Override public CompletionStage<UserFileReadResult<byte[]>> readBytes(
+            final UserFileHandle handle,
+            final int maxBytes
+        ) {
+            return CompletableFuture.completedFuture(new UserFileReadResult<>(
+                Optional.empty(), Optional.of(unavailable()), false));
+        }
+
+        @Override public CompletionStage<UserFileWriteResult> writeUtf8Atomic(
+            final UserFileHandle handle,
+            final String content
+        ) {
+            return CompletableFuture.completedFuture(
+                new UserFileWriteResult(false, Optional.of(unavailable())));
+        }
+
+        @Override public CompletionStage<UserFileWriteResult> writeBytesAtomic(
+            final UserFileHandle handle,
+            final byte[] content
+        ) {
+            return CompletableFuture.completedFuture(
+                new UserFileWriteResult(false, Optional.of(unavailable())));
+        }
+
+        private static UserFileError unavailable() {
+            return new UserFileError(
+                UserFileErrorCode.RUNTIME_UNAVAILABLE,
+                "user file access service is not available"
+            );
+        }
+    }
 }

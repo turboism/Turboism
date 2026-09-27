@@ -92,8 +92,8 @@ class PluginManifestCanonicalAndPrimitiveTest {
         assertFileCollision("plugin/lib/Σ.jar", "plugin/lib/ς.jar");
         assertFileCollision("plugin/lib/ς.jar", "plugin/lib/σ.jar");
         assertFileCollision("plugin/lib/ß.jar", "plugin/lib/ẞ.jar");
-        assertNotEquals(ManifestPrimitives.pathIdentityKey("plugin/lib/ß.jar"),
-            ManifestPrimitives.pathIdentityKey("plugin/lib/ss.jar"));
+        assertNotEquals(dev.turboism.core.archive.ArchivePaths.pathIdentityKey("plugin/lib/ß.jar"),
+            dev.turboism.core.archive.ArchivePaths.pathIdentityKey("plugin/lib/ss.jar"));
     }
 
     private static ObjectNode withSchemaVersion(String literal) throws Exception {

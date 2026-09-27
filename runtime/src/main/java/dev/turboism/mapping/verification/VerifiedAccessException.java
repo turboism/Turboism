@@ -94,8 +94,11 @@ public final class VerifiedAccessException extends RuntimeException {
         INDEX_OUT_OF_BOUNDS, SECURITY, LINKAGE
     }
 
+    /** Which stage of a verified selector call failed. */
     public enum FailureKind {
+        /** The call site itself could not be resolved or used. */
         RESOLUTION,
+        /** The host member ran and threw. */
         INVOCATION
     }
 

@@ -81,6 +81,61 @@ class PerformanceProbeMethodTransformerTest {
         }
     }
 
+    @Test
+    void preservesReferenceAndPrimitiveResultsAndAccountsForExceptionalExit() throws Exception {
+        final Object[][] cases = {
+            {"Ljava/lang/String;", "decoded", Opcodes.ARETURN},
+            {"I", 17, Opcodes.IRETURN},
+            {"J", 1234567890123L, Opcodes.LRETURN},
+            {"F", 1.25F, Opcodes.FRETURN},
+            {"D", 2.5D, Opcodes.DRETURN}
+        };
+        for (Object[] value : cases) {
+            final PerformanceProbeRecorder recorder = new PerformanceProbeRecorder();
+            installCarrier(recorder);
+            recorder.startCapture();
+            try {
+                final String descriptor = "(Z)" + value[0];
+                final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+                writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/ValueTarget", null, "java/lang/Object", null);
+                constructor(writer);
+                final MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC, "read", descriptor, null, null);
+                method.visitCode();
+                final org.objectweb.asm.Label normal = new org.objectweb.asm.Label();
+                method.visitVarInsn(Opcodes.ILOAD, 1);
+                method.visitJumpInsn(Opcodes.IFEQ, normal);
+                method.visitTypeInsn(Opcodes.NEW, "java/lang/IllegalStateException");
+                method.visitInsn(Opcodes.DUP);
+                method.visitLdcInsn("original failure");
+                method.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/IllegalStateException", "<init>",
+                    "(Ljava/lang/String;)V", false);
+                method.visitInsn(Opcodes.ATHROW);
+                method.visitLabel(normal);
+                method.visitLdcInsn(value[1]);
+                method.visitInsn((Integer) value[2]);
+                method.visitMaxs(0, 0);
+                method.visitEnd();
+                writer.visitEnd();
+                final var target = new PerformanceProbeMethodTransformer.Target(
+                    "fixture/ValueTarget", "read", descriptor, PerformanceProbeMetric.RENDER_SCENE);
+                final var transformer = new PerformanceProbeMethodTransformer(null, null, List.of(target));
+                final byte[] bytes = transformer.transform(null, null, "fixture/ValueTarget", null, null, writer.toByteArray());
+                final Class<?> type = new FixtureLoader().define("fixture.ValueTarget", bytes);
+                final Object instance = type.getConstructor().newInstance();
+                assertEquals(value[1], type.getMethod("read", boolean.class).invoke(instance, false));
+                final InvocationTargetException failure = assertThrows(InvocationTargetException.class,
+                    () -> type.getMethod("read", boolean.class).invoke(instance, true));
+                assertEquals("original failure", failure.getCause().getMessage());
+                recorder.stopCapture();
+                org.junit.jupiter.api.Assertions.assertTrue(recorder.awaitQuiescence(100));
+                assertEquals(2L, recorder.snapshot().metrics().get(PerformanceProbeMetric.RENDER_SCENE).calls());
+            } finally {
+                recorder.stopCapture();
+                clearCarrier();
+            }
+        }
+    }
+
     private static void installCarrier(final PerformanceProbeRecorder recorder) throws Exception {
         final Class<?> callback = Class.forName("dev.turboism.bootstrap.carrier.PerformanceProbeCallback");
         final Object proxy = Proxy.newProxyInstance(callback.getClassLoader(), new Class<?>[]{callback}, (ignored, method, args) -> {

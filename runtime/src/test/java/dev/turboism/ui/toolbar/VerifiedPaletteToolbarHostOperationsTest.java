@@ -139,6 +139,24 @@ class VerifiedPaletteToolbarHostOperationsTest {
         host.clearContributions();
     }
 
+    @Test
+    void pollRestoresAButtonRemovedFromItsRowByAnOutsideActor() {
+        final LogPaletteFixture fixture = new LogPaletteFixture();
+        final VerifiedPaletteToolbarHostOperations host = host(fixture);
+
+        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> { })));
+        final JButton button = findButton(fixture.root, "plugin-a:toggle");
+        assertNotNull(button);
+
+        button.getParent().remove(button);
+        assertEquals(0, countButtons(fixture.root));
+
+        host.reconcileNow();
+        assertSame(button, findButton(fixture.root, "plugin-a:toggle"),
+            "the poll must re-attach the contributed button, not recreate it");
+        host.clearContributions();
+    }
+
     private static VerifiedPaletteToolbarHostOperations host(final LogPaletteFixture fixture) {
         return new VerifiedPaletteToolbarHostOperations(null, () -> fixture.pane);
     }

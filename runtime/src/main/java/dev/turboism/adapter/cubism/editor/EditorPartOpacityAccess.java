@@ -1,10 +1,10 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartInspector52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartInspectorIdWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacityReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -68,9 +68,9 @@ final class EditorPartOpacityAccess {
     private boolean opacityAuthorized() {
         if (isCubism52()) {
             return resolver.authorizesFeature(
-                EditorPartOpacity52SelectorContract.ADAPTER_SLICE_ID,
-                EditorPartOpacity52SelectorContract.CAPABILITY_ID,
-                EditorPartOpacity52SelectorContract.REQUIRED_ALIASES
+                EditorPartOpacityReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorPartOpacityReadSelectorContract.CAPABILITY_ID,
+                EditorPartOpacityReadSelectorContract.REQUIRED_ALIASES
             );
         }
         return resolver.authorizesFeature(
@@ -89,7 +89,7 @@ final class EditorPartOpacityAccess {
     }
 
     private boolean isCubism52() {
-        return resolver.isExactCubismVersion(EditorPartOpacity52SelectorContract.CUBISM_VERSION);
+        return resolver.isExactCubismVersion(EditorPartOpacityReadSelectorContract.CUBISM_VERSION);
     }
 
     private boolean nameAuthorized() {
@@ -729,11 +729,11 @@ final class EditorPartOpacityAccess {
     }
 
     private void requirePartInspectorAuthorization() {
-        final boolean authorized = resolver.isExactCubismVersion(EditorPartInspector52SelectorContract.CUBISM_VERSION)
+        final boolean authorized = resolver.isExactCubismVersion(EditorPartInspectorIdWriteSelectorContract.CUBISM_VERSION)
             ? resolver.authorizesFeature(
-                EditorPartInspector52SelectorContract.ADAPTER_SLICE_ID,
-                EditorPartInspector52SelectorContract.CAPABILITY_ID,
-                EditorPartInspector52SelectorContract.REQUIRED_ALIASES
+                EditorPartInspectorIdWriteSelectorContract.ADAPTER_SLICE_ID,
+                EditorPartInspectorIdWriteSelectorContract.CAPABILITY_ID,
+                EditorPartInspectorIdWriteSelectorContract.REQUIRED_ALIASES
             )
             : resolver.authorizesFeature(
                 EditorPartInspectorSelectorContract.ADAPTER_SLICE_ID,

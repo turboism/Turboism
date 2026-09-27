@@ -8,6 +8,7 @@ import java.util.NoSuchElementException;
 /** Warp Deformers in one Cubism model. */
 public interface WarpDeformers {
 
+    /** Returns every Warp Deformer in the model, in host order. */
     List<WarpDeformer> all();
 
     /** @throws NoSuchElementException when the ID is absent */

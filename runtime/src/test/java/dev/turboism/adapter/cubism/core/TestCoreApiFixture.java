@@ -88,7 +88,7 @@ public final class TestCoreApiFixture {
         return resolver(
             reviewedVersion, artifactProfile, coreType, versionType,
             versionDescriptor, majorDescriptor, omittedAlias, classLoader,
-            java.util.List.of(), java.util.Set.of()
+            java.util.List.of(), java.util.Set.of(), false
         );
     }
 
@@ -103,6 +103,26 @@ public final class TestCoreApiFixture {
         final ClassLoader classLoader,
         final java.util.List<StaticSelector> extraSelectors,
         final java.util.Set<String> extraCapabilities
+    ) {
+        return resolver(
+            reviewedVersion, artifactProfile, coreType, versionType,
+            versionDescriptor, majorDescriptor, omittedAlias, classLoader,
+            extraSelectors, extraCapabilities, false
+        );
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final String reviewedVersion,
+        final String artifactProfile,
+        final Class<?> coreType,
+        final Class<?> versionType,
+        final String versionDescriptor,
+        final String majorDescriptor,
+        final String omittedAlias,
+        final ClassLoader classLoader,
+        final java.util.List<StaticSelector> extraSelectors,
+        final java.util.Set<String> extraCapabilities,
+        final boolean omitOwnedMoc
     ) {
         final List<StaticSelector> selectors = new ArrayList<>();
         selectors.add(StaticSelector.classSelector(
@@ -289,11 +309,24 @@ public final class TestCoreApiFixture {
             ));
         }
         addFamilySelectors(selectors, artifactProfile);
+        if (!omitOwnedMoc) {
+            selectors.addAll(ownedMocSelectors());
+        }
 
         final java.util.HashSet<String> capabilities =
             new java.util.HashSet<>(CorePublicApiSelectorContract.CAPABILITY_IDS);
+        if (omitOwnedMoc) {
+            capabilities.remove(ownedMocCapabilityId());
+        }
         capabilities.addAll(extraCapabilities);
-        final java.util.ArrayList<StaticSelector> all = new java.util.ArrayList<>(selectors);
+        final java.util.Set<String> extraAliases = extraSelectors.stream()
+            .map(StaticSelector::alias)
+            .collect(java.util.stream.Collectors.toSet());
+        final java.util.ArrayList<StaticSelector> all = new java.util.ArrayList<>(
+            selectors.stream()
+                .filter(selector -> !extraAliases.contains(selector.alias()))
+                .toList()
+        );
         all.addAll(extraSelectors);
         return TestVerifiedResolvers.create(
             reviewedVersion,
@@ -388,8 +421,28 @@ public final class TestCoreApiFixture {
 
     /** Owned-Moc capability id for fixture resolvers. */
     public static java.util.Set<String> ownedMocCapability() {
-        return java.util.Set.of(
-            dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.CAPABILITY_ID
+        return java.util.Set.of(ownedMocCapabilityId());
+    }
+
+    private static String ownedMocCapabilityId() {
+        return dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.CAPABILITY_ID;
+    }
+
+    /** Fixture resolver whose evidence omits the owned-Moc selectors and capability. */
+    public static VerifiedMemberResolver resolverWithoutOwnedMoc(final String artifactProfile) {
+        final String reviewedVersion = "5.2.03".equals(artifactProfile) ? "5.2.03" : "5.3.02";
+        return resolver(
+            reviewedVersion,
+            artifactProfile,
+            Core.class,
+            Version.class,
+            objectDescriptor(Version.class),
+            "()I",
+            null,
+            Core.class.getClassLoader(),
+            java.util.List.of(),
+            java.util.Set.of(),
+            true
         );
     }
 

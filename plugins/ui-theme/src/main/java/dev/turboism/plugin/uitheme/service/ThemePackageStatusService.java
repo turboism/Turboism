@@ -87,7 +87,16 @@ public final class ThemePackageStatusService {
         ));
     }
 
+    /**
+     * Reads the host's theme-package status.
+     *
+     * <p>A seam over {@code PluginContext.cubismRead().themeStatus()} so this service stays
+     * testable without a host connection.</p>
+     */
     public interface ThemeStatusReadCapability {
+        /**
+         * @return the host's current theme status, or empty when the host exposes none
+         */
         Optional<ThemeStatusSnapshot> readStatus();
     }
 }

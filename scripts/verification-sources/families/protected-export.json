@@ -1,0 +1,20 @@
+{
+ "format": "turboism.verification-source-family/v1",
+ "family": "protected-export",
+ "records": [
+  "cubism-5.2.03-protected-export.json",
+  "cubism-5.3.02-protected-export.json",
+  "cubism-5.3.03-protected-export.json"
+ ],
+ "files": [
+  "dev/turboism/mapping/verification/ProtectedExportVerificationManifest.java"
+ ],
+ "coverage": true,
+ "packs": [
+  "cubism-5.2.03-protected-export.json",
+  "cubism-5.3.02-protected-export.json",
+  "cubism-5.3.03-protected-export.json"
+ ],
+ "extraLiterals": [],
+ "coverageSources": []
+}

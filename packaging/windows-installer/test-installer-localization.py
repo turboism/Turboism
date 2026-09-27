@@ -19,7 +19,7 @@ if any(keys != key_sets[0] for keys in key_sets[1:]):
     raise SystemExit("installer CustomLangPack locale keys are not in parity")
 
 manifest = ROOT / "packaging/release-plugins.txt"
-modules = [line.rsplit(":", 1)[-1] for line in manifest.read_text().splitlines() if line != ":plugins:core"]
+modules = [line.rsplit(":", 1)[-1] for line in manifest.read_text().splitlines()]
 for module in modules:
     base = ROOT / "plugins" / module / "src/main/resources/META-INF/turboism/i18n"
     locale_keys = []

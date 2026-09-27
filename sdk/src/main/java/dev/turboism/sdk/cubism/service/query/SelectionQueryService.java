@@ -30,7 +30,53 @@ public interface SelectionQueryService {
     /**
      * Selection observations are published as
      * {@link dev.turboism.sdk.cubism.event.SelectionChangedEvent} through the plugin event bus.
-     * Because the current host integration is pull-based, an event is emitted only when a fresh
-     * query detects a transition; this API does not claim a native push subscription.
+     * Fresh queries and the session-bounded observer share one snapshot source and one
+     * versioned baseline: whichever path reads a newer snapshot commits the baseline and
+     * publishes the transition, so a query result and a later observed transition cannot
+     * double-publish or regress each other. There is still no native object-selection
+     * identity and no native push subscription behind this API.
      */
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static SelectionQueryService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: calls refuse work without reaching the host. */
+    enum Unavailable implements SelectionQueryService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public SelectionSummary currentSelection() throws CubismServiceException {
+            throw unavailable();
+        }
+
+        @Override public List<ModelObjectId> selectedIds(final HierarchyNode.Kind kind)
+            throws CubismServiceException {
+            throw unavailable();
+        }
+
+        private static CubismServiceException unavailable() {
+            return new CubismServiceException(
+                "cubism.query.unavailable",
+                "selectionQuery service is not available"
+            );
+        }
+    }
 }

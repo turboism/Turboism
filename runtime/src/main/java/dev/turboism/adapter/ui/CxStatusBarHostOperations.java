@@ -79,6 +79,8 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         return closeCanvasHint(entry);
     }
 
+    // Map slot currency is identity: only the exact entry instance may be closed and removed.
+    @SuppressWarnings("ReferenceEquality")
     private Registration closeCanvasHint(final CanvasHintEntry entry) {
         final AtomicBoolean closed = new AtomicBoolean();
         return () -> onEdt(() -> {
@@ -96,6 +98,8 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         });
     }
 
+    // sameIdentity and current are distinct handle roles; identity guards double-removal.
+    @SuppressWarnings("ReferenceEquality")
     private Registration install(final StatusNotification notification) {
         final String slot = slot(notification);
         final Entry current = entries.get(slot);
@@ -189,6 +193,8 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
      * refresh all succeed, matching the IdempotentRegistration /
      * TrackedRegistration contract that a failed delegate close stays OPEN.
      */
+    // Map slot currency is identity: only the exact entry instance may be closed and removed.
+    @SuppressWarnings("ReferenceEquality")
     private Registration closeRegistration(final Entry entry) {
         final AtomicBoolean closed = new AtomicBoolean();
         final AtomicBoolean removed = new AtomicBoolean();

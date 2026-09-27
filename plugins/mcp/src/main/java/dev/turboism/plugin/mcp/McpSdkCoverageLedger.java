@@ -19,7 +19,9 @@ final class McpSdkCoverageLedger {
     private static final Set<String> CLASSIFICATIONS = Set.of(
         "MCP_READ",
         "MCP_WRITE_UNDOABLE",
+        "MCP_WRITE_STANDALONE_UNDO",
         "MCP_COMMAND_NON_UNDOABLE",
+        "MCP_LEGACY_WRITE",
         "RUNTIME_UNAVAILABLE",
         "EXCLUDED_WITH_REASON"
     );

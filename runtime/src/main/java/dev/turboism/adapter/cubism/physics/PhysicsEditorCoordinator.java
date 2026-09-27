@@ -92,6 +92,8 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         runOnEdt(() -> stale.forEach(Controller::close));
     }
 
+    // Contribution clearing is scoped to the exact instance that registered it.
+    @SuppressWarnings("ReferenceEquality")
     private void clearContribution(final PhysicsEditorContribution expected) {
         final List<Controller> stale;
         synchronized (lock) {
@@ -104,6 +106,8 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         runOnEdt(() -> stale.forEach(Controller::close));
     }
 
+    // The active contribution is a handle: a replaced instance invalidates the deferred install.
+    @SuppressWarnings("ReferenceEquality")
     private void install(
         final Object panel,
         final PhysicsEditorHostProfile profile,

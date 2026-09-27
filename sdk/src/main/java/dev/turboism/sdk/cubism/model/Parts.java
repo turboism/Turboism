@@ -6,6 +6,7 @@ import java.util.NoSuchElementException;
 /** Parts in one Cubism model. */
 public interface Parts {
 
+    /** Returns every Part in the model, in host order. */
     List<Part> all();
 
     /**

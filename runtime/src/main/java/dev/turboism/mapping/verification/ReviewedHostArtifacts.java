@@ -48,6 +48,15 @@ public final class ReviewedHostArtifacts {
     );
 
     /**
+     * Bundled JOGL dependency examined for the opt-in 5.3.03 uniform-location hook.
+     * This is not an Editor artifact and is deliberately excluded from {@link #all()}.
+     */
+    public static final HostArtifactDigest CUBISM_5_3_03_JOGL = new HostArtifactDigest(
+        3_616_948L,
+        "7dbedb4ba89d9744aa8f8e3710436ef349547058c78e5b3beb813b27b382b0b9"
+    );
+
+    /**
      * Returns every reviewed artifact, oldest supported Cubism version first.
      *
      * @return an immutable list used by callers that must cover the whole supported matrix

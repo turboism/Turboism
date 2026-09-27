@@ -24,7 +24,7 @@ fi
 home="$run/home"
 mkdir -p "$home/plugins" "$home/logs" "$home/state"
 cat > "$home/config.json" <<EOF
-{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"perf-baseline","safeMode":false,"logLevel":"INFO","pluginDirs":["plugins"],"hooks":{"disabledIds":[],"denylistedClasses":[],"startup":{"skipUpdateCheck":false,"skipSplash":false,"skipInformation":false}}}
+{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"perf-baseline","safeMode":false,"logLevel":"INFO","pluginDirs":["plugins"],"hooks":{"disabledIds":[],"denylistedClasses":[],"startup":{"skipUpdateCheck":true,"skipSplash":true,"skipInformation":true}}}
 EOF
 if [[ "$variant" == a2 ]]; then
   cp "$task/full-plugins/"*.jar "$home/plugins/"

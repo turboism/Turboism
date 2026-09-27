@@ -9,12 +9,16 @@ import java.util.Objects;
 public sealed interface SettingsControl permits
     SettingsControl.Choice,
     SettingsControl.Toggle,
-    SettingsControl.Text {
+    SettingsControl.Text,
+    SettingsControl.Note {
 
+    /** Returns the control's stable identifier within its tab. */
     String id();
 
+    /** Returns the control's display label. */
     String label();
 
+    /** One selectable option of a {@link Choice} control. */
     record Option(String value, String label) {
         public Option {
             value = requireText(value, "value", 256);
@@ -23,6 +27,7 @@ public sealed interface SettingsControl permits
         @Override public String toString() { return label; }
     }
 
+    /** Single-select dropdown control bound to a {@code String} value. */
     record Choice(
         String id,
         String label,
@@ -58,6 +63,7 @@ public sealed interface SettingsControl permits
         }
     }
 
+    /** Checkbox control bound to a {@code Boolean} value. */
     record Toggle(
         String id,
         String label,
@@ -80,6 +86,7 @@ public sealed interface SettingsControl permits
         }
     }
 
+    /** Free-text input control bound to a {@code String} value; {@code columns} sizes the field. */
     record Text(
         String id,
         String label,
@@ -104,6 +111,17 @@ public sealed interface SettingsControl permits
             final SettingsBinding<String> binding
         ) {
             this(id, label, columns, binding, SettingsChangeValidator.acceptAll());
+        }
+    }
+
+    /** Read-only annotation rendered as small supporting text; has no binding. */
+    record Note(
+        String id,
+        String label
+    ) implements SettingsControl {
+        public Note {
+            id = requireId(id);
+            label = requireText(label, "label", 512);
         }
     }
 

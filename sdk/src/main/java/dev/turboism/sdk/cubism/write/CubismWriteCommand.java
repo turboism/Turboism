@@ -9,5 +9,6 @@ package dev.turboism.sdk.cubism.write;
  */
 public interface CubismWriteCommand {
 
+    /** Returns the command's stable type identifier used for dispatch and diagnostics. */
     String commandId();
 }

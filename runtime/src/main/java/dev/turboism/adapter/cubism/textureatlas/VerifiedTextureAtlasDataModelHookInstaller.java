@@ -71,21 +71,15 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
         final TextureAtlasDataModelCapture capture
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        final Set<String> hookAliases;
-        final String adapterSliceId;
-        if (verified.isExactCubismVersion("5.3.03")) {
-            hookAliases = VerifiedCubism5303TextureAtlasSelectorContract.HOOK_ALIASES;
-            adapterSliceId = VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
-        } else if (verified.isExactCubismVersion("5.3.02")) {
-            hookAliases = VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES;
-            adapterSliceId = VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
-        } else if (verified.isExactCubismVersion("5.2.03")) {
-            hookAliases = VerifiedCubism520TextureAtlasSelectorContract.HOOK_ALIASES;
-            adapterSliceId = VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
-        } else {
-            throw new IllegalArgumentException("Texture-atlas data-model hook version is unsupported.");
-        }
-        if (!verified.authorizesFeature(adapterSliceId, CAPABILITY_ID, hookAliases)) {
+        final VerifiedTextureAtlasSelectorContract.Profile profile =
+            VerifiedTextureAtlasSelectorContract.profileFor(verified.cubismVersion())
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Texture-atlas data-model hook version is unsupported."
+                ));
+        final Set<String> hookAliases = profile.hookAliases();
+        if (!verified.authorizesFeature(
+            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID, CAPABILITY_ID, hookAliases
+        )) {
             throw new IllegalArgumentException("Texture-atlas data-model hook is not authorized.");
         }
         final StaticSelector init = verified.verifiedSelector(INIT_ALIAS);

@@ -53,8 +53,14 @@ public final class NativeParameterPointContextMenuBridge {
         }
     }
 
+    /** Callback invoked when the host shows a parameter-point context menu. */
     @FunctionalInterface
     public interface Handler {
+        /**
+         * @param primaryMenu the host's primary menu object, may be null
+         * @param secondaryMenu the host's secondary menu object, may be null
+         * @param context the host parameter-point context
+         */
         void shown(Object primaryMenu, Object secondaryMenu, Object context);
     }
 

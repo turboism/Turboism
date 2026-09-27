@@ -10,6 +10,7 @@ import java.util.List;
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface Glue {
 
+    /** Returns this Glue's stable identity within the model. */
     GlueId id();
 
     /** Editor display name, or the ID text when no authoring name is available. */
@@ -62,18 +63,25 @@ public interface Glue {
         throw unavailable("Glue drawable-B editing");
     }
 
+    /** Returns this Glue's position within the model's glue list. */
     default int index() { throw unavailable("Glue index"); }
 
+    /** Returns the Core drawable index of the source ArtMesh. */
     int drawableA();
 
+    /** Returns the Core drawable index of the destination ArtMesh. */
     int drawableB();
 
+    /** Returns the Core parameter indexes this Glue is bound to. */
     IntSequence parameters();
 
+    /** Returns the identity of the source ArtMesh. */
     default ArtMeshId drawableAId() { throw unavailable("Glue drawable A"); }
 
+    /** Returns the identity of the destination ArtMesh. */
     default ArtMeshId drawableBId() { throw unavailable("Glue drawable B"); }
 
+    /** Returns the identities of the parameters this Glue is bound to. */
     default List<ParameterId> parameterIds() { throw unavailable("Glue parameters"); }
 
     private static UnsupportedOperationException unavailable(final String feature) {

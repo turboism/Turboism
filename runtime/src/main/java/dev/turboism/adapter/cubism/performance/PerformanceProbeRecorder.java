@@ -23,6 +23,7 @@ public final class PerformanceProbeRecorder {
 
     private final AtomicBoolean capturing = new AtomicBoolean();
     private final AtomicLong inFlight = new AtomicLong();
+    private volatile long captureGeneration;
     private final EnumMap<PerformanceProbeMetric, Metric> metrics = new EnumMap<>(PerformanceProbeMetric.class);
     private final LongAdder failures = new LongAdder();
     private final LongAdder renderSceneCalls = new LongAdder();
@@ -32,17 +33,18 @@ public final class PerformanceProbeRecorder {
     }
 
     /**
-     * Begins a capture window, clearing all metric counters, the failure count, and the
-     * in-flight count. The cumulative renderScene call counter is deliberately not reset.
+     * Begins a capture window only after the previous window has drained, clearing metrics
+     * and failures before publishing admission. The cumulative renderScene count is not reset.
      *
      * @return {@code true} when this call started the capture; {@code false} when a
      *     capture was already running, in which case nothing was reset
      */
-    public boolean startCapture() {
-        if (!capturing.compareAndSet(false, true)) return false;
+    public synchronized boolean startCapture() {
+        if (capturing.get() || inFlight.get() != 0L) return false;
+        captureGeneration++;
         metrics.values().forEach(Metric::reset);
         failures.reset();
-        inFlight.set(0L);
+        capturing.set(true);
         return true;
     }
 
@@ -51,7 +53,7 @@ public final class PerformanceProbeRecorder {
      * record their exit, so accumulated values keep changing briefly; use
      * {@link #awaitQuiescence(long)} before snapshotting. Idempotent.
      */
-    public void stopCapture() {
+    public synchronized void stopCapture() {
         capturing.set(false);
     }
 
@@ -97,9 +99,10 @@ public final class PerformanceProbeRecorder {
         if (metric == PerformanceProbeMetric.RENDER_SCENE) {
             renderSceneCalls.increment();
         }
+        final long generation = captureGeneration;
         if (!capturing.get()) return 0L;
         inFlight.incrementAndGet();
-        if (!capturing.get()) {
+        if (!capturing.get() || generation != captureGeneration) {
             inFlight.decrementAndGet();
             return 0L;
         }
@@ -117,6 +120,7 @@ public final class PerformanceProbeRecorder {
                 final Metric state = metrics.get(metric);
                 state.totalNanos.add(elapsed);
                 state.maxNanos.accumulateAndGet(elapsed, Math::max);
+                state.latency.record(elapsed);
             }
         } finally {
             inFlight.decrementAndGet();
@@ -153,24 +157,44 @@ public final class PerformanceProbeRecorder {
      * @param totalNanos summed elapsed time over the sampled calls only - divide by
      *                   {@code sampled}, not {@code calls}, for a mean
      * @param maxNanos   the longest single sampled call, or {@code 0} when nothing was sampled
+     * @param latency    fixed-bucket estimates over completed sampled calls, including failures
      */
-    public record MetricSnapshot(long calls, long sampled, long totalNanos, long maxNanos) { }
+    public record MetricSnapshot(long calls, long sampled, long totalNanos, long maxNanos,
+                                 LatencySnapshot latency) {
+        /** Creates a legacy counter-only reading with no histogram observations. */
+        public MetricSnapshot(final long calls, final long sampled, final long totalNanos, final long maxNanos) {
+            this(calls, sampled, totalNanos, maxNanos, new LatencySnapshot(0, 0, 0, 0));
+        }
+    }
+
+    /**
+     * Conservative base-2 bucket upper bounds, not exact percentiles or GPU timing.
+     *
+     * @param samples completed timing observations; excludes unsampled calls
+     * @param p50UpperBoundNanos upper bound for the sampled median
+     * @param p95UpperBoundNanos upper bound for the sampled 95th percentile
+     * @param p99UpperBoundNanos upper bound for the sampled 99th percentile
+     */
+    public record LatencySnapshot(long samples, long p50UpperBoundNanos,
+                                  long p95UpperBoundNanos, long p99UpperBoundNanos) { }
 
     private static final class Metric {
         private final AtomicLong calls = new AtomicLong();
         private final LongAdder sampled = new LongAdder();
         private final LongAdder totalNanos = new LongAdder();
         private final AtomicLong maxNanos = new AtomicLong();
+        private final PerformanceLatencyHistogram latency = new PerformanceLatencyHistogram();
 
         private void reset() {
             calls.set(0L);
             sampled.reset();
             totalNanos.reset();
             maxNanos.set(0L);
+            latency.reset();
         }
 
         private MetricSnapshot snapshot() {
-            return new MetricSnapshot(calls.get(), sampled.sum(), totalNanos.sum(), maxNanos.get());
+            return new MetricSnapshot(calls.get(), sampled.sum(), totalNanos.sum(), maxNanos.get(), latency.snapshot());
         }
     }
 }

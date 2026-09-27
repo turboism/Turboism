@@ -12,6 +12,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,7 +29,9 @@ class PluginLocalizationContractTest {
             "locale():java.util.Locale",
             "text(java.lang.String):java.lang.String",
             "format(java.lang.String,java.lang.Object[]):java.lang.String",
-            "contains(java.lang.String):boolean"
+            "contains(java.lang.String):boolean",
+            "isAvailable():boolean",
+            "unavailable():dev.turboism.sdk.i18n.PluginLocalization"
         ), methods);
         assertTrue(PluginLocalization.class.isInterface());
         assertEquals(
@@ -41,18 +45,21 @@ class PluginLocalizationContractTest {
     }
 
     @Test
-    void pluginContextDefaultAccessorFailsWithTheFrozenCompatibilityMessage() {
+    void pluginContextDefaultAccessorReturnsTheUnavailableSentinel() {
         final PluginContext context = (PluginContext) Proxy.newProxyInstance(
             PluginContext.class.getClassLoader(),
             new Class<?>[] {PluginContext.class},
             (proxy, method, arguments) -> invokeDefault(proxy, method, arguments)
         );
 
+        final PluginLocalization localization = context.localization();
+
+        assertSame(PluginLocalization.unavailable(), localization);
+        assertFalse(localization.isAvailable());
         final UnsupportedOperationException error = assertThrows(
             UnsupportedOperationException.class,
-            context::localization
+            () -> localization.text("key")
         );
-
         assertEquals("localization service is not available", error.getMessage());
     }
 

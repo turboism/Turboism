@@ -122,7 +122,12 @@ class PermissionCheckedModelForwardingTest {
         assertSame(PROFILE, model.profile());
         assertSame(PHYSICS, model.physicsSettings());
         assertSame(AUTO_YURE, model.autoYure());
-        assertEquals(List.of(ANIMATION), model.animationDocuments());
+        final List<AnimationDocument> animations = model.animationDocuments();
+        assertEquals(1, animations.size());
+        assertNotSame(ANIMATION, animations.get(0));
+        assertEquals("anim-1", animations.get(0).animationName());
+        assertEquals(1, animations.get(0).sceneCount());
+        assertEquals(List.of("scene-1"), animations.get(0).sceneNames());
         final var textures = model.textures();
         assertEquals(List.of(), textures.rawImages());
         assertSame(RELATIONS, textures.relations());

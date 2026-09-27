@@ -5,9 +5,9 @@ plugins {
 dependencies {
     testImplementation(project(":runtime"))
     testImplementation(project(":sdk"))
+    testImplementation(project(":core-contract"))
     testImplementation(project(":plugins:demo"))
     testImplementation(project(":plugins:ui-theme"))
-    testImplementation(project(":plugins:core"))
     testImplementation(project(":plugins:parameter"))
     testImplementation(project(":plugins:mesh-edit-mirror-axis-enhance"))
     testImplementation(project(":plugins:bounding-box"))
@@ -19,6 +19,13 @@ dependencies {
     testImplementation(project(":testing:test-support"))
     testImplementation("com.fasterxml.jackson.core:jackson-databind:2.18.9")
     testImplementation("com.fasterxml.jackson.core:jackson-core:2.18.9")
+}
+
+tasks.named<ProcessResources>("processTestResources") {
+    from(rootProject.file("compatibility/cubism/verification")) {
+        include("cubism-5.2.03-editor-model.json", "cubism-5.3.02-editor-model.json", "cubism-5.3.03-editor-model.json")
+        into("META-INF/turboism/verification")
+    }
 }
 
 tasks.test {
@@ -83,6 +90,7 @@ tasks.register<Test>("officialPluginI18nCompletenessTest") {
     systemProperty("projectRoot", rootProject.projectDir.absolutePath)
     filter {
         includeTestsMatching("dev.turboism.tests.i18n.OfficialPluginCatalogCompletenessTest")
+        includeTestsMatching("dev.turboism.tests.i18n.FrameworkCatalogCompletenessTest")
         isFailOnNoMatchingTests = true
     }
 }

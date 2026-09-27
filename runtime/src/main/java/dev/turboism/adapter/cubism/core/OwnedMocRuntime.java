@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -27,12 +28,17 @@ import java.util.Objects;
  * Core public API. The structural read surface (canvas, parameters, parts, drawables,
  * glues, deformers) reuses {@link CoreCallSiteTable}; lifecycle (instantiate, update,
  * close, native handles) goes through {@link CorePublicApiProvider}. No Core write
- * member is exposed.</p>
+ * member crosses the public SDK projection.</p>
  *
  * <p>Fail-closed: construction requires the provider, the resolver, and the additive
  * owned-Moc selector evidence for the exact artifact profile.</p>
+ *
+ * <p>{@link OwnedModelParameterWriter} is the sole runtime-private write seam: it
+ * writes through the live {@code CubismParameters.getValues()} array over the
+ * already-bound verified call sites, for the protected-export behavior oracle.
+ * The public {@link OwnedModel} projection stays read-only.</p>
  */
-final class OwnedMocRuntime implements MocLoader {
+final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
 
     private final CorePublicApiProvider provider;
     private final CoreCallSiteTable callSites;
@@ -146,6 +152,66 @@ final class OwnedMocRuntime implements MocLoader {
         };
     }
 
+    /**
+     * Runtime-private parameter write used by the protected-export behavior
+     * oracle: resolves the live {@code CubismParameters} object, locates the
+     * parameter index by ID, and writes through the mutable
+     * {@code getValues()} array. All members are already-bound verified call
+     * sites; nothing here reaches the public SDK surface.
+     */
+    @Override
+    public void writeParameterValue(
+        final OwnedModel model,
+        final String parameterId,
+        final float value
+    ) {
+        Objects.requireNonNull(parameterId, "parameterId");
+        if (!Float.isFinite(value)) {
+            throw new IllegalArgumentException("value must be finite");
+        }
+        if (!(model instanceof OwnedModelImpl impl)
+            || impl.owner() != this) {
+            throw new IllegalStateException(
+                "Model is not owned by this runtime.");
+        }
+        impl.requireOpen();
+        final Object parameters = requireObject(
+            callSites.invokeRaw(
+                CorePublicApiSelectorContract.MODEL_GET_PARAMETERS, impl.rawModel),
+            "Core parameters are unavailable.");
+        final Object idsValue = callSites.invokeRaw(
+            CorePublicApiSelectorContract.PARAMETERS_GET_IDS, parameters);
+        if (!(idsValue instanceof String[] ids)) {
+            throw new IllegalStateException(
+                "Core parameter identifiers have an invalid representation.");
+        }
+        final Object valuesValue = callSites.invokeRaw(
+            CorePublicApiSelectorContract.PARAMETERS_GET_VALUES, parameters);
+        if (!(valuesValue instanceof float[] values) || values.length != ids.length) {
+            throw new IllegalStateException(
+                "Core parameter current values have an invalid representation.");
+        }
+        int index = -1;
+        for (int i = 0; i < ids.length; i++) {
+            if (parameterId.equals(ids[i])) {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0) {
+            throw new IllegalStateException(
+                "Core parameter is absent: " + parameterId);
+        }
+        values[index] = value;
+    }
+
+    private static Object requireObject(final Object value, final String message) {
+        if (value == null) {
+            throw new IllegalStateException(message);
+        }
+        return value;
+    }
+
     private final class OwnedMocImpl implements OwnedMoc {
 
         private final Object rawMoc;
@@ -212,6 +278,11 @@ final class OwnedMocRuntime implements MocLoader {
 
         private OwnedModelImpl(final Object rawModel) {
             this.rawModel = Objects.requireNonNull(rawModel, "rawModel");
+        }
+
+        /** The runtime instance that owns this model's Core handle. */
+        private OwnedMocRuntime owner() {
+            return OwnedMocRuntime.this;
         }
 
         @Override

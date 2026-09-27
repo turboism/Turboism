@@ -1,0 +1,43 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.boundingbox-warp-mirror",
+  "name": "BoundingBox Warp Mirror Host Validation Probe",
+  "version": "0.0.0",
+  "description": "Task-local reconnaissance probe for the BoundingBox overlay whole-object Warp mirror on an exact Cubism host: applies all four directions through the public warpMirror() service, verifies direction labels against results, descendant canvas preservation, atomic Undo/Redo, NO_CHANGE, and fail-closed rejection.",
+  "entrypoints": [
+    "dev.turboism.validation.boundingboxwarpmirror.BoundingBoxWarpMirrorHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads Warp grids, drawable evaluation snapshots, and model identity to record the probe baseline and verify mirror results."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Applies bounded whole-object Warp mirrors on the task-scoped fixture copy and exercises Undo/Redo on them."
+    }
+  ],
+  "capabilities": [
+    "cubism.deformer.read",
+    "cubism.deformer.warp-mirror"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

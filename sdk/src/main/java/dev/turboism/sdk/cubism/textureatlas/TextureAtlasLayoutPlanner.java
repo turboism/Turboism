@@ -15,6 +15,13 @@ import java.util.List;
 @FunctionalInterface
 public interface TextureAtlasLayoutPlanner {
 
+    /**
+     * Computes a layout plan for {@code items} under {@code constraints}.
+     *
+     * @param items the images to place
+     * @param constraints the atlas size, padding, and rotation/scaling limits
+     * @return a layout plan accepted by {@link TextureAtlasLayoutService#apply}
+     */
     TextureAtlasLayoutPlan plan(
         List<TextureAtlasLayoutItem> items,
         TextureAtlasLayoutConstraints constraints

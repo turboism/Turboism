@@ -47,12 +47,19 @@ public record EditorUiHostFailure(
         return value;
     }
 
+    /** Why the Editor UI host left its healthy path. */
     public enum Code {
+        /** No host connection exists at all. */
         HOST_UNAVAILABLE,
+        /** The host is connected but not yet ready for UI integration. */
         HOST_NOT_READY,
+        /** One UI family is unavailable on the connected host. */
         FAMILY_UNAVAILABLE,
+        /** Replacing a live native registration failed. */
         REPLACEMENT_FAILED,
+        /** Tearing down native state failed. */
         CLEANUP_FAILED,
+        /** The host integration has been closed. */
         CLOSED
     }
 }

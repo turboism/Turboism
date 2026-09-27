@@ -24,8 +24,9 @@ public final class PerformanceProbeReportWriter {
     private final ObjectMapper mapper = new ObjectMapper();
 
     /**
-     * Writes one capture as a {@code turboism.cubism.performance-probe} schema-version-1
-     * JSON document, creating parent directories and replacing any existing file.
+     * Writes a {@code turboism.cubism.performance-probe} JSON document. Camera/edit retain
+     * schema v1; the opt-in images scenario uses v2 with sampled latency bounds and explicit
+     * measurement limitations. Creates parent directories and replaces an existing file.
      *
      * <p>The exact Cubism version and artifact digest are supplied by the installer profile
      * that selected the independently reviewed target set.</p>
@@ -53,9 +54,17 @@ public final class PerformanceProbeReportWriter {
         final long endedEpochMillis,
         final PerformanceProbeRecorder.Snapshot snapshot
     ) throws IOException {
+        final boolean images = "images".equals(scenario);
+        if (!images && !"camera".equals(scenario) && !"edit".equals(scenario)) {
+            throw new IllegalArgumentException("unsupported performance probe scenario");
+        }
+        if (images && (!"5.3.02".equals(cubismVersion)
+            || !dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_02.sha256().equals(artifactSha256))) {
+            throw new IllegalArgumentException("image diagnostics require the exact reviewed 5.3.02 artifact");
+        }
         final Map<String, Object> report = new LinkedHashMap<>();
         report.put("format", "turboism.cubism.performance-probe");
-        report.put("schemaVersion", 1);
+        report.put("schemaVersion", images ? 2 : 1);
         report.put("cubismVersion", requireText(cubismVersion, "cubismVersion"));
         report.put("artifactSha256", artifactSha256);
         report.put("agentSha256", agentSha256);
@@ -68,13 +77,32 @@ public final class PerformanceProbeReportWriter {
             "failures", snapshot.failures()
         ));
         final Map<String, Object> metrics = new LinkedHashMap<>();
-        snapshot.metrics().forEach((metric, value) -> metrics.put(metricName(metric), Map.of(
-            "calls", value.calls(),
-            "sampled", value.sampled(),
-            "totalNanos", value.totalNanos(),
-            "maxNanos", value.maxNanos()
-        )));
+        snapshot.metrics().forEach((metric, value) -> {
+            if (!images && metric.id() > PerformanceProbeMetric.REINIT_MODEL_INSTANCE_EXE.id()) return;
+            final Map<String, Object> reading = new LinkedHashMap<>();
+            reading.put("calls", value.calls());
+            reading.put("sampled", value.sampled());
+            reading.put("totalNanos", value.totalNanos());
+            reading.put("maxNanos", value.maxNanos());
+            if (images) {
+                final PerformanceProbeRecorder.LatencySnapshot latency = value.latency();
+                reading.put("latency", Map.of(
+                    "samples", latency.samples(),
+                    "p50UpperBoundNanos", latency.p50UpperBoundNanos(),
+                    "p95UpperBoundNanos", latency.p95UpperBoundNanos(),
+                    "p99UpperBoundNanos", latency.p99UpperBoundNanos()
+                ));
+            }
+            metrics.put(metricName(metric), reading);
+        });
         report.put("metrics", metrics);
+        if (images) report.put("measurement", Map.of(
+            "timing", "sampled-inclusive-method-wall-time",
+            "quantiles", "base2-bucket-upper-bound",
+            "counts", "method-entries-including-failures",
+            "gpuTime", "not-measured",
+            "uploadBytes", "not-measured"
+        ));
         report.put("writtenAt", Instant.now().toString());
 
         final byte[] bytes = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(report);

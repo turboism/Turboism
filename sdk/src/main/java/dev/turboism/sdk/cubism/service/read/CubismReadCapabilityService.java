@@ -81,25 +81,126 @@ public interface CubismReadCapabilityService {
         return ActiveReadProjections.projectContentOf(activeProject(), activeDocument());
     }
 
+    /** Returns a snapshot of the Editor's current selection. */
     SelectionSnapshot selection();
 
+    /** Returns snapshots of the active model's parameters, in stable model order. */
     List<ParameterSnapshot> parameters();
 
+    /** Returns snapshots of the active model's objects, in stable model order. */
     List<ModelObjectSnapshot> modelObjects();
 
+    /** Returns snapshots of the active model's ArtMeshes, in stable model order. */
     List<ArtMeshSnapshot> meshes();
 
+    /** Returns snapshots of the active model's Deformers, in stable model order. */
     List<DeformerSnapshot> deformers();
 
+    /** Returns snapshots of the project's layered image (PSD) documents. */
     List<PsdDocumentSnapshot> psdDocuments();
 
+    /** Returns snapshots of the active model's clip masks. */
     List<ClipMaskSnapshot> clipMasks();
 
+    /** Returns snapshots of the model's texture atlases. */
     List<TextureAtlasSnapshot> textureAtlases();
 
+    /** Returns the current render status, or empty when no render state is reported. */
     Optional<RenderStatusSnapshot> renderStatus();
 
+    /** Returns the active workspace layout snapshot, or empty when none is open. */
     Optional<WorkspaceSnapshot> workspace();
 
+    /** Returns the current theme status, or empty when the host does not report one. */
     Optional<ThemeStatusSnapshot> themeStatus();
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static CubismReadCapabilityService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
+    enum Unavailable implements CubismReadCapabilityService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Deprecated
+        @Override public Optional<ProjectSnapshot> activeProject() {
+            throw unavailable();
+        }
+
+        @Deprecated
+        @Override public Optional<DocumentSnapshot> activeDocument() {
+            throw unavailable();
+        }
+
+        @Deprecated
+        @Override public Optional<ModelSnapshot> activeModel() {
+            throw unavailable();
+        }
+
+        @Override public SelectionSnapshot selection() {
+            throw unavailable();
+        }
+
+        @Override public List<ParameterSnapshot> parameters() {
+            throw unavailable();
+        }
+
+        @Override public List<ModelObjectSnapshot> modelObjects() {
+            throw unavailable();
+        }
+
+        @Override public List<ArtMeshSnapshot> meshes() {
+            throw unavailable();
+        }
+
+        @Override public List<DeformerSnapshot> deformers() {
+            throw unavailable();
+        }
+
+        @Override public List<PsdDocumentSnapshot> psdDocuments() {
+            throw unavailable();
+        }
+
+        @Override public List<ClipMaskSnapshot> clipMasks() {
+            throw unavailable();
+        }
+
+        @Override public List<TextureAtlasSnapshot> textureAtlases() {
+            throw unavailable();
+        }
+
+        @Override public Optional<RenderStatusSnapshot> renderStatus() {
+            throw unavailable();
+        }
+
+        @Override public Optional<WorkspaceSnapshot> workspace() {
+            throw unavailable();
+        }
+
+        @Override public Optional<ThemeStatusSnapshot> themeStatus() {
+            throw unavailable();
+        }
+
+        private static UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException("cubismRead service is not available");
+        }
+    }
 }

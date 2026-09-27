@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.history.HierarchyRelationCapture;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
@@ -12,7 +15,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Exact, generation-bound Editor authoring projection for object-hierarchy editing:
@@ -41,13 +46,31 @@ final class EditorObjectHierarchyEditAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard currentGuard;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
+    private final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding;
 
     EditorObjectHierarchyEditAccess(
         final VerifiedMemberResolver resolver,
         final EditorParameterCombinedAccess.ModelGuard currentGuard
     ) {
+        this(resolver, currentGuard, null, null);
+    }
+
+    EditorObjectHierarchyEditAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard currentGuard,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator,
+        final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
+        if ((authoringCoordinator == null) != (authoringBinding == null)) {
+            throw new IllegalArgumentException(
+                "authoringCoordinator and authoringBinding must be supplied together"
+            );
+        }
+        this.authoringCoordinator = authoringCoordinator;
+        this.authoringBinding = authoringBinding;
     }
 
     // ------------------------------------------------------------------
@@ -444,6 +467,144 @@ final class EditorObjectHierarchyEditAccess {
         );
     }
 
+    /**
+     * Executes the exact native 5.3.02 candidate after selecting the target deformer. Child
+     * semantics remain owned by Cubism; this path deliberately avoids generic DELETE, Undo, and
+     * refresh/dirty envelopes used by ordinary hierarchy edits.
+     */
+    void applyToChildren(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final Object nodeSource,
+        final Runnable currentDeformerCheck
+    ) {
+        final Runnable checkedCurrentDeformer = Objects.requireNonNull(
+            currentDeformerCheck, "currentDeformerCheck"
+        );
+        requireApplyToChildrenAuthorized();
+        currentGuard.requireCurrent(identity, model);
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object document = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", app
+        );
+        final Object guid = resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.guid", nodeSource
+        );
+        final String targetGuidValue = requireValidGuidValue(
+            resolver.invoke("cubism.editor-model.guid.value", guid),
+            "Target Deformer"
+        );
+        final Object updateManager = resolver.invoke(
+            "cubism.editor-model.app-controller.update-manager", app
+        );
+        resolver.invoke(
+            "cubism.editor-model.update-manager.set-selection",
+            updateManager, document, List.of(guid), Boolean.FALSE, Boolean.TRUE
+        );
+        // sendEvent=true may synchronously re-enter the host; re-run the caller's exact source and
+        // identity guard before using the one-shot native command.
+        checkedCurrentDeformer.run();
+        final Object currentApp = requireCurrentApplyToChildrenState(
+            identity, document, modelSource, model, nodeSource, targetGuidValue
+        );
+        resolver.invoke(
+            "cubism.editor-model.app-controller.command-delete-deformer-and-set-param",
+            currentApp
+        );
+        requireRemovedByGuid(modelSource, targetGuidValue);
+    }
+
+    private void requireRemovedByGuid(final Object modelSource, final String targetGuidValue) {
+        for (Object candidate : iterable(
+            resolver.invoke("cubism.editor-model.model-source.all-deformers", modelSource),
+            "Editor Deformer source collection"
+        )) {
+            final Object guid = resolver.invoke(
+                "cubism.editor-model.parameter-controllable-source.guid", candidate
+            );
+            final String candidateGuidValue = requireValidGuidValue(
+                resolver.invoke("cubism.editor-model.guid.value", guid),
+                "Deformer"
+            );
+            if (targetGuidValue.equals(candidateGuidValue)) {
+                throw new IllegalStateException(
+                    "Cubism did not apply the deformer to child elements; target GUID still present after native command."
+                );
+            }
+        }
+    }
+
+    private Object requireCurrentApplyToChildrenState(
+        final String identity,
+        final Object expectedDocument,
+        final Object expectedModelSource,
+        final Object expectedModel,
+        final Object expectedNodeSource,
+        final String targetGuidValue
+    ) {
+        final Object currentApp = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object currentDocument = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", currentApp
+        );
+        if (currentDocument != expectedDocument) {
+            throw new IllegalStateException(
+                "Cubism active document changed during apply-to-children selection."
+            );
+        }
+        final Object currentModelSource = resolver.invoke(
+            "cubism.editor-model.modeling-document.model-source", currentDocument
+        );
+        if (currentModelSource != expectedModelSource) {
+            throw new IllegalStateException(
+                "Cubism active model source changed during apply-to-children selection."
+            );
+        }
+        final Object currentModel = resolver.invoke(
+            "cubism.editor-model.model-source.current-instance", currentModelSource
+        );
+        if (currentModel != expectedModel) {
+            throw new IllegalStateException(
+                "Cubism active model changed during apply-to-children selection."
+            );
+        }
+        currentGuard.requireCurrent(identity, expectedModel);
+        requireCurrentDeformerInstance(
+            expectedModelSource, expectedNodeSource, targetGuidValue
+        );
+        return currentApp;
+    }
+
+    private void requireCurrentDeformerInstance(
+        final Object modelSource,
+        final Object nodeSource,
+        final String targetGuidValue
+    ) {
+        boolean targetInstancePresent = false;
+        int matchingGuidCount = 0;
+        for (Object candidate : iterable(
+            resolver.invoke("cubism.editor-model.model-source.all-deformers", modelSource),
+            "Editor Deformer source collection"
+        )) {
+            final Object guid = resolver.invoke(
+                "cubism.editor-model.parameter-controllable-source.guid", candidate
+            );
+            final String candidateGuidValue = requireValidGuidValue(
+                resolver.invoke("cubism.editor-model.guid.value", guid),
+                "Deformer"
+            );
+            if (targetGuidValue.equals(candidateGuidValue)) {
+                matchingGuidCount++;
+                targetInstancePresent |= candidate == nodeSource;
+            }
+        }
+        if (!targetInstancePresent || matchingGuidCount != 1) {
+            throw new IllegalStateException(
+                "The selected Deformer instance or GUID changed during apply-to-children selection."
+            );
+        }
+    }
+
     // ------------------------------------------------------------------
     // rename — set-local-name on the shared base class
     // ------------------------------------------------------------------
@@ -501,6 +662,59 @@ final class EditorObjectHierarchyEditAccess {
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
         rejectCycle(nodeSource, parentSource, parentIsDeformer);
+        if (!relationCaptureAvailable()) {
+            writeLegacyParent(modelSource, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
+            return;
+        }
+        final EditorAuthoringTransactionCoordinator.Binding binding =
+            Objects.requireNonNull(authoringBinding.get(), "authoring binding");
+        final var prepared = HierarchyRelationCapture.prepare(
+            resolver,
+            binding,
+            authoringBinding,
+            modelSource,
+            nodeSource,
+            parentSource,
+            parentIsDeformer,
+            index,
+            kindLabel
+        );
+        if (prepared.isEmpty()) {
+            writeLegacyParent(modelSource, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
+            return;
+        }
+        final var plan = prepared.orElseThrow();
+        switch (plan.decision()) {
+            case NO_CHANGE -> { return; }
+            case REORDER -> {
+                writeLegacyParent(modelSource, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
+                return;
+            }
+            case CAPTURE -> {
+                final boolean attachesNatively = plan.attachesThroughPartHandler();
+                authoringCoordinator.mutate(binding, plan.contribution(
+                    (edit, transactionLabel) -> admitRelationUndo(
+                        edit,
+                        modelSource,
+                        nodeSource,
+                        plan,
+                        transactionLabel,
+                        kindLabel
+                    ),
+                    attachesNatively ? () -> { } : plan.nativeMutation()
+                ));
+            }
+        }
+    }
+
+    private void writeLegacyParent(
+        final Object modelSource,
+        final Object nodeSource,
+        final Object parentSource,
+        final boolean parentIsDeformer,
+        final int index,
+        final String kindLabel
+    ) {
         write(
             "cubism.editor-model.complete-pack.update-deformer-palette",
             kindLabel,
@@ -515,12 +729,15 @@ final class EditorObjectHierarchyEditAccess {
                     );
                     resolver.invoke(
                         "cubism.editor-model.parameter-controllable-source.set-target-deformer-guid",
-                        nodeSource, parentGuid
+                        nodeSource,
+                        parentGuid
                     );
                 } else {
                     resolver.invoke(
                         "cubism.editor-model.part-source.add-child",
-                        parentSource, nodeSource, Integer.valueOf(index)
+                        parentSource,
+                        nodeSource,
+                        Integer.valueOf(index)
                     );
                 }
             }
@@ -604,33 +821,14 @@ final class EditorObjectHierarchyEditAccess {
         );
         boolean completed = false;
         try {
-            final Object handler = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.handler", objectSource
+            admitObjectUndo(
+                edit,
+                modelSource,
+                objectSource,
+                action,
+                paletteAlias,
+                kindLabel
             );
-            if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
-                throw unavailable("Editor object Undo handler is unavailable.");
-            }
-            final Object objectUndo = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-                handler, action
-            );
-            final Object accepted = resolver.invoke(
-                "cubism.editor-model.undo.add", edit, objectUndo, Boolean.TRUE
-            );
-            if (!(accepted instanceof Boolean value) || !value) {
-                throw new IllegalStateException(
-                    "Cubism rejected the " + kindLabel + " hierarchy Undo entry."
-                );
-            }
-            final Object listener = resolver.createFunctionalProxy(
-                "cubism.editor-model.undo-listener.class",
-                ignored -> {
-                    resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
-                    refresh(app, paletteAlias);
-                    return null;
-                }
-            );
-            resolver.invoke("cubism.editor-model.undo.add-listener", objectUndo, listener);
             mutation.run();
             resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
             refresh(app, paletteAlias);
@@ -642,6 +840,96 @@ final class EditorObjectHierarchyEditAccess {
                 editMode, Boolean.valueOf(!completed), null
             );
         }
+    }
+
+    /**
+     * Admits the native Undo entry for a captured relation.
+     *
+     * <p>Part membership attaches through the host Part handler, whose
+     * {@code addChild}/{@code addPartChild} pair performs the detach/attach and hands back the Undo
+     * entry that restores it. A plain {@code CPartSource.addChild} changes both parents without
+     * recording restorable state, and a parent-owned all-edit entry does not restore the relation
+     * either (verified on exact 5.3.02 hosts). Deformer membership stays on the child, whose
+     * target-deformer state Undo does restore.</p>
+     */
+    private void admitRelationUndo(
+        final Object edit,
+        final Object modelSource,
+        final Object childSource,
+        final HierarchyRelationCapture.Plan plan,
+        final String transactionLabel,
+        final String kindLabel
+    ) {
+        final String palette = "cubism.editor-model.complete-pack.update-deformer-palette";
+        if (!plan.attachesThroughPartHandler()) {
+            admitObjectUndo(
+                edit,
+                modelSource,
+                childSource,
+                transactionLabel,
+                palette,
+                kindLabel + " hierarchy"
+            );
+            return;
+        }
+        final Object parentSource = plan.requestedMembershipParent().orElseThrow();
+        final Object parentHandler = resolver.invoke(
+            "cubism.editor-model.part-source.handler",
+            parentSource
+        );
+        if (!resolver.isInstance("cubism.editor-model.part-handler.class", parentHandler)) {
+            throw unavailable("Editor Part Undo handler is unavailable.");
+        }
+        final Object attachUndo = resolver.invoke(
+            "cubism.editor-model.part-handler.add-part-child",
+            parentHandler,
+            childSource,
+            Integer.valueOf(plan.requestedIndex())
+        );
+        requireUndoAccepted(edit, attachUndo, kindLabel + " hierarchy");
+        registerUndoListener(attachUndo, modelSource, palette);
+    }
+
+    private void admitObjectUndo(
+        final Object edit,
+        final Object modelSource,
+        final Object objectSource,
+        final String transactionLabel,
+        final String paletteAlias,
+        final String operation
+    ) {
+        final Object handler = resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.handler",
+            objectSource
+        );
+        if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
+            throw unavailable("Editor object Undo handler is unavailable.");
+        }
+        final Object objectUndo = resolver.invoke(
+            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+            handler,
+            transactionLabel
+        );
+        requireUndoAccepted(edit, objectUndo, operation);
+        registerUndoListener(objectUndo, modelSource, paletteAlias);
+    }
+
+    /** Registers the instance refresh a native Undo/Redo of one relation or object entry triggers. */
+    private void registerUndoListener(
+        final Object undo,
+        final Object modelSource,
+        final String paletteAlias
+    ) {
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object listener = resolver.createFunctionalProxy(
+            "cubism.editor-model.undo-listener.class",
+            ignored -> {
+                resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+                refresh(app, paletteAlias);
+                return null;
+            }
+        );
+        resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
     }
 
     private void writeCreatedSource(
@@ -761,6 +1049,34 @@ final class EditorObjectHierarchyEditAccess {
             EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
             EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES
         );
+    }
+
+    private boolean applyToChildrenAuthorized() {
+        if (!resolver.isExactCubismVersion("5.3.02")) return false;
+        return resolver.authorizesFeature(
+            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID,
+            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_REQUIRED_ALIASES
+        );
+    }
+
+    private void requireApplyToChildrenAuthorized() {
+        if (!applyToChildrenAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Apply deformer to child elements is unavailable without exact verified host evidence."
+            );
+        }
+    }
+
+    boolean relationCaptureAvailable() {
+        return authoringCoordinator != null
+            && authoringBinding != null
+            && editAuthorized()
+            && resolver.authorizesFeature(
+                EditorHistoryReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorHistoryReadSelectorContract.CAPABILITY_ID,
+                EditorHistoryReadSelectorContract.REQUIRED_ALIASES
+            );
     }
 
     private boolean renameAuthorized() {
@@ -949,6 +1265,16 @@ final class EditorObjectHierarchyEditAccess {
         }
         flatten(grid.controlPoints());
         return grid;
+    }
+
+    private static String requireValidGuidValue(final Object rawValue, final String subject) {
+        if (!(rawValue instanceof String value) || value.isBlank()) {
+            throw new IllegalStateException(
+                subject + " GUID value is invalid; the Apply deformer to child elements "
+                    + "operation must not proceed or report success."
+            );
+        }
+        return value;
     }
 
     private static Iterable<?> iterable(final Object value, final String label) {

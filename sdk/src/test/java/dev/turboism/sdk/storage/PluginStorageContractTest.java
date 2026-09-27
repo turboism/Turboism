@@ -12,6 +12,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,7 +29,7 @@ class PluginStorageContractTest {
             names(StorageErrorCode.values())
         );
         assertEquals("FILE,DIRECTORY", names(StorageEntryType.values()));
-        assertEquals(8, PluginStorage.class.getDeclaredMethods().length);
+        assertEquals(10, PluginStorage.class.getDeclaredMethods().length);
         assertEquals(
             "java.util.concurrent.CompletionStage",
             PluginStorage.class.getMethod("readUtf8", StoragePath.class, int.class)
@@ -157,18 +158,25 @@ class PluginStorageContractTest {
     }
 
     @Test
-    void pluginContextDefaultStorageAccessorFailsWithFrozenMessage() {
+    void pluginContextDefaultStorageAccessorReturnsTheUnavailableSentinel() throws Exception {
         final PluginContext context = (PluginContext) Proxy.newProxyInstance(
             PluginContext.class.getClassLoader(),
             new Class<?>[] {PluginContext.class},
             PluginStorageContractTest::invokeDefault
         );
 
-        final UnsupportedOperationException error = assertThrows(
-            UnsupportedOperationException.class,
-            context::storage
-        );
-        assertEquals("storage service is not available", error.getMessage());
+        final PluginStorage storage = context.storage();
+
+        assertSame(PluginStorage.unavailable(), storage);
+        assertFalse(storage.isAvailable());
+        final StorageReadResult<?> result = storage
+            .readUtf8(new StoragePath(StorageRoot.DATA, "missing.txt"), 64)
+            .toCompletableFuture()
+            .get();
+        assertTrue(result.value().isEmpty());
+        final StorageError error = result.error().orElseThrow();
+        assertEquals(StorageErrorCode.RUNTIME_UNAVAILABLE, error.code());
+        assertEquals("storage service is not available", error.message());
     }
 
     private static Object invokeDefault(

@@ -3,7 +3,7 @@ package dev.turboism.update;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
-import dev.turboism.plugin.core.CoreUpdateService;
+import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 
@@ -30,7 +30,7 @@ import java.util.function.Consumer;
  * {@code https://api.turboism.dev/v1/releases/stable.json}.
  *
  * <p>The runtime owns transport, validation, persistence, scheduling and
- * cancellation. Selection and presentation stay in the core plugin, which only
+ * cancellation. Selection and presentation stay in the framework shell, which only
  * receives immutable snapshots and invokes explicitly user-driven operations.</p>
  */
 public final class RuntimeUpdateService implements CoreUpdateService {

@@ -10,8 +10,21 @@ import java.util.Objects;
 /** Runtime-only closed source for the first async host-read intent. */
 public interface ProjectWorkspaceHostReadSource {
 
+    /**
+     * Performs one host read intent.
+     *
+     * @return the snapshot or the mapped failure code; never null
+     */
     ProjectWorkspaceHostReadResult read();
 
+    /**
+     * Adapts a {@link ProjectWorkspaceAdapter} into this source, mapping its
+     * {@link SafeModeDiagnostic} codes onto {@link AsyncHostReadErrorCode}.
+     *
+     * @param adapter the backing adapter, non-null
+     * @return a source reading through it
+     * @throws NullPointerException if {@code adapter} is null
+     */
     static ProjectWorkspaceHostReadSource from(final ProjectWorkspaceAdapter adapter) {
         final ProjectWorkspaceAdapter source = Objects.requireNonNull(adapter, "adapter");
         return () -> {

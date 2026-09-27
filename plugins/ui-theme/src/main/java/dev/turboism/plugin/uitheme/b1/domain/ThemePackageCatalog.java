@@ -292,6 +292,17 @@ public final class ThemePackageCatalog {
         }
     }
 
+    /**
+     * Why a catalog candidate was rejected.
+     *
+     * <p>{@code CATALOG_LIMIT} rejects every entry of an over-sized catalog at once;
+     * {@code INVALID_ID}, {@code INVALID_NAME} and {@code FIELD_LIMIT} are per-candidate
+     * validation failures; {@code DUPLICATE_ID} rejects every entry sharing an id.
+     * {@code SELF_PARENT}, {@code MISSING_PARENT}, {@code INHERITANCE_CYCLE} and
+     * {@code INHERITANCE_DEPTH} describe unusable {@code parentId} references, and
+     * {@code INVALID_PARENT} marks a candidate that would transitively inherit from a rejected
+     * package.</p>
+     */
     public enum IssueCode {
         INVALID_ID,
         INVALID_NAME,

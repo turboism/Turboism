@@ -100,6 +100,20 @@ final class PreviewPluginContextFactory implements AutoCloseable {
         servicesFactory.preflightEventContracts(descriptor);
     }
 
+    void preflightEventContracts(
+        final PluginDescriptor descriptor,
+        final dev.turboism.core.event.PublicEventContractCatalog.ContractLease lease
+    ) {
+        servicesFactory.preflightEventContracts(descriptor, lease);
+    }
+
+    dev.turboism.core.event.PublicEventContractCatalog.ContractLease acquireEventContracts(
+        final PluginDescriptor descriptor,
+        final java.nio.file.Path pluginJar
+    ) {
+        return servicesFactory.acquireEventContracts(descriptor, pluginJar);
+    }
+
     Object hostAccessIdentity() {
         return hostAccess;
     }
@@ -145,7 +159,7 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                 services.dependencies().withConfig(services.typedConfig()), hostAccess,
                 services.localization(), services.taskScheduler(), services.pluginStorage(),
                 services.userFiles(), services.hostReads(), null,
-                fileChooserHistory
+                fileChooserHistory, services.exportSettings()
             );
             context.installScriptService(new dev.turboism.script.RuntimeScriptService(
                 home,
@@ -167,13 +181,23 @@ final class PreviewPluginContextFactory implements AutoCloseable {
         }
     }
 
+    private dev.turboism.cleanup.RetryableCleanup cleanup;
+
     @Override
-    public void close() {
-        try {
-            servicesFactory.close();
-        } finally {
-            graalHost.close();
+    public synchronized void close() {
+        if (cleanup == null) {
+            cleanup = new dev.turboism.cleanup.RetryableCleanup(
+                "Plugin context service cleanup failed", servicesFactory::close, graalHost::close
+            );
         }
+        cleanup.close();
+    }
+
+    /** Forwards the host-level export-settings authority to the per-plugin services factory. */
+    void bindExportSettingsAuthority(
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority
+    ) {
+        servicesFactory.bindExportSettingsAuthority(authority);
     }
 }
 

@@ -16,22 +16,41 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface ScriptService {
 
+    /** Returns every discovered script. */
     List<ScriptDescriptor> list();
 
+    /** Returns the descriptor for {@code id}, or empty when no such script exists. */
     Optional<ScriptDescriptor> find(ScriptId id);
 
+    /**
+     * Starts {@code request} as an out-of-process execution and returns its handle.
+     *
+     * @param request the script and arguments to run
+     */
     ScriptRunHandle run(ScriptRunRequest request);
 
-    default boolean available() {
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
         return true;
     }
 
+    /** Returns a fail-closed service: no scripts are listed and runs are rejected. */
     static ScriptService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements ScriptService {
         INSTANCE;
+
+        @Override
+        public boolean isAvailable() {
+            return false;
+        }
 
         @Override
         public List<ScriptDescriptor> list() {
@@ -69,11 +88,6 @@ public interface ScriptService {
                     return false;
                 }
             };
-        }
-
-        @Override
-        public boolean available() {
-            return false;
         }
     }
 }

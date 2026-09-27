@@ -1,0 +1,52 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.validation.edit-protocol",
+  "name": "Edit Protocol Host Validation Probe",
+  "version": "0.0.0",
+  "description": "Task-local host-side probe for the Cubism 5.4-compat edit API protocol bridge: enables the native external-application service on port 22033, pre-seeds the client token into CExternalAppAuthManager so registration completes unattended, answers the Turboism edit-approval dialog per the task-controlled approval.mode file, and closes the host after the external client publishes terminal evidence.",
+  "entrypoints": [
+    "dev.turboism.validation.editprotocol.EditProtocolHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.network.fetch",
+      "scope": "application",
+      "reason": "Executes the verified EXTERNAL_APP_SETTING typed command to configure and start the host's external-application WebSocket service on port 22033 before the external client connects."
+    },
+    {
+      "id": "turboism.process.run",
+      "scope": "application",
+      "reason": "The verified EXTERNAL_APP_SETTING typed command requires the process permission alongside network to configure and start the host's external-application WebSocket service."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the active document's Undo history snapshot before and after the protocol matrix for restoration evidence."
+    }
+  ],
+  "capabilities": [
+    "validation.edit-protocol.lifecycle"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  },
+  "tags": [
+    "validation",
+    "edit-protocol"
+  ],
+  "category": "integration"
+}

@@ -34,4 +34,36 @@ class RuntimeDiagnosticsTest {
         RuntimeDiagnostics.info("bootstrap", "not routed");
         assertEquals(2, records.size());
     }
+
+    @Test
+    void buffersPreInstallDiagnosticsAndReplaysThemInOrder() {
+        RuntimeDiagnostics.debug("bootstrap", "Startup suppression: STARTUP_SUPPRESSION_INSTALLED_5303");
+        RuntimeDiagnostics.warn("bootstrap", "premain warning");
+
+        final List<String> records = new ArrayList<>();
+        RuntimeDiagnostics.install((level, component, message, failure) ->
+            records.add(level + ":" + component + ":" + message)
+        );
+
+        assertEquals(List.of(
+            "DEBUG:bootstrap:Startup suppression: STARTUP_SUPPRESSION_INSTALLED_5303",
+            "WARN:bootstrap:premain warning"
+        ), records);
+
+        RuntimeDiagnostics.info("bootstrap", "after install");
+        assertEquals(3, records.size());
+    }
+
+    @Test
+    void clearDropsBufferedDiagnosticsWithoutReplayingThem() {
+        RuntimeDiagnostics.debug("bootstrap", "buffered before clear");
+
+        RuntimeDiagnostics.clear();
+        final List<String> records = new ArrayList<>();
+        RuntimeDiagnostics.install((level, component, message, failure) ->
+            records.add(level + ":" + component + ":" + message)
+        );
+
+        assertEquals(List.of(), records);
+    }
 }

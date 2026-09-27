@@ -19,19 +19,22 @@ final class WorkspaceReflectionEngine {
     static final String APP_INSTANCE = "workspace.app.instance";
     static final String MAIN_FRAME = "workspace.app.main-frame";
     static final String DOCK = "workspace.main-frame.dock";
-    static final String CURRENT = "workspace.dock.current";
+    static final String PALETTE_MANAGER = "workspace.dock.palette-manager";
+    static final String CURRENT = "workspace.palette-manager.current";
     static final String PRESET = "workspace.dock.preset";
     static final String CUSTOM = "workspace.dock.custom";
     static final String WORKSPACE_ID = "workspace.workspace.id";
     static final String WORKSPACE_NAME = "workspace.workspace.name";
     static final String ID_VALUE = "workspace.id.value";
+    static final String DEFAULT_LAYOUT = "workspace.workspace.default-layout";
+    static final int MAX_DEFAULT_LAYOUT_BYTES = 16 * 1024 * 1024;
     static final String CHANGE = "workspace.dock.change";
     static final String UPDATE_DEFAULT = "workspace.dock.update-default";
     static final String RESET_DEFAULT = "workspace.dock.reset-default";
 
     static final Set<String> REQUIRED_ALIASES = Set.of(
-        "workspace.app.class", APP_INSTANCE, MAIN_FRAME, DOCK, CURRENT, PRESET, CUSTOM,
-        WORKSPACE_ID, WORKSPACE_NAME, ID_VALUE, CHANGE, UPDATE_DEFAULT, RESET_DEFAULT
+        "workspace.app.class", APP_INSTANCE, MAIN_FRAME, DOCK, PALETTE_MANAGER, CURRENT, PRESET, CUSTOM,
+        WORKSPACE_ID, WORKSPACE_NAME, ID_VALUE, CHANGE, UPDATE_DEFAULT, RESET_DEFAULT, DEFAULT_LAYOUT
     );
 
     private final VerifiedMemberResolver resolver;
@@ -91,8 +94,25 @@ final class WorkspaceReflectionEngine {
             final State before = state();
             if (before == null) return WorkspaceOperationResult.Outcome.UNAVAILABLE;
             if (before.incomplete) return WorkspaceOperationResult.Outcome.FAILED;
+            if (UPDATE_DEFAULT.equals(alias) && !before.currentCustom) {
+                return WorkspaceOperationResult.Outcome.FAILED;
+            }
+            final byte[] savedBefore = UPDATE_DEFAULT.equals(alias)
+                ? defaultLayout(before.current) : null;
             resolver.invoke(alias, before.dock);
             final State after = state();
+            if (UPDATE_DEFAULT.equals(alias)) {
+                if (after == null || after.incomplete || !after.currentCustom
+                    || after.current.hostWorkspace != before.current.hostWorkspace
+                    || !after.current.info.id().equals(before.current.info.id())) {
+                    return WorkspaceOperationResult.Outcome.FAILED;
+                }
+                final byte[] savedAfter = defaultLayout(after.current);
+                if (savedAfter == null && savedBefore != null) return WorkspaceOperationResult.Outcome.FAILED;
+                return java.util.Arrays.equals(savedBefore, savedAfter)
+                    ? WorkspaceOperationResult.Outcome.NO_CHANGE
+                    : WorkspaceOperationResult.Outcome.CHANGED;
+            }
             return after != null && !after.incomplete && after.current.info.id().equals(before.current.info.id())
                 ? WorkspaceOperationResult.Outcome.CHANGED
                 : WorkspaceOperationResult.Outcome.FAILED;
@@ -108,17 +128,23 @@ final class WorkspaceReflectionEngine {
         if (frame == null) return null;
         final Object dock = resolver.invoke(DOCK, frame);
         if (dock == null) return null;
-        final HostWorkspace current = workspace(resolver.invoke(CURRENT, dock));
+        final Object paletteManager = resolver.invoke(PALETTE_MANAGER, dock);
+        if (paletteManager == null) return null;
+        final HostWorkspace current = workspace(resolver.invoke(CURRENT, paletteManager));
         if (current == null) return null;
 
         final LinkedHashMap<WorkspaceId, HostWorkspace> available = new LinkedHashMap<>();
         final int[] traversalBudget = { MAX_AVAILABLE_WORKSPACES - 1 };
         boolean incomplete = add(available, resolver.invoke(PRESET, dock), traversalBudget);
+        final LinkedHashMap<WorkspaceId, HostWorkspace> custom = new LinkedHashMap<>();
         if (!incomplete) {
-            incomplete = add(available, resolver.invoke(CUSTOM, dock), traversalBudget);
+            incomplete = add(custom, resolver.invoke(CUSTOM, dock), traversalBudget);
         }
+        final boolean currentCustom = custom.containsKey(current.info.id())
+            && !available.containsKey(current.info.id());
+        custom.forEach(available::putIfAbsent);
         available.putIfAbsent(current.info.id(), current);
-        return new State(dock, current, List.copyOf(available.values()), incomplete);
+        return new State(dock, current, List.copyOf(available.values()), incomplete, currentCustom);
     }
 
     /**
@@ -145,6 +171,15 @@ final class WorkspaceReflectionEngine {
     }
 
 
+    private byte[] defaultLayout(final HostWorkspace workspace) {
+        final Object value = resolver.invoke(DEFAULT_LAYOUT, workspace.hostWorkspace);
+        if (value == null) return null;
+        if (!(value instanceof byte[] bytes) || bytes.length > MAX_DEFAULT_LAYOUT_BYTES) {
+            throw new IllegalStateException("Workspace default layout is invalid or exceeds the copy limit.");
+        }
+        return bytes.clone();
+    }
+
     private HostWorkspace workspace(final Object hostWorkspace) {
         if (hostWorkspace == null) return null;
         final Object hostId = resolver.invoke(WORKSPACE_ID, hostWorkspace);
@@ -153,7 +188,7 @@ final class WorkspaceReflectionEngine {
         if (!(rawId instanceof String id) || id.isBlank()) return null;
         final Object rawName = resolver.invoke(WORKSPACE_NAME, hostWorkspace);
         final String name = rawName instanceof String text && !text.isBlank() ? text : id;
-        return new HostWorkspace(hostId, new WorkspaceInfo(new WorkspaceId(id), name));
+        return new HostWorkspace(hostWorkspace, hostId, new WorkspaceInfo(new WorkspaceId(id), name));
     }
 
     private static WorkspaceStatus unavailable(final String diagnostic) {
@@ -165,11 +200,12 @@ final class WorkspaceReflectionEngine {
         );
     }
 
-    private record HostWorkspace(Object hostId, WorkspaceInfo info) { }
+    private record HostWorkspace(Object hostWorkspace, Object hostId, WorkspaceInfo info) { }
     private record State(
         Object dock,
         HostWorkspace current,
         List<HostWorkspace> available,
-        boolean incomplete
+        boolean incomplete,
+        boolean currentCustom
     ) { }
 }

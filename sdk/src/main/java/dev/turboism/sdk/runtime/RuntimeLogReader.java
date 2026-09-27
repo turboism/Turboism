@@ -5,15 +5,18 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Read-only framework log view supplied to Turboism's built-in core plugin. */
+/** Read-only framework log view supplied to Turboism's runtime-owned shell. */
 public interface RuntimeLogReader {
 
+    /** Returns a point-in-time view of the runtime log location and buffered lines. */
     Snapshot snapshot();
 
+    /** Returns a fail-closed reader that always reports an empty snapshot. */
     static RuntimeLogReader unavailable() {
         return () -> new Snapshot(Optional.empty(), Optional.empty(), List.of());
     }
 
+    /** Point-in-time view of the runtime log directory, active file, and buffered lines. */
     record Snapshot(
         Optional<Path> directory,
         Optional<Path> currentFile,

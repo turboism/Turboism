@@ -9,8 +9,18 @@ import java.util.Optional;
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface CubismHistory {
 
+    /** Returns the current immutable state of the active document's native Undo history. */
     HistorySnapshot snapshot();
 
+    /**
+     * Moves the history cursor to {@code position} when the observed generation and revision
+     * still match.
+     *
+     * @param expectedGeneration the {@link HistorySnapshot#generation()} the caller built against
+     * @param expectedRevision the {@link HistorySnapshot#revision()} the caller built against
+     * @param position target cursor position within {@code [0, entries.size]}
+     * @return the move result; a stale expectation yields {@code REJECTED_STALE} and no change
+     */
     HistoryMoveResult moveTo(long expectedGeneration, long expectedRevision, int position);
 
     /**
@@ -76,10 +86,12 @@ public interface CubismHistory {
         );
     }
 
+    /** Returns the fail-closed history whose snapshot and moves all report unavailable. */
     static CubismHistory unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Singleton fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements CubismHistory {
         INSTANCE;
 

@@ -179,10 +179,8 @@ public final class RecentPreviewPlugin implements CubismPlugin {
     private void startPoller() {
         stopPoller();
         if (context == null) return;
-        final PluginTaskScheduler tasks;
-        try {
-            tasks = context.tasks();
-        } catch (RuntimeException unavailable) {
+        final PluginTaskScheduler tasks = context.tasks();
+        if (!tasks.isAvailable()) {
             context.logger().warn("Recent preview poller unavailable; hook track only");
             return;
         }

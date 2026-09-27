@@ -1,5 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.core.reflect.MethodHandleCache;
+
 import java.awt.Component;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -132,7 +134,9 @@ public final class NativeDeformerControlRowAppearanceBridge {
             final Object outer = field(renderer, outerField);
             if (!exact(outer, outerOwner)) return null;
             final Class<?> outerType = Class.forName(outerOwner.replace('/', '.'), false, hostClassLoader);
-            final Method accessor = outerType.getMethod(treeAccessorMethod, outerType);
+            final Method accessor = MethodHandleCache.method(
+                outerType, treeAccessorMethod, outerType
+            );
             final Object tree = accessor.invoke(null, outer);
             if (tree == null || tree.getClass().getClassLoader() != hostClassLoader
                 || !isTypeOrSuper(tree.getClass(), treeOwner.replace('/', '.'))) return null;
@@ -166,20 +170,20 @@ public final class NativeDeformerControlRowAppearanceBridge {
     }
 
     private static Object field(final Object target, final String name) throws ReflectiveOperationException {
-        final Field field = target.getClass().getDeclaredField(name);
+        final Field field = MethodHandleCache.declaredField(target.getClass(), name);
         if (!field.canAccess(target) && !field.trySetAccessible()) return null;
         return field.get(target);
     }
 
     private static Object invoke(final Object target, final String name, final Class<?> type, final Object argument)
         throws ReflectiveOperationException {
-        final Method method = target.getClass().getMethod(name, type);
+        final Method method = MethodHandleCache.method(target.getClass(), name, type);
         if (!method.canAccess(target) && !method.trySetAccessible()) return null;
         return method.invoke(target, argument);
     }
 
     private static Object invoke(final Object target, final String name) throws ReflectiveOperationException {
-        final Method method = target.getClass().getMethod(name);
+        final Method method = MethodHandleCache.method(target.getClass(), name);
         if (!method.canAccess(target) && !method.trySetAccessible()) return null;
         return method.invoke(target);
     }

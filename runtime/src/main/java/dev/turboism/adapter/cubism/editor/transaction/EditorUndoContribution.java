@@ -4,6 +4,7 @@ import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
 
 import java.util.EnumSet;
@@ -128,7 +129,7 @@ public record EditorUndoContribution(
                 semanticDetail.summary(), HistoryAction.DetailLevel.PARTIAL, semanticDetail.origin(),
                 semanticDetail.targets(), semanticDetail.changes().stream().map(change -> new HistoryChange(
                     change.operation(), change.targetIndex(), change.property(), change.before(),
-                    Optional.empty(), change.context()
+                    Optional.empty(), change.context(), unknownAfterRelation(change.relation())
                 )).toList(), Optional.empty(), Optional.of("history.capture.after-unavailable")
             );
             return frozen(captured);
@@ -151,9 +152,34 @@ public record EditorUndoContribution(
                 || !before.targetIndex().equals(after.targetIndex())
                 || !before.property().equals(after.property())
                 || !before.before().equals(after.before())
+                || !sameCaptureRelation(before.relation(), after.relation())
                 || !before.context().equals(after.context())) return false;
         }
         return true;
+    }
+
+    private static boolean sameCaptureRelation(
+        final Optional<HistoryRelationChange> expected,
+        final Optional<HistoryRelationChange> actual
+    ) {
+        if (expected.isEmpty() || actual.isEmpty()) return expected.isEmpty() && actual.isEmpty();
+        final HistoryRelationChange expectedRelation = expected.orElseThrow();
+        final HistoryRelationChange actualRelation = actual.orElseThrow();
+        return expectedRelation.kind() == actualRelation.kind()
+            && expectedRelation.before().equals(actualRelation.before());
+    }
+
+    private static Optional<HistoryRelationChange> unknownAfterRelation(
+        final Optional<HistoryRelationChange> relation
+    ) {
+        return relation.map(value -> new HistoryRelationChange(
+            value.kind(),
+            value.before(),
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.UNKNOWN,
+                Optional.empty()
+            )
+        ));
     }
 
     /** Adds this primitive's native Undo snapshot to the supplied shared edit object. */

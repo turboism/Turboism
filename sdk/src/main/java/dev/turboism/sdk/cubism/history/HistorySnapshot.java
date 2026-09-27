@@ -76,6 +76,7 @@ public record HistorySnapshot(
         return new HistorySnapshot(Availability.UNAVAILABLE, 0, 0, 0, List.of(), false, false);
     }
 
+    /** Whether the host's Undo history could be read at all. */
     public enum Availability {
         AVAILABLE,
         UNAVAILABLE

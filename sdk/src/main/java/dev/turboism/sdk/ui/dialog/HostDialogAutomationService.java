@@ -39,4 +39,49 @@ public interface HostDialogAutomationService {
      * @return snapshots of visible modal (or active) AWT dialogs in the host JVM
      */
     List<HostDialogSnapshot> snapshots();
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static HostDialogAutomationService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: queries report empty results. */
+    enum Unavailable implements HostDialogAutomationService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public HostDialogOutcome act(
+            final HostDialogMatcher matcher,
+            final HostDialogAction action,
+            final Duration timeout
+        ) {
+            if (matcher == null || action == null) {
+                throw new IllegalArgumentException("matcher and action must not be null");
+            }
+            if (timeout == null || timeout.isZero() || timeout.isNegative()) {
+                throw new IllegalArgumentException("timeout must be positive");
+            }
+            return HostDialogOutcome.UNAVAILABLE;
+        }
+
+        @Override public List<HostDialogSnapshot> snapshots() {
+            return List.of();
+        }
+    }
 }

@@ -16,18 +16,111 @@ import java.util.Set;
 /** Resolves descriptor-declared provider-owned event contracts without ClassLoader delegation. */
 final class PublicEventRouteCatalog {
 
+    private final PublicEventContractCatalog contracts;
     private final Map<PluginEventOwnerKey, Provider> admitted = new HashMap<>();
     private final Map<String, Provider> active = new HashMap<>();
     private final Map<String, Provider> retained = new HashMap<>();
 
+    PublicEventRouteCatalog() {
+        this(null);
+    }
+
+    PublicEventRouteCatalog(final PublicEventContractCatalog contracts) {
+        this.contracts = contracts;
+    }
+
     void preflight(final PluginDescriptor descriptor) {
+        preflight(descriptor, PublicEventContractCatalog.ContractLease.empty());
+    }
+
+    void preflight(
+        final PluginDescriptor descriptor,
+        final PublicEventContractCatalog.ContractLease lease
+    ) {
         final PluginDescriptor value = Objects.requireNonNull(descriptor, "descriptor");
         value.eventExports().forEach(exported ->
-            PublicEventAbi.resolve(exported.eventType(), exported.abiSha256())
+            PublicEventAbi.resolve(exported.eventType(), exported.abiSha256(), contracts)
         );
         value.eventImports().forEach(imported ->
-            PublicEventAbi.resolve(imported.eventType(), imported.abiSha256())
+            PublicEventAbi.resolve(imported.eventType(), imported.abiSha256(), contracts)
         );
+        if (contracts == null) {
+            return;
+        }
+        requireDeclaredContractVisibility(value, lease);
+        requireContractProviderOrdering(value, lease);
+    }
+
+    /**
+     * A declared event type that is bound to a published contract artifact must be declared
+     * through this plugin's own {@code eventContracts}; otherwise the plugin's class loader
+     * could never resolve it (contract members are only visible via the plugin's bound
+     * artifacts), and the failure would surface late during subscriber inspection.
+     */
+    private void requireDeclaredContractVisibility(
+        final PluginDescriptor descriptor,
+        final PublicEventContractCatalog.ContractLease lease
+    ) {
+        for (final PluginDescriptor.EventExport exported : descriptor.eventExports()) {
+            requireContractMembership(descriptor, exported.eventType(), lease);
+        }
+        for (final PluginDescriptor.EventImport imported : descriptor.eventImports()) {
+            requireContractMembership(descriptor, imported.eventType(), lease);
+        }
+    }
+
+    private void requireContractMembership(
+        final PluginDescriptor descriptor,
+        final String eventType,
+        final PublicEventContractCatalog.ContractLease lease
+    ) {
+        if (lease.delegates().containsKey(eventType)) {
+            return;
+        }
+        if (contracts.isContractBound(eventType)) {
+            throw new IllegalArgumentException(
+                "Public event type " + eventType + " is provided by a bound contract"
+                    + " artifact, but plugin " + descriptor.id()
+                    + " does not declare that contract in eventContracts"
+            );
+        }
+    }
+
+    /**
+     * A required import of a contract-bound event type needs the provider admitted before
+     * this plugin's own admission, so the dependency must be {@code required} with
+     * {@code ordering=after}. SDK-owned event imports keep schema-v4 semantics where
+     * ordering is advisory.
+     */
+    private void requireContractProviderOrdering(
+        final PluginDescriptor descriptor,
+        final PublicEventContractCatalog.ContractLease lease
+    ) {
+        for (final PluginDescriptor.EventImport imported : descriptor.eventImports()) {
+            if (!imported.required()
+                || !lease.delegates().containsKey(imported.eventType())) {
+                continue;
+            }
+            PluginDescriptor.DependencyRef dependency = null;
+            for (final PluginDescriptor.DependencyRef candidate : descriptor.dependencies()) {
+                if (candidate.id().equals(imported.providerId())) {
+                    dependency = candidate;
+                    break;
+                }
+            }
+            if (dependency == null) {
+                continue;
+            }
+            if (!"required".equals(dependency.type())
+                || !"after".equals(dependency.ordering())) {
+                throw new IllegalArgumentException(
+                    "Required public event import " + imported.providerId()
+                        + ":" + imported.eventId() + " of contract type "
+                        + imported.eventType()
+                        + " must declare a required dependency with ordering 'after'"
+                );
+            }
+        }
     }
 
     synchronized void admit(final PluginEventOwnerKey owner, final PluginDescriptor descriptor) {
@@ -39,7 +132,7 @@ final class PublicEventRouteCatalog {
         final Map<String, Export> exports = new HashMap<>();
         final Set<String> exportedTypes = new HashSet<>();
         for (PluginDescriptor.EventExport exported : value.eventExports()) {
-            PublicEventAbi.resolve(exported.eventType(), exported.abiSha256());
+            PublicEventAbi.resolve(exported.eventType(), exported.abiSha256(), contracts);
             final Export contract = Export.of(value.id(), exported);
             if (exports.put(contract.id(), contract) != null) {
                 throw new IllegalArgumentException(
@@ -54,7 +147,7 @@ final class PublicEventRouteCatalog {
         }
         final Map<RouteKey, Import> imports = new HashMap<>();
         for (PluginDescriptor.EventImport imported : value.eventImports()) {
-            PublicEventAbi.resolve(imported.eventType(), imported.abiSha256());
+            PublicEventAbi.resolve(imported.eventType(), imported.abiSha256(), contracts);
             final Import contract = Import.of(imported);
             if (imports.put(contract.route(), contract) != null) {
                 throw new IllegalArgumentException(
@@ -135,8 +228,10 @@ final class PublicEventRouteCatalog {
     ) {
         final PluginEventOwnerKey owner = Objects.requireNonNull(publisher, "publisher");
         final EventBus.TurboismEvent value = Objects.requireNonNull(event, "event");
+        requireBoundIdentity(value.getClass());
         final PublicRoute route = route(value.getClass().getName());
         if (route == null) {
+            requireNoContractRoute(value.getClass().getName());
             return;
         }
         if (!route.key().providerId().equals(owner.pluginId())) {
@@ -165,8 +260,10 @@ final class PublicEventRouteCatalog {
     ) {
         final PluginEventOwnerKey owner = Objects.requireNonNull(subscriber, "subscriber");
         final Class<?> type = Objects.requireNonNull(eventType, "eventType");
+        requireBoundIdentity(type);
         final PublicRoute route = route(type.getName());
         if (route == null) {
+            requireNoContractRoute(type.getName());
             return;
         }
         if (route.key().providerId().equals(owner.pluginId())) {
@@ -249,7 +346,8 @@ final class PublicEventRouteCatalog {
             }
             requireCompatible(consumer, imported, exported, provider, PublicEventAbi.resolve(
                 imported.eventType(),
-                imported.abiSha256()
+                imported.abiSha256(),
+                contracts
             ));
         }
     }
@@ -274,7 +372,8 @@ final class PublicEventRouteCatalog {
                 }
                 requireCompatible(consumer, imported, exported, provider, PublicEventAbi.resolve(
                     imported.eventType(),
-                    imported.abiSha256()
+                    imported.abiSha256(),
+                    contracts
                 ));
             }
         }
@@ -431,10 +530,48 @@ final class PublicEventRouteCatalog {
                 "Public event contract ABI does not match: " + imported.route()
             );
         }
-        if (eventType.getClassLoader() != EventBus.class.getClassLoader()) {
+        final ClassLoader bound = contracts == null
+            ? null
+            : contracts.contractLoaderFor(eventType.getName());
+        final ClassLoader required = bound != null
+            ? bound
+            : EventBus.class.getClassLoader();
+        if (eventType.getClassLoader() != required) {
             throw new IllegalArgumentException(
-                "Public event payload type must be owned by the shared SDK ClassLoader: "
+                "Public event payload type must be owned by the shared SDK or bound"
+                    + " contract ClassLoader: " + eventType.getName()
+            );
+        }
+    }
+
+    /**
+     * Contract-bound types have exactly one admitted identity per session binding: the
+     * {@link Class} defined by the bound contract loader. A class carrying the same binary
+     * name from a stale generation or a foreign loader is rejected outright so stale
+     * instances can never cross into a new contract generation.
+     */
+    private void requireBoundIdentity(final Class<?> eventType) {
+        if (contracts == null) {
+            return;
+        }
+        final ClassLoader bound = contracts.contractLoaderFor(eventType.getName());
+        if (bound != null && eventType.getClassLoader() != bound) {
+            throw new IllegalArgumentException(
+                "Public event contract type is a stale or foreign class identity: "
                     + eventType.getName()
+            );
+        }
+    }
+
+    /**
+     * Contract member types are never plugin-private: subscribing to or publishing one
+     * always requires a declared route even when no provider is admitted.
+     */
+    private void requireNoContractRoute(final String eventType) {
+        if (contracts != null && contracts.isContractBound(eventType)) {
+            throw new IllegalArgumentException(
+                "Public event contract type requires a declared event export or import: "
+                    + eventType
             );
         }
     }

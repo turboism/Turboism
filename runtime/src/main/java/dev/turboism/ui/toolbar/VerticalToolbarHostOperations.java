@@ -19,10 +19,21 @@ public interface VerticalToolbarHostOperations {
         Consumer<String> click
     );
 
+    /**
+     * Registers a callback fired when the host rebuilds the toolbar area.
+     *
+     * @param reconcile re-attaches the strip after a rebuild
+     * @return a registration removing the callback when disposed; the default is a no-op
+     *         registration for hosts that never rebuild
+     */
     default Registration onRebuild(final Runnable reconcile) {
         return () -> { };
     }
 
+    /**
+     * @return a human-readable reason the vertical toolbar is unavailable on this host, or
+     *         empty when it is available
+     */
     default Optional<String> unavailableDiagnostic() {
         return Optional.empty();
     }

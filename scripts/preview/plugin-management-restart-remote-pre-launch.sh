@@ -1,14 +1,25 @@
 #!/usr/bin/env bash
-# Rebind the staged JAR path after restoring task-scoped plugin-management state into a fresh validation home.
+# Installs the staged plugin-management state for the restart phase of the
+# plugin-management chooser validation and rebinds the pending install journal.
+#
+# The stage task's state/runtime/plugin-management tree arrives as a declared
+# --home-dir input under restart-state/. The runner re-verifies declared inputs
+# after the session, so this hook copies the tree into place instead of moving
+# it and only rewrites the absolute stagedJar path recorded by the previous
+# session so it points inside this task's home.
 set -euo pipefail
 
 home_dir=$2
-journal="$home_dir/state/runtime/plugin-management/pending.json"
-payload_line="$(grep -n '^__PLUGIN_MANAGEMENT_STATE__$' "$0" | cut -d: -f1)"
-[ -n "$payload_line" ] || { echo 'embedded plugin-management state is missing' >&2; exit 1; }
-tail -n "+$((payload_line + 1))" "$0" | base64 --decode | tar --extract --gzip --directory "$home_dir"
+payload="$home_dir/restart-state/runtime/plugin-management"
+journal_dir="$home_dir/state/runtime/plugin-management"
+[ -f "$payload/pending.json" ] || { echo 'plugin-management pending journal payload is missing' >&2; exit 1; }
+mkdir -p "$journal_dir"
+cp -R "$payload/." "$journal_dir/"
+# Declared inputs are snapshotted read-only; the journal and staged package must
+# be writable for the rewrite below and for the runtime to consume the entry.
+chmod -R u+w "$journal_dir"
 
-python3 - "$journal" "$home_dir" <<'PY'
+python3 - "$journal_dir/pending.json" "$home_dir" <<'PY'
 import json
 import sys
 from pathlib import Path

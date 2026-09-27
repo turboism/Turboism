@@ -1,6 +1,6 @@
 package dev.turboism.sdk.cubism.backup;
 
-import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.List;
 import java.util.Objects;
@@ -17,7 +17,7 @@ public record BackupCompletedEvent(
     long completedAtMillis,
     List<BackupArtifact> artifacts,
     List<BackupDocumentStatus> statuses
-) implements EventBus.TurboismEvent {
+) implements TurboismEvent {
 
     public BackupCompletedEvent {
         if (completedAtMillis < 0L) {

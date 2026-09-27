@@ -75,6 +75,7 @@ public enum EditorParameterizedCommand {
 
     private final Set<String> supportedVersions;
 
+        /** Whether a command constant already has a verified typed request contract behind it. */
         public enum Availability {
         EVIDENCE_REQUIRED,
         TYPED_CONTRACT_VERIFIED

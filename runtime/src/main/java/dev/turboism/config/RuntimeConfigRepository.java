@@ -225,7 +225,8 @@ public final class RuntimeConfigRepository {
 
     /**
      * Builds the factory-default config document: schema version 1, a single {@code plugins}
-     * directory, nothing disabled, {@code INFO} logging, safe mode off, and empty hook lists.
+     * directory, nothing disabled, {@code INFO} logging, safe mode off, empty hook lists, and
+     * the startup suppression switches explicitly on.
      *
      * @return a fresh mutable document each call; callers may modify it without affecting defaults
      *     handed to anyone else
@@ -247,7 +248,10 @@ public final class RuntimeConfigRepository {
         final ObjectNode hooks = root.putObject("hooks");
         hooks.putArray("disabledIds");
         hooks.putArray("denylistedClasses");
-        hooks.putObject("startup");
+        final ObjectNode startup = hooks.putObject("startup");
+        startup.put("skipUpdateCheck", true);
+        startup.put("skipSplash", true);
+        startup.put("skipInformation", true);
         root.putObject("launcher").put("cubismJvm", "graalvm");
         return root;
     }

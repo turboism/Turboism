@@ -1,0 +1,13 @@
+{
+  "format": "turboism.runtime.config",
+  "schemaVersion": 1,
+  "worktreeId": "native-texture-upload-validation",
+  "safeMode": false,
+  "logLevel": "INFO",
+  "pluginDirs": ["plugins"],
+  "hooks": {
+    "disabledIds": [],
+    "denylistedClasses": [],
+    "startup": {"skipUpdateCheck": true, "skipSplash": true, "skipInformation": true}
+  }
+}

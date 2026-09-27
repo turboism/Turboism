@@ -63,6 +63,7 @@ public final class StartupReport {
     public record DiagnosticProblem(String code, String message, String path, Severity severity) {
     }
 
+    /** How serious one collected problem is; only {@link #ERROR} counts for {@link #hasErrors()}. */
     public enum Severity {
         ERROR, WARNING, INFO
     }

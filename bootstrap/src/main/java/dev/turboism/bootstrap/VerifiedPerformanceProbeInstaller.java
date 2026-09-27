@@ -75,12 +75,13 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         final Instrumentation instrumentation,
         final Path hostArtifact,
         final ClassLoader hostClassLoader,
-        final Path carrierJar
+        final Path carrierJar,
+        final String scenario
     ) throws Exception {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         final HostArtifactDigest digest = HostArtifactDigest.from(hostArtifact);
-        final ProbeProfile profile = profileForArtifact(digest);
+        final ProbeProfile profile = profileForArtifact(digest, scenario);
         this.cubismVersion = profile.cubismVersion();
         this.artifactSha256 = digest.sha256();
         this.targets = profile.targets();
@@ -97,7 +98,21 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     }
 
     static ProbeProfile profileForArtifact(final HostArtifactDigest artifact) {
+        return profileForArtifact(artifact, "camera");
+    }
+
+    static ProbeProfile profileForArtifact(final HostArtifactDigest artifact, final String scenario) {
         Objects.requireNonNull(artifact, "artifact");
+        if ("images".equals(scenario)) {
+            if (!ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
+                throw new IllegalArgumentException("image performance diagnostics require the exact Cubism 5.3.02 artifact");
+            }
+            return new ProbeProfile(ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
+                PerformanceProbeTargets.cubism5302Images());
+        }
+        if (!"camera".equals(scenario) && !"edit".equals(scenario)) {
+            throw new IllegalArgumentException("unsupported performance probe scenario");
+        }
         if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
             return new ProbeProfile(
                 ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
@@ -301,7 +316,12 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         }, delay.toSeconds(), TimeUnit.SECONDS);
     }
 
-    private static long metricMask(final String scenario) {
+    private long metricMask(final String scenario) {
+        if (scenario.equals("images")) {
+            long mask = 0;
+            for (PerformanceProbeMethodTransformer.Target target : targets) mask |= target.metric().mask();
+            return mask;
+        }
         long mask = PerformanceProbeMetric.RENDER_SCENE.mask()
             | PerformanceProbeMetric.MODELING_PRE_RENDER_UPDATE.mask()
             | PerformanceProbeMetric.RENDER_SYSTEM.mask()

@@ -879,6 +879,8 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         }
     }
 
+    // Session currency is identity: a different instance means the async reply is stale.
+    @SuppressWarnings("ReferenceEquality")
     private void setConfigNow(final String id, final String value) {
         final FxAcpClient active = client.get();
         final FxAcpSession current = session;

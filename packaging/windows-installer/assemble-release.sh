@@ -88,7 +88,7 @@ if len(set(entries)) != len(entries):
 if entries != sorted(entries):
     sys.exit("error: release plugin manifest is not ASCII-sorted")
 
-modules = [l[len(":plugins:"):] for l in entries if l != ":plugins:core"]
+modules = [l[len(":plugins:"):] for l in entries]
 staged = sorted(p.stem for p in stage.glob("plugins/*.jar"))
 if staged != sorted(modules):
     sys.exit(f"error: staged payload JARs do not match the release plugin manifest\n"
@@ -138,10 +138,35 @@ for module in modules:
     })
 plugins.sort(key=lambda p: p["id"])
 
+# Offline ZIP/Java payloads keep the full closure. The ordinary EXE excludes
+# only these two large, independently pinned, explicitly installable artifacts.
+engine_manifest = json.loads((stage / "script-engine.json").read_text(encoding="utf-8"))
+engine_version = engine_manifest.get("version", "")
+if (engine_manifest.get("format") != "turboism.optional-script-engine"
+        or type(engine_manifest.get("schemaVersion")) is not int
+        or engine_manifest["schemaVersion"] != 1
+        or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?", engine_version)):
+    sys.exit("error: invalid optional script engine manifest")
+expected_engine_names = {
+    f"js-isolate-windows-amd64-community-{engine_version}.jar",
+    f"truffle-api-{engine_version}.jar",
+}
+engine_entries = engine_manifest.get("artifacts", [])
+if len(engine_entries) != 2 or {entry.get("name") for entry in engine_entries} != expected_engine_names:
+    sys.exit("error: optional script engine inventory must contain exactly the two pinned artifacts")
+for entry in engine_entries:
+    path = stage / "graal" / "lib" / entry["name"]
+    if (type(entry.get("bytes")) is not int or not 0 < entry["bytes"] <= 134217728
+            or not re.fullmatch(r"[0-9a-f]{64}", entry.get("sha256", ""))
+            or not path.is_file() or path.is_symlink()
+            or path.stat().st_size != entry["bytes"]
+            or hashlib.sha256(path.read_bytes()).hexdigest() != entry["sha256"]):
+        sys.exit(f"error: staged optional script engine differs from the download pin: {path.name}")
 core_payload = [("turboism-agent.jar", stage / "turboism-agent.jar")]
 core_payload.extend(
     (path.relative_to(stage).as_posix(), path)
     for path in sorted((stage / "graal" / "lib").glob("*.jar"))
+    if path.name not in expected_engine_names
 )
 core_payload.extend([
     ("install-jar-payload.ps1", stage / "install-jar-payload.ps1"),
@@ -150,6 +175,8 @@ core_payload.extend([
     ("configure_turboism.ps1", stage / "configure_turboism.ps1"),
     ("cubism-launch-common.ps1", stage / "cubism-launch-common.ps1"),
     ("install-managed-graal.ps1", stage / "install-managed-graal.ps1"),
+    ("install-script-engine.ps1", stage / "install-script-engine.ps1"),
+    ("script-engine.json", stage / "script-engine.json"),
     ("turboism.ico", stage / "turboism.ico"),
     ("turboism.png", stage / "turboism.png"),
     ("README.txt", stage / "README.txt"),
@@ -160,6 +187,7 @@ core_payload.extend([
     ("EULA.en.txt", stage / "EULA.en.txt"),
     ("EULA.zh-Hans.txt", stage / "EULA.zh-Hans.txt"),
     ("EULA.ja.txt", stage / "EULA.ja.txt"),
+    ("EULA.ko.txt", stage / "EULA.ko.txt"),
 ])
 plugin_payload = [
     (f'plugins/{p["module"]}.jar', stage / "plugins" / f'{p["module"]}.jar')
@@ -360,11 +388,23 @@ PYEOF
 
 zip_dir "$stage" "$dist/turboism-$VER-full.zip" 0
 zip_dir "$stage" "$dist/turboism-$VER-lite.zip" 1
+
+# ---------- 4.5 SDK 开发构件 ----------
+# 独立的插件开发构件：与发行载荷内 graal/lib 的 sdk jar 同源同字节，
+# 以稳定文件名挂到 GitHub Release，供外部插件工程直接消费。
+mapfile -t sdk_jars < <(find "$stage/graal/lib" -maxdepth 1 -type f -name 'sdk-*.jar' | LC_ALL=C sort)
+if [[ ${#sdk_jars[@]} -ne 1 || "$(basename "${sdk_jars[0]}")" != "sdk-$VER.jar" ]]; then
+  echo "error: expected exactly one staged SDK JAR named sdk-$VER.jar under $stage/graal/lib" >&2
+  exit 1
+fi
+cp "${sdk_jars[0]}" "$dist/turboism-sdk-$VER.jar"
+
 # sidecar 只记录同目录文件名，下载后可直接在附件目录执行 `sha256sum -c *.sha256`。
 (
   cd "$dist"
   sha256sum "turboism-$VER-lite.zip" > "turboism-$VER-lite.zip.sha256"
   sha256sum "turboism-$VER-full.zip" > "turboism-$VER-full.zip.sha256"
+  sha256sum "turboism-sdk-$VER.jar" > "turboism-sdk-$VER.jar.sha256"
 )
 
 # ---------- 5. NSIS 安装器 ----------
@@ -379,7 +419,7 @@ else
   # 无 BOM 的 UTF-8 中文会在非 UTF-8 ACP 下乱码。仅为 makensis 生成带 BOM 的
   # EULA 副本，源文件（Java 安装器/ZIP 使用的无 BOM 版本）保持字节不变。
   mkdir -p "$generated/eula"
-  for lang in en zh-Hans ja; do
+  for lang in en zh-Hans ja ko; do
     { printf '\xef\xbb\xbf'; cat "$repo_root/packaging/eula/EULA.$lang.txt"; } > "$generated/eula/EULA.$lang.txt"
   done
   # VIProductVersion 需要纯数字 x.y.z.w；无法从 VER 推导时跳过版本资源

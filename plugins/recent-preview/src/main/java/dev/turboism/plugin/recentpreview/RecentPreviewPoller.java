@@ -56,6 +56,11 @@ final class RecentPreviewPoller {
             return Optional.empty();
         }
         final RecentFileSummary current = files.get(0);
+        if (!lastEmittedAt.isEmpty()) {
+            final java.util.Set<RecentFileId> live = new java.util.HashSet<>();
+            for (RecentFileSummary file : files) live.add(file.id());
+            lastEmittedAt.keySet().retainAll(live);
+        }
         final Optional<Instant> modified = current.lastModified();
         final long modifiedMillis = modified.map(Instant::toEpochMilli).orElse(UNKNOWN_MODIFIED);
         final boolean documentChanged = currentId == null || !currentId.equals(current.id());

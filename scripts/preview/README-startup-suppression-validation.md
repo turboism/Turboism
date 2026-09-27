@@ -85,6 +85,7 @@ Reviewed host identities (must not change without human re-approval):
 
 - Only the non-ANGLE `Live2D_Cubism.jar` code source is pinned; an ANGLE
   variant launch fails closed (no transformation) instead of mis-transforming.
-- The suppression requires a schema-valid `<home>/config.json`; otherwise the
-  runtime reports `STARTUP_SUPPRESSION_CONFIG_*` diagnostics and stays
-  disabled.
+- The suppression is on by default: an absent `<home>/config.json` or absent
+  `hooks.startup.skip*` keys both request it. An explicit `false` value or
+  safe mode opts out; a schema-invalid config still fails closed and reports
+  `RUNTIME_STARTUP_CONFIG_*` diagnostics.

@@ -30,7 +30,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 /**
  * 剪贴蒙版检查器（clipmask-viewer）官方插件。
@@ -137,22 +136,11 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
     private void registerAction() {
         final Registration registration = context.actions().register(
             OPEN_VIEWER_ACTION_ID,
-            new ActionRegistry.Action() {
-                @Override
-                public String id() {
-                    return OPEN_VIEWER_ACTION_ID;
-                }
-
-                @Override
-                public String label() {
-                    return localization.text("button.open");
-                }
-
-                @Override
-                public Consumer<ActionRegistry.ActionContext> handler() {
-                    return ignored -> openViewer();
-                }
-            }
+            ActionRegistry.Action.of(
+                OPEN_VIEWER_ACTION_ID,
+                localization.text("button.open"),
+                ignored -> openViewer()
+            )
         );
         context.disposableScope().register(registration);
     }
@@ -374,13 +362,47 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         }
     }
 
+    /**
+     * UI dispatch and window-creation seam used by the plugin.
+     *
+     * <p>Abstracts the headless check, event-dispatch scheduling and viewer window creation so
+     * the plugin's lifecycle logic can run without an AWT environment; the production
+     * implementation is {@code SwingUiAccess}, backed by Swing.</p>
+     */
     public interface UiAccess {
+        /**
+         * @return whether the JVM cannot show windows; when true the plugin never opens the
+         *     viewer
+         */
         boolean isHeadless();
 
+        /**
+         * Schedules {@code action} on the UI event thread and returns immediately.
+         *
+         * @param action the UI work to run; must not be null
+         */
         void invokeLater(Runnable action);
 
+        /**
+         * Runs {@code action} on the UI event thread and waits for it to finish. Calling it
+         * from that thread already runs the action directly.
+         *
+         * @param action the UI work to run; must not be null
+         * @throws InterruptedException if the calling thread is interrupted while waiting
+         * @throws InvocationTargetException if the action fails while being dispatched
+         */
         void invokeAndWait(Runnable action) throws InterruptedException, InvocationTargetException;
 
+        /**
+         * Creates a new viewer window; the returned view is not visible until
+         * {@link WindowView#showAndFront()} is called.
+         *
+         * @param localization the plugin localization for window texts
+         * @param context the plugin context the window reads through
+         * @param refreshAction callback that asks the plugin to reload the clip-mask snapshot
+         * @param onClosed callback invoked after the window was closed or disposed
+         * @return the created window
+         */
         WindowView create(
             PluginLocalization localization,
             PluginContext context,
@@ -389,17 +411,38 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         );
     }
 
+    /**
+     * The plugin-facing surface of the clip-mask viewer window, implemented by
+     * {@code ClipMaskViewerWindow}.
+     */
     public interface WindowView {
+        /** Makes the window visible and brings it to the front. */
         void showAndFront();
 
+        /** Shows the loading state until a snapshot or the unavailable state replaces it. */
         void showLoading();
 
+        /**
+         * Applies a completed analysis snapshot and refreshes every view of the window.
+         *
+         * @param snapshot the immutable analysis result; must not be null
+         */
         void showSnapshot(ClipMaskViewerState.Snapshot snapshot);
 
+        /** Clears the current state and reports that snapshot data is unavailable. */
         void showUnavailable();
 
+        /**
+         * Highlights the objects named by a detached host selection.
+         *
+         * @param summary the current Cubism selection; must not be null
+         */
         void applySelection(dev.turboism.sdk.cubism.service.query.SelectionSummary summary);
 
+        /**
+         * Releases the window and its registrations, then runs the plugin's close callback;
+         * repeated calls are safe.
+         */
         void dispose();
     }
 

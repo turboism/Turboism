@@ -30,9 +30,9 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
         // Reuse one store across disable/enable cycles so a queued write from a previous
         // enable cannot be overtaken by, and then overwrite, a newer write after re-enable.
         if (store == null) {
-            try {
+            if (context.storage().isAvailable()) {
                 store = ManualOrderStore.storage(context.storage(), context.logger());
-            } catch (UnsupportedOperationException unavailable) {
+            } else {
                 store = ManualOrderStore.unavailable();
                 context.logger().info("Scene manual order storage is unavailable; persistence is disabled.");
             }

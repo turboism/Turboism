@@ -124,6 +124,12 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
     ) {
         synchronized (lifecycle) {
             requireOpen();
+            if (!resolver.isInstance(
+                dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.MODEL_CLASS,
+                borrowedModel
+            )) {
+                throw new IllegalArgumentException("Borrowed model is not a verified Core CubismModel.");
+            }
             source.publishBorrowedModel(borrowedModel, modelIdentity);
         }
     }

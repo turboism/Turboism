@@ -35,7 +35,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
                      instrumentation,
                      resolver(
                          "5.3.02",
-                         VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                         VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                          Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID)
                      ),
                      Target.class.getClassLoader()
@@ -74,7 +74,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
                      instrumentation,
                      resolver(
                          "5.3.03",
-                         VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                         VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                          Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID),
                          DialogTarget.class.getName().replace('.', '/'),
                          StatisticsTarget.class.getName().replace('.', '/')
@@ -107,7 +107,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
             instrumentation,
             resolver(
                 "5.2.03",
-                VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID)
             ),
             Target.class.getClassLoader()
@@ -118,7 +118,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
                 instrumentation,
                 resolver(
                     "5.3.01",
-                    VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                    VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                     Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID)
                 ),
                 Target.class.getClassLoader()
@@ -132,7 +132,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
         final String owner = Target.class.getName().replace('.', '/');
         final VerifiedMemberResolver resolver = TestVerifiedResolvers.create(
             "5.3.02",
-            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
             Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID),
             List.of(StaticSelector.method(
                 VerifiedTextureAtlasAutoLayoutHookInstaller.AUTO_LAYOUT_ALIAS,
@@ -156,7 +156,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
     private VerifiedMemberResolver resolver(final Set<String> capabilities) {
         return resolver(
             "5.3.02",
-            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
             capabilities
         );
     }
@@ -219,27 +219,20 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
     }
 
     private static Set<String> nativeInvocationAliases(final String version) {
-        return switch (version) {
-            case "5.2.03" -> VerifiedCubism520TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES;
-            case "5.3.03" -> VerifiedCubism5303TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES;
-            default -> VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES;
-        };
+        return profileForTest(version).nativeInvocationAliases();
     }
 
     private static Set<String> dialogInjectionAliases(final String version) {
-        return switch (version) {
-            case "5.2.03" -> VerifiedCubism520TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES;
-            case "5.3.03" -> VerifiedCubism5303TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES;
-            default -> VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES;
-        };
+        return profileForTest(version).dialogInjectionAliases();
     }
 
     private static Set<String> statisticsAliases(final String version) {
-        return switch (version) {
-            case "5.2.03" -> Set.of();
-            case "5.3.03" -> VerifiedCubism5303TextureAtlasSelectorContract.STATISTICS_ALIASES;
-            default -> VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES;
-        };
+        return profileForTest(version).statisticsAliases();
+    }
+
+    private static VerifiedTextureAtlasSelectorContract.Profile profileForTest(final String version) {
+        return VerifiedTextureAtlasSelectorContract.profileFor(version)
+            .orElseGet(() -> VerifiedTextureAtlasSelectorContract.profileFor("5.3.02").orElseThrow());
     }
 
     private Instrumentation instrumentation(final List<String> calls) {

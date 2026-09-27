@@ -103,6 +103,8 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
         }
     }
 
+    // Unbind is identity-scoped: only the live binding instance may be cleared.
+    @SuppressWarnings("ReferenceEquality")
     private void unbind(final Binding requested) {
         synchronized (monitor) {
             if (binding == requested) {
@@ -128,10 +130,26 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
     private record Binding(long hostGeneration, ActivationTarget target) {
     }
 
+    /** Host seam that activates one installed embedded panel. */
     @FunctionalInterface
     public interface ActivationTarget {
+        /**
+         * Brings the panel's docked tab to the front.
+         *
+         * @param pluginId the plugin that owns the panel
+         * @param panelId the panel id within that plugin
+         */
         void activate(String pluginId, EmbeddedPanelId panelId);
 
+        /**
+         * Brings a floating panel's window to the front.
+         *
+         * <p>The default delegates to {@link #activate} for hosts that do not distinguish
+         * docked from floating activation.</p>
+         *
+         * @param pluginId the plugin that owns the panel
+         * @param panelId the panel id within that plugin
+         */
         default void activateFloating(final String pluginId, final EmbeddedPanelId panelId) {
             activate(pluginId, panelId);
         }

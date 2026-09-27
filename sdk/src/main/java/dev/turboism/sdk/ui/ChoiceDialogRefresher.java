@@ -7,5 +7,6 @@ import java.util.List;
 @FunctionalInterface
 public interface ChoiceDialogRefresher {
 
+    /** Returns the replacement option list for the open dialog. */
     List<ChoiceDialogOption> refresh();
 }

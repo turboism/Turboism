@@ -17,5 +17,7 @@ public enum HostDialogOutcome {
     /** Multiple buttons matched the same semantic action → nothing was triggered. */
     AMBIGUOUS,
     /** No recognizable/operable button or not a target dialog type. */
-    UNSUPPORTED
+    UNSUPPORTED,
+    /** The automation service itself is not available in this runtime. */
+    UNAVAILABLE
 }

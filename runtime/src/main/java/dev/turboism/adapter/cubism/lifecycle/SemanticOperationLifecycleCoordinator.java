@@ -2,8 +2,8 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.sdk.event.cubism.CubismOperationLifecycleEvent;
-import dev.turboism.sdk.event.cubism.ModelUpdateEvent;
+import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
+import dev.turboism.sdk.cubism.event.ModelUpdateEvent;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
@@ -111,7 +111,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         final Runnable invocation
     ) {
         final Supplier<T> snapshot = Objects.requireNonNull(state, "state");
-        run(operation, origin, subjectId, () -> {
+        run(operation, origin, subjectId, Optional.empty(), () -> {
             final T before = snapshot.get();
             Objects.requireNonNull(invocation, "invocation").run();
             return !Objects.equals(before, snapshot.get());
@@ -131,7 +131,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         final Runnable invocation
     ) {
         final Supplier<T> snapshot = Objects.requireNonNull(state, "state");
-        run(operation, origin, subjectId, () -> {
+        run(operation, origin, subjectId, Optional.empty(), () -> {
             final T before = snapshot.get();
             Objects.requireNonNull(invocation, "invocation").run();
             return !Objects.equals(before, finalState);
@@ -145,16 +145,115 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         final Optional<String> subjectId,
         final Runnable invocation
     ) {
-        run(operation, origin, subjectId, () -> {
+        run(operation, origin, subjectId, Optional.empty(), () -> {
             Objects.requireNonNull(invocation, "invocation").run();
             return true;
         });
+    }
+
+    /**
+     * Publishes one already-performed host edit as a confirmed semantic operation.
+     *
+     * <p>Use this for an edit the Cubism user interface performed and Turboism only observed. The
+     * invocation is not owned by this coordinator, so only the {@code on} and {@code after} phases
+     * are produced, and only when the observer established the operation from an exact native
+     * entry. The same recursion guard as {@link #runComparing} applies, so an observation that
+     * re-enters an active operation on the same thread fails closed instead of nesting.</p>
+     *
+     * @param operation the semantical operation the observation proved
+     * @param origin the best-known source of the observed edit
+     * @param subjectId optional Turboism-owned object identity the edit applies to
+     */
+    public void publishObserved(
+        final CubismOperation operation,
+        final CubismOperationOrigin origin,
+        final Optional<String> subjectId
+    ) {
+        publishObserved(operation, origin, subjectId, Optional.empty());
+    }
+
+    /**
+     * Publishes one already-performed host edit as a confirmed semantic operation, carrying the
+     * presentation label the observation established.
+     *
+     * <p>The label is presentation only. It is never an identity and never proof of what the
+     * operation changed, so a caller that cannot read an exact label must pass
+     * {@link Optional#empty()} rather than a value derived from a native name.</p>
+     *
+     * @param operation the semantical operation the observation proved
+     * @param origin the best-known source of the observed edit
+     * @param subjectId optional Turboism-owned object identity the edit applies to
+     * @param label optional human-readable name of the observed edit
+     */
+    public void publishObserved(
+        final CubismOperation operation,
+        final CubismOperationOrigin origin,
+        final Optional<String> subjectId,
+        final Optional<String> label
+    ) {
+        final CubismOperation semantic = Objects.requireNonNull(operation, "operation");
+        final EnumSet<CubismOperation> operations = active.get();
+        if (!operations.add(semantic)) {
+            throw new IllegalStateException(
+                "Recursive Cubism semantic lifecycle is not allowed: " + semantic.id()
+            );
+        }
+        final CubismOperationEvent event = new CubismOperationEvent(
+            sequence.incrementAndGet(),
+            semantic,
+            Objects.requireNonNull(origin, "origin"),
+            Objects.requireNonNull(subjectId, "subjectId"),
+            Objects.requireNonNull(label, "label")
+        );
+        try {
+            publishCompletion(event, true);
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker == null) return;
+            broker.publishRuntime(new CubismOperationLifecycleEvent.On(event));
+            publishModelUpdateOn(broker, event);
+            broker.publishRuntime(new CubismOperationLifecycleEvent.After(event, true));
+            publishModelUpdateAfter(broker, event, true);
+        } finally {
+            operations.remove(semantic);
+            if (operations.isEmpty()) active.remove();
+        }
+    }
+
+    /**
+     * Publishes the observed start of one native edit Turboism is watching.
+     *
+     * <p>This is the only phase available before the host mutates the model, so the operation is the
+     * conservative generic editor command and the label is a native name the host showed: neither is
+     * evidence of what the edit will change. The specific operation follows when the observer
+     * decodes the committed entry and calls {@link #publishObserved}, which is the call that
+     * actually establishes facts. An edit that never reaches undo therefore reports a start and no
+     * confirmation, which is the truth.</p>
+     *
+     * <p>No recursion guard is taken here: the guard exists to stop an operation nesting inside
+     * another, and this call only opens a frame. It is also how a hook that fires during a Turboism
+     * authoring transaction is suppressed before it reaches this method.</p>
+     *
+     * @param label optional native edit name, presented but never treated as an identity
+     */
+    public void publishObservedStart(final Optional<String> label) {
+        final CubismOperationEvent event = new CubismOperationEvent(
+            sequence.incrementAndGet(),
+            CubismOperation.EXECUTE_EDITOR_COMMAND,
+            CubismOperationOrigin.HOST_UI,
+            Optional.empty(),
+            Objects.requireNonNull(label, "label")
+        );
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker == null) return;
+        broker.publishRuntime(new CubismOperationLifecycleEvent.Before(event));
+        publishModelUpdateBefore(broker, event);
     }
 
     private void run(
         final CubismOperation operation,
         final CubismOperationOrigin origin,
         final Optional<String> subjectId,
+        final Optional<String> label,
         final Supplier<Boolean> invocation
     ) {
         final CubismOperation semantic = Objects.requireNonNull(operation, "operation");
@@ -168,7 +267,8 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
             sequence.incrementAndGet(),
             semantic,
             Objects.requireNonNull(origin, "origin"),
-            Objects.requireNonNull(subjectId, "subjectId")
+            Objects.requireNonNull(subjectId, "subjectId"),
+            Objects.requireNonNull(label, "label")
         );
         try {
             invokeBefore(event);

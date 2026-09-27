@@ -28,9 +28,9 @@ import java.util.Properties;
  *   <li>setting the project and export recent directories (real directories
  *       created under the task state tree) round-trips through the service;</li>
  *   <li>both directories persist into the core-plugin properties file
- *       {@code <home>/config/dev.turboism.plugin.core/save-directory-history.properties}
+ *       {@code <home>/config/turboism.core/save-directory-history.properties}
  *       (plain JDK {@link java.util.Properties} read) — proving the
- *       service → runtime → core-plugin provider chain;</li>
+ *       service → runtime → shell provider chain;</li>
  *   <li>the global {@code <home>/config.json} no longer carries the
  *       rolled-back {@code fileChooserHistory} section (v1 → v2 evidence);</li>
  *   <li>{@code exportSeparationEnabled()} matches
@@ -175,8 +175,8 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
         }
 
         // 3. Persistence: the core-plugin provider writes both slots to
-        //    <home>/config/turboism.core/save-directory-history.properties (core
-        //    plugin id is turboism.core). Home is derived from the state dir:
+        //    <home>/config/turboism.core/save-directory-history.properties (the
+        //    framework shell keeps the reserved turboism.core identity).
         //    <home>/state/<plugin-id>.
         final Path home = stateDir.getParent().getParent();
         final Path pluginConfig = home.resolve("config")

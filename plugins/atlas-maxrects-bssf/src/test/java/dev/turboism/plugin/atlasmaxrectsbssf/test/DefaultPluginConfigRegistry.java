@@ -17,10 +17,15 @@ import java.util.concurrent.CompletionStage;
 public final class DefaultPluginConfigRegistry implements PluginConfigRegistry {
     private final java.util.Map<ConfigKey<?>, Object> values = new java.util.HashMap<>();
     private ConfigSchema schema;
+    private List<dev.turboism.sdk.config.ConfigMigration> migrations = List.of();
     private long revision;
 
     public ConfigSchema lastSchema() {
         return schema;
+    }
+
+    public List<dev.turboism.sdk.config.ConfigMigration> lastMigrations() {
+        return migrations;
     }
 
     @Override public CompletionStage<Void> registerSchema(ConfigSchema schema, List<dev.turboism.sdk.config.ConfigMigration> migrations) {
@@ -33,6 +38,7 @@ public final class DefaultPluginConfigRegistry implements PluginConfigRegistry {
             }
         }
         this.schema = schema;
+        this.migrations = List.copyOf(migrations);
         return CompletableFuture.completedFuture(null);
     }
     @Override public <T> CompletionStage<ConfigReadResult<T>> read(ConfigKey<T> key) {

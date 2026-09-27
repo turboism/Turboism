@@ -16,6 +16,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -91,6 +94,40 @@ class EditorBackedCubismModelAccessTest {
         Host.currentDocument = new Document(host.source);
 
         assertThrows(IllegalStateException.class, parameter::getValue);
+    }
+
+    @Test
+    void closedDocumentGraphIsNotRetainedByTheBindingCache() throws Exception {
+        Fixture host = new Fixture("model-a", 12.0F);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+        Host.install(host);
+        access.active();
+
+        final WeakReference<Object> document = new WeakReference<>(host.document);
+        final WeakReference<Object> source = new WeakReference<>(host.source);
+        final WeakReference<Object> model = new WeakReference<>(host.source.currentInstance);
+
+        Host.currentDocument = null;
+        host = null;
+
+        assertCollected(List.of(document, source, model));
+        Reference.reachabilityFence(access);
+    }
+
+    @Test
+    void repeatedIdenticalBindingKeepsTheHandedOutReferenceValid() {
+        final Fixture host = new Fixture("model-a", 12.0F);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+        Host.install(host);
+        final var parameter = access.active().parameters().find(new ParameterId("ParamAngleX"));
+
+        access.active();
+
+        assertEquals(12.0F, parameter.getValue());
     }
 
     @Test
@@ -572,6 +609,22 @@ class EditorBackedCubismModelAccessTest {
         final java.util.ArrayList<Float> result = new java.util.ArrayList<>();
         for (int index = 0; index < values.size(); index++) result.add(values.get(index));
         return result;
+    }
+
+    /**
+     * Bounded weak-reachability check, using the same idiom as
+     * CubismEditorApiAvailabilityInterceptorTest for "the live component must not retain discarded host
+     * objects".
+     */
+    private static void assertCollected(final List<WeakReference<?>> references) throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (references.stream().anyMatch(reference -> !reference.refersTo(null))
+            && System.nanoTime() < deadline) {
+            System.gc();
+            Thread.sleep(10);
+        }
+        assertTrue(references.stream().allMatch(reference -> reference.refersTo(null)),
+            "the binding cache must not retain a closed document, its model source or its model instance");
     }
 
     public static final class Host {

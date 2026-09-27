@@ -18,16 +18,46 @@ public interface RenderStatusAdapter {
     String CAPABILITY_ID = "cubism.render.status.read";
     String ADAPTER_SLICE_ID = "adapter.render-status.readonly";
 
+    /**
+     * @return an available result carrying the observed render status (empty when the host
+     *         has none to report), or an unavailable result whose diagnostic explains the
+     *         failed read; never null
+     */
     AdapterResult<Optional<RenderStatusSnapshot>> renderStatus();
 
+    /**
+     * The raw host call surface this adapter guards.
+     *
+     * <p>Implementations talk to the real Editor; callers must go through
+     * {@link RenderStatusAdapter} so version and capability checks are applied and host
+     * failures become diagnostics instead of exceptions.</p>
+     */
     interface HostOperations {
+        /**
+         * @return the host application version string used for the reviewed-version check
+         */
         String hostVersion();
 
+        /**
+         * @return {@code true} when this host exposes the render-status read surface
+         */
         boolean supportsRenderStatusRead();
 
+        /**
+         * @return the render status observed on the host; empty when none is reported
+         * @throws AdapterHostException when the host call fails with a known diagnostic
+         */
         Optional<RenderStatusSnapshot> renderStatus();
     }
 
+    /**
+     * The outcome of one guarded adapter read: either the observed {@code value} or the
+     * {@link SafeModeDiagnostic} explaining why it is absent.
+     *
+     * @param value the observed value, empty when the read was unavailable; never null
+     * @param diagnostic why no value could be supplied, empty when the read succeeded; never null
+     * @param <T> the observed value type
+     */
     record AdapterResult<T>(
         Optional<T> value,
         Optional<SafeModeDiagnostic> diagnostic
@@ -73,6 +103,15 @@ public interface RenderStatusAdapter {
         }
     }
 
+    /**
+     * Guarded implementation of {@link RenderStatusAdapter}.
+     *
+     * <p>Every read checks the reviewed host version and the render-status capability before
+     * issuing the data read — the gate itself already calls
+     * {@link HostOperations#hostVersion()} and the capability probe, so admission gates the
+     * data read, not all host access. {@link AdapterHostException} and unexpected runtime
+     * failures become unavailable results.</p>
+     */
     final class Impl implements RenderStatusAdapter {
         private final Optional<HostOperations> host;
 

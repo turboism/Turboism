@@ -67,12 +67,12 @@
     },
     {
       "mappingId": "cubism.mapping.v5_3_02.workspace_control.05",
-      "alias": "workspace.dock.current",
+      "alias": "workspace.palette-manager.current",
       "kind": "method",
-      "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
-      "memberName": "getLastWorkspace",
+      "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+      "memberName": "getCurrentWorkspace",
       "descriptor": "()Lcom/live2d/ui/dock/CPMLayoutWorkspace;",
-      "requiredAccessFlags": 1,
+      "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
@@ -160,6 +160,28 @@
       "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
       "memberName": "command_resetCurrentWorkspaceLayout",
       "descriptor": "()V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.workspace_control.14",
+      "alias": "workspace.workspace.default-layout",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
+      "memberName": "getDefaultLayout",
+      "descriptor": "()[B",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.15",
+      "alias": "workspace.dock.palette-manager",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+      "memberName": "getPaletteManager",
+      "descriptor": "()Lcom/live2d/ui/dock/CPMPaletteManager;",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"

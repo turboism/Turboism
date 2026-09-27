@@ -1,0 +1,1884 @@
+package dev.turboism.exportsettings;
+
+import dev.turboism.mapping.verification.ProtectedExportVerificationManifest;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+
+import java.io.File;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.BiConsumer;
+
+/**
+ * {@link ProtectedExportHostOperations} backed solely by the pinned record slice of the
+ * admitted exact Cubism build (5.2.03, 5.3.02 or 5.3.03).
+ *
+ * <p>Every call resolves through {@link VerifiedMemberResolver}, which re-attests the host
+ * classloader and member shape on each access — a stale or tampered host fails closed
+ * rather than invoking a mismatched member.</p>
+ */
+public final class VerifiedProtectedExportHostOperations implements ProtectedExportHostOperations {
+
+    private static final String PREFIX = "cubism.protected-export.";
+
+    private static final String APP_CONTROLLER_CLASS = PREFIX + "app-controller.class";
+    private static final String APP_INSTANCE = PREFIX + "app-controller.instance";
+    private static final String CURRENT_DOCUMENT = PREFIX + "app-controller.current-document";
+    private static final String CURRENT_PROJECT = PREFIX + "app-controller.current-project";
+    private static final String COMMAND_OPEN = PREFIX + "app-controller.open";
+    private static final String COMMAND_CLOSE = PREFIX + "app-controller.close-content";
+    private static final String MAIN_FRAME_CTRL = PREFIX + "app-controller.main-frame-ctrl";
+    private static final String MAIN_FRAME = PREFIX + "main-frame-ctrl.main-frame";
+    private static final String MAIN_FRAME_CTRL_CLASS = PREFIX + "main-frame-ctrl.class";
+    private static final String PROJECT_CLASS = PREFIX + "project.class";
+    private static final String PROJECT_CHILDREN = PREFIX + "project.children";
+
+    private static final String DOCUMENT_CLASS = PREFIX + "document.class";
+    private static final String DOC_MODEL_SOURCE = PREFIX + "document.model-source";
+    private static final String DOC_FILE_CONTENT = PREFIX + "document.file-content";
+    private static final String DOC_SELECTOR = PREFIX + "document.selector";
+    private static final String DOC_EDIT_MODE_CURRENT = PREFIX + "document.edit-mode-current";
+    private static final String DOC_EDIT_MODE_MAIN = PREFIX + "document.edit-mode-main";
+    private static final String DOC_MARK_SAVED = PREFIX + "document.mark-saved";
+    private static final String DOC_FILE = PREFIX + "document.file";
+    private static final String DOC_UNDO = PREFIX + "document.undo-manager";
+
+    private static final String FILE_CONTENT_CLASS = PREFIX + "file-content.class";
+    private static final String FILE_CONTENT_FILE = PREFIX + "file-content.file";
+    private static final String FILE_CONTENT_MODIFIED = PREFIX + "file-content.modified";
+
+    private static final String UNDO_CLASS = PREFIX + "undo-manager.class";
+    private static final String UNDO_POSITION = PREFIX + "undo-manager.position";
+    private static final String UNDO_EDIT_COUNT = PREFIX + "undo-manager.edit-count";
+    private static final String UNDO_CAN_UNDO = PREFIX + "undo-manager.can-undo";
+
+    private static final String SELECTOR_INTERFACE = PREFIX + "selector-interface.class";
+    private static final String SELECTOR_CLASS = PREFIX + "selector.class";
+    private static final String SELECTOR_CLEAR = PREFIX + "selector.clear";
+    private static final String SELECTOR_SELECTED = PREFIX + "selector.selected";
+    private static final String SELECTOR_SELECTED_COUNT = PREFIX + "selector.selected-count";
+    private static final String SELECTOR_ADD_SOURCE = PREFIX + "selector.add-source";
+    private static final String SELECTOR_SELECTED_DEFORMERS = PREFIX + "selector.selected-deformers";
+
+    private static final String EDIT_MODE_BASE_CLASS = PREFIX + "edit-mode-base.class";
+    private static final String EDIT_MODE_CLASS = PREFIX + "edit-mode.class";
+    private static final String EDIT_MODE_APPLY = PREFIX + "edit-mode.apply-deformer";
+
+    private static final String MODEL_SOURCE_CLASS = PREFIX + "model-source.class";
+    private static final String MODEL_CLASS = PREFIX + "model.class";
+    private static final String MODEL_PARAMETER_SET = PREFIX + "model.parameter-set";
+    private static final String MS_DOCUMENT = PREFIX + "model-source.document";
+    private static final String MS_INSTANCE = PREFIX + "model-source.current-instance";
+    private static final String MS_DEFORMERS = PREFIX + "model-source.all-deformers";
+    private static final String MS_OBJECTS = PREFIX + "model-source.all-objects";
+    private static final String MS_ART_MESHES = PREFIX + "model-source.all-art-meshes";
+    private static final String MS_PARTS = PREFIX + "model-source.all-parts";
+    private static final String MS_ROOT_PART = PREFIX + "model-source.root-part";
+    private static final String MS_SAVE_MODEL = PREFIX + "model-source.save-model";
+    private static final String MS_PARAMETERS = PREFIX + "model-source.all-parameters";
+    private static final String MS_PHYSICS = PREFIX + "model-source.all-physics-settings";
+    private static final String MS_MOTION_SYNC =
+        PREFIX + "model-source.all-motion-sync-settings";
+    private static final String MS_GUID = PREFIX + "model-source.guid";
+    private static final String MS_CONTAIN_MULTIPLY =
+        PREFIX + "model-source.contain-multiply-color";
+    private static final String MS_CONTAIN_SCREEN =
+        PREFIX + "model-source.contain-screen-color";
+    private static final String MS_CONTAIN_MORPH =
+        PREFIX + "model-source.contain-morph-target";
+    private static final String MS_CONTAIN_MORPH_ENH =
+        PREFIX + "model-source.contain-morph-target-enhancement";
+    private static final String MS_CONTAIN_ADVANCED_BLEND =
+        PREFIX + "model-source.contain-advanced-blend";
+    private static final String MS_CONTAIN_ART_PATH =
+        PREFIX + "model-source.contain-art-path";
+    private static final String MS_CONTAIN_ALIAS =
+        PREFIX + "model-source.contain-alias";
+    private static final String MS_CONTAIN_INVERT_CLIP =
+        PREFIX + "model-source.contain-invert-clipping";
+    private static final String MS_CONTAIN_QUAD =
+        PREFIX + "model-source.contain-quad-transform";
+    private static final String MS_CONTAIN_OFFSCREEN =
+        PREFIX + "model-source.contain-offscreen-rendering";
+    private static final String MS_CONTAIN_MOTION_SYNC =
+        PREFIX + "model-source.contain-motion-sync";
+    private static final String MS_CONTAIN_MOTION_SYNC_FIX =
+        PREFIX + "model-source.contain-motion-sync-correction";
+
+    private static final String SOURCE_MORPH_SET =
+        PREFIX + "source.keyform-morph-target-set";
+    private static final String SOURCE_EXT_MORPH_SET =
+        PREFIX + "source.extended-morph-target-set";
+    private static final String SOURCE_EXTENSIONS = PREFIX + "source.extensions";
+    private static final String MORPH_SET_CLASS = PREFIX + "morph-target-set.class";
+    private static final String MORPH_SET_TARGETS = PREFIX + "morph-target-set.morph-targets";
+
+    private static final String SOURCE_GUID = PREFIX + "source.guid";
+    private static final String SOURCE_ID = PREFIX + "source.id";
+    private static final String SOURCE_LOCAL_NAME = PREFIX + "source.local-name";
+    private static final String SOURCE_SET_LOCAL_NAME = PREFIX + "source.set-local-name";
+
+    private static final String DEFORMER_CLASS = PREFIX + "deformer-source.class";
+    private static final String DEFORMER_GUID = PREFIX + "deformer.guid";
+    private static final String DEFORMER_TARGET = PREFIX + "deformer.target-guid";
+    private static final String DEFORMER_CHILDREN = PREFIX + "deformer-source.children";
+    private static final String WARP_CLASS = PREFIX + "warp-deformer.class";
+    private static final String ROTATION_CLASS = PREFIX + "rotation-deformer.class";
+    private static final String ART_MESH_CLASS = PREFIX + "art-mesh.class";
+    private static final String PART_CLASS = PREFIX + "part.class";
+    private static final String PARAMETER_CLASS = PREFIX + "parameter.class";
+    private static final String DRAWABLE_CLASS = PREFIX + "drawable-source.class";
+    private static final String DRAWABLE_ID_GET = PREFIX + "drawable.id";
+    private static final String DRAWABLE_ID_SET = PREFIX + "drawable.set-id";
+    private static final String DRAWABLE_ID_CLASS = PREFIX + "drawable-id.class";
+    private static final String DRAWABLE_ID_CREATE = PREFIX + "drawable-id.create";
+    private static final String PARAMETER_ID_CLASS = PREFIX + "parameter-id.class";
+    private static final String PARAMETER_SOURCE_ID = PREFIX + "parameter-source.id";
+    private static final String PARAMETER_SOURCE_NAME = PREFIX + "parameter-source.name";
+    private static final String PARAMETER_SOURCE_MIN = PREFIX + "parameter-source.min-value";
+    private static final String PARAMETER_SOURCE_MAX = PREFIX + "parameter-source.max-value";
+    private static final String PARAMETER_SOURCE_DEFAULT =
+        PREFIX + "parameter-source.default-value";
+    private static final String PARAMETER_SOURCE_REPEAT = PREFIX + "parameter-source.repeat";
+    private static final String GUID_CLASS = PREFIX + "guid.class";
+    private static final String GUID_UUID = PREFIX + "guid.uuid-string";
+    private static final String ID_CLASS = PREFIX + "id.class";
+    private static final String ID_STRING = PREFIX + "id.id-string";
+
+    private static final String PARAMETER_SET_CLASS = PREFIX + "parameter-set.class";
+    private static final String PARAMETER_SET_PARAMETERS = PREFIX + "parameter-set.parameters";
+    private static final String PARAMETER_INSTANCE_CLASS = PREFIX + "parameter-instance.class";
+    private static final String PARAMETER_INSTANCE_VALUE = PREFIX + "parameter-instance.value";
+    private static final String PARAMETER_INSTANCE_ID = PREFIX + "parameter-instance.id";
+    private static final String PARAMETER_INSTANCE_SET_VALUE =
+        PREFIX + "parameter-instance.set-value";
+
+    private static final String MODEL_REINIT_EXE = PREFIX + "model.reinit-instance-exe";
+    private static final String MODEL_ART_MESHES = PREFIX + "model.all-art-meshes";
+    private static final String ART_MESH_INSTANCE_CLASS =
+        PREFIX + "art-mesh-instance.class";
+    private static final String ART_MESH_INSTANCE_SOURCE =
+        PREFIX + "art-mesh-instance.source";
+    private static final String ART_MESH_INSTANCE_FORM =
+        PREFIX + "art-mesh-instance.calculated-form";
+    private static final String ART_MESH_FORM_CLASS = PREFIX + "art-mesh-form.class";
+    private static final String ART_MESH_FORM_POSITIONS =
+        PREFIX + "art-mesh-form.positions";
+
+    private static final String GRID_CLASS = PREFIX + "keyform-grid.class";
+    private static final String BINDING_CLASS = PREFIX + "keyform-binding.class";
+    private static final String EXT_TYPE_CLASS = PREFIX + "extended-interpolation-type.class";
+    private static final String SOURCE_GRID = PREFIX + "source.keyform-grid";
+    private static final String SOURCE_EXT_GRID = PREFIX + "source.extended-keyform-grid";
+    private static final String GRID_BINDINGS = PREFIX + "keyform-grid.bindings";
+    private static final String BINDING_EXT_TYPE = PREFIX + "keyform-binding.extended-type";
+    private static final String BINDING_ILLEGAL = PREFIX + "keyform-binding.illegal-extended";
+    private static final String BINDING_PARAMETER_ID =
+        PREFIX + "keyform-binding.parameter-id";
+    private static final String BINDING_KEYS = PREFIX + "keyform-binding.keys";
+    private static final String PART_CHILD_GUIDS = PREFIX + "part.child-guids";
+
+    private static final String GLUE_CLASS = PREFIX + "glue-source.class";
+    private static final String GLUE_TARGET_A = PREFIX + "glue-source.target-art-mesh-a";
+    private static final String GLUE_TARGET_B = PREFIX + "glue-source.target-art-mesh-b";
+
+    private static final String CONTROLLABLE_CLASS = PREFIX + "controllable-source.class";
+    private static final String SOURCE_TARGET_DEFORMER = PREFIX + "source.target-deformer-guid";
+    private static final String DRAWABLE_CLIP_GUIDS = PREFIX + "drawable.clip-guids";
+    private static final String DRAWABLE_INVERT_CLIP = PREFIX + "drawable.invert-clipping";
+    private static final String ART_PATH_CLASS = PREFIX + "art-path-source.class";
+    private static final String ART_PATH_BRUSH = PREFIX + "art-path.brush-guid";
+    private static final String ALIAS_CLASS = PREFIX + "alias-source.class";
+    private static final String ALIAS_REFERENCE = PREFIX + "alias.reference-object-guid";
+    private static final String ALIAS_CLIP_GUIDS = PREFIX + "alias.clip-guids";
+    private static final String ALIAS_INVERT_CLIP = PREFIX + "alias.invert-clipping";
+    private static final String ALIAS_USE_OFFSCREEN = PREFIX + "alias.use-offscreen";
+    private static final String ALIAS_COLOR_COMPOSITION =
+        PREFIX + "alias.color-composition";
+    private static final String ALIAS_ALPHA_COMPOSITION =
+        PREFIX + "alias.alpha-composition";
+    private static final String ALIAS_CIRCULATED = PREFIX + "alias.circulated";
+    private static final String PART_CLIP_GUIDS = PREFIX + "part.clip-guids";
+    private static final String PART_INVERT_CLIP = PREFIX + "part.invert-clipping";
+    private static final String PART_USE_OFFSCREEN = PREFIX + "part.use-offscreen";
+    private static final String PART_COLOR_COMPOSITION = PREFIX + "part.color-composition";
+    private static final String PART_ALPHA_COMPOSITION = PREFIX + "part.alpha-composition";
+    private static final String PHYSICS_SETTINGS_CLASS =
+        PREFIX + "physics-settings-source.class";
+    private static final String PHYSICS_SETTINGS_GUID = PREFIX + "physics-settings.guid";
+    private static final String PHYSICS_SETTINGS_ID = PREFIX + "physics-settings.id";
+    private static final String PHYSICS_SETTINGS_NAME = PREFIX + "physics-settings.name";
+    private static final String PHYSICS_SETTINGS_SET_NAME =
+        PREFIX + "physics-settings.set-name";
+    private static final String PHYSICS_SETTINGS_SET_ID =
+        PREFIX + "physics-settings.set-id";
+    private static final String PHYSICS_SETTING_ID_CLASS =
+        PREFIX + "physics-setting-id.class";
+    private static final String PHYSICS_SETTING_ID_CREATE =
+        PREFIX + "physics-setting-id.create";
+    private static final String PHYSICS_SETTINGS_ENABLE = PREFIX + "physics-settings.enable";
+    private static final String PHYSICS_SETTINGS_INPUTS = PREFIX + "physics-settings.inputs";
+    private static final String PHYSICS_SETTINGS_OUTPUTS = PREFIX + "physics-settings.outputs";
+    private static final String PHYSICS_SETTINGS_VERTICES =
+        PREFIX + "physics-settings.vertices";
+    private static final String PHYSICS_SETTINGS_TOTAL_ANGLE =
+        PREFIX + "physics-settings.total-angle";
+    private static final String PHYSICS_SETTINGS_NORM_POS_MIN =
+        PREFIX + "physics-settings.normalization-position-min";
+    private static final String PHYSICS_SETTINGS_NORM_POS_DEFAULT =
+        PREFIX + "physics-settings.normalization-position-default";
+    private static final String PHYSICS_SETTINGS_NORM_POS_MAX =
+        PREFIX + "physics-settings.normalization-position-max";
+    private static final String PHYSICS_SETTINGS_NORM_ANGLE_MIN =
+        PREFIX + "physics-settings.normalization-angle-min";
+    private static final String PHYSICS_SETTINGS_NORM_ANGLE_DEFAULT =
+        PREFIX + "physics-settings.normalization-angle-default";
+    private static final String PHYSICS_SETTINGS_NORM_ANGLE_MAX =
+        PREFIX + "physics-settings.normalization-angle-max";
+    private static final String PHYSICS_INPUT_SOURCE = PREFIX + "physics-input.source";
+    private static final String PHYSICS_INPUT_WEIGHT = PREFIX + "physics-input.weight";
+    private static final String PHYSICS_INPUT_TYPE = PREFIX + "physics-input.type";
+    private static final String PHYSICS_INPUT_REVERSE = PREFIX + "physics-input.reverse";
+    private static final String PHYSICS_INPUT_ANGLE_SCALE =
+        PREFIX + "physics-input.angle-scale";
+    private static final String PHYSICS_INPUT_TRANSLATION_SCALE =
+        PREFIX + "physics-input.translation-scale";
+    private static final String PHYSICS_OUTPUT_DESTINATION =
+        PREFIX + "physics-output.destination";
+    private static final String PHYSICS_OUTPUT_VERTEX_INDEX =
+        PREFIX + "physics-output.vertex-index";
+    private static final String PHYSICS_OUTPUT_WEIGHT = PREFIX + "physics-output.weight";
+    private static final String PHYSICS_OUTPUT_TYPE = PREFIX + "physics-output.type";
+    private static final String PHYSICS_OUTPUT_REVERSE = PREFIX + "physics-output.reverse";
+    private static final String PHYSICS_OUTPUT_ANGLE_SCALE =
+        PREFIX + "physics-output.angle-scale";
+    private static final String PHYSICS_OUTPUT_TRANSLATION_SCALE =
+        PREFIX + "physics-output.translation-scale";
+    private static final String PHYSICS_OUTPUT_BELOW_MINIMUM =
+        PREFIX + "physics-output.value-below-minimum";
+    private static final String PHYSICS_OUTPUT_EXCEEDED_MAXIMUM =
+        PREFIX + "physics-output.value-exceeded-maximum";
+    private static final String PHYSICS_VERTEX_POSITION = PREFIX + "physics-vertex.position";
+    private static final String PHYSICS_VERTEX_MOBILITY = PREFIX + "physics-vertex.mobility";
+    private static final String PHYSICS_VERTEX_DELAY = PREFIX + "physics-vertex.delay";
+    private static final String PHYSICS_VERTEX_ACCELERATION =
+        PREFIX + "physics-vertex.acceleration";
+    private static final String PHYSICS_VERTEX_RADIUS = PREFIX + "physics-vertex.radius";
+    private static final String VECTOR2_X = PREFIX + "vector2.x";
+    private static final String VECTOR2_Y = PREFIX + "vector2.y";
+    private static final String PARAMETER_SOURCE_GUID = PREFIX + "parameter-source.guid";
+    private static final String MS_PHYSICS_SETTINGS_SET =
+        PREFIX + "model-source.physics-settings-set";
+    private static final String PHYSICS_SET_GRAVITY = PREFIX + "physics-settings-set.gravity";
+    private static final String PHYSICS_SET_WIND = PREFIX + "physics-settings-set.wind";
+    private static final String PHYSICS_SET_FPS = PREFIX + "physics-settings-set.fps";
+    private static final String PHYSICS_SET_SELECTED =
+        PREFIX + "physics-settings-set.selected";
+    private static final String MOTION_SYNC_CLASS = PREFIX + "motion-sync-setting.class";
+    private static final String MOTION_SYNC_GUID = PREFIX + "motion-sync-setting.guid";
+    private static final String MOTION_SYNC_ID = PREFIX + "motion-sync-setting.id";
+    private static final String MOTION_SYNC_ID_FIELD = PREFIX + "motion-sync-setting.id-field";
+    private static final String MOTION_SYNC_NAME = PREFIX + "motion-sync-setting.name";
+    private static final String MOTION_SYNC_SET_NAME =
+        PREFIX + "motion-sync-setting.set-name";
+    private static final String MOTION_SYNC_ID_CLASS = PREFIX + "motion-sync-setting-id.class";
+    private static final String MOTION_SYNC_ID_CREATE =
+        PREFIX + "motion-sync-setting-id.create";
+    private static final String MOTION_SYNC_MAPPING = PREFIX + "motion-sync-setting.mapping";
+    private static final String MOTION_SYNC_POSTPROC =
+        PREFIX + "motion-sync-setting.postproc";
+    private static final String MOTION_SYNC_VERSION = PREFIX + "motion-sync-setting.version";
+    private static final String MOTION_SYNC_MAPPING_CHECKSUM =
+        PREFIX + "motion-sync-mapping.checksum";
+    private static final String MOTION_SYNC_POSTPROC_CHECKSUM =
+        PREFIX + "motion-sync-postproc.checksum";
+
+    private static final String DIALOG_CLASS = PREFIX + "export-dialog.class";
+    private static final String DIALOG_MODEL_SOURCE = PREFIX + "export-dialog.model-source";
+    private static final String DRIVER_CLASS = PREFIX + "export-driver.class";
+    private static final String DRIVER_INSTANCE = PREFIX + "export-driver.instance";
+    private static final String DRIVER_EXPORT = PREFIX + "export-driver.export";
+
+    private static final String FILE_CACHE_CLASS = PREFIX + "file-cache.class";
+    private static final String FILE_CACHE_INSTANCE = PREFIX + "file-cache.instance";
+    private static final String FILE_CACHE_HANDLES = PREFIX + "file-cache.handles";
+    private static final String FILE_CACHE_BY_FILE = PREFIX + "file-cache.handle-by-file";
+    private static final String FILE_CACHE_REMOVE = PREFIX + "file-cache.remove";
+    private static final String FILE_HANDLE_CLASS = PREFIX + "file-handle.class";
+    private static final String FILE_HANDLE_FILE = PREFIX + "file-handle.file";
+    private static final String FILE_HANDLE_LOADER = PREFIX + "file-handle.loader";
+    private static final String FILE_HANDLE_LISTENERS = PREFIX + "file-handle.listeners";
+    private static final String FILE_HANDLE_UNLOAD = PREFIX + "file-handle.unload";
+    private static final String FILE_HANDLE_RELEASE = PREFIX + "file-handle.release";
+
+    private static final Set<String> METHOD_ALIASES_USED = Set.of(
+        APP_INSTANCE, CURRENT_DOCUMENT, CURRENT_PROJECT, COMMAND_OPEN, COMMAND_CLOSE,
+        MAIN_FRAME_CTRL, MAIN_FRAME, PROJECT_CHILDREN,
+        DOC_MODEL_SOURCE, DOC_FILE_CONTENT, DOC_SELECTOR, DOC_EDIT_MODE_CURRENT,
+        DOC_EDIT_MODE_MAIN, DOC_MARK_SAVED, DOC_FILE, DOC_UNDO,
+        FILE_CONTENT_FILE, FILE_CONTENT_MODIFIED,
+        UNDO_POSITION, UNDO_EDIT_COUNT, UNDO_CAN_UNDO,
+        SELECTOR_CLEAR, SELECTOR_SELECTED, SELECTOR_SELECTED_COUNT,
+        SELECTOR_ADD_SOURCE, SELECTOR_SELECTED_DEFORMERS, EDIT_MODE_APPLY,
+        MS_DOCUMENT, MS_INSTANCE, MS_DEFORMERS, MS_OBJECTS, MS_ART_MESHES, MS_PARTS,
+        MS_ROOT_PART, MS_PARAMETERS, MS_PHYSICS, MS_MOTION_SYNC, MS_GUID,
+        MS_SAVE_MODEL,
+        MS_CONTAIN_MULTIPLY, MS_CONTAIN_SCREEN, MS_CONTAIN_MORPH,
+        MS_CONTAIN_MORPH_ENH, MS_CONTAIN_ADVANCED_BLEND, MS_CONTAIN_ART_PATH,
+        MS_CONTAIN_ALIAS, MS_CONTAIN_INVERT_CLIP, MS_CONTAIN_QUAD,
+        MS_CONTAIN_OFFSCREEN, MS_CONTAIN_MOTION_SYNC, MS_CONTAIN_MOTION_SYNC_FIX,
+        SOURCE_MORPH_SET, SOURCE_EXT_MORPH_SET, SOURCE_EXTENSIONS,
+        MORPH_SET_TARGETS,
+        MODEL_PARAMETER_SET,
+        SOURCE_GUID, SOURCE_ID, SOURCE_LOCAL_NAME, SOURCE_SET_LOCAL_NAME,
+        SOURCE_GRID, SOURCE_EXT_GRID, GRID_BINDINGS, BINDING_EXT_TYPE, BINDING_ILLEGAL,
+        BINDING_PARAMETER_ID, BINDING_KEYS, PART_CHILD_GUIDS,
+        GLUE_TARGET_A, GLUE_TARGET_B,
+        SOURCE_TARGET_DEFORMER, DRAWABLE_CLIP_GUIDS, DRAWABLE_INVERT_CLIP,
+        ART_PATH_BRUSH,
+        ALIAS_REFERENCE, ALIAS_CLIP_GUIDS, ALIAS_INVERT_CLIP, ALIAS_USE_OFFSCREEN,
+        ALIAS_COLOR_COMPOSITION, ALIAS_ALPHA_COMPOSITION, ALIAS_CIRCULATED,
+        PART_CLIP_GUIDS, PART_INVERT_CLIP, PART_USE_OFFSCREEN,
+        PART_COLOR_COMPOSITION, PART_ALPHA_COMPOSITION,
+        PHYSICS_SETTINGS_GUID, PHYSICS_SETTINGS_ID, PHYSICS_SETTINGS_NAME,
+        PHYSICS_SETTINGS_SET_NAME, PHYSICS_SETTINGS_SET_ID, PHYSICS_SETTING_ID_CREATE,
+        PHYSICS_SETTINGS_ENABLE, PHYSICS_SETTINGS_INPUTS, PHYSICS_SETTINGS_OUTPUTS,
+        PHYSICS_SETTINGS_VERTICES, PHYSICS_SETTINGS_TOTAL_ANGLE,
+        PHYSICS_SETTINGS_NORM_POS_MIN, PHYSICS_SETTINGS_NORM_POS_DEFAULT,
+        PHYSICS_SETTINGS_NORM_POS_MAX,
+        PHYSICS_SETTINGS_NORM_ANGLE_MIN, PHYSICS_SETTINGS_NORM_ANGLE_DEFAULT,
+        PHYSICS_SETTINGS_NORM_ANGLE_MAX,
+        PHYSICS_INPUT_SOURCE, PHYSICS_INPUT_WEIGHT, PHYSICS_INPUT_TYPE,
+        PHYSICS_INPUT_REVERSE, PHYSICS_INPUT_ANGLE_SCALE,
+        PHYSICS_INPUT_TRANSLATION_SCALE,
+        PHYSICS_OUTPUT_DESTINATION, PHYSICS_OUTPUT_VERTEX_INDEX,
+        PHYSICS_OUTPUT_WEIGHT, PHYSICS_OUTPUT_TYPE, PHYSICS_OUTPUT_REVERSE,
+        PHYSICS_OUTPUT_ANGLE_SCALE, PHYSICS_OUTPUT_TRANSLATION_SCALE,
+        PHYSICS_OUTPUT_BELOW_MINIMUM, PHYSICS_OUTPUT_EXCEEDED_MAXIMUM,
+        PHYSICS_VERTEX_POSITION, PHYSICS_VERTEX_MOBILITY, PHYSICS_VERTEX_DELAY,
+        PHYSICS_VERTEX_ACCELERATION, PHYSICS_VERTEX_RADIUS,
+        VECTOR2_X, VECTOR2_Y, PARAMETER_SOURCE_GUID,
+        MS_PHYSICS_SETTINGS_SET, PHYSICS_SET_GRAVITY, PHYSICS_SET_WIND,
+        PHYSICS_SET_FPS, PHYSICS_SET_SELECTED,
+        MOTION_SYNC_GUID, MOTION_SYNC_ID, MOTION_SYNC_ID_FIELD, MOTION_SYNC_NAME,
+        MOTION_SYNC_SET_NAME, MOTION_SYNC_ID_CREATE,
+        MOTION_SYNC_MAPPING, MOTION_SYNC_POSTPROC, MOTION_SYNC_VERSION,
+        MOTION_SYNC_MAPPING_CHECKSUM, MOTION_SYNC_POSTPROC_CHECKSUM,
+        DEFORMER_GUID, DEFORMER_TARGET, DEFORMER_CHILDREN,
+        DRAWABLE_ID_GET, DRAWABLE_ID_SET, DRAWABLE_ID_CREATE,
+        GUID_UUID, ID_STRING,
+        PARAMETER_SET_PARAMETERS, PARAMETER_INSTANCE_VALUE, PARAMETER_INSTANCE_ID,
+        PARAMETER_INSTANCE_SET_VALUE, MODEL_REINIT_EXE, MODEL_ART_MESHES,
+        ART_MESH_INSTANCE_SOURCE, ART_MESH_INSTANCE_FORM, ART_MESH_FORM_POSITIONS,
+        PARAMETER_SOURCE_ID, PARAMETER_SOURCE_NAME,
+        PARAMETER_SOURCE_MIN, PARAMETER_SOURCE_MAX, PARAMETER_SOURCE_DEFAULT,
+        PARAMETER_SOURCE_REPEAT,
+        DIALOG_MODEL_SOURCE, DRIVER_INSTANCE, DRIVER_EXPORT,
+        FILE_CACHE_INSTANCE, FILE_CACHE_HANDLES, FILE_CACHE_BY_FILE, FILE_CACHE_REMOVE,
+        FILE_HANDLE_FILE, FILE_HANDLE_LOADER, FILE_HANDLE_LISTENERS,
+        FILE_HANDLE_UNLOAD, FILE_HANDLE_RELEASE
+    );
+    private static final Set<String> CLASS_ALIASES_REQUIRED = Set.of(
+        APP_CONTROLLER_CLASS, PROJECT_CLASS, MAIN_FRAME_CTRL_CLASS,
+        DOCUMENT_CLASS, FILE_CONTENT_CLASS, UNDO_CLASS,
+        SELECTOR_INTERFACE, SELECTOR_CLASS, EDIT_MODE_BASE_CLASS, EDIT_MODE_CLASS,
+        MODEL_SOURCE_CLASS, MODEL_CLASS, DEFORMER_CLASS, WARP_CLASS, ROTATION_CLASS,
+        ART_MESH_CLASS, PART_CLASS, PARAMETER_CLASS, DRAWABLE_CLASS, GLUE_CLASS,
+        CONTROLLABLE_CLASS, ART_PATH_CLASS, ALIAS_CLASS,
+        PHYSICS_SETTINGS_CLASS, PHYSICS_SETTING_ID_CLASS,
+        MOTION_SYNC_CLASS, MOTION_SYNC_ID_CLASS,
+        DRAWABLE_ID_CLASS, PARAMETER_ID_CLASS, GUID_CLASS, ID_CLASS,
+        PARAMETER_SET_CLASS, PARAMETER_INSTANCE_CLASS,
+        ART_MESH_INSTANCE_CLASS, ART_MESH_FORM_CLASS,
+        GRID_CLASS, BINDING_CLASS, EXT_TYPE_CLASS, MORPH_SET_CLASS,
+        DIALOG_CLASS, DRIVER_CLASS, FILE_CACHE_CLASS, FILE_HANDLE_CLASS
+    );
+
+    /** Aliases independently required by this implementation, not copied from its trust manifest. */
+    public static final Set<String> REQUIRED_ALIASES = requiredAliases();
+
+    /**
+     * Selectors that only exist on Cubism 5.3.x builds: {@code contain*} gates
+     * whose gated features did not ship in 5.2.03, the alias family
+     * ({@code CAliasSource} is absent from the 5.2.03 jar), and the part
+     * detail members (clip/invert/offscreen/composition) that 5.2.03
+     * {@code CPartSource} does not declare. The reviewed 5.2.03 record omits
+     * them; they remain mandatory on every 5.3.x admission.
+     */
+    private static final Set<String> CUBISM_5_3_ONLY_ALIASES = Set.of(
+        MS_CONTAIN_ADVANCED_BLEND, MS_CONTAIN_ALIAS, MS_CONTAIN_OFFSCREEN,
+        ALIAS_CLASS, ALIAS_REFERENCE, ALIAS_CLIP_GUIDS, ALIAS_INVERT_CLIP,
+        ALIAS_USE_OFFSCREEN, ALIAS_COLOR_COMPOSITION, ALIAS_ALPHA_COMPOSITION,
+        ALIAS_CIRCULATED,
+        PART_CLIP_GUIDS, PART_INVERT_CLIP, PART_USE_OFFSCREEN,
+        PART_COLOR_COMPOSITION, PART_ALPHA_COMPOSITION
+    );
+
+    private static final Set<String> CUBISM_5_2_METHOD_ALIASES_USED =
+        without(METHOD_ALIASES_USED, CUBISM_5_3_ONLY_ALIASES);
+
+    /** Exact alias roster this implementation requires on the reviewed 5.2.03 build. */
+    public static final Set<String> CUBISM_5_2_REQUIRED_ALIASES =
+        without(REQUIRED_ALIASES, CUBISM_5_3_ONLY_ALIASES);
+
+    private static Set<String> requiredAliases() {
+        final java.util.HashSet<String> aliases = new java.util.HashSet<>(METHOD_ALIASES_USED);
+        aliases.addAll(CLASS_ALIASES_REQUIRED);
+        return Set.copyOf(aliases);
+    }
+
+    private static Set<String> without(final Set<String> aliases, final Set<String> excluded) {
+        final java.util.HashSet<String> remaining = new java.util.HashSet<>(aliases);
+        remaining.removeAll(excluded);
+        return Set.copyOf(remaining);
+    }
+
+    /** Exact non-class aliases invoked by this implementation. */
+    public static Set<String> methodAliasesUsed() {
+        return METHOD_ALIASES_USED;
+    }
+
+    /** Exact non-class aliases invoked by this implementation on the reviewed 5.2.03 build. */
+    public static Set<String> cubism52MethodAliasesUsed() {
+        return CUBISM_5_2_METHOD_ALIASES_USED;
+    }
+
+    private static final Set<String> CUBISM_5_2_CLASS_ALIASES_USED =
+        without(CLASS_ALIASES_REQUIRED, CUBISM_5_3_ONLY_ALIASES);
+
+    /** Exact class aliases used for runtime type validation by this implementation. */
+    public static Set<String> classAliasesUsed() {
+        return CLASS_ALIASES_REQUIRED;
+    }
+
+    /** Exact class aliases used on the reviewed 5.2.03 build (no {@code CAliasSource}). */
+    public static Set<String> cubism52ClassAliasesUsed() {
+        return CUBISM_5_2_CLASS_ALIASES_USED;
+    }
+
+    /**
+     * The model source's own {@code contain*} gates — the host's semantic answer
+     * to feature content the object census cannot see. Each predicate maps to a
+     * stable family token. Detected families are pass-through content: the flag
+     * set is pinned in the census, never a rejection reason by itself.
+     */
+    private static final Map<String, String> FEATURE_GATES = featureGates();
+
+    private static final Map<String, String> CUBISM_5_2_FEATURE_GATES =
+        withoutGates(FEATURE_GATES, CUBISM_5_3_ONLY_ALIASES);
+
+    private static Map<String, String> featureGates() {
+        final Map<String, String> gates = new LinkedHashMap<>();
+        gates.put(MS_CONTAIN_MULTIPLY, "multiply-color");
+        gates.put(MS_CONTAIN_SCREEN, "screen-color");
+        gates.put(MS_CONTAIN_MORPH, "morph-target");
+        gates.put(MS_CONTAIN_MORPH_ENH, "morph-target-enhancement");
+        gates.put(MS_CONTAIN_ADVANCED_BLEND, "advanced-blend");
+        gates.put(MS_CONTAIN_ART_PATH, "art-path");
+        gates.put(MS_CONTAIN_ALIAS, "alias");
+        gates.put(MS_CONTAIN_INVERT_CLIP, "invert-clipping");
+        gates.put(MS_CONTAIN_QUAD, "quad-transform");
+        gates.put(MS_CONTAIN_OFFSCREEN, "offscreen-rendering");
+        gates.put(MS_CONTAIN_MOTION_SYNC, "motion-sync");
+        gates.put(MS_CONTAIN_MOTION_SYNC_FIX, "motion-sync-correction");
+        return java.util.Collections.unmodifiableMap(gates);
+    }
+
+    private static Map<String, String> withoutGates(
+        final Map<String, String> gates,
+        final Set<String> excluded
+    ) {
+        final Map<String, String> remaining = new LinkedHashMap<>(gates);
+        excluded.forEach(remaining::remove);
+        return java.util.Collections.unmodifiableMap(remaining);
+    }
+
+    private final VerifiedMemberResolver resolver;
+    private final Map<String, String> admittedFeatureGates;
+    private final boolean cubism52;
+
+    public VerifiedProtectedExportHostOperations(final VerifiedMemberResolver resolver) {
+        this.resolver = Objects.requireNonNull(resolver, "resolver");
+        this.cubism52 = resolver.isExactCubismVersion(
+            ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_03
+        );
+        this.admittedFeatureGates = cubism52 ? CUBISM_5_2_FEATURE_GATES : FEATURE_GATES;
+        if (!resolver.authorizes(
+            ProtectedExportVerificationManifest.ADAPTER_SLICE_ID,
+            ProtectedExportVerificationManifest.CAPABILITY_IDS,
+            this.cubism52 ? CUBISM_5_2_REQUIRED_ALIASES : REQUIRED_ALIASES
+        )) {
+            throw new IllegalArgumentException(
+                "verified access plan does not authorize the protected-export slice"
+            );
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Session / application
+    // ------------------------------------------------------------------
+
+    @Override
+    public Object appController() {
+        return resolver.invokeStatic(APP_INSTANCE);
+    }
+
+    @Override
+    public Object currentDocument() {
+        final Object controller = appController();
+        return controller == null ? null : resolver.invoke(CURRENT_DOCUMENT, controller);
+    }
+
+    @Override
+    public Object currentProject() {
+        final Object controller = appController();
+        return controller == null ? null : resolver.invoke(CURRENT_PROJECT, controller);
+    }
+
+    @Override
+    public boolean projectContains(final Object document) {
+        final Object project = currentProject();
+        if (project == null || document == null
+            || !resolver.isInstance(PROJECT_CLASS, project)) {
+            return false;
+        }
+        final Object children = resolver.invoke(PROJECT_CHILDREN, project);
+        if (!(children instanceof List<?> list)) {
+            return false;
+        }
+        for (Object child : list) {
+            if (child == document) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public List<?> projectDocuments() {
+        final Object project = currentProject();
+        if (project == null || !resolver.isInstance(PROJECT_CLASS, project)) {
+            return List.of();
+        }
+        final Object children = resolver.invoke(PROJECT_CHILDREN, project);
+        if (!(children instanceof List<?> list)) {
+            return List.of();
+        }
+        final List<Object> documents = new ArrayList<>();
+        for (Object child : list) {
+            if (isModelingDocument(child)) {
+                documents.add(child);
+            }
+        }
+        return List.copyOf(documents);
+    }
+
+    @Override
+    public Object mainFrame() {
+        final Object controller = appController();
+        if (controller == null) {
+            return null;
+        }
+        final Object frameCtrl = resolver.invoke(MAIN_FRAME_CTRL, controller);
+        if (frameCtrl == null || !resolver.isInstance(MAIN_FRAME_CTRL_CLASS, frameCtrl)) {
+            return null;
+        }
+        return resolver.invoke(MAIN_FRAME, frameCtrl);
+    }
+
+    @Override
+    public void openFile(final File file) {
+        resolver.invoke(COMMAND_OPEN, Objects.requireNonNull(appController(), "appController"),
+            Objects.requireNonNull(file, "file"), Boolean.FALSE);
+    }
+
+    @Override
+    public void closeFileContent(final Object fileContent) {
+        resolver.invoke(COMMAND_CLOSE, Objects.requireNonNull(appController(), "appController"),
+            Objects.requireNonNull(fileContent, "fileContent"));
+    }
+
+    // ------------------------------------------------------------------
+    // Document
+    // ------------------------------------------------------------------
+
+    @Override
+    public boolean isModelingDocument(final Object document) {
+        return resolver.isInstance(DOCUMENT_CLASS, document);
+    }
+
+    @Override
+    public Object documentModelSource(final Object document) {
+        return document == null ? null : resolver.invoke(DOC_MODEL_SOURCE, document);
+    }
+
+    @Override
+    public Object documentFileContent(final Object document) {
+        return document == null ? null : resolver.invoke(DOC_FILE_CONTENT, document);
+    }
+
+    @Override
+    public Object documentSelector(final Object document) {
+        return document == null ? null : resolver.invoke(DOC_SELECTOR, document);
+    }
+
+    @Override
+    public Object documentCurrentEditMode(final Object document) {
+        return document == null ? null : resolver.invoke(DOC_EDIT_MODE_CURRENT, document);
+    }
+
+    @Override
+    public Object documentMainEditMode(final Object document) {
+        return document == null ? null : resolver.invoke(DOC_EDIT_MODE_MAIN, document);
+    }
+
+    @Override
+    public File documentFile(final Object document) {
+        final Object file = document == null ? null : resolver.invoke(DOC_FILE, document);
+        return file instanceof File path ? path : null;
+    }
+
+    @Override
+    public Object documentUndoManager(final Object document) {
+        return document == null ? null : resolver.invoke(DOC_UNDO, document);
+    }
+
+    @Override
+    public void markDocumentSaved(final Object document) {
+        resolver.invoke(DOC_MARK_SAVED, Objects.requireNonNull(document, "document"),
+            Long.MAX_VALUE);
+    }
+
+    // ------------------------------------------------------------------
+    // File content / undo signatures
+    // ------------------------------------------------------------------
+
+    @Override
+    public File fileContentFile(final Object fileContent) {
+        if (fileContent == null || !resolver.isInstance(FILE_CONTENT_CLASS, fileContent)) {
+            return null;
+        }
+        final Object file = resolver.invoke(FILE_CONTENT_FILE, fileContent);
+        return file instanceof File path ? path : null;
+    }
+
+    @Override
+    public boolean fileContentModified(final Object fileContent) {
+        if (fileContent == null || !resolver.isInstance(FILE_CONTENT_CLASS, fileContent)) {
+            return false;
+        }
+        return Boolean.TRUE.equals(resolver.invoke(FILE_CONTENT_MODIFIED, fileContent));
+    }
+
+    @Override
+    public int undoPosition(final Object undoManager) {
+        return intMember(UNDO_POSITION, undoManager);
+    }
+
+    @Override
+    public int undoEditCount(final Object undoManager) {
+        return intMember(UNDO_EDIT_COUNT, undoManager);
+    }
+
+    @Override
+    public boolean undoCanUndo(final Object undoManager) {
+        return undoManager != null && resolver.isInstance(UNDO_CLASS, undoManager)
+            && Boolean.TRUE.equals(resolver.invoke(UNDO_CAN_UNDO, undoManager));
+    }
+
+    // ------------------------------------------------------------------
+    // Selector / edit mode
+    // ------------------------------------------------------------------
+
+    @Override
+    public boolean isMainSelector(final Object selector) {
+        return resolver.isInstance(SELECTOR_CLASS, selector);
+    }
+
+    @Override
+    public boolean isMainEditMode(final Object editMode) {
+        return resolver.isInstance(EDIT_MODE_CLASS, editMode);
+    }
+
+    @Override
+    public void clearSelection(final Object selector) {
+        resolver.invoke(SELECTOR_CLEAR, requireSelector(selector));
+    }
+
+    @Override
+    public int selectedCount(final Object selector) {
+        final Object count = resolver.invoke(SELECTOR_SELECTED_COUNT, requireSelector(selector));
+        return count instanceof Number n ? n.intValue() : -1;
+    }
+
+    @Override
+    public void selectSource(final Object selector, final Object source) {
+        resolver.invoke(
+            SELECTOR_ADD_SOURCE,
+            requireSelector(selector),
+            Objects.requireNonNull(source, "source"),
+            -1
+        );
+    }
+
+    @Override
+    public List<?> selectedDeformers(final Object selector) {
+        final Object selected = resolver.invoke(
+            SELECTOR_SELECTED_DEFORMERS, requireSelector(selector));
+        return selected instanceof List<?> list ? List.copyOf(list) : List.of();
+    }
+
+    @Override
+    public void applyDeformerToParameters(final Object mainEditMode) {
+        if (!isMainEditMode(mainEditMode)) {
+            throw new IllegalStateException("edit mode is not the modeling main edit mode");
+        }
+        resolver.invoke(EDIT_MODE_APPLY, mainEditMode);
+    }
+
+    // ------------------------------------------------------------------
+    // Model source census
+    // ------------------------------------------------------------------
+
+    @Override
+    public Object modelSourceDocument(final Object modelSource) {
+        return modelSource == null ? null : resolver.invoke(MS_DOCUMENT, modelSource);
+    }
+
+    @Override
+    public Object modelSourceCurrentInstance(final Object modelSource) {
+        return modelSource == null ? null : resolver.invoke(MS_INSTANCE, modelSource);
+    }
+
+    @Override
+    public List<?> allDeformers(final Object modelSource) {
+        return listOf(resolver.invoke(MS_DEFORMERS, requireModelSource(modelSource)));
+    }
+
+    @Override
+    public List<?> allObjects(final Object modelSource) {
+        return listOf(resolver.invoke(MS_OBJECTS, requireModelSource(modelSource)));
+    }
+
+    @Override
+    public List<?> allArtMeshes(final Object modelSource) {
+        return listOf(resolver.invoke(MS_ART_MESHES, requireModelSource(modelSource)));
+    }
+
+    @Override
+    public List<?> allParts(final Object modelSource) {
+        return listOf(resolver.invoke(MS_PARTS, requireModelSource(modelSource)));
+    }
+
+    @Override
+    public Object rootPart(final Object modelSource) {
+        return resolver.invoke(MS_ROOT_PART, requireModelSource(modelSource));
+    }
+
+    @Override
+    public List<?> allParameters(final Object modelSource) {
+        return listOf(resolver.invoke(MS_PARAMETERS, requireModelSource(modelSource)));
+    }
+
+    @Override
+    public List<?> allPhysicsSettings(final Object modelSource) {
+        return listOf(resolver.invoke(MS_PHYSICS, requireModelSource(modelSource)));
+    }
+
+    @Override
+    public List<?> allMotionSyncSettings(final Object modelSource) {
+        return listOf(resolver.invoke(MS_MOTION_SYNC, requireModelSource(modelSource)));
+    }
+
+    @Override
+    public String modelSourceGuid(final Object modelSource) {
+        final Object guid = resolver.invoke(MS_GUID, requireModelSource(modelSource));
+        return guid == null ? null : (String) resolver.invoke(GUID_UUID, guid);
+    }
+
+    @Override
+    public boolean serializeModelSource(final Object modelSource, final File target) {
+        Objects.requireNonNull(target, "target");
+        // saveModel(File, Z) is the model source's own serializer — the same
+        // entry CModelingDocument.saveDocument delegates to, minus the
+        // document-state updates (saved timestamp, project wiring) that would
+        // disturb the live session. The boolean is the developer-mode
+        // save-obfuscation flag; staging always writes the un-obfuscated form
+        // because the copy's census must match the live census before the
+        // planned obfuscation pass rewrites it.
+        return Boolean.TRUE.equals(resolver.invoke(
+            MS_SAVE_MODEL, requireModelSource(modelSource), target, Boolean.FALSE));
+    }
+
+    @Override
+    public List<?> liveParameters(final Object modelSource) {
+        final Object instance = modelSourceCurrentInstance(modelSource);
+        if (instance == null || !resolver.isInstance(MODEL_CLASS, instance)) {
+            return List.of();
+        }
+        final Object parameterSet = resolver.invoke(MODEL_PARAMETER_SET, instance);
+        if (parameterSet == null || !resolver.isInstance(PARAMETER_SET_CLASS, parameterSet)) {
+            return List.of();
+        }
+        return listOf(resolver.invoke(PARAMETER_SET_PARAMETERS, parameterSet));
+    }
+
+    @Override
+    public String parameterInstanceId(final Object parameter) {
+        if (parameter == null || !resolver.isInstance(PARAMETER_INSTANCE_CLASS, parameter)) {
+            return null;
+        }
+        final Object id = resolver.invoke(PARAMETER_INSTANCE_ID, parameter);
+        return id == null ? null : (String) resolver.invoke(ID_STRING, id);
+    }
+
+    @Override
+    public float parameterInstanceValue(final Object parameter) {
+        if (parameter == null || !resolver.isInstance(PARAMETER_INSTANCE_CLASS, parameter)) {
+            return Float.NaN;
+        }
+        final Object value = resolver.invoke(PARAMETER_INSTANCE_VALUE, parameter);
+        return value instanceof Number n ? n.floatValue() : Float.NaN;
+    }
+
+    /**
+     * {@code CParameter.setValue} on a live parameter instance — behavior-sampling
+     * writes only ever land on the disposable copy's model instance.
+     */
+    @Override
+    public void setParameterInstanceValue(
+        final Object parameterInstance,
+        final float value
+    ) {
+        if (!resolver.isInstance(PARAMETER_INSTANCE_CLASS, parameterInstance)) {
+            throw new IllegalStateException("object is not a parameter instance");
+        }
+        resolver.invoke(PARAMETER_INSTANCE_SET_VALUE, parameterInstance, value);
+    }
+
+    /**
+     * {@code CModel.reinitModelInstance_exe} — the self-contained "update model"
+     * evaluation: rebuilds instance objects and refreshes calculated forms with
+     * no view context required.
+     */
+    @Override
+    public void evaluateModelInstance(final Object modelInstance) {
+        if (!resolver.isInstance(MODEL_CLASS, modelInstance)) {
+            throw new IllegalStateException("object is not a model instance");
+        }
+        resolver.invoke(MODEL_REINIT_EXE, modelInstance);
+    }
+
+    @Override
+    public List<?> modelInstanceArtMeshes(final Object modelInstance) {
+        if (!resolver.isInstance(MODEL_CLASS, modelInstance)) {
+            return List.of();
+        }
+        return listOf(resolver.invoke(MODEL_ART_MESHES, modelInstance));
+    }
+
+    @Override
+    public Object artMeshInstanceSource(final Object artMeshInstance) {
+        if (!resolver.isInstance(ART_MESH_INSTANCE_CLASS, artMeshInstance)) {
+            return null;
+        }
+        return resolver.invoke(ART_MESH_INSTANCE_SOURCE, artMeshInstance);
+    }
+
+    @Override
+    public float[] evaluatedArtMeshPositions(final Object artMeshInstance) {
+        if (!resolver.isInstance(ART_MESH_INSTANCE_CLASS, artMeshInstance)) {
+            return null;
+        }
+        final Object form = resolver.invoke(ART_MESH_INSTANCE_FORM, artMeshInstance);
+        if (!resolver.isInstance(ART_MESH_FORM_CLASS, form)) {
+            return null;
+        }
+        final Object positions = resolver.invoke(ART_MESH_FORM_POSITIONS, form);
+        return positions instanceof float[] array ? array.clone() : null;
+    }
+
+    /**
+     * {@code ACDeformerSource.getDeformerChildren} — every controllable source
+     * whose target deformer is this one. Drawable children carry no keyform
+     * bindings of their own here; the caller filters by class.
+     */
+    @Override
+    public List<?> deformerChildren(final Object deformerSource) {
+        if (!resolver.isInstance(DEFORMER_CLASS, deformerSource)) {
+            return List.of();
+        }
+        return listOf(resolver.invoke(DEFORMER_CHILDREN, deformerSource));
+    }
+
+    /**
+     * Rewrites a parameter-controllable source's local name. Used only by the protected
+     * ArtMesh obfuscation pass on the disposable copy (never on the authoring document).
+     */
+    @Override
+    public void setObjectLocalName(final Object source, final String name) {
+        resolver.invoke(SOURCE_SET_LOCAL_NAME,
+            Objects.requireNonNull(source, "source"),
+            Objects.requireNonNull(name, "name"));
+    }
+
+    /**
+     * Rewrites a drawable source's ID on the disposable copy. Rejecting callers that are
+     * not drawable sources keeps the M5 pass scoped to ArtMesh identities.
+     */
+    @Override
+    public void setDrawableId(final Object drawableSource, final String idString) {
+        if (!resolver.isInstance(DRAWABLE_CLASS, drawableSource)) {
+            throw new IllegalStateException("object is not a drawable source");
+        }
+        final Object newId = resolver.construct(DRAWABLE_ID_CREATE, idString);
+        resolver.invoke(DRAWABLE_ID_SET, drawableSource, newId);
+    }
+
+    /** Drawable-specific ID string of an ArtMesh/drawable source. */
+    @Override
+    public String drawableIdString(final Object drawableSource) {
+        if (!resolver.isInstance(DRAWABLE_CLASS, drawableSource)) {
+            return null;
+        }
+        final Object id = resolver.invoke(DRAWABLE_ID_GET, drawableSource);
+        return id == null ? null : (String) resolver.invoke(ID_STRING, id);
+    }
+
+    /**
+     * Parameter sources are not parameter-controllable: their ID is a
+     * {@code CParameterId} reached through the source's own accessor.
+     */
+    @Override
+    public String parameterSourceIdString(final Object parameterSource) {
+        if (!resolver.isInstance(PARAMETER_CLASS, parameterSource)) {
+            return null;
+        }
+        final Object id = resolver.invoke(PARAMETER_SOURCE_ID, parameterSource);
+        return id == null ? null : (String) resolver.invoke(ID_STRING, id);
+    }
+
+    @Override
+    public String parameterSourceName(final Object parameterSource) {
+        if (!resolver.isInstance(PARAMETER_CLASS, parameterSource)) {
+            return null;
+        }
+        final Object name = resolver.invoke(PARAMETER_SOURCE_NAME, parameterSource);
+        return name instanceof String text ? text : null;
+    }
+
+    @Override
+    public Float parameterSourceMinValue(final Object parameterSource) {
+        return floatParameterMember(PARAMETER_SOURCE_MIN, parameterSource);
+    }
+
+    @Override
+    public Float parameterSourceMaxValue(final Object parameterSource) {
+        return floatParameterMember(PARAMETER_SOURCE_MAX, parameterSource);
+    }
+
+    @Override
+    public Float parameterSourceDefaultValue(final Object parameterSource) {
+        return floatParameterMember(PARAMETER_SOURCE_DEFAULT, parameterSource);
+    }
+
+    @Override
+    public Boolean parameterSourceRepeat(final Object parameterSource) {
+        if (!resolver.isInstance(PARAMETER_CLASS, parameterSource)) {
+            return null;
+        }
+        final Object repeat = resolver.invoke(PARAMETER_SOURCE_REPEAT, parameterSource);
+        return repeat instanceof Boolean flag ? flag : null;
+    }
+
+    /**
+     * All keyform bindings of a controllable source across both its grids — the same
+     * grid pair the extended-interpolation gate reads, deduplicated by identity so a
+     * shared grid object is only counted once.
+     */
+    @Override
+    public List<?> keyformBindings(final Object controllableSource) {
+        final java.util.Set<Object> grids = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<>());
+        final List<Object> bindings = new ArrayList<>();
+        for (String gridAlias : new String[] {SOURCE_GRID, SOURCE_EXT_GRID}) {
+            final Object grid = controllableSource == null
+                ? null : resolver.invoke(gridAlias, controllableSource);
+            if (grid == null || !grids.add(grid)
+                || !resolver.isInstance(GRID_CLASS, grid)) {
+                continue;
+            }
+            bindings.addAll(listOf(resolver.invoke(GRID_BINDINGS, grid)));
+        }
+        return List.copyOf(bindings);
+    }
+
+    @Override
+    public String keyformBindingParameterId(final Object binding) {
+        if (!resolver.isInstance(BINDING_CLASS, binding)) {
+            return null;
+        }
+        final Object id = resolver.invoke(BINDING_PARAMETER_ID, binding);
+        return id == null ? null : (String) resolver.invoke(ID_STRING, id);
+    }
+
+    @Override
+    public List<Float> keyformBindingKeys(final Object binding) {
+        if (!resolver.isInstance(BINDING_CLASS, binding)) {
+            return List.of();
+        }
+        final Object keys = resolver.invoke(BINDING_KEYS, binding);
+        if (!(keys instanceof List<?> list)) {
+            return List.of();
+        }
+        final List<Float> positions = new ArrayList<>();
+        for (Object key : list) {
+            if (key instanceof Number number) {
+                positions.add(number.floatValue());
+            }
+        }
+        return List.copyOf(positions);
+    }
+
+    @Override
+    public boolean isPartSource(final Object object) {
+        return resolver.isInstance(PART_CLASS, object);
+    }
+
+    @Override
+    public boolean isGlueSource(final Object object) {
+        return resolver.isInstance(GLUE_CLASS, object);
+    }
+
+    @Override
+    public List<String> glueTargetGuids(final Object glueSource) {
+        if (!resolver.isInstance(GLUE_CLASS, glueSource)) {
+            return List.of();
+        }
+        final List<String> targets = new ArrayList<>(2);
+        for (String alias : new String[] {GLUE_TARGET_A, GLUE_TARGET_B}) {
+            final Object mesh = resolver.invoke(alias, glueSource);
+            targets.add(mesh == null || !resolver.isInstance(ART_MESH_CLASS, mesh)
+                ? null : objectGuid(mesh));
+        }
+        return java.util.Collections.unmodifiableList(targets);
+    }
+
+    @Override
+    public List<String> partChildGuids(final Object partSource) {
+        if (!resolver.isInstance(PART_CLASS, partSource)) {
+            return List.of();
+        }
+        final Object guids = resolver.invoke(PART_CHILD_GUIDS, partSource);
+        if (!(guids instanceof List<?> list)) {
+            return List.of();
+        }
+        final List<String> children = new ArrayList<>();
+        for (Object guid : list) {
+            final Object uuid = guid == null ? null : resolver.invoke(GUID_UUID, guid);
+            if (uuid instanceof String text) {
+                children.add(text);
+            }
+        }
+        return List.copyOf(children);
+    }
+
+    @Override
+    public boolean isControllableSource(final Object object) {
+        return resolver.isInstance(CONTROLLABLE_CLASS, object);
+    }
+
+    @Override
+    public String sourceTargetDeformerGuid(final Object source) {
+        if (source == null || !resolver.isInstance(CONTROLLABLE_CLASS, source)) {
+            return null;
+        }
+        final Object target = resolver.invoke(SOURCE_TARGET_DEFORMER, source);
+        return target == null ? null : (String) resolver.invoke(GUID_UUID, target);
+    }
+
+    /**
+     * Ordered reference GUIDs a census member carries, composed per family. Glue
+     * targets are resolved mesh GUIDs; ArtPath carries its brush GUID followed by
+     * clip-mask GUIDs; an alias carries its reference-object GUID followed by
+     * clip-mask GUIDs; parts and ArtMeshes carry clip-mask GUIDs. Reference slots
+     * that are unset read as {@code null} entries so the census can pin their
+     * presence-or-absence exactly.
+     */
+    @Override
+    public List<String> passThroughReferenceGuids(final Object source) {
+        if (source == null) {
+            return List.of();
+        }
+        if (resolver.isInstance(GLUE_CLASS, source)) {
+            return glueTargetGuids(source);
+        }
+        final List<String> references = new ArrayList<>();
+        if (resolver.isInstance(ART_PATH_CLASS, source)) {
+            references.add(readGuid(resolver.invoke(ART_PATH_BRUSH, source)));
+            references.addAll(clipGuidStrings(resolver.invoke(DRAWABLE_CLIP_GUIDS, source)));
+            return java.util.Collections.unmodifiableList(references);
+        }
+        if (!cubism52 && resolver.isInstance(ALIAS_CLASS, source)) {
+            references.add(readGuid(resolver.invoke(ALIAS_REFERENCE, source)));
+            references.addAll(clipGuidStrings(resolver.invoke(ALIAS_CLIP_GUIDS, source)));
+            return java.util.Collections.unmodifiableList(references);
+        }
+        if (!cubism52 && resolver.isInstance(PART_CLASS, source)) {
+            references.addAll(clipGuidStrings(resolver.invoke(PART_CLIP_GUIDS, source)));
+            return java.util.Collections.unmodifiableList(references);
+        }
+        if (resolver.isInstance(DRAWABLE_CLASS, source)) {
+            references.addAll(clipGuidStrings(resolver.invoke(DRAWABLE_CLIP_GUIDS, source)));
+        }
+        return java.util.Collections.unmodifiableList(references);
+    }
+
+    /**
+     * Ordered {@code key=value} flag tokens for the source's content flags. The
+     * token order is fixed per family so census equality is deterministic.
+     */
+    @Override
+    public List<String> passThroughFlagSignature(final Object source) {
+        if (source == null) {
+            return List.of();
+        }
+        final List<String> flags = new ArrayList<>();
+        if (!cubism52 && resolver.isInstance(ALIAS_CLASS, source)) {
+            flags.add("invertClipping=" + flagValue(ALIAS_INVERT_CLIP, source));
+            flags.add("useOffscreen=" + flagValue(ALIAS_USE_OFFSCREEN, source));
+            flags.add("colorComposition=" + enumName(
+                resolver.invoke(ALIAS_COLOR_COMPOSITION, source)));
+            flags.add("alphaComposition=" + enumName(
+                resolver.invoke(ALIAS_ALPHA_COMPOSITION, source)));
+            flags.add("circulated=" + flagValue(ALIAS_CIRCULATED, source));
+            return List.copyOf(flags);
+        }
+        if (!cubism52 && resolver.isInstance(PART_CLASS, source)) {
+            flags.add("useOffscreen=" + flagValue(PART_USE_OFFSCREEN, source));
+            flags.add("invertClipping=" + flagValue(PART_INVERT_CLIP, source));
+            flags.add("colorComposition=" + enumName(
+                resolver.invoke(PART_COLOR_COMPOSITION, source)));
+            flags.add("alphaComposition=" + enumName(
+                resolver.invoke(PART_ALPHA_COMPOSITION, source)));
+            return List.copyOf(flags);
+        }
+        if (resolver.isInstance(DRAWABLE_CLASS, source)) {
+            flags.add("invertClipping=" + flagValue(DRAWABLE_INVERT_CLIP, source));
+        }
+        return List.copyOf(flags);
+    }
+
+    /** The {@code getUuidString} of a GUID object, or {@code null} when unset. */
+    private String readGuid(final Object guid) {
+        return guid == null ? null : (String) resolver.invoke(GUID_UUID, guid);
+    }
+
+    /** UUID strings of a GUID list member ({@code CArrayList<CClipGuid>} etc.). */
+    private List<String> clipGuidStrings(final Object guids) {
+        if (!(guids instanceof List<?> list)) {
+            return List.of();
+        }
+        final List<String> result = new ArrayList<>(list.size());
+        for (Object guid : list) {
+            result.add(readGuid(guid));
+        }
+        return java.util.Collections.unmodifiableList(result);
+    }
+
+    /** Boolean member rendered as a signature token value. */
+    private String flagValue(final String alias, final Object source) {
+        return String.valueOf(resolver.invoke(alias, source));
+    }
+
+    /** Enum member rendered by name; falls back to the value's string form. */
+    private static String enumName(final Object value) {
+        return value instanceof Enum<?> enumeration ? enumeration.name()
+            : String.valueOf(value);
+    }
+
+    @Override
+    public boolean isPhysicsSettingsSource(final Object object) {
+        return resolver.isInstance(PHYSICS_SETTINGS_CLASS, object);
+    }
+
+    @Override
+    public boolean isMotionSyncSettingSource(final Object object) {
+        return resolver.isInstance(MOTION_SYNC_CLASS, object);
+    }
+
+    @Override
+    public String settingsGuid(final Object settingsSource) {
+        if (isPhysicsSettingsSource(settingsSource)) {
+            return readGuid(resolver.invoke(PHYSICS_SETTINGS_GUID, settingsSource));
+        }
+        if (isMotionSyncSettingSource(settingsSource)) {
+            return readGuid(resolver.invoke(MOTION_SYNC_GUID, settingsSource));
+        }
+        return null;
+    }
+
+    @Override
+    public String settingsIdString(final Object settingsSource) {
+        final Object id;
+        if (isPhysicsSettingsSource(settingsSource)) {
+            id = resolver.invoke(PHYSICS_SETTINGS_ID, settingsSource);
+        } else if (isMotionSyncSettingSource(settingsSource)) {
+            id = resolver.invoke(MOTION_SYNC_ID, settingsSource);
+        } else {
+            return null;
+        }
+        return id == null ? null : (String) resolver.invoke(ID_STRING, id);
+    }
+
+    @Override
+    public String settingsName(final Object settingsSource) {
+        final Object name;
+        if (isPhysicsSettingsSource(settingsSource)) {
+            name = resolver.invoke(PHYSICS_SETTINGS_NAME, settingsSource);
+        } else if (isMotionSyncSettingSource(settingsSource)) {
+            name = resolver.invoke(MOTION_SYNC_NAME, settingsSource);
+        } else {
+            return null;
+        }
+        return name instanceof String text ? text : null;
+    }
+
+    /**
+     * Behavior-content tokens pinning a settings object — everything a physics
+     * evaluation or the serialized {@code physics3.json} depends on, except the
+     * settings name and ID the obfuscation pass rewrites. Physics entries carry
+     * every input/output/vertex member verbatim; parameter references are
+     * resolved through the model's parameter census (GUID → pinned parameter
+     * ID), and a reference that cannot be resolved marks the whole signature
+     * {@code null} — unpinnable, so the census rejects. Motion sync carries the
+     * version plus the mapping and post-processing checksums decomposed so the
+     * planned name/ID rewrite does not masquerade as drift (the host's own
+     * checksum covers the name).
+     */
+    @Override
+    public List<String> settingsSignature(
+        final Object modelSource,
+        final Object settingsSource
+    ) {
+        if (isPhysicsSettingsSource(settingsSource)) {
+            return physicsSettingsSignature(modelSource, settingsSource);
+        }
+        if (isMotionSyncSettingSource(settingsSource)) {
+            final Object mapping = resolver.invoke(MOTION_SYNC_MAPPING, settingsSource);
+            final Object postProc = resolver.invoke(MOTION_SYNC_POSTPROC, settingsSource);
+            if (mapping == null || postProc == null) {
+                return null;
+            }
+            return List.of(
+                "version=" + enumName(resolver.invoke(MOTION_SYNC_VERSION, settingsSource)),
+                "mapping.checksum=" + resolver.invoke(
+                    MOTION_SYNC_MAPPING_CHECKSUM, mapping),
+                "postproc.checksum=" + resolver.invoke(
+                    MOTION_SYNC_POSTPROC_CHECKSUM, postProc));
+        }
+        return null;
+    }
+
+    /**
+     * Ordered behavior tokens of one physics settings source. The parameter
+     * reference in every input/output resolves through {@code modelSource}'s
+     * parameter census; a GUID that resolves to no parameter makes the setting
+     * unpinnable ({@code null}) — a reference the export cannot preserve must
+     * never slip through.
+     */
+    private List<String> physicsSettingsSignature(
+        final Object modelSource,
+        final Object settingsSource
+    ) {
+        final Map<String, String> parameterIds = parameterIdsByGuid(modelSource);
+        if (parameterIds == null) {
+            return null;
+        }
+        final List<String> tokens = new ArrayList<>();
+        tokens.add("enable=" + flagValue(PHYSICS_SETTINGS_ENABLE, settingsSource));
+        tokens.add("normalization.position=" + floatToken(PHYSICS_SETTINGS_NORM_POS_MIN,
+            settingsSource)
+            + "|" + floatToken(PHYSICS_SETTINGS_NORM_POS_DEFAULT, settingsSource)
+            + "|" + floatToken(PHYSICS_SETTINGS_NORM_POS_MAX, settingsSource));
+        tokens.add("normalization.angle=" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_MIN,
+            settingsSource)
+            + "|" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_DEFAULT, settingsSource)
+            + "|" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_MAX, settingsSource));
+        tokens.add("totalAngle=" + floatToken(PHYSICS_SETTINGS_TOTAL_ANGLE, settingsSource));
+        final List<?> inputs = listOf(resolver.invoke(PHYSICS_SETTINGS_INPUTS,
+            settingsSource));
+        for (int i = 0; i < inputs.size(); i++) {
+            final Object input = inputs.get(i);
+            if (input == null) {
+                return null;
+            }
+            final String parameterId = physicsParameterId(parameterIds,
+                resolver.invoke(PHYSICS_INPUT_SOURCE, input));
+            if (parameterId == null) {
+                return null;
+            }
+            tokens.add("input." + i + "=" + parameterId
+                + "|" + floatToken(PHYSICS_INPUT_WEIGHT, input)
+                + "|" + enumName(resolver.invoke(PHYSICS_INPUT_TYPE, input))
+                + "|" + flagValue(PHYSICS_INPUT_REVERSE, input)
+                + "|" + floatToken(PHYSICS_INPUT_ANGLE_SCALE, input)
+                + "|" + vectorToken(
+                    resolver.invoke(PHYSICS_INPUT_TRANSLATION_SCALE, input)));
+        }
+        final List<?> outputs = listOf(resolver.invoke(PHYSICS_SETTINGS_OUTPUTS,
+            settingsSource));
+        for (int i = 0; i < outputs.size(); i++) {
+            final Object output = outputs.get(i);
+            if (output == null) {
+                return null;
+            }
+            final String parameterId = physicsParameterId(parameterIds,
+                resolver.invoke(PHYSICS_OUTPUT_DESTINATION, output));
+            if (parameterId == null) {
+                return null;
+            }
+            tokens.add("output." + i + "=" + parameterId
+                + "|" + resolver.invoke(PHYSICS_OUTPUT_VERTEX_INDEX, output)
+                + "|" + floatToken(PHYSICS_OUTPUT_WEIGHT, output)
+                + "|" + enumName(resolver.invoke(PHYSICS_OUTPUT_TYPE, output))
+                + "|" + flagValue(PHYSICS_OUTPUT_REVERSE, output)
+                + "|" + floatToken(PHYSICS_OUTPUT_ANGLE_SCALE, output)
+                + "|" + vectorToken(
+                    resolver.invoke(PHYSICS_OUTPUT_TRANSLATION_SCALE, output))
+                + "|" + floatToken(PHYSICS_OUTPUT_BELOW_MINIMUM, output)
+                + "|" + floatToken(PHYSICS_OUTPUT_EXCEEDED_MAXIMUM, output));
+        }
+        final List<?> vertices = listOf(resolver.invoke(PHYSICS_SETTINGS_VERTICES,
+            settingsSource));
+        for (int i = 0; i < vertices.size(); i++) {
+            final Object vertex = vertices.get(i);
+            if (vertex == null) {
+                return null;
+            }
+            tokens.add("vertex." + i + "=" + vectorToken(
+                resolver.invoke(PHYSICS_VERTEX_POSITION, vertex))
+                + "|" + floatToken(PHYSICS_VERTEX_MOBILITY, vertex)
+                + "|" + floatToken(PHYSICS_VERTEX_DELAY, vertex)
+                + "|" + floatToken(PHYSICS_VERTEX_ACCELERATION, vertex)
+                + "|" + floatToken(PHYSICS_VERTEX_RADIUS, vertex));
+        }
+        return List.copyOf(tokens);
+    }
+
+    /**
+     * Parameter GUID → ID map over the model's parameter census; {@code null}
+     * when any parameter source is unreadable — the census rejects rather than
+     * silently tolerating an unresolvable physics reference.
+     */
+    private Map<String, String> parameterIdsByGuid(final Object modelSource) {
+        final Map<String, String> ids = new LinkedHashMap<>();
+        for (Object parameter : allParameters(modelSource)) {
+            final String guid = parameterSourceGuid(parameter);
+            final String id = parameterSourceIdString(parameter);
+            if (guid == null || guid.isBlank() || id == null || id.isBlank()) {
+                return null;
+            }
+            ids.put(guid, id);
+        }
+        return ids;
+    }
+
+    /**
+     * Resolves a physics input/output parameter GUID to its pinned parameter
+     * ID; {@code null} when the reference cannot be resolved (fail-closed).
+     */
+    private String physicsParameterId(
+        final Map<String, String> parameterIds,
+        final Object parameterGuid
+    ) {
+        final String guid = parameterGuid == null ? null : readGuid(parameterGuid);
+        return guid == null ? null : parameterIds.get(guid);
+    }
+
+    /** Numeric member rendered as a signature token value. */
+    private String floatToken(final String alias, final Object source) {
+        return String.valueOf(resolver.invoke(alias, source));
+    }
+
+    /** {@code GVector2} rendered as {@code x,y}. */
+    private String vectorToken(final Object vector) {
+        if (vector == null) {
+            return "null";
+        }
+        return resolver.invoke(VECTOR2_X, vector)
+            + "," + resolver.invoke(VECTOR2_Y, vector);
+    }
+
+    /**
+     * Physics settings set tokens — effective forces, FPS, and the selected
+     * settings GUID pinned at the set level. A model with no physics settings
+     * contributes no tokens; a model whose physics settings exist but whose
+     * set cannot be read is unpinnable ({@code null} → reject).
+     */
+    @Override
+    public List<String> physicsSettingsSetSignature(final Object modelSource) {
+        final Object set = resolver.isInstance(MODEL_SOURCE_CLASS, modelSource)
+            ? resolver.invoke(MS_PHYSICS_SETTINGS_SET, modelSource)
+            : null;
+        if (set == null) {
+            return allPhysicsSettings(modelSource).isEmpty() ? List.of() : null;
+        }
+        final Object gravity = resolver.invoke(PHYSICS_SET_GRAVITY, set);
+        final Object wind = resolver.invoke(PHYSICS_SET_WIND, set);
+        return List.of(
+            "gravity=" + vectorToken(gravity),
+            "wind=" + vectorToken(wind),
+            "fps=" + resolver.invoke(PHYSICS_SET_FPS, set),
+            "selected=" + readGuid(resolver.invoke(PHYSICS_SET_SELECTED, set)));
+    }
+
+    /**
+     * GUID string of a parameter source — physics input/output entries hold
+     * parameter references as {@code CParameterGuid}, so the census needs the
+     * GUID to resolve the pinned parameter ID.
+     */
+    @Override
+    public String parameterSourceGuid(final Object parameterSource) {
+        if (!resolver.isInstance(PARAMETER_CLASS, parameterSource)) {
+            return null;
+        }
+        return readGuid(resolver.invoke(PARAMETER_SOURCE_GUID, parameterSource));
+    }
+
+    /**
+     * Rewrites a settings source's local name on the disposable copy —
+     * obfuscation only; never called on the authoring document.
+     */
+    @Override
+    public void setSettingsName(final Object settingsSource, final String name) {
+        if (isPhysicsSettingsSource(settingsSource)) {
+            resolver.invoke(PHYSICS_SETTINGS_SET_NAME, settingsSource,
+                Objects.requireNonNull(name, "name"));
+            return;
+        }
+        if (isMotionSyncSettingSource(settingsSource)) {
+            resolver.invoke(MOTION_SYNC_SET_NAME, settingsSource,
+                Objects.requireNonNull(name, "name"));
+            return;
+        }
+        throw new IllegalStateException("object is not a settings source");
+    }
+
+    /**
+     * Rewrites a settings source's ID on the disposable copy. Physics IDs are
+     * replaced through the typed setter with a rebuilt {@code CPhysicsSettingId};
+     * motion-sync exposes no setter, so its private {@code _id} field is written
+     * through the verified field pin (non-static, non-final). The GUID is never
+     * touched — the obfuscation token derives from it.
+     */
+    @Override
+    public void setSettingsId(final Object settingsSource, final String idString) {
+        Objects.requireNonNull(idString, "idString");
+        if (isPhysicsSettingsSource(settingsSource)) {
+            resolver.invoke(PHYSICS_SETTINGS_SET_ID, settingsSource,
+                resolver.construct(PHYSICS_SETTING_ID_CREATE, idString));
+            return;
+        }
+        if (isMotionSyncSettingSource(settingsSource)) {
+            resolver.writeField(MOTION_SYNC_ID_FIELD, settingsSource,
+                resolver.construct(MOTION_SYNC_ID_CREATE, idString));
+            return;
+        }
+        throw new IllegalStateException("object is not a settings source");
+    }
+
+    /** Float member of a parameter source, or {@code null} when unreadable. */
+    private Float floatParameterMember(final String alias, final Object parameterSource) {
+        if (!resolver.isInstance(PARAMETER_CLASS, parameterSource)) {
+            return null;
+        }
+        final Object value = resolver.invoke(alias, parameterSource);
+        return value instanceof Number number ? number.floatValue() : null;
+    }
+
+    // ------------------------------------------------------------------
+    // Object identity
+    // ------------------------------------------------------------------
+
+    @Override
+    public String objectGuid(final Object source) {
+        final Object guid = source == null ? null : resolver.invoke(SOURCE_GUID, source);
+        return guid == null ? null : (String) resolver.invoke(GUID_UUID, guid);
+    }
+
+    @Override
+    public String objectIdString(final Object source) {
+        final Object id = source == null ? null : resolver.invoke(SOURCE_ID, source);
+        return id == null ? null : (String) resolver.invoke(ID_STRING, id);
+    }
+
+    @Override
+    public String objectLocalName(final Object source) {
+        final Object name = source == null ? null : resolver.invoke(SOURCE_LOCAL_NAME, source);
+        return name instanceof String text ? text : null;
+    }
+
+    @Override
+    public boolean isDeformerSource(final Object object) {
+        return resolver.isInstance(DEFORMER_CLASS, object);
+    }
+
+    @Override
+    public boolean isWarpDeformer(final Object object) {
+        return resolver.isInstance(WARP_CLASS, object);
+    }
+
+    @Override
+    public boolean isRotationDeformer(final Object object) {
+        return resolver.isInstance(ROTATION_CLASS, object);
+    }
+
+    @Override
+    public boolean isArtMeshSource(final Object object) {
+        return resolver.isInstance(ART_MESH_CLASS, object);
+    }
+
+    @Override
+    public String deformerGuid(final Object deformerSource) {
+        final Object guid = deformerSource == null
+            ? null : resolver.invoke(DEFORMER_GUID, deformerSource);
+        return guid == null ? null : (String) resolver.invoke(GUID_UUID, guid);
+    }
+
+    @Override
+    public String deformerTargetGuid(final Object deformerSource) {
+        final Object guid = deformerSource == null
+            ? null : resolver.invoke(DEFORMER_TARGET, deformerSource);
+        return guid == null ? null : (String) resolver.invoke(GUID_UUID, guid);
+    }
+
+    // ------------------------------------------------------------------
+    // Extended-interpolation eligibility gate
+    // ------------------------------------------------------------------
+
+    @Override
+    public boolean usesExtendedInterpolation(final Object modelSource) {
+        // Both grid accessors can return the same instance; dedupe by identity so a
+        // binding is only judged once. A binding with a non-LINEAR extended type or
+        // the illegal flag counts as extended-interpolation usage.
+        final java.util.Set<Object> seen = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<>());
+        for (Object object : allObjects(modelSource)) {
+            if (object == null) {
+                continue;
+            }
+            for (String gridAlias : new String[] {SOURCE_GRID, SOURCE_EXT_GRID}) {
+                final Object grid = resolver.invoke(gridAlias, object);
+                if (grid == null || !seen.add(grid)
+                    || !resolver.isInstance(GRID_CLASS, grid)) {
+                    continue;
+                }
+                for (Object binding : listOf(resolver.invoke(GRID_BINDINGS, grid))) {
+                    if (binding == null || !resolver.isInstance(BINDING_CLASS, binding)) {
+                        continue;
+                    }
+                    if (Boolean.TRUE.equals(
+                        resolver.invoke(BINDING_ILLEGAL, binding))) {
+                        return true;
+                    }
+                    final Object type = resolver.invoke(BINDING_EXT_TYPE, binding);
+                    if (type instanceof Enum<?> extended && !"LINEAR".equals(extended.name())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The admitted model source's own {@code contain*} gates — the host's semantic answer
+     * to feature content the object census cannot see. Each predicate maps to a stable
+     * family token; detected families are pass-through content pinned by the census,
+     * never a rejection reason. The gate roster is the exact one the admitted record
+     * verified: on 5.2.03 the three 5.3-only predicates are absent because the gated
+     * features cannot exist in a 5.2 document.
+     */
+    @Override
+    public List<String> modelFeatureFlags(final Object modelSource) {
+        if (modelSource == null) {
+            return List.of();
+        }
+        final List<String> detected = new ArrayList<>();
+        for (Map.Entry<String, String> gate : admittedFeatureGates.entrySet()) {
+            if (Boolean.TRUE.equals(resolver.invoke(gate.getKey(), modelSource))) {
+                detected.add(gate.getValue());
+            }
+        }
+        return List.copyOf(detected);
+    }
+
+    /**
+     * Extension classes that the editor installs on ordinary sources for every
+     * model: texture inputs carry the atlas mapping, editable-mesh /
+     * mesh-generator / warp-bezier / original-shape extensions carry standard
+     * edit-time data. They are not feature carriers, so their presence alone
+     * does not mark the source. Any other extension class (glue deform-path
+     * skinning, art path, auto-yure, controller, rotate-3d, subdivision,
+     * topology observer, extended interpolation, or an unknown future type)
+     * is recorded as pass-through content the census pins.
+     */
+    private static final Set<String> STANDARD_EXTENSION_CLASSES = Set.of(
+        "com.live2d.cubism.doc.model.extension.textureInput.CTextureInputExtension",
+        "com.live2d.cubism.doc.model.extension.editableMesh.CEditableMeshExtension",
+        "com.live2d.cubism.doc.model.extension.meshGenerator.CMeshGeneratorExtension",
+        "com.live2d.cubism.doc.model.extension.warpBezier.CWarpDeformerBezierExtension",
+        "com.live2d.cubism.doc.model.extension.deformerOriginalShape.CDeformerOriginalShapeExtension");
+
+    /**
+     * Structures embedded inside a controllable source that never appear in the
+     * object census: a keyform morph-target set with actual targets, an
+     * extended morph-target set, or a non-standard extension object attached to
+     * the source. Extension classes are named in the token so a census drift is
+     * diagnosable; the tokens pin the content rather than reject it.
+     */
+    @Override
+    public List<String> embeddedContentFamilies(final Object controllableSource) {
+        if (controllableSource == null) {
+            return List.of();
+        }
+        final List<String> detected = new ArrayList<>();
+        final Object morphSet = resolver.invoke(SOURCE_MORPH_SET, controllableSource);
+        if (morphSet != null && resolver.isInstance(MORPH_SET_CLASS, morphSet)
+            && !listOf(resolver.invoke(MORPH_SET_TARGETS, morphSet)).isEmpty()) {
+            detected.add("keyform-morph-target-set");
+        }
+        if (resolver.invoke(SOURCE_EXT_MORPH_SET, controllableSource) != null) {
+            detected.add("extended-morph-target-set");
+        }
+        for (Object extension : listOf(
+            resolver.invoke(SOURCE_EXTENSIONS, controllableSource))) {
+            if (extension != null
+                && !STANDARD_EXTENSION_CLASSES.contains(extension.getClass().getName())) {
+                detected.add("extension:" + extension.getClass().getName());
+            }
+        }
+        return List.copyOf(detected);
+    }
+
+    /**
+     * Family tokens for census objects, keyed by the reviewed model package
+     * layout of the admitted builds. Deform-path skinning classes live under
+     * the glue package, so the more specific prefix must be tested first.
+     * Classes absent from an admitted build (aliases do not exist on 5.2.03)
+     * simply never match there.
+     */
+    private static final List<Map.Entry<String, String>> FAMILY_PREFIXES =
+        List.of(
+            Map.entry(
+                "com.live2d.cubism.doc.model.affecter.glue.deformPathSkinning.",
+                "deform-path"),
+            Map.entry("com.live2d.cubism.doc.model.affecter.glue.", "glue"),
+            Map.entry("com.live2d.cubism.doc.model.drawable.artPath.", "art-path"),
+            Map.entry("com.live2d.cubism.doc.model.alias.", "alias"),
+            Map.entry("com.live2d.cubism.doc.model.motionSync.", "motion-sync"),
+            Map.entry("com.live2d.cubism.doc.gameData.physics.", "physics")
+        );
+
+    /**
+     * Classifies a census object by its class-hierarchy package — a pure
+     * {@code getClass()} read that never resolves host members. Unknown
+     * families degrade to a bounded simple-name clue, never a stack of
+     * internal detail.
+     */
+    @Override
+    public String censusFamily(final Object object) {
+        if (object == null) {
+            return "unknown";
+        }
+        for (Class<?> type = object.getClass();
+             type != null && type != Object.class;
+             type = type.getSuperclass()) {
+            final String name = type.getName();
+            for (Map.Entry<String, String> family : FAMILY_PREFIXES) {
+                if (name.startsWith(family.getKey())) {
+                    return family.getValue();
+                }
+            }
+        }
+        final String clue = object.getClass().getSimpleName()
+            .replaceAll("[^A-Za-z0-9_$]", "-");
+        return "unknown:" + (clue.isBlank()
+            ? "object" : clue.substring(0, Math.min(clue.length(), 48)));
+    }
+
+    // ------------------------------------------------------------------
+    // Export dialog identity + native re-drive
+    // ------------------------------------------------------------------
+
+    @Override
+    public boolean isExportDialog(final Object owner) {
+        return resolver.isInstance(DIALOG_CLASS, owner);
+    }
+
+    @Override
+    public Object dialogModelSource(final Object dialogOwner) {
+        if (!isExportDialog(dialogOwner)) {
+            return null;
+        }
+        return resolver.readField(DIALOG_MODEL_SOURCE, dialogOwner);
+    }
+
+    @Override
+    public Object exportDriver() {
+        return resolver.readStaticField(DRIVER_INSTANCE);
+    }
+
+    @Override
+    public void invokeNativeExport(
+        final Object driver,
+        final Object modelSource,
+        final Object frame,
+        final Object completionCallback
+    ) {
+        if (driver == null || !resolver.isInstance(DRIVER_CLASS, driver)) {
+            throw new IllegalStateException("export driver is not the verified driver type");
+        }
+        resolver.invoke(DRIVER_EXPORT, driver,
+            Objects.requireNonNull(modelSource, "modelSource"), frame,
+            Objects.requireNonNull(completionCallback, "completionCallback"));
+    }
+
+    @Override
+    public Object newExportCompletionProxy(final BiConsumer<File, List<String>> callback) {
+        Objects.requireNonNull(callback, "callback");
+        // Function2 is stable Kotlin stdlib surface, not an obfuscated host member; the
+        // verified export descriptor already pins it as the callback parameter type.
+        final ClassLoader hostLoader = resolver.hostClassLoader();
+        try {
+            final Class<?> function2 = Class.forName(
+                "kotlin.jvm.functions.Function2", false, hostLoader);
+            if (!function2.isInterface()) {
+                throw new IllegalStateException("host Function2 is not an interface");
+            }
+            final InvocationHandler handler = (proxy, method, arguments) -> {
+                if (method.getDeclaringClass() == Object.class) {
+                    return switch (method.getName()) {
+                        case "toString" -> "ProtectedExportCompletion";
+                        case "hashCode" -> System.identityHashCode(proxy);
+                        case "equals" -> proxy == (arguments == null ? null : arguments[0]);
+                        default -> null;
+                    };
+                }
+                if (!Modifier.isAbstract(method.getModifiers())) {
+                    return null;
+                }
+                final File file = arguments != null && arguments[0] instanceof File f ? f : null;
+                final List<String> outputs = new ArrayList<>();
+                if (arguments != null && arguments[1] instanceof List<?> list) {
+                    for (Object entry : list) {
+                        if (entry instanceof String path) {
+                            outputs.add(path);
+                        }
+                    }
+                }
+                callback.accept(file, List.copyOf(outputs));
+                return null;
+            };
+            return Proxy.newProxyInstance(hostLoader, new Class<?>[] {function2}, handler);
+        } catch (ClassNotFoundException failure) {
+            throw new IllegalStateException("host Function2 interface is unavailable", failure);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Native file-cache force release
+    // ------------------------------------------------------------------
+
+    @Override
+    public boolean releaseFileHandleFor(final File file) {
+        Objects.requireNonNull(file, "file");
+        final Object cache = resolver.readStaticField(FILE_CACHE_INSTANCE);
+        if (cache == null || !resolver.isInstance(FILE_CACHE_CLASS, cache)) {
+            return false;
+        }
+        final Object handles = resolver.invoke(FILE_CACHE_HANDLES, cache);
+        if (!(handles instanceof List<?> list)) {
+            return false;
+        }
+        for (Object handle : new ArrayList<>(list)) {
+            if (handle == null || !resolver.isInstance(FILE_HANDLE_CLASS, handle)) {
+                continue;
+            }
+            final Object handleFile = resolver.invoke(FILE_HANDLE_FILE, handle);
+            if (!(handleFile instanceof File path) || !path.equals(file)) {
+                continue;
+            }
+            resolver.invoke(FILE_HANDLE_UNLOAD, handle);
+            resolver.invoke(FILE_HANDLE_RELEASE, handle, Boolean.TRUE);
+            resolver.invoke(FILE_CACHE_REMOVE, cache, handle);
+        }
+        final Object remaining = resolver.invoke(FILE_CACHE_BY_FILE, cache, file);
+        return remaining == null;
+    }
+
+    @Override
+    public List<String> fileHandleDiagnostics(final File file) {
+        Objects.requireNonNull(file, "file");
+        final Object cache = resolver.readStaticField(FILE_CACHE_INSTANCE);
+        final Object handles = cache == null ? null : resolver.invoke(FILE_CACHE_HANDLES, cache);
+        if (!(handles instanceof List<?> list)) {
+            return List.of();
+        }
+        final List<String> diagnostics = new ArrayList<>();
+        for (Object handle : list) {
+            if (handle == null || !resolver.isInstance(FILE_HANDLE_CLASS, handle)) {
+                continue;
+            }
+            final Object handleFile = resolver.invoke(FILE_HANDLE_FILE, handle);
+            if (!(handleFile instanceof File path) || !path.equals(file)) {
+                continue;
+            }
+            final Object loader = resolver.invoke(FILE_HANDLE_LOADER, handle);
+            final Object listeners = resolver.invoke(FILE_HANDLE_LISTENERS, handle);
+            diagnostics.add(
+                handle.getClass().getName()
+                    + "|loader=" + (loader == null ? "null" : loader.getClass().getName())
+                    + "|listeners=" + (listeners instanceof List<?> l ? l.size() : "?"));
+        }
+        return List.copyOf(diagnostics);
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+
+    private Object requireSelector(final Object selector) {
+        if (!isMainSelector(selector)) {
+            throw new IllegalStateException("selector is not the modeling main selector");
+        }
+        return selector;
+    }
+
+    private Object requireModelSource(final Object modelSource) {
+        if (!resolver.isInstance(MODEL_SOURCE_CLASS, modelSource)) {
+            throw new IllegalStateException("object is not a verified model source");
+        }
+        return modelSource;
+    }
+
+    private int intMember(final String alias, final Object target) {
+        if (target == null) {
+            return -1;
+        }
+        final Object value = resolver.invoke(alias, target);
+        return value instanceof Number n ? n.intValue() : -1;
+    }
+
+    private static List<?> listOf(final Object value) {
+        return value instanceof List<?> list ? List.copyOf(list) : List.of();
+    }
+}

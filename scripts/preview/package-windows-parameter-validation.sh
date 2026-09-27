@@ -7,7 +7,16 @@ cd "$repo_root"
 worktree_id="${TURBOISM_WORKTREE_ID:-main}"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-parameter-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
-parameter_jar="$repo_root/build/worktree/$worktree_id/parameter/libs/parameter-0.1.0-SNAPSHOT-$worktree_id.jar"
+parameter_candidates=(
+  "$repo_root/build/worktree/$worktree_id/parameter/libs/parameter-"*"-$worktree_id.jar"
+)
+if [ ! -e "${parameter_candidates[0]:-}" ] || [ "${#parameter_candidates[@]}" -ne 1 ]; then
+  printf 'error: expected exactly one parameter plugin jar matching %s; found %d\n' \
+    "$repo_root/build/worktree/$worktree_id/parameter/libs/parameter-*-$worktree_id.jar" \
+    "${#parameter_candidates[@]}" >&2
+  exit 1
+fi
+parameter_jar="${parameter_candidates[0]}"
 test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
 probe_class_rel="dev/turboism/tests/plugin/WindowsParameterValidationProbe.class"
 probe_class_dir_rel="dev/turboism/tests/plugin"
@@ -53,12 +62,15 @@ cp "$repo_root/scripts/preview/README-parameter-validation.md" "$bundle_root/REA
 
 probe_tmp="$(mktemp -d "$repo_root/build/.parameter-probe.XXXXXX")"
 trap 'rm -rf "$probe_tmp" "${peer_tmp:-}"' EXIT
-mkdir -p "$probe_tmp/$probe_class_dir_rel" "$probe_tmp/META-INF/turboism"
+mkdir -p "$probe_tmp/$probe_class_dir_rel" "$probe_tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir_rel" -maxdepth 1 -type f \
   \( -name 'WindowsParameterValidationProbe.class' \
      -o -name 'WindowsParameterValidationProbe$*.class' \) \
   -exec cp {} "$probe_tmp/$probe_class_dir_rel/" \;
 cp "$probe_descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
+# PluginJarContract requires the declared i18n base-name catalog inside the jar.
+printf '# Parameter validation probe: no localized messages.\n' \
+  > "$probe_tmp/META-INF/turboism/i18n/messages.properties"
 (
   cd "$probe_tmp"
   mapfile -t probe_classes < <(
@@ -73,7 +85,8 @@ cp "$probe_descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
   }
   jar --create --file "$bundle_root/plugins/parameter-validation-probe.jar" \
     "${probe_classes[@]}" \
-    META-INF/turboism/plugin.json
+    META-INF/turboism/plugin.json \
+    META-INF/turboism/i18n/messages.properties
 )
 if jar tf "$bundle_root/plugins/parameter-validation-probe.jar" \
   | grep -Eq 'WindowsParameterValidationProbeTest|\.java$'; then
@@ -82,14 +95,17 @@ if jar tf "$bundle_root/plugins/parameter-validation-probe.jar" \
 fi
 
 peer_tmp="$(mktemp -d "$repo_root/build/.editor-object-peer-probe.XXXXXX")"
-mkdir -p "$peer_tmp/$probe_class_dir_rel" "$peer_tmp/META-INF/turboism"
+mkdir -p "$peer_tmp/$probe_class_dir_rel" "$peer_tmp/META-INF/turboism/i18n"
 cp "$test_classes/$peer_probe_class_rel" "$peer_tmp/$probe_class_dir_rel/"
 cp "$peer_probe_descriptor" "$peer_tmp/META-INF/turboism/plugin.json"
+printf '# Editor-object peer validation probe: no localized messages.\n' \
+  > "$peer_tmp/META-INF/turboism/i18n/messages.properties"
 (
   cd "$peer_tmp"
   jar --create --file "$bundle_root/plugins/editor-object-peer-validation-probe.jar" \
     "$peer_probe_class_rel" \
-    META-INF/turboism/plugin.json
+    META-INF/turboism/plugin.json \
+    META-INF/turboism/i18n/messages.properties
 )
 
 (

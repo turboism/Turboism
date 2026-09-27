@@ -11,7 +11,7 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.event.TurboismEvent;
-import dev.turboism.sdk.event.cubism.ParameterValueEvent;
+import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.appearance.AppearanceBase;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.appearance.AppearanceStatus;

@@ -97,7 +97,7 @@ allocator** when rebuilding; publication-only retries retain the original number
 
 ### Explicitly publish Stable or Beta without rebuilding
 
-Review the successful candidate's eight files, receipt and source identity.
+Review the successful candidate's ten files, receipt and source identity.
 Use the **original** source SHA and successful run attempt, even if main advanced.
 
 ```bash
@@ -225,8 +225,9 @@ Generic `--yes` confirmation is intentionally unsupported. The run ID must ident
 
 ## Immutable release rules
 
-- A framework version has exactly eight GitHub Release assets: four files and four portable SHA-256 sidecars.
-- The reviewed Updates `release.json` is transferred as a digest-bound Actions artifact and is never a ninth GitHub Release asset.
+- A framework version has exactly ten GitHub Release assets: four product files and four portable SHA-256 sidecars, plus the `turboism-sdk-<version>.jar` developer artifact and its sidecar. The standalone SDK JAR is byte-identical to the SDK JAR bundled inside the staged product payload.
+- The SDK pair is a GitHub-only developer artifact: it never enters the Updates `release.json` media contract, the distribution API's four public binaries, or the R2 mirror. The candidate binds it under `framework.developerArtifacts` so the original eight product artifacts keep their existing contract.
+- The reviewed Updates `release.json` is transferred as a digest-bound Actions artifact and is never an eleventh GitHub Release asset.
 - Existing assets and versioned R2 objects are reused only after exact name, size, and SHA-256 equality.
 - Same-version different bytes fail with a version-not-bumped error. Assets are never overwritten.
 - Partial publication is resumable by uploading only absent immutable objects.
@@ -278,7 +279,7 @@ a rebuild attempt is new and failures may leave harmless gaps.
 
 Numbered product JARs and the Java installer carry `Turboism-Version`,
 `Turboism-Channel`, `Turboism-Build-Number`, and `Turboism-Source-Revision`.
-`build-identity.json` stays in the Actions candidate artifact, not a ninth public
-Release asset. Protected promotion checks it against the ledger, JAR manifests,
+`build-identity.json` stays in the Actions candidate artifact, not an eleventh
+public Release asset. Protected promotion checks it against the ledger, JAR manifests,
 and the embedded runtime resource, and publishes the matching machine-readable
 receipt in Release notes. Historical releases keep `buildNumber: null`.

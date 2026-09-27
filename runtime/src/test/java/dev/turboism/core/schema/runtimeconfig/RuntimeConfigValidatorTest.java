@@ -55,6 +55,14 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
+    void acceptsOptionalReduceAutoBackupBoolean() {
+        final ObjectNode root = base();
+        root.put("reduceAutoBackup", true);
+
+        assertTrue(validator.validate(root, "test.json").isEmpty());
+    }
+
+    @Test
     void acceptsCubismJvmLauncherSelection() {
         final ObjectNode root = base();
         root.withObject("launcher").put("cubismJvm", "graalvm");
@@ -90,6 +98,32 @@ class RuntimeConfigValidatorTest {
         root.withObject("launcher").put("cubismJvm", "other");
 
         assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_CUBISM_JVM"));
+    }
+
+    @Test
+    void rejectsNonBooleanZgcLauncherFlag() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put("zgc", "yes");
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_ZGC"));
+
+        final ObjectNode valid = base();
+        valid.withObject("launcher").put("zgc", true);
+        assertTrue(codes(valid).isEmpty());
+    }
+
+    @Test
+    void rejectsNonBooleanOptimizationLauncherFlags() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put("modelUpdateSkip", "no");
+        root.withObject("launcher").put("incrementalUpdate", 1);
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_LAUNCHER_BOOLEAN"));
+
+        final ObjectNode valid = base();
+        valid.withObject("launcher").put("modelUpdateSkip", false);
+        valid.withObject("launcher").put("incrementalUpdate", true);
+        assertTrue(codes(valid).isEmpty());
     }
 
     @Test
@@ -133,6 +167,14 @@ class RuntimeConfigValidatorTest {
     void rejectsUseTextIconOfWrongType() {
         final ObjectNode root = base();
         root.put("useTextIcon", "yes");
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
+    }
+
+    @Test
+    void rejectsReduceAutoBackupOfWrongType() {
+        final ObjectNode root = base();
+        root.put("reduceAutoBackup", "yes");
 
         assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
     }

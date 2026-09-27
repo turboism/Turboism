@@ -36,6 +36,7 @@ public record WorkspaceLayoutSnapshot(
         });
     }
 
+    /** Whether the snapshot carries a resolved layout tree or a typed failure. */
     public enum Availability {
         AVAILABLE,
         UNAVAILABLE

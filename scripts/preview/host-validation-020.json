@@ -1,0 +1,28 @@
+{
+  "format": "turboism.host-validation.tasks",
+  "schemaVersion": 1,
+  "resources": {
+    "host-slot": {
+      "capacity": 1,
+      "description": "One exact Cubism 5.3.03 session; task-owned cleanup remains with the queue manager."
+    },
+    "display-input": {
+      "capacity": 1,
+      "description": "Exclusive desktop input for the fixed Circle100 menu path."
+    }
+  },
+  "tasks": {
+    "atlas-image-observe": {
+      "description": "T036 minimal Circle100 atlas-image observation; no layout, sort, save, or performance measurement.",
+      "command": "scripts/preview/run-atlas-image-host-validation.sh",
+      "versions": ["5303"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      },
+      "runnable": false,
+      "blockedReason": "T036 source review accepted and primary prepare captured; awaiting prepared artifact digest review before submit."
+    }
+  }
+}

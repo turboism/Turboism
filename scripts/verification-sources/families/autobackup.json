@@ -1,0 +1,16 @@
+{
+  "format": "turboism.verification-source-family/v1",
+  "family": "autobackup",
+  "records": [
+    "cubism-5.2.03-autobackup.json",
+    "cubism-5.3.02-autobackup.json",
+    "cubism-5.3.03-autobackup.json"
+  ],
+  "files": [
+    "dev/turboism/mapping/verification/AutoBackupVerificationManifest.java"
+  ],
+  "coverage": true,
+  "packs": [],
+  "extraLiterals": [],
+  "coverageSources": []
+}

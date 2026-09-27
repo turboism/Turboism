@@ -102,6 +102,43 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
     }
 
     @Test
+    void renderLocaleIsResolvedLazilyFromTheSuppliedSource() throws Exception {
+        final java.util.concurrent.atomic.AtomicInteger resolutions =
+            new java.util.concurrent.atomic.AtomicInteger();
+        final Path recent = Files.createTempFile("recent-preview-locale", ".cmo3");
+        final JMenu menu = recentMenu(recent);
+        PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
+
+        final VerifiedRecentPreviewPopupHostOperations popup =
+            new VerifiedRecentPreviewPopupHostOperations(
+                panelResolver("5.3.02", getClass().getClassLoader()),
+                () -> {
+                    resolutions.incrementAndGet();
+                    return java.util.Locale.ENGLISH;
+                },
+                ignored -> { }
+            );
+        assertEquals(0, resolutions.get(), "the render locale must not be resolved at construction");
+
+        final Registration registration = popup.contribute(summary ->
+            Optional.of(new RecentPreviewContent(summary.id(), PanelView.text(summary.displayName()))));
+        final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
+        SwingUtilities.invokeAndWait(() -> MenuSelectionManager.defaultManager().setSelectedPath(new MenuElement[]{
+            menu, menu.getPopupMenu(), item
+        }));
+        SwingUtilities.invokeAndWait(() -> { });
+        try {
+            assertTrue(
+                resolutions.get() > 0,
+                "the popup render path must resolve the locale from the supplied source"
+            );
+        } finally {
+            registration.close();
+            SwingUtilities.invokeAndWait(() -> MenuSelectionManager.defaultManager().clearSelectedPath());
+        }
+    }
+
+    @Test
     void selectionChangeRebindsAReplacedRecentMenu() throws Exception {
         final Path firstPath = Files.createTempFile("recent-preview-first", ".cmo3");
         final Path replacementPath = Files.createTempFile("recent-preview-replacement", ".cmo3");

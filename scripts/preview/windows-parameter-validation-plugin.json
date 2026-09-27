@@ -27,6 +27,11 @@
       "reason": "Query active parameters, parameter groups, native control label backgrounds, default-keyform lock, and verified metadata during manual validation."
     },
     {
+      "id": "turboism.cubism.project.read",
+      "scope": "application",
+      "reason": "Read project/workspace snapshots for the perf-observe mode's runtime(), activeProject(), and memory measurement passes."
+    },
+    {
       "id": "turboism.cubism.model.write",
       "scope": "application",
       "reason": "Invoke verified parameter, Combined, folder label-background, and default-keyform lock writes during manual validation."

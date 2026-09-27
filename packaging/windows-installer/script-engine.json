@@ -1,0 +1,17 @@
+{
+  "format": "turboism.optional-script-engine",
+  "schemaVersion": 1,
+  "version": "25.2.4",
+  "artifacts": [
+    {
+      "name": "js-isolate-windows-amd64-community-25.2.4.jar",
+      "bytes": 63196747,
+      "sha256": "1f15779609847e306e8e7e7cf772096639c6a4c8366fe781eaf82bf82123a176"
+    },
+    {
+      "name": "truffle-api-25.2.4.jar",
+      "bytes": 16961328,
+      "sha256": "ac5acb0e98b7e05983c34bcafc80ecdaaeb5ae0de32470d46452182dd8068628"
+    }
+  ]
+}

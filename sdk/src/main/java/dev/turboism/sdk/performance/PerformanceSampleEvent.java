@@ -1,6 +1,6 @@
 package dev.turboism.sdk.performance;
 
-import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
@@ -14,7 +14,7 @@ import java.util.Objects;
 public record PerformanceSampleEvent(
     PerformanceSnapshot snapshot,
     long coalescedSamples
-) implements EventBus.TurboismEvent {
+) implements TurboismEvent {
 
     public PerformanceSampleEvent {
         snapshot = Objects.requireNonNull(snapshot, "snapshot");

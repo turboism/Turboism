@@ -25,6 +25,7 @@ final class McpJsonSchema {
 
     static boolean validates(final Object value, final Map<String, Object> schema) {
         Objects.requireNonNull(schema, "schema");
+        if (!isJsonValue(value, 0)) return false;
         if (schema.isEmpty()) return true;
         return validates(value, schema, 0);
     }
@@ -91,13 +92,15 @@ final class McpJsonSchema {
         if (depth > 96) return false;
         final Object oneOf = schema.get("oneOf");
         if (oneOf instanceof List<?> alternatives) {
+            int matches = 0;
             for (Object alternative : alternatives) {
                 if (alternative instanceof Map<?, ?> candidate
                     && validates(value, stringMap(candidate), depth + 1)) {
-                    return true;
+                    matches++;
                 }
             }
-            return false;
+            if (matches != 1) return false;
+            // oneOf does not override sibling constraints on the same schema object.
         }
 
         if (schema.containsKey("const") && !jsonEquals(value, schema.get("const"))) {
@@ -117,8 +120,9 @@ final class McpJsonSchema {
         if (value == null) return declaredTypes.isEmpty() || declaredTypes.contains("null");
 
         if (value instanceof String text) {
-            if (!integerConstraint(text.length(), schema.get("minLength"), true)) return false;
-            if (!integerConstraint(text.length(), schema.get("maxLength"), false)) return false;
+            final int length = text.codePointCount(0, text.length());
+            if (!integerConstraint(length, schema.get("minLength"), true)) return false;
+            if (!integerConstraint(length, schema.get("maxLength"), false)) return false;
             if (schema.get("pattern") instanceof String expression) {
                 try {
                     if (!Pattern.compile(expression).matcher(text).find()) return false;
@@ -136,6 +140,14 @@ final class McpJsonSchema {
             }
             if (schema.get("maximum") instanceof Number maximum
                 && decimal.compareTo(Objects.requireNonNull(decimal(maximum))) > 0) {
+                return false;
+            }
+            if (schema.get("exclusiveMinimum") instanceof Number minimum
+                && decimal.compareTo(Objects.requireNonNull(decimal(minimum))) <= 0) {
+                return false;
+            }
+            if (schema.get("exclusiveMaximum") instanceof Number maximum
+                && decimal.compareTo(Objects.requireNonNull(decimal(maximum))) >= 0) {
                 return false;
             }
         }
@@ -176,6 +188,27 @@ final class McpJsonSchema {
             }
         }
         return true;
+    }
+
+    private static boolean isJsonValue(final Object value, final int depth) {
+        if (depth > 96) return false;
+        if (value == null || value instanceof String || value instanceof Boolean) return true;
+        if (value instanceof Number number) return decimal(number) != null;
+        if (value instanceof List<?> list) {
+            for (Object item : list) {
+                if (!isJsonValue(item, depth + 1)) return false;
+            }
+            return true;
+        }
+        if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (!(entry.getKey() instanceof String) || !isJsonValue(entry.getValue(), depth + 1)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     private static boolean compatible(

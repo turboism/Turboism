@@ -1,6 +1,6 @@
 package dev.turboism.sdk.action;
 
-import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -12,7 +12,7 @@ public record ActionInvocationEvent(
     Optional<UiActionEvent> uiEvent,
     boolean contextMenuInvocation,
     boolean panelTabInvocation
-) implements EventBus.TurboismEvent {
+) implements TurboismEvent {
 
     public ActionInvocationEvent {
         pluginId = requireText(pluginId, "pluginId");

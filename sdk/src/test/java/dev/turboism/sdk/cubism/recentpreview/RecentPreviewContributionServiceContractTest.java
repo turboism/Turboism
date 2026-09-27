@@ -43,7 +43,7 @@ final class RecentPreviewContributionServiceContractTest {
         assertSame(RecentPreviewContributionService.unavailable(), context.recentPreviews());
 
         assertEquals(
-            List.of("contribute", "refresh", "unavailable"),
+            List.of("contribute", "isAvailable", "refresh", "unavailable"),
             Arrays.stream(RecentPreviewContributionService.class.getDeclaredMethods())
                 .filter(method -> Modifier.isPublic(method.getModifiers()))
                 .map(Method::getName)

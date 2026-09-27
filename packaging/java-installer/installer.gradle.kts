@@ -30,8 +30,9 @@ import java.util.zip.ZipFile
  *                          JARs' META-INF/turboism/plugin.json — there is no
  *                          manually maintained plugin id list anywhere, and
  *                          plugin projects come from the authoritative Gradle
- *                          project hierarchy (":plugins:*", excluding the
- *                          runtime-owned ":plugins:core"), not a filesystem
+ *                          project hierarchy (":plugins:*"; the runtime-owned
+ *                          shell lives in :runtime and ships no plugin JAR),
+ *                          not a filesystem
  *                          directory scan.
  *   checkJavaInstaller     deterministic non-GUI verification (console
  *                          install/uninstall matrix + locale probes),
@@ -112,8 +113,8 @@ val izpackBaseDir = layout.buildDirectory.dir("java-installer/izpack")
 // eight public-exclusion modules are simply absent from the manifest). Parsing is
 // fail-closed: missing file, blank/comment lines, non-plugin entries,
 // duplicates, unsorted order or unknown projects abort the build. The runtime-
-// owned :plugins:core stays allowlisted as a project but is never packaged as
-// a plugin JAR.
+// owned framework shell lives inside the runtime JAR and never appears as a
+// plugin JAR.
 val releasePluginsFile: File = rootProject.file("packaging/release-plugins.txt")
 
 fun parseReleasePluginManifest(file: File): List<String> {
@@ -146,13 +147,13 @@ fun parseReleasePluginManifest(file: File): List<String> {
 val allowedPluginModules: List<String> = parseReleasePluginManifest(releasePluginsFile)
 val pluginModuleNames: List<String> = allowedPluginModules
     .map { it.removePrefix(":plugins:") }
-    .filter { it != "core" }
 
 val installerTemplateFiles = listOf(
     "LICENSE",
     "packaging/eula/EULA.en.txt",
     "packaging/eula/EULA.zh-Hans.txt",
     "packaging/eula/EULA.ja.txt",
+    "packaging/eula/EULA.ko.txt",
     "packaging/windows-installer/config.template.json",
     "packaging/windows-installer/README.en.txt.template",
     "packaging/windows-installer/README.zh.txt.template",
@@ -164,6 +165,8 @@ val installerTemplateFiles = listOf(
     "packaging/windows-installer/cubism-launch-common.ps1",
     "packaging/windows-installer/install-jar-payload.ps1",
     "packaging/windows-installer/install-managed-graal.ps1",
+    "packaging/windows-installer/install-script-engine.ps1",
+    "packaging/windows-installer/script-engine.json",
     "packaging/windows-installer/assets/turboism.ico",
     "packaging/windows-installer/assets/turboism.png",
     "packaging/java-installer/uninstall.command",
@@ -301,6 +304,7 @@ val stageInstallerPayload by tasks.registering {
             from("packaging/eula/EULA.en.txt")
             from("packaging/eula/EULA.zh-Hans.txt")
             from("packaging/eula/EULA.ja.txt")
+            from("packaging/eula/EULA.ko.txt")
             into(stage)
         }
         listOf(
@@ -321,6 +325,8 @@ val stageInstallerPayload by tasks.registering {
             from("packaging/windows-installer/cubism-launch-common.ps1")
             from("packaging/windows-installer/install-jar-payload.ps1")
             from("packaging/windows-installer/install-managed-graal.ps1")
+            from("packaging/windows-installer/install-script-engine.ps1")
+            from("packaging/windows-installer/script-engine.json")
             from("packaging/windows-installer/assets/turboism.ico")
             from("packaging/windows-installer/assets/turboism.png")
             from("packaging/java-installer/uninstall.command")
@@ -494,7 +500,7 @@ val generateInstallerXml by tasks.registering {
                     throw GradleException("${jarFile.name}: plugin.json has no id")
                 }
                 if (id == "turboism.core") {
-                    throw GradleException("${jarFile.name}: runtime-owned core plugin must not be packaged")
+                    throw GradleException("${jarFile.name}: reserved framework id must not be packaged")
                 }
                 if (!seen.add(id)) {
                     throw GradleException("duplicate plugin id '$id' in staged payload")

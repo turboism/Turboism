@@ -62,13 +62,21 @@ public record EditorUiHostSnapshot(
         return Set.copyOf(EnumSet.copyOf(families));
     }
 
+    /** Lifecycle state of the Editor UI host integration. */
     public enum State {
+        /** No host integration exists. */
         ABSENT,
+        /** A host connection is being established. */
         CONNECTING,
+        /** Connected, but not all families are ready. */
         CONNECTED_NOT_READY,
+        /** All admitted families are installed and live. */
         READY,
+        /** The live host registration is being replaced. */
         REPLACING,
+        /** The host left its healthy path; see the failure record. */
         FAILED,
+        /** The integration has been closed. */
         CLOSED
     }
 }

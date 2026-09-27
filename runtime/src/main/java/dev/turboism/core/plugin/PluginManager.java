@@ -17,7 +17,11 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-/** Manages JAR-level plugin lifecycle across ordered entrypoint instances. */
+/**
+ * Legacy standalone JAR lifecycle coordinator retained for internal compatibility.
+ * The production loader and shutdown path are owned by {@code dev.turboism.preview.LocalPluginRuntime};
+ * changes here do not replace verification of that production path.
+ */
 public final class PluginManager {
 
     private final Map<String, PluginRuntime> plugins = new HashMap<>();
@@ -167,30 +171,77 @@ public final class PluginManager {
         final PluginRuntime runtime,
         final CompletableFuture<PluginLifecycleState> completion
     ) {
-        logInfo(runtime, "Plugin lifecycle: disable started");
-        boolean failed = false;
-        final List<TurboismPlugin> entries = runtime.entrypoints();
-        for (int index = entries.size() - 1; index >= 0; index--) {
+        Throwable failure = null;
+        try {
             try {
-                entries.get(index).disable();
-            } catch (Exception exception) {
-                failed = true;
-                reportProblem(runtime, "DISABLE_FAILED", exception);
+                logInfo(runtime, "Plugin lifecycle: disable started");
+            } catch (Throwable logging) {
+                failure = recordDisableFailure(runtime, failure, logging);
+            }
+            final List<TurboismPlugin> entries = runtime.entrypoints();
+            for (int index = entries.size() - 1; index >= 0; index--) {
+                try {
+                    entries.get(index).disable();
+                } catch (Throwable next) {
+                    failure = recordDisableFailure(runtime, failure, next);
+                }
+            }
+        } catch (Throwable unexpected) {
+            failure = recordDisableFailure(runtime, failure, unexpected);
+        } finally {
+            try {
+                if (runtime.context() != null) runtime.context().disposableScope().close();
+            } catch (Throwable cleanup) {
+                failure = recordDisableFailure(runtime, failure, cleanup);
+            }
+            PluginLifecycleState terminalState = failure == null
+                ? PluginLifecycleState.DISABLED : PluginLifecycleState.DISABLE_FAILED;
+            try {
+                runtime.transitionTo(terminalState);
+                if (failure == null) {
+                    logInfo(runtime, "Plugin lifecycle: disable succeeded entrypoints=" + runtime.entrypoints().size());
+                }
+            } catch (Throwable settlement) {
+                failure = appendDisableFailure(failure, settlement);
+                terminalState = PluginLifecycleState.DISABLE_FAILED;
+                runtime.transitionTo(terminalState);
+            } finally {
+                try {
+                    if (fatal(failure)) completion.completeExceptionally(failure);
+                    else completion.complete(terminalState);
+                } finally {
+                    disableOperations.remove(runtime.id(), completion);
+                }
             }
         }
-        if (!closeDisposableScope(runtime, "DISABLE_FAILED")) {
-            failed = true;
-        }
+        if (fatal(failure)) throw (Error) failure;
+    }
 
-        final PluginLifecycleState terminalState = failed
-            ? PluginLifecycleState.DISABLE_FAILED
-            : PluginLifecycleState.DISABLED;
-        runtime.transitionTo(terminalState);
-        if (!failed) {
-            logInfo(runtime, "Plugin lifecycle: disable succeeded entrypoints=" + entries.size());
+    private Throwable recordDisableFailure(
+        final PluginRuntime runtime, final Throwable first, final Throwable next
+    ) {
+        Throwable result = appendDisableFailure(first, next);
+        try {
+            reportProblem(runtime, "DISABLE_FAILED", next);
+        } catch (Throwable diagnosticsFailure) {
+            result = appendDisableFailure(result, diagnosticsFailure);
         }
-        completion.complete(terminalState);
-        disableOperations.remove(runtime.id(), completion);
+        return result;
+    }
+
+    private static Throwable appendDisableFailure(final Throwable first, final Throwable next) {
+        if (first == null) return next;
+        if (first == next) return first;
+        if (fatal(next) && !fatal(first)) {
+            next.addSuppressed(first);
+            return next;
+        }
+        first.addSuppressed(next);
+        return first;
+    }
+
+    private static boolean fatal(final Throwable failure) {
+        return failure instanceof VirtualMachineError || failure instanceof ThreadDeath;
     }
 
     private static PluginTask lifecycleTask(
@@ -276,7 +327,7 @@ public final class PluginManager {
     private void reportProblem(
         final PluginRuntime runtime,
         final String code,
-        final Exception exception
+        final Throwable exception
     ) {
         if (runtime.context() != null) {
             runtime.context().logger().error(

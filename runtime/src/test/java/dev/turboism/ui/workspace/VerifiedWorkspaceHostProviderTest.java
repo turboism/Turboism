@@ -24,6 +24,9 @@ class VerifiedWorkspaceHostProviderTest {
                 workspace("modeling", "Modeling"),
                 new java.util.ArrayList<>(List.of(workspace("modeling", "Modeling"), workspace("animation", "Animation")))
             )));
+            final SyntheticDock initialDock = SyntheticApp.instance.frame.dock;
+            final SyntheticWorkspace alternate = initialDock.workspaces.remove(1);
+            initialDock.custom = List.of(alternate);
             WorkspaceHostProvider provider = provider(version, resolver(version));
 
             var status = provider.readStatus();
@@ -42,6 +45,41 @@ class VerifiedWorkspaceHostProviderTest {
             assertEquals(1, dock.updateCount);
             assertEquals(1, dock.resetCount);
         }
+    }
+
+    @Test
+    void currentWorkspaceDoesNotComeFromThePreviousWorkspace() {
+        final var previous = workspace("previous", "Previous");
+        final var active = workspace("active", "Active");
+        final var dock = new SyntheticDock(active, List.of(previous, active));
+        dock.lastWorkspace = previous;
+        SyntheticApp.instance = new SyntheticApp(new SyntheticMainFrame(dock));
+
+        assertEquals(previous, dock.current());
+        assertEquals(new WorkspaceId("active"), provider("5.3.02", resolver("5.3.02"))
+            .readStatus().current().orElseThrow().id());
+    }
+
+    @Test
+    void presetUpdateIsRefusedWithoutOpeningANativeWarning() {
+        final var preset = workspace("modeling", "Modeling");
+        final var dock = new SyntheticDock(preset, List.of(preset));
+        SyntheticApp.instance = new SyntheticApp(new SyntheticMainFrame(dock));
+        assertEquals(WorkspaceOperationResult.Outcome.FAILED,
+            provider("5.3.02", resolver("5.3.02")).updateDefault());
+        assertEquals(0, dock.updateCount);
+    }
+
+    @Test
+    void cancelledDefaultSaveDoesNotClaimAChange() {
+        final var custom = workspace("custom", "Custom");
+        final var dock = new SyntheticDock(custom, List.of());
+        dock.custom = List.of(custom);
+        dock.cancelSave = true;
+        SyntheticApp.instance = new SyntheticApp(new SyntheticMainFrame(dock));
+        assertEquals(WorkspaceOperationResult.Outcome.NO_CHANGE,
+            provider("5.3.02", resolver("5.3.02")).updateDefault());
+        assertEquals(1, dock.updateCount);
     }
 
     @Test
@@ -192,7 +230,8 @@ class VerifiedWorkspaceHostProviderTest {
             StaticSelector.staticMethod("workspace.app.instance", name(SyntheticApp.class), "instance", "()L" + name(SyntheticApp.class) + ";", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("workspace.app.main-frame", name(SyntheticApp.class), "mainFrame", "()L" + name(SyntheticMainFrame.class) + ";", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("workspace.main-frame.dock", name(SyntheticMainFrame.class), "dock", "()L" + name(SyntheticDock.class) + ";", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("workspace.dock.current", name(SyntheticDock.class), "current", "()L" + name(SyntheticWorkspace.class) + ";", StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.method("workspace.dock.palette-manager", name(SyntheticDock.class), "paletteManager", "()L" + name(SyntheticPaletteManager.class) + ";", StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.method("workspace.palette-manager.current", name(SyntheticPaletteManager.class), "current", "()L" + name(SyntheticWorkspace.class) + ";", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("workspace.dock.preset", name(SyntheticDock.class), "preset", "()Ljava/util/List;", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("workspace.dock.custom", name(SyntheticDock.class), "custom", "()Ljava/util/List;", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("workspace.workspace.id", name(SyntheticWorkspace.class), "id", "()L" + name(SyntheticId.class) + ";", StaticSelector.ACCESS_PUBLIC),
@@ -200,6 +239,7 @@ class VerifiedWorkspaceHostProviderTest {
             StaticSelector.method("workspace.id.value", name(SyntheticId.class), "idString", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("workspace.dock.change", name(SyntheticDock.class), "change", "(L" + name(SyntheticId.class) + ";)V", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("workspace.dock.update-default", name(SyntheticDock.class), "updateDefault", "()V", StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.method("workspace.workspace.default-layout", name(SyntheticWorkspace.class), "defaultLayout", "()[B", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("workspace.dock.reset-default", name(SyntheticDock.class), "resetDefault", "()V", StaticSelector.ACCESS_PUBLIC)
         );
         return TestVerifiedResolvers.create(
@@ -227,33 +267,49 @@ class VerifiedWorkspaceHostProviderTest {
     }
     public static final class SyntheticDock {
         SyntheticWorkspace current;
+        SyntheticWorkspace lastWorkspace;
         final List<SyntheticWorkspace> workspaces;
         java.util.List<SyntheticWorkspace> custom = List.of();
         int changeCount;
         int updateCount;
         int resetCount;
         boolean ignoreChange;
+        boolean cancelSave;
         boolean failCommands;
         SyntheticDock(SyntheticWorkspace current, List<SyntheticWorkspace> workspaces) {
             this.current = current; this.workspaces = workspaces;
         }
-        public SyntheticWorkspace current() { return current; }
+        public SyntheticWorkspace current() { return lastWorkspace == null ? current : lastWorkspace; }
+        public SyntheticPaletteManager paletteManager() { return new SyntheticPaletteManager(this); }
         public List<SyntheticWorkspace> preset() { return workspaces; }
         public List<SyntheticWorkspace> custom() { return custom; }
         public void change(SyntheticId id) {
             if (failCommands) throw new IllegalStateException("change failed");
             changeCount++;
-            if (!ignoreChange) current = workspaces.stream().filter(value -> value.id.equals(id)).findFirst().orElse(current);
+            if (!ignoreChange) current = java.util.stream.Stream.concat(workspaces.stream(), custom.stream())
+                .filter(value -> value.id.equals(id)).findFirst().orElse(current);
         }
         public void updateDefault() {
             if (failCommands) throw new IllegalStateException("update failed");
             updateCount++;
+            if (!cancelSave) current.defaultLayout = new byte[]{1, 2, 3};
         }
         public void resetDefault() {
             if (failCommands) throw new IllegalStateException("reset failed");
             resetCount++;
     }
         }
-    public record SyntheticWorkspace(SyntheticId id, String name) { }
+    public static final class SyntheticWorkspace {
+        final SyntheticId id;
+        final String name;
+        byte[] defaultLayout;
+        SyntheticWorkspace(SyntheticId id, String name) { this.id = id; this.name = name; }
+        public SyntheticId id() { return id; }
+        public String name() { return name; }
+        public byte[] defaultLayout() { return defaultLayout; }
+    }
+    public record SyntheticPaletteManager(SyntheticDock dock) {
+        public SyntheticWorkspace current() { return dock.current; }
+    }
     public record SyntheticId(String idString) { }
 }

@@ -20,7 +20,11 @@
     "locales": ["base"]
   },
   "dependencies": [],
-  "permissions": [],
+  "permissions": [
+    {"id": "turboism.cubism.model.read", "scope": "application", "reason": "Reads the isolated task model for texture persistence assertions."},
+    {"id": "turboism.cubism.model.write", "scope": "application", "reason": "Exercises texture writes and native Undo only on the verified task fixture."},
+    {"id": "turboism.cubism.project.read", "scope": "application", "reason": "Verifies the task-owned document and native history during persistence acceptance."}
+  ],
   "capabilities": [
     "validation.mcp.lifecycle"
   ],

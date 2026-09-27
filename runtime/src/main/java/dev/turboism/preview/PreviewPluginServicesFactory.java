@@ -5,10 +5,14 @@ import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.config.RuntimeTypedPluginConfigRegistry;
+import dev.turboism.core.event.PublicEventContractCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.exportsettings.RuntimeExportSettingsAuthority;
+import dev.turboism.exportsettings.RuntimeExportSettingsContributionRegistry;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
+import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.hostread.ProjectWorkspaceHostReadSource;
 import dev.turboism.hostread.RuntimeAsyncHostReadService;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
@@ -19,6 +23,7 @@ import dev.turboism.home.TurboismHomeLayout;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.performance.RuntimePerformanceEventPublisher;
 import dev.turboism.performance.RuntimePerformanceProbeService;
@@ -45,6 +50,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     private final Path home;
     private final RuntimeScheduler scheduler;
     private final RuntimeEventBroker eventBroker;
+    private final PublicEventContractCatalog eventContracts;
     private final RuntimeHostAdapterAccess hostAccess;
     private final SharedAsyncHostReadLane hostReadLane;
     private final PreviewLog log;
@@ -52,8 +58,19 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     private final Locale effectiveLocale;
     private final RuntimePerformanceProbeService performanceProbe;
     private final RuntimePerformanceEventPublisher performanceEvents;
+    private final dev.turboism.adapter.cubism.HostSnapshotSource sessionSnapshotSource;
+    private final dev.turboism.adapter.cubism.SelectionObservationPublisher selectionObserver;
+    private dev.turboism.cleanup.RetryableCleanup cleanup;
     private final dev.turboism.mcp.McpConnectionRegistry mcpConnections =
         new dev.turboism.mcp.McpConnectionRegistry();
+    /**
+     * Host-level export-settings policy, bound by the runtime before any plugin is loaded.
+     *
+     * <p>A plugin's contribution registry is only reachable from the native dialog through this
+     * authority. When it is absent the registry stays plugin-private, which is the correct
+     * fail-closed state: no hook is installed and the host keeps its native dialog.</p>
+     */
+    private volatile RuntimeExportSettingsAuthority exportSettingsAuthority;
 
     PreviewPluginServicesFactory(
         final Path home,
@@ -100,6 +117,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     ) {
         this.home = home;
         this.scheduler = scheduler;
+        this.eventContracts = new PublicEventContractCatalog(eventContractCacheDir(home));
         this.eventBroker = new RuntimeEventBroker(
             scheduler,
             64,
@@ -125,7 +143,8 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
                     null,
                     1L
                 )
-            )
+            ),
+            eventContracts
         );
         Objects.requireNonNull(parameterLifecycle, "parameterLifecycle")
             .attachEventBroker(eventBroker);
@@ -159,6 +178,35 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         this.log = log;
         this.failureCollector = failureCollector;
         this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
+        // One session snapshot source shared by every plugin query facade and the
+        // selection observer: a single invalidation-token domain lets the shared
+        // observation baseline order query results against sampler results.
+        this.sessionSnapshotSource = dev.turboism.adapter.host.HostSessionSnapshotSource
+            .forSession(hostAccess.adapters().projectWorkspace());
+        // Session-scoped selection observation on the bounded host-read lane.
+        this.selectionObserver = new dev.turboism.adapter.cubism.SelectionObservationPublisher(
+            sessionSnapshotSource,
+            hostReadLane,
+            scheduler,
+            eventBroker,
+            eventBroker.observationBaseline(
+                dev.turboism.adapter.cubism.SelectionObservation.class
+            )
+        );
+        this.selectionObserver.signalDemand();
+    }
+
+    private static Path eventContractCacheDir(final Path home) {
+        try {
+            return TurboismHomeLayout.create(home)
+                .runtimeCacheDir()
+                .resolve("event-contracts");
+        } catch (IOException failure) {
+            throw new IllegalStateException(
+                "cannot resolve the runtime cache directory under " + home,
+                failure
+            );
+        }
     }
 
     RuntimeEventBroker.Owner admitEventOwner(final PluginDescriptor descriptor) {
@@ -167,6 +215,24 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
 
     void preflightEventContracts(final PluginDescriptor descriptor) {
         eventBroker.preflight(descriptor);
+    }
+
+    void preflightEventContracts(
+        final PluginDescriptor descriptor,
+        final PublicEventContractCatalog.ContractLease lease
+    ) {
+        eventBroker.preflight(descriptor, lease);
+    }
+
+    PublicEventContractCatalog.ContractLease acquireEventContracts(
+        final PluginDescriptor descriptor,
+        final Path pluginJar
+    ) {
+        return eventContracts.acquire(descriptor, pluginJar);
+    }
+
+    PublicEventContractCatalog eventContracts() {
+        return eventContracts;
     }
 
     RuntimeEventBroker.Owner admitEventOwner(final String pluginId) {
@@ -178,13 +244,23 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        performanceEvents.close();
-        performanceProbe.close();
-        mcpConnections.close();
-        eventBroker.observationBaseline(
-            dev.turboism.sdk.performance.PerformanceProbeService.class
-        ).compareAndSet(performanceProbe, null);
+    public synchronized void close() {
+        if (cleanup == null) {
+            cleanup = new dev.turboism.cleanup.RetryableCleanup(
+                "Shared plugin service cleanup failed",
+                selectionObserver::close,
+                performanceEvents::close,
+                performanceProbe::close,
+                mcpConnections::close,
+                () -> eventBroker.observationBaseline(
+                    dev.turboism.sdk.performance.PerformanceProbeService.class
+                ).compareAndSet(performanceProbe, null),
+                // Retire contract admission; bindings still leased by retained generations stay
+                // usable until their last release, which remains legal after close().
+                eventContracts::close
+            );
+        }
+        cleanup.close();
     }
 
     PreviewPluginServices create(
@@ -198,12 +274,17 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         final PluginHomePaths paths = TurboismHomeLayout.create(home).plugin(descriptor.id());
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
         final RuntimePluginTaskScheduler tasks = tasks(descriptor, scope, evidence);
+        final RuntimeExportSettingsContributionRegistry exportSettings =
+            new RuntimeExportSettingsContributionRegistry(
+                descriptor.id(), Objects.requireNonNull(eventOwner, "eventOwner").key().generation()
+            );
+        scope.register(exportSettings);
         final Set<String> permissions = permissionIds(descriptor);
         final CorePluginContext.Dependencies dependencies = dependencies(
             descriptor, paths, uiScheduler, scope, eventOwner, classLoader
         );
         final RuntimePluginLocalization pluginLocalization = localization(descriptor, classLoader);
-        return new PreviewPluginServices(
+        final PreviewPluginServices services = new PreviewPluginServices(
             dependencies, pluginLocalization, tasks,
             storage(descriptor, paths, permissions, tasks, scope, evidence),
             typedConfig(
@@ -223,8 +304,68 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
                 },
                 mcpConnections
             ),
+            exportSettings,
             evidence
         );
+        // The registry binding is removed before the guard below runs, so a dialog that is still
+        // open when the plugin unloads is marked stale instead of reading a closing registry.
+        bindExportSettings(descriptor, eventOwner, exportSettings, pluginLocalization, scope);
+        // Register last: DisposableScope closes in reverse order, so this guard runs before the
+        // registry and every other plugin resource. A failed guard makes shutdown retain the
+        // classloader instead of claiming a clean unload while a callback is still running.
+        scope.register(exportSettings.scopeCloseGuard());
+        return services;
+    }
+
+    /**
+     * Publishes one plugin's contribution registry to the host-level authority.
+     *
+     * <p>The binding is registered before the close guard, so teardown runs guard → unbind →
+     * registry close: an in-flight native callback is drained first, then any dialog that is still
+     * open is marked stale, and only then does the registry stop accepting reads.</p>
+     *
+     * <p>With no bound authority the registry stays plugin-private, which is the fail-closed state:
+     * no host hook is installed and the native dialog is untouched.</p>
+     */
+    private void bindExportSettings(
+        final PluginDescriptor descriptor,
+        final RuntimeEventBroker.Owner eventOwner,
+        final RuntimeExportSettingsContributionRegistry exportSettings,
+        final RuntimePluginLocalization pluginLocalization,
+        final DisposableScope scope
+    ) {
+        final RuntimeExportSettingsAuthority authority = exportSettingsAuthority;
+        if (authority == null) {
+            return;
+        }
+        final Registration binding = authority.register(
+            descriptor.id(),
+            eventOwner.key().generation(),
+            exportSettings,
+            key -> {
+                final String text = pluginLocalization.text(key);
+                return text == null || text.isBlank() ? key : text;
+            }
+        );
+        scope.register(binding::close);
+    }
+
+    /**
+     * Binds the host-level export-settings authority.
+     *
+     * <p>Must be called before any plugin is created; plugins loaded earlier stay plugin-private
+     * and are never reachable from the native dialog.</p>
+     *
+     * @param authority host-level export-settings policy
+     * @throws IllegalStateException if an authority is already bound
+     */
+    void bindExportSettingsAuthority(final RuntimeExportSettingsAuthority authority) {
+        final RuntimeExportSettingsAuthority requested =
+            Objects.requireNonNull(authority, "authority");
+        if (exportSettingsAuthority != null) {
+            throw new IllegalStateException("export settings authority is already bound");
+        }
+        exportSettingsAuthority = requested;
     }
 
     private CorePluginContext.Dependencies dependencies(
@@ -238,7 +379,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         return new CorePluginContext.Dependencies(
             descriptor, new PreviewPluginLogger(log, descriptor.id()), paths, uiScheduler, scheduler,
             new PreviewDiagnosticReport(), scope,
-            EmptyHostSnapshotSource.INSTANCE,
+            sessionSnapshotSource,
             M12ReadSnapshotSource.EMPTY, new PreviewUiHostStateSource(paths),
             event -> log.debug(descriptor.id(), event.toString()), Clock.systemUTC(), failureCollector,
             eventBroker, Objects.requireNonNull(eventOwner, "eventOwner").key(),
@@ -319,6 +460,17 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
             dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess)
         );
     }
+    static UserFileGrantSource newUserFileGrantSource(
+        final String pluginId,
+        final RuntimeFailureSink failureSink,
+        final CleanupEvidenceCollector cleanupEvidence
+    ) {
+        // The preview runtime has no host window that could carry a Swing chooser,
+        // so user-file requests must report RUNTIME_UNAVAILABLE deterministically —
+        // on headful machines too (an always-available Swing source would either
+        // open a real chooser with nowhere to parent it or hang the plugin).
+        return UserFileGrantSource.unavailable();
+    }
 
     private RuntimeUserFileAccessService userFiles(
         final PluginDescriptor descriptor,
@@ -328,8 +480,13 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         final CleanupEvidenceCollector evidence
     ) {
         return new RuntimeUserFileAccessService(
-            descriptor.id(), permissions, userFileGrantSource(), tasks, scope,
-            evidence, failureCollector
+            descriptor.id(),
+            permissions,
+            newUserFileGrantSource(descriptor.id(), failureCollector, evidence),
+            tasks,
+            scope,
+            evidence,
+            failureCollector
         );
     }
 
@@ -374,6 +531,7 @@ record PreviewPluginServices(
     RuntimeUserFileAccessService userFiles,
     RuntimeAsyncHostReadService hostReads,
     dev.turboism.sdk.mcp.McpConnectionService mcpConnections,
+    RuntimeExportSettingsContributionRegistry exportSettings,
     CleanupEvidenceCollector cleanupEvidence
 ) {
 }

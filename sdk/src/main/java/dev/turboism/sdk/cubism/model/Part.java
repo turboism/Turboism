@@ -7,16 +7,19 @@ import java.util.List;
 import java.util.Optional;
 
 /** One Cubism Part. */
-@CubismEditor({"5.2.03", "5.3.02"})
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface Part extends PartAppearanceAccess {
 
+    /** Returns this Part's stable identity within the model. */
     PartId id();
 
+    /** Returns this Part's position within its parent's child list. */
     default int index() { throw unavailable("Part index"); }
 
     /** Editor display name, or the ID text when no authoring name is available. */
     default String name() { return id().value(); }
 
+    /** Renames this Part through the Editor authoring path. */
     void setName(String name);
 
     /**
@@ -43,14 +46,18 @@ public interface Part extends PartAppearanceAccess {
         throw unavailable("Part reparenting");
     }
 
+    /** Returns this Part's short display name, or empty when none is set. */
     default Optional<String> shortName() { throw unavailable("Part short name"); }
 
+    /** Writes this Part's short display name through the Editor authoring path. */
     default void setShortName(final Optional<String> value) {
         throw unavailable("Part short-name editing");
     }
 
+    /** Returns the parent Part identity, or empty when this Part is at the root. */
     default Optional<PartId> parentId() { throw unavailable("Part parent"); }
 
+    /** Returns the identities of this Part's direct children, in order. */
     default List<PartId> childIds() { throw unavailable("Part children"); }
 
     /**
@@ -71,16 +78,22 @@ public interface Part extends PartAppearanceAccess {
         throw unavailable("Part clipping-mask editing");
     }
 
+    /** Returns this Part's own visibility flag. */
     default boolean visible() { throw unavailable("Part visibility"); }
 
+    /** Writes this Part's visibility flag through the Editor authoring path. */
     default void setVisible(final boolean value) { throw unavailable("Part visibility editing"); }
 
+    /** Returns whether this Part is effectively visible, including ancestor state. */
     default boolean visibleInHierarchy() { throw unavailable("Part effective visibility"); }
 
+    /** Returns this Part's own lock flag. */
     default boolean locked() { throw unavailable("Part lock state"); }
 
+    /** Writes this Part's lock flag through the Editor authoring path. */
     default void setLocked(final boolean value) { throw unavailable("Part lock editing"); }
 
+    /** Returns whether this Part is effectively locked, including ancestor state. */
     default boolean lockedInHierarchy() { throw unavailable("Part effective lock state"); }
 
     /**
@@ -92,14 +105,18 @@ public interface Part extends PartAppearanceAccess {
         throw unavailable("Part Morph Targets");
     }
 
+    /** Returns this Part's palette edit color, or empty when none is assigned. */
     default Optional<Color> editColor() { throw unavailable("Part edit color"); }
 
+    /** Writes this Part's palette edit color through the Editor authoring path. */
     default void setEditColor(final Optional<Color> value) {
         throw unavailable("Part edit-color editing");
     }
 
+    /** Returns whether this Part is in sketch (draft) display state. */
     default boolean sketch() { throw unavailable("Part sketch state"); }
 
+    /** Writes this Part's sketch (draft) display state through the Editor authoring path. */
     default void setSketch(final boolean value) { throw unavailable("Part sketch editing"); }
 
     /**
@@ -118,14 +135,19 @@ public interface Part extends PartAppearanceAccess {
         throw unavailable("Part alpha-composition editing");
     }
 
+    /** Returns this Part's default draw order. */
     default int defaultOrder() { throw unavailable("Part default order"); }
 
+    /** Writes this Part's default draw order through the Editor authoring path. */
     default void setDefaultOrder(final int value) { throw unavailable("Part default-order editing"); }
 
+    /** Returns this Part's opacity in {@code [0,1]}. */
     float getOpacity();
 
+    /** Returns the Core index of the parent Part, or a negative value when there is none. */
     int parentIndex();
 
+    /** Writes this Part's opacity through the Editor authoring path. */
     @CubismEditor("5.3.02")
     void setOpacity(float opacity);
 

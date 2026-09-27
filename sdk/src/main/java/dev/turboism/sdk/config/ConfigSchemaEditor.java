@@ -32,8 +32,13 @@ public record ConfigSchemaEditor(List<Field> fields) {
 
     /** Presentation metadata common to each supported scalar settings control. */
     public sealed interface Field permits Toggle, Text, Choice {
+        /** Returns the schema key this control edits; lowercase {@code [a-z0-9._-]} form. */
         String key();
+
+        /** Returns the user-facing control label, 1-256 characters. */
         String label();
+
+        /** Returns the optional ordering hint among sibling fields; empty keeps declaration order. */
         OptionalInt index();
     }
 

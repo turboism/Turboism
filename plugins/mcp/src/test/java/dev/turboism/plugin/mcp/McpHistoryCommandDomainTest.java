@@ -14,6 +14,7 @@ import dev.turboism.sdk.cubism.history.HistoryEntryId;
 import dev.turboism.sdk.cubism.history.HistoryGroup;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistoryParameterCoordinate;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
@@ -159,6 +160,147 @@ final class McpHistoryCommandDomainTest {
         assertEquals(2, group.get("observedChildCount"));
         assertEquals("group-1", group.get("groupId"));
         assertEquals("Child", object(((List<?>) group.get("children")).get(0)).get("summary"));
+    }
+
+    @Test
+    void historyReadToolSerializesMoveChangeAcceptedByOutputSchema() {
+        final HistoryChange move = new HistoryChange(
+            HistoryChange.Operation.MOVE,
+            Optional.of(0),
+            Optional.of("vertexPositions"),
+            Optional.of("0,0"),
+            Optional.of("1,2"),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of())
+        );
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "Move face",
+            dev.turboism.sdk.cubism.history.HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.turboism("fixture-plugin", "mesh.move"),
+            List.of(new HistoryTarget("ART_MESH", Optional.of("ArtMesh1"), Optional.of("Face"))),
+            List.of(move),
+            Optional.empty(),
+            Optional.empty()
+        );
+        final HistoryEntry entry = new HistoryEntry(
+            0,
+            "Move face",
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId("move-entry")),
+            Optional.of("move-transaction"),
+            detail
+        );
+        final McpToolCatalog tools = new McpHistoryCommandDomain(
+            new FakeHistory(new HistorySnapshot(
+                HistorySnapshot.Availability.AVAILABLE,
+                3,
+                4,
+                1,
+                List.of(entry),
+                true,
+                false
+            )),
+            EditorCommandService.unavailable()
+        ).tools();
+
+        final Map<String, Object> envelope = tools.call(McpHistoryCommandDomain.HISTORY_READ, Map.of());
+
+        assertFalse((Boolean) envelope.get("isError"));
+        final Map<String, Object> structured = object(envelope.get("structuredContent"));
+        assertEquals(Boolean.TRUE, structured.get("ok"));
+        final Map<String, Object> snapshot = object(structured.get("snapshot"));
+        final Map<String, Object> projectedEntry = object(((List<?>) snapshot.get("entries")).get(0));
+        final Map<String, Object> projectedDetail = object(projectedEntry.get("detail"));
+        assertEquals(
+            "MOVE",
+            object(((List<?>) projectedDetail.get("changes")).get(0)).get("operation")
+        );
+    }
+
+    @Test
+    void historyReadSerializesTypedRelationEndpointsWithoutStringEncoding() {
+        final HistoryTarget child = new HistoryTarget(
+            "ART_MESH",
+            Optional.of("ArtMesh1"),
+            Optional.of("Face")
+        );
+        final HistoryTarget beforeParent = new HistoryTarget(
+            "PART",
+            Optional.of("PartA"),
+            Optional.of("Part A")
+        );
+        final HistoryTarget afterParent = new HistoryTarget(
+            "PART",
+            Optional.of("PartB"),
+            Optional.of("Part B")
+        );
+        final HistoryRelationChange relation = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(beforeParent)
+            ),
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(afterParent)
+            )
+        );
+        final HistoryChange change = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(relation)
+        );
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "Move face to Part B",
+            dev.turboism.sdk.cubism.history.HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.turboism("fixture-plugin", "relation.move"),
+            List.of(child),
+            List.of(change),
+            Optional.empty(),
+            Optional.empty()
+        );
+        final HistoryEntry entry = new HistoryEntry(
+            0,
+            "Move face",
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId("relation-entry")),
+            Optional.of("relation-transaction"),
+            detail
+        );
+        final HistorySnapshot snapshot = new HistorySnapshot(
+            HistorySnapshot.Availability.AVAILABLE,
+            3,
+            4,
+            1,
+            List.of(entry),
+            true,
+            false
+        );
+
+        final McpHistoryCommandDomain.ToolCallResult read = new McpHistoryCommandDomain(
+            new FakeHistory(snapshot),
+            EditorCommandService.unavailable()
+        ).call(McpHistoryCommandDomain.HISTORY_READ, Map.of());
+        final Map<String, Object> projected = object(read.structuredContent().get("snapshot"));
+        final Map<String, Object> projectedEntry = object(((List<?>) projected.get("entries")).get(0));
+        final Map<String, Object> projectedDetail = object(projectedEntry.get("detail"));
+        final Map<String, Object> projectedChange =
+            object(((List<?>) projectedDetail.get("changes")).get(0));
+        final Map<String, Object> projectedRelation = object(projectedChange.get("relation"));
+
+        assertEquals("PART_MEMBERSHIP", projectedRelation.get("kind"));
+        assertEquals("TARGET", object(projectedRelation.get("before")).get("state"));
+        assertEquals("PartA", object(object(projectedRelation.get("before")).get("target")).get("id"));
+        assertEquals("PartB", object(object(projectedRelation.get("after")).get("target")).get("id"));
+        assertEquals(null, projectedChange.get("property"));
+        assertEquals(null, projectedChange.get("before"));
+        assertEquals(null, projectedChange.get("after"));
+        assertFalse(Json.stringify(read.structuredContent()).contains("TARGET#"));
     }
 
     @Test

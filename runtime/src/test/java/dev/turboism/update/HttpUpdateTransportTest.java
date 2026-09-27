@@ -217,7 +217,7 @@ final class HttpUpdateTransportTest {
             ExecutionException.class,
             () -> oversizedTransport.fetch(Optional.empty()).toCompletableFuture().get(2, TimeUnit.SECONDS)
         );
-        assertTrue(oversized.disconnected.get());
+        assertTrue(awaitTrue(oversized.disconnected), "oversized response teardown must complete");
 
         final FakeConnection redirect = new FakeConnection(302, bytes("redirect-body"));
         final HttpUpdateTransport redirectTransport = transport(Duration.ofSeconds(1), redirect);
@@ -227,7 +227,7 @@ final class HttpUpdateTransportTest {
         assertEquals(302, response.statusCode());
         assertArrayEquals(bytes("redirect-body"), response.body());
         assertFalse(redirect.getInstanceFollowRedirects());
-        assertTrue(redirect.disconnected.get());
+        assertTrue(awaitTrue(redirect.disconnected), "redirect response teardown must complete");
     }
 
     private static HttpUpdateTransport transport(final Duration deadline, final FakeConnection connection) {

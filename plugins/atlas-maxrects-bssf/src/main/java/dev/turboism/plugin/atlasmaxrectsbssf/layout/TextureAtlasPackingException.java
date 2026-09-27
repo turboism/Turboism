@@ -5,6 +5,14 @@ import java.util.Objects;
 /** Typed plugin-local planning failure; it does not imply any host mutation. */
 public final class TextureAtlasPackingException extends IllegalArgumentException {
 
+    /**
+     * Why the planner rejected a texture placement.
+     *
+     * <p>{@code PAGE_BUDGET_EXHAUSTED} means the issued atlas page budget could not place every
+     * texture, {@code ITEM_DOES_NOT_FIT} means the texture cannot fit inside one issued page,
+     * and {@code INVALID_RESERVED_SIZE} means the texture's size plus padding exceeds the
+     * supported integer geometry.</p>
+     */
     public enum Reason {
         PAGE_BUDGET_EXHAUSTED,
         ITEM_DOES_NOT_FIT,

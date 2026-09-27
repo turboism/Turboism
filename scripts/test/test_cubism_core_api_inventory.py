@@ -565,6 +565,54 @@ def test_core_model_read_mapping_packs(
                 owner, runtime, descriptor
             )
 
+    # Owned-MOC lifecycle selectors: admitted by the protected-export
+    # classification pass and observed identically on 5.2.03 and 5.3.02.
+    moc_owner = "com/live2d/sdk/cubism/core/CubismMoc"
+    expected.update(
+        {
+            "cubism.core.moc.class": class_selector(moc_owner),
+            "cubism.core.moc.instantiate": instance_selector(
+                moc_owner,
+                "instantiate",
+                "([B)Lcom/live2d/sdk/cubism/core/CubismMoc;",
+            ),
+            "cubism.core.moc.instantiate-model": instance_selector(
+                moc_owner,
+                "instantiateModel",
+                "()Lcom/live2d/sdk/cubism/core/CubismModel;",
+            ),
+            "cubism.core.moc.get-native-handle": instance_selector(
+                moc_owner,
+                "getNativeHandle",
+                "()J",
+            ),
+            "cubism.core.moc.close": instance_selector(
+                moc_owner,
+                "close",
+                "()V",
+            ),
+            "cubism.core.model.get-native-handle": instance_selector(
+                model_owner,
+                "getNativeHandle",
+                "()J",
+            ),
+            "cubism.core.model.update": instance_selector(
+                model_owner,
+                "update",
+                "()V",
+            ),
+            "cubism.core.model.close": instance_selector(
+                model_owner,
+                "close",
+                "()V",
+            ),
+        }
+    )
+    # CubismMoc.instantiate is the one static entry (public static, nothing forbidden).
+    expected["cubism.core.moc.instantiate"]["required"] = 9
+    expected["cubism.core.moc.instantiate"]["forbidden"] = 0
+    expected["cubism.core.moc.instantiate"]["access"] = {"public", "static"}
+
     for document in (api_52, api_53):
         version = document["cubismVersion"]
         expected_for_version = dict(expected)

@@ -1,7 +1,7 @@
 package dev.turboism.validation.texture;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.objectweb.asm.*;
+import dev.turboism.agent.shaded.jackson.databind.ObjectMapper;
+import dev.turboism.agent.shaded.asm.*;
 import java.awt.geom.*;
 import java.lang.instrument.*;
 import java.lang.reflect.*;
@@ -159,7 +159,9 @@ public final class HostTimingProbe {
                 result.put("uiMethodReturnToProgressClosedMs", (closed-end)/1e6);
                 result.put("uiInputProbeMs", state.inputProbeNanos/1e6);
                 result.put("uiOutputValidationDeferred", true);
-                result.put("uiProgressClass", "jp.noids.framework.e.a.f");
+                result.put("uiProgressClass", HostUiProbe.PROGRESS_CLASS);
+                result.put("uiActionStartEpochMs", HostUiProbe.actionStartEpochMs);
+                result.put("uiProgressClosedEpochMs", HostUiProbe.progressClosedEpochMs);
                 result.put("uiTimingBoundary", "OK ActionEvent dispatch to exact progress window SHOWING_CHANGED=false; raw instrumented wall time");
             }
             result.put("inputHash",hash(state.input)); result.put("input",state.input);

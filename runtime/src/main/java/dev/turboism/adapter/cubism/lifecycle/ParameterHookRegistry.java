@@ -3,7 +3,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
-import dev.turboism.sdk.event.cubism.ParameterValueEvent;
+import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;

@@ -92,6 +92,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
                 final List<String> rejected = new ArrayList<>();
                 final List<Object> live = new ArrayList<>();
                 final Set<Integer> seen = new HashSet<>();
+                final MeshFrameIndex index = new MeshFrameIndex(meshes.get(0));
                 for (MeshPointRef ref : points) {
                     if (ref == null) {
                         rejected.add("point reference is null");
@@ -101,7 +102,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
                         rejected.add("point " + ref.id() + " is duplicated");
                         continue;
                     }
-                    final Object point = NativeMeshMirrorBridge.pointById(meshes.get(0), ref.id());
+                    final Object point = index.pointsById().get(ref.id());
                     if (point == null) rejected.add("point " + ref.id() + " is not in the live mesh");
                     else live.add(point);
                 }
@@ -145,6 +146,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
             final Set<Integer> reportedDuplicates = new HashSet<>();
             final List<String> rejected = new ArrayList<>();
             final List<PointMove> prepared = new ArrayList<>();
+            final MeshFrameIndex index = new MeshFrameIndex(mesh);
             for (MeshPointRef ref : points) {
                 if (ref == null) {
                     rejected.add("point reference is null");
@@ -154,7 +156,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
                     if (reportedDuplicates.add(ref.id())) rejected.add("point " + ref.id() + " is duplicated");
                     continue;
                 }
-                final Object point = NativeMeshMirrorBridge.pointById(mesh, ref.id());
+                final Object point = index.pointsById().get(ref.id());
                 if (point == null) {
                     rejected.add("point " + ref.id() + " is not in the live mesh");
                 } else if (!NativeMeshMirrorBridge.canMovePoint(point)) {
@@ -184,6 +186,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
             final Set<EdgeKey> reportedDuplicates = new HashSet<>();
             final List<String> rejected = new ArrayList<>();
             final List<MeshEdgeRef> prepared = new ArrayList<>();
+            final MeshFrameIndex index = new MeshFrameIndex(mesh);
             for (MeshEdgeRef ref : edges) {
                 if (ref == null) {
                     rejected.add("edge reference is null");
@@ -194,10 +197,10 @@ public final class RuntimeMeshEditService implements MeshEditService {
                     if (reportedDuplicates.add(key)) rejected.add("edge " + key + " is duplicated");
                     continue;
                 }
-                if (NativeMeshMirrorBridge.pointById(mesh, ref.startPointId()) == null
-                    || NativeMeshMirrorBridge.pointById(mesh, ref.endPointId()) == null) {
+                if (index.pointsById().get(ref.startPointId()) == null
+                    || index.pointsById().get(ref.endPointId()) == null) {
                     rejected.add("edge " + key + " does not name two live points");
-                } else if (NativeMeshMirrorBridge.countLiveEdges(mesh, List.of(ref)) != 0) {
+                } else if (index.edgesByKey().containsKey(MeshFrameIndex.refEdgeKey(ref))) {
                     rejected.add("edge " + key + " already exists");
                 } else if (!NativeMeshMirrorBridge.canAddEdge(mesh, ref)) {
                     rejected.add("edge " + key + " has an unsupported host type");

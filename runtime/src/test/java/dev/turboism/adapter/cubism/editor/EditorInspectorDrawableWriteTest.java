@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;

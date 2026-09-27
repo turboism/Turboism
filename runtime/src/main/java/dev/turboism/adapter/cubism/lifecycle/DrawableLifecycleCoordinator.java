@@ -2,10 +2,10 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
-import dev.turboism.sdk.event.cubism.DrawableLockEvent;
-import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
-import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
+import dev.turboism.sdk.cubism.event.DrawableGeometryEvent;
+import dev.turboism.sdk.cubism.event.DrawableLockEvent;
+import dev.turboism.sdk.cubism.event.DrawableOpacityEvent;
+import dev.turboism.sdk.cubism.event.DrawableVisibilityEvent;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Drawable;

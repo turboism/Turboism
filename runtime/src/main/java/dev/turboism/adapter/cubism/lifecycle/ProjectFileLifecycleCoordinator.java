@@ -2,7 +2,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
+import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;

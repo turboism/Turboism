@@ -1,6 +1,6 @@
 package dev.turboism.mapping.verification;
 
-import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
 import org.junit.jupiter.api.Test;
 
@@ -33,9 +33,9 @@ class EditorInspectorDrawableSelectorContractTest {
             EditorInspectorDrawableWriteSelectorContract.REQUIRED_ALIASES
         ));
         assertTrue(resolver.authorizesFeature(
-            EditorInspectorDrawableWrite52SelectorContract.ADAPTER_SLICE_ID,
-            EditorInspectorDrawableWrite52SelectorContract.CAPABILITY_ID,
-            EditorInspectorDrawableWrite52SelectorContract.REQUIRED_ALIASES
+            EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.ADAPTER_SLICE_ID,
+            EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.CAPABILITY_ID,
+            EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.REQUIRED_ALIASES
         ));
     }
 
@@ -49,9 +49,9 @@ class EditorInspectorDrawableSelectorContractTest {
         );
 
         assertTrue(resolver.authorizesFeature(
-            EditorInspectorDrawableWrite52SelectorContract.ADAPTER_SLICE_ID,
-            EditorInspectorDrawableWrite52SelectorContract.CAPABILITY_ID,
-            EditorInspectorDrawableWrite52SelectorContract.REQUIRED_ALIASES
+            EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.ADAPTER_SLICE_ID,
+            EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.CAPABILITY_ID,
+            EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.REQUIRED_ALIASES
         ));
         assertFalse(resolver.authorizesFeature(
             EditorInspectorDrawableWriteSelectorContract.ADAPTER_SLICE_ID,

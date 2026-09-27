@@ -10,7 +10,7 @@ import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
+import dev.turboism.sdk.cubism.event.DrawableOpacityEvent;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -105,6 +105,45 @@ class DrawableOpacityLifecycleContractTest {
     }
 
     @Test
+    void editorWriteAndEventsDoNotRequireAnEvaluatedCoreModel() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        try (DrawableLifecycleCoordinator coordinator = new DrawableLifecycleCoordinator()) {
+            final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+            coordinator.attachEventBroker(broker);
+            final RuntimeEventBroker.Owner owner = broker.admit("editor-only-events");
+            final CountDownLatch completion = new CountDownLatch(2);
+            final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+            final List<Drawable> snapshots = new java.util.concurrent.CopyOnWriteArrayList<>();
+            owner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
+                new DrawableEventSubscriber(events, completion, snapshots)
+            )));
+            owner.activate();
+            final MutableDrawable drawable = new MutableDrawable(0.1F) {
+                @Override public byte constantFlag() {
+                    throw new IllegalStateException("host-private failure", new RuntimeException("host"));
+                }
+            };
+
+            coordinator.setOpacity(drawable, 1.0F, drawable::write);
+
+            org.junit.jupiter.api.Assertions.assertTrue(completion.await(2, TimeUnit.SECONDS));
+            assertEquals(0.5F, drawable.getOpacity());
+            assertEquals(List.of("on:0.1->0.5", "after:0.5"), events);
+            final Drawable detached = snapshots.get(0);
+            drawable.write(0.9F);
+            assertEquals(0.5F, detached.getOpacity());
+            assertEquals(drawable.id(), detached.id());
+            final IllegalStateException unavailable = assertThrows(
+                IllegalStateException.class, detached::constantFlag
+            );
+            org.junit.jupiter.api.Assertions.assertNull(unavailable.getCause());
+            org.junit.jupiter.api.Assertions.assertFalse(unavailable.getMessage().contains("host-private"));
+        } finally {
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
     void publishesAfterForNoChangeAndNothingForFailureOrRecursion() {
         final List<String> events = new ArrayList<>();
         final DrawableLifecycleCoordinator coordinator = new DrawableLifecycleCoordinator();
@@ -147,6 +186,7 @@ class DrawableOpacityLifecycleContractTest {
     }
 
     public static final class DrawableEventSubscriber {
+        private final List<Drawable> snapshots;
         private final List<String> events;
         private final CountDownLatch completion;
 
@@ -154,6 +194,15 @@ class DrawableOpacityLifecycleContractTest {
             final List<String> events,
             final CountDownLatch completion
         ) {
+            this(events, completion, new ArrayList<>());
+        }
+
+        private DrawableEventSubscriber(
+            final List<String> events,
+            final CountDownLatch completion,
+            final List<Drawable> snapshots
+        ) {
+            this.snapshots = snapshots;
             this.events = events;
             this.completion = completion;
         }
@@ -171,6 +220,7 @@ class DrawableOpacityLifecycleContractTest {
 
         @SubscribeEvent
         public void after(final DrawableOpacityEvent.After event) {
+            snapshots.add(event.drawable());
             events.add("after:" + event.finalOpacity());
             assertThrows(
                 UnsupportedOperationException.class,
@@ -242,7 +292,7 @@ class DrawableOpacityLifecycleContractTest {
         };
     }
 
-    private static final class MutableDrawable implements Drawable {
+    private static class MutableDrawable implements Drawable {
         private float opacity;
 
         private MutableDrawable(final float opacity) {

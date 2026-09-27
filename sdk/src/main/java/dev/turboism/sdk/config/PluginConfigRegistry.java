@@ -16,13 +16,56 @@ import java.util.concurrent.CompletionStage;
  */
 public interface PluginConfigRegistry {
 
+    /**
+     * Declares intent to read the config document at {@code relativePath} and returns the scope
+     * registration; closing it releases the declaration.
+     *
+     * @param relativePath plugin-owned config document path
+     * @return the scope registration; reads require it to stay open
+     * @throws dev.turboism.sdk.permission.CubismPermissionException when the plugin lacks the
+     *     config-read permission
+     */
     Registration readScope(String relativePath);
 
+    /**
+     * Declares intent to write the config document at {@code relativePath} and returns the scope
+     * registration; closing it releases the declaration.
+     *
+     * @param relativePath plugin-owned config document path
+     * @return the scope registration; writes require it to stay open
+     * @throws dev.turboism.sdk.permission.CubismPermissionException when the plugin lacks the
+     *     config-write permission
+     */
     Registration writeScope(String relativePath);
 
+    /**
+     * Reads one string value from a previously read-scoped document.
+     *
+     * @param relativePath config document path covered by an open read scope
+     * @param key key inside the document
+     * @return the stored value, or empty when unset
+     * @throws IllegalStateException when no read scope covers {@code relativePath}
+     */
     Optional<String> readString(String relativePath, String key);
+
+    /**
+     * Stores one string value in a previously write-scoped document.
+     *
+     * @param relativePath config document path covered by an open write scope
+     * @param key key inside the document
+     * @param value value to store
+     * @throws PluginConfigException when the write is refused or fails
+     */
     void writeString(String relativePath, String key, String value) throws PluginConfigException;
 
+    /**
+     * Registers a typed configuration schema and its complete migration chain.
+     *
+     * @param schema typed configuration schema
+     * @param migrations complete, unbroken migration chain for the schema
+     * @return completion of schema registration
+     * @throws UnsupportedOperationException on implementations that predate typed config
+     */
     default CompletionStage<Void> registerSchema(
         final ConfigSchema schema,
         final List<ConfigMigration> migrations
@@ -50,10 +93,28 @@ public interface PluginConfigRegistry {
         return registerSchema(schema, migrations);
     }
 
+    /**
+     * Reads the typed value bound to {@code key}.
+     *
+     * @param <T> the key's value type
+     * @param key a key declared by a registered schema
+     * @return the read result; misses and failures arrive as values, not exceptions
+     * @throws UnsupportedOperationException on implementations that predate typed config
+     */
     default <T> CompletionStage<ConfigReadResult<T>> read(final ConfigKey<T> key) {
         throw new UnsupportedOperationException("typed config read is not available");
     }
 
+    /**
+     * Writes the typed value bound to {@code key} under optimistic concurrency.
+     *
+     * @param <T> the key's value type
+     * @param key a key declared by a registered schema
+     * @param value value to store
+     * @param expectedRevision revision observed by an earlier read; a stale token is rejected
+     * @return the write result; rejection and failure arrive as values, not exceptions
+     * @throws UnsupportedOperationException on implementations that predate typed config
+     */
     default <T> CompletionStage<ConfigWriteResult> write(
         final ConfigKey<T> key,
         final T value,
@@ -62,5 +123,58 @@ public interface PluginConfigRegistry {
         throw new UnsupportedOperationException("typed config write is not available");
     }
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static PluginConfigRegistry unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}; and queries report empty results. */
+    enum Unavailable implements PluginConfigRegistry {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration readScope(final String relativePath) {
+            throw unavailable();
+        }
+
+        @Override public Registration writeScope(final String relativePath) {
+            throw unavailable();
+        }
+
+        @Override public Optional<String> readString(final String relativePath, final String key) {
+            return Optional.empty();
+        }
+
+        @Override public void writeString(
+            final String relativePath,
+            final String key,
+            final String value
+        ) {
+            throw unavailable();
+        }
+
+        private static UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException("config registry is not available");
+        }
+    }
+
+
+    /** A declared config scope: the document path and the permission that authorized it. */
     record ConfigScope(String relativePath, String permissionId) {}
 }

@@ -17,13 +17,13 @@ final class TurboismAgentMeshMirrorPolicyTest {
         final RuntimeStartupConfig policy = new RuntimeStartupConfig(
             false, false, false, false, false, false, false, Set.of(HOOK_ID)
         );
-        assertFalse(TurboismAgent.meshMirrorHookEnabled(policy));
+        assertFalse(MeshMirrorHookContributor.hookEnabled(policy));
     }
 
     @Test
     void nullAndEmptyEnabledPoliciesRemainFailClosedOrEnabledAsConfigured() {
-        assertFalse(TurboismAgent.meshMirrorHookEnabled(null));
-        assertTrue(TurboismAgent.meshMirrorHookEnabled(new RuntimeStartupConfig(
+        assertFalse(MeshMirrorHookContributor.hookEnabled(null));
+        assertTrue(MeshMirrorHookContributor.hookEnabled(new RuntimeStartupConfig(
             false, false, false, false, false, false, false, Set.of()
         )));
     }
@@ -33,7 +33,7 @@ final class TurboismAgentMeshMirrorPolicyTest {
         final RuntimeStartupConfig policy = new RuntimeStartupConfig(
             false, false, false, false, false, false, false, Set.of()
         );
-        assertTrue(TurboismAgent.meshMirrorHookEnabled(policy));
+        assertTrue(MeshMirrorHookContributor.hookEnabled(policy));
     }
 
     @Test
@@ -41,13 +41,13 @@ final class TurboismAgentMeshMirrorPolicyTest {
         assertTrue(dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile.forArtifact(
             ReviewedHostArtifacts.CUBISM_5_3_03
         ).isPresent());
-        assertTrue(TurboismAgent.meshMirrorRuntimeAdmitted(
+        assertTrue(MeshMirrorHookContributor.runtimeAdmitted(
             ReviewedHostArtifacts.CUBISM_5_3_03
         ));
-        assertTrue(TurboismAgent.meshMirrorRuntimeAdmitted(
+        assertTrue(MeshMirrorHookContributor.runtimeAdmitted(
             ReviewedHostArtifacts.CUBISM_5_3_02
         ));
-        assertFalse(TurboismAgent.meshMirrorRuntimeAdmitted(
+        assertFalse(MeshMirrorHookContributor.runtimeAdmitted(
             new dev.turboism.mapping.verification.HostArtifactDigest(1L, "0".repeat(64))
         ));
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));

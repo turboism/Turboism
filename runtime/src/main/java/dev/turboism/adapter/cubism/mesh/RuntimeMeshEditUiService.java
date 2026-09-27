@@ -97,6 +97,8 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         runOnEdt(() -> stale.forEach(attachment -> remove(attachment.panel, attachment.mount, attachment.root)));
     }
 
+    // The active contribution is a handle: a replaced instance invalidates the deferred attach.
+    @SuppressWarnings("ReferenceEquality")
     void attachNative(
         final Object panel,
         final Object widget,

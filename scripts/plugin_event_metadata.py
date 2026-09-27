@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Deterministic plugin public-event descriptor metadata.
 
-This module normalizes schema-v4 ``eventExports`` and ``eventImports`` for
-release sidecars and documentation. Schema-v3 descriptors have an empty public
-event inventory. Runtime admission remains the authority for ClassLoader and
-ABI enforcement; this module makes the same declared contract reviewable and
-fails closed on descriptor-local inconsistencies.
+This module normalizes schema-v4 ``eventExports`` and ``eventImports`` and
+schema-v5 ``eventContracts`` for release sidecars and documentation.
+Schema-v3 descriptors have an empty public event inventory. Runtime admission
+remains the authority for ClassLoader and ABI enforcement; this module makes
+the same declared contract reviewable and fails closed on descriptor-local
+inconsistencies.
 """
 from __future__ import annotations
 
@@ -18,6 +19,9 @@ PLUGIN_ID = EVENT_ID
 BINARY_TYPE = re.compile(r"^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 VERSION_RANGE = re.compile(r"^[\[(][0-9]+\.[0-9]+\.[0-9]+,[0-9]+\.[0-9]+\.[0-9]+[\])]$")
+CONTRACT_ARTIFACT = re.compile(
+    r"^META-INF/turboism/contracts/[A-Za-z0-9][A-Za-z0-9._-]*\.jar$"
+)
 
 
 class EventMetadataError(ValueError):
@@ -25,18 +29,33 @@ class EventMetadataError(ValueError):
 
 
 def normalize_event_metadata(document: dict, label: str) -> tuple[list[dict], list[dict]]:
-    """Return canonical exports/imports for one schema-v3 or schema-v4 descriptor."""
+    """Return canonical exports/imports for one schema-v3..v5 descriptor."""
     schema = document.get("schemaVersion")
     if schema == 3:
-        if "eventExports" in document or "eventImports" in document:
+        if "eventExports" in document or "eventImports" in document or "eventContracts" in document:
             raise EventMetadataError(f"{label}: event metadata requires descriptor schemaVersion 4")
         return [], []
-    if schema != 4:
-        raise EventMetadataError(f"{label}: descriptor schemaVersion must be 3 or 4")
+    if schema not in (4, 5):
+        raise EventMetadataError(f"{label}: descriptor schemaVersion must be 3, 4 or 5")
+    if schema == 4 and "eventContracts" in document:
+        raise EventMetadataError(f"{label}: eventContracts requires descriptor schemaVersion 5")
     exports = _exports(document.get("eventExports", []), label)
     imports = _imports(document.get("eventImports", []), label)
+    _contracts(document.get("eventContracts", []), label)
     _require_import_dependencies(document.get("dependencies"), imports, label)
     return exports, imports
+
+
+def normalize_event_contracts(document: dict, label: str) -> list[dict]:
+    """Return canonical embedded contract artifacts for one descriptor."""
+    schema = document.get("schemaVersion")
+    if schema != 5:
+        if "eventContracts" in document:
+            raise EventMetadataError(
+                f"{label}: eventContracts requires descriptor schemaVersion 5"
+            )
+        return []
+    return _contracts(document.get("eventContracts", []), label)
 
 
 def validate_event_routes(descriptors: Iterable[dict], *, require_providers: bool) -> None:
@@ -155,6 +174,31 @@ def _imports(value, label: str) -> list[dict]:
             "required": required,
         })
     return sorted(result, key=lambda item: (item["provider"], item["eventId"], item["eventType"]))
+
+
+def _contracts(value, label: str) -> list[dict]:
+    rows = _array(value, f"{label}.eventContracts")
+    result = []
+    ids = set()
+    artifacts = set()
+    for index, raw in enumerate(rows):
+        where = f"{label}.eventContracts[{index}]"
+        item = _object(raw, where, {"id", "version", "artifact", "sha256"})
+        contract_id = _text(item, "id", where, EVENT_ID)
+        artifact = _text(item, "artifact", where, CONTRACT_ARTIFACT)
+        if contract_id in ids:
+            raise EventMetadataError(f"{where}: duplicate event contract id {contract_id!r}")
+        if artifact in artifacts:
+            raise EventMetadataError(f"{where}: duplicate event contract artifact {artifact!r}")
+        ids.add(contract_id)
+        artifacts.add(artifact)
+        result.append({
+            "id": contract_id,
+            "version": _text(item, "version", where, STRICT_VERSION),
+            "artifact": artifact,
+            "sha256": _text(item, "sha256", where, SHA256),
+        })
+    return sorted(result, key=lambda item: (item["id"], item["artifact"]))
 
 
 def _require_import_dependencies(value, imports: list[dict], label: str) -> None:

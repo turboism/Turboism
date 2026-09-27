@@ -162,7 +162,8 @@ public final class EarlyThemeAppearanceBootstrap {
     }
 
     private Optional<Map<String, String>> loadBuiltinColors(final String themeId) {
-        // The agent bundles built-in themes under /themes/<directory>/.
+        // Built-in themes used to ship inside the agent JAR under /themes/<directory>/;
+        // the lookup stays fail-open so a classpath that still provides them keeps working.
         final String slug = themeId.startsWith("turboism.") ? themeId.substring("turboism.".length()) : themeId;
         final String[] slugs = { slug, themeId.replace('.', '-') };
         for (String candidate : slugs) {

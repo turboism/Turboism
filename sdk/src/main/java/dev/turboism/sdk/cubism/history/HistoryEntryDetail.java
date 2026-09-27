@@ -175,7 +175,7 @@ public record HistoryEntryDetail(
             throw new IllegalArgumentException("FULL detail requires a change or grouped child");
         }
         for (final HistoryChange change : changes) {
-            validateFullChange(change);
+            validateFullChange(change, targets);
         }
         group.ifPresent(value -> {
             if (value.truncated()
@@ -186,7 +186,10 @@ public record HistoryEntryDetail(
         });
     }
 
-    private static void validateFullChange(final HistoryChange change) {
+    private static void validateFullChange(
+        final HistoryChange change,
+        final List<HistoryTarget> targets
+    ) {
         if (change.targetIndex().isEmpty()) {
             throw new IllegalArgumentException("FULL changes require targetIndex");
         }
@@ -199,6 +202,13 @@ public record HistoryEntryDetail(
                 "FULL KEYFORM changes require parameter coordinates"
             );
         }
+        if (change.relation().isPresent()) {
+            validateFullRelation(
+                targets.get(change.targetIndex().orElseThrow()),
+                change.relation().orElseThrow()
+            );
+            return;
+        }
         switch (change.operation()) {
             case SET -> {
                 if (change.property().isEmpty() || change.before().isEmpty() || change.after().isEmpty()) {
@@ -210,10 +220,107 @@ public record HistoryEntryDetail(
             case ADD, REMOVE -> {
                 // Direction plus target identity is the complete trusted fact for add/remove.
             }
+            case MOVE -> {
+                if (change.property().isEmpty() || change.after().isEmpty()) {
+                    throw new IllegalArgumentException(
+                        "FULL MOVE changes require property and after"
+                    );
+                }
+            }
             case UNKNOWN -> {
                 // Compatibility actions can carry complete values without a more specific legacy kind.
             }
         }
+    }
+
+    private static void validateFullRelation(
+        final HistoryTarget child,
+        final HistoryRelationChange relation
+    ) {
+        if (child.id().isEmpty() || child.displayName().isEmpty()) {
+            throw new IllegalArgumentException(
+                "FULL relation changes require a named child target"
+            );
+        }
+        final boolean legalChild = switch (relation.kind()) {
+            case PART_MEMBERSHIP -> switch (child.type()) {
+                case "ART_MESH", "WARP_DEFORMER", "ROTATION_DEFORMER", "PART" -> true;
+                default -> false;
+            };
+            case DEFORMER_PARENT -> switch (child.type()) {
+                case "ART_MESH", "WARP_DEFORMER", "ROTATION_DEFORMER" -> true;
+                default -> false;
+            };
+        };
+        if (!legalChild) {
+            throw new IllegalArgumentException(
+                "FULL relation change has an illegal child type: " + child.type()
+            );
+        }
+        validateFullEndpoint(relation.kind(), relation.before(), "before");
+        validateFullEndpoint(relation.kind(), relation.after(), "after");
+        rejectSelfParent(child, relation.before(), "before");
+        rejectSelfParent(child, relation.after(), "after");
+        if (sameEndpointIdentity(relation.before(), relation.after())) {
+            throw new IllegalArgumentException(
+                "FULL relation change must change direct relation identity"
+            );
+        }
+    }
+
+    private static void validateFullEndpoint(
+        final HistoryRelationChange.Kind kind,
+        final HistoryRelationChange.Endpoint endpoint,
+        final String name
+    ) {
+        if (endpoint.state() == HistoryRelationChange.State.UNKNOWN) {
+            throw new IllegalArgumentException(
+                "FULL relation change requires a known " + name + " endpoint"
+            );
+        }
+        if (endpoint.state() != HistoryRelationChange.State.TARGET) return;
+        final HistoryTarget target = endpoint.target().orElseThrow();
+        if (target.id().isEmpty() || target.displayName().isEmpty()) {
+            throw new IllegalArgumentException(
+                "FULL relation " + name + " target requires an ID and captured name"
+            );
+        }
+        final boolean legalParent = switch (kind) {
+            case PART_MEMBERSHIP -> "PART".equals(target.type());
+            case DEFORMER_PARENT -> "WARP_DEFORMER".equals(target.type())
+                || "ROTATION_DEFORMER".equals(target.type());
+        };
+        if (!legalParent) {
+            throw new IllegalArgumentException(
+                "FULL relation " + name + " endpoint has an illegal parent type: " + target.type()
+            );
+        }
+    }
+
+    private static void rejectSelfParent(
+        final HistoryTarget child,
+        final HistoryRelationChange.Endpoint endpoint,
+        final String name
+    ) {
+        if (endpoint.state() != HistoryRelationChange.State.TARGET) return;
+        final HistoryTarget parent = endpoint.target().orElseThrow();
+        if (child.type().equals(parent.type()) && child.id().equals(parent.id())) {
+            throw new IllegalArgumentException(
+                "FULL relation " + name + " endpoint must not be the child itself"
+            );
+        }
+    }
+
+    private static boolean sameEndpointIdentity(
+        final HistoryRelationChange.Endpoint left,
+        final HistoryRelationChange.Endpoint right
+    ) {
+        if (left.state() != right.state()) return false;
+        if (left.state() != HistoryRelationChange.State.TARGET) return true;
+        final HistoryTarget leftTarget = left.target().orElseThrow();
+        final HistoryTarget rightTarget = right.target().orElseThrow();
+        return leftTarget.type().equals(rightTarget.type())
+            && leftTarget.id().equals(rightTarget.id());
     }
 
     private static String summaryFromLabel(final String label) {

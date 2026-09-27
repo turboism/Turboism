@@ -18,6 +18,23 @@ permissions:
   contents: read
 
 jobs:
+  verify-installer-flow:
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - name: Verify BAT upgrade and cached discovery without a host
+        shell: ${{ matrix.shell }}
+        run: |
+          & .\packaging\windows-installer\test-bat-integration.ps1
+          & .\packaging\windows-installer\test-installer-discovery-cache.ps1
+          & .\packaging\windows-installer\test-script-engine-install.ps1
+
   verify-native-graal-installer:
     runs-on: windows-2022
     steps:

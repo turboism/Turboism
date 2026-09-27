@@ -10,7 +10,7 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.event.cubism.ParameterValueEvent;
+import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.Parameter;

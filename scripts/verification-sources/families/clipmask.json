@@ -1,0 +1,16 @@
+{
+  "format": "turboism.verification-source-family/v1",
+  "family": "clipmask",
+  "records": [
+    "cubism-5.2.03-clipmask.json",
+    "cubism-5.3.02-clipmask.json",
+    "cubism-5.3.03-clipmask.json"
+  ],
+  "files": [
+    "dev/turboism/mapping/verification/ClipMaskVerificationManifest.java"
+  ],
+  "coverage": true,
+  "packs": [],
+  "extraLiterals": [],
+  "coverageSources": []
+}

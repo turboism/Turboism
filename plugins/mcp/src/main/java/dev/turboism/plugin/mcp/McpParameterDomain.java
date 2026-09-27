@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterBinding;
+import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
 import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterBindingTargetType;
@@ -106,7 +107,9 @@ final class McpParameterDomain {
                 BINDINGS_APPLY,
                 "Apply parameter binding operations",
                 "Runs ordered parameter-binding operations against the active Cubism model. Individual blend-shape binding CRUD is rejected; "
-                    + "batch transfer_morph_clamped remains available through the native atomic API.",
+                    + "batch transfer_morph_clamped remains available through the native atomic API. "
+                    + "invert_all_bindings requires scope=all_target_bindings and reverses every normal keyform binding on the targets, "
+                    + "not one parameter. The ambiguous legacy invert operation is rejected.",
                 applySchema(bindingOperationSchema()),
                 Map.of("readOnlyHint", false, "destructiveHint", true, "idempotentHint", false)
             )
@@ -171,6 +174,7 @@ final class McpParameterDomain {
     }
 
     private Map<String, Object> applyParameters(final Map<String, Object> arguments) {
+        validateBatchArguments(arguments, parameterOperationSchema());
         only(arguments, "operations", "stopOnError");
         final List<Object> operations = array(required(arguments, "operations"), "operations");
         final boolean stopOnError = optionalBoolean(arguments, "stopOnError").orElse(false);
@@ -197,12 +201,19 @@ final class McpParameterDomain {
                 results.add(failure(index, operation, failure));
             }
         }
-        return linked(
+        final Map<String, Object> output = linked(
             entry("ok", !failed),
             entry("stopOnError", stopOnError),
-            entry("results", List.copyOf(results)),
-            entry("parameters", parameters(model))
+            entry("results", List.copyOf(results))
         );
+        // The final snapshot is observational: it must never erase completed mutation receipts.
+        try {
+            output.put("parameters", parameters(model));
+        } catch (RuntimeException failure) {
+            output.put("parameters", null);
+            output.put("parameterSnapshotWarning", error(failure));
+        }
+        return output;
     }
 
     private Map<String, Object> applyParameter(
@@ -213,15 +224,28 @@ final class McpParameterDomain {
         return switch (name) {
             case "set_value" -> {
                 only(operation, "operation", "parameterId", "value");
-                final Parameter parameter = model.parameters().find(parameterId(operation));
-                parameter.setValue(requiredFloat(operation, "value"));
-                yield parameter(model, parameter.id());
+                final ParameterId id = parameterId(operation);
+                final Parameter parameter = model.parameters().find(id);
+                final float value = requiredFloat(operation, "value");
+                yield parameterWrite(
+                    () -> {
+                        parameter.setValue(value);
+                        return linked(entry("parameterId", id.value()));
+                    },
+                    identity -> parameter(model, id)
+                );
             }
             case "reset_default" -> {
                 only(operation, "operation", "parameterId");
-                final Parameter parameter = model.parameters().find(parameterId(operation));
-                parameter.resetToDefault();
-                yield parameter(model, parameter.id());
+                final ParameterId id = parameterId(operation);
+                final Parameter parameter = model.parameters().find(id);
+                yield parameterWrite(
+                    () -> {
+                        parameter.resetToDefault();
+                        return linked(entry("parameterId", id.value()));
+                    },
+                    identity -> parameter(model, id)
+                );
             }
             case "create" -> {
                 only(operation, "operation", "definition");
@@ -277,8 +301,14 @@ final class McpParameterDomain {
                 only(operation, "operation", "parameterId", "definition");
                 final ParameterId targetId = parameterId(operation);
                 final ParameterDefinition definition = definition(requiredObject(operation, "definition"));
-                model.parameters().find(targetId).updateDefinition(definition);
-                yield parameter(model, definition.id());
+                final Parameter parameter = model.parameters().find(targetId);
+                yield parameterWrite(
+                    () -> {
+                        parameter.updateDefinition(definition);
+                        return linked(entry("parameterId", definition.id().value()));
+                    },
+                    identity -> parameter(model, definition.id())
+                );
             }
             case "remove" -> {
                 only(operation, "operation", "parameterId");
@@ -313,6 +343,7 @@ final class McpParameterDomain {
     }
 
     private Map<String, Object> applyBindings(final Map<String, Object> arguments) {
+        validateBatchArguments(arguments, bindingOperationSchema());
         only(arguments, "operations", "stopOnError");
         final List<Object> operations = array(required(arguments, "operations"), "operations");
         final boolean stopOnError = optionalBoolean(arguments, "stopOnError").orElse(false);
@@ -408,17 +439,25 @@ final class McpParameterDomain {
                     linked(entry("parameterId", parameterId.value()), entry("target", target(target)))
                 );
             }
-            case "invert" -> {
-                only(operation, "operation", "parameterId", "targets");
-                final ParameterId parameterId = parameterId(operation);
+            case "invert_all_bindings" -> {
+                only(operation, "operation", "scope", "targets");
                 final List<ParameterBindingTarget> targets = targets(required(operation, "targets"));
+                // Observe the complete normal-keyform scope before submitting the native batch.
+                final List<Map<String, Object>> before = allTargetBindings(model, targets);
+                final Map<String, Object> identity = linked(
+                    entry("scope", "all_target_bindings"),
+                    entry("targets", targets.stream().map(McpParameterDomain::target).toList()),
+                    entry("affectedParameterIds", before.stream()
+                        .map(binding -> (String) binding.get("parameterId")).distinct().toList())
+                );
                 yield bindingWrite(
                     () -> model.parameterBindingBatch().invert(targets),
-                    () -> bindingResults(model, parameterId, targets),
-                    linked(
-                        entry("parameterId", parameterId.value()),
-                        entry("targets", targets.stream().map(McpParameterDomain::target).toList())
-                    )
+                    () -> {
+                        final Map<String, Object> readback = new LinkedHashMap<>(identity);
+                        readback.put("affectedBindings", allTargetBindings(model, targets));
+                        return readback;
+                    },
+                    identity
                 );
             }
             case "transfer", "transfer_clamped" -> {
@@ -463,6 +502,32 @@ final class McpParameterDomain {
         };
     }
 
+    private static List<Map<String, Object>> allTargetBindings(
+        final CubismModel model,
+        final List<ParameterBindingTarget> targets
+    ) {
+        final java.util.Set<ParameterBindingTarget> selected = java.util.Set.copyOf(targets);
+        final List<Map<String, Object>> bindings = new ArrayList<>();
+        for (Parameter parameter : model.parameters().all()) {
+            if (parameter.isBlendShape()) continue;
+            for (ParameterBinding binding : parameter.getParameterBindings()) {
+                if (binding.family() == ParameterBindingFamily.KEYFORM_GRID && selected.contains(binding.target())) {
+                    bindings.add(binding(binding));
+                }
+            }
+        }
+        return List.copyOf(bindings);
+    }
+
+    private static void validateBatchArguments(
+        final Map<String, Object> arguments,
+        final Map<String, Object> operationSchema
+    ) {
+        if (!McpJsonSchema.validates(arguments, applySchema(operationSchema))) {
+            throw new InputException("Batch arguments must match the declared inputSchema before any operation is applied");
+        }
+    }
+
     private CubismModel activeModel() {
         return cubism.model().active();
     }
@@ -492,6 +557,8 @@ final class McpParameterDomain {
         final Map<String, Object> identity;
         try {
             identity = write.get();
+        } catch (java.util.concurrent.CancellationException failure) {
+            throw failure;
         } catch (RuntimeException failure) {
             throw new WriteOutcomeUnknownException(failure);
         }
@@ -902,10 +969,10 @@ final class McpParameterDomain {
                 entry("parameterId", stringSchema()),
                 entry("target", targetSchema())
             ), List.of("parameterId", "target")),
-            bindingOperation("invert", properties(
-                entry("parameterId", stringSchema()),
+            bindingOperation("invert_all_bindings", properties(
+                entry("scope", enumSchema(List.of("all_target_bindings"))),
                 entry("targets", arraySchema(targetSchema(), 1))
-            ), List.of("parameterId", "targets")),
+            ), List.of("scope", "targets")),
             transferOperation("transfer"),
             transferOperation("transfer_clamped"),
             transferOperation("transfer_morph_clamped")

@@ -13,13 +13,23 @@ private class BoundaryState(private val logger: Logger) {
     }
 }
 
+private val runtimeInternalImportPattern = "dev.turboism.*.internal.*"
 private val forbiddenImportPatterns = listOf(
-    "dev.turboism.*.internal.*" to "SDK/public modules must not import runtime internal packages",
+    runtimeInternalImportPattern to "SDK/public modules must not import runtime internal packages",
     "com.live2d.*" to "SDK/plugins must not import Cubism internal packages (com.live2d)",
     "dev.turboism.core.parameter.*" to "SDK/plugins must not import runtime parameter internals",
     "dev.turboism.core.mesh.*" to "SDK/plugins must not import runtime mesh internals",
     "dev.turboism.core.psd.*" to "SDK/plugins must not import runtime PSD internals",
-    "dev.turboism.core.mirror.*" to "SDK/plugins must not import runtime mirror internals"
+    "dev.turboism.core.mirror.*" to "SDK/plugins must not import runtime mirror internals",
+    "dev.turboism.sdk.event.cubism.*" to
+        "SDK/plugins must not import the retired dev.turboism.sdk.event.cubism package " +
+        "(Cubism events live in dev.turboism.sdk.cubism.event)"
+)
+
+private val forbiddenPackageDeclarations = listOf(
+    Regex("""^\s*package\s+dev\.turboism\.sdk\.event\.cubism\s*;""") to
+        "Retired package dev.turboism.sdk.event.cubism must not be reintroduced " +
+        "(Cubism events live in dev.turboism.sdk.cubism.event)"
 )
 
 private val productionDependencyConfigurations = setOf(
@@ -73,6 +83,25 @@ private fun checkProjectDependencies(subproject: Project, state: BoundaryState) 
             checkDeclaredBoundaryDependencies(subproject, setOf(":sdk"), "SDK", state)
             checkResolvedBoundaryComponents(config, subproject, setOf(":sdk"), state)
         }
+        subproject.path == ":core-contract" -> {
+            // Internal management contracts depend only on the SDK surface they reference;
+            // the module must never reach into runtime or plugin implementations.
+            checkDeclaredBoundaryDependencies(
+                subproject,
+                setOf(":sdk"),
+                "Core-contract",
+                state
+            )
+            checkResolvedBoundaryComponents(
+                config,
+                subproject,
+                setOf(":core-contract", ":sdk"),
+                state
+            )
+        }
+        subproject.path == ":runtime" -> {
+            checkRuntimePluginDependencies(subproject, config, state)
+        }
         subproject.path.startsWith(":plugins:") -> {
             checkDeclaredBoundaryDependencies(
                 subproject,
@@ -82,6 +111,41 @@ private fun checkProjectDependencies(subproject: Project, state: BoundaryState) 
             )
             checkResolvedBoundaryComponents(config, subproject, setOf(subproject.path, ":sdk"), state)
         }
+    }
+}
+
+/**
+ * The runtime is composition-neutral: it may carry external libraries but must never depend on
+ * a plugin implementation module. The framework shell belongs to :runtime; its composition
+ * contracts live in :core-contract and are never exposed to plugin consumers.
+ */
+private fun checkRuntimePluginDependencies(
+    subproject: Project,
+    config: org.gradle.api.artifacts.Configuration,
+    state: BoundaryState
+) {
+    subproject.configurations
+        .filter { it.name in productionDependencyConfigurations }
+        .forEach { configuration ->
+            configuration.dependencies.filterIsInstance<ProjectDependency>().forEach { dependency ->
+                val path = dependency.dependencyProject.path
+                if (path.startsWith(":plugins:")) {
+                    state.reject(
+                        "Runtime may not depend on plugin component $path from ${configuration.name}"
+                    )
+                }
+            }
+        }
+    if (state.failed) return
+    try {
+        config.incoming.resolutionResult.allComponents.forEach { component ->
+            val id = component.id
+            if (id is ProjectComponentIdentifier && id.projectPath.startsWith(":plugins:")) {
+                state.reject(":runtime resolved forbidden plugin component ${id.projectPath}")
+            }
+        }
+    } catch (exception: Exception) {
+        state.reject(":runtime dependency identity resolution failed closed: ${exception.message}")
     }
 }
 
@@ -173,13 +237,30 @@ private fun scanProductionSources(root: Project, project: Project, state: Bounda
 
 private fun checkSourceFile(root: Project, project: Project, file: java.io.File, state: BoundaryState) {
     val lines = file.readLines()
+    checkForbiddenPackageDeclaration(root, file, lines, state)
     val restricted = project.path == ":sdk" || project.path.startsWith(":plugins:")
     if (restricted) {
         checkRestrictedImports(root, file, lines, state)
         checkForbiddenQualifiedReferences(root, file, lines, state)
+        checkInternalContractReferences(root, file, lines, state)
     }
     if (project.path.startsWith(":plugins:")) {
         checkForbiddenHostUiTraversal(root, file, lines, state)
+    }
+}
+
+private fun checkForbiddenPackageDeclaration(
+    root: Project,
+    file: java.io.File,
+    lines: List<String>,
+    state: BoundaryState
+) {
+    lines.forEach { line ->
+        forbiddenPackageDeclarations.forEach { (pattern, message) ->
+            if (pattern.containsMatchIn(line)) {
+                state.reject("${file.relativeTo(root.projectDir)}: $message")
+            }
+        }
     }
 }
 
@@ -191,9 +272,54 @@ private fun checkRestrictedImports(root: Project, file: java.io.File, lines: Lis
         }
         forbiddenImportPatterns.forEach { (pattern, message) ->
             if (trimmed.matches(Regex("import $pattern;"))) {
-                state.reject("Forbidden import in ${file.relativeTo(root.projectDir)}:${index + 1}: $message")
+                state.reject(
+                    "Forbidden import in ${file.relativeTo(root.projectDir)}:${index + 1}: $message"
+                )
             }
         }
+    }
+}
+
+private val internalContractReferencePattern =
+    Regex("""(?<![\w$])dev\.turboism\.internal(?:\.[A-Za-z_$][\w$]*)+(?![\w$])""")
+
+/**
+ * Internal management contracts ({@code dev.turboism.internal.*}) are composition-internal: the
+ * SDK and ordinary plugins must never import or reference them, so built-in-only services cannot
+ * leak through the plugin surface. The framework shell lives in :runtime and needs no plugin exception.
+ */
+private fun checkInternalContractReferences(
+    root: Project,
+    file: java.io.File,
+    lines: List<String>,
+    state: BoundaryState
+) {
+    lines.forEachIndexed { index, line ->
+        val trimmed = line.trim()
+        if (trimmed.startsWith("import ") || trimmed.startsWith("import static ")) {
+            val imported = trimmed
+                .removePrefix("import ")
+                .removePrefix("static ")
+                .removeSuffix(";")
+                .trim()
+            if (imported.startsWith("dev.turboism.internal.")) {
+                state.reject(
+                    "Forbidden internal-contract import in " +
+                        "${file.relativeTo(root.projectDir)}:${index + 1}: " +
+                        "internal management contracts are not a plugin API"
+                )
+            }
+        }
+    }
+    val source = stripJavaCommentsAndStrings(
+        lines.filterNot { it.trimStart().startsWith("import ") }.joinToString("\n")
+    )
+    internalContractReferencePattern.findAll(source).forEach { match ->
+        state.reject(
+            "Forbidden internal-contract reference '${match.value}' in " +
+                "${file.relativeTo(root.projectDir)}: " +
+                "internal management contracts are not a plugin API"
+        )
     }
 }
 

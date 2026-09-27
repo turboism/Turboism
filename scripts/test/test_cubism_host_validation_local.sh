@@ -70,7 +70,7 @@ for required in (
     "--agent", "--plugin", "--home-config", "--home-file",
     "--home-dir", "--fixture-host", "--fixture-sha256",
     "--golden-prefix", "--host-root", "--local-evidence-dir", "--display",
-    ":0", "--proton-wrapper", "--proton-runner", "--agent-timeout", "180",
+    ":0", "--proton-wrapper", "--proton-runner", "--graphics-device", "inherit", "--agent-timeout", "180",
     "--agent-host-class", "--ready-timeout", "240", "--result-timeout", "300",
     "--exit-timeout", "120", "--poll-seconds", "3", "--remote-pre-launch",
     "--remote-pre-launch-background", "--remote-pre-launch-args-only",
@@ -99,9 +99,30 @@ env = {**os.environ, 'TURBOISM_QUEUE_RUN_ID': 'queued-local-001'}
 replayed = subprocess.check_output(['bash', runner, *json.load(open(request))['argv'], '--dry-run'], env=env, text=True)
 expected = dict(line.split('=', 1) for line in open(original).read().splitlines() if '=' in line)
 actual = dict(line.split('=', 1) for line in replayed.splitlines() if '=' in line)
-for key in ('taskId', 'runId', 'fixtureName', 'fixturePath', 'validationFixtureNameJvmOption'):
+for key in ('taskId', 'runId', 'fixtureName', 'fixturePath', 'validationFixtureNameJvmOption', 'graphicsDevice'):
     assert actual[key] == expected[key], (key, actual[key], expected[key])
 PY
+
+# GPU selection is a snapshotted enum, not arbitrary Linux environment or shell code.
+"${common[@]}" --graphics-device nvidia --prepare-dir "$tmp/prepare-nvidia" > "$tmp/gpu-prepare.out"
+python3 - "$runner" "$tmp/prepare-nvidia/runner-request.json" <<'PY'
+import json, subprocess, sys
+runner, request = sys.argv[1:]
+payload = json.load(open(request))
+argv = payload['argv']
+assert argv[argv.index('--graphics-device') + 1] == 'nvidia'
+assert payload['environment'] == {}
+replayed = subprocess.check_output(['bash', runner, *argv, '--dry-run'], text=True)
+assert 'graphicsDevice=nvidia\n' in replayed
+PY
+for device in auto NVIDIA 'nvidia; false'; do
+  if "${common[@]}" --graphics-device "$device" --dry-run > "$tmp/gpu-invalid.out" 2>&1; then
+    fail 'invalid graphics device unexpectedly succeeded'
+  fi
+  grep -Fq -- '--graphics-device must be inherit or nvidia' "$tmp/gpu-invalid.out" \
+    || fail 'invalid graphics device was not rejected by enum validation'
+done
+[ ! -e "$tmp/host-root" ] || fail 'GPU prepare/dry-run created a host root'
 
 # Naked queue labels must never authorize host side effects.
 if TURBOISM_QUEUE_RUN_ID='queued-local-001' "${common[@]}" > "$tmp/admission.out" 2>&1; then

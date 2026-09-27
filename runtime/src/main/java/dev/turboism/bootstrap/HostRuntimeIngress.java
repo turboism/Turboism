@@ -34,6 +34,45 @@ public final class HostRuntimeIngress implements AutoCloseable {
         this(source -> new HostSession(source, Objects.requireNonNull(effectiveLocale, "effectiveLocale")));
     }
 
+    /**
+     * Production composition with the runtime's shared effective-locale source, so a
+     * host-verified re-resolution after the session's creation is honored downstream.
+     */
+    public HostRuntimeIngress(final java.util.function.Supplier<Locale> effectiveLocale) {
+        this(source -> new HostSession(source, Objects.requireNonNull(effectiveLocale, "effectiveLocale")));
+    }
+
+    /**
+     * Production composition with the locale and the persistent store for the
+     * runtime-owned texture-atlas automatic-layout selection.
+     */
+    public HostRuntimeIngress(
+        final Locale effectiveLocale,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
+            textureAtlasSelectionPersistence
+    ) {
+        this(
+            () -> Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
+            textureAtlasSelectionPersistence
+        );
+    }
+
+    /**
+     * Production composition with the runtime's shared effective-locale source and the
+     * persistent store for the runtime-owned texture-atlas automatic-layout selection.
+     */
+    public HostRuntimeIngress(
+        final java.util.function.Supplier<Locale> effectiveLocale,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
+            textureAtlasSelectionPersistence
+    ) {
+        this(source -> new HostSession(
+            source,
+            Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
+            textureAtlasSelectionPersistence
+        ));
+    }
+
     HostRuntimeIngress(final Function<HostInstanceSource, HostSession> sessionFactory) {
         session = Objects.requireNonNull(sessionFactory, "sessionFactory")
             .apply(() -> closeRequested.get()

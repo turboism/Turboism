@@ -23,14 +23,17 @@ public sealed interface PanelView permits
     PanelView.Separator,
     PanelView.Scroll {
 
+    /** Creates a vertical stack of the given children. */
     static Column column(final PanelView... children) {
         return new Column(List.of(children));
     }
 
+    /** Creates a horizontal row of the given children. */
     static Row row(final PanelView... children) {
         return new Row(List.of(children));
     }
 
+    /** Creates a plain text node. */
     static Text text(final String value) {
         return new Text(value, false, false);
     }
@@ -45,14 +48,17 @@ public sealed interface PanelView permits
         return new Text(value, false, true);
     }
 
+    /** Creates an image node from PNG bytes with accessibility alt text. */
     static Image image(final byte[] pngBytes, final String altText) {
         return new Image(pngBytes, altText);
     }
 
+    /** Creates a push button that invokes {@code actionId} when pressed. */
     static Button button(final String id, final String label, final String actionId) {
         return new Button(id, label, actionId);
     }
 
+    /** Creates a labeled text field whose edits dispatch {@code actionId}. */
     static TextInput textInput(
         final String id,
         final String label,
@@ -62,10 +68,12 @@ public sealed interface PanelView permits
         return new TextInput(id, label, value, actionId);
     }
 
+    /** Creates one selectable option for a {@link Select} control. */
     static Option option(final String value, final String label) {
         return new Option(value, label);
     }
 
+    /** Creates a labeled single-select control whose changes dispatch {@code actionId}. */
     static Select select(
         final String id,
         final String label,
@@ -76,6 +84,7 @@ public sealed interface PanelView permits
         return new Select(id, label, options, selectedValue, actionId);
     }
 
+    /** Creates a labeled toggle whose changes dispatch {@code actionId}. */
     static Toggle toggle(
         final String id,
         final String label,
@@ -85,6 +94,7 @@ public sealed interface PanelView permits
         return new Toggle(id, label, selected, false, actionId);
     }
 
+    /** Creates a labeled toggle with an explicit grayed (disabled-looking) style. */
     static Toggle toggle(
         final String id,
         final String label,
@@ -95,6 +105,31 @@ public sealed interface PanelView permits
         return new Toggle(id, label, selected, grayed, actionId);
     }
 
+    /**
+     * Creates a selectable row whose label may place typed icons between literal text runs.
+     * Missing icons are rendered with the fallback text embedded in {@code label}.
+     */
+    static Toggle toggle(
+        final String id,
+        final UiInlineLabel label,
+        final boolean selected,
+        final String actionId
+    ) {
+        return new Toggle(id, label, selected, false, actionId);
+    }
+
+    /** Creates an icon-capable selectable row with an independent gray presentation flag. */
+    static Toggle toggle(
+        final String id,
+        final UiInlineLabel label,
+        final boolean selected,
+        final boolean grayed,
+        final String actionId
+    ) {
+        return new Toggle(id, label, selected, grayed, actionId);
+    }
+
+    /** Creates a horizontal separator line. */
     static Separator separator() {
         return new Separator();
     }
@@ -113,10 +148,12 @@ public sealed interface PanelView permits
         return new Chart(id, title, List.of(series));
     }
 
+    /** Creates the display specification of one chart series. */
     static SeriesSpec series(final String name, final int maxPoints, final String unit, final String format) {
         return new SeriesSpec(name, maxPoints, unit, format);
     }
 
+    /** Creates a titled collapsible section containing the given children. */
     static CollapsibleSection collapsibleSection(
         final String title,
         final boolean expandedByDefault,
@@ -125,18 +162,21 @@ public sealed interface PanelView permits
         return new CollapsibleSection(title, expandedByDefault, List.of(children));
     }
 
+    /** Vertical stack of child nodes. */
     record Column(List<PanelView> children) implements PanelView {
         public Column {
             children = immutableChildren(children);
         }
     }
 
+    /** Horizontal row of child nodes. */
     record Row(List<PanelView> children) implements PanelView {
         public Row {
             children = immutableChildren(children);
         }
     }
 
+    /** Plain text node; {@code grayed} renders disabled-looking, {@code centered} centers it. */
     record Text(String value, boolean grayed, boolean centered) implements PanelView {
         public Text {
             value = Objects.requireNonNull(value, "value");
@@ -192,6 +232,7 @@ public sealed interface PanelView permits
         }
     }
 
+    /** Push button that invokes {@code actionId} when pressed. */
     record Button(String id, String label, String actionId) implements PanelView {
         public Button {
             id = requireText(id, "id");
@@ -200,6 +241,7 @@ public sealed interface PanelView permits
         }
     }
 
+    /** Labeled text field whose edits dispatch {@code actionId}. */
     record TextInput(String id, String label, String value, String actionId) implements PanelView {
         public TextInput {
             id = requireText(id, "id");
@@ -209,6 +251,7 @@ public sealed interface PanelView permits
         }
     }
 
+    /** One selectable option of a {@link Select} control. */
     record Option(String value, String label) {
         public Option {
             value = requireText(value, "value");
@@ -221,6 +264,7 @@ public sealed interface PanelView permits
         }
     }
 
+    /** Labeled single-select dropdown; {@code selectedValue} must identify one option. */
     record Select(
         String id,
         String label,
@@ -250,25 +294,74 @@ public sealed interface PanelView permits
         }
     }
 
+    /** Checkbox node; changes dispatch {@code actionId}. */
     record Toggle(
         String id,
         String label,
         boolean selected,
         boolean grayed,
-        String actionId
+        String actionId,
+        UiInlineLabel inlineLabel
     ) implements PanelView {
         public Toggle {
             id = requireText(id, "id");
             label = requireText(label, "label");
             actionId = requireText(actionId, "actionId");
+            if (inlineLabel != null && !label.equals(inlineLabel.fallbackText())) {
+                throw new IllegalArgumentException("label must equal inlineLabel.fallbackText()");
+            }
         }
 
         /** Backwards-compatible construction for callers without a grayed flag. */
         public Toggle(final String id, final String label, final boolean selected, final String actionId) {
-            this(id, label, selected, false, actionId);
+            this(id, label, selected, false, actionId, null);
+        }
+
+        /** Backwards-compatible construction for callers with a grayed flag. */
+        public Toggle(
+            final String id,
+            final String label,
+            final boolean selected,
+            final boolean grayed,
+            final String actionId
+        ) {
+            this(id, label, selected, grayed, actionId, null);
+        }
+
+        /** Constructs an icon-capable toggle without requiring a duplicate fallback string. */
+        public Toggle(
+            final String id,
+            final UiInlineLabel inlineLabel,
+            final boolean selected,
+            final String actionId
+        ) {
+            this(id, requireInlineLabel(inlineLabel).fallbackText(), selected, false, actionId, inlineLabel);
+        }
+
+        /** Constructs an icon-capable toggle with an independent gray presentation flag. */
+        public Toggle(
+            final String id,
+            final UiInlineLabel inlineLabel,
+            final boolean selected,
+            final boolean grayed,
+            final String actionId
+        ) {
+            this(
+                id,
+                requireInlineLabel(inlineLabel).fallbackText(),
+                selected,
+                grayed,
+                actionId,
+                inlineLabel
+            );
+        }
+
+        private static UiInlineLabel requireInlineLabel(final UiInlineLabel value) {
+            return Objects.requireNonNull(value, "inlineLabel");
         }
     }
 
+    /** Titled collapsible section containing child nodes. */
     record CollapsibleSection(
         String title,
         boolean expandedByDefault,
@@ -280,14 +373,17 @@ public sealed interface PanelView permits
         }
     }
 
+    /** Horizontal separator line. */
     record Separator() implements PanelView { }
 
+    /** Scrollable viewport around one child node. */
     record Scroll(PanelView child) implements PanelView {
         public Scroll {
             child = Objects.requireNonNull(child, "child");
         }
     }
 
+    /** Real-time line chart whose live data is resolved by the runtime through {@code id}. */
     record Chart(String id, String title, List<SeriesSpec> series) implements PanelView {
         public Chart {
             id = requireText(id, "id");
@@ -306,6 +402,7 @@ public sealed interface PanelView permits
         }
     }
 
+    /** Display specification of one chart series: name, window size, unit, and value format. */
     record SeriesSpec(String name, int maxPoints, String unit, String format) {
         public SeriesSpec {
             name = requireText(name, "name");

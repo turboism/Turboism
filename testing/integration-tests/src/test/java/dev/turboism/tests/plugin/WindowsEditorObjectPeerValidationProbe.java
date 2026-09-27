@@ -24,9 +24,26 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
         context.logger().info("Editor object peer validation probe initialized");
     }
 
+    /**
+     * Modes whose primary probe writes the peer close-request marker. In any other mode (for
+     * example {@code perf-observe}) no marker ever appears, so running the bounded wait could
+     * only produce a phantom FAIL artifact that masks the primary verdict.
+     */
+    private static boolean peerHandshakeMode(final String mode) {
+        return "plugin-scope-close".equals(mode)
+            || "document-close".equals(mode)
+            || "native-control-background-document-close".equals(mode);
+    }
+
     @Override
     public void enable() {
-        // This class is packaged only in the exact-host validation bundle; always wait for the primary marker.
+        // This class is packaged only in the exact-host validation bundle; it waits for the
+        // primary marker, which exists only for the close-handshake modes.
+        final String mode = System.getProperty("turboism.editorObjectValidation.mode", "");
+        if (!peerHandshakeMode(mode)) {
+            context.logger().info("Editor object peer validation skipped for mode=" + mode);
+            return;
+        }
         try {
             final Path home = Path.of(System.getProperty("turboism.home"));
             writeStage(home.resolve("logs").resolve("editor-object-peer-scope-close.txt"), "enabled");

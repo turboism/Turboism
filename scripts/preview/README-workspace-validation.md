@@ -61,6 +61,15 @@ shared exact-host runner in one task-scoped session:
 bash scripts/preview/run-workspace-host-validation.sh 5302 prep --dry-run
 ```
 
+The automatic matrix first creates a uniquely named custom workspace through the
+native workspace-settings UI inside the task clone. The disposable agent uses only
+JDK Swing widget APIs for this prerequisite and answers only that workspace's native
+save confirmation; `state/workspace-native-ui.txt` records these actions. The probe
+selects the created workspace by its recorded ID. Preset defaults are not writable;
+the provider refuses them before opening a warning. A custom save reports CHANGED
+only when its bounded serialized default-layout bytes change, and NO_CHANGE when
+cancelled or unchanged.
+
 The probe writes `state/workspace-host-validation.properties` and emits
 `WORKSPACE_HOST_VALIDATION_RESULT status=PASS|FAIL`. A PASS requires the active
 host/document/model snapshot, typed disconnect baseline and fence, connect,

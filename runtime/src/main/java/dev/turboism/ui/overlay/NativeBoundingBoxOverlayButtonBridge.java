@@ -151,8 +151,14 @@ public final class NativeBoundingBoxOverlayButtonBridge {
             || Long.compareUnsigned(now - previous, FAILURE_REPORT_INTERVAL_NANOS) >= 0;
     }
 
+    /** Callback invoked while the host builds the bounding-box overlay scene. */
     @FunctionalInterface
     public interface SetupHandler {
+        /**
+         * @param overlay the host overlay object being set up
+         * @param sceneGraph the host scene graph the overlay draws into
+         * @return the custom button entities to add; empty when none
+         */
         Object[] customButtonEntities(Object overlay, Object sceneGraph);
     }
 }

@@ -21,7 +21,8 @@ import java.util.stream.IntStream;
 import java.util.Set;
 
 /** Per-plugin permission checked texture-atlas layout service. */
-public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayoutService {
+public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayoutService,
+    dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService {
 
     public static final String READ_PERMISSION = "turboism.cubism.model.read";
     public static final String WRITE_PERMISSION = "turboism.cubism.model.write";
@@ -119,6 +120,72 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
             return failed(TextureAtlasLayoutFailureCode.PLAN_INVALID, issue.orElseThrow());
         }
         return coordinator.apply(runtimeTarget.generation(), runtimeTarget.state(), plan);
+    }
+
+    @Override
+    public Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot> currentPolygon() {
+        permissionGate.require(READ_PERMISSION, "textureAtlasPolygonLayouts.currentPolygon",
+            CAPABILITY);
+        final Optional<TextureAtlasNativeInvocationCoordinator.Invocation> nativeInvocation =
+            nativeInvocations.current();
+        if (nativeInvocation.isEmpty()) {
+            // polygon layouts are only exposed inside a native auto-layout
+            // invocation, where the verified session supplies real contours
+            return Optional.empty();
+        }
+        final TextureAtlasNativeInvocationCoordinator.Invocation invocation =
+            nativeInvocation.orElseThrow();
+        final var state = invocation.session().polygonState();
+        return Optional.of(
+            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot(
+                new NativeTarget(ownerToken, invocation), "native-invocation",
+                "native-model", "native-atlas", state.constraints(),
+                state.items(), state.currentPlan()));
+    }
+
+    @Override
+    public TextureAtlasLayoutApplyResult apply(
+        final TextureAtlasLayoutTarget target,
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan plan
+    ) {
+        Objects.requireNonNull(target, "target");
+        Objects.requireNonNull(plan, "plan");
+        try {
+            permissionGate.require(WRITE_PERMISSION, "textureAtlasPolygonLayouts.apply",
+                CAPABILITY);
+        } catch (CubismPermissionException exception) {
+            return failed(TextureAtlasLayoutFailureCode.PERMISSION_DENIED,
+                "Texture atlas write permission is denied.");
+        }
+        if (!(target instanceof NativeTarget nativeTarget)) {
+            return failed(TextureAtlasLayoutFailureCode.TARGET_STALE,
+                "Polygon layouts only apply to a native automatic-layout target.");
+        }
+        final Optional<TextureAtlasNativeInvocationCoordinator.Invocation> current =
+            nativeInvocations.current();
+        if (!nativeTarget.ownedBy(ownerToken) || current.isEmpty()
+            || current.orElseThrow() != nativeTarget.invocation()) {
+            return failed(TextureAtlasLayoutFailureCode.TARGET_STALE,
+                "The texture atlas target is stale.");
+        }
+        final TextureAtlasNativeInvocationCoordinator.Invocation invocation = current.orElseThrow();
+        final var state = invocation.session().polygonState();
+        final var violations = TextureAtlasPolygonPlanValidator.validate(state.items(),
+            state.constraints(), plan);
+        if (!violations.isEmpty()) {
+            return failed(TextureAtlasLayoutFailureCode.PLAN_INVALID,
+                violations.get(0).code() + ": " + violations.get(0).message());
+        }
+        final TextureAtlasLayoutProvider.ApplyOutcome outcome =
+            invocation.session().applyPolygon(plan);
+        if (outcome == TextureAtlasLayoutProvider.ApplyOutcome.REJECTED) {
+            return failed(TextureAtlasLayoutFailureCode.PROVIDER_REJECTED,
+                "Native texture atlas invocation rejected the validated polygon plan.");
+        }
+        invocation.handled(true);
+        return outcome == TextureAtlasLayoutProvider.ApplyOutcome.NO_CHANGE
+            ? TextureAtlasLayoutApplyResult.noChange()
+            : TextureAtlasLayoutApplyResult.applied();
     }
 
     private Optional<String> validate(

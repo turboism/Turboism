@@ -1,0 +1,4 @@
+plugin.description
+plugin.name
+texture-atlas.algorithm.dalsoo
+texture-atlas.dalsoo.policy

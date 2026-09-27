@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /** Reversible provider for plugin-owned top-level and nested menus. */
 public final class TopMenuContributionProvider implements EditorUiContributionProvider {
@@ -24,11 +25,26 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
     private final EditorUiProviderAdmission admission;
     private final TopMenuHostOperations host;
     private final EditorUiActionRouter actionRouter;
+    private final Supplier<String> sharedRootLabel;
 
     public TopMenuContributionProvider(
         final EditorUiProviderAdmission admission,
         final TopMenuHostOperations host,
-        final EditorUiActionRouter actionRouter
+        final EditorUiActionRouter actionRouter,
+        final String sharedRootLabel
+    ) {
+        this(admission, host, actionRouter, fixedLabel(sharedRootLabel));
+    }
+
+    /**
+     * @param sharedRootLabel resolves the localized shared-root label at apply
+     *     time, so a locale settled after this provider's construction is honored
+     */
+    public TopMenuContributionProvider(
+        final EditorUiProviderAdmission admission,
+        final TopMenuHostOperations host,
+        final EditorUiActionRouter actionRouter,
+        final Supplier<String> sharedRootLabel
     ) {
         this.admission = Objects.requireNonNull(admission, "admission");
         if (admission.family() != EditorUiFamily.MENU) {
@@ -36,6 +52,12 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
         }
         this.host = Objects.requireNonNull(host, "host");
         this.actionRouter = Objects.requireNonNull(actionRouter, "actionRouter");
+        this.sharedRootLabel = Objects.requireNonNull(sharedRootLabel, "sharedRootLabel");
+    }
+
+    private static Supplier<String> fixedLabel(final String label) {
+        final String required = Objects.requireNonNull(label, "sharedRootLabel");
+        return () -> required;
     }
 
     @Override
@@ -72,7 +94,8 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
         }
         final List<TopMenuDescriptor> menus = grouped.entrySet().stream()
             .map(entry -> entry.getKey().shared()
-                ? TopMenuDescriptor.shared(entry.getKey().rootLabel(), entry.getValue())
+                ? TopMenuDescriptor.shared(
+                    entry.getKey().rootLabel(), sharedRootLabel.get(), entry.getValue())
                 : TopMenuDescriptor.owned(
                     entry.getKey().rootLabel(),
                     entry.getValue()

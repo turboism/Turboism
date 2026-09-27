@@ -96,8 +96,17 @@ public final class RecentPreviewController {
                 return CompletableFuture.completedStage(List.of());
             }
             files = refreshed;
+            pruneToLive(refreshed);
             return CompletableFuture.completedStage(refreshed);
         }
+    }
+
+    /** Drops memory entries whose id left the recent list; live ids keep their data. */
+    private void pruneToLive(final List<RecentFileSummary> liveFiles) {
+        final java.util.Set<RecentFileId> live = new java.util.HashSet<>();
+        for (RecentFileSummary file : liveFiles) live.add(file.id());
+        images.keySet().retainAll(live);
+        lastCapturedModified.keySet().retainAll(live);
     }
 
     /** Fills the memory map from the disk cache for the current recent files. */
@@ -149,6 +158,7 @@ public final class RecentPreviewController {
         RecentFileSummary file = find(id);
         if (file == null) {
             files = List.copyOf(recentFiles.list());
+            pruneToLive(files);
             file = find(id);
         }
         if (file == null) {

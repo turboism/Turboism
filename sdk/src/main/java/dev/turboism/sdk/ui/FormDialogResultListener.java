@@ -14,5 +14,12 @@ import java.util.Map;
 @FunctionalInterface
 public interface FormDialogResultListener {
 
+    /**
+     * Called once when the dialog closes.
+     *
+     * @param accepted whether the user pressed accept or a secondary action
+     * @param actionId the secondary action id, or {@code null} for accept/cancel
+     * @param values final field values by field id; empty on cancel
+     */
     void onResult(boolean accepted, String actionId, Map<String, String> values);
 }

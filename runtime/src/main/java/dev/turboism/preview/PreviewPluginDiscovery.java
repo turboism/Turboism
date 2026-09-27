@@ -34,6 +34,8 @@ final class PreviewPluginDiscovery {
         this.log = log;
     }
 
+    // The winning candidate is skipped by identity: equal-value losers must still be reported.
+    @SuppressWarnings("ReferenceEquality")
     Map<String, PreviewPluginCandidate> discover(
         final List<LocalPluginRuntime.PluginFailure> failures
     ) {
@@ -142,7 +144,7 @@ final class PreviewPluginDiscovery {
     ) throws IOException, DescriptorParseException {
         try (InputStream source = archive.getInputStream(entry)) {
             final PluginDescriptor descriptor = new PluginDescriptorParser().parse(source);
-            if (dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID.equals(descriptor.id())) {
+            if (dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(descriptor.id())) {
                 failures.add(new LocalPluginRuntime.PluginFailure(
                     descriptor.id(), jar, "PLUGIN_RESERVED_ID",
                     "External plugin packages cannot declare the Runtime-owned core ID."

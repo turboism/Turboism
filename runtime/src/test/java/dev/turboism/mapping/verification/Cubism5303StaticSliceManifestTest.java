@@ -66,7 +66,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             WorkspaceControlVerificationManifest.forArtifact(REVIEWED),
             "m.workspace-5.3.03.control.static",
-            "19a28870070b7f0e5c49060fef15dea087ebd37c7d20963d6aabd55fc5a464da",
+            "50acfcbb92cb83caf07113034001b12e71d032656cab76a652f294dd2b809130",
             "adapter.workspace.control.v5_3",
             Set.of(WorkspaceControlVerificationManifest.CAPABILITY_ID),
             WorkspaceControlVerificationManifest.REQUIRED_ALIASES

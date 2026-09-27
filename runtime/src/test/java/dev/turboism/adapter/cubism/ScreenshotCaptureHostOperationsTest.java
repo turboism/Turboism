@@ -224,16 +224,18 @@ class ScreenshotCaptureHostOperationsTest {
                 .toCompletableFuture().get(15, TimeUnit.SECONDS);
             assertEquals(request.id(), first.id());
             assertTrue(first.image().width() <= 150 && first.image().height() <= 150);
-            final BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(first.image().png()));
-            assertNotNull(decoded);
+            assertEquals(1, hides.get(), "the actual capture suppresses its popup");
+            assertEquals(1, restores.get(), "the actual capture restores its popup");
 
             // Debounce: an immediate repeat for the same id reuses the cached result.
             final ScreenshotCaptureResult second = capture.capture(request)
                 .toCompletableFuture().get(5, TimeUnit.SECONDS);
             assertEquals(first.image(), second.image());
+            final BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(first.image().png()));
+            assertNotNull(decoded);
 
-            assertEquals(2, hides.get(), "the popup must be suppressed around every capture");
-            assertEquals(2, restores.get(), "the popup must be restored after every capture");
+            assertEquals(1, hides.get(), "a cached response must not suppress the popup again");
+            assertEquals(1, restores.get(), "a cached response must not restore an unsuppressed popup");
         } finally {
             SwingUtilities.invokeAndWait(host::dispose);
         }

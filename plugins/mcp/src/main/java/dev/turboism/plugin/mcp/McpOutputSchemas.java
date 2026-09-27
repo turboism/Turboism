@@ -36,7 +36,8 @@ final class McpOutputSchemas {
                 entry("ok", booleanSchema()),
                 entry("stopOnError", booleanSchema()),
                 entry("results", array(parameterOperationResult())),
-                entry("parameters", array(parameter()))
+                entry("parameters", nullableArray(parameter())),
+                entry("parameterSnapshotWarning", error())
             ),
             List.of("ok", "stopOnError", "results", "parameters")
         ));
@@ -278,6 +279,9 @@ final class McpOutputSchemas {
                 ))),
                 entry("retryable", constant(false)),
                 entry("canonicalPointIds", nullableArray(stringSchema())),
+                entry("scope", enumSchema(List.of("all_target_bindings"))),
+                entry("affectedParameterIds", array(stringSchema())),
+                entry("affectedBindings", array(binding())),
                 entry("parameterId", stringSchema()),
                 entry("sourceParameterId", stringSchema()),
                 entry("targetParameterId", stringSchema()),
@@ -488,14 +492,36 @@ final class McpOutputSchemas {
     private static Map<String, Object> historyChange() {
         return object(
             properties(
-                entry("operation", enumSchema(List.of("SET", "ADD", "REMOVE", "UNKNOWN"))),
+                entry("operation", enumSchema(List.of("SET", "ADD", "REMOVE", "MOVE", "UNKNOWN"))),
                 entry("targetIndex", nullableNonNegativeInteger()),
                 entry("property", nullableString()),
                 entry("before", nullableString()),
                 entry("after", nullableString()),
-                entry("context", historyEditContext())
+                entry("context", historyEditContext()),
+                entry("relation", nullableObject(historyRelationChange()))
             ),
-            List.of("operation", "targetIndex", "property", "before", "after", "context")
+            List.of("operation", "targetIndex", "property", "before", "after", "context", "relation")
+        );
+    }
+
+    private static Map<String, Object> historyRelationChange() {
+        return object(
+            properties(
+                entry("kind", enumSchema(List.of("PART_MEMBERSHIP", "DEFORMER_PARENT"))),
+                entry("before", historyRelationEndpoint()),
+                entry("after", historyRelationEndpoint())
+            ),
+            List.of("kind", "before", "after")
+        );
+    }
+
+    private static Map<String, Object> historyRelationEndpoint() {
+        return object(
+            properties(
+                entry("state", enumSchema(List.of("TARGET", "ROOT", "UNKNOWN"))),
+                entry("target", nullableObject(historyTarget()))
+            ),
+            List.of("state", "target")
         );
     }
 

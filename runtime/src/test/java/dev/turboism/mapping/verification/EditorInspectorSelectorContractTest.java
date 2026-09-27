@@ -2,7 +2,7 @@ package dev.turboism.mapping.verification;
 
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartInspector52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartInspectorIdWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
 import org.junit.jupiter.api.Test;
 
@@ -72,9 +72,9 @@ class EditorInspectorSelectorContractTest {
         ));
         // Part id write is available on 5.2 ...
         assertTrue(resolver.authorizesFeature(
-            EditorPartInspector52SelectorContract.ADAPTER_SLICE_ID,
-            EditorPartInspector52SelectorContract.CAPABILITY_ID,
-            EditorPartInspector52SelectorContract.REQUIRED_ALIASES
+            EditorPartInspectorIdWriteSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartInspectorIdWriteSelectorContract.CAPABILITY_ID,
+            EditorPartInspectorIdWriteSelectorContract.REQUIRED_ALIASES
         ));
         // ... but clipping-mask and alpha-composition writes fail closed (no
         // 5.2 evidence: 52-src Parts_wrapperForInspector has no such entries).

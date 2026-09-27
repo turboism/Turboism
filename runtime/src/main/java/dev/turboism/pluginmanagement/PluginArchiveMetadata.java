@@ -3,7 +3,7 @@ package dev.turboism.pluginmanagement;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
 import dev.turboism.i18n.RuntimePluginLocalization;
-import dev.turboism.plugin.core.CorePluginManagement;
+import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 
 import java.io.ByteArrayOutputStream;
@@ -46,7 +46,6 @@ record PluginArchiveMetadata(
     Optional<String> readme
 ) {
     private static final String DESCRIPTOR = "META-INF/turboism/plugin.json";
-    private static final String CORE_DESCRIPTOR = "META-INF/turboism/core-plugin.json";
     private static final List<String> BASE_README_PATHS = List.of(
         "META-INF/turboism/readme/README.md", "README.md", "README.markdown", "README.txt",
         "readme.md", "readme.markdown", "readme.txt"
@@ -99,26 +98,6 @@ record PluginArchiveMetadata(
             if (loader != null) {
                 try { loader.close(); } catch (Exception ignored) { }
             }
-        }
-    }
-
-    static Optional<PluginArchiveMetadata> readCore(
-        final ClassLoader loader,
-        final Locale locale,
-        final LocalizationDiagnosticSink diagnostics
-    ) {
-        Objects.requireNonNull(loader, "loader");
-        Objects.requireNonNull(locale, "locale");
-        Objects.requireNonNull(diagnostics, "diagnostics");
-        try (InputStream input = loader.getResourceAsStream(CORE_DESCRIPTOR)) {
-            if (input == null) return Optional.empty();
-            final PluginDescriptor descriptor = new PluginDescriptorParser().parse(input);
-            final RuntimePluginLocalization localization = RuntimePluginLocalization.create(
-                descriptor.id(), loader, descriptor.i18n(), locale.toLanguageTag(), locale, locale, diagnostics
-            );
-            return Optional.of(metadata(descriptor, localization, readme(loader, locale)));
-        } catch (Exception failure) {
-            return Optional.empty();
         }
     }
 
@@ -184,30 +163,6 @@ record PluginArchiveMetadata(
         if (entry.getSize() > MAX_README_BYTES) return new ReadmeLookup(true, Optional.empty());
         try (InputStream input = jar.getInputStream(entry)) {
             return new ReadmeLookup(true, readUtf8(input));
-        } catch (Exception unavailable) {
-            return new ReadmeLookup(true, Optional.empty());
-        }
-    }
-
-    private static Optional<String> readme(final ClassLoader loader, final Locale locale) {
-        final String localized = localizedReadmePath(locale);
-        if (localized != null) {
-            final ReadmeLookup value = readme(loader, localized);
-            if (value.content().isPresent()) return value.content();
-        }
-        for (String path : BASE_README_PATHS) {
-            final ReadmeLookup value = readme(loader, path);
-            if (value.content().isPresent()) return value.content();
-            if (value.present()) return Optional.empty();
-        }
-        return Optional.empty();
-    }
-
-    private static ReadmeLookup readme(final ClassLoader loader, final String path) {
-        try (InputStream input = loader.getResourceAsStream(path)) {
-            return input == null
-                ? new ReadmeLookup(false, Optional.empty())
-                : new ReadmeLookup(true, readUtf8(input));
         } catch (Exception unavailable) {
             return new ReadmeLookup(true, Optional.empty());
         }

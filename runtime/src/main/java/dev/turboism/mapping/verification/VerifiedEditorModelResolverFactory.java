@@ -79,6 +79,12 @@ public final class VerifiedEditorModelResolverFactory {
         "EXACT_5303_CLIP_MASK_WRITE_CANDIDATE";
     private static final String CLIP_MASK_WRITE_VALIDATION_MODE =
         "clip-mask-write-5303";
+    private static final String SEMANTIC_HISTORY_VALIDATION_PROPERTY =
+        "turboism.validation.editorSemanticHistory";
+    private static final String SEMANTIC_HISTORY_VALIDATION_TOKEN =
+        "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE";
+    private static final String SEMANTIC_HISTORY_VALIDATION_MODE =
+        "semantic-history-5303";
     private static final String ART_MESH_PARAMETER_BINDING_WRITE_VALIDATION_PROPERTY =
         "turboism.validation.editorArtMeshParameterBindingWrite";
     private static final String ART_MESH_PARAMETER_BINDING_WRITE_VALIDATION_TOKEN =
@@ -196,6 +202,12 @@ public final class VerifiedEditorModelResolverFactory {
             System.getProperty(EDIT_LEVEL_WRITE_VALIDATION_PROPERTY), mode, runId
         )) {
             return EditorModelVerificationManifest.cubism5303EditLevelWriteValidationScope();
+        }
+        if (admitsSemanticHistoryValidation(
+            System.getProperty(SEMANTIC_HISTORY_VALIDATION_PROPERTY), mode, runId
+        )) {
+            return EditorModelVerificationManifest
+                .cubism5303SemanticHistoryValidationScope();
         }
         if (admitsParameterValueWriteValidation(
             System.getProperty(PARAMETER_VALUE_WRITE_VALIDATION_PROPERTY), mode, runId
@@ -360,6 +372,20 @@ public final class VerifiedEditorModelResolverFactory {
             runId,
             EDIT_LEVEL_WRITE_VALIDATION_TOKEN,
             EDIT_LEVEL_WRITE_VALIDATION_MODE
+        );
+    }
+
+    static boolean admitsSemanticHistoryValidation(
+        final String token,
+        final String mode,
+        final String runId
+    ) {
+        return admitsValidationCandidate(
+            token,
+            mode,
+            runId,
+            SEMANTIC_HISTORY_VALIDATION_TOKEN,
+            SEMANTIC_HISTORY_VALIDATION_MODE
         );
     }
 

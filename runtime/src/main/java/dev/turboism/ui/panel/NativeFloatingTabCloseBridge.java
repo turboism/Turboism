@@ -59,8 +59,14 @@ public final class NativeFloatingTabCloseBridge {
         }
     }
 
+    /** Callback invoked before the host closes a floating tab. */
     @FunctionalInterface
     public interface Handler {
+        /**
+         * @param palette the floating palette being closed
+         * @return {@code true} when the handler consumed the close and the host must not
+         *         proceed; {@code false} lets the native close continue
+         */
         boolean closeRequested(Object palette);
     }
 }

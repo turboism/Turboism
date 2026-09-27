@@ -61,10 +61,10 @@ final class PluginManifestReader {
             require(file.isObject(), "MANIFEST_FIELD_INVALID", "files[" + index + "]");
             unknown(file, FILE, "files[" + index + "].");
             String path = fileText(file, "path", index, ".+");
-            String identityKey = ManifestPrimitives.pathIdentityKey(path);
+            String identityKey = dev.turboism.core.archive.ArchivePaths.pathIdentityKey(path);
             require(pathIdentityKeys.add(identityKey),
                 "MANIFEST_FILE_PATH_COLLISION", "files[" + index + "].path");
-            if (!ManifestPrimitives.relativePath(path) && unsafePath == null) {
+            if (!dev.turboism.core.archive.ArchivePaths.relativePath(path) && unsafePath == null) {
                 unsafePath = "files[" + index + "].path";
             }
             String orderKey = "plugin/plugin.jar".equals(path) ? "0" : "1" + path;

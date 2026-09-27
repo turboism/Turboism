@@ -84,6 +84,10 @@ final class McpProtocol {
         }
         final Object id = request.get("id");
         final boolean notification = !request.containsKey("id");
+        if (!notification && !validRequestId(id)) {
+            return Outcome.response(200, error(null, -32600, "Invalid Request",
+                "id must be a string or an integer, and must not be null"));
+        }
         if (!"2.0".equals(request.get("jsonrpc"))) {
             return notification
                 ? Outcome.accepted()
@@ -141,6 +145,16 @@ final class McpProtocol {
                 : Outcome.response(200, error(id, -32800, "Request cancelled", null));
         } catch (RuntimeException failure) {
             return Outcome.response(200, error(id, -32603, "Internal error", "request failed"));
+        }
+    }
+
+    private static boolean validRequestId(final Object id) {
+        if (id instanceof String) return true;
+        if (!(id instanceof Number number)) return false;
+        try {
+            return new java.math.BigDecimal(number.toString()).stripTrailingZeros().scale() <= 0;
+        } catch (NumberFormatException failure) {
+            return false;
         }
     }
 
