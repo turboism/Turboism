@@ -48,7 +48,7 @@ interface: none
 
 ## 使用方法
 
-1. 打开 **Turboism → Theme Manager** 或所提供的工作区上下文菜单命令。
+1. 打开 **Turboism → Theme Manager**。
 2. 选择内置主题、创建或编辑用户主题，或导入经过验证的主题 ZIP。
 3. 应用选择；使用原生主题选项恢复 Cubism 的原始外观。需要时，可从管理器导出或删除用户包。
 
@@ -64,7 +64,6 @@ interface: none
 | `turboism.ui.menu.contribute` | `application` | 在 Turboism 顶级菜单下添加主题管理命令。 |
 | `turboism.config.plugin.read` | `application` | 从插件自有的类型化配置中读取所选主题包。 |
 | `turboism.config.plugin.write` | `application` | 在成功应用主机外观后持久化所选主题包。 |
-| `turboism.ui.context-menu.contribute` | `application` | 添加主题管理上下文菜单项。 |
 | `turboism.cubism.project.read` | `application` | 通过以项目为范围的 Cubism 读取功能能力读取 SDK 主题状态快照。 |
 | `turboism.ui.dialog.contribute` | `application` | 显示统一主题选择窗口和受限包工作流对话框。 |
 | `turboism.ui.file-chooser.request` | `application` | 请求用于导入和导出的不透明 ZIP 主题包句柄。 |

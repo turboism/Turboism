@@ -32,7 +32,7 @@ Provides parameter CSV import/export plus typed parameter-binding inversion and 
 ## What it does
 
 - Registers Export Parameters CSV, Import Parameters CSV, Invert Bindings, and Transfer Bindings actions.
-- Exposes inversion and transfer through the Parameter Tools menu; transfer is also available in parameter, deformer, part, and workspace-object context menus.
+- Exposes inversion and transfer through the Parameter Tools menu; transfer is also available in parameter, deformer, and part context menus.
 - Validates CSV rows against active-model parameter IDs and ranges before writing values, then applies typed binding inversion or transfer plans.
 
 ## Requirements and compatibility

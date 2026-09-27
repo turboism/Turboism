@@ -15,7 +15,6 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 
 import java.util.Locale;
 import java.util.function.Consumer;
@@ -97,13 +96,6 @@ public final class UiThemePlugin implements TurboismPlugin {
         // The Turboism top-level menu keeps a single theme entry; all theme
         // workflows (apply/import/export/delete) live inside the manager window.
         registerMenu("Turboism/" + context.localization().text("menu.themeManager"), MANAGER_ACTION_ID, 40);
-        registerContextMenu(new ContextMenuRegistry.ContextMenuContribution(
-            MANAGER_ACTION_ID,
-            MANAGER_ACTION_LABEL,
-            null,
-            "workspace",
-            40
-        ));
         themeManagerService.refreshCache();
         themeManagerService.restorePersistedSelection();
         logger.info("UiThemePlugin enabled: unified theme manager and package actions enrolled in disposable scope");
@@ -124,11 +116,6 @@ public final class UiThemePlugin implements TurboismPlugin {
     @Override
     public void shutdown() {
         logger.info("UiThemePlugin shutdown");
-    }
-
-    private void registerContextMenu(final ContextMenuRegistry.ContextMenuContribution contribution) {
-        final Registration registration = context.contextMenu().contribute(contribution);
-        context.disposableScope().register(registration);
     }
 
     private void registerMenu(final String path, final String actionId, final int order) {

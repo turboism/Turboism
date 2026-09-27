@@ -128,19 +128,14 @@ class UiThemePluginTest {
     }
 
     @Test
-    void registersThemeContextMenuContributionsAndActions_whenEnabled() throws Exception {
+    void registersThemeMenuAndActionsButNoContextMenu_whenEnabled() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
         UiThemePlugin plugin = new UiThemePlugin();
 
         plugin.init(context);
         plugin.enable();
 
-        assertEquals(
-            List.of("ui-theme.manager.open"),
-            context.contextMenus().contributions().stream()
-                .map(ContextMenuRegistry.ContextMenuContribution::id)
-                .toList()
-        );
+        assertTrue(context.contextMenus().contributions().isEmpty());
         assertEquals(
             List.of(
                 "ui-theme.package.status.check",
