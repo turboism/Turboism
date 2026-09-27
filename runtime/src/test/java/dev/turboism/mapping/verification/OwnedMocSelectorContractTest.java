@@ -4,6 +4,7 @@ import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,16 +56,27 @@ class OwnedMocSelectorContractTest {
     }
 
     @Test
-    void ownedMocSliceIsNotPartOfTheGeneratedRoster() {
-        final Set<String> generated = CorePublicApiSelectorContract.REQUIRED_ALIASES_5_2_03;
-        final Set<String> generated53 = CorePublicApiSelectorContract.REQUIRED_ALIASES_5_3_02;
-        assertTrue(java.util.Collections.disjoint(
-            OwnedMocSelectorContract.REQUIRED_ALIASES,
-            generated
-        ));
-        assertTrue(java.util.Collections.disjoint(
-            OwnedMocSelectorContract.REQUIRED_ALIASES,
-            generated53
-        ));
+    void ownedMocSliceIsPromotedIntoTheGeneratedRosterOutsideTheStructuralSurface() {
+        for (final Set<String> generated : List.of(
+            CorePublicApiSelectorContract.REQUIRED_ALIASES_5_2_03,
+            CorePublicApiSelectorContract.REQUIRED_ALIASES_5_3_02
+        )) {
+            assertTrue(generated.containsAll(OwnedMocSelectorContract.REQUIRED_ALIASES));
+        }
+        for (final String profile : List.of("5.2.03", "5.3.02")) {
+            final Set<String> structural = CorePublicApiSelectorContract
+                .structuralMethodAliasesFor(profile).orElseThrow();
+            assertTrue(java.util.Collections.disjoint(
+                OwnedMocSelectorContract.REQUIRED_ALIASES,
+                structural
+            ));
+            assertEquals(
+                OwnedMocSelectorContract.REQUIRED_ALIASES.stream()
+                    .filter(alias -> !alias.endsWith(".class"))
+                    .collect(java.util.stream.Collectors.toSet()),
+                CorePublicApiSelectorContract.ownedMocMethodAliasesFor(profile)
+                    .orElseThrow()
+            );
+        }
     }
 }

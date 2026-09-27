@@ -5,6 +5,7 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
@@ -107,6 +108,12 @@ public interface PluginContext {
     /** Returns the mediated user file access service. */
     default UserFileAccessService userFiles() {
         return UserFileAccessService.unavailable();
+    }
+
+    /** Returns the inert, plugin-scoped bridge for the native export settings flow. */
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default ExportSettingsContributionService exportSettings() {
+        return ExportSettingsContributionService.unavailable();
     }
 
     /** Returns the Cubism-facing facade for the current plugin. */

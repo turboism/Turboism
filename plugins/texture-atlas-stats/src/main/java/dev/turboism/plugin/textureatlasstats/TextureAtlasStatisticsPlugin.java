@@ -29,7 +29,7 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
     @Override
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
-        context.logger().info("Texture Atlas Statistics plugin initialized");
+        // context.logger().info("Texture Atlas Statistics plugin initialized");
     }
 
     @Override

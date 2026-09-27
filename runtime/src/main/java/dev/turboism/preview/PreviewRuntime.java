@@ -55,6 +55,8 @@ public final class PreviewRuntime implements AutoCloseable {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicBoolean pluginsStarted = new AtomicBoolean(false);
     private volatile dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService;
+    private volatile dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettingsAuthority;
+    private volatile dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExportOrchestrator;
     private volatile List<ShutdownFailure> shutdownFailures = List.of();
 
     /** Package-private test composition seam; production startup uses {@link #start}. */
@@ -206,6 +208,7 @@ public final class PreviewRuntime implements AutoCloseable {
             Optional.empty(),
             Optional.empty(),
             null,
+            Optional.empty(),
             hostArtifact,
             null,
             hostClassLoader
@@ -228,6 +231,7 @@ public final class PreviewRuntime implements AutoCloseable {
         final Optional<Path> statusBarVerificationRecord,
         final Optional<Path> clipMaskVerificationRecord,
         final Path autoBackupVerificationRecord,
+        final Optional<Path> protectedExportVerificationRecord,
         final Path hostArtifact,
         final Path coreArtifact,
         final ClassLoader hostClassLoader
@@ -244,10 +248,13 @@ public final class PreviewRuntime implements AutoCloseable {
             statusBarVerificationRecord,
             clipMaskVerificationRecord,
             autoBackupVerificationRecord,
+            protectedExportVerificationRecord,
             hostArtifact,
             coreArtifact,
             hostClassLoader,
-            null
+            null,
+            runtime -> { },
+            runtime -> { }
         );
     }
 
@@ -337,7 +344,7 @@ public final class PreviewRuntime implements AutoCloseable {
         return start(requestedHome, verificationRecord, editorModelVerificationRecord,
             coreRuntimeVerificationRecord, mainToolbarVerificationRecord, embeddedPanelVerificationRecord,
             topMenuVerificationRecord, boundingBoxOverlayVerificationRecord, statusBarVerificationRecord,
-            clipMaskVerificationRecord, autoBackupVerificationRecord,
+            clipMaskVerificationRecord, autoBackupVerificationRecord, Optional.empty(),
             hostArtifact, coreArtifact, hostClassLoader, hostResolution, beforePlugins, runtime -> { });
     }
 
@@ -358,6 +365,7 @@ public final class PreviewRuntime implements AutoCloseable {
         final Optional<Path> statusBarVerificationRecord,
         final Optional<Path> clipMaskVerificationRecord,
         final Path autoBackupVerificationRecord,
+        final Optional<Path> protectedExportVerificationRecord,
         final Path hostArtifact,
         final Path coreArtifact,
         final ClassLoader hostClassLoader,
@@ -369,6 +377,7 @@ public final class PreviewRuntime implements AutoCloseable {
         Objects.requireNonNull(afterPlugins, "afterPlugins");
         Objects.requireNonNull(statusBarVerificationRecord, "statusBarVerificationRecord");
         Objects.requireNonNull(clipMaskVerificationRecord, "clipMaskVerificationRecord");
+        Objects.requireNonNull(protectedExportVerificationRecord, "protectedExportVerificationRecord");
         final Path normalizedHostArtifact = Objects.requireNonNull(
             hostArtifact,
             "hostArtifact"
@@ -599,6 +608,39 @@ public final class PreviewRuntime implements AutoCloseable {
                 effectiveLocale.get(),
                 CoreShellRuntime.frameworkAdmission()
             );
+            // Host-level export-settings policy. It is created before plugin loading so every
+            // plugin's contribution registry is reachable from the native dialog, and identity is
+            // read from the same live host snapshots the rest of the runtime uses.
+            final dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettings =
+                new dev.turboism.exportsettings.RuntimeExportSettingsAuthority(
+                    new dev.turboism.exportsettings.HostDocumentExportSettingsIdentitySource(
+                        dev.turboism.adapter.host.HostSessionSnapshotSource.forSession(
+                            ingress.adapterAccess().adapters().projectWorkspace()
+                        )
+                    )
+                );
+            plugins.bindExportSettingsAuthority(exportSettings);
+            // The user-visible veto surface: every rejected/failed protected-export
+            // confirmation names its bounded reason instead of dying silently.
+            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic>
+                vetoSurface = dev.turboism.exportsettings.ExportSettingsVetoDialog::present;
+            exportSettings.vetoReporter(vetoSurface);
+            // The orchestrator is a degraded-capability seam: when the record is absent or the
+            // pinned chain fails, no orchestrator is bound and checked export stays rejected.
+            final dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExport =
+                createProtectedExportOrchestrator(
+                    protectedExportVerificationRecord,
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader,
+                    exportSettings,
+                    ingress,
+                    layout,
+                    log,
+                    vetoSurface
+                );
+            if (protectedExport != null) {
+                exportSettings.protectedExportOrchestrator(protectedExport);
+            }
             final PreviewReportWriter reportWriter = new PreviewReportWriter(
                 layout.runtimeStateDir(),
                 diagnostic -> log.warn(
@@ -621,6 +663,8 @@ public final class PreviewRuntime implements AutoCloseable {
                 effectiveLocale.get()
             );
             runtime.bindFileChooserHistoryService(fileChooserHistory);
+            runtime.bindExportSettingsAuthority(exportSettings);
+            runtime.bindProtectedExportOrchestrator(protectedExport);
             runtime.loadPluginsAfterBootstrap(beforePlugins, afterPlugins);
             startupTimer.completed("plugin-loading", message -> log.info("startup", message));
             // Only publish startup after the hooks and plugin listeners are ready.
@@ -628,7 +672,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 startupHostVersion(normalizedHostArtifact, hostResolution)
             );
             runtime.writeInitialReports(hostState);
-            runtime.publishStartupBanner();
+            runtime.publishStartupBanner(verifiedHostClassLoader);
             publishNativeStartupNotice(verifiedHostClassLoader, log);
             startupTimer.completed("reports-and-banner", message -> log.info("startup", message));
             return runtime;
@@ -874,7 +918,7 @@ public final class PreviewRuntime implements AutoCloseable {
         }
     }
 
-    private void publishStartupBanner() {
+    private void publishStartupBanner(final ClassLoader hostClassLoader) {
         final LocalPluginRuntime.StartupEnvironment environment =
             pluginRuntime.startupEnvironment();
         final dev.turboism.graal.GraalHostConfiguration graal =
@@ -886,7 +930,7 @@ public final class PreviewRuntime implements AutoCloseable {
         final String graalJs = environment.discoveredScriptCount()
             + " discovered; host " + (graal.enabled() ? "available" : "unavailable");
         STARTUP_BANNER.publish(
-            List.of(log::banner),
+            List.of(log::banner, rendered -> publishHostBanner(hostClassLoader, rendered)),
             new StartupBanner.Details(
                 StartupBanner.frameworkDisplayVersion(),
                 System.getProperty("java.version", "unavailable"),
@@ -896,6 +940,26 @@ public final class PreviewRuntime implements AutoCloseable {
                 graalJs
             )
         );
+    }
+
+    private void publishHostBanner(final ClassLoader hostClassLoader, final String banner) {
+        CubismLoggerBridge bridge = null;
+        try {
+            bridge = CubismLoggerBridge.connect(hostClassLoader);
+            for (final String line : banner.split("\\n", -1)) {
+                bridge.write(PreviewLog.Level.INFO, "startup", line, null);
+            }
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+            log.debug("runtime", "Native startup banner was unavailable");
+        } finally {
+            if (bridge != null) {
+                try {
+                    bridge.close();
+                } catch (RuntimeException | LinkageError failure) {
+                    log.debug("runtime", "Native startup logger cleanup was unavailable");
+                }
+            }
+        }
     }
 
     private static String sourceLabel(
@@ -946,6 +1010,163 @@ public final class PreviewRuntime implements AutoCloseable {
             if (fileChooserHistoryService == null) {
                 fileChooserHistoryService = java.util.Objects.requireNonNull(service, "service");
             }
+        }
+    }
+
+    /**
+     * Host-level export-settings policy shared by every loaded plugin.
+     *
+     * <p>Returns the authority bound during {@link #start}. An unbound runtime throws instead of
+     * answering with a substitute: the bootstrap hook must never transform host bytecode whose
+     * callbacks no runtime policy can serve.</p>
+     *
+     * @return the export-settings authority bound to this runtime
+     * @throws IllegalStateException if no authority was bound
+     */
+    public dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettingsAuthority() {
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority =
+            exportSettingsAuthority;
+        if (authority == null) {
+            throw new IllegalStateException("export settings authority is not bound");
+        }
+        return authority;
+    }
+
+    /** Binds the shared authority created during {@link #start}; a no-op when already bound. */
+    void bindExportSettingsAuthority(
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority
+    ) {
+        synchronized (this) {
+            if (exportSettingsAuthority == null) {
+                exportSettingsAuthority = java.util.Objects.requireNonNull(authority, "authority");
+            }
+        }
+    }
+
+    /** Keeps the orchestrator reachable for shutdown; a no-op for an unwired capability. */
+    void bindProtectedExportOrchestrator(
+        final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator
+    ) {
+        if (orchestrator == null) {
+            return;
+        }
+        synchronized (this) {
+            if (protectedExportOrchestrator == null) {
+                protectedExportOrchestrator = orchestrator;
+            }
+        }
+    }
+
+    /**
+     * Builds the protected-export orchestrator when the reviewed record is present and its
+     * whole pinned chain checks out (record hash, manifest agreement, byte-identical artifact,
+     * static selector verification, host classloader attestation).
+     *
+     * <p>Any failure degrades to no orchestrator: the authority keeps serving the native dialog
+     * and a checked option stays rejected, never silently downgraded to an unchecked export.</p>
+     */
+    private static dev.turboism.exportsettings.ProtectedExportOrchestrator
+        createProtectedExportOrchestrator(
+            final Optional<Path> protectedExportVerificationRecord,
+            final Path normalizedHostArtifact,
+            final ClassLoader verifiedHostClassLoader,
+            final dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettings,
+            final HostRuntimeIngress ingress,
+            final TurboismHomeLayout layout,
+            final PreviewLog log,
+            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic>
+                vetoSurface
+    ) {
+        if (protectedExportVerificationRecord.isEmpty()) {
+            return null;
+        }
+        try {
+            final dev.turboism.mapping.verification.VerifiedMemberResolver resolver =
+                new dev.turboism.mapping.verification.VerifiedProtectedExportResolverFactory()
+                    .create(
+                        protectedExportVerificationRecord.orElseThrow(),
+                        normalizedHostArtifact,
+                        verifiedHostClassLoader
+                    );
+            final String orchestratedPluginId = "dev.turboism.plugin.protected-export";
+            final dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher edt =
+                new dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher() {
+                    @Override
+                    public <T> T call(final java.util.concurrent.Callable<T> action)
+                        throws Exception {
+                        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+                            return action.call();
+                        }
+                        final java.util.concurrent.FutureTask<T> task =
+                            new java.util.concurrent.FutureTask<>(action);
+                        javax.swing.SwingUtilities.invokeAndWait(task);
+                        return task.get();
+                    }
+
+                    @Override
+                    public void submit(final Runnable task) {
+                        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+                            task.run();
+                            return;
+                        }
+                        javax.swing.SwingUtilities.invokeLater(task);
+                    }
+                };
+            final dev.turboism.sdk.cubism.core.MocLoader ownedMocLoader =
+                ingress.adapterAccess().coreRuntimeInfo().mocLoader();
+            final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator =
+                new dev.turboism.exportsettings.ProtectedExportOrchestrator(
+                    new dev.turboism.exportsettings.VerifiedProtectedExportHostOperations(resolver),
+                    new dev.turboism.exportsettings.ProtectedExportStaging(
+                        ownedMocLoader::load,
+                        ownedMocLoader instanceof
+                                dev.turboism.adapter.cubism.core.OwnedModelParameterWriter writer
+                            ? writer::writeParameterValue
+                            : null
+                    ),
+                    layout.runtimeStateDir().resolve("protected-export"),
+                    orchestratedPluginId,
+                    "protected-export",
+                    exportSettings::protectedExportRedirectSeamInstalled,
+                    () -> exportSettings.pluginBindingLive(orchestratedPluginId),
+                    exportSettings::hostGeneration,
+                    edt,
+                    report -> {
+                        log.info(
+                            "protected-export",
+                            "session=" + report.sessionId()
+                                + " reached=" + report.reached()
+                                + " published=" + report.published()
+                                + " failure=" + report.failureKey()
+                                + (report.failureDetail() == null
+                                    ? "" : " detail=" + report.failureDetail())
+                        );
+                        // A user-initiated chooser cancel explains itself; every other
+                        // non-published terminal report must surface visibly.
+                        if (!report.published()
+                            && !dev.turboism.exportsettings.ProtectedExportOrchestrator
+                                .EXPORT_CANCELLED_KEY.equals(report.failureKey())) {
+                            vetoSurface.accept(
+                                new dev.turboism.exportsettings.ExportSettingsVetoDiagnostic(
+                                    report.failureKey() != null
+                                        ? report.failureKey()
+                                        : "protected-export.failed",
+                                    report.failureDetail()
+                                )
+                            );
+                        }
+                    },
+                    10_000L,
+                    600_000L
+                );
+            orchestrator.refusalReporter(vetoSurface);
+            return orchestrator;
+        } catch (Throwable failure) {
+            log.warn(
+                "protected-export",
+                "Protected-export orchestration unavailable: " + failure.getClass().getName()
+            );
+            return null;
         }
     }
 
@@ -1163,6 +1384,11 @@ public final class PreviewRuntime implements AutoCloseable {
                     "PLUGIN_RUNTIME_CLOSE_FAILED", "plugin-runtime", shutdownLifecycle::closePluginRuntime
                 ),
                 new ShutdownStage(
+                    "EXPORT_SETTINGS_AUTHORITY_CLOSE_FAILED",
+                    "export-settings-authority",
+                    this::closeExportSettingsAuthority
+                ),
+                new ShutdownStage(
                     "HOST_INGRESS_CLOSE_FAILED", "host-ingress", shutdownLifecycle::closeHostIngress
                 ),
                 new ShutdownStage(
@@ -1197,6 +1423,32 @@ public final class PreviewRuntime implements AutoCloseable {
         shutdownFailures = List.copyOf(failures);
         if (failures.stream().anyMatch(failure -> failure.code().equals("LOG_CLOSE_FAILED"))) {
             System.err.println("Turboism preview log close failed safely: LOG_CLOSE_FAILED");
+        }
+    }
+
+    /**
+     * Closes the host-level export-settings policy and drops every dialog attachment it owns.
+     *
+     * <p>Runs after the plugin runtime has closed, so no plugin registry is still bound, and before
+     * the host ingress is torn down, so dialog state is released while the host objects it refers to
+     * are still allocated.</p>
+     */
+    private void closeExportSettingsAuthority() {
+        final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator =
+            protectedExportOrchestrator;
+        protectedExportOrchestrator = null;
+        if (orchestrator != null) {
+            try {
+                orchestrator.close();
+            } catch (Throwable ignored) {
+                // A stuck armed session must not block the authority teardown below.
+            }
+        }
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority =
+            exportSettingsAuthority;
+        exportSettingsAuthority = null;
+        if (authority != null) {
+            authority.close();
         }
     }
 

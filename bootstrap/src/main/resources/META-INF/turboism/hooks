@@ -11,6 +11,7 @@ dev.turboism.bootstrap.FpsHookContributor
 dev.turboism.bootstrap.ParameterHookContributor
 dev.turboism.bootstrap.ProjectLifecycleHookContributor
 dev.turboism.bootstrap.FileChooserHistoryHookContributor
+dev.turboism.bootstrap.ExportSettingsHookContributor
 dev.turboism.bootstrap.ImageArchiveReuseHookContributor
 dev.turboism.bootstrap.FloatArrayParseCacheHookContributor
 dev.turboism.bootstrap.TextureUploadPreparationHookContributor
