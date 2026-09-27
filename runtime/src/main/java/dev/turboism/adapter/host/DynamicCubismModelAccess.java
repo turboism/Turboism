@@ -394,6 +394,47 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         return guarded(expectedGeneration, () -> operation.apply(model));
     }
 
+
+    Part unwrapPart(final long expectedGeneration, final Part value) {
+        if (value == null) return null;
+        if (!(value instanceof SessionPart wrapped)
+            || wrapped.generation != expectedGeneration) {
+            throw staleFailure();
+        }
+        return wrapped.delegate;
+    }
+
+    Drawable unwrapDrawable(
+        final long expectedGeneration,
+        final Drawable value
+    ) {
+        if (!(value instanceof SessionDrawable wrapped)
+            || wrapped.generation != expectedGeneration) {
+            throw staleFailure();
+        }
+        return wrapped.delegate;
+    }
+
+    Deformer unwrapDeformer(
+        final long expectedGeneration,
+        final Deformer value
+    ) {
+        if (value instanceof SessionDeformer wrapped
+            && wrapped.generation == expectedGeneration) {
+            return wrapped.delegate;
+        }
+        if (value instanceof SessionWarpDeformer wrapped
+            && wrapped.generation == expectedGeneration) {
+            return wrapped.delegate;
+        }
+        if (value instanceof SessionRotationDeformer wrapped
+            && wrapped.generation == expectedGeneration) {
+            return wrapped.delegate;
+        }
+        throw staleFailure();
+    }
+
+
     private dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess appearanceAccess() {
         synchronized (callGate) {
             return appearanceAccess;
