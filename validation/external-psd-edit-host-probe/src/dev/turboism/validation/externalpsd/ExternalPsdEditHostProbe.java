@@ -18,7 +18,7 @@ import dev.turboism.sdk.cubism.psd.PsdExportResult;
 import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
-import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
+import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
@@ -301,6 +301,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         case "reopen" -> runReopen(result);
                         case "gui" -> runGui(result);
                         case "pipeline" -> runPipeline(result, cycles, performanceTimings);
+                        case "export-profile" -> runExportProfile(result);
                         case "structure-native", "structure-sdk" -> runStructuralControl(result, phase);
                         case "prepare-second-document" -> runSecondDocumentPreparation(result);
                         default -> throw new IllegalStateException("unknown probe phase " + phase);
@@ -361,6 +362,81 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             closeHostGracefully();
         } catch (Throwable error) {
             context.logger().error("EXTERNAL_PSD_EDIT_EXIT_FAILED", error);
+        }
+    }
+
+    /** Diagnostic collection only: arbitrary task fixture, no PSD decoding or model writes. */
+    private void runExportProfile(final Properties result) throws Exception {
+        result.setProperty("exportProfile.acceptance", "NOT_CLAIMED");
+        recordPerformanceEnvironment(result);
+        final var document = context.cubism().activeDocument().orElseThrow();
+        final String expected = System.getProperty("turboism.validation.fixtureName", "");
+        final String path = document.relativePath();
+        if (expected.isBlank() || !expected.equals(path.substring(path.lastIndexOf('/') + 1))) {
+            throw new IllegalStateException("Export profile requires the exact task fixture");
+        }
+        final var model = context.cubism().model().active();
+        result.setProperty("documentId", document.documentId());
+        result.setProperty("modelId", model.id().value());
+        final var textures = model.textures();
+        Target target = null;
+        for (final var drawable : model.drawables().all()) {
+            final var query = new dev.turboism.sdk.cubism.model.TextureSourceQuery(
+                Set.of(drawable.id()), Set.of());
+            final var sources = textures.sources(query);
+            if (!sources.isAvailable() || sources.artMeshInputs().size() != 1) continue;
+            final var mesh = sources.artMeshInputs().get(0);
+            if (mesh.currentInputIndex().isEmpty()) continue;
+            final var current = mesh.inputs().get(mesh.currentInputIndex().getAsInt());
+            final List<TextureInputBinding> inputs = current.kind() == TextureInputBinding.Kind.ATLAS
+                ? mesh.inputs().stream().filter(input -> input.kind() == TextureInputBinding.Kind.MODEL_IMAGE).toList()
+                : List.of(current);
+            final Set<RawImageId> raws = new LinkedHashSet<>();
+            ModelImageId anchor = null;
+            boolean valid = !inputs.isEmpty();
+            for (final var input : inputs) {
+                if (!input.isResolved() || input.modelImageId().isEmpty()) { valid = false; break; }
+                final var image = sources.modelImage(input.modelImageId().orElseThrow());
+                if (image.isEmpty() || image.orElseThrow().currentRawImageId().isEmpty()) { valid = false; break; }
+                anchor = image.orElseThrow().id();
+                raws.add(image.orElseThrow().currentRawImageId().orElseThrow());
+            }
+            if (!valid || raws.size() != 1) continue;
+            final var raw = raws.iterator().next();
+            if (sources.rawImage(raw).isEmpty()) continue;
+            target = new Target(mesh, anchor, raw, false, new TargetIdentity(document.documentId(),
+                model.id().value(), sources.binding(), sources.generation(), anchor.value(), mesh.id().value(), raw.value()));
+            break;
+        }
+        if (target == null) throw new IllegalStateException("No selected ArtMesh has a unique PSD source");
+        bindExactTaskWindow(result, target);
+        result.setProperty("exportProfile.artMesh", target.artMesh().id().value());
+        result.setProperty("exportProfile.raw", target.raw().value());
+        final Path state = context.paths().stateDir();
+        Files.createDirectories(state);
+        try (final ExportProfileRecorder recorder = new ExportProfileRecorder(state)) {
+            recorder.checkpoint("baseline");
+            for (int cycle = 1; cycle <= 3 && !stopped; cycle++) {
+                recorder.stage("export-" + cycle);
+                final long started = System.nanoTime();
+                final var exported = textures.exportRawImagePsd(target.raw()).toCompletableFuture().get();
+                result.setProperty("exportProfile." + cycle + ".millis",
+                    Long.toString(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)));
+                result.setProperty("exportProfile." + cycle + ".status", exported.status().name());
+                if (exported.status() != PsdExportResult.Status.EXPORTED) {
+                    throw new IllegalStateException("Profile export failed: " + exported);
+                }
+                final var file = exported.file().orElseThrow();
+                try {
+                    recorder.stage("idle-" + cycle);
+                    Thread.sleep(3000L);
+                } finally {
+                    file.stop().toCompletableFuture().get();
+                }
+                recorder.checkpoint("stopped-" + cycle);
+            }
+            recorder.finish();
+            result.setProperty("exportProfile.collection", "COMPLETE");
         }
     }
 

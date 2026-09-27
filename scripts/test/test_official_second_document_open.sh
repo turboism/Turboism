@@ -4,7 +4,11 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 id="$(bash "$root/scripts/dev/worktree-id.sh")"
 shopt -s nullglob
-sdk=("$root/build/worktree/$id/sdk/libs/"sdk-*.jar)
+if [[ -n ${EXTERNAL_PSD_SDK_JAR:-} ]]; then
+  sdk=("$EXTERNAL_PSD_SDK_JAR")
+else
+  sdk=("$root/build/worktree/$id/sdk/libs/"sdk-*.jar)
+fi
 [[ ${#sdk[@]} -eq 1 ]] || {
   echo 'Second document open test requires exactly one SDK JAR' >&2
   exit 2
