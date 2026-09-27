@@ -60,6 +60,8 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
     private final EditApiDispatchTransformer transformer;
     private final List<Class<?>> transformed = new ArrayList<>();
     private final AtomicBoolean installed = new AtomicBoolean(false);
+    private boolean transformerRegistered;
+    private BiFunction<Object, Object, Object> publishedReceiver;
 
     private VerifiedEditApiDispatchInstaller(
         final Instrumentation instrumentation,
@@ -100,9 +102,12 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
         final ClassLoader hostClassLoader
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        if (!verified.isExactCubismVersion("5.2.03")
-            && !verified.isExactCubismVersion("5.3.02")
-            && !verified.isExactCubismVersion("5.3.03")) {
+        if (!verified.cubismVersion().startsWith("5.2.") && !verified.cubismVersion().startsWith("5.3.")) {
+            throw new IllegalArgumentException("Edit-protocol backport excludes the native 5.4 protocol and other lines.");
+        }
+        if (!verified.isAdmittedCubismVersion("5.2.03")
+            && !verified.isAdmittedCubismVersion("5.3.02")
+            && !verified.isAdmittedCubismVersion("5.3.03")) {
             throw new IllegalArgumentException(
                 "Edit-protocol dispatch hook version is unsupported.");
         }
@@ -140,7 +145,7 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
      * @return {@code true} when the hook was installed, {@code false} when disabled
      * @throws Exception if transforming the host class fails
      */
-    public boolean install(final BiFunction<Object, Object, Object> receiver) throws Exception {
+    public synchronized boolean install(final BiFunction<Object, Object, Object> receiver) throws Exception {
         Objects.requireNonNull(receiver, "receiver");
         if ("false".equalsIgnoreCase(System.getProperty(ENABLED_PROPERTY))) return false;
         if (!installed.compareAndSet(false, true)) return true;
@@ -149,37 +154,40 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
             throw new IllegalStateException("Class retransformation is unavailable.");
         }
         try {
+            if (System.getProperties().putIfAbsent(CALLBACK_KEY, receiver) != null) {
+                throw new IllegalStateException("Edit dispatch callback is already owned by another installation");
+            }
+            publishedReceiver = receiver;
             instrumentation.addTransformer(transformer, true);
-            System.getProperties().put(CALLBACK_KEY, receiver);
+            transformerRegistered = true;
             retransform(DISPATCH_OWNER.replace('/', '.'));
         } catch (Throwable failure) {
-            close();
+            try {
+                close();
+            } catch (Throwable cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
             throw failure;
         }
         return true;
     }
 
     private void retransform(final String className) {
-        for (final Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-            if (!loaded.getName().equals(className)
-                || loaded.getClassLoader() != hostClassLoader
-                || !instrumentation.isModifiableClass(loaded)) {
-                continue;
+        try {
+            final Class<?> loaded = Class.forName(className, false, hostClassLoader);
+            if (loaded.getClassLoader() != hostClassLoader || !instrumentation.isModifiableClass(loaded)) {
+                throw new IllegalStateException("Edit dispatch target is not modifiable: " + className);
             }
-            try {
-                instrumentation.retransformClasses(loaded);
-            } catch (Exception failure) {
-                throw new IllegalStateException(
-                    "Edit-protocol dispatch hook transformation failed: " + className,
-                    failure
-                );
+            transformed.add(loaded);
+            final long before = transformer.successfulTransformationCount();
+            instrumentation.retransformClasses(loaded);
+            if (transformer.successfulTransformationCount() <= before) {
+                throw new IllegalStateException("Edit dispatch target was not patched: " + className
+                    + ": " + transformer.diagnostic());
             }
-            synchronized (transformed) {
-                transformed.add(loaded);
-            }
-            return;
+        } catch (Exception failure) {
+            throw new IllegalStateException("Edit dispatch hook transformation failed: " + className, failure);
         }
-        // Not loaded yet: the registered transformer still applies at first definition.
     }
 
     /** {@return the transformer's latest outcome; diagnostics and tests} */
@@ -193,42 +201,45 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
     }
 
     /** {@return whether the hook is currently installed} */
-    public boolean isInstalled() {
+    public synchronized boolean isInstalled() {
         return installed.get();
     }
 
     /**
      * {@return the binary names of classes retransformed at install time}
      *
-     * <p>Empty is legitimate while {@code l} has not been loaded; the registered transformer
-     * still applies to the later definition.</p>
+     * <p>Successful installation requires a proved transformation before plugins initialize.</p>
      */
-    public List<String> transformedClassNames() {
-        synchronized (transformed) {
-            return transformed.stream().map(Class::getName).toList();
-        }
+    public synchronized List<String> transformedClassNames() {
+        return transformed.stream().map(Class::getName).toList();
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
         if (!installed.compareAndSet(true, false)) return;
-        instrumentation.removeTransformer(transformer);
-        System.getProperties().remove(CALLBACK_KEY);
-        final List<Class<?>> restore;
-        synchronized (transformed) {
-            restore = List.copyOf(transformed);
-            transformed.clear();
-        }
-        for (final Class<?> loaded : restore) {
-            if (!instrumentation.isModifiableClass(loaded)) continue;
+        Throwable first = null;
+        if (transformerRegistered) {
             try {
-                instrumentation.retransformClasses(loaded);
-            } catch (Exception failure) {
-                throw new IllegalStateException(
-                    "Edit-protocol dispatch hook restoration failed: " + loaded.getName(),
-                    failure
-                );
+                instrumentation.removeTransformer(transformer);
+            } catch (Throwable failure) {
+                first = failure;
+            }
+            transformerRegistered = false;
+        }
+        if (publishedReceiver != null) {
+            System.getProperties().remove(CALLBACK_KEY, publishedReceiver);
+            publishedReceiver = null;
+        }
+        final List<Class<?>> restore = List.copyOf(transformed);
+        transformed.clear();
+        for (final Class<?> loaded : restore) {
+            try {
+                if (instrumentation.isModifiableClass(loaded)) instrumentation.retransformClasses(loaded);
+            } catch (Throwable failure) {
+                if (first == null) first = failure;
+                else if (first != failure) first.addSuppressed(failure);
             }
         }
+        if (first != null) throw new IllegalStateException("Edit dispatch hook restoration failed", first);
     }
 }

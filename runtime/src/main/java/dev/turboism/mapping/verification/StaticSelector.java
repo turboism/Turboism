@@ -22,8 +22,17 @@ public record StaticSelector(
         alias = requireText(alias, "alias");
         kind = Objects.requireNonNull(kind, "kind");
         ownerInternalName = requireInternalName(ownerInternalName);
-        memberName = kind == Kind.CLASS ? "" : requireText(memberName, "memberName");
-        descriptor = kind == Kind.CLASS ? "" : requireText(descriptor, "descriptor");
+        // INHERITS pins a direct declared ancestor in memberName instead of a
+        // member/descriptor pair; CLASS keeps both empty as before.
+        memberName = kind == Kind.CLASS
+            ? ""
+            : requireText(memberName, "memberName");
+        descriptor = kind == Kind.CLASS || kind == Kind.INHERITS
+            ? ""
+            : requireText(descriptor, "descriptor");
+        if (kind == Kind.INHERITS) {
+            memberName = requireInternalName(memberName);
+        }
         if (kind == Kind.CONSTRUCTOR && !"<init>".equals(memberName)) {
             throw new IllegalArgumentException("constructor selector memberName must be <init>");
         }
@@ -60,6 +69,28 @@ public record StaticSelector(
         final String ownerInternalName
     ) {
         return new StaticSelector(mappingId, alias, Kind.CLASS, ownerInternalName, "", "", 0, 0);
+    }
+
+    /**
+     * Selector pinning that {@code ownerInternalName} directly extends or
+     * implements {@code ancestorInternalName}.
+     *
+     * @param mappingId mapping-pack identity this selector came from
+     * @param alias stable alias callers resolve this selector by
+     * @param ownerInternalName JVM internal name of the class under test
+     * @param ancestorInternalName JVM internal name of the required direct
+     *     superclass or interface
+     * @return the inheritance selector
+     */
+    public static StaticSelector inheritsFrom(
+        final String mappingId,
+        final String alias,
+        final String ownerInternalName,
+        final String ancestorInternalName
+    ) {
+        return new StaticSelector(
+            mappingId, alias, Kind.INHERITS, ownerInternalName, ancestorInternalName, "", 0, 0
+        );
     }
 
     /**
@@ -265,6 +296,12 @@ public record StaticSelector(
         /** A host method, pinned by name and descriptor. */
         METHOD,
         /** A host field. */
-        FIELD
+        FIELD,
+        /**
+         * A direct declared ancestor of the owner class: {@code memberName}
+         * carries the superclass or interface internal name the owner must
+         * directly extend or implement.
+         */
+        INHERITS
     }
 }

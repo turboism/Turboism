@@ -158,6 +158,31 @@ class EditApiDispatchTransformerTest {
         assertEquals(EditApiDispatchTransformer.Outcome.PATCHED, transformer.outcome());
     }
 
+    @Test
+    void alreadyPatchedBytesAreRejectedWithoutAddingASecondReceiver() {
+        final EditApiDispatchTransformer transformer = transformer();
+        final byte[] patched = transformer.transform(null, null, OWNER, null, null,
+            fixtureClass(ACCESS, DESCRIPTOR));
+        assertNotNull(patched);
+        assertNull(transformer.transform(null, null, OWNER, null, null, patched));
+        assertEquals(EditApiDispatchTransformer.Outcome.SHAPE_REJECTED, transformer.outcome());
+        assertEquals(1, transformer.successfulTransformationCount());
+    }
+
+    @Test
+    void aNativeMethodOrAnExtraArgumentCannotBeTreatedAsTheDispatchEntry() {
+        final ClassWriter writer = new ClassWriter(0);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
+        writer.visitMethod(ACCESS | Opcodes.ACC_NATIVE, NAME, DESCRIPTOR, null, null).visitEnd();
+        writer.visitEnd();
+        final EditApiDispatchTransformer transformer = transformer();
+        assertNull(transformer.transform(null, null, OWNER, null, null, writer.toByteArray()));
+        assertEquals(0, transformer.successfulTransformationCount());
+        assertThrows(IllegalArgumentException.class,
+            () -> new EditApiDispatchTransformer(OWNER, NAME,
+                "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V", null, KEY));
+    }
+
     private static EditApiDispatchTransformer transformer() {
         return new EditApiDispatchTransformer(OWNER, NAME, DESCRIPTOR, null, KEY);
     }

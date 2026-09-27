@@ -1,9 +1,8 @@
 package dev.turboism.ui.workspace.layout;
 
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot;
+import dev.turboism.ui.host.EdtDispatch;
 
-import javax.swing.SwingUtilities;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -99,36 +98,7 @@ public final class WorkspaceLayoutCoordinator implements AutoCloseable {
 
     /** Runs the task on the AWT EDT and rethrows its failures on the caller thread. */
     static <T> T dispatchOnEdt(final Task<T> task) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return task.run();
-        }
-        final Object[] result = new Object[1];
-        final Throwable[] failure = new Throwable[1];
-        try {
-            SwingUtilities.invokeAndWait(() -> {
-                try {
-                    result[0] = task.run();
-                } catch (Throwable throwable) {
-                    failure[0] = throwable;
-                }
-            });
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("workspace layout EDT operation was interrupted", exception);
-        } catch (InvocationTargetException exception) {
-            throw new IllegalStateException("workspace layout EDT operation failed", exception);
-        }
-        if (failure[0] instanceof RuntimeException exception) {
-            throw exception;
-        }
-        if (failure[0] instanceof Error error) {
-            throw error;
-        }
-        if (failure[0] != null) {
-            throw new IllegalStateException("workspace layout EDT operation failed", failure[0]);
-        }
-        @SuppressWarnings("unchecked") final T value = (T) result[0];
-        return value;
+        return EdtDispatch.call("workspace layout EDT operation", task::run);
     }
 
     @FunctionalInterface

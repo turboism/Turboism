@@ -153,15 +153,20 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     }
 
     @Override
+    public String contractVersion() {
+        return resolver.admittedCubismVersion();
+    }
+
+    @Override
     public String hostVersion() {
         return hostVersion;
     }
 
     @Override
     public boolean supportsProjectWorkspaceRead() {
-        return "5.2.03".equals(hostVersion)
-            || "5.3.02".equals(hostVersion)
-            || "5.3.03".equals(hostVersion);
+        return "5.2.03".equals(contractVersion())
+            || "5.3.02".equals(contractVersion())
+            || "5.3.03".equals(contractVersion());
     }
 
     @Override

@@ -9,8 +9,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationCallSiteTransformer;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import dev.turboism.mapping.verification.HostArtifactDigest;
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
@@ -25,20 +23,27 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class VerifiedUniformLocationInstallerTest {
-    @Test void exactArtifactsAndEnabledPreferenceAreRequired() {
+    @Test void rejectsUnrequestedOldJvmSafeModeDisabledHookAndUnboundArtifact() {
         RuntimeStartupConfig normal = new RuntimeStartupConfig(false, false, false, false);
-        assertTrue(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_03, normal, true, 17));
-        assertTrue(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_02, normal, true, 17));
-        assertTrue(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_2_03, normal, true, 17));
-        assertFalse(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_03_JOGL, normal, true, 17));
-        assertFalse(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_03, normal, false, 17));
-        assertFalse(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_03, normal, true, 16));
-        assertFalse(VerifiedUniformLocationInstaller.admitted(new HostArtifactDigest(1L, "9".repeat(64)), normal, true, 17));
-        assertFalse(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_03,
+        Path missing = Path.of("missing-cubism-host.jar");
+        assertFalse(VerifiedUniformLocationInstaller.admitted(missing, normal, false, 17));
+        assertFalse(VerifiedUniformLocationInstaller.admitted(missing, normal, true, 16));
+        assertFalse(VerifiedUniformLocationInstaller.admitted(missing,
             new RuntimeStartupConfig(true, false, false, false), true, 17));
-        assertFalse(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_03,
+        assertFalse(VerifiedUniformLocationInstaller.admitted(missing,
             new RuntimeStartupConfig(false, false, false, false, false, false, false,
                 Set.of(VerifiedUniformLocationInstaller.HOOK_ID)), true, 17));
+        assertFalse(VerifiedUniformLocationInstaller.admitted(missing, normal, true, 17),
+            "an artifact without a reviewed uniform contract must not admit");
+    }
+
+    @Test void admitsRequestedArtifactWhoseShaderClassesMatchAReviewedContract() {
+        final String supplied = System.getenv("TURBOISM_UNIFORM_HOST_JAR");
+        assumeTrue(supplied != null && !supplied.isBlank()
+            && Files.isRegularFile(Path.of(supplied)),
+            "no TURBOISM_UNIFORM_HOST_JAR evidence supplied");
+        assertTrue(VerifiedUniformLocationInstaller.admitted(
+            Path.of(supplied), new RuntimeStartupConfig(false, false, false, false), true, 17));
     }
     @Test void startupAndFailureCleanupRemainBeforeUserRuntime() throws Exception {
         NativeOptimizationStartupOrder.assertBeforeRuntime();
@@ -72,6 +77,61 @@ class VerifiedUniformLocationInstallerTest {
         }
         try (var jar = new java.util.jar.JarFile(path.toFile())) {
             assertThrows(IllegalArgumentException.class, () -> VerifiedUniformLocationInstaller.verifyMutationInventory(jar));
+        }
+    }
+    @Test void glGetErrorElisionCompositionInstallsAndRestoresInOrder() throws Exception {
+        try (Fixture fixture = fixture()) {
+            VerifiedGlGetErrorElisionInstaller elision = new VerifiedGlGetErrorElisionInstaller(
+                fixture.instrumentation, fixture.artifact, fixture.loader);
+            elision.install();
+            assertEquals(1, elision.elided());
+            VerifiedUniformLocationInstaller uniform = new VerifiedUniformLocationInstaller(
+                fixture.instrumentation, fixture.artifact, fixture.loader);
+            uniform.install();
+            assertTrue(System.getProperties().containsKey(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY));
+            uniform.close();
+            assertTrue(uniform.restored(),
+                "uniform restore must see the elided baseline it was admitted under");
+            elision.close();
+            assertTrue(elision.restored(),
+                "elision restore must see the official baseline after uniform closed first");
+        }
+    }
+    @Test void foreignElidedBodyWithoutOurInstallationMarkerIsRejected() throws Exception {
+        try (Fixture fixture = fixture()) {
+            // A byte-identical elision produced by an unregistered transformer is
+            // indistinguishable from foreign instrumentation: strict admission.
+            byte[] reference;
+            try (var jar = new java.util.jar.JarFile(fixture.artifact.toFile());
+                 var input = jar.getInputStream(jar.getJarEntry(
+                     "com/live2d/graphics3d/shader/A.class"))) {
+                reference = input.readAllBytes();
+            }
+            var foreign = new dev.turboism.adapter.cubism.optimization.glerror
+                .GlGetErrorElisionTransformer(fixture.loader, fixture.artifact, reference,
+                    dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTarget
+                        .of(dev.turboism.mapping.verification.HostArtifactDigest
+                            .from(fixture.artifact)).orElseThrow());
+            fixture.active.add(foreign);
+            IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> new VerifiedUniformLocationInstaller(
+                    fixture.instrumentation, fixture.artifact, fixture.loader));
+            assertTrue(failure.getMessage().contains("shader/A.a"),
+                "the rejection must name the drifted method: " + failure.getMessage());
+        }
+    }
+    @Test void elisionClosedBeforeUniformKeepsOfficialAdmission() throws Exception {
+        try (Fixture fixture = fixture()) {
+            VerifiedGlGetErrorElisionInstaller elision = new VerifiedGlGetErrorElisionInstaller(
+                fixture.instrumentation, fixture.artifact, fixture.loader);
+            elision.install();
+            elision.close();
+            assertTrue(elision.restored());
+            VerifiedUniformLocationInstaller uniform = new VerifiedUniformLocationInstaller(
+                fixture.instrumentation, fixture.artifact, fixture.loader);
+            uniform.install();
+            uniform.close();
+            assertTrue(uniform.restored());
         }
     }
     private static Fixture fixture() throws Exception {

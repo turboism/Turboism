@@ -42,8 +42,8 @@ final class TextureMetadataAvailabilityRegressionTest {
     }
 
     @Test
-    void unknownVersionsRejectAllWritesBeforeTheDelegate() {
-        for (String version : List.of("5.3.01", "5.3.04", "5.4.00")) {
+    void declaredVersionsBelowTheFloorRejectAllWritesBeforeTheDelegate() {
+        for (String version : List.of("5.1.99", "5.2.02", "4.9.99")) {
             final RecordingTextures delegate = new RecordingTextures();
             final ModelTextures textures = wrapped(version, delegate);
             assertThrows(CubismEditorApiUnavailableException.class,
@@ -58,6 +58,53 @@ final class TextureMetadataAvailabilityRegressionTest {
                 () -> textures.removeRawImage(new RawImageId("raw")));
             assertEquals(0, delegate.writes);
         }
+    }
+
+    @Test
+    void compatibleTextureContractEnablesReadsAndWrites() {
+        for (String version : List.of("5.3.04", "5.4.00")) {
+            final RecordingTextures delegate = new RecordingTextures();
+            final ModelTextures textures = wrapped(version, delegate);
+            textures.addModelImageGroup("group");
+            textures.removeModelImage(new ModelImageId("image"));
+            textures.addTextureAtlas("atlas", 64, 64);
+            textures.removeTextureAtlas(new TextureAtlasId("atlas"));
+            textures.removeRawImage(new RawImageId("raw"));
+            assertEquals(List.of(), textures.rawImages());
+            assertEquals(List.of(), textures.modelImageGroups());
+            assertEquals(List.of(), textures.textureAtlases());
+            assertEquals(5, delegate.writes);
+            assertEquals(3, delegate.reads);
+        }
+    }
+
+    @Test
+    void compatibleTextureReadsRequireTheirOwnCapability() {
+        final RecordingTextures delegate = new RecordingTextures();
+        final ModelTextures textures = new CubismEditorApiAvailabilityInterceptor(
+            () -> Optional.of("5.3.99"), () -> java.util.Set.of("cubism.editor-model.read"),
+            () -> Optional.of("5.3.02")
+        ).wrapForTesting(delegate, ModelTextures.class);
+        assertThrows(CubismEditorApiUnavailableException.class, textures::rawImages);
+        assertThrows(CubismEditorApiUnavailableException.class, textures::modelImageGroups);
+        assertThrows(CubismEditorApiUnavailableException.class, textures::textureAtlases);
+        assertEquals(0, delegate.reads);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"5.3.02", "5.3.99"})
+    void matchingVersionWithOnlyReadCapabilityCannotWriteTextures(final String version) {
+        final RecordingTextures delegate = new RecordingTextures();
+        final ModelTextures textures = new CubismEditorApiAvailabilityInterceptor(
+            () -> Optional.of(version), () -> java.util.Set.of("cubism.editor-model.texture.read")
+        ).wrapForTesting(delegate, ModelTextures.class);
+        assertEquals(List.of(), textures.rawImages());
+        assertThrows(CubismEditorApiUnavailableException.class, () -> textures.addModelImageGroup("group"));
+        assertThrows(CubismEditorApiUnavailableException.class, () -> textures.removeModelImage(new ModelImageId("image")));
+        assertThrows(CubismEditorApiUnavailableException.class, () -> textures.addTextureAtlas("atlas", 1, 1));
+        assertThrows(CubismEditorApiUnavailableException.class, () -> textures.removeTextureAtlas(new TextureAtlasId("atlas")));
+        assertThrows(CubismEditorApiUnavailableException.class, () -> textures.removeRawImage(new RawImageId("raw")));
+        assertEquals(0, delegate.writes);
     }
 
     @Test
@@ -79,9 +126,9 @@ final class TextureMetadataAvailabilityRegressionTest {
     }
 
     @Test
-    void unknownVersionIsRejectedBeforeAnyTextureRead() {
+    void declaredVersionBelowTheFloorIsRejectedBeforeAnyTextureRead() {
         final RecordingTextures delegate = new RecordingTextures();
-        final ModelTextures textures = wrapped("5.3.04", delegate);
+        final ModelTextures textures = wrapped("5.1.99", delegate);
         assertThrows(CubismEditorApiUnavailableException.class, textures::rawImages);
         assertThrows(CubismEditorApiUnavailableException.class, textures::modelImageGroups);
         assertThrows(CubismEditorApiUnavailableException.class, textures::textureAtlases);
@@ -89,7 +136,11 @@ final class TextureMetadataAvailabilityRegressionTest {
     }
 
     private static ModelTextures wrapped(final String version, final RecordingTextures delegate) {
-        return new CubismEditorApiAvailabilityInterceptor(() -> Optional.of(version))
+        return new CubismEditorApiAvailabilityInterceptor(
+            () -> Optional.of(version), () -> java.util.Set.of(
+                "cubism.editor-model.texture.read", "cubism.editor-model.texture.write"
+            )
+        )
             .wrapForTesting(delegate, ModelTextures.class);
     }
 

@@ -14,7 +14,7 @@ final class CubismEditorAvailabilityPolicy {
 
     private static final List<String> REVIEWED_VERSIONS = List.of("5.2.03", "5.3.02", "5.3.03");
     private static final Set<String> REVIEWED_VERSION_SET = Set.copyOf(REVIEWED_VERSIONS);
-    // ClassValue keeps the cache with the declaring class rather than retaining unloaded
+    // ClassValue keeps the cache with the exposed SDK interface rather than retaining unloaded
     // plugin classloaders in a global Method map. Only immutable declarations are cached.
     private static final ClassValue<java.util.concurrent.ConcurrentMap<Method, Resolution>> RESOLUTIONS =
         new ClassValue<>() {
@@ -28,14 +28,18 @@ final class CubismEditorAvailabilityPolicy {
     }
 
     static Resolution resolve(final Method method) {
-        return RESOLUTIONS.get(method.getDeclaringClass())
-            .computeIfAbsent(method, CubismEditorAvailabilityPolicy::resolveUncached);
+        return resolve(method.getDeclaringClass(), method);
     }
 
-    private static Resolution resolveUncached(final Method method) {
-        final List<CubismEditor> declarations = declarations(method);
+    static Resolution resolve(final Class<?> sdkInterface, final Method method) {
+        return RESOLUTIONS.get(sdkInterface)
+            .computeIfAbsent(method, key -> resolveUncached(sdkInterface, key));
+    }
+
+    private static Resolution resolveUncached(final Class<?> sdkInterface, final Method method) {
+        final List<CubismEditor> declarations = declarations(sdkInterface, method);
         if (declarations.isEmpty()) {
-            return new Resolution(false, List.of());
+            return new Resolution(false, List.of(), List.of());
         }
         final LinkedHashSet<String> supported = new LinkedHashSet<>(REVIEWED_VERSIONS);
         for (CubismEditor declaration : declarations) {
@@ -43,7 +47,8 @@ final class CubismEditorAvailabilityPolicy {
         }
         return new Resolution(
             true,
-            REVIEWED_VERSIONS.stream().filter(supported::contains).toList()
+            REVIEWED_VERSIONS.stream().filter(supported::contains).toList(),
+            declarations
         );
     }
 
@@ -55,27 +60,32 @@ final class CubismEditorAvailabilityPolicy {
         return REVIEWED_VERSIONS;
     }
 
-    private static List<CubismEditor> declarations(final Method method) {
+    private static List<CubismEditor> declarations(final Class<?> sdkInterface, final Method method) {
         final ArrayList<CubismEditor> declarations = new ArrayList<>();
-        collectTypeDeclarations(method.getDeclaringClass(), declarations, new LinkedHashSet<>());
-        final CubismEditor methodDeclaration = method.getAnnotation(CubismEditor.class);
-        if (methodDeclaration != null) {
-            declarations.add(methodDeclaration);
-        }
+        collectDeclarations(sdkInterface, method, declarations, new LinkedHashSet<>());
         return List.copyOf(declarations);
     }
 
-    private static void collectTypeDeclarations(
+    private static void collectDeclarations(
         final Class<?> type,
+        final Method method,
         final List<CubismEditor> declarations,
         final Set<Class<?>> visited
     ) {
         if (!visited.add(type)) return;
         for (Class<?> parent : type.getInterfaces()) {
-            collectTypeDeclarations(parent, declarations, visited);
+            collectDeclarations(parent, method, declarations, visited);
         }
         final CubismEditor direct = type.getAnnotation(CubismEditor.class);
         if (direct != null) declarations.add(direct);
+        try {
+            final CubismEditor methodDeclaration = type
+                .getDeclaredMethod(method.getName(), method.getParameterTypes())
+                .getAnnotation(CubismEditor.class);
+            if (methodDeclaration != null) declarations.add(methodDeclaration);
+        } catch (NoSuchMethodException inherited) {
+            // The interface-level constraint still applies to inherited methods.
+        }
     }
 
     private static boolean declaresAnnotatedMethod(final Class<?> type) {
@@ -162,9 +172,60 @@ final class CubismEditorAvailabilityPolicy {
             + "(" + String.join(",", parameters) + ")";
     }
 
-    record Resolution(boolean restricted, List<String> supportedVersions) {
+    /**
+     * One method's resolved availability.
+     *
+     * @param restricted whether any type/inherited/method {@code @CubismEditor} applies
+     * @param supportedVersions the reviewed-version expansion for diagnostics
+     * @param declarations the collected annotation declarations in hierarchy order
+     */
+    record Resolution(
+        boolean restricted,
+        List<String> supportedVersions,
+        List<CubismEditor> declarations
+    ) {
         Resolution {
             supportedVersions = List.copyOf(supportedVersions);
+            declarations = List.copyOf(declarations);
+        }
+
+        /**
+         * Evaluates every collected declaration against the host's own declared
+         * version. Type, inherited-type, and method declarations are intersected:
+         * a single denial fails the method. Exact {@code value} lists match only
+         * named versions; {@code from}/{@code to} compare numerically against any
+         * well-formed {@code x.y.z} version, so open ranges can cover unreviewed
+         * releases; {@code exclude} always removes the named real version.
+         *
+         * @param realVersion the version the host declared at probe time
+         * @return {@code true} when the annotation set permits that version
+         */
+        boolean permits(final String realVersion) {
+            if (!restricted || realVersion == null || !isExactVersion(realVersion)) {
+                return !restricted;
+            }
+            for (final CubismEditor declaration : declarations) {
+                if (!permits(declaration, realVersion)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static boolean permits(final CubismEditor declaration, final String realVersion) {
+            if (List.of(declaration.exclude()).contains(realVersion)) {
+                return false;
+            }
+            final List<String> exact = List.of(declaration.value());
+            if (!exact.isEmpty()) {
+                return exact.contains(realVersion);
+            }
+            final String from = declaration.from();
+            final String to = declaration.to();
+            if (!from.isEmpty() && compareVersions(realVersion, from) < 0) {
+                return false;
+            }
+            return to.isEmpty() || compareVersions(realVersion, to) <= 0;
         }
     }
 }

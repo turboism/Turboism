@@ -474,11 +474,17 @@ BOOLEAN_FLAGS = frozenset({"--require-fixture-unchanged", "--keep-prefix",
 VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-name",
     "--result-marker", "--result-file", "--result-pass-line", "--result-fail-line",
     "--ready-marker", "--failure-marker", "--trigger", "--jvm-option", "--windows-env",
-    "--cubism-java", "--cubism-java-console-marker", "--run-label", "--agent-timeout",
+    "--linux-env", "--cubism-java", "--cubism-java-console-marker", "--run-label", "--agent-timeout",
     "--agent-host-class", "--ready-timeout", "--result-timeout", "--exit-timeout",
     "--poll-seconds", "--golden-prefix", "--host-root", "--remote-root", "--display",
     "--proton-wrapper", "--proton-runner", "--graphics-device", "--local-evidence-dir", "--transport",
     "--remote-pre-launch-arg", "--aux-agent-before-main", "--client-python"})
+
+# Job-local Linux launch environment: only reviewed Mesa/Proton debug names may
+# be snapshotted into a prepared job. The snapshotted Runner re-validates the
+# same whitelist at execution; this check stops a hand-edited request earlier.
+LINUX_ENV_NAME = re.compile(r"^(?:mesa_glthread|GALLIUM_HUD|GALLIUM_HUD_PERIOD|MESA_[A-Z0-9_]{1,48})$")
+LINUX_ENV_VALUE = re.compile(r"^[A-Za-z0-9._:,=+/-]{1,200}$")
 
 # Reviewed pre-launch hook inventory: hook file name -> (protocol flags the
 # invocation must carry, error description). Each entry is an explicit review of
@@ -835,6 +841,12 @@ class PreparedStore:
                     raise QueueError("only local host execution is supported")
                 if flag == "--graphics-device" and value not in {"inherit", "nvidia"}:
                     raise QueueError("graphics device must be inherit or nvidia")
+                if flag == "--linux-env":
+                    name, separator, env_value = value.partition("=")
+                    if not separator or not LINUX_ENV_NAME.fullmatch(name) \
+                            or not LINUX_ENV_VALUE.fullmatch(env_value):
+                        raise QueueError(
+                            "--linux-env entries are restricted to reviewed Mesa debug variables")
                 if flag in ("--client-script", "--client-python") \
                         and mcp_dependency is None and edit_protocol_dependency is None:
                     raise QueueError("custom client requires reviewed dependency inventory")

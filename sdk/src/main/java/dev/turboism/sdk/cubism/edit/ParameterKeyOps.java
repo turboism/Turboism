@@ -17,7 +17,7 @@ import java.util.Optional;
  * {@link EditSession} and fail with {@link EditSessionException} subclasses when the session or
  * the operation is unavailable.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public interface ParameterKeyOps {
 
     /**

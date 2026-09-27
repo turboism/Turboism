@@ -97,5 +97,10 @@
     {"mappingId":"cubism.mapping.v5_3_02.ui_top_menu.typed_resize_guard-active","alias":"cubism.editor-command.resize.guard-active","kind":"method","ownerInternalName":"com/live2d/cubism/view/b/a","memberName":"a","descriptor":"(Ljava/lang/String;)Z","requiredAccessFlags":17,"forbiddenAccessFlags":8,"status":"VERIFIED_STATIC"},
     {"mappingId":"cubism.mapping.v5_3_02.ui_top_menu.typed_resize_guard-current","alias":"cubism.editor-command.resize.guard-current","kind":"method","ownerInternalName":"com/live2d/cubism/view/b/a","memberName":"d","descriptor":"()Ljava/lang/String;","requiredAccessFlags":17,"forbiddenAccessFlags":8,"status":"VERIFIED_STATIC"},
     {"mappingId":"cubism.mapping.v5_3_02.ui_top_menu.typed_resize_scale-model","alias":"cubism.editor-command.resize.scale-model","kind":"method","ownerInternalName":"com/live2d/cubism/doc/model/ModelHandler","memberName":"a","descriptor":"(Lcom/live2d/cubism/doc/model/ModelHandler;Lcom/live2d/cubism/pack/CECompletePack;Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Main;Lcom/live2d/cubism/doc/model/CModel;FLcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;ILjava/lang/Object;)V","requiredAccessFlags":9,"forbiddenAccessFlags":0,"status":"VERIFIED_STATIC"}
-  ]
+  ],
+  "capabilityConditions": {
+    "cubism.editor-ui.top-menu": [
+      "hook:editor-ui"
+    ]
+  }
 }

@@ -129,13 +129,14 @@ STARTUP_FIELDS = {
     "skipUpdateCheck", "skipSplash", "skipInformation",
     "separateExportSaveDirectory",
 }
-LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"}
+LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread"}
 V0_LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
-BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"}
+BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread"}
 BOOLEAN_V1_FIELDS = {
     "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
 }
 CUBISM_JVMS = {"graalvm", "bundled"}
+MEMORY_PROFILES = {"system", "balanced4g", "balanced4gFastSoft"}
 
 
 def require_string_array(value, name):
@@ -200,6 +201,10 @@ def validate_v1(doc):
         if "cubismJvm" in launcher:
             if not isinstance(launcher["cubismJvm"], str) or launcher["cubismJvm"] not in CUBISM_JVMS:
                 raise ValueError("launcher.cubismJvm is invalid")
+        if "memoryProfile" in launcher:
+            if (not isinstance(launcher["memoryProfile"], str)
+                    or launcher["memoryProfile"] not in MEMORY_PROFILES):
+                raise ValueError("launcher.memoryProfile is invalid")
         for field in BOOLEAN_LAUNCHER_FIELDS:
             if field in launcher and type(launcher[field]) is not bool:
                 raise ValueError("launcher." + field + " must be boolean")
@@ -748,10 +753,10 @@ def check_configurator_flow_contract():
           and "MinimumSize = New-Object System.Drawing.Size(900, 720)" in configure
           and "$form.MaximizeBox = $true" in configure
           and "Anchor = 'Top, Bottom, Left, Right'" in configure)
-    check("CF5 candidate selection resolves exact versions from application artifacts",
+    check("CF5 candidate selection resolves declared identity and admission from application artifacts",
           "Get-CubismVersionFromArtifact" in common
-          and "ReviewedHostArtifactCli" in common
-          and "HostArtifactDigest.from" in (INSTALLER_NSI.parent.parent.parent / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifactCli.java").read_text(encoding="utf-8")
+          and "CubismHostProbeCli" in common
+          and "CubismHostCompatibilityResolver.resolve" in (INSTALLER_NSI.parent.parent.parent / "runtime/src/main/java/dev/turboism/mapping/verification/CubismHostProbeCli.java").read_text(encoding="utf-8")
           and "Get-CubismVersionFromPath" not in common
           and "application artifacts are selectable" in common)
     check("CF6 BAT integration is selected in the configurator after candidates",
@@ -1408,6 +1413,22 @@ def main():
     for label, out in [("T3", out)]:
         doc = json.loads(out)
         assert doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
+
+    # Keep the offline mirror aligned with both installer enum validators.
+    template = json.loads((Path(__file__).parent / "config.template.json").read_text())
+    for profile in sorted(MEMORY_PROFILES):
+        candidate = json.loads(json.dumps(template))
+        candidate["launcher"]["memoryProfile"] = profile
+        check("memoryProfile accepted " + profile, validate_v1(candidate) == candidate)
+    for profile in (None, 42, True, "", "balanced4G", "extreme16g"):
+        candidate = json.loads(json.dumps(template))
+        candidate["launcher"]["memoryProfile"] = profile
+        try:
+            validate_v1(candidate)
+        except ValueError:
+            check("invalid memoryProfile rejected " + repr(profile), True)
+        else:
+            check("invalid memoryProfile rejected " + repr(profile), False)
 
     check_nsis_retirement_contract()
     check_config_migration_contract()

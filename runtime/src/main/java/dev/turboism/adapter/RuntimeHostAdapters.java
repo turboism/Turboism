@@ -166,7 +166,7 @@ public record RuntimeHostAdapters(
      */
     static RuntimeHostAdapters withVerifiedClipMask(final VerifiedMemberResolver resolver) {
         Objects.requireNonNull(resolver, "resolver");
-        if (!ClipMaskVerificationManifest.reviewedCubismVersions().contains(resolver.cubismVersion())
+        if (!ClipMaskVerificationManifest.reviewedCubismVersions().contains(resolver.admittedCubismVersion())
             || !resolver.authorizes(
                 ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
                 ClipMaskVerificationManifest.CAPABILITY_IDS,
@@ -225,7 +225,7 @@ public record RuntimeHostAdapters(
     ) {
         Objects.requireNonNull(base, "base");
         Objects.requireNonNull(statusBarResolver, "statusBarResolver");
-        final String resolverVersion = statusBarResolver.cubismVersion();
+        final String resolverVersion = statusBarResolver.admittedCubismVersion();
         if (!StatusBarVerificationManifest.reviewedCubismVersions().contains(resolverVersion)
             || !statusBarResolver.authorizes(
                 StatusBarVerificationManifest.ADAPTER_SLICE_ID,
@@ -242,8 +242,7 @@ public record RuntimeHostAdapters(
             base.projectWorkspace(),
             base.clipMaskRead(),
             StatusToolbarAdapterImpl.connectedVerifiedCx(
-                statusBarResolver.cubismVersion(),
-                new VerifiedCxStatusBarHostAccess(statusBarResolver)
+                statusBarResolver
             ),
             base.uiSurface(),
             base.recentFiles(),

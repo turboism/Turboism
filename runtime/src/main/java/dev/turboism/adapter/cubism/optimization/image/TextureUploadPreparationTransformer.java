@@ -8,6 +8,7 @@ import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -30,7 +31,7 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
     private volatile String failure;
     private volatile String beforeSha256;
 
-    /** Reference class bytes must come from the installer's digest-pinned official artifact. */
+    /** Reference bytes come from the installer's verified target-class snapshot. */
     public TextureUploadPreparationTransformer(ClassLoader loader, Path artifact, byte[] reference) {
         expectedLoader = loader;
         this.artifact = artifact == null ? null : artifact.toAbsolutePath().normalize();
@@ -131,4 +132,18 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
         }
     }
     private record Handler(Label start, Label end, Label target, String type) { }
+
+    /**
+     * SHA-256 of the texture factory class this hook rewrites, keyed by internal name, per reviewed generation. A
+     * repackaged or differently-declared artifact binds this hook only when
+     * one distinct contract's pins match every class entry; identical contracts merge.
+     */
+    public static Map<String, Map<String, String>> reviewedClassSha256() {
+        return REVIEWED_CLASS_SHA256;
+    }
+
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
+        Map.of(
+        "5.3.02", Map.ofEntries(
+            Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")));
 }

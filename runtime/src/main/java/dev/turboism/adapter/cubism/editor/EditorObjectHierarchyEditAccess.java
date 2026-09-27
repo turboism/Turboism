@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.history.HierarchyRelationCapture;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -11,6 +12,7 @@ import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 
+import java.util.EnumSet;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -85,6 +87,11 @@ final class EditorObjectHierarchyEditAccess {
         final Object parentSource,
         final int index
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
+                createPartSource(identity, modelSource, model, requestedName, parentSource, index)
+            );
+        }
         final String name = requireName(requestedName);
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
@@ -125,6 +132,11 @@ final class EditorObjectHierarchyEditAccess {
         final int index,
         final ArtMeshGeometry geometry
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
+                createArtMeshSource(identity, modelSource, model, requestedName, parentSource, parentIsDeformer, index, geometry)
+            );
+        }
         final String name = requireName(requestedName);
         final ArtMeshGeometry checkedGeometry = Objects.requireNonNull(geometry, "geometry");
         requireArtMeshCreateAuthorized();
@@ -329,6 +341,14 @@ final class EditorObjectHierarchyEditAccess {
         final int index,
         final WarpGrid requestedGrid
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
+                createWarpSource(
+                    identity, modelSource, model, requestedName, parentSource,
+                    parentIsDeformer, index, requestedGrid
+                )
+            );
+        }
         final WarpGrid grid = requireGrid(requestedGrid);
         final String name = requireName(requestedName);
         requireEditAuthorized();
@@ -370,6 +390,14 @@ final class EditorObjectHierarchyEditAccess {
         final int index,
         final RotationDeformerForm requestedForm
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
+                createRotationSource(
+                    identity, modelSource, model, requestedName, parentSource,
+                    parentIsDeformer, index, requestedForm
+                )
+            );
+        }
         final RotationDeformerForm form = Objects.requireNonNull(requestedForm, "form");
         final String name = requireName(requestedName);
         requireEditAuthorized();
@@ -439,6 +467,13 @@ final class EditorObjectHierarchyEditAccess {
         final Object nodeSource,
         final String kindLabel
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism hierarchy edit", () -> {
+                remove(identity, modelSource, model, nodeSource, kindLabel);
+                return null;
+            });
+            return;
+        }
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
         write(
@@ -617,6 +652,13 @@ final class EditorObjectHierarchyEditAccess {
         final String requestedName,
         final String kindLabel
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism hierarchy edit", () -> {
+                setName(identity, modelSource, model, nodeSource, requestedName, kindLabel);
+                return null;
+            });
+            return;
+        }
         final String name = requireName(requestedName);
         requireRenameAuthorized();
         currentGuard.requireCurrent(identity, model);
@@ -659,6 +701,13 @@ final class EditorObjectHierarchyEditAccess {
         final int index,
         final String kindLabel
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism hierarchy edit", () -> {
+                setParent(identity, modelSource, model, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
+                return null;
+            });
+            return;
+        }
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
         rejectCycle(nodeSource, parentSource, parentIsDeformer);
@@ -809,9 +858,33 @@ final class EditorObjectHierarchyEditAccess {
         final String action,
         final Runnable mutation
     ) {
+        EditorHostThread.requireHostThread("Cubism hierarchy edit");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
+        );
+        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
+        if (ambientJoin.isPresent()) {
+            ambientJoin.orElseThrow().admit(
+                "cubism.hierarchy.write",
+                "hierarchy:" + Integer.toHexString(System.identityHashCode(objectSource))
+                    + ":" + action,
+                action,
+                (edit, transactionLabel) -> admitObjectUndo(
+                    edit, modelSource, objectSource, action, paletteAlias, kindLabel),
+                mutation,
+                () -> true,
+                EnumSet.of(
+                    EditorRefreshRequirement.MODEL_INSTANCES,
+                    paletteRequirement(paletteAlias),
+                    EditorRefreshRequirement.CANVAS,
+                    EditorRefreshRequirement.MARK_DIRTY
+                )
+            );
+            return;
+        }
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, action
         );
         final Object editMode = resolver.invoke(
             "cubism.editor-model.modeling-document.edit-mode", document
@@ -942,6 +1015,7 @@ final class EditorObjectHierarchyEditAccess {
         final String operation,
         final boolean parentIsDeformer
     ) {
+        EditorHostThread.requireHostThread("Cubism hierarchy create");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
@@ -977,6 +1051,43 @@ final class EditorObjectHierarchyEditAccess {
                 refresh(app, paletteAlias);
                 return null;
             }
+        );
+        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
+        if (ambientJoin.isPresent()) {
+            ambientJoin.orElseThrow().admit(
+                "cubism.hierarchy.create",
+                "hierarchy:create:" + operation,
+                action,
+                (edit, transactionLabel) -> {
+                    final Object addUndo = resolver.invoke(
+                        "cubism.editor-model.model-handler.add-source-undo",
+                        modelHandler, objectSource, Integer.valueOf(index));
+                    requireUndoAccepted(edit, addUndo, operation);
+                    if (parentHandler != null) {
+                        final Object parentUndo = resolver.invoke(
+                            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                            parentHandler, action);
+                        requireUndoAccepted(edit, parentUndo, operation + " parent attachment");
+                    }
+                    resolver.invoke("cubism.editor-model.undo.add-listener", addUndo, listener);
+                },
+                () -> {
+                    if (parentSource != null) {
+                        attachToParent(objectSource, parentSource, parentIsDeformer, index);
+                    }
+                },
+                () -> true,
+                EnumSet.of(
+                    EditorRefreshRequirement.MODEL_INSTANCES,
+                    paletteRequirement(paletteAlias),
+                    EditorRefreshRequirement.CANVAS,
+                    EditorRefreshRequirement.MARK_DIRTY
+                )
+            );
+            return;
+        }
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, action
         );
         final Object edit = resolver.invoke(
             "cubism.editor-model.edit-mode.begin", editMode, action
@@ -1014,6 +1125,12 @@ final class EditorObjectHierarchyEditAccess {
                 null
             );
         }
+    }
+
+    private static EditorRefreshRequirement paletteRequirement(final String paletteAlias) {
+        return "cubism.editor-model.complete-pack.update-part-palette".equals(paletteAlias)
+            ? EditorRefreshRequirement.PART_PALETTE
+            : EditorRefreshRequirement.DEFORMER_PALETTE;
     }
 
     private void requireUndoAccepted(

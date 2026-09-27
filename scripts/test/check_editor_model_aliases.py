@@ -72,7 +72,12 @@ def implementation_aliases(root: Path) -> set[str]:
 
 
 def aliases_in_record(root: Path, relative: str) -> set[str]:
-    """Return non-class Editor-model aliases in one public reviewed record."""
+    """Return non-class, non-relation Editor-model aliases in one reviewed record.
+
+    ``inherits`` selectors are structural type-relation constraints consumed
+    through the generated compatibility catalog, not resolver-invoked member
+    aliases, so they are outside this checker's invoke/admit comparison.
+    """
     path = root / relative
     if not path.exists():
         return set()
@@ -80,8 +85,22 @@ def aliases_in_record(root: Path, relative: str) -> set[str]:
     return {
         selector["alias"]
         for selector in data["selectors"]
-        if selector["alias"].startswith(ALIAS_PREFIX) and selector["kind"] != "class"
+        if selector["alias"].startswith(ALIAS_PREFIX)
+        and selector["kind"] not in ("class", "inherits")
     }
+
+
+def capability_ids(root: Path) -> set[str]:
+    """Return the declared capabilityId union across the reviewed records."""
+    ids: set[str] = set()
+    for relative in (*BASE_RECORDS, ADDITIVE_RECORD):
+        path = root / relative
+        if not path.exists():
+            continue
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for identifier in data.get("capabilityIds", []):
+            ids.add(str(identifier))
+    return ids
 
 
 def record_aliases(root: Path) -> tuple[set[str], dict[str, set[str]]]:
@@ -128,6 +147,7 @@ def main() -> int:
     implementation = implementation_aliases(root)
     try:
         union, per_record = record_aliases(root)
+        capabilities = capability_ids(root)
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as failure:
         print(f"FAIL: invalid reviewed Editor-model record: {failure}", file=sys.stderr)
         return 2
@@ -135,7 +155,9 @@ def main() -> int:
         print("FAIL: could not read the implementation or reviewed records", file=sys.stderr)
         return 2
 
-    unrecorded = sorted(implementation - union)
+    # Literals matching a record capabilityId are capability references (e.g.
+    # the SDK availability gate), not member-alias invocations.
+    unrecorded = sorted(implementation - union - capabilities)
     unused = sorted(union - implementation)
     if args.report:
         print(f"implementation aliases : {len(implementation)}")

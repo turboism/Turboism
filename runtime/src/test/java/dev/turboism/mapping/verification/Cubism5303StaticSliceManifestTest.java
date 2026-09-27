@@ -18,7 +18,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             MainToolbarVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-main-toolbar.static",
-            "3c3beb4f6574558b735c56d2c08dc07c9b7052c7406cb2fe77d7acd66a6c7d07",
+            "314bd7b643b030cf5b6c6247b314f50b34290c6ef7442c2bd241dcdd7571375b",
             MainToolbarVerificationManifest.ADAPTER_SLICE_ID,
             MainToolbarVerificationManifest.CAPABILITY_IDS,
             MainToolbarVerificationManifest.REQUIRED_ALIASES
@@ -26,7 +26,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             EmbeddedPanelVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-embedded-panel.static",
-            "089a76ea22fd2dcc688e18bdc2157997416095ba61ab1e290769d92390891065",
+            "efd21e78301e09cb5cdf4d4d80fdbaa78c6f676f8bb813ef28af41a2656dca55",
             EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
             EmbeddedPanelVerificationManifest.CAPABILITY_IDS,
             EmbeddedPanelVerificationManifest.REQUIRED_ALIASES
@@ -34,7 +34,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             TopMenuVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-top-menu.static",
-            "14738c81260f4ac6f5c56c391ced3e923bca0176af7b7a9dfda0c64f4b26973b",
+            "8468ba23f43f3176cd20b92851348c719b1b8811b90c5af055fd26bf10f0bfea",
             TopMenuVerificationManifest.ADAPTER_SLICE_ID,
             TopMenuVerificationManifest.CAPABILITY_IDS,
             TopMenuVerificationManifest.REQUIRED_ALIASES
@@ -42,7 +42,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             BoundingBoxOverlayButtonVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-bounding-box-overlay.static",
-            "d7653ef266f1273822458e7a5bb8736895c88c2b0248d33a5b8e63061c655797",
+            "fd67451595cbf68ca3084504c730daee3b110577e67852680db64b3a6f81e000",
             BoundingBoxOverlayButtonVerificationManifest.ADAPTER_SLICE_ID,
             BoundingBoxOverlayButtonVerificationManifest.CAPABILITY_IDS,
             BoundingBoxOverlayButtonVerificationManifest.REQUIRED_ALIASES
@@ -50,7 +50,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             StatusBarVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-status-bar.static",
-            "c16a15c3d44c7c1d904f80429021b2915a8ea4a8af0dfc907bfe21c1756ec575",
+            "f74152ef76ac4f88daf22ae3670aa8296757f18818f98d8763deea913cd3a1f2",
             StatusBarVerificationManifest.ADAPTER_SLICE_ID,
             StatusBarVerificationManifest.CAPABILITY_IDS,
             StatusBarVerificationManifest.REQUIRED_ALIASES
@@ -58,7 +58,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             ControlAppearanceVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-control-appearance.static",
-            "9d6e88817a5596adb5d2057c4269ec01d2c1d7b0c49170aa7003ee289e4c11c0",
+            "6c771b8564af0569ed1c47064f13db20a0da5b8ef3dd1d90d06905311c58f710",
             ControlAppearanceVerificationManifest.ADAPTER_SLICE_ID,
             ControlAppearanceVerificationManifest.CAPABILITY_IDS,
             ControlAppearanceVerificationManifest.REQUIRED_ALIASES
@@ -66,7 +66,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             WorkspaceControlVerificationManifest.forArtifact(REVIEWED),
             "m.workspace-5.3.03.control.static",
-            "50acfcbb92cb83caf07113034001b12e71d032656cab76a652f294dd2b809130",
+            "1a1be264fe64c6dc3e2f1ec10cb854a475540ebf1270b93e6d50e01ae6b801fc",
             "adapter.workspace.control.v5_3",
             Set.of(WorkspaceControlVerificationManifest.CAPABILITY_ID),
             WorkspaceControlVerificationManifest.REQUIRED_ALIASES
@@ -74,7 +74,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             ProjectWorkspaceVerificationManifest.forArtifact(REVIEWED),
             "m15.cubism-5.3.03.project-workspace.static",
-            "a238d1ef701f59130d792b2b6ada3961ab9541f6cf5236bbed25d5f9d558eab2",
+            "f52edde0c7d1a59d5bed7dd693f5a74e6946d0b14bbe9e13fedf2c49e6fa5613",
             ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
             ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
             ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES

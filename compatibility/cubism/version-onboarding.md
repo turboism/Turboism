@@ -12,6 +12,13 @@ Adding a version is therefore a *reviewed* change spread across contracts,
 runtime trust roots, packaging, tests, and the host-validation catalog — not a
 data append. Expect every gate below to fail closed until all of them agree.
 
+Releases that have not completed this checklist are never treated as reviewed.
+An unreviewed host may still enter `COMPATIBLE` mode when its declared release
+identity is coherent and each feature slice's full selector contract verifies
+against the actual classes; that path is structural evidence only and never
+substitutes for the exact-host admission documented here. See `index.md` for
+the capability admission and runtime-readiness contract.
+
 Every command in this manual was verified against this worktree
 (`./gradlew tasks --all`, `<tool> --help`, or file inspection on 2026-09-17).
 Replace `X.Y.Z`/`XYZZ` consistently; do not reuse a retired `mNN` token in new

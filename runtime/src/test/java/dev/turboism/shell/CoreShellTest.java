@@ -101,10 +101,12 @@ class CoreShellTest {
             )),
             context.mainToolbar().buttonContributions()
         );
-        assertEquals(11, context.uiHost().settingsContributions().size());
+        assertEquals(16, context.uiHost().settingsContributions().size());
         assertEquals(
             List.of("cubism-graalvm-path", "cubism-jvm", "cubism-disable-auto-backup",
-                "cubism-zgc", "model-update-skip", "incremental-update", "uniform-location-cache",
+                "cubism-zgc", "cubism-memory-profile", "cubism-memory-profile-note",
+                "model-update-skip", "incremental-update", "uniform-location-cache",
+                "upload-elision", "input-path-elision", "mesa-gl-thread",
                 "performance-restart-note", "mesh-triangulation-hash",
                 "atlas-tile-bbox", "atlas-cache-reuse"),
             context.uiHost().settingsContributions().stream()

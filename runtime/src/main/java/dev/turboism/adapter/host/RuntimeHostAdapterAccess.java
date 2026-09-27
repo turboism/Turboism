@@ -30,10 +30,31 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     RuntimeHostAdapters adapters();
 
     /**
-     * @return the exact reviewed Cubism Editor version of the active connection,
-     *     or empty while no verified Editor-model slice is active
+     * @return the Cubism Editor version the active connection reports — the
+     *     host-declared version for compatibility-bound sessions, the reviewed
+     *     version for exact ones; empty while no verified Editor-model slice
+     *     is active
      */
     java.util.Optional<String> cubismEditorVersion();
+
+    /**
+     * @return the capability ids the active connection admitted — the union of
+     *     every admitted slice contract; empty while no session is active or no
+     *     slice carried capability evidence
+     */
+    java.util.Set<String> admittedCubismCapabilities();
+
+    /**
+     * @return the reviewed Cubism generation the active connection's Editor-model
+     *     contract bound to — the declared version for exact sessions, the bound
+     *     record's source generation for compatibility-bound ones; empty while
+     *     no verified Editor-model slice is active. Annotation availability
+     *     clauses evaluate against this evidence version: a compatibility host
+     *     cannot satisfy an upper bound, lower bound, exclusion, or exact value
+     *     by merely declaring a different version than the bytecode it was
+     *     verified against.
+     */
+    java.util.Optional<String> admittedCubismGeneration();
 
     /**
      * @return the unified Cubism model object access; never null
@@ -227,6 +248,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
 
     private final RuntimeHostAdapters adapters;
     private final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion;
+    private final java.util.function.Supplier<java.util.Set<String>> admittedCubismCapabilities;
+    private final java.util.function.Supplier<java.util.Optional<String>> admittedCubismGeneration;
     private final CubismModelAccess modelAccess;
     private final CubismHistory history;
     private final HostSnapshotSource modelAppearanceSource;
@@ -266,6 +289,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
         final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion,
+        final java.util.function.Supplier<java.util.Set<String>> admittedCubismCapabilities,
+        final java.util.function.Supplier<java.util.Optional<String>> admittedCubismGeneration,
         final CubismModelAccess modelAccess,
         final CubismHistory history,
         final HostSnapshotSource modelAppearanceSource,
@@ -305,6 +330,12 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.cubismEditorVersion = java.util.Objects.requireNonNull(
             cubismEditorVersion, "cubismEditorVersion"
+        );
+        this.admittedCubismCapabilities = java.util.Objects.requireNonNull(
+            admittedCubismCapabilities, "admittedCubismCapabilities"
+        );
+        this.admittedCubismGeneration = java.util.Objects.requireNonNull(
+            admittedCubismGeneration, "admittedCubismGeneration"
         );
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
         this.history = java.util.Objects.requireNonNull(history, "history");
@@ -411,6 +442,20 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     public java.util.Optional<String> cubismEditorVersion() {
         return java.util.Objects.requireNonNull(
             cubismEditorVersion.get(), "cubismEditorVersion.get()"
+        );
+    }
+
+    @Override
+    public java.util.Set<String> admittedCubismCapabilities() {
+        return java.util.Objects.requireNonNull(
+            admittedCubismCapabilities.get(), "admittedCubismCapabilities.get()"
+        );
+    }
+
+    @Override
+    public java.util.Optional<String> admittedCubismGeneration() {
+        return java.util.Objects.requireNonNull(
+            admittedCubismGeneration.get(), "admittedCubismGeneration.get()"
         );
     }
 

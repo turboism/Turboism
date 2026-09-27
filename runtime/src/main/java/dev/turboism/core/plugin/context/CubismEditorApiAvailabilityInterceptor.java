@@ -31,13 +31,106 @@ import java.util.function.Supplier;
 final class CubismEditorApiAvailabilityInterceptor {
 
     private final Supplier<Optional<String>> activeVersion;
+    private final Supplier<Set<String>> admittedCapabilities;
     // Both sides must be weak: a strongly cached proxy retains its delegate through Handler.
     private final ReferenceQueue<Object> collectedDelegates = new ReferenceQueue<>();
     private final Map<IdentityWeakReference, Map<Class<?>, WeakReference<Object>>> proxies =
         new LinkedHashMap<>();
 
+    /**
+     * Capability ids that must be admitted for each intercepted SDK surface.
+     * Unlisted interceptable interfaces carry no extra capability requirement —
+     * their {@code @CubismEditor} declarations are the only gate. The sets are
+     * declared against record {@code capabilityIds}, so a slice that admitted
+     * structurally but had a capability stripped (for example a hook-bound edit
+     * surface) still fails closed here.
+     */
+    private static final Map<Class<?>, Set<String>> REQUIRED_CAPABILITIES = requiredCapabilities();
+
+    private static Map<Class<?>, Set<String>> requiredCapabilities() {
+        final Map<Class<?>, Set<String>> required = new LinkedHashMap<>();
+        final Set<String> editorRead = Set.of("cubism.editor-model.read");
+        required.put(dev.turboism.sdk.cubism.CubismFacade.class, editorRead);
+        required.put(dev.turboism.sdk.cubism.service.query.ParameterQueryService.class, editorRead);
+        required.put(dev.turboism.sdk.cubism.service.query.SelectionQueryService.class, editorRead);
+        required.put(dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService.class, editorRead);
+        required.put(dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService.class, editorRead);
+        required.put(dev.turboism.sdk.cubism.model.ModelObjectService.class, editorRead);
+        required.put(dev.turboism.sdk.cubism.model.CubismModel.class, editorRead);
+        required.put(
+            dev.turboism.sdk.cubism.model.ModelTextures.class,
+            Set.of("cubism.editor-model.texture.read")
+        );
+        required.put(
+            dev.turboism.sdk.cubism.physics.PhysicsEditorService.class,
+            Set.of("cubism.editor-model.physics.read")
+        );
+        required.put(
+            dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.class,
+            Set.of("cubism.clipmask.read")
+        );
+        required.put(
+            dev.turboism.sdk.cubism.command.EditorCommandService.class,
+            Set.of("cubism.editor-ui.top-menu")
+        );
+        required.put(
+            dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class,
+            Set.of("cubism.autobackup.settings", "cubism.autobackup.backup")
+        );
+        // Nested surfaces reached through the root services: undo observation
+        // and the edit-protocol session family depend on hook-installed bridges
+        // that compatibility admission strips from the contract.
+        required.put(
+            dev.turboism.sdk.cubism.history.CubismHistory.class,
+            Set.of("cubism.editor-history.read")
+        );
+        required.put(
+            dev.turboism.sdk.cubism.transaction.AuthoringTransactionService.class,
+            Set.of("cubism.editor-model.write")
+        );
+        required.put(
+            dev.turboism.sdk.cubism.transaction.TransactionManager.class,
+            Set.of("cubism.editor-model.write")
+        );
+        required.put(
+            dev.turboism.sdk.cubism.edit.EditSessionService.class,
+            Set.of("cubism.editor-model.edit.session.edit-begin")
+        );
+        required.put(
+            dev.turboism.sdk.cubism.mirror.WarpMirrorService.class,
+            Set.of("cubism.editor-model.warp-mirror")
+        );
+        return Map.copyOf(required);
+    }
+
     CubismEditorApiAvailabilityInterceptor(final Supplier<Optional<String>> activeVersion) {
+        this(activeVersion, Set::of, activeVersion);
+    }
+
+    CubismEditorApiAvailabilityInterceptor(
+        final Supplier<Optional<String>> activeVersion,
+        final Supplier<Set<String>> admittedCapabilities
+    ) {
+        this(activeVersion, admittedCapabilities, activeVersion);
+    }
+
+    /**
+     * @param activeVersion the host-declared version used for all version restrictions
+     * @param admittedCapabilities the capability ids the active session admitted;
+     *     an empty set fails every gated surface closed
+     * @param admittedGeneration contract provenance supplied by the session;
+     *     it cannot substitute for the host version in SDK restrictions
+     */
+    CubismEditorApiAvailabilityInterceptor(
+        final Supplier<Optional<String>> activeVersion,
+        final Supplier<Set<String>> admittedCapabilities,
+        final Supplier<Optional<String>> admittedGeneration
+    ) {
         this.activeVersion = Objects.requireNonNull(activeVersion, "activeVersion");
+        this.admittedCapabilities = Objects.requireNonNull(
+            admittedCapabilities, "admittedCapabilities"
+        );
+        Objects.requireNonNull(admittedGeneration, "admittedGeneration");
     }
 
     CubismContextServices intercept(final CubismContextServices services) {
@@ -82,6 +175,8 @@ final class CubismEditorApiAvailabilityInterceptor {
         if (value == null || !isInterceptableSdkInterface(sdkInterface)) {
             return value;
         }
+        final Set<String> requiredCapabilities =
+            REQUIRED_CAPABILITIES.getOrDefault(sdkInterface, Set.of());
         if (Proxy.isProxyClass(value.getClass())
             && Proxy.getInvocationHandler(value) instanceof Handler handler
             && handler.owner == this) {
@@ -103,7 +198,7 @@ final class CubismEditorApiAvailabilityInterceptor {
             final Object created = Proxy.newProxyInstance(
                 sdkInterface.getClassLoader(),
                 new Class<?>[] {sdkInterface},
-                new Handler(value, sdkInterface)
+                new Handler(value, sdkInterface, requiredCapabilities)
             );
             byInterface.put(sdkInterface, new WeakReference<>(created));
             return created;
@@ -134,10 +229,16 @@ final class CubismEditorApiAvailabilityInterceptor {
         private final CubismEditorApiAvailabilityInterceptor owner = CubismEditorApiAvailabilityInterceptor.this;
         private final Object delegate;
         private final Class<?> sdkInterface;
+        private final Set<String> requiredCapabilities;
 
-        private Handler(final Object delegate, final Class<?> sdkInterface) {
+        private Handler(
+            final Object delegate,
+            final Class<?> sdkInterface,
+            final Set<String> requiredCapabilities
+        ) {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
             this.sdkInterface = Objects.requireNonNull(sdkInterface, "sdkInterface");
+            this.requiredCapabilities = requiredCapabilities;
         }
 
         @Override
@@ -146,7 +247,7 @@ final class CubismEditorApiAvailabilityInterceptor {
             if (method.getDeclaringClass() == Object.class) {
                 return objectMethod(proxy, method, arguments);
             }
-            enforce(method);
+            enforce(sdkInterface, method, requiredCapabilities);
             final Object[] unwrapped = unwrapArguments(arguments);
             try {
                 final Object result = method.invoke(delegate, unwrapped);
@@ -166,22 +267,42 @@ final class CubismEditorApiAvailabilityInterceptor {
         }
     }
 
-    private void enforce(final Method method) {
+    private void enforce(
+        final Class<?> sdkInterface, final Method method, final Set<String> requiredCapabilities
+    ) {
         final CubismEditorAvailabilityPolicy.Resolution resolution =
-            CubismEditorAvailabilityPolicy.resolve(method);
+            CubismEditorAvailabilityPolicy.resolve(sdkInterface, method);
         if (!resolution.restricted()) {
             return;
         }
         final Optional<String> current = Objects.requireNonNull(
             activeVersion.get(), "activeVersion.get()"
         );
-        if (current.isPresent()
-            && resolution.supportedVersions().contains(current.orElseThrow())) {
+        final Set<String> capabilities = Objects.requireNonNull(
+            admittedCapabilities.get(), "admittedCapabilities.get()"
+        );
+        // Contract provenance never overrides exact versions, exclusions or
+        // range boundaries declared for the host that is actually running.
+        if (capabilities.containsAll(requiredCapabilities)
+            && (!isTextureWrite(method) || capabilities.contains("cubism.editor-model.texture.write"))
+            && current.isPresent()
+            && resolution.permits(current.orElseThrow())) {
             return;
         }
         throw new CubismEditorApiUnavailableException(
             apiId(method), current, resolution.supportedVersions()
         );
+    }
+
+    private static boolean isTextureWrite(final Method method) {
+        if (method.getDeclaringClass() != dev.turboism.sdk.cubism.model.ModelTextures.class) {
+            return false;
+        }
+        return switch (method.getName()) {
+            case "addModelImageGroup", "removeModelImage", "addTextureAtlas",
+                "removeTextureAtlas", "removeRawImage" -> true;
+            default -> false;
+        };
     }
 
     private Object wrapValue(final Object value, final Type declaredType) {

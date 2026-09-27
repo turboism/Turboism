@@ -20,8 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class EditSessionServiceContractTest {
 
-    private static final String[] SUPPORTED = {"5.2.03", "5.3.02", "5.3.03"};
-
     private final PluginContext context = (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
         PluginContext.class.getClassLoader(),
         new Class<?>[]{PluginContext.class},
@@ -34,15 +32,19 @@ final class EditSessionServiceContractTest {
 
         assertEquals(EditSessionService.class, method.getReturnType());
         assertTrue(method.isDefault());
-        assertArrayEquals(SUPPORTED, method.getAnnotation(CubismEditor.class).value());
+        assertBackportRange(method.getAnnotation(CubismEditor.class));
     }
 
     @Test
-    void serviceAndSessionDeclareExactSupportedEditorVersions() {
-        assertArrayEquals(
-            SUPPORTED, EditSessionService.class.getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(
-            SUPPORTED, EditSession.class.getAnnotation(CubismEditor.class).value());
+    void serviceAndSessionExcludeTheNative54Protocol() {
+        assertBackportRange(EditSessionService.class.getAnnotation(CubismEditor.class));
+        assertBackportRange(EditSession.class.getAnnotation(CubismEditor.class));
+    }
+
+    private static void assertBackportRange(final CubismEditor availability) {
+        assertArrayEquals(new String[0], availability.value());
+        assertEquals("5.2.03", availability.from());
+        assertEquals("5.3.99", availability.to());
     }
 
     @Test

@@ -53,14 +53,18 @@ if (turboismFrameworkVersion.length > 96 || !Regex(selectedPattern).matches(turb
     throw GradleException("Version does not match the selected channel")
 }
 // Local source identity comes from the checkout, never from the update API.
-val actualSource = providers.exec {
-    commandLine("git", "rev-parse", "HEAD")
-    isIgnoreExitValue = true
-}.standardOutput.asText.get().trim().ifEmpty { "unknown" }
-val dirtySource = providers.exec {
-    commandLine("git", "status", "--porcelain", "--untracked-files=no")
-    isIgnoreExitValue = true
-}.standardOutput.asText.get().isNotBlank()
+val actualSource = runCatching {
+    providers.exec {
+        commandLine("git", "rev-parse", "HEAD")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim()
+}.getOrDefault("").ifEmpty { "unknown" }
+val dirtySource = runCatching {
+    providers.exec {
+        commandLine("git", "status", "--porcelain", "--untracked-files=no")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get()
+}.getOrDefault("").isNotBlank()
 val suppliedSource = providers.environmentVariable("TURBOISM_SOURCE_REVISION").orElse("").get()
 val turboismBuildSource = suppliedSource.ifEmpty { actualSource }
 if (suppliedSource.isNotEmpty() && suppliedSource != actualSource) throw GradleException("Build source differs from checked-out HEAD")
@@ -88,7 +92,11 @@ tasks.register("printBuildInfo") {
     group = "help"
     description = "Print the exact local/CI version identity without building, allocating or publishing"
     val metadata = rootProject.extra["turboismBuildMetadata"] as Map<*, *>
-    doLast { metadata.forEach { (key, value) -> println("$key=$value") } }
+    doLast {
+        metadata.forEach { (key, value) -> println("$key=$value") }
+        println("worktreeId=$resolvedWorktreeId")
+        println("worktreeIdError=${(rootProject.extra["turboismWorktreeIdError"] as String?).orEmpty()}")
+    }
 }
 allprojects {
     group = "dev.turboism"

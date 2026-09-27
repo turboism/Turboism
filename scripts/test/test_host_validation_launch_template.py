@@ -16,7 +16,8 @@ RUNNER = ROOT / "scripts/preview/run-cubism-host-validation.sh"
 
 
 class LaunchTemplateTest(unittest.TestCase):
-    def run_template(self, exit_code, graphics_device="inherit", ambient=None, *, focus=False):
+    def run_template(self, exit_code, graphics_device="inherit", ambient=None, *, focus=False,
+                     linux_environment_exports="", linux_environment_unsets=""):
         source = RUNNER.read_text()
         templates = re.findall(r'cat > "\$local_tmp/launch\.sh" <<SH\n.*?\nSH\n', source, re.S)
         self.assertEqual(1, len(templates), "expected the one production launch template")
@@ -39,7 +40,9 @@ class LaunchTemplateTest(unittest.TestCase):
                 + (f"deadline=time.monotonic()+3\nwhile not Path({str(focus_marker)!r}).exists() and time.monotonic()<deadline: time.sleep(0.01)\n" if focus else "")
                 + "print(json.dumps({'argv':sys.argv[1:], 'task':os.environ.get('TURBOISM_HOST_VALIDATION_TASK_DIR'), "
                 "'display':os.environ.get('DISPLAY'), 'offload':os.environ.get('__NV_PRIME_RENDER_OFFLOAD'), "
-                "'glxVendor':os.environ.get('__GLX_VENDOR_LIBRARY_NAME')}))\n"
+                "'glxVendor':os.environ.get('__GLX_VENDOR_LIBRARY_NAME'), "
+                "'mesaGlthread':os.environ.get('mesa_glthread'), "
+                "'galliumHudPeriod':os.environ.get('GALLIUM_HUD_PERIOD')}))\n"
                 "print('recorder stderr', file=sys.stderr)\n"
                 f"sys.exit({exit_code})\n"
             )
@@ -51,6 +54,8 @@ class LaunchTemplateTest(unittest.TestCase):
                 "graphics_device": graphics_device,
                 "prefix_dir": str(task / "prefix"), "proton_runner": str(base / "runner with spaces"),
                 "cmd_unix": str(task / "prefix/cmd.exe"), "win_launch": r"Z:\task with spaces\launch.bat",
+                "linux_environment_exports": linux_environment_exports,
+                "linux_environment_unsets": linux_environment_unsets,
             }
             generated = subprocess.run(["bash", "-c", templates[0]], env={**os.environ, **values},
                                        capture_output=True, text=True, timeout=10)
@@ -133,6 +138,24 @@ class LaunchTemplateTest(unittest.TestCase):
                                                 "__GLX_VENDOR_LIBRARY_NAME": "mesa"})
         self.assertEqual("0", record["offload"])
         self.assertEqual("mesa", record["glxVendor"])
+
+    def test_linux_debug_environment_exports_reach_the_wrapper(self):
+        record, _ = self.run_template(
+            0,
+            linux_environment_exports="export mesa_glthread=true\nexport GALLIUM_HUD_PERIOD=0.5\n",
+            ambient={"mesa_glthread": "false", "GALLIUM_HUD_PERIOD": "9"},
+        )
+        self.assertEqual("true", record["mesaGlthread"])
+        self.assertEqual("0.5", record["galliumHudPeriod"])
+
+    def test_undeclared_managed_names_are_unset_inside_the_job(self):
+        record, _ = self.run_template(
+            0,
+            linux_environment_unsets="unset mesa_glthread\nunset GALLIUM_HUD\nunset GALLIUM_HUD_PERIOD\n",
+            ambient={"mesa_glthread": "true", "GALLIUM_HUD_PERIOD": "0.5"},
+        )
+        self.assertIsNone(record["mesaGlthread"])
+        self.assertIsNone(record["galliumHudPeriod"])
 
 
 if __name__ == "__main__":

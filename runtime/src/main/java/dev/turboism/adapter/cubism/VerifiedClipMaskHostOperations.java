@@ -84,13 +84,18 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
     }
 
     @Override
+    public String contractVersion() {
+        return resolver.admittedCubismVersion();
+    }
+
+    @Override
     public String hostVersion() {
         return hostVersion;
     }
 
     @Override
     public boolean supportsClipMaskRead() {
-        return ClipMaskVerificationManifest.reviewedCubismVersions().contains(hostVersion);
+        return ClipMaskVerificationManifest.reviewedCubismVersions().contains(contractVersion());
     }
 
     @Override
