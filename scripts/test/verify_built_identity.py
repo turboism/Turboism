@@ -16,6 +16,10 @@ path=ROOT/'build/windows-installer/build-identity.json'
 path.write_text(json.dumps(receipt))
 class QALedger:
     def api(self,resource):
+        if resource.startswith('releases?'):
+            # The nightly note-context builder enumerates published releases;
+            # an empty list keeps the synthetic candidate on the first-nightly path.
+            return []
         assert resource == 'contents/entries/1-1.json?ref=build-ledger'
         return {'encoding':'base64','content':base64.b64encode(json.dumps(receipt).encode()).decode()}
 verified=verify_receipt(QALedger(),ROOT,path.parent,receipt['version'],receipt['sourceRevision'],'1',1)

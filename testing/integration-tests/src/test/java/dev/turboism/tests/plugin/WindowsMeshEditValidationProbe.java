@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -440,7 +441,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             context.cubism().model().active().drawables().all()
         ));
         SelectionAttempt attempt = new SelectionAttempt(
-            false, "none", target.displayName(), -1, -1, -1, -1, -1
+            false, "none", target.displayName(), -1, -1, -1, -1, -1, -1
         );
         final long selectionDeadline = System.nanoTime() + 30_000_000_000L;
         while (System.nanoTime() < selectionDeadline && !attempt.selected()) {
@@ -471,7 +472,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             ));
     }
 
-    private static SelectionAttempt selectTreePath(final String displayName) {
+    static SelectionAttempt selectTreePath(final String displayName) {
         final List<String> observed = new ArrayList<>();
         final List<JTree> candidates = new ArrayList<>();
         for (Window window : Window.getWindows()) {
@@ -505,6 +506,11 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             if (paths.size() != 1) {
                 if (paths.size() > 1) {
                     observed.add("ambiguous:" + describeTree(tree) + ":matches=" + paths.size());
+                } else {
+                    // A zero-match failure needs to show what the tree renders: the model's part
+                    // names and the rendered row labels are not guaranteed to be the same text.
+                    observed.add("no-match:" + describeTree(tree)
+                        + ":rendered=" + renderedLabels(tree));
                 }
                 continue;
             }
@@ -563,11 +569,12 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 screen.y,
                 focus.x,
                 focus.y,
-                tree.getRowForPath(path)
+                tree.getRowForPath(path),
+                clickBounds.height
             );
         }
         return new SelectionAttempt(
-            false, String.join("|", observed), displayName, -1, -1, -1, -1, -1
+            false, String.join("|", observed), displayName, -1, -1, -1, -1, -1, -1
         );
     }
 
@@ -598,7 +605,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         }
     }
 
-    private static JTree extractTree(final javax.swing.JTable table) {
+    static JTree extractTree(final javax.swing.JTable table) {
         for (Component child : table.getComponents()) {
             if (child instanceof JTree tree) return tree;
         }
@@ -697,6 +704,22 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return tree.getClass().getName() + " rows=" + tree.getRowCount();
     }
 
+    /** A bounded sample of the labels the tree actually renders, for diagnosing name mismatches. */
+    private static String renderedLabels(final JTree tree) {
+        final ArrayList<String> labels = new ArrayList<>();
+        final ArrayDeque<Object> pending = new ArrayDeque<>();
+        pending.add(tree.getModel().getRoot());
+        while (!pending.isEmpty() && labels.size() < 24) {
+            final Object node = pending.removeFirst();
+            labels.add(tree.convertValueToText(node, false, false, false, 0, false));
+            final int children = tree.getModel().getChildCount(node);
+            for (int index = 0; index < children && labels.size() + index < 48; index++) {
+                pending.addLast(tree.getModel().getChild(node, index));
+            }
+        }
+        return "[" + String.join(",", labels) + (pending.isEmpty() ? "" : ",…") + "]";
+    }
+
     private static <T> T onEdt(final Callable<T> call) throws Exception {
         if (SwingUtilities.isEventDispatchThread()) return call.call();
         final FutureTask<T> task = new FutureTask<>(call);
@@ -724,7 +747,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         int screenY,
         int focusX,
         int focusY,
-        int treeRow
+        int treeRow,
+        int rowHeight
     ) { }
 
     private void finishMeshEditIfActive(final List<String> report) throws Exception {

@@ -154,8 +154,11 @@ public record EditorUiProviderAdmission(
         return value;
     }
 
+    /** Whether a provider's evidence admitted it for production use. */
     public enum Status {
+        /** Not admitted: the provider may only run in safe mode. */
         SAFE_MODE,
+        /** Verified evidence admitted the provider for the connected host. */
         ADMITTED
     }
 

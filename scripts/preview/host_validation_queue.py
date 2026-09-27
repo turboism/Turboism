@@ -21,6 +21,7 @@ import uuid
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import multiprocessing
 import select
@@ -47,6 +48,10 @@ _READ_LOCK_MESSAGES = frozenset({
 
 class QueueError(RuntimeError):
     """A rejected operation; never permission to bypass admission."""
+
+
+class QueueBusy(QueueError):
+    """Temporary ownership contention; callers may report skipped or wait."""
 
 
 class NoHostSideEffects(QueueError):
@@ -130,7 +135,7 @@ class FileLock:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as failure:
             os.close(fd)
-            raise QueueError(f"already owned: {self.path.name}") from failure
+            raise QueueBusy(f"already owned: {self.path.name}") from failure
         self.fd = fd
         return self
 
@@ -147,8 +152,26 @@ class FileLock:
         self.close()
 
 
+@contextlib.contextmanager
+def storage_lock(root: Path, *, exclusive: bool = False) -> Iterator[None]:
+    """Readers prepare/submit concurrently; collection needs an idle storage domain."""
+    fd = os.open(root / "storage.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise QueueError("unsafe storage lock")
+        try:
+            fcntl.flock(fd, (fcntl.LOCK_EX | fcntl.LOCK_NB) if exclusive else fcntl.LOCK_SH)
+        except BlockingIOError as failure:
+            raise QueueBusy("storage is busy preparing/submitting/collecting") from failure
+        yield
+    finally:
+        os.close(fd)
+
+
 class Store:
     def __init__(self, root: Path | None = None):
+        self.production = root is None or root.absolute() == account_root()
         self.root = private_directory(account_root() if root is None else root)
         for child in ("prepared", "jobs", "staging"):
             private_directory(self.root / child)
@@ -160,6 +183,10 @@ class Store:
         with self.connection() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript("""
+                CREATE TABLE IF NOT EXISTS retention_objects(
+                    kind TEXT NOT NULL, object_id TEXT NOT NULL, created_at REAL NOT NULL,
+                    pin TEXT NOT NULL DEFAULT '', retired INTEGER NOT NULL DEFAULT 0,
+                    metadata TEXT NOT NULL DEFAULT '{}', PRIMARY KEY(kind,object_id));
                 CREATE TABLE IF NOT EXISTS metadata(version INTEGER NOT NULL);
                 INSERT INTO metadata SELECT 1 WHERE NOT EXISTS(SELECT 1 FROM metadata);
                 CREATE TABLE IF NOT EXISTS jobs(
@@ -215,20 +242,32 @@ class Store:
             raise QueueError("request id must contain 1..128 non-NUL characters")
         if type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 86400:
             raise QueueError("timeout must be an integer in 1..86400 seconds")
-        now = time.time()
-        with self.transaction() as db:
-            existing = db.execute("SELECT * FROM jobs WHERE request_key=?", (request_key,)).fetchone()
-            if existing:
-                if (existing["prepared_id"], existing["digest"], existing["timeout_seconds"]) != (
-                        prepared_id, digest, timeout_seconds):
-                    raise QueueError("idempotency key conflicts with different inputs")
-                return dict(existing)
-            job = str(uuid.uuid4())
-            db.execute("""INSERT INTO jobs(job_id,request_key,prepared_id,digest,timeout_seconds,
-                       state,created_at,updated_at) VALUES(?,?,?,?,?,'queued',?,?)""",
-                       (job, request_key, prepared_id, digest, timeout_seconds, now, now))
-            self.event(db, job, "queued", preparedId=prepared_id)
-            return dict(db.execute("SELECT * FROM jobs WHERE job_id=?", (job,)).fetchone())
+        with storage_lock(self.root):
+            with self.connection() as db:
+                prior = db.execute("SELECT 1 FROM jobs WHERE request_key=?", (request_key,)).fetchone()
+                retained = db.execute("SELECT retired FROM retention_objects WHERE kind='prepared' AND object_id=?",
+                                      (prepared_id,)).fetchone()
+            if retained is not None and prior is None:
+                if retained["retired"] or (self.root / "retention-prepared" / (prepared_id + ".json")).exists():
+                    raise QueueError("prepared input retired; prepare it again before a new submission")
+                # Storage ownership prevents GC here. Do not hold a SQLite write
+                # transaction while hashing large inputs and delay host completion.
+                PreparedStore(self).load(prepared_id)
+            now = time.time()
+            with self.transaction() as db:
+                existing = db.execute("SELECT * FROM jobs WHERE request_key=?", (request_key,)).fetchone()
+                if existing:
+                    if (existing["prepared_id"], existing["digest"], existing["timeout_seconds"]) != (
+                            prepared_id, digest, timeout_seconds):
+                        raise QueueError("idempotency key conflicts with different inputs")
+                    return dict(existing)
+                job = str(uuid.uuid4())
+                db.execute("INSERT INTO retention_objects(kind,object_id,created_at) VALUES('job',?,?)", (job, now))
+                db.execute("""INSERT INTO jobs(job_id,request_key,prepared_id,digest,timeout_seconds,
+                           state,created_at,updated_at) VALUES(?,?,?,?,?,'queued',?,?)""",
+                           (job, request_key, prepared_id, digest, timeout_seconds, now, now))
+                self.event(db, job, "queued", preparedId=prepared_id)
+                return dict(db.execute("SELECT * FROM jobs WHERE job_id=?", (job,)).fetchone())
 
     def jobs(self, job_id: str | None = None) -> list[dict[str, Any]]:
         with self.connection() as db:
@@ -239,6 +278,18 @@ class Store:
                 if not rows:
                     raise QueueError("unknown job id")
             return [dict(row) for row in rows]
+
+    def jobs_retry(self, job_id: str, attempts: int = 6) -> list[dict[str, Any]]:
+        """Supervisor diagnostic read that tolerates transient WAL lock
+        contention. The read is idempotent; a persistent lock still raises so
+        callers fail closed rather than fabricate a verdict."""
+        for attempt in range(attempts):
+            try:
+                return self.jobs(job_id)
+            except sqlite3.OperationalError as failure:
+                if "locked" not in str(failure) or attempt == attempts - 1:
+                    raise
+                time.sleep(min(30.0, 5.0 * (attempt + 1)))
 
     def host(self) -> dict[str, Any]:
         with self.connection() as db:
@@ -340,6 +391,18 @@ class Store:
             db.execute("UPDATE jobs SET state=?,evidence_json=?,updated_at=? WHERE job_id=?",
                        (state, canonical_json(evidence), time.time(), job_id))
             db.execute("UPDATE host SET state='idle',job_id=NULL,reason='' WHERE singleton=1 AND job_id=?", (job_id,))
+            details = evidence.get("details")
+            task_dir = details.get("taskDir") if isinstance(details, dict) else None
+            if task_dir:
+                task = Path(task_dir)
+                if task.is_dir() and not task.is_symlink():
+                    info = task.stat()
+                    retained = db.execute("SELECT metadata FROM retention_objects WHERE kind='job' AND object_id=?", (job_id,)).fetchone()
+                    if retained is not None:
+                        metadata = json.loads(retained["metadata"])
+                        metadata.update(taskDir=str(task), taskIdentity=[info.st_dev, info.st_ino])
+                        db.execute("UPDATE retention_objects SET metadata=? WHERE kind='job' AND object_id=?",
+                                   (canonical_json(metadata), job_id))
             self.event(db, job_id, state, evidence=evidence)
 
     def events(self, after: int = 0, job_id: str | None = None) -> list[dict[str, Any]]:
@@ -407,15 +470,15 @@ INPUT_FLAGS = frozenset({"--bundle-root", "--agent", "--home-config", "--fixture
     "--remote-pre-cleanup"})
 COMPOSITE_FLAGS = frozenset({"--plugin", "--aux-agent", "--home-file", "--home-dir", "--client-script"})
 BOOLEAN_FLAGS = frozenset({"--require-fixture-unchanged", "--keep-prefix",
-    "--remote-pre-launch-background", "--remote-pre-launch-args-only"})
+    "--remote-pre-launch-background", "--remote-pre-launch-args-only", "--focus-editor-window"})
 VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-name",
     "--result-marker", "--result-file", "--result-pass-line", "--result-fail-line",
     "--ready-marker", "--failure-marker", "--trigger", "--jvm-option", "--windows-env",
     "--cubism-java", "--cubism-java-console-marker", "--run-label", "--agent-timeout",
     "--agent-host-class", "--ready-timeout", "--result-timeout", "--exit-timeout",
     "--poll-seconds", "--golden-prefix", "--host-root", "--remote-root", "--display",
-    "--proton-wrapper", "--proton-runner", "--local-evidence-dir", "--transport",
-    "--remote-pre-launch-arg"})
+    "--proton-wrapper", "--proton-runner", "--graphics-device", "--local-evidence-dir", "--transport",
+    "--remote-pre-launch-arg", "--aux-agent-before-main", "--client-python"})
 
 # Reviewed pre-launch hook inventory: hook file name -> (protocol flags the
 # invocation must carry, error description). Each entry is an explicit review of
@@ -436,6 +499,20 @@ REVIEWED_PRE_LAUNCH_HOOKS = {
     "external-psd-edit-psd-association-pre-launch.sh": (
         frozenset(),
         "external-psd-edit association hook needs no extra flags",
+    ),
+    # The restart-phase hook copies restart-state/ into state/ and rebinds
+    # stagedJar inside pending.json; the staged plugin-management state must
+    # arrive as a declared --home-dir input, so the flag is part of the
+    # reviewed protocol.
+    "plugin-management-restart-remote-pre-launch.sh": (
+        frozenset({"--home-dir"}),
+        "plugin-management restart hook requires the staged state via --home-dir",
+    ),
+    # Read-only native history pointer collector; the task-id argument lets the
+    # hook bind its evidence file to the queue task identity.
+    "history-pointer-observer.py": (
+        frozenset({"--remote-pre-launch-background", "--remote-pre-launch-args-only", "--task-id"}),
+        "pointer hook requires its reviewed background/args-only task-id protocol",
     ),
 }
 
@@ -569,12 +646,143 @@ def copy_verified(source: Path, destination: Path) -> None:
                 os.fsync(stream.fileno())
 
 
+def memory_observer_dependency(argv: list[str], source_root: Path, task_spec: str) -> dict[str, str] | None:
+    """One reviewed closure, not a general custom-hook registration mechanism."""
+    options: dict[str, list[str]] = {}
+    index = 0
+    while index < len(argv):
+        flag = argv[index]
+        if flag in BOOLEAN_FLAGS:
+            options.setdefault(flag, []).append("")
+            index += 1
+        elif flag in INPUT_FLAGS | COMPOSITE_FLAGS | VALUE_FLAGS and index + 1 < len(argv):
+            options.setdefault(flag, []).append(argv[index + 1])
+            index += 2
+        else:
+            raise QueueError(f"unsupported normalized runner option: {flag}")
+    hook = str(source_root / "scripts/test/start-task-memory-observer.sh")
+    if hook not in options.get("--remote-pre-launch", []):
+        return None
+    required = {"--remote-pre-launch": [hook], "--name": ["native-resource"],
+                "--version": ["5302"], "--remote-pre-launch-background": [""]}
+    if task_spec != "native-resource:5302" or any(options.get(key) != value for key, value in required.items()):
+        raise QueueError("memory observer requires its reviewed task/background protocol")
+    if any(key in options for key in ("--remote-pre-launch-args-only", "--remote-post-launch",
+                                      "--remote-pre-cleanup", "--client-script", "--home-dir")):
+        raise QueueError("memory observer closure cannot include extra hooks or shadow directories")
+    helpers = ("measure-task-memory.py", "host_memory_identity.py", "host_resource_counters.py")
+    expected = {str(source_root / "scripts/test" / name) + ":validation/" + name for name in helpers}
+    supplied = options.get("--home-file", [])
+    if len(supplied) != len(expected) or set(supplied) != expected:
+        raise QueueError("memory observer requires exact unshadowed helper dependency inventory")
+    interpreter = Path(sys.executable).resolve(strict=True)
+    if (options.get("--remote-pre-launch-arg") != [str(interpreter)]
+            or not interpreter.is_file() or not os.access(interpreter, os.X_OK)):
+        raise QueueError("memory observer requires the preparing Python interpreter")
+    return {"option": "memory-observer-python", "path": str(interpreter),
+            "sha256": runtime_digest(interpreter)}
+
+
+def mcp_client_dependency(argv: list[str], source_root: Path, task_spec: str) -> dict[str, str] | None:
+    """Admit only the reviewed MCP stdlib client, never arbitrary client scripts."""
+    options: dict[str, list[str]] = {}
+    index = 0
+    while index < len(argv):
+        flag = argv[index]
+        if flag in BOOLEAN_FLAGS:
+            options.setdefault(flag, []).append("")
+            index += 1
+        elif flag in INPUT_FLAGS | COMPOSITE_FLAGS | VALUE_FLAGS and index + 1 < len(argv):
+            options.setdefault(flag, []).append(argv[index + 1])
+            index += 2
+        else:
+            raise QueueError(f"unsupported normalized runner option: {flag}")
+    if not task_spec.startswith("mcp:") and options.get("--name") != ["mcp"]:
+        # Another task family; its own reviewer decides whether its client is
+        # admitted. A client flag with no claiming reviewer is still rejected
+        # downstream in _capture.
+        return None
+    versions = options.get("--version", [])
+    if (options.get("--name") != ["mcp"] or len(versions) != 1
+            or versions[0] not in {"5203", "5302", "5303"}
+            or task_spec not in {"direct-runner", "mcp:" + versions[0]}):
+        raise QueueError("custom client requires reviewed dependency inventory for the exact MCP task")
+    client = source_root / "scripts/preview/mcp-host-validation-client.py"
+    expected = {
+        "--client-script": [str(client) + ":mcp-host-validation-client.py"],
+        "--result-file": ["state/mcp-host-validation.properties"],
+        "--require-fixture-unchanged": [""],
+    }
+    if any(options.get(flag) != values for flag, values in expected.items()):
+        raise QueueError("MCP client requires exact unshadowed dependency inventory and result protocol")
+    if any(flag in options for flag in ("--remote-pre-launch", "--remote-post-launch",
+            "--remote-pre-cleanup", "--remote-pre-launch-background", "--remote-pre-launch-args-only",
+            "--focus-editor-window")):
+        raise QueueError("MCP client dependency inventory cannot include extra hooks or desktop focus control")
+    interpreter = Path(sys.executable).resolve(strict=True)
+    if (options.get("--client-python") != [str(interpreter)]
+            or not interpreter.is_file() or not os.access(interpreter, os.X_OK)):
+        raise QueueError("MCP client requires the preparing Python interpreter")
+    return {"option": "mcp-client-python", "path": str(interpreter),
+            "sha256": runtime_digest(interpreter)}
+
+
+def edit_protocol_client_dependency(argv: list[str], source_root: Path, task_spec: str) -> dict[str, str] | None:
+    """Admit only the reviewed edit-protocol stdlib WebSocket client."""
+    options: dict[str, list[str]] = {}
+    index = 0
+    while index < len(argv):
+        flag = argv[index]
+        if flag in BOOLEAN_FLAGS:
+            options.setdefault(flag, []).append("")
+            index += 1
+        elif flag in INPUT_FLAGS | COMPOSITE_FLAGS | VALUE_FLAGS and index + 1 < len(argv):
+            options.setdefault(flag, []).append(argv[index + 1])
+            index += 2
+        else:
+            raise QueueError(f"unsupported normalized runner option: {flag}")
+    if not task_spec.startswith("edit-protocol:") and options.get("--name") != ["edit-protocol"]:
+        return None
+    versions = options.get("--version", [])
+    if (options.get("--name") != ["edit-protocol"] or len(versions) != 1
+            or versions[0] not in {"5203", "5302", "5303"}
+            or task_spec not in {"direct-runner", "edit-protocol:" + versions[0]}):
+        raise QueueError("custom client requires reviewed dependency inventory for the exact edit-protocol task")
+    client = (source_root / "validation/protocol-edit-compat-host-probe"
+              / "client/protocol_edit_host_probe.py")
+    expected = {
+        "--client-script": [str(client) + ":protocol-edit-host-probe.py"],
+        "--result-file": ["state/edit-protocol-host-validation-result.properties"],
+        "--require-fixture-unchanged": [""],
+    }
+    if any(options.get(flag) != values for flag, values in expected.items()):
+        raise QueueError("edit-protocol client requires exact unshadowed dependency inventory and result protocol")
+    if any(flag in options for flag in ("--remote-pre-launch", "--remote-post-launch",
+            "--remote-pre-cleanup", "--remote-pre-launch-background", "--remote-pre-launch-args-only",
+            "--focus-editor-window")):
+        raise QueueError("edit-protocol client dependency inventory cannot include extra hooks or desktop focus control")
+    interpreter = Path(sys.executable).resolve(strict=True)
+    if (options.get("--client-python") != [str(interpreter)]
+            or not interpreter.is_file() or not os.access(interpreter, os.X_OK)):
+        raise QueueError("edit-protocol client requires the preparing Python interpreter")
+    return {"option": "edit-protocol-client-python", "path": str(interpreter),
+            "sha256": runtime_digest(interpreter)}
+
+
 class PreparedStore:
     def __init__(self, store: Store):
         self.store = store
 
     def capture(self, request: dict[str, Any], source_root: Path,
                 task_spec: str) -> dict[str, Any]:
+        from host_validation_retention import check_space
+        if self.store.production:
+            check_space(self.store.root)
+        with storage_lock(self.store.root):
+            return self._capture(request, source_root, task_spec)
+
+    def _capture(self, request: dict[str, Any], source_root: Path,
+                 task_spec: str) -> dict[str, Any]:
         argv = request.get("argv")
         if request.get("schemaVersion") != SCHEMA or not isinstance(argv, list) or not argv:
             raise QueueError("invalid normalized runner request")
@@ -584,8 +792,18 @@ class PreparedStore:
         if request.get("environment", {}) != {}:
             raise QueueError("normalized runner must express all configuration as argv")
         source_root = source_root.resolve(strict=True)
+        memory_dependency = memory_observer_dependency(argv, source_root, task_spec)
+        mcp_dependency = mcp_client_dependency(argv, source_root, task_spec)
+        edit_protocol_dependency = edit_protocol_client_dependency(argv, source_root, task_spec)
+        if self.store.production and "--host-root" in argv:
+            from host_validation_retention import check_space
+            check_space(self.store.root, (Path(argv[argv.index("--host-root") + 1]),))
         with tempfile.TemporaryDirectory(dir=self.store.root / "staging") as temporary:
             stage = Path(temporary)
+            with self.store.transaction() as db:
+                db.execute("INSERT INTO retention_objects(kind,object_id,created_at,metadata) VALUES('staging',?,?,?)",
+                           (stage.name, time.time(), canonical_json({"owner": process_identity(os.getpid()),
+                            "device": stage.stat().st_dev, "inode": stage.stat().st_ino})))
             tool_dir = stage / "tool/scripts/preview"
             tool_dir.mkdir(mode=0o700, parents=True)
             for path in sorted((source_root / "scripts/preview").iterdir()):
@@ -598,7 +816,10 @@ class PreparedStore:
                     raise QueueError(f"missing canonical runner/helper: {required}")
             rendered: list[str] = []
             source_inputs: list[dict[str, Any]] = []
-            host_dependencies: list[dict[str, str]] = []
+            host_dependencies: list[dict[str, str]] = [
+                item for item in (memory_dependency, mcp_dependency, edit_protocol_dependency)
+                if item is not None
+            ]
             index = 0
             while index < len(argv):
                 flag = argv[index]
@@ -612,7 +833,10 @@ class PreparedStore:
                 index += 2
                 if flag == "--transport" and value != "local":
                     raise QueueError("only local host execution is supported")
-                if flag == "--client-script":
+                if flag == "--graphics-device" and value not in {"inherit", "nvidia"}:
+                    raise QueueError("graphics device must be inherit or nvidia")
+                if flag in ("--client-script", "--client-python") \
+                        and mcp_dependency is None and edit_protocol_dependency is None:
                     raise QueueError("custom client requires reviewed dependency inventory")
                 if flag in {"--proton-wrapper", "--proton-runner"}:
                     dependency = Path(value)
@@ -633,16 +857,24 @@ class PreparedStore:
                     # Only enumerated hooks have a reviewed dependency closure.
                     # A script's location in scripts/preview is not an approval.
                     if flag in {"--remote-pre-launch", "--remote-post-launch", "--remote-pre-cleanup"}:
-                        reviewed = (REVIEWED_PRE_LAUNCH_HOOKS.get(source.name)
-                                    if flag == "--remote-pre-launch"
-                                    and source.parent == source_root / "scripts/preview" else None)
+                        # The memory observer's full closure is checked by
+                        # memory_dependency() before any snapshot is created.
+                        memory_hook = (
+                            flag == "--remote-pre-launch"
+                            and memory_dependency is not None
+                            and source == source_root / "scripts/test/start-task-memory-observer.sh"
+                        )
+                        # 025 external-edit RSS observer is a reviewed post-launch hook.
                         rss_hook = (flag == "--remote-post-launch"
                                     and source == source_root / EXTERNAL_PSD_RSS_HOOK)
                         if rss_hook:
                             require_external_psd_rss_protocol(argv)
-                        elif reviewed is None:
-                            raise QueueError("custom hook requires reviewed dependency inventory")
-                        else:
+                        elif not memory_hook:
+                            reviewed = (REVIEWED_PRE_LAUNCH_HOOKS.get(source.name)
+                                        if flag == "--remote-pre-launch"
+                                        and source.parent == source_root / "scripts/preview" else None)
+                            if reviewed is None:
+                                raise QueueError("custom hook requires reviewed dependency inventory")
                             required_flags, description = reviewed
                             if not required_flags.issubset(argv):
                                 raise QueueError(description)
@@ -684,6 +916,16 @@ class PreparedStore:
             for path in destination.rglob("*"):
                 if path.is_file():
                     path.chmod(path.stat().st_mode & 0o500)
+            with self.store.transaction() as db:
+                db.execute("""INSERT INTO retention_objects(kind,object_id,created_at,metadata)
+                           VALUES('prepared',?,?,?) ON CONFLICT(kind,object_id) DO UPDATE SET
+                           retired=0,created_at=excluded.created_at,metadata=excluded.metadata""",
+                           (digest, time.time(), canonical_json({"device": destination.stat().st_dev,
+                            "inode": destination.stat().st_ino})))
+                db.execute("DELETE FROM retention_objects WHERE kind='staging' AND object_id=?", (stage.name,))
+            retirement = self.store.root / "retention-prepared" / (digest + ".json")
+            if retirement.exists():
+                retirement.unlink()  # Explicit verified re-prepare revives this input.
             # TemporaryDirectory cleanup tolerates a moved directory.
             return self.load(digest)
 
@@ -790,6 +1032,13 @@ class RunnerBackend:
             "TURBOISM_QUEUE_SUPERVISOR_PID": str(os.getpid()), "PYTHONDONTWRITEBYTECODE": "1"})
         prepared = PreparedStore(store)
         descriptor = prepared.load(job["prepared_id"])
+        from host_validation_retention import check_space
+        argv = descriptor["argv"]
+        host_root = Path(argv[argv.index("--host-root") + 1])
+        try:
+            check_space(store.root, (host_root,))
+        except QueueError as failure:
+            raise NoHostSideEffects(str(failure)) from failure
         if descriptor["digest"] != job["digest"]:
             raise QueueError("job and prepared digest mismatch")
         prepared_root = store.root / "prepared" / job["prepared_id"]
@@ -818,7 +1067,7 @@ class RunnerBackend:
                             "supervisor": process_identity(os.getpid()), "runner": identity,
                         })
                         heartbeat_at = now + 5.0  # Diagnostics, never an expiring safety lease.
-                    cancel = store.jobs(job["job_id"])[0]["cancel_requested"]
+                    cancel = store.jobs_retry(job["job_id"])[0]["cancel_requested"]
                     if requested is None and (cancel or now >= deadline):
                         requested = "cancelled" if cancel else "timed_out"
                         cleanup_started = now
@@ -847,7 +1096,7 @@ class RunnerBackend:
                 preliminary = json.loads(path.read_text()) if path.is_file() else None
                 if preliminary is not None and not isinstance(preliminary, dict):
                     raise QueueError("lifecycle evidence must be an object")
-                if requested is None and store.jobs(job["job_id"])[0]["cancel_requested"]:
+                if requested is None and store.jobs_retry(job["job_id"])[0]["cancel_requested"]:
                     requested = "cancelled"
                 return finalizer.finalize(job, descriptor, prepared_root, directory, preliminary,
                                           proof, process.returncode, requested)
@@ -872,7 +1121,7 @@ def supervised_attempt(root: Path, job: dict[str, Any], backend: Any, admission_
         child_socket.sendall(canonical_json(process_identity(os.getpid())).encode())
         if child_socket.recv(1) != b"A":
             return
-        if store.jobs(job["job_id"])[0]["cancel_requested"]:
+        if store.jobs_retry(job["job_id"])[0]["cancel_requested"]:
             evidence = {"schemaVersion": 1, "jobId": job["job_id"], "attemptId": job["attempt_id"],
                 "runId": job["run_id"], "preparedDigest": job["digest"],
                 "cleanup": "safe", "validationStatus": "UNKNOWN", "terminalState": "cancelled",
@@ -947,7 +1196,21 @@ class Worker:
                         if self.store.host()["state"] in {"idle", "external-busy"}:
                             self.store.external_busy(self.backend.busy())
                         if self.store.host()["state"] == "idle":
-                            with FileLock(self.store.root / "admission.lock") as admission:
+                            admission = FileLock(self.store.root / "admission.lock")
+                            try:
+                                admission.acquire()
+                            except QueueBusy:
+                                # An idle-window collector owns admission. Do not stop the worker.
+                                time.sleep(0.2)
+                                continue
+                            with contextlib.closing(admission):
+                                if self.store.production:
+                                    from host_validation_retention import check_space
+                                    try:
+                                        check_space(self.store.root)
+                                    except QueueError:
+                                        time.sleep(1)
+                                        continue
                                 job = self.store.claim()
                                 if job is not None:
                                     self.execute(job, admission.fd, worker_lock.fd, listener)
@@ -1073,7 +1336,8 @@ def validate_admission() -> dict[str, Any]:
         raise QueueError("missing or invalid worker admission") from failure
 
 
-def durable_outcome(store: Store, job: dict[str, Any]) -> dict[str, Any]:
+def durable_outcome(store: Store, job: dict[str, Any],
+                    allow_containment_recovery: bool = False) -> dict[str, Any]:
     """Consume a final durable verdict; never synthesize one from preliminary flags."""
     directory = store.root / "jobs" / job["job_id"]
     outcome_path = directory / "outcome.json"
@@ -1092,6 +1356,10 @@ def durable_outcome(store: Store, job: dict[str, Any]) -> dict[str, Any]:
         if outcome != final:
             raise QueueError("outcome conflicts with or lacks final lifecycle")
     if not isinstance(final, dict) or final.get("finalizedBy") != "contained-supervisor":
+        if allow_containment_recovery:
+            recovered = containment_failure_outcome(store, job, directory)
+            if recovered is not None:
+                return recovered
         raise QueueError("no durable final supervisor verdict")
     store.validate_completion(job, final["terminalState"], final)
     proof = final.get("containment")
@@ -1130,6 +1398,62 @@ def durable_outcome(store: Store, job: dict[str, Any]) -> dict[str, Any]:
             raise QueueError("final terminal result was not verified after containment")
     return final
 
+
+def containment_failure_outcome(store: Store, job: dict[str, Any],
+                                directory: Path) -> dict[str, Any] | None:
+    """Recover a `failed` outcome when the supervisor died after proving kernel
+    cleanup but before writing its verdict (outcome.json / lifecycle-result.json).
+
+    containment.json is itself durable supervisor evidence, written by
+    ContainedProcess.finish only after the bound scope is confirmed empty. It is
+    consumed here only when it is complete, identity-matched to this exact
+    attempt, kernel-proven, and the recorded runner identity is dead. The result
+    can never claim success: it always carries terminalState "failed".
+    """
+    path = directory / "containment.json"
+    if not path.is_file():
+        return None
+    record = json.loads(path.read_text())
+    if not isinstance(record, dict):
+        return None
+    expected = {"jobId": job["job_id"], "attemptId": job["attempt_id"],
+                "runId": job["run_id"], "preparedDigest": job["digest"]}
+    if (type(record.get("schemaVersion")) is not int or record["schemaVersion"] != SCHEMA
+            or any(record.get(key) != value for key, value in expected.items())
+            or record.get("state") != "FINISHED" or record.get("cleanup") != "safe"):
+        return None
+    kernel = record.get("kernelProof")
+    if (not isinstance(kernel, dict)
+            or kernel.get("originalCgroupBound") is not True
+            or kernel.get("errors") != []):
+        return None
+    for key in ("bootId", "cgroupPath", "cgroupDevice", "cgroupInode"):
+        if kernel.get(key) != record.get(key):
+            return None
+    reading = kernel.get("finalReading", {})
+    if not (isinstance(reading, dict)
+            and (reading.get("kind") == "destroyed"
+                 or (reading.get("kind") == "same"
+                     and type(reading.get("populated")) is int and reading["populated"] == 0))):
+        return None
+    runner_identity_path = directory / "runner-identity.json"
+    if not runner_identity_path.is_file():
+        return None
+    runner_identity = json.loads(runner_identity_path.read_text())
+    entry = record.get("entryIdentity")
+    if (not isinstance(entry, dict)
+            or runner_identity != scope_identity(entry)
+            or identity_alive(runner_identity)):
+        return None
+    outcome = {"schemaVersion": 1, **expected, "cleanup": "safe",
+               "terminalState": "failed", "validationStatus": "UNKNOWN",
+               "normalExit": False,
+               "reason": "supervisor verdict absent; bound-scope containment proven safe",
+               "containment": record}
+    store.validate_completion(job, outcome["terminalState"], outcome)
+    return outcome
+
+
 def recover(store: Store, job_id: str, reason: str | None = None) -> dict[str, Any]:
     job = store.jobs(job_id)[0]
     report: dict[str, Any] = {"safe": False, "jobId": job_id, "state": job["state"]}
@@ -1146,7 +1470,7 @@ def recover(store: Store, job_id: str, reason: str | None = None) -> dict[str, A
             raise QueueError("recorded runner is still active")
         if external_sessions():
             raise QueueError("host contains active external/unknown Cubism sessions")
-        evidence = durable_outcome(store, job)
+        evidence = durable_outcome(store, job, allow_containment_recovery=True)
         # Inspection and confirmation apply exactly the same evidence rules.
         store.validate_completion(job, evidence["terminalState"], evidence)
         report.update(safe=True, evidence=evidence)

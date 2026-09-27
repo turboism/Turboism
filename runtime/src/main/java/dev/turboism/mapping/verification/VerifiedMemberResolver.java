@@ -14,11 +14,20 @@ import java.util.function.Function;
 /** Runtime reflection gateway restricted to exact aliases in a verified access plan. */
 public final class VerifiedMemberResolver {
 
+    /** {@code ACC_FINAL} — not a {@link StaticSelector} constant because no read needs it. */
+    private static final int ACC_FINAL = 0x0010;
+
     private final VerifiedAccessPlan accessPlan;
     private final ClassLoader hostClassLoader;
     // The immutable access plan and defining loader belong to this resolver's lifetime.
     // Do not make this process-global: provider replacement must release cached host members.
     private final java.util.concurrent.ConcurrentMap<String, Method> invocationMethods =
+        new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentMap<String, Field> invocationFields =
+        new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentMap<String, Constructor<?>> invocationConstructors =
+        new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentMap<String, Class<?>> ownerClasses =
         new java.util.concurrent.ConcurrentHashMap<>();
 
     VerifiedMemberResolver(
@@ -152,31 +161,14 @@ public final class VerifiedMemberResolver {
             throw resolutionFailure(alias, "Verified alias is not a static field.");
         }
         try {
-            final Class<?> owner = Class.forName(
-                selector.ownerInternalName().replace('/', '.'),
-                false,
-                hostClassLoader
-            );
-            if (owner.getClassLoader() != hostClassLoader) {
-                throw resolutionFailure(
-                    alias,
-                    "Verified host classloader attestation no longer matches."
-                );
-            }
-            final Class<?> fieldType = MethodType.fromMethodDescriptorString(
-                "()" + selector.descriptor(),
-                hostClassLoader
-            ).returnType();
-            final Field field = owner.getDeclaredField(selector.memberName());
-            if (!field.getDeclaringClass().equals(owner)
-                || !field.getType().equals(fieldType)
-                || !matchesAccess(field.getModifiers(), selector)) {
-                throw resolutionFailure(alias, "Verified host field no longer matches.");
+            final Field field = resolveField(selector);
+            if (!field.canAccess(null) && !field.trySetAccessible()) {
+                throw resolutionFailure(alias, "Verified host field is not accessible.");
             }
             return field.get(null);
         } catch (VerifiedAccessException exception) {
             throw exception;
-        } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException
+        } catch (IllegalAccessException
                  | IllegalArgumentException | LinkageError | SecurityException exception) {
             throw resolutionFailure(alias, "Verified host field resolution failed safely.");
         }
@@ -194,26 +186,7 @@ public final class VerifiedMemberResolver {
     public Object construct(final String alias, final Object... arguments) {
         final StaticSelector selector = constructorSelector(alias);
         try {
-            final Class<?> owner = Class.forName(
-                selector.ownerInternalName().replace('/', '.'),
-                false,
-                hostClassLoader
-            );
-            if (owner.getClassLoader() != hostClassLoader) {
-                throw resolutionFailure(alias, "Verified host classloader attestation no longer matches.");
-            }
-            final MethodType type = MethodType.fromMethodDescriptorString(
-                selector.descriptor(),
-                hostClassLoader
-            );
-            if (!type.returnType().equals(void.class)) {
-                throw resolutionFailure(alias, "Verified constructor descriptor must return void.");
-            }
-            final Constructor<?> constructor = owner.getDeclaredConstructor(type.parameterArray());
-            if (!constructor.getDeclaringClass().equals(owner)
-                || !matchesAccess(constructor.getModifiers(), selector)) {
-                throw resolutionFailure(alias, "Verified host constructor no longer matches.");
-            }
+            final Constructor<?> constructor = resolveConstructor(selector);
             if (!constructor.canAccess(null)) {
                 final int constructorModifiers = constructor.getModifiers();
                 final boolean packagePrivateConstructor = !Modifier.isPublic(constructorModifiers)
@@ -232,7 +205,7 @@ public final class VerifiedMemberResolver {
                 "Verified host constructor execution failed safely.",
                 exception.getCause()
             );
-        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException
+        } catch (InstantiationException
                  | IllegalAccessException | IllegalArgumentException | LinkageError
                  | SecurityException exception) {
             throw resolutionFailure(alias, "Verified host constructor resolution failed safely.");
@@ -249,6 +222,47 @@ public final class VerifiedMemberResolver {
             throw resolutionFailure(alias, "Verified instance field target is unavailable.");
         }
         try {
+            final Field field = resolveField(selector);
+            if (!field.canAccess(target) && !field.trySetAccessible()) {
+                throw resolutionFailure(alias, "Verified host field is not accessible.");
+            }
+            return field.get(target);
+        } catch (VerifiedAccessException exception) {
+            throw exception;
+        } catch (IllegalAccessException
+                 | IllegalArgumentException | LinkageError | SecurityException exception) {
+            throw resolutionFailure(alias, "Verified host field resolution failed safely.");
+        }
+    }
+
+    /**
+     * Writes a verified instance field on the given target object.
+     *
+     * <p>Field writes are restricted to members the record pins as non-static and
+     * non-final: the selector's forbidden flags must exclude {@code static} and
+     * {@code final}, so a field that became immutable since review fails closed
+     * before any write is attempted.</p>
+     *
+     * @param alias the verified field alias
+     * @param target the instance to write on
+     * @param value the new field value
+     * @throws VerifiedAccessException when the alias is unknown, is not an instance
+     *     field, is pinned static/final, or the write fails
+     */
+    public void writeField(final String alias, final Object target, final Object value) {
+        final StaticSelector selector = fieldSelector(alias);
+        if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) != 0) {
+            throw resolutionFailure(alias, "Verified alias is not an instance field.");
+        }
+        if ((selector.forbiddenAccessFlags()
+                & (StaticSelector.ACCESS_STATIC | ACC_FINAL)) != (StaticSelector.ACCESS_STATIC | ACC_FINAL)) {
+            throw resolutionFailure(
+                alias, "Verified instance field is not pinned writable.");
+        }
+        if (target == null) {
+            throw resolutionFailure(alias, "Verified instance field target is unavailable.");
+        }
+        try {
             final Class<?> owner = Class.forName(
                 selector.ownerInternalName().replace('/', '.'),
                 false,
@@ -260,6 +274,10 @@ public final class VerifiedMemberResolver {
                     "Verified host classloader attestation no longer matches."
                 );
             }
+            if (!owner.isInstance(target)) {
+                throw resolutionFailure(
+                    alias, "Verified instance field target type does not match.");
+            }
             final Class<?> fieldType = MethodType.fromMethodDescriptorString(
                 "()" + selector.descriptor(),
                 hostClassLoader
@@ -270,10 +288,13 @@ public final class VerifiedMemberResolver {
                 || !matchesAccess(field.getModifiers(), selector)) {
                 throw resolutionFailure(alias, "Verified host field no longer matches.");
             }
+            if (Modifier.isFinal(field.getModifiers())) {
+                throw resolutionFailure(alias, "Verified host field is final.");
+            }
             if (!field.canAccess(target) && !field.trySetAccessible()) {
                 throw resolutionFailure(alias, "Verified host field is not accessible.");
             }
-            return field.get(target);
+            field.set(target, value);
         } catch (VerifiedAccessException exception) {
             throw exception;
         } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException
@@ -369,28 +390,7 @@ public final class VerifiedMemberResolver {
     ) {
         Objects.requireNonNull(callback, "callback");
         final StaticSelector selector = classSelector(alias);
-        try {
-            final Class<?> type = Class.forName(
-                selector.ownerInternalName().replace('/', '.'),
-                false,
-                hostClassLoader
-            );
-            if (type.getClassLoader() != hostClassLoader) {
-                throw resolutionFailure(
-                    alias,
-                    "Verified host classloader attestation no longer matches."
-                );
-            }
-            return createFunctionalProxy(alias, type, callback);
-        } catch (VerifiedAccessException exception) {
-            throw exception;
-        } catch (ClassNotFoundException | IllegalArgumentException | LinkageError
-                 | SecurityException exception) {
-            throw resolutionFailure(
-                alias,
-                "Verified host callback proxy creation failed safely."
-            );
-        }
+        return createFunctionalProxy(alias, resolveOwnerClass(selector), callback);
     }
 
     private Object createFunctionalProxy(
@@ -460,42 +460,14 @@ public final class VerifiedMemberResolver {
         if (value == null) {
             return false;
         }
-        try {
-            final Class<?> owner = Class.forName(
-                selector.ownerInternalName().replace('/', '.'),
-                false,
-                hostClassLoader
-            );
-            if (owner.getClassLoader() != hostClassLoader) {
-                throw resolutionFailure(alias, "Verified host classloader attestation no longer matches.");
-            }
-            return owner.isInstance(value);
-        } catch (VerifiedAccessException exception) {
-            throw exception;
-        } catch (ClassNotFoundException | LinkageError | SecurityException exception) {
-            throw resolutionFailure(alias, "Verified host class resolution failed safely.");
-        }
+        return resolveOwnerClass(selector).isInstance(value);
     }
 
     /** Checks a value against the exact class named by a verified class alias. */
     public boolean isExactInstance(final String alias, final Object value) {
         final StaticSelector selector = classSelector(alias);
         if (value == null) return false;
-        try {
-            final Class<?> owner = Class.forName(
-                selector.ownerInternalName().replace('/', '.'),
-                false,
-                hostClassLoader
-            );
-            if (owner.getClassLoader() != hostClassLoader) {
-                throw resolutionFailure(alias, "Verified host classloader attestation no longer matches.");
-            }
-            return owner == value.getClass();
-        } catch (VerifiedAccessException exception) {
-            throw exception;
-        } catch (ClassNotFoundException | LinkageError | SecurityException exception) {
-            throw resolutionFailure(alias, "Verified host class resolution failed safely.");
-        }
+        return resolveOwnerClass(selector) == value.getClass();
     }
 
     /**
@@ -615,6 +587,92 @@ public final class VerifiedMemberResolver {
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalArgumentException
                  | LinkageError | SecurityException failure) {
             throw resolutionFailure(selector.alias(), "Verified host selector resolution failed safely.");
+        }
+    }
+
+    private Field resolveField(final StaticSelector selector) {
+        return invocationFields.computeIfAbsent(selector.alias(), ignored -> resolveFieldUncached(selector));
+    }
+
+    private Field resolveFieldUncached(final StaticSelector selector) {
+        try {
+            final Class<?> owner = resolveOwnerClass(selector);
+            final Class<?> fieldType = MethodType.fromMethodDescriptorString(
+                "()" + selector.descriptor(),
+                hostClassLoader
+            ).returnType();
+            final Field field = owner.getDeclaredField(selector.memberName());
+            if (!field.getDeclaringClass().equals(owner)
+                || !field.getType().equals(fieldType)
+                || !matchesAccess(field.getModifiers(), selector)) {
+                throw resolutionFailure(selector.alias(), "Verified host field no longer matches.");
+            }
+            return field;
+        } catch (VerifiedAccessException exception) {
+            throw exception;
+        } catch (NoSuchFieldException | IllegalArgumentException
+                 | LinkageError | SecurityException exception) {
+            throw resolutionFailure(selector.alias(), "Verified host field resolution failed safely.");
+        }
+    }
+
+    private Constructor<?> resolveConstructor(final StaticSelector selector) {
+        return invocationConstructors.computeIfAbsent(
+            selector.alias(), ignored -> resolveConstructorUncached(selector)
+        );
+    }
+
+    private Constructor<?> resolveConstructorUncached(final StaticSelector selector) {
+        try {
+            final Class<?> owner = resolveOwnerClass(selector);
+            final MethodType type = MethodType.fromMethodDescriptorString(
+                selector.descriptor(),
+                hostClassLoader
+            );
+            if (!type.returnType().equals(void.class)) {
+                throw resolutionFailure(
+                    selector.alias(),
+                    "Verified constructor descriptor must return void."
+                );
+            }
+            final Constructor<?> constructor = owner.getDeclaredConstructor(type.parameterArray());
+            if (!constructor.getDeclaringClass().equals(owner)
+                || !matchesAccess(constructor.getModifiers(), selector)) {
+                throw resolutionFailure(selector.alias(), "Verified host constructor no longer matches.");
+            }
+            return constructor;
+        } catch (VerifiedAccessException exception) {
+            throw exception;
+        } catch (NoSuchMethodException | IllegalArgumentException | LinkageError
+                 | SecurityException exception) {
+            throw resolutionFailure(selector.alias(), "Verified host constructor resolution failed safely.");
+        }
+    }
+
+    private Class<?> resolveOwnerClass(final StaticSelector selector) {
+        return ownerClasses.computeIfAbsent(
+            selector.alias(), ignored -> resolveOwnerClassUncached(selector)
+        );
+    }
+
+    private Class<?> resolveOwnerClassUncached(final StaticSelector selector) {
+        try {
+            final Class<?> owner = Class.forName(
+                selector.ownerInternalName().replace('/', '.'),
+                false,
+                hostClassLoader
+            );
+            if (owner.getClassLoader() != hostClassLoader) {
+                throw resolutionFailure(
+                    selector.alias(),
+                    "Verified host classloader attestation no longer matches."
+                );
+            }
+            return owner;
+        } catch (VerifiedAccessException exception) {
+            throw exception;
+        } catch (ClassNotFoundException | LinkageError | SecurityException exception) {
+            throw resolutionFailure(selector.alias(), "Verified host class resolution failed safely.");
         }
     }
 

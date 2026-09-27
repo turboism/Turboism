@@ -80,7 +80,8 @@ class UnifiedCubismModelApiContractTest {
             1L,
             CubismOperation.OPEN_DOCUMENT,
             CubismOperationOrigin.UNKNOWN,
-            Optional.of("DocumentA")
+            Optional.of("DocumentA"),
+            Optional.empty()
         );
         assertDoesNotThrow(() -> plugin.beforeCubismOperation(operation));
         assertDoesNotThrow(() -> plugin.onCubismOperationConfirmed(operation));
@@ -103,27 +104,65 @@ class UnifiedCubismModelApiContractTest {
         assertTrue(ids.contains("cubism.editor.project.export"));
     }
 
+
+    @Test
+    void deformersApplyToChildrenIsExact5302SurfaceWithFailClosedDefault() throws Exception {
+        final Method method = Deformers.class.getMethod("applyToChildren", Deformer.class);
+        assertEquals(void.class, method.getReturnType());
+        assertTrue(method.isDefault());
+        assertEquals(
+            List.of("5.3.02"),
+            List.of(method.getAnnotation(dev.turboism.sdk.CubismEditor.class).value())
+        );
+
+        final Deformers stub = new Deformers() {
+            @Override public List<Deformer> all() { return List.of(); }
+            @Override public Deformer find(final DeformerId id) {
+                throw new NoSuchElementException(id.value());
+            }
+        };
+        assertThrows(UnsupportedOperationException.class, () -> stub.applyToChildren(null));
+    }
+
     @Test
     void semanticOperationEventsValidateCorrelationAndPreserveOpaqueSubjects() {
         final CubismOperationEvent event = new CubismOperationEvent(
             1L,
             CubismOperation.OPEN_DOCUMENT,
             CubismOperationOrigin.HOST_UI,
-            Optional.of(" Document A ")
+            Optional.of(" Document A "),
+            Optional.of(" Open Document ")
         );
 
         assertEquals(Optional.of(" Document A "), event.subjectId());
+        assertEquals(Optional.of(" Open Document "), event.label());
         assertThrows(IllegalArgumentException.class, () -> new CubismOperationEvent(
             0L,
             CubismOperation.OPEN_DOCUMENT,
             CubismOperationOrigin.HOST_UI,
+            Optional.empty(),
             Optional.empty()
         ));
         assertThrows(IllegalArgumentException.class, () -> new CubismOperationEvent(
             1L,
             CubismOperation.OPEN_DOCUMENT,
             CubismOperationOrigin.HOST_UI,
+            Optional.of(" "),
+            Optional.empty()
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new CubismOperationEvent(
+            1L,
+            CubismOperation.OPEN_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.empty(),
             Optional.of(" ")
+        ));
+        assertThrows(NullPointerException.class, () -> new CubismOperationEvent(
+            1L,
+            CubismOperation.OPEN_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.empty(),
+            null
         ));
     }
 

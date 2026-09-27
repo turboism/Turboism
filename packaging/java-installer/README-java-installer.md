@@ -39,7 +39,7 @@ in `gradle/verification-metadata.xml`.
 java -jar TurboismInstaller-<version>.jar
 ```
 
-Flow: Welcome -> MIT License -> four required Turboism runtime-declaration acknowledgements -> full localized runtime declaration -> Full/Thin/Lite -> optional plugins (Full and Thin) -> target directory -> summary -> install -> finish. Full defaults
+Flow: Welcome -> AGPL-3.0-only -> four required Turboism runtime-declaration acknowledgements -> full localized runtime declaration -> Full/Thin/Lite -> optional plugins (Full and Thin) -> target directory -> summary -> install -> finish. Full defaults
 every first-party plugin to selected. Thin installs the complete plugin roster
 without an additional native runtime payload; it also accepts an explicit
 custom executable path. The first-party loopback MCP server is available on
@@ -130,9 +130,8 @@ The installer UI ships in English, Simplified Chinese, Japanese and Korean
 (`eng`, `chn`, `jpn` and `kor` langpacks in `installer.xml`). With more than one
 langpack present and no `-language` argument, IzPack opens its modal
 language-selection dialog before the first panel; passing
-`-language eng|chn|jpn|kor` preselects a language and skips that dialog. No
-Korean EULA translation exists, so `LicencePanel.eula_kor` resolves to
-`EULA.en.txt` while the rest of the Korean UI stays translated.
+`-language eng|chn|jpn|kor` preselects a language and skips that dialog. The EULA is available in all four languages;
+`LicencePanel.eula_kor` resolves to `EULA.ko.txt`.
 
 macOS CI: the manual workflow
 `.github/workflows/macos-packaging-verification.yml` (Apple Silicon and

@@ -303,6 +303,8 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
                     deleteTree(previous);
                 }
                 Files.delete(marker);
+            } else if (!Files.exists(previous, LinkOption.NOFOLLOW_LINKS)) {
+                Files.delete(marker);
             }
         } catch (IOException | InstallFailure failure) {
             report("GRAAL_RUNTIME_RECOVERY_FAILED");

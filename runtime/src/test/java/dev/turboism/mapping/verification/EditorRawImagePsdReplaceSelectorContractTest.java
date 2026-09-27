@@ -65,7 +65,7 @@ class EditorRawImagePsdReplaceSelectorContractTest {
                 .toString()
         );
         assertEquals(
-            EditorRawImagePsdReplaceSelectorContract.TRANSACTION_EVIDENCE_ALIASES,
+            TRANSACTION_EVIDENCE_ALIASES,
             selectors.stream()
                 .map(StaticSelector::alias)
                 .collect(java.util.stream.Collectors.toSet())
@@ -73,7 +73,7 @@ class EditorRawImagePsdReplaceSelectorContractTest {
         assertTrue(
             java.util.Collections.disjoint(
                 EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES,
-                EditorRawImagePsdReplaceSelectorContract.TRANSACTION_EVIDENCE_ALIASES
+                TRANSACTION_EVIDENCE_ALIASES
             )
         );
     }
@@ -157,26 +157,38 @@ class EditorRawImagePsdReplaceSelectorContractTest {
         );
     }
 
+    /**
+     * Report-only exact evidence for the transaction boundary observed in the native method
+     * body. These aliases are verified by static evidence tests and are deliberately absent
+     * from the generated contract: they are not production admission.
+     */
+    private static final java.util.Set<String> TRANSACTION_EVIDENCE_ALIASES = java.util.Set.of(
+        "cubism.editor-model.psd-import.native-edit-mode.class",
+        "cubism.editor-model.psd-import.native-edit-mode.begin",
+        "cubism.editor-model.psd-import.native-edit-mode.end",
+        "cubism.editor-model.psd-import.group-undo.class"
+    );
+
     private static List<StaticSelector> transactionEvidenceSelectors() {
         return List.of(
             classSelector(
-                EditorRawImagePsdReplaceSelectorContract.NATIVE_EDIT_MODE_CLASS_ALIAS,
+                "cubism.editor-model.psd-import.native-edit-mode.class",
                 "com/live2d/cubism/doc/ACEditMode"
             ),
             method(
-                EditorRawImagePsdReplaceSelectorContract.NATIVE_BEGIN_EDIT_ALIAS,
+                "cubism.editor-model.psd-import.native-edit-mode.begin",
                 "com/live2d/cubism/doc/ACEditMode",
                 "beginEdit",
                 "(Ljava/lang/String;)Lcom/live2d/undo/GroupUndo;"
             ),
             method(
-                EditorRawImagePsdReplaceSelectorContract.NATIVE_END_EDIT_ALIAS,
+                "cubism.editor-model.psd-import.native-edit-mode.end",
                 "com/live2d/doc/IEditMode",
                 "endEdit",
                 "(ZLkotlin/jvm/functions/Function1;)Z"
             ),
             classSelector(
-                EditorRawImagePsdReplaceSelectorContract.NATIVE_GROUP_UNDO_CLASS_ALIAS,
+                "cubism.editor-model.psd-import.group-undo.class",
                 "com/live2d/undo/GroupUndo"
             )
         );

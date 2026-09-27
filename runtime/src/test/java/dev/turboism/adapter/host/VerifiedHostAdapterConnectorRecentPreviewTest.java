@@ -6,10 +6,23 @@ import org.junit.jupiter.api.Test;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerifiedHostAdapterConnectorRecentPreviewTest {
+
+    @Test
+    void usesTheExistingAdmittedPanelClassAliasForIconPreload() {
+        assertEquals(
+            "cubism.ui-panel.app-controller.class",
+            VerifiedHostAdapterConnector.PANEL_ICON_ANCHOR_ALIAS
+        );
+        assertTrue(
+            dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest.REQUIRED_ALIASES
+                .contains(VerifiedHostAdapterConnector.PANEL_ICON_ANCHOR_ALIAS)
+        );
+    }
 
     @Test
     void forwardsProjectAndEmbeddedPanelEvidenceToTheVerifiedFactorySeam() throws Exception {

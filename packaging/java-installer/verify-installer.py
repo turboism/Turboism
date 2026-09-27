@@ -109,8 +109,7 @@ LOCALIZED_EULA_MARKER = {
     "eng": "The Simplified Chinese text is authoritative",
     "chn": "本版本以简体中文文本为正式文本",
     "jpn": "簡体字中国語文を正文とします",
-    # No Korean EULA translation exists, so the ko probe reads the English EULA text.
-    "kor": "The Simplified Chinese text is authoritative",
+    "kor": "중국어 간체 본문이 정본",
 }
 # Turboism-owned InstallationGroupPanel strings (CustomLangPack): the
 # install-side listener emits the localized mode name and description for
@@ -223,14 +222,13 @@ def assert_automated_eula_gate(jar):
 
 
 # Frozen release-plugin allowlist — sole authority is packaging/release-plugins.txt.
-# This exact 17-project list plus the eight excluded public module names is the regression
+# This exact 16-project list plus the eight excluded public module names is the regression
 # oracle; the id/name for every listed module comes from its committed
 # plugin.json descriptor at verification time (see load_plugin_metadata), so
 # production drift from the shared manifest or the source descriptors fails.
 MANIFEST_EXPECTED = [
     ":plugins:atlas-maxrects-bssf",
     ":plugins:clipmask-viewer",
-    ":plugins:core",
     ":plugins:cubism-tab-filter",
     ":plugins:history-panel",
     ":plugins:mcp",
@@ -239,6 +237,7 @@ MANIFEST_EXPECTED = [
     ":plugins:parameter-batch-transfer",
     ":plugins:perf-stats",
     ":plugins:physics-editor",
+    ":plugins:protected-export",
     ":plugins:psd-clip-mask-import",
     ":plugins:recent-preview",
     ":plugins:scene-palette-enhancer",
@@ -413,7 +412,7 @@ def load_release_manifest(path):
     check("release manifest is ASCII-sorted", lines == sorted(lines))
     check("release manifest matches the frozen 17-project allowlist",
           lines == MANIFEST_EXPECTED, "n=%d" % len(lines))
-    return [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
+    return [l[len(":plugins:"):] for l in lines]
 
 
 _STRICT_VERSION_RE = re.compile(r'^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$')
@@ -471,7 +470,7 @@ def load_plugin_metadata(manifest_path, modules):
 
 def install_answers(mode, target, lang_index=0, deselect=(), payload_plugins=None,
                     install_graal=False):
-    answers = [str(lang_index), "1", "1"]  # language, welcome, MIT license
+    answers = [str(lang_index), "1", "1"]  # language, welcome, AGPL-3.0-only license
     answers += ["1"] * len(EULA_ACKNOWLEDGEMENT_KEYS)  # all required custom acknowledgements
     answers += ["1"]  # stock EULA
     # IzPack sorts groups by id in console mode: full, lite, then thin.
@@ -1430,8 +1429,7 @@ def assert_jar_layout(jar, payload, installer_xml_path):
             "resources/LicencePanel.eula_eng": "EULA.en.txt",
             "resources/LicencePanel.eula_chn": "EULA.zh-Hans.txt",
             "resources/LicencePanel.eula_jpn": "EULA.ja.txt",
-            # Korean falls back to the English EULA text (no ko translation exists).
-            "resources/LicencePanel.eula_kor": "EULA.en.txt",
+            "resources/LicencePanel.eula_kor": "EULA.ko.txt",
         }
         for resource, staged_name in eula_resources.items():
             check("jar EULA resource %s" % resource, resource in names)
