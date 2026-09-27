@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
+import dev.turboism.exportsettings.VerifiedProtectedExportHostOperations;
 import dev.turboism.mapping.verification.AutoBackupVerificationManifest;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
@@ -25,6 +26,7 @@ import dev.turboism.mapping.verification.TopMenuVerificationManifest;
 import dev.turboism.mapping.verification.WorkspaceControlVerificationManifest;
 import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
+import dev.turboism.mapping.verification.ProtectedExportVerificationManifest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
@@ -52,7 +54,7 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("compatibility/cubism/verification");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = with5303(withPerformance(withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
+    private static final Map<String, SliceExpectation> EXPECTATIONS = withProtectedExports(with5303(withPerformance(withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
         "compatibility/cubism/verification/cubism-5.2.03-project-workspace.json",
         new SliceExpectation(
             "m15.cubism-5.2.03.project-workspace.static",
@@ -106,8 +108,8 @@ class StaticVerificationRecordRepositoryTest {
         "compatibility/cubism/verification/cubism-5.2.03-core-model-read.json",
         coreExpectation("5.2.03", "5.2.03", 36_237L,
             "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
-            "68e6ac01d42c53389dfcc1199328e667bc243e44680fa9af5a9a26ed4b24354e",
-            72, "5.2.03"),
+            "26c4204656d9fc396044d8412de62a987922d2f49dd7481685ffb518755b7037",
+            80, "5.2.03"),
         "compatibility/cubism/verification/cubism-5.3.02-clipmask.json",
         new SliceExpectation(
             ClipMaskVerificationManifest.RECORD_5_3_02.verificationId(),
@@ -217,7 +219,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().size(),
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().sha256(),
             EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
-            840,
+            841,
             EditorModelVerificationManifest.cubism5302Aliases(),
             EditorModelVerificationManifest.cubism5302Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
@@ -231,9 +233,64 @@ class StaticVerificationRecordRepositoryTest {
         "compatibility/cubism/verification/cubism-5.3.02-core-model-read.json",
         coreExpectation("5.3.02", "5.3.02", 42_471L,
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
-            "0ac3313310bc1d2d9b4c2baf182bcdee3d91178d19fcf825e7c65bfdb6f20eab",
-            74, "5.3.02")
-    )))))))))));
+            "6650108a950731fcc8d98210b40398a9d3c6fece8fda19b220bcdf58a09bd8da",
+            82, "5.3.02")
+    ))))))))))));
+
+    private static Map<String, SliceExpectation> withProtectedExports(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "compatibility/cubism/verification/cubism-5.2.03-protected-export.json",
+            new SliceExpectation(
+                ProtectedExportVerificationManifest.RECORD_5_2_03.verificationId(),
+                ProtectedExportVerificationManifest.ADAPTER_SLICE_ID,
+                ProtectedExportVerificationManifest.RECORD_5_2_03.cubismVersion(),
+                ProtectedExportVerificationManifest.RECORD_5_2_03.profileId(),
+                ProtectedExportVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                ProtectedExportVerificationManifest.RECORD_5_2_03.artifact().size(),
+                ProtectedExportVerificationManifest.RECORD_5_2_03.artifact().sha256(),
+                ProtectedExportVerificationManifest.RECORD_5_2_03.recordSha256(),
+                204,
+                ProtectedExportVerificationManifest.cubism52Aliases(),
+                VerifiedProtectedExportHostOperations.CUBISM_5_2_REQUIRED_ALIASES,
+                VerifiedProtectedExportHostOperations.cubism52MethodAliasesUsed(),
+                VerifiedProtectedExportHostOperations.cubism52ClassAliasesUsed(),
+                "cubism-5.2.03-protected-export",
+                Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.2.03-protected-export.json"),
+                Path.of("compatibility/cubism/profiles/draft/cubism-5.2.03.json"),
+                "5.2.03",
+                SliceKind.PROTECTED_EXPORT
+            )
+        );
+        expectations.put(
+            "compatibility/cubism/verification/cubism-5.3.02-protected-export.json",
+            new SliceExpectation(
+                ProtectedExportVerificationManifest.RECORD_5_3_02.verificationId(),
+                ProtectedExportVerificationManifest.ADAPTER_SLICE_ID,
+                ProtectedExportVerificationManifest.RECORD_5_3_02.cubismVersion(),
+                ProtectedExportVerificationManifest.RECORD_5_3_02.profileId(),
+                ProtectedExportVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                ProtectedExportVerificationManifest.RECORD_5_3_02.artifact().size(),
+                ProtectedExportVerificationManifest.RECORD_5_3_02.artifact().sha256(),
+                ProtectedExportVerificationManifest.RECORD_5_3_02.recordSha256(),
+                220,
+                ProtectedExportVerificationManifest.REQUIRED_ALIASES,
+                VerifiedProtectedExportHostOperations.REQUIRED_ALIASES,
+                VerifiedProtectedExportHostOperations.methodAliasesUsed(),
+                VerifiedProtectedExportHostOperations.classAliasesUsed(),
+                "cubism-5.3.02-protected-export",
+                Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-protected-export.json"),
+                Path.of("compatibility/cubism/profiles/draft/cubism-5.3.02.json"),
+                "5.3.02",
+                SliceKind.PROTECTED_EXPORT
+            )
+        );
+        return Map.copyOf(expectations);
+    }
 
     private static Map<String, SliceExpectation> with5303(
         final Map<String, SliceExpectation> existing
@@ -245,6 +302,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.3.03-editor-model.json",
             "cubism-5.3.03-performance-render-scene.json",
             "cubism-5.3.03-project-workspace.json",
+            "cubism-5.3.03-protected-export.json",
             "cubism-5.3.03-ui-bounding-box-overlay.json",
             "cubism-5.3.03-ui-control-appearance.json",
             "cubism-5.3.03-ui-embedded-panel.json",
@@ -283,6 +341,7 @@ class StaticVerificationRecordRepositoryTest {
                 : fileName.contains("project-workspace") ? SliceKind.PROJECT_WORKSPACE
                 : fileName.contains("clipmask") ? SliceKind.CLIP_MASK
                 : fileName.contains("performance") ? SliceKind.PERFORMANCE
+                : fileName.contains("protected-export") ? SliceKind.PROTECTED_EXPORT
                 : SliceKind.EDITOR_UI;
             expectations.put(
                 repositoryPath,
@@ -325,6 +384,8 @@ class StaticVerificationRecordRepositoryTest {
                 "1f46c24551b7b5ccc63bb379a4498d5b3166fa20916499ca9b5c8c52da307ba5";
             case "cubism-5.3.03-project-workspace" ->
                 "f52edde0c7d1a59d5bed7dd693f5a74e6946d0b14bbe9e13fedf2c49e6fa5613";
+            case "cubism-5.3.03-protected-export" ->
+                "de6066d86686cd3445b921086e7747167cf30b2fa89eb8efe49da064242d99b7";
             case "cubism-5.3.03-ui-bounding-box-overlay" ->
                 "fd67451595cbf68ca3084504c730daee3b110577e67852680db64b3a6f81e000";
             case "cubism-5.3.03-ui-control-appearance" ->
@@ -1168,10 +1229,14 @@ class StaticVerificationRecordRepositoryTest {
         final Set<String> methods = CorePublicApiSelectorContract
             .structuralMethodAliasesFor(profile)
             .orElseThrow();
+        final Set<String> ownedMocMethods = CorePublicApiSelectorContract
+            .ownedMocMethodAliasesFor(profile)
+            .orElseThrow();
         final Set<String> versionMethods = CorePublicApiSelectorContract.VERSION_PROBE_ALIASES.stream()
             .filter(alias -> !alias.endsWith(".class"))
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
         final Set<String> allMethods = new HashSet<>(methods);
+        allMethods.addAll(ownedMocMethods);
         allMethods.addAll(versionMethods);
         return new SliceExpectation(
             CorePublicApiTrustRoots.verificationId(profile),
@@ -1417,7 +1482,8 @@ class StaticVerificationRecordRepositoryTest {
         CORE,
         EDITOR_MODEL,
         EDITOR_UI,
-        PERFORMANCE
+        PERFORMANCE,
+        PROTECTED_EXPORT
     }
 
     private record SliceExpectation(
