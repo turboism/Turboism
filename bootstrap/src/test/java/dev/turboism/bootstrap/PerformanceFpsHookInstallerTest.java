@@ -18,9 +18,8 @@ import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -181,7 +180,7 @@ final class PerformanceFpsHookInstallerTest {
 
     @Test
     void installRegistersTransformerBeforeReturningAndDefersRetransform() throws Exception {
-        final List<String> calls = Collections.synchronizedList(new ArrayList<>());
+        final List<String> calls = new CopyOnWriteArrayList<>();
         final Instrumentation instrumentation = recordingInstrumentation(calls, TargetRenderScene.class);
 
         final PerformanceFpsHookInstaller installer = new InstallerBuilder(instrumentation)
@@ -203,7 +202,7 @@ final class PerformanceFpsHookInstallerTest {
 
     @Test
     void retransformRunsExactlyOnceAfterHostLafIsReady() throws Exception {
-        final List<String> calls = Collections.synchronizedList(new ArrayList<>());
+        final List<String> calls = new CopyOnWriteArrayList<>();
         final Instrumentation instrumentation = recordingInstrumentation(calls, TargetRenderScene.class);
 
         final PerformanceFpsHookInstaller installer = new InstallerBuilder(instrumentation)
@@ -226,7 +225,7 @@ final class PerformanceFpsHookInstallerTest {
 
     @Test
     void retransformRunsExactlyOnceAfterReadinessTimeout() throws Exception {
-        final List<String> calls = Collections.synchronizedList(new ArrayList<>());
+        final List<String> calls = new CopyOnWriteArrayList<>();
         final Instrumentation instrumentation = recordingInstrumentation(calls, TargetRenderScene.class);
 
         final PerformanceFpsHookInstaller installer = new InstallerBuilder(instrumentation)
@@ -246,7 +245,7 @@ final class PerformanceFpsHookInstallerTest {
     @Test
     void readinessPollingDispatchesUIManagerReadsToTheEdt() throws Exception {
         installCubismLikeLaf();
-        final List<String> calls = Collections.synchronizedList(new ArrayList<>());
+        final List<String> calls = new CopyOnWriteArrayList<>();
         final PerformanceFpsHookInstaller installer = new InstallerBuilder(
             recordingInstrumentation(calls, TargetRenderScene.class))
             .lafReadyTimeoutMillis(5_000L)
@@ -264,7 +263,7 @@ final class PerformanceFpsHookInstallerTest {
 
     @Test
     void pollingSleepStaysOnTheDaemonWorkerSoTheEdtStaysResponsive() throws Exception {
-        final List<String> calls = Collections.synchronizedList(new ArrayList<>());
+        final List<String> calls = new CopyOnWriteArrayList<>();
         final PerformanceFpsHookInstaller installer = new InstallerBuilder(
             recordingInstrumentation(calls, TargetRenderScene.class))
             .lafReadyTimeoutMillis(5_000L)
@@ -292,7 +291,7 @@ final class PerformanceFpsHookInstallerTest {
 
     @Test
     void closeBeforeDeferredPassSkipsTheRetransform() throws Exception {
-        final List<String> calls = Collections.synchronizedList(new ArrayList<>());
+        final List<String> calls = new CopyOnWriteArrayList<>();
         final Instrumentation instrumentation = recordingInstrumentation(calls, TargetRenderScene.class);
 
         final PerformanceFpsHookInstaller installer = new InstallerBuilder(instrumentation)
@@ -313,7 +312,7 @@ final class PerformanceFpsHookInstallerTest {
 
     @Test
     void closeRestorationStillRetransformsInstrumentedOwners() throws Exception {
-        final List<String> calls = Collections.synchronizedList(new ArrayList<>());
+        final List<String> calls = new CopyOnWriteArrayList<>();
         final Instrumentation instrumentation = recordingInstrumentation(calls, TargetRenderScene.class);
 
         final PerformanceFpsHookInstaller installer = new InstallerBuilder(instrumentation)
