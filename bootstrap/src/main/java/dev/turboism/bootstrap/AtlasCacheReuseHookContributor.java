@@ -45,13 +45,15 @@ final class AtlasCacheReuseHookContributor implements HookContributor {
                     environment.instrumentation(),
                     // Premain runs before the diagnostics sink exists; the console is the
                     // only place the admission verdict survives on a real host.
-                    code -> System.err.println("[turboism] atlas-cache-reuse " + code)
+                    code -> {
+                        // System.err.println("[turboism] atlas-cache-reuse " + code);
+                    }
                 );
-            RuntimeDiagnostics.debug(
-                "bootstrap",
-                "Atlas cache-reuse status=" + installation.status()
-                    + ", transformOutcome=" + installation.transformOutcome()
-            );
+            // RuntimeDiagnostics.debug(
+            //     "bootstrap",
+            //     "Atlas cache-reuse status=" + installation.status()
+            //         + ", transformOutcome=" + installation.transformOutcome()
+            // );
             return installation;
         } catch (final Throwable failure) {
             RuntimeDiagnostics.error(
