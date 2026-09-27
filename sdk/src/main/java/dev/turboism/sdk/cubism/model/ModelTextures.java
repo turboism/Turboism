@@ -50,6 +50,18 @@ public interface ModelTextures {
     }
 
     /**
+     * Resolves only requested source identities, without loading layer trees or the complete
+     * relation graph. Empty queries read binding metadata only. Providers may enumerate shallow
+     * identity indexes; this is not a constant-time guarantee. Unsupported providers never fall
+     * back to {@link #relations()}.
+     */
+    @CubismEditor({"5.3.02"})
+    default TextureSourcesSnapshot sources(final TextureSourceQuery query) {
+        Objects.requireNonNull(query, "query");
+        return TextureSourcesSnapshot.unavailable();
+    }
+
+    /**
      * Exports one explicitly identified raw image to a runtime-owned PSD handle.
      *
      * <p>The export is Cubism's native layered-image rebuild of its current resources, not a

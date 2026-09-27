@@ -14,7 +14,6 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.IdentityHashMap;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -22,10 +21,11 @@ import java.util.Optional;
  * Package-private T003/T011 seam for PSD raw-image targeting and native export validation.
  *
  * <p>The ID-based overload resolves the selected raw image from the current model-source texture
- * manager before entering the native save/parse sequence. The low-level bound-source overload is
+ * manager before entering the native save sequence. The low-level bound-source overload is
  * retained only as an internal synthetic/native seam; its type check is not an ownership proof and
- * production binding remains an explicit caller precondition for that primitive. The native save
- * and parse calls are kept inside one synchronous {@link EditorHostThread} boundary. This slice does
+ * production binding remains an explicit caller precondition for that primitive. Native save runs
+ * inside one synchronous {@link EditorHostThread} boundary, without parsing or reconstructing the
+ * exported output. Staged replacement parsing is a separate import-only operation. This slice does
  * not replace a raw image, open an editor, create an Undo entry, or expose a host object or
  * {@link Path} through the SDK. Final-path
  * {@link LinkOption#NOFOLLOW_LINKS} checks happen immediately before and after save; they do not
@@ -132,7 +132,7 @@ final class EditorRawImagePsdAccess {
      * Parses one runtime-owned staged PSD into a verified native layered image for replacement.
      *
      * <p>Host thread only. The reconstructed value is type-checked against the same verified
-     * constructors the export re-read uses; a parse or construct failure is reported as an
+     * constructors admitted for staged replacement; a parse or construct failure is reported as an
      * {@link IOException} so the caller can classify it without inspecting native text.</p>
      *
      * @param stage runtime-owned non-empty staged PSD
@@ -203,14 +203,13 @@ final class EditorRawImagePsdAccess {
     ) {
         currentGuard.requireCurrent(identity, model);
         final EditorRawImagePsdSourceBinding.BindingResult binding =
-            sourceBinding.bindOnHostThread(modelSource, sourceId);
+            sourceBinding.bindIdentityOnHostThread(modelSource, sourceId);
         if (binding.status() != EditorRawImagePsdSourceBinding.BindingStatus.MATCHED) {
             return ExportResult.bindingRejected(target, binding);
         }
         final ExportResult result = exportNativeOnHostThread(
             binding.candidate().nativeSource(),
-            target,
-            binding.snapshot()
+            target
         );
         if (result.saveReturned()) {
             currentGuard.requireCurrent(identity, model);
@@ -226,7 +225,7 @@ final class EditorRawImagePsdAccess {
     ) {
         currentGuard.requireCurrent(identity, model);
         final ExportResult result = exportNativeOnHostThread(boundNativeSource, target);
-        if (result.status() == ExportStatus.READABLE_UNVERIFIED) {
+        if (result.saveReturned()) {
             currentGuard.requireCurrent(identity, model);
         }
         return result;
@@ -235,14 +234,6 @@ final class EditorRawImagePsdAccess {
     private ExportResult exportNativeOnHostThread(
         final Object boundNativeSource,
         final Path target
-    ) {
-        return exportNativeOnHostThread(boundNativeSource, target, null);
-    }
-
-    private ExportResult exportNativeOnHostThread(
-        final Object boundNativeSource,
-        final Path target,
-        final EditorRawImagePsdIntegrityAccess.Snapshot beforeSnapshot
     ) {
 
         final File targetFile = target.toFile();
@@ -297,112 +288,14 @@ final class EditorRawImagePsdAccess {
                 return ExportResult.outputMissing(target, saveReturned, pathSafety);
             }
 
-            phase = FailurePhase.PARSE;
-            final Object companion = requireNativeValue(
-                "cubism.editor-model.psd-document.companion",
-                resolver.readStaticField("cubism.editor-model.psd-document.companion")
-            );
-            final Object parsed = resolver.invoke(
-                "cubism.editor-model.psd-document.parse-file",
-                companion,
-                targetFile,
-                false,
-                false
-            );
-            if (!resolver.isInstance(EditorRawImagePsdSelectorContract.PSD_DOCUMENT_CLASS_ALIAS, parsed)) {
-                return ExportResult.parseFailed(
-                    target,
-                    saveReturned,
-                    pathSafety,
-                    FailurePhase.PARSE,
-                    "PSD parser returned a value outside the verified CPsdDocument type"
-                );
-            }
-
-            Object reconstructed = null;
-            try {
-                phase = FailurePhase.CONSTRUCT;
-                reconstructed = resolver.construct(
-                    "cubism.editor-model.layered-image.from-psd",
-                    parsed,
-                    targetFile,
-                    sourceName
-                );
-                if (!resolver.isInstance(
-                    EditorRawImagePsdSelectorContract.LAYERED_IMAGE_CLASS_ALIAS,
-                    reconstructed
-                )) {
-                    return ExportResult.parseFailed(
-                        target,
-                        saveReturned,
-                        pathSafety,
-                        FailurePhase.CONSTRUCT,
-                        "parsed PSD did not reconstruct as the verified CLayeredImage type"
-                    );
-                }
-                EditorRawImagePsdIntegrityAccess.Verification integrityVerification;
-                if (beforeSnapshot == null) {
-                    integrityVerification = EditorRawImagePsdIntegrityAccess.Verification.unavailable(
-                        "source binding snapshot was not supplied; export fidelity was not compared"
-                    );
-                } else {
-                    try {
-                        final EditorRawImagePsdIntegrityAccess.Snapshot afterSnapshot =
-                            integrityAccess.captureOnHostThread(reconstructed);
-                        integrityVerification = integrityAccess.verify(beforeSnapshot, afterSnapshot);
-                    } catch (RuntimeException failure) {
-                        integrityVerification = EditorRawImagePsdIntegrityAccess.Verification.unavailable(
-                            "reparsed PSD was readable but export fidelity could not be observed: "
-                                + message(failure)
-                        );
-                    }
-                }
-                return ExportResult.readableUnverified(target, pathSafety, integrityVerification)
-                    .withSourceName(sourceName);
-            } finally {
-                // Both objects belong only to this export verification, never the model or Undo.
-                try {
-                    try {
-                        if (resolver.isInstance(EditorRawImagePsdSelectorContract.LAYERED_IMAGE_CLASS_ALIAS, reconstructed)) {
-                            resolver.invoke(EditorRawImagePsdSelectorContract.LAYERED_IMAGE_DISPOSE_OWNED_ALIAS, reconstructed);
-                        }
-                    } finally {
-                        disposeOwnedParsedImages(parsed);
-                    }
-                } catch (RuntimeException cleanupFailure) {
-                    phase = FailurePhase.DISPOSE;
-                    throw cleanupFailure;
-                }
-            }
+            // The user workflow requires native export, not a second PSD import for validation.
+            // No parse, reconstruction, layer-tree comparison or pixel observation occurs here.
+            return ExportResult.savedUnverified(target, pathSafety).withSourceName(sourceName);
         } catch (IOException exception) {
             return ExportResult.targetCheckFailed(target, saveReturned, pathSafety, phase, exception);
         } catch (RuntimeException exception) {
             return ExportResult.failure(target, saveReturned, pathSafety, phase, exception);
         }
-    }
-
-    /** Only the successful parser result created locally by export verification may enter here. */
-    private void disposeOwnedParsedImages(final Object parsed) {
-        final Object value = resolver.invoke(EditorRawImagePsdSelectorContract.PSD_DOCUMENT_LAYERS_OWNED_ALIAS, parsed);
-        if (!(value instanceof Object[] layers)) {
-            throw new IllegalStateException("verified PSD layer records are not an array");
-        }
-        final IdentityHashMap<Object, Boolean> images = new IdentityHashMap<>();
-        for (final Object layer : layers) {
-            final Object image = resolver.invoke(EditorRawImagePsdSelectorContract.PSD_LAYER_IMAGE_OWNED_ALIAS, layer);
-            // Group records have no image; a shared image wrapper must be disposed once.
-            if (image != null) images.put(image, Boolean.TRUE);
-        }
-        RuntimeException failure = null;
-        for (final Object image : images.keySet()) {
-            try {
-                resolver.invoke(EditorRawImagePsdSelectorContract.PSD_IMAGE_DISPOSE_OWNED_ALIAS, image);
-            } catch (RuntimeException cleanupFailure) {
-                if (failure == null) failure = cleanupFailure;
-                else failure.addSuppressed(cleanupFailure);
-            }
-        }
-        if (failure != null) throw failure;
     }
 
     private static TargetState inspectTarget(final Path target) throws IOException {
@@ -711,26 +604,12 @@ final class EditorRawImagePsdAccess {
             );
         }
 
-        private static ExportResult readableUnverified(
+        private static ExportResult savedUnverified(
             final Path target,
             final TargetPathSafety pathSafety
         ) {
-            return readableUnverified(
-                target,
-                pathSafety,
-                EditorRawImagePsdIntegrityAccess.Verification.unavailable(
-                    "source binding snapshot was not supplied; export fidelity was not compared"
-                )
-            );
-        }
-
-        private static ExportResult readableUnverified(
-            final Path target,
-            final TargetPathSafety pathSafety,
-            final EditorRawImagePsdIntegrityAccess.Verification integrityVerification
-        ) {
             return new ExportResult(
-                ExportStatus.READABLE_UNVERIFIED,
+                ExportStatus.SAVED_UNVERIFIED,
                 target,
                 pathSafety,
                 true,
@@ -739,7 +618,8 @@ final class EditorRawImagePsdAccess {
                 FailurePhase.NONE,
                 null,
                 null,
-                integrityVerification
+                EditorRawImagePsdIntegrityAccess.Verification.unavailable(
+                    "native save completed; export contents are not re-parsed or compared")
             );
         }
 
@@ -785,6 +665,7 @@ final class EditorRawImagePsdAccess {
         OUTPUT_MISSING,
         PARSE_FAILED,
         READABLE_UNVERIFIED,
+        SAVED_UNVERIFIED,
         NATIVE_FAILURE
     }
 

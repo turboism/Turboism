@@ -758,6 +758,10 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override public dev.turboism.sdk.cubism.model.TextureRelationsSnapshot relations() {
             return guarded(generation, delegate::relations);
         }
+        @Override public dev.turboism.sdk.cubism.model.TextureSourcesSnapshot sources(
+            final dev.turboism.sdk.cubism.model.TextureSourceQuery query) {
+            return guarded(generation, () -> delegate.sources(Objects.requireNonNull(query, "query")));
+        }
 
         @Override
         public java.util.concurrent.CompletionStage<dev.turboism.sdk.cubism.psd.PsdExportResult>

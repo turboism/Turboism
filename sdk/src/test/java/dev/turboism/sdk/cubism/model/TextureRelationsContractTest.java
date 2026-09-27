@@ -41,6 +41,35 @@ class TextureRelationsContractTest {
     }
 
     @Test
+    void scopedSourceQueryIsImmutableAndDefaultsToUnavailable() throws Exception {
+        final var selected = new java.util.HashSet<ArtMeshId>();
+        selected.add(new ArtMeshId("selected"));
+        final var query = new TextureSourceQuery(selected, java.util.Set.of());
+        selected.clear();
+        assertEquals(1, query.artMeshes().size());
+        assertThrows(UnsupportedOperationException.class, () -> query.artMeshes().clear());
+        assertThrows(NullPointerException.class, () -> new TextureSourceQuery(null, java.util.Set.of()));
+        final var snapshot = emptyTextures().sources(query);
+        assertFalse(snapshot.isAvailable());
+        assertTrue(snapshot.rawImages().isEmpty());
+        assertTrue(snapshot.modelImages().isEmpty());
+        assertTrue(snapshot.artMeshInputs().isEmpty());
+        assertThrows(NullPointerException.class, () -> emptyTextures().sources(null));
+        assertArrayEquals(new String[] {"5.3.02"}, ModelTextures.class
+            .getMethod("sources", TextureSourceQuery.class).getAnnotation(CubismEditor.class).value());
+        final var images = new java.util.ArrayList<TextureSourcesSnapshot.ModelImageSource>();
+        final var imageId = new ModelImageId("model-a");
+        images.add(new TextureSourcesSnapshot.ModelImageSource(imageId, Optional.empty()));
+        final var available = new TextureSourcesSnapshot(TextureSourcesSnapshot.Availability.AVAILABLE,
+            "binding", 1, 1, List.of(), images, List.of());
+        images.clear();
+        assertTrue(available.isAvailable());
+        assertTrue(available.modelImage(imageId).isPresent());
+        assertTrue(available.modelImage(imageId).orElseThrow().currentRawImageId().isEmpty());
+        assertThrows(UnsupportedOperationException.class, () -> available.modelImages().clear());
+    }
+
+    @Test
     void relationValuesAreImmutableAndRetainManyToManyCurrentAndUnknownStates() {
         final RawImageId rawId = new RawImageId("raw-a");
         final ModelImageId modelImageId = new ModelImageId("model-a");

@@ -70,6 +70,20 @@ class PsdModelTexturesForwardingTest {
     }
 
     @Test
+    void sourceQueryForwardsExactScopeWithModelReadOnly() {
+        final RecordingTextures delegate = new RecordingTextures();
+        final ModelTextures textures = facade(delegate,
+            Set.of(PermissionIds.TURBOISM_CUBISM_MODEL_READ)).model().active().textures();
+        final var query = new dev.turboism.sdk.cubism.model.TextureSourceQuery(
+            Set.of(new dev.turboism.sdk.cubism.id.ArtMeshId("selected")), Set.of());
+        assertSame(delegate.sourceSnapshot, textures.sources(query));
+        assertSame(query, delegate.sourceQuery);
+        assertThrows(NullPointerException.class, () -> textures.sources(null));
+        assertThrows(CubismPermissionException.class,
+            () -> facade(new RecordingTextures(), Set.of()).model().active().textures().sources(query));
+    }
+
+    @Test
     void exportRequiresModelReadAndFileWriteWithoutInvokingTheDelegateWhenDenied() {
         final RecordingTextures delegate = new RecordingTextures();
         final ModelTextures textures = facade(
@@ -213,6 +227,17 @@ class PsdModelTexturesForwardingTest {
         private int replaceCalls;
         private CompletionStage<PsdExportResult> exportStage;
         private CompletionStage<PsdReplaceResult> replaceStage;
+        private dev.turboism.sdk.cubism.model.TextureSourceQuery sourceQuery;
+        private final dev.turboism.sdk.cubism.model.TextureSourcesSnapshot sourceSnapshot =
+            dev.turboism.sdk.cubism.model.TextureSourcesSnapshot.unavailable();
+
+        @Override
+        public dev.turboism.sdk.cubism.model.TextureSourcesSnapshot sources(
+            final dev.turboism.sdk.cubism.model.TextureSourceQuery query
+        ) {
+            sourceQuery = query;
+            return sourceSnapshot;
+        }
 
         @Override public List<RawTexture> rawImages() { return List.of(); }
         @Override public List<ModelImageGroup> modelImageGroups() { return List.of(); }

@@ -7827,50 +7827,6 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.layered_image_dispose_owned",
-      "alias": "cubism.editor-model.layered-image.dispose-owned",
-      "kind": "method",
-      "ownerInternalName": "com/live2d/cubism/doc/resources/CLayeredImage",
-      "memberName": "dispose",
-      "descriptor": "()V",
-      "requiredAccessFlags": 17,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.psd_document_layers_owned",
-      "alias": "cubism.editor-model.psd-document.layers-owned",
-      "kind": "method",
-      "ownerInternalName": "com/live2d/graphics/psd/CPsdDocument",
-      "memberName": "h",
-      "descriptor": "()[Lcom/live2d/graphics/psd/layer/o;",
-      "requiredAccessFlags": 17,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.psd_layer_image_owned",
-      "alias": "cubism.editor-model.psd-layer.image-owned",
-      "kind": "method",
-      "ownerInternalName": "com/live2d/graphics/psd/layer/o",
-      "memberName": "c",
-      "descriptor": "()Ljp/live2d/type_editor/image/LDImage;",
-      "requiredAccessFlags": 17,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.psd_image_dispose_owned",
-      "alias": "cubism.editor-model.psd-image.dispose-owned",
-      "kind": "method",
-      "ownerInternalName": "jp/live2d/type_editor/image/LDImage",
-      "memberName": "dispose",
-      "descriptor": "()V",
-      "requiredAccessFlags": 1,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.class.psd_progress",
       "alias": "cubism.editor-model.psd-progress.class",
       "kind": "class",
