@@ -73,8 +73,11 @@ Unchecking the option does not remove an engine installed earlier.
 Before any payload update, config.json is validated. The installer changes only
 disabledPlugins to apply the current checkbox selection and preserves every
 other valid setting; when selection is already current, the original bytes stay
-unchanged. A recognized legacy schema is migrated and validated atomically;
-invalid, unknown, or future schemas stop the update without changing payload.
+unchanged. Any other parseable Turboism-owned document — a legacy or
+unrecognized schemaVersion, unknown fields, or invalid values — is normalized
+to v1 (valid values kept, everything else dropped) and published atomically;
+only a foreign `format` declaration or an unparseable file stops the update
+without changing payload.
 
 4. Uninstall
 ------------
