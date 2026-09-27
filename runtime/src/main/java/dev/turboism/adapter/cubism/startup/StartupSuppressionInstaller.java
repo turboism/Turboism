@@ -1,13 +1,14 @@
 package dev.turboism.adapter.cubism.startup;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StartupSuppressionVerificationManifest;
 
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -16,6 +17,10 @@ import java.util.function.Consumer;
 
 /** Synchronous premain-only admission and lifecycle for bounded Cubism startup suppression. */
 public final class StartupSuppressionInstaller {
+
+    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
+        ReviewedHostContract.candidates(
+            StartupSuppressionProfile.reviewedClassSha256(), version -> version);
 
     private StartupSuppressionInstaller() {
     }
@@ -109,7 +114,7 @@ public final class StartupSuppressionInstaller {
             );
         }
         final Optional<StartupSuppressionProfile> admitted =
-            runtimeProfileForArtifact(digest);
+            runtimeProfileForArtifact(located.artifact(), digest);
         if (admitted.isEmpty()) {
             report(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_NOT_RUNTIME_ADMITTED");
             return Installation.completed(Status.ARTIFACT_REJECTED, policy);
@@ -147,19 +152,24 @@ public final class StartupSuppressionInstaller {
         }
     }
 
+    /**
+     * Binds the actual artifact to a reviewed suppression profile through its
+     * declared identity plus the pinned target classes. The whole-archive digest
+     * attests the snapshot without selecting a version.
+     */
     static Optional<StartupSuppressionProfile> runtimeProfileForArtifact(
-        final HostArtifactDigest artifact
+        final Path artifact,
+        final HostArtifactDigest observedDigest
     ) {
         Objects.requireNonNull(artifact, "artifact");
-        final Optional<String> version = ReviewedHostArtifacts.cubismVersionOf(artifact);
-        if (version.isEmpty()) {
+        Objects.requireNonNull(observedDigest, "observedDigest");
+        final var resolution = ReviewedHostContract.resolve(artifact, CANDIDATES);
+        if (!(resolution instanceof ReviewedHostContract.Bound<String> bound)
+            || !observedDigest.equals(bound.probe().identity().orElseThrow().artifact())) {
             return Optional.empty();
         }
-        final String exactVersion = version.orElseThrow();
-        if (!ReviewedHostArtifacts.admitsFullRuntime(exactVersion)) {
-            return Optional.empty();
-        }
-        return StartupSuppressionProfile.forArtifact(artifact);
+        return StartupSuppressionProfile.forReviewedVersion(
+            bound.contract(), observedDigest);
     }
 
     private static boolean requested(final RuntimeStartupConfig policy) {

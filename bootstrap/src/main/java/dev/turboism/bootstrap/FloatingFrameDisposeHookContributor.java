@@ -14,7 +14,7 @@ final class FloatingFrameDisposeHookContributor implements HookContributor {
     }
 
     @Override public boolean admitted(final HookEnvironment environment) {
-        if (!environment.fullRuntimeAdmission()) {
+        if (!environment.hookRuntimeAdmitted()) {
             return false;
         }
         if (environment.safeMode()) {
@@ -27,12 +27,10 @@ final class FloatingFrameDisposeHookContributor implements HookContributor {
 
     @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var host = environment.host().orElseThrow();
-        final var resolver = new VerifiedEmbeddedPanelResolverFactory().create(
-            environment.verificationRecord(
-                "cubism-" + environment.profile() + "-ui-embedded-panel.json"
-            ),
-            host.artifact(),
-            host.classLoader()
+        final var resolver = environment.sliceResolver(
+            new VerifiedEmbeddedPanelResolverFactory(),
+            "cubism-" + environment.profile() + "-ui-embedded-panel.json",
+            "ui-embedded-panel"
         );
         final VerifiedFloatingFrameDisposeHookInstaller installer =
             new VerifiedFloatingFrameDisposeHookInstaller(

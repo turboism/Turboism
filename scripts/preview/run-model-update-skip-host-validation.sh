@@ -18,8 +18,12 @@ if [ "$#" -lt 2 ]; then
 fi
 mode="$1"
 workload=resize
+interaction=""
 case "$mode" in
   on-wheel|probe-wheel) workload=wheel; mode="${mode%-wheel}" ;;
+  # Native mouse-drag workloads still run inside the wheel entry point: the
+  # plugin dispatches on turboism.validation.nativeInteraction.
+  on-pan|on-artmesh) workload=wheel; interaction="${mode#on-}"; mode=on ;;
 esac
 version="$2"
 shift 2
@@ -27,7 +31,7 @@ case "$mode" in
   off) enabled=false; probe=false ;;
   probe) enabled=true; probe=true ;;
   on) enabled=true; probe=false ;;
-  *) echo "usage: run-model-update-skip-host-validation.sh <off|probe|on> <5203|5302|5303> [run-label] [runner-options...]" >&2; exit 2 ;;
+  *) echo "usage: run-model-update-skip-host-validation.sh <off|probe|on|on-wheel|probe-wheel|on-pan|on-artmesh> <5203|5302|5303> [run-label] [runner-options...]" >&2; exit 2 ;;
 esac
 case "$version" in 5203|5302|5303) ;; *) echo "error: version must be 5203, 5302, or 5303" >&2; exit 2 ;; esac
 turboism_select_fixture "$version" || exit 2
@@ -64,6 +68,9 @@ driver="$repo_root/scripts/preview/fps-resize-driver.sh"
 # collected with the run evidence; it is written only when a decided-skip
 # digest differs from the post-update digest.
 probe_options=(--jvm-option "-Dturboism.validation.modelUpdateWorkload=$workload")
+if [[ -n "$interaction" ]]; then
+  probe_options+=(--jvm-option "-Dturboism.validation.nativeInteraction=$interaction")
+fi
 driver_options=()
 if [[ "$workload" == resize ]]; then
   driver_options=(--remote-pre-launch "$driver" --remote-pre-launch-background

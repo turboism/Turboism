@@ -50,6 +50,25 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
     }
 
     /**
+     * Connects a status adapter to a proved mapping, retaining the real host identity.
+     *
+     * @param resolver the complete status-bar resolver admitted by the runtime
+     * @return an adapter bound to that resolver's declared host and mapping generation
+     */
+    public static StatusToolbarAdapter connectedVerifiedCx(
+        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver
+    ) {
+        Objects.requireNonNull(resolver, "resolver");
+        if (!resolver.authorizes(dev.turboism.mapping.verification.StatusBarVerificationManifest.ADAPTER_SLICE_ID,
+            dev.turboism.mapping.verification.StatusBarVerificationManifest.CAPABILITY_IDS,
+            dev.turboism.mapping.verification.StatusBarVerificationManifest.REQUIRED_ALIASES)) {
+            throw new IllegalArgumentException("complete status-bar contract is required");
+        }
+        return connected(new CxStatusBarHostOperations(resolver.cubismVersion(), resolver.admittedCubismVersion(),
+            new VerifiedCxStatusBarHostAccess(resolver)));
+    }
+
+    /**
      * @return an adapter with no host behind it; every call returns an
      *     {@link SafeModeDiagnostic.Code#ADAPTER_UNAVAILABLE} diagnostic
      */
@@ -83,7 +102,7 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
     ) {
         try {
             final Optional<SafeModeDiagnostic> versionDiagnostic =
-                statusVersionDiagnostic(capability, operations.hostVersion());
+                HostUiVersionCheck.diagnosticFor(capability.id(), operations.hostVersion(), operations.contractVersion());
             if (versionDiagnostic.isPresent()) {
                 return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
             }
@@ -99,13 +118,6 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
                 "Host status/toolbar adapter call failed safely."
             ));
         }
-    }
-
-    private static Optional<SafeModeDiagnostic> statusVersionDiagnostic(
-        final Capability capability,
-        final String hostVersion
-    ) {
-        return HostUiVersionCheck.diagnosticFor(capability.id(), hostVersion);
     }
 
     private static <T> Supplier<AdapterResult<T>> unavailable(final Capability capability) {

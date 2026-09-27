@@ -59,8 +59,8 @@ public final class PerformanceProbeReportWriter {
             throw new IllegalArgumentException("unsupported performance probe scenario");
         }
         if (images && (!"5.3.02".equals(cubismVersion)
-            || !dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_02.sha256().equals(artifactSha256))) {
-            throw new IllegalArgumentException("image diagnostics require the exact reviewed 5.3.02 artifact");
+            || artifactSha256 == null || !artifactSha256.matches("[0-9a-f]{64}"))) {
+            throw new IllegalArgumentException("image diagnostics require the 5.3.02 contract and actual artifact digest");
         }
         final Map<String, Object> report = new LinkedHashMap<>();
         report.put("format", "turboism.cubism.performance-probe");

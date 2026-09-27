@@ -16,6 +16,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -297,6 +298,100 @@ class RuntimeSchedulerTest {
             PluginWorkBudgetEvent.Decision.SIDECAR,
             PluginWorkBudgetEvent.Severity.ERROR
         )), events);
+        scheduler.shutdown();
+    }
+
+    @Test
+    void csvHeavyActionFallsBackToLongLaneWhenSidecarUnavailable() throws Exception {
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
+        final CountDownLatch ran = new CountDownLatch(1);
+        final AtomicReference<String> workerThread = new AtomicReference<>();
+        final PluginTask csvImport = new PluginTask(
+            "action.handle", PLUGIN_ID, "action:parameter.csv.import", "none");
+
+        final boolean accepted = scheduler.dispatch(csvImport, () -> {
+            workerThread.set(Thread.currentThread().getName());
+            ran.countDown();
+        });
+
+        assertTrue(accepted, "HEAVY non-transaction work falls back to the long lane");
+        assertTrue(ran.await(1, TimeUnit.SECONDS));
+        assertTrue(workerThread.get().contains("-long-"),
+            "expected a long-lane worker thread, got " + workerThread.get());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void csvHeavyActionUsesSidecarWhenAvailable() {
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
+        final RuntimeScheduler scheduler = scheduler(events, sidecar);
+        final AtomicInteger executions = new AtomicInteger();
+        final PluginTask csvExport = new PluginTask(
+            "action.handle", PLUGIN_ID, "action:parameter.csv.export", "none");
+
+        scheduler.dispatch(csvExport, executions::incrementAndGet);
+
+        assertSame(csvExport, sidecar.task.get());
+        assertEquals(0, executions.get());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void transactionRollbackIsRejectedWhenSidecarUnavailable() {
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
+        final AtomicInteger executions = new AtomicInteger();
+
+        scheduler.dispatch(task("transaction.rollback", "none"), executions::incrementAndGet);
+
+        assertEquals(0, executions.get());
+        assertEquals(PluginWorkBudgetEvent.Phase.REJECTED, events.get(0).phase());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void explicitLongTaskRunsOnLongLaneEvenWhenSidecarAvailable() throws Exception {
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
+        final RuntimeScheduler scheduler = scheduler(events, sidecar);
+        final CountDownLatch ran = new CountDownLatch(1);
+        final AtomicReference<String> workerThread = new AtomicReference<>();
+
+        final boolean accepted = scheduler.dispatch(task("plugin.long.normal", "none"), () -> {
+            workerThread.set(Thread.currentThread().getName());
+            ran.countDown();
+        });
+
+        assertTrue(accepted);
+        assertTrue(ran.await(1, TimeUnit.SECONDS));
+        assertNull(sidecar.task.get(), "plugin.long.* never reaches the sidecar");
+        assertTrue(workerThread.get().contains("-long-"),
+            "expected a long-lane worker thread, got " + workerThread.get());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void longLaneTaskRunsPastLightweightTimeoutWithoutInterrupt() throws Exception {
+        // The test registry carries the default 500ms task timeout; the long lane has none.
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
+        final CountDownLatch completed = new CountDownLatch(1);
+        final AtomicBoolean interrupted = new AtomicBoolean();
+
+        final boolean accepted = scheduler.dispatch(task("plugin.long.normal", "none"), () -> {
+            try {
+                Thread.sleep(700);
+            } catch (InterruptedException exception) {
+                interrupted.set(true);
+            }
+            completed.countDown();
+        });
+
+        assertTrue(accepted);
+        assertTrue(completed.await(2, TimeUnit.SECONDS));
+        assertFalse(interrupted.get(), "long-lane work must not be interrupted at the task budget");
         scheduler.shutdown();
     }
 

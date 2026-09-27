@@ -1,10 +1,10 @@
 package dev.turboism.ui.appearance;
 
-import javax.swing.SwingUtilities;
+import dev.turboism.ui.host.EdtDispatch;
+
 import javax.swing.UIManager;
 import javax.swing.plaf.ColorUIResource;
 import java.awt.Color;
-import java.lang.reflect.InvocationTargetException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -220,38 +220,8 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
     }
 
     static <T> T onEdt(final java.util.concurrent.Callable<T> task) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return call(task);
-        }
-        final java.util.concurrent.atomic.AtomicReference<T> result = new java.util.concurrent.atomic.AtomicReference<>();
-        final java.util.concurrent.atomic.AtomicReference<RuntimeException> failure = new java.util.concurrent.atomic.AtomicReference<>();
-        try {
-            SwingUtilities.invokeAndWait(() -> {
-                try {
-                    result.set(call(task));
-                } catch (RuntimeException exception) {
-                    failure.set(exception);
-                }
-            });
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while updating host appearance", exception);
-        } catch (InvocationTargetException exception) {
-            throw new IllegalStateException("Host appearance dispatch failed", exception.getCause());
-        }
-        if (failure.get() != null) {
-            throw failure.get();
-        }
-        return result.get();
-    }
-
-    private static <T> T call(final java.util.concurrent.Callable<T> task) {
-        try {
-            return task.call();
-        } catch (RuntimeException exception) {
-            throw exception;
-        } catch (Exception exception) {
-            throw new IllegalStateException(exception);
-        }
+        // Theme mutations keep "call" semantics: deferring an apply/restore could run it
+        // after a newer theme was applied and resurrect stale defaults.
+        return EdtDispatch.call("host appearance EDT operation", task);
     }
 }

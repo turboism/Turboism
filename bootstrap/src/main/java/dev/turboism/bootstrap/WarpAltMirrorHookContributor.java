@@ -1,13 +1,14 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHookAdmission;
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
-import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -31,10 +32,18 @@ final class WarpAltMirrorHookContributor implements HookContributor {
         return policy != null && policy.hookEnabled(HOOK_ID);
     }
 
-    static boolean runtimeAdmitted(final HostArtifactDigest artifact) {
-        return ReviewedHostArtifacts.cubismVersionOf(artifact)
-            .filter(ReviewedHostArtifacts::admitsFullRuntime)
-            .isPresent();
+    /**
+     * Resolves the reviewed warp-alt profile against the actual artifact: the declared
+     * version+build picks its own generation's contract when reviewed, otherwise every
+     * generation's pinned classes are tried and exactly one distinct contract must
+     * match. The whole-artifact digest attests the snapshot without selecting a version.
+     */
+    static ReviewedHostContract.Resolution<WarpAltMirrorHostProfile> resolveProfile(
+        final Path artifact
+    ) {
+        return ReviewedHostContract.resolve(artifact, ReviewedHostContract.candidates(
+            WarpAltMirrorHostProfile.reviewedClassSha256(),
+            version -> WarpAltMirrorHostProfile.forReviewedVersion(version).orElse(null)));
     }
 
     static void closeCurrent(final VerifiedWarpAltMirrorHookInstaller candidate) {
@@ -52,6 +61,10 @@ final class WarpAltMirrorHookContributor implements HookContributor {
         return Phase.PREMAIN;
     }
 
+    @Override public Set<String> runtimeHookIds() {
+        return Set.of("warp-alt-mirror");
+    }
+
     @Override public boolean admitted(final HookEnvironment environment) {
         return hookEnabled(environment.startupPolicy());
     }
@@ -64,20 +77,25 @@ final class WarpAltMirrorHookContributor implements HookContributor {
             );
         }
         final Path hostArtifact = artifact.orElseThrow();
-        final HostArtifactDigest digest = HostArtifactDigest.from(hostArtifact);
-        if (!runtimeAdmitted(digest)) {
-            throw new IllegalStateException("Warp alt mirror host artifact is not runtime-admitted");
+        final ReviewedHostContract.Resolution<WarpAltMirrorHostProfile> resolution =
+            resolveProfile(hostArtifact);
+        if (!(resolution instanceof ReviewedHostContract.Bound<WarpAltMirrorHostProfile> bound)
+            || !ReviewedHostArtifacts.admitsFullRuntime(bound.sourceVersion())) {
+            throw new IllegalStateException(
+                "Warp alt mirror host artifact is not runtime-admitted: "
+                    + (resolution instanceof ReviewedHostContract.Refused<WarpAltMirrorHostProfile> refused
+                        ? refused.reason() : "unsupported host"));
         }
-        final var profile = dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile
-            .forArtifact(digest)
-            .orElseThrow(() -> new IllegalStateException("Unsupported warp alt mirror host artifact"));
+        final WarpAltMirrorHostProfile profile = bound.contract();
         final VerifiedWarpAltMirrorHookInstaller candidate = new VerifiedWarpAltMirrorHookInstaller(
             environment.instrumentation(),
             null,
             hostArtifact.toAbsolutePath().normalize(),
             profile,
+            WarpAltMirrorHostProfile.reviewedClassSha256().get(bound.sourceVersion()),
             code -> RuntimeDiagnostics.info("warp-alt-mirror", code)
         );
+        bound.requireUnchanged(hostArtifact);
         candidate.install();
         try {
             if (!CURRENT.compareAndSet(null, candidate)) {
@@ -99,18 +117,34 @@ final class WarpAltMirrorHookContributor implements HookContributor {
         };
     }
 
+    /**
+     * Publishes the mirror bridge once the preview runtime and the authorized
+     * consumer plugin are present. Every failure path throws so the
+     * orchestration can withdraw the {@code warp-alt-mirror} capability; a
+     * silent return would expose the feature without its native bridge.
+     */
     @Override public void bind(final HookEnvironment environment) throws Exception {
         final VerifiedWarpAltMirrorHookInstaller current = installer.get();
-        if (current == null || !environment.fullRuntimeAdmission()) {
-            return;
+        if (current == null) {
+            throw new IllegalStateException(
+                "Warp alt mirror bind refused: premain installation absent");
+        }
+        if (environment.runtime().isEmpty()) {
+            throw new IllegalStateException(
+                "Warp alt mirror bind refused: preview runtime not started");
+        }
+        if (!environment.runtimeSliceAdmitted(NativeOptimizationHookContributor.HOOK_SLICE)) {
+            throw new IllegalStateException(
+                "Warp alt mirror bind refused: runtime slice not admitted");
         }
         final var runtime = environment.runtime().orElseThrow();
-        final boolean authorized = WarpAltMirrorHookAdmission.admitted(runtime.loadReport().loaded());
-        if (!authorized) {
+        current.onClose(() -> runtime.disableEditorCapabilitiesRequiringHook("warp-alt-mirror"));
+        if (!WarpAltMirrorHookAdmission.admitted(runtime.loadReport().loaded())) {
             current.close();
             installer.compareAndSet(current, null);
             CURRENT.compareAndSet(current, null);
-            return;
+            throw new IllegalStateException(
+                "Warp alt mirror bind refused: authorized consumer plugin absent");
         }
         try {
             current.defineLazyTargets(environment.host().orElseThrow().classLoader());

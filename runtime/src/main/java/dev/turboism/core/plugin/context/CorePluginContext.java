@@ -351,6 +351,8 @@ public final class CorePluginContext implements PluginContext {
         return new DefaultCubismServicesFactory(
             hostAccess.adapters(),
             hostAccess::cubismEditorVersion,
+            hostAccess::admittedCubismCapabilities,
+            hostAccess::admittedCubismGeneration,
             hostAccess.modelAccess(),
             hostAccess.coreRuntimeInfo(),
             hostAccess.parameterLifecycle(),
@@ -626,6 +628,12 @@ public final class CorePluginContext implements PluginContext {
         this.editorApiAvailability = new CubismEditorApiAvailabilityInterceptor(
             servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
                 ? defaultFactory.cubismEditorVersion()
+                : java.util.Optional::empty,
+            servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
+                ? defaultFactory.admittedCubismCapabilities()
+                : java.util.Set::of,
+            servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
+                ? defaultFactory.admittedCubismGeneration()
                 : java.util.Optional::empty
         );
         this.cubismServices = servicesFactory.create(
@@ -1047,28 +1055,31 @@ public final class CorePluginContext implements PluginContext {
      * Reports which optional services this context installed, derived from the installation
      * fields rather than by calling the getters: {@code performanceStats()} lazily constructs
      * its service, and several slots hold {@code unavailable()} sentinels behind the
-     * version-gating proxy. Recomputed per call so late {@code installScriptService} /
-     * {@code installMcpConnectionService} installs are visible.
+     * version-gating proxy. Every field that can carry an {@code unavailable()} sentinel is
+     * probed through {@link #installed}; only members whose accessors unconditionally expose a
+     * real runtime object (the {@code Authorized*} delegates, {@code uiHost}, {@code hostDialogs}
+     * and {@code performanceStats}) are reported without a probe. Recomputed per call so late
+     * {@code installScriptService} / {@code installMcpConnectionService} installs are visible.
      */
     @Override
     public Set<PluginService> availableServices() {
         final EnumSet<PluginService> available = EnumSet.noneOf(PluginService.class);
-        if (localization != null) {
+        if (installed(localization, PluginLocalization.unavailable())) {
             available.add(PluginService.LOCALIZATION);
         }
-        if (taskScheduler != null) {
+        if (installed(taskScheduler, PluginTaskScheduler.unavailable())) {
             available.add(PluginService.TASKS);
         }
-        if (asyncHostReadService != null) {
+        if (installed(asyncHostReadService, AsyncHostReadService.unavailable())) {
             available.add(PluginService.HOST_READS);
         }
-        if (pluginStorage != null) {
+        if (installed(pluginStorage, PluginStorage.unavailable())) {
             available.add(PluginService.STORAGE);
         }
         if (installed(scriptService, ScriptService.unavailable())) {
             available.add(PluginService.SCRIPTS);
         }
-        if (userFileAccessService != null) {
+        if (installed(userFileAccessService, UserFileAccessService.unavailable())) {
             available.add(PluginService.USER_FILES);
         }
         if (installed(cubismServices.parameterQueryService(), null)) {
@@ -1119,6 +1130,9 @@ public final class CorePluginContext implements PluginContext {
         )) {
             available.add(PluginService.FILE_CHOOSER_HISTORY);
         }
+        if (installed(exportSettingsContributionService, ExportSettingsContributionService.unavailable())) {
+            available.add(PluginService.EXPORT_SETTINGS);
+        }
         available.add(PluginService.MESH_MIRROR_AXIS);
         available.add(PluginService.MESH_EDIT);
         available.add(PluginService.MESH_EDIT_PARTICIPATION);
@@ -1140,13 +1154,22 @@ public final class CorePluginContext implements PluginContext {
         )) {
             available.add(PluginService.BACKUP);
         }
-        available.add(PluginService.MAIN_TOOLBAR);
-        available.add(PluginService.PALETTE_TOOLBAR);
-        available.add(PluginService.PALETTE_FILTER);
+        if (installed(mainToolbarRegistry, MainToolbarRegistry.unavailable())) {
+            available.add(PluginService.MAIN_TOOLBAR);
+        }
+        if (installed(paletteToolbarRegistry, PaletteToolbarRegistry.unavailable())) {
+            available.add(PluginService.PALETTE_TOOLBAR);
+        }
+        if (installed(paletteFilterRegistry, PaletteFilterRegistry.unavailable())) {
+            available.add(PluginService.PALETTE_FILTER);
+        }
         if (installed(sceneTableService, SceneTableService.unavailable())) {
             available.add(PluginService.SCENE_TABLE);
         }
         available.add(PluginService.UI_HOST);
+        if (installed(uiResourceService, UiResourceService.unavailable())) {
+            available.add(PluginService.UI_RESOURCES);
+        }
         available.add(PluginService.HOST_DIALOGS);
         if (installed(appearanceService, AppearanceService.unavailable())) {
             available.add(PluginService.APPEARANCE);
@@ -1163,15 +1186,22 @@ public final class CorePluginContext implements PluginContext {
         )) {
             available.add(PluginService.WORKSPACE_LAYOUT);
         }
-        available.add(PluginService.CONTEXT_MENU);
-        available.add(PluginService.CONFIG);
+        if (installed(contextMenuRegistry, ContextMenuRegistry.unavailable())) {
+            available.add(PluginService.CONTEXT_MENU);
+        }
+        if (installed(pluginConfigRegistry, PluginConfigRegistry.unavailable())) {
+            available.add(PluginService.CONFIG);
+        }
         if (installed(
             cubismLogService,
             dev.turboism.sdk.runtime.CubismLogService.unavailable()
         )) {
             available.add(PluginService.CUBISM_LOG);
         }
-        if (runtimeSettings != null) {
+        if (installed(
+            runtimeSettings,
+            dev.turboism.sdk.runtime.RuntimeSettingsService.unavailable()
+        )) {
             available.add(PluginService.RUNTIME_SETTINGS);
         }
         if (installed(mcpConnectionService, McpConnectionService.unavailable())) {

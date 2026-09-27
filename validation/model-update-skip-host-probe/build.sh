@@ -26,12 +26,15 @@ javac --release 17 -cp "$sdk_jar" -d "$out" \
   "$src/dev/turboism/validation/modelupdate/NativeDragSequence.java" \
   "$src/dev/turboism/validation/modelupdate/NativeParitySequence.java" \
   "$src/dev/turboism/validation/modelupdate/NativeInteractionHost.java" \
+  "$src/dev/turboism/validation/modelupdate/NativeInteractionFocus.java" \
   "$src/dev/turboism/validation/modelupdate/NativeInteractionWorkload.java" \
   "$src/dev/turboism/validation/modelupdate/PreparationWatchdog.java" \
   "$src/dev/turboism/validation/modelupdate/AllocationProfile.java" \
   "$src/dev/turboism/validation/modelupdate/NarrowUniformTrial.java" \
   "$src/dev/turboism/validation/modelupdate/GpuCompletionProbe.java" \
   "$src/dev/turboism/validation/modelupdate/GlSubmissionProbe.java" \
+  "$src/dev/turboism/validation/modelupdate/GlCallCategory.java" \
+  "$src/dev/turboism/validation/modelupdate/GlRedundancyTracker.java" \
   "$src/dev/turboism/validation/modelupdate/UploadPayloadObserver.java" \
   "$src/dev/turboism/validation/modelupdate/UniformLocationCache.java" \
   "$src/dev/turboism/validation/modelupdate/UniformValueCache.java" \

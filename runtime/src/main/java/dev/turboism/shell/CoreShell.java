@@ -106,6 +106,15 @@ public final class CoreShell implements ShellHandle {
             )
         ));
         context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createMemoryProfile(
+                localization(context),
+                services.cubismJvmSettings()
+            )
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createMemoryProfileNote(localization(context))
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
             CubismJvmSettingsContribution.createModelUpdateSkipToggle(
                 localization(context),
                 services.cubismJvmSettings()
@@ -119,6 +128,21 @@ public final class CoreShell implements ShellHandle {
         ));
         context.disposableScope().register(context.uiHost().contributeSettings(
             CubismJvmSettingsContribution.createUniformLocationCacheToggle(
+                localization(context), services.cubismJvmSettings()
+            )
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createUploadElisionToggle(
+                localization(context), services.cubismJvmSettings()
+            )
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createInputPathElisionToggle(
+                localization(context), services.cubismJvmSettings()
+            )
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createMesaGlThreadToggle(
                 localization(context), services.cubismJvmSettings()
             )
         ));

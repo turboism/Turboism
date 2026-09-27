@@ -60,6 +60,57 @@ class PreviewRuntimeEditorReleaseAdmissionTest {
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 
+    @Test
+    void compatibilityAdmissionRejectsAnArtifactChangedSinceIdentityProbe() throws Exception {
+        final Path artifact = editorJar("5.3.02", 503020001);
+        final var identity = new dev.turboism.mapping.verification.CubismHostIdentity(
+            "Live2D Cubism Editor", "5.3.02", java.util.Optional.empty(), 503020001,
+            "com/live2d/cubism/h", dev.turboism.mapping.verification.HostArtifactDigest.from(artifact)
+        );
+        final var resolution = dev.turboism.mapping.verification.CompatibilityResolution.of(
+            dev.turboism.mapping.verification.CompatibilityResolution.Mode.COMPATIBLE,
+            new dev.turboism.mapping.verification.HostIdentityProbe(
+                dev.turboism.mapping.verification.HostIdentityProbe.Status.DECLARED,
+                java.util.Optional.of(identity), "fixture identity"),
+            java.util.Map.of(), true, "fixture admitted"
+        );
+        assertEquals("5.3.02", PreviewRuntime.requireAdmittedEditorRelease(artifact, resolution));
+
+        Files.copy(editorJar("5.3.99", 503990001), artifact,
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+        assertThrows(IllegalStateException.class,
+            () -> PreviewRuntime.requireAdmittedEditorRelease(artifact, resolution),
+            "a previously admitted version cannot authorize a replaced artifact");
+    }
+
+    @Test
+    void exactModeStillRequiresBaseCapabilityAndTheObservedArtifactSnapshot() throws Exception {
+        final Path artifact = editorJar("5.3.02", 503020001);
+        final var identity = new dev.turboism.mapping.verification.CubismHostIdentity(
+            "Live2D Cubism Editor", "5.3.02", java.util.Optional.empty(), 503020001,
+            "com/live2d/cubism/h", dev.turboism.mapping.verification.HostArtifactDigest.from(artifact));
+        final var probe = new dev.turboism.mapping.verification.HostIdentityProbe(
+            dev.turboism.mapping.verification.HostIdentityProbe.Status.DECLARED,
+            java.util.Optional.of(identity), "fixture identity");
+        final var missingBase = dev.turboism.mapping.verification.CompatibilityResolution.of(
+            dev.turboism.mapping.verification.CompatibilityResolution.Mode.VERIFIED,
+            probe, java.util.Map.of(), false, "missing records");
+
+        assertEquals("Cubism admission resolved no base runtime capability",
+            assertThrows(IllegalStateException.class,
+                () -> PreviewRuntime.requireAdmittedEditorRelease(artifact, missingBase)).getMessage());
+
+        final var admitted = dev.turboism.mapping.verification.CompatibilityResolution.of(
+            dev.turboism.mapping.verification.CompatibilityResolution.Mode.VERIFIED,
+            probe, java.util.Map.of(), true, "fixture admitted");
+        Files.copy(editorJar("5.3.99", 503990001), artifact,
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        assertEquals("Cubism host artifact changed since compatibility probing",
+            assertThrows(IllegalStateException.class,
+                () -> PreviewRuntime.requireAdmittedEditorRelease(artifact, admitted)).getMessage());
+    }
+
     private Path editorJar(final String version, final int build) throws Exception {
         final ClassWriter writer = new ClassWriter(0);
         writer.visit(

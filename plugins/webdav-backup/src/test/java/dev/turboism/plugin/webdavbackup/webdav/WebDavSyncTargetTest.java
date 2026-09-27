@@ -32,8 +32,10 @@ class WebDavSyncTargetTest {
 
     private HttpServer server;
     private final List<String> requests = new CopyOnWriteArrayList<>();
+    private final List<String> rawRequests = new CopyOnWriteArrayList<>();
     private final List<String> putBodies = new CopyOnWriteArrayList<>();
     private Function<String, Integer> statusOverride = path -> null;
+    private volatile String redirectLocation;
     private final AtomicInteger putCalls = new AtomicInteger();
     private final List<String> diagnostics = new CopyOnWriteArrayList<>();
 
@@ -52,10 +54,19 @@ class WebDavSyncTargetTest {
 
     private void handle(final HttpExchange exchange) throws IOException {
         final String method = exchange.getRequestMethod();
-        final String path = exchange.getRequestURI().getPath();
+        final URI requestUri = exchange.getRequestURI();
+        final String path = requestUri.getPath();
         requests.add(method + " " + path);
+        rawRequests.add(method + " " + requestUri.getRawPath()
+            + (requestUri.getRawQuery() == null ? "" : "?" + requestUri.getRawQuery()));
         if ("PUT".equals(method)) {
             putCalls.incrementAndGet();
+        }
+        if (redirectLocation != null) {
+            exchange.getResponseHeaders().set("Location", redirectLocation);
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
+            return;
         }
         final Integer forced = statusOverride.apply(method + " " + path);
         if (forced != null) {
@@ -205,7 +216,8 @@ class WebDavSyncTargetTest {
     @Test
     void pathNormalizationRejectsParentEscapesAndCollapsesDots() {
         assertEquals("/a/b", WebDavConfig.normalizePath("/a/./b"));
-        assertEquals("/a/b/", WebDavConfig.normalizePath("a//b/"));
+        assertEquals("/a/b", WebDavConfig.normalizePath("a//b/"),
+            "normalizePath documents no trailing slash");
         assertEquals("/", WebDavConfig.normalizePath(""));
         assertEquals("/", WebDavConfig.normalizePath("/"));
         assertThrows(IllegalArgumentException.class, () -> WebDavConfig.normalizePath("../escape"));
@@ -244,6 +256,90 @@ class WebDavSyncTargetTest {
         assertTrue(!failure.getMessage().contains("s3cret!"), "credentials must never leak");
         for (String line : diagnostics) {
             assertTrue(!line.contains("s3cret!"), "credentials must never reach diagnostics");
+        }
+    }
+
+    @Test
+    void encodesEachUriSegmentWhenUploadingArtifacts() throws Exception {
+        WebDavSyncTarget target = new WebDavSyncTarget(
+            config(true, 0, 0, "/turbo ism/备份", "", ""), diagnostics::add);
+        File artifact = artifact("model 备份 #1?.cmo3");
+        target.sync(List.of(artifact));
+        assertTrue(rawRequests.contains("MKCOL /turbo%20ism/%E5%A4%87%E4%BB%BD"),
+            "collection segments must be percent-encoded, got " + rawRequests);
+        assertTrue(rawRequests.contains(
+                "PUT /turbo%20ism/%E5%A4%87%E4%BB%BD/model%20%E5%A4%87%E4%BB%BD%20%231%3F.cmo3"),
+            "file name segments must be percent-encoded, got " + rawRequests);
+        assertTrue(requests.contains("PUT /turbo ism/备份/model 备份 #1?.cmo3"),
+            "the decoded resource name must be the original file name");
+    }
+
+    @Test
+    void encodesLiteralPercentCharactersInArtifactNames() throws Exception {
+        WebDavSyncTarget target = new WebDavSyncTarget(
+            config(true, 0, 0, "/backup", "", ""), diagnostics::add);
+        target.sync(List.of(artifact("rate 100%.cmo3")));
+        assertTrue(rawRequests.contains("PUT /backup/rate%20100%25.cmo3"),
+            "a literal percent must become %25, got " + rawRequests);
+    }
+
+    @Test
+    void joinsBaseUrlPathAndCollectionWithoutDoubleSlashes() throws Exception {
+        for (String suffix : List.of("/dav", "/dav/")) {
+            final WebDavConfig base = new WebDavConfig(true,
+                URI.create("http://127.0.0.1:" + server.getAddress().getPort() + suffix),
+                "", "", "/backup", true, 0, 0, 10);
+            new WebDavSyncTarget(base, diagnostics::add)
+                .sync(List.of(artifact("model_backup2026_08_08_1300.cmo3")));
+            assertTrue(rawRequests.contains(
+                    "PUT /dav/backup/model_backup2026_08_08_1300.cmo3"),
+                "base suffix " + suffix + " must join without a double slash, got " + rawRequests);
+        }
+        assertTrue(rawRequests.stream().noneMatch(line -> line.contains("//")),
+            "no request path may contain a double slash, got " + rawRequests);
+    }
+
+    @Test
+    void ignoresQueryOnTheConfiguredRootUrlInsteadOfCorruptingThePath() throws Exception {
+        final WebDavConfig base = new WebDavConfig(true,
+            URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/dav?tag=1"),
+            "", "", "/backup", true, 0, 0, 10);
+        new WebDavSyncTarget(base, diagnostics::add)
+            .sync(List.of(artifact("model_backup2026_08_08_1301.cmo3")));
+        assertTrue(rawRequests.contains("PUT /dav/backup/model_backup2026_08_08_1301.cmo3"),
+            "a query on the root URL must not corrupt the request path, got " + rawRequests);
+    }
+
+    @Test
+    void redirectsFailClosedAndNeverCarryCredentialsToAnotherOrigin() throws Exception {
+        final List<String> redirectedRequests = new CopyOnWriteArrayList<>();
+        final List<String> redirectedAuthHeaders = new CopyOnWriteArrayList<>();
+        final HttpServer otherOrigin = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        try {
+            otherOrigin.createContext("/", exchange -> {
+                redirectedRequests.add(exchange.getRequestMethod()
+                    + " " + exchange.getRequestURI().getPath());
+                redirectedAuthHeaders.add(
+                    exchange.getRequestHeaders().getFirst("Authorization"));
+                exchange.sendResponseHeaders(201, -1);
+                exchange.close();
+            });
+            otherOrigin.start();
+            redirectLocation =
+                "http://127.0.0.1:" + otherOrigin.getAddress().getPort() + "/stolen";
+            final WebDavSyncTarget target = new WebDavSyncTarget(
+                config(true, 0, 0, "/backup", "alice", "s3cret!"), diagnostics::add);
+            assertThrows(IllegalStateException.class,
+                () -> target.sync(List.of(artifact("model_backup2026_08_08_1302.cmo3"))),
+                "a redirect must fail closed rather than be followed");
+            assertTrue(redirectedRequests.isEmpty(),
+                "no request may be reissued to another origin, got " + redirectedRequests);
+            assertTrue(redirectedAuthHeaders.isEmpty(),
+                "credentials must never leave the configured origin");
+            assertTrue(diagnostics.stream().anyMatch(line -> line.contains("redirect")),
+                "a redirect must produce a diagnostic, got " + diagnostics);
+        } finally {
+            otherOrigin.stop(0);
         }
     }
 

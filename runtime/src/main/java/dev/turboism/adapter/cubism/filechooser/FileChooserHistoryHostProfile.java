@@ -72,20 +72,37 @@ public record FileChooserHistoryHostProfile(
     public static Optional<FileChooserHistoryHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
         final String version;
-        final List<String> contextClasses;
         if (artifact.equals(CUBISM_52)) {
             version = "5.2.03";
-            contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_52);
         } else if (artifact.equals(CUBISM_53)) {
             version = "5.3.02";
-            contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_53);
         } else if (artifact.equals(CUBISM_5303)) {
             version = "5.3.03";
+        } else {
+            return Optional.empty();
+        }
+        return forReviewedVersion(version);
+    }
+
+    /**
+     * Resolves the reviewed selector tuple by declared reviewed generation for
+     * a compatibility host that bound its declared version.
+     *
+     * @param cubismVersion host-declared reviewed version
+     * @return the matching profile, or empty for any unreviewed version
+     */
+    public static Optional<FileChooserHistoryHostProfile> forReviewedVersion(final String cubismVersion) {
+        Objects.requireNonNull(cubismVersion, "cubismVersion");
+        final List<String> contextClasses;
+        if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)) {
+            contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_52);
+        } else if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)
+            || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
             contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_53);
         } else {
             return Optional.empty();
         }
-        return Optional.of(new FileChooserHistoryHostProfile(version, SAVE_DIALOG_METHODS, contextClasses));
+        return Optional.of(new FileChooserHistoryHostProfile(cubismVersion, SAVE_DIALOG_METHODS, contextClasses));
     }
 
     /** One save-dialog method binding: name + descriptor (identical across versions). */

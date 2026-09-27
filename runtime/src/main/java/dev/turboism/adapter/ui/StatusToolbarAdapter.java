@@ -63,6 +63,12 @@ public interface StatusToolbarAdapter {
         String hostVersion();
 
         /**
+         * Returns the reviewed mapping generation used by these operations. An
+         * unbound implementation defaults to its declared host version.
+         */
+        default String contractVersion() { return hostVersion(); }
+
+        /**
          * @param capability the capability being probed
          * @return {@code true} when this host exposes it
          */

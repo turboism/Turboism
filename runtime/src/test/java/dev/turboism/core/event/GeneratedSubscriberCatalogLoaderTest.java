@@ -7,6 +7,7 @@ import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.event.TurboismEvent;
 import dev.turboism.sdk.failure.FailureBoundary;
 import dev.turboism.sdk.failure.NoFailureInterception;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
@@ -17,6 +18,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GeneratedSubscriberCatalogLoaderTest {
     @Test
@@ -108,6 +110,46 @@ class GeneratedSubscriberCatalogLoaderTest {
                 descriptors.get(0).noFailureInterception()
             );
             assertEquals(EventPriority.HIGH, descriptors.get(0).priority());
+        }
+    }
+
+    @Test
+    void catalogMatchingNoEntrypointIsDiagnosticOnly() throws Exception {
+        final Path root = Files.createTempDirectory("unmatched-subscriber-loader");
+        final Path serviceFile = root.resolve("META-INF/services").resolve(
+            GeneratedSubscriberCatalog.class.getName()
+        );
+        Files.createDirectories(serviceFile.getParent());
+        Files.writeString(
+            serviceFile,
+            FixtureCatalog.class.getName() + System.lineSeparator()
+        );
+        final URL testClasses = FixtureSubscriber.class.getProtectionDomain()
+            .getCodeSource().getLocation();
+        final List<String> diagnostics = new java.util.ArrayList<>();
+        RuntimeDiagnostics.install((level, component, message, failure) ->
+            diagnostics.add(level + ":" + component + ":" + message)
+        );
+        try (URLClassLoader loader = fixtureLoader(root, testClasses)) {
+            // FixtureCatalog targets FixtureSubscriber, but the entrypoint list holds a
+            // different class: the catalog must be skipped (diagnostic only) and the
+            // entrypoint must still resolve through reflection fallback.
+            final List<EventSubscriberDescriptor> descriptors =
+                new GeneratedSubscriberCatalogLoader().inspect(
+                    List.of(new Subscriber()),
+                    loader
+                );
+
+            assertEquals(1, descriptors.size());
+            assertEquals("on", descriptors.get(0).method().getName());
+            assertTrue(
+                diagnostics.stream().anyMatch(entry ->
+                    entry.contains("WARN")
+                        && entry.contains("matches no plugin entrypoint instance")),
+                "the unmatched catalog must surface as a WARN diagnostic: " + diagnostics
+            );
+        } finally {
+            RuntimeDiagnostics.clear();
         }
     }
 

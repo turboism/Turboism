@@ -47,8 +47,10 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
     private final ClassLoader hostClassLoader;
     private final List<StaticSelector> entries;
     private final List<NativeEditBeginTransformer> transformers;
+    private final List<NativeEditBeginTransformer> registeredTransformers = new ArrayList<>();
     private final List<Class<?>> transformed = new ArrayList<>();
     private final AtomicBoolean installed = new AtomicBoolean(false);
+    private java.util.function.Consumer<String> publishedReceiver;
 
     private VerifiedNativeEditBeginHookInstaller(
         final Instrumentation instrumentation,
@@ -92,9 +94,9 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
         final ClassLoader hostClassLoader
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        if (!verified.isExactCubismVersion("5.2.03")
-            && !verified.isExactCubismVersion("5.3.02")
-            && !verified.isExactCubismVersion("5.3.03")) {
+        if (!verified.isAdmittedCubismVersion("5.2.03")
+            && !verified.isAdmittedCubismVersion("5.3.02")
+            && !verified.isAdmittedCubismVersion("5.3.03")) {
             throw new IllegalArgumentException("Native edit entry hook version is unsupported.");
         }
         final Set<String> aliases = Set.of(
@@ -150,61 +152,66 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
      * @throws IllegalStateException if the JVM cannot retransform classes
      * @throws Exception if retransforming a hook target fails
      */
-    public void install(final java.util.function.Consumer<String> receiver) throws Exception {
+    public synchronized void install(final java.util.function.Consumer<String> receiver) throws Exception {
         Objects.requireNonNull(receiver, "receiver");
         if (!installed.compareAndSet(false, true)) return;
         if (!instrumentation.isRetransformClassesSupported()) {
             installed.set(false);
             throw new IllegalStateException("Class retransformation is unavailable.");
         }
-        System.getProperties().put(CALLBACK_KEY, receiver);
-        for (final NativeEditBeginTransformer transformer : transformers) {
-            instrumentation.addTransformer(transformer, true);
-        }
         try {
-            for (final StaticSelector entry : entries) {
-                retransform(entry.ownerInternalName().replace('/', '.'));
+            if (System.getProperties().putIfAbsent(CALLBACK_KEY, receiver) != null) {
+                throw new IllegalStateException("Native edit entry callback is already owned by another installation");
+            }
+            publishedReceiver = receiver;
+            for (final NativeEditBeginTransformer transformer : transformers) {
+                instrumentation.addTransformer(transformer, true);
+                registeredTransformers.add(transformer);
+            }
+            for (int index = 0; index < entries.size(); index++) {
+                retransform(entries.get(index).ownerInternalName().replace('/', '.'), transformers.get(index));
             }
         } catch (Throwable failure) {
-            close();
+            try {
+                close();
+            } catch (Throwable cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
             throw failure;
         }
     }
 
-    private void retransform(final String className) {
-        for (final Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-            if (!loaded.getName().equals(className)
-                || loaded.getClassLoader() != hostClassLoader
-                || !instrumentation.isModifiableClass(loaded)) {
-                continue;
-            }
-            try {
-                instrumentation.retransformClasses(loaded);
-            } catch (Exception failure) {
-                throw new IllegalStateException(
-                    "Native edit entry hook retransformation failed: " + className,
-                    failure
-                );
+    private void retransform(final String className, final NativeEditBeginTransformer transformer) {
+        try {
+            // Define without initializing: plugin availability cannot depend on a later,
+            // unobserved class load eventually applying the registered transformer.
+            final Class<?> loaded = Class.forName(className, false, hostClassLoader);
+            if (loaded.getClassLoader() != hostClassLoader || !instrumentation.isModifiableClass(loaded)) {
+                throw new IllegalStateException("Native edit entry target is not modifiable: " + className);
             }
             synchronized (transformed) {
                 transformed.add(loaded);
             }
-            return;
+            final long before = transformer.successfulTransformationCount();
+            instrumentation.retransformClasses(loaded);
+            if (transformer.successfulTransformationCount() <= before) {
+                throw new IllegalStateException("Native edit entry target was not patched: " + className);
+            }
+        } catch (Exception failure) {
+            throw new IllegalStateException("Native edit entry hook retransformation failed: " + className, failure);
         }
     }
 
     /** {@return whether the hooks are currently installed} */
-    public boolean isInstalled() {
+    public synchronized boolean isInstalled() {
         return installed.get();
     }
 
     /**
      * {@return the binary names of the hook targets that were retransformed at install time}
      *
-     * <p>An empty result is legitimate while a target has not been loaded yet, because the
-     * registered transformers still apply to a later load. It is not legitimate once the host has
-     * loaded the target, and reporting the names separately is what makes that difference
-     * visible instead of a hook that silently observes nothing.</p>
+     * <p>A successful install verifies both targets immediately. Before installation and after
+     * cleanup the result is empty.</p>
      */
     public List<String> retransformedClassNames() {
         synchronized (transformed) {
@@ -213,12 +220,21 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
         if (!installed.compareAndSet(true, false)) return;
-        for (final NativeEditBeginTransformer transformer : transformers) {
-            instrumentation.removeTransformer(transformer);
+        Throwable failure = null;
+        for (final NativeEditBeginTransformer transformer : registeredTransformers) {
+            try {
+                instrumentation.removeTransformer(transformer);
+            } catch (Throwable removalFailure) {
+                failure = appendFailure(failure, removalFailure);
+            }
         }
-        System.getProperties().remove(CALLBACK_KEY);
+        registeredTransformers.clear();
+        if (publishedReceiver != null) {
+            System.getProperties().remove(CALLBACK_KEY, publishedReceiver);
+            publishedReceiver = null;
+        }
         final List<Class<?>> restore;
         synchronized (transformed) {
             restore = List.copyOf(transformed);
@@ -228,12 +244,18 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
             if (!instrumentation.isModifiableClass(loaded)) continue;
             try {
                 instrumentation.retransformClasses(loaded);
-            } catch (Exception failure) {
-                throw new IllegalStateException(
-                    "Native edit entry hook restoration failed: " + loaded.getName(),
-                    failure
-                );
+            } catch (Throwable restorationFailure) {
+                failure = appendFailure(failure, restorationFailure);
             }
         }
+        if (failure != null) {
+            throw new IllegalStateException("Native edit entry hook cleanup failed", failure);
+        }
+    }
+
+    private static Throwable appendFailure(final Throwable first, final Throwable next) {
+        if (first == null) return next;
+        if (first != next) first.addSuppressed(next);
+        return first;
     }
 }

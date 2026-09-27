@@ -405,6 +405,33 @@ public final class ConfigMergeRegression {
         ConfigMerge.validateCurrent(withZgc);
         check("launcher.zgc boolean passes installer validation", true);
 
+        Map<String, Object> badLauncherProfile = validRuntimeConfig();
+        badLauncherProfile.put("launcher",
+                Map.of("cubismJvm", "bundled", "memoryProfile", "extreme16g"));
+        invalid.add(badLauncherProfile);
+        Map<String, Object> badLauncherProfileType = validRuntimeConfig();
+        badLauncherProfileType.put("launcher",
+                Map.of("cubismJvm", "bundled", "memoryProfile", 42L));
+        invalid.add(badLauncherProfileType);
+
+        // Installer-only serialization/merge coverage for all profile tokens.
+        // RuntimeInstallerConfigRoundTripTest supplies real runtime-saved input.
+        for (final String tier : List.of("system", "balanced4g", "balanced4gFastSoft")) {
+            Map<String, Object> persisted = validRuntimeConfig();
+            persisted.put("launcher",
+                    Map.of("cubismJvm", "bundled", "memoryProfile", tier));
+            Path profileHome = Files.createTempDirectory("cfg-profile-");
+            ConfigMerge.write(profileHome, persisted);
+            Map<String, Object> loaded = ConfigMerge.loadExisting(profileHome);
+            ConfigMerge.validateCurrent(loaded);
+            Map<String, Object> relaunched = ConfigMerge.applyPolicy(
+                    loaded, ConfigMerge.mergeDisabled(loaded, Set.of(), Set.of(), false));
+            Object preserved = ((Map<?, ?>) relaunched.get("launcher")).get("memoryProfile");
+            check("launcher.memoryProfile " + tier
+                            + " survives installer upgrade",
+                    tier.equals(preserved));
+        }
+
         for (int index = 0; index < invalid.size(); index++) {
             try {
                 ConfigMerge.validateCurrent(invalid.get(index));

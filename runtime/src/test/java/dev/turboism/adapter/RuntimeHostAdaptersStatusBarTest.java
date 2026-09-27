@@ -107,6 +107,20 @@ class RuntimeHostAdaptersStatusBarTest {
             () -> RuntimeHostAdapters.withVerifiedStatusBar(RuntimeHostAdapters.safeMode(), partial));
     }
 
+    @Test
+    void compatibleStatusBarReachesTheHostInsteadOfRejectingTheDeclaredVersion() {
+        final var exact = VerifiedCxStatusBarHostAccessTest.statusResolver();
+        final var compatible = TestVerifiedResolvers.createCompatible("5.3.02", "5.3.99",
+            StatusBarVerificationManifest.ADAPTER_SLICE_ID, StatusBarVerificationManifest.CAPABILITY_IDS,
+            StatusBarVerificationManifest.REQUIRED_ALIASES.stream().map(exact::verifiedSelector).toList(),
+            exact.hostClassLoader());
+        final var adapter = RuntimeHostAdapters.withVerifiedStatusBar(RuntimeHostAdapters.safeMode(), compatible);
+        final var result = adapter.statusToolbar().notifyStatus(new StatusNotification("test", "INFO", "Ready"));
+        assertEquals(SafeModeDiagnostic.Code.VALIDATION_FAILURE, result.diagnostic().orElseThrow().code(),
+            "the fixture has no live window, but its version and mapping are admitted");
+        assertEquals("5.3.99", compatible.cubismVersion());
+    }
+
     private static List<StaticSelector> statusSelectors() {
         String appCtrl = "com/live2d/cubism/CEAppCtrl";
         return StatusBarVerificationManifest.REQUIRED_ALIASES.stream().sorted().map(alias ->

@@ -49,6 +49,11 @@ final class HookRegistry {
         return entries.stream().anyMatch(entry -> entry.id.equals(id));
     }
 
+    /** Closes a failed binding without disabling independent installed hooks. */
+    void closeHook(final String id, final Consumer<String> warn, final Consumer<String> info) {
+        closeMatching(warn, info, false, "binding-failure", entry -> entry.id.equals(id));
+    }
+
     /**
      * Closes only the handles installed in the given phase, removing them from
      * the registry. Used by the bootstrap failure path to tear down the

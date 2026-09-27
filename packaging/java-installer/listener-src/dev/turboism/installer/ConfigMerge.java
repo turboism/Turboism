@@ -842,7 +842,15 @@ final class ConfigMerge {
             "disabledIds", "denylistedClasses", "startup");
     private static final Set<String> STARTUP_FIELDS = Set.of(
             "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory");
-    private static final Set<String> LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath", "zgc");
+    private static final Set<String> LAUNCHER_FIELDS = Set.of(
+            "cubismJvm", "graalVmPath", "zgc", "memoryProfile",
+            "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
+            "inputPathElision", "mesaGlThread");
+    private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
+            "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
+            "inputPathElision", "mesaGlThread");
+    private static final Set<String> MEMORY_PROFILES =
+            Set.of("system", "balanced4g", "balanced4gFastSoft");
     private static final Set<String> CUBISM_JVMS = Set.of("graalvm", "bundled");
     private static final Pattern WORKTREE_ID_PATTERN = Pattern.compile("^[a-z][a-z0-9-]{2,63}$");
 
@@ -971,11 +979,17 @@ final class ConfigMerge {
                             "existing config.json launcher.cubismJvm is invalid: " + cubismJvm);
                 }
             }
-            if (launcher.containsKey("zgc")) {
-                final Object zgc = launcher.get("zgc");
-                if (!(zgc instanceof Boolean)) {
+            if (launcher.containsKey("memoryProfile")) {
+                final Object profile = launcher.get("memoryProfile");
+                if (!(profile instanceof String) || !MEMORY_PROFILES.contains(profile)) {
                     throw new ConfigException(
-                            "existing config.json launcher.zgc is invalid");
+                            "existing config.json launcher.memoryProfile is invalid: " + profile);
+                }
+            }
+            for (String field : BOOLEAN_LAUNCHER_FIELDS) {
+                if (launcher.containsKey(field) && !(launcher.get(field) instanceof Boolean)) {
+                    throw new ConfigException(
+                            "existing config.json launcher." + field + " must be a boolean");
                 }
             }
             if (launcher.containsKey("graalVmPath")) {

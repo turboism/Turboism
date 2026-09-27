@@ -3,6 +3,7 @@ package dev.turboism.mapping.verification;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * The single production declaration of the exact Cubism Editor artifacts Turboism admits.
@@ -95,6 +96,15 @@ public final class ReviewedHostArtifacts {
      */
     public static boolean isReviewed(final HostArtifactDigest artifact) {
         return cubismVersionOf(artifact).isPresent();
+    }
+
+    /**
+     * Returns every reviewed Cubism Editor version label.
+     *
+     * @return the immutable set of version strings covered by reviewed artifacts
+     */
+    public static Set<String> reviewedCubismVersions() {
+        return Set.of(CUBISM_5_2_03_VERSION, CUBISM_5_3_02_VERSION, CUBISM_5_3_03_VERSION);
     }
 
     /**

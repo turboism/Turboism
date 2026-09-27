@@ -126,7 +126,7 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     }
 
     private boolean available() {
-        return resolver.isExactCubismVersion(exactVersion)
+        return resolver.isAdmittedCubismVersion(exactVersion)
             && resolver.authorizesFeature(adapterSliceId, capabilityId, requiredAliases);
     }
 

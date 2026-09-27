@@ -98,5 +98,10 @@
   "status": "VERIFIED_STATIC",
   "verificationId": "cubism-5.3.03.performance.render-scene.static",
   "verifiedAt": "2026-08-22T00:00:00Z",
-  "verifiedBy": "turboism-static-verifier"
+  "verifiedBy": "turboism-static-verifier",
+  "capabilityConditions": {
+    "turboism.performance.stats.read": [
+      "hook:performance-fps"
+    ]
+  }
 }

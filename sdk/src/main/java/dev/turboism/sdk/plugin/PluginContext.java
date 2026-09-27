@@ -329,10 +329,11 @@ public interface PluginContext {
     }
 
     /**
-     * Returns the process-local authenticated MCP connection exchange.
+     * Returns the process-local MCP connection publication boundary.
      *
-     * <p>The runtime permission-scopes publication and reads independently. Authorization material
-     * obtained through this service must not be logged or persisted by plugins.</p>
+     * <p>The runtime permission-scopes publication and reads independently. The published
+     * endpoint is a credential-free loopback address guarded only by Origin validation, so it
+     * carries no credentials or authorization material.</p>
      *
      * @return the current plugin's MCP connection service
      */

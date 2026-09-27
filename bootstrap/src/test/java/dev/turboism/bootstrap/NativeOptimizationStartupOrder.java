@@ -32,7 +32,7 @@ final class NativeOptimizationStartupOrder {
         assertTrue(resolution >= 0, "the verified host is resolved in start()");
         assertTrue(installation > resolution, "exact host resolution precedes the install phase");
         assertTrue(installation < runtimeStart, "host-resolved hooks precede initial document loading");
-        assertTrue(start.indexOf("closePhase:") > runtimeStart,
+        assertTrue(start.indexOf("closePhase:", runtimeStart) > runtimeStart,
             "startup failure closes the host-resolved hooks");
 
         String installPhaseHook = methodBody(

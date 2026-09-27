@@ -153,5 +153,10 @@
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     }
-  ]
+  ],
+  "capabilityConditions": {
+    "cubism.editor-ui.bounding-box-overlay-button": [
+      "hook:editor-ui"
+    ]
+  }
 }

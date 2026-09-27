@@ -1572,6 +1572,7 @@ class MappingReviewPipelineTest {
             record.put("verificationId", "fixture.static");
             record.put("adapterSliceId", "adapter.fixture");
             record.putArray("capabilityIds").add("cubism.fixture.read");
+            record.putObject("capabilityConditions").putArray("cubism.fixture.read").add("structure");
             record.put("cubismVersion", "1.0.0");
             record.put("profileId", "fixture-profile");
             record.putObject("artifact").put("name", "fixture.jar").put("size", 1).put("sha256", "0".repeat(64));

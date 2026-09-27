@@ -11,7 +11,7 @@ import java.util.Optional;
  * Read payload of a {@link EditObjectKind#PART} object, matching the official {@code Part} data
  * block of {@code GetObject}.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditPartData(
         String name,
         Optional<PartId> parentId,

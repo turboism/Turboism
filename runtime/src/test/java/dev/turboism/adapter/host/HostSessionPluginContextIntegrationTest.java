@@ -68,6 +68,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HostSessionPluginContextIntegrationTest {
@@ -511,6 +512,161 @@ class HostSessionPluginContextIntegrationTest {
         }
     }
 
+    @Test
+    void compatibilityBoundSessionReachesAnnotatedReadApi() {
+        // A matched read contract admits an unknown host through an open
+        // version range; explicit version restrictions still use the real host.
+        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        HostSession session = new HostSession(
+            () -> Optional.ofNullable(current.get()),
+            descriptor -> HostAdapterConnection.of(
+                adapters(descriptor.sessionId(), new AtomicInteger()),
+                fixedModelAccess(descriptor.sessionId() + "-model"),
+                compatibilityBoundResolver()
+            )
+        );
+        RuntimeScheduler scheduler = scheduler();
+        CorePluginContext context = new CorePluginContext(
+            dependencies(tempDir, scheduler, descriptor(List.of(
+                "turboism.cubism.model.read"
+            )), ignored -> { }),
+            session
+        );
+
+        try {
+            current.set(compatibilityDescriptor("compat-session"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+
+            // Source-record provenance never replaces the declared host version.
+            assertEquals(Optional.of("5.3.99"), session.cubismEditorVersion());
+            assertEquals(Optional.of("5.3.02"), session.admittedCubismGeneration());
+
+            final CubismModel model = context.cubism().model().active();
+            assertEquals(new ModelId("compat-session-model"), model.id());
+            final var texture = model.textures().rawImages().get(0);
+            assertEquals(new dev.turboism.sdk.cubism.id.RawImageId("raw"), texture.id());
+            assertEquals("Fixture texture", texture.name());
+            assertEquals(512, texture.width());
+            assertThrows(dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                () -> model.textures().addModelImageGroup("blocked"));
+            assertThrows(dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                () -> context.cubism().history());
+
+            // Negative: the edit-session surface requires a capability the
+            // unbound-generation contract dropped, so its annotated entry
+            // still fails closed on the same session.
+            assertThrows(
+                dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                () -> context.cubism().edit().isEditApproved(null)
+            );
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
+    private HostInstanceDescriptor compatibilityDescriptor(final String sessionId) {
+        ClassLoader loader = getClass().getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        final dev.turboism.mapping.verification.SliceContract contract =
+            new dev.turboism.mapping.verification.SliceContract(
+                "editor-model",
+                "5.3.02",
+                "cubism-5.3.02-editor-model.json",
+                "b".repeat(64),
+                "fixture.compat.editor-model",
+                "adapter.editor-model",
+                "5.3.99",
+                503990001,
+                new dev.turboism.mapping.verification.HostArtifactDigest(1, "a".repeat(64)),
+                true,
+                java.util.Set.of(
+                    "cubism.editor-model.read",
+                    "cubism.editor-model.texture.read"
+                ),
+                java.util.Map.of(
+                    "cubism.editor-model.edit.session.edit-begin", "hook:edit-api-dispatch"
+                )
+            );
+        return new HostInstanceDescriptor(
+            sessionId,
+            HostVerificationEvidence.withEditorModel(
+                new HostVerificationEvidence.Slice(
+                    writeRecord(sessionId + "-project"), artifact, loader
+                ),
+                new HostVerificationEvidence.Slice(
+                    writeRecord(sessionId + "-editor"), artifact, loader, Optional.of(contract)
+                )
+            )
+        );
+    }
+
+    private static VerifiedMemberResolver compatibilityBoundResolver() {
+        return compatibilityBoundResolver(java.util.Map.of(
+            "cubism.editor-model.read", List.of("structure"),
+            "cubism.editor-model.texture.read", List.of("structure")));
+    }
+
+    private static VerifiedMemberResolver compatibilityBoundResolver(
+        final java.util.Map<String, List<String>> conditions
+    ) {
+        return dev.turboism.mapping.verification.TestVerifiedResolvers.createCompatible(
+            "5.3.02",
+            "5.3.99",
+            "adapter.editor-model",
+            java.util.Set.of(
+                "cubism.editor-model.read",
+                "cubism.editor-model.texture.read"
+            ),
+            conditions,
+            List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
+                "fixture.compat.class",
+                HostSessionPluginContextIntegrationTest.class.getName().replace('.', '/')
+            )),
+            HostSessionPluginContextIntegrationTest.class.getClassLoader()
+        );
+    }
+
+    @Test
+    void runtimeDependencyLossReachesAlreadyAcquiredSdkHandles() {
+        final var resolver = compatibilityBoundResolver(java.util.Map.of(
+            "cubism.editor-model.read", List.of("structure"),
+            "cubism.editor-model.texture.read", List.of("hook:test-texture-hook")));
+        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        final HostSession session = new HostSession(() -> Optional.ofNullable(current.get()),
+            descriptor -> HostAdapterConnection.of(
+                adapters(descriptor.sessionId(), new AtomicInteger()),
+                fixedModelAccess(descriptor.sessionId() + "-model"), resolver));
+        final RuntimeScheduler scheduler = scheduler();
+        final CorePluginContext context = new CorePluginContext(
+            dependencies(tempDir, scheduler, descriptor(List.of("turboism.cubism.model.read")), ignored -> { }),
+            session);
+        try {
+            current.set(compatibilityDescriptor("runtime-dependency"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            final CubismModel model = context.cubism().model().active();
+            final var textures = model.textures();
+            assertEquals(1, textures.rawImages().size());
+
+            resolver.deferCapabilitiesRequiringHook("test-texture-hook");
+            assertFalse(session.admittedCubismCapabilities().contains("cubism.editor-model.texture.read"));
+            assertThrows(dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class, textures::rawImages);
+            resolver.completeHookBinding("test-texture-hook");
+            assertEquals(1, textures.rawImages().size());
+
+            resolver.disableCapabilitiesRequiringHook("test-texture-hook");
+            resolver.completeHookBinding("test-texture-hook");
+
+            assertFalse(session.admittedCubismCapabilities().contains("cubism.editor-model.texture.read"));
+            assertThrows(dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class, textures::rawImages);
+            assertEquals(new ModelId("runtime-dependency-model"), model.id(),
+                "unrelated admitted capabilities remain callable");
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
     private static VerifiedMemberResolver connectionResolver() {
         return dev.turboism.mapping.verification.TestVerifiedResolvers.create(
             "5.3.02",
@@ -597,18 +753,53 @@ class HostSessionPluginContextIntegrationTest {
             sessionId,
             HostVerificationEvidence.withClipMask(
                 new HostVerificationEvidence.Slice(
-                    Path.of("records/" + recordStem + "-project.json"), artifact, loader
+                    writeRecord(recordStem + "-project"), artifact, loader
                 ),
                 new HostVerificationEvidence.Slice(
-                    Path.of("records/" + recordStem + "-clip.json"), artifact, loader
+                    writeRecord(recordStem + "-clip"), artifact, loader
                 )
             )
         );
     }
 
+    private Path writeRecord(final String stem) {
+        try {
+            final Path record = tempDir.resolve(stem + ".json");
+            java.nio.file.Files.writeString(record, """
+                {"capabilityIds":["cubism.editor-model.read","cubism.clipmask.read"]}
+                """);
+            return record;
+        } catch (java.io.IOException failure) {
+            throw new IllegalStateException(failure);
+        }
+    }
+
     private static CubismModelAccess fixedModelAccess(final String id) {
         return () -> new CubismModel() {
             @Override public ModelId id() { return new ModelId(id); }
+            @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
+                return new dev.turboism.sdk.cubism.model.ModelTextures() {
+                    @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() {
+                        return List.of(new dev.turboism.sdk.cubism.model.RawTexture() {
+                            @Override public dev.turboism.sdk.cubism.id.RawImageId id() {
+                                return new dev.turboism.sdk.cubism.id.RawImageId("raw");
+                            }
+                            @Override public String name() { return "Fixture texture"; }
+                            @Override public int width() { return 512; }
+                            @Override public int height() { return 256; }
+                        });
+                    }
+                    @Override public List<dev.turboism.sdk.cubism.model.ModelImageGroup> modelImageGroups() { return List.of(); }
+                    @Override public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() { return List.of(); }
+                    @Override public void addModelImageGroup(final String name) { throw unsupported(); }
+                    @Override public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId imageId) { throw unsupported(); }
+                    @Override public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
+                        final String name, final int width, final int height
+                    ) { throw unsupported(); }
+                    @Override public void removeTextureAtlas(final dev.turboism.sdk.cubism.id.TextureAtlasId atlasId) { throw unsupported(); }
+                    @Override public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId rawId) { throw unsupported(); }
+                };
+            }
             @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
                 return new dev.turboism.sdk.cubism.model.Parameters() {
                     private final dev.turboism.sdk.cubism.model.Parameter parameter =

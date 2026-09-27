@@ -2,11 +2,10 @@ package dev.turboism.ui.menu;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.host.EdtDispatch;
 
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
-import javax.swing.SwingUtilities;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -131,10 +130,7 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
             if (!closed.compareAndSet(false, true)) {
                 return;
             }
-            onEdt(() -> {
-                removeMenu(menuBar, menu);
-                return null;
-            });
+            onEdtEventually(() -> removeMenu(menuBar, menu));
         };
     }
 
@@ -244,36 +240,15 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
     }
 
     private static <T> T onEdt(final Operation<T> operation) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return operation.run();
-        }
-        final Object[] result = new Object[1];
-        final Throwable[] failure = new Throwable[1];
-        try {
-            SwingUtilities.invokeAndWait(() -> {
-                try {
-                    result[0] = operation.run();
-                } catch (Throwable throwable) {
-                    failure[0] = throwable;
-                }
-            });
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("top-menu EDT operation was interrupted", exception);
-        } catch (InvocationTargetException exception) {
-            throw new IllegalStateException("top-menu EDT operation failed", exception);
-        }
-        if (failure[0] instanceof RuntimeException exception) {
-            throw exception;
-        }
-        if (failure[0] instanceof Error error) {
-            throw error;
-        }
-        if (failure[0] != null) {
-            throw new IllegalStateException("top-menu EDT operation failed", failure[0]);
-        }
-        @SuppressWarnings("unchecked") final T value = (T) result[0];
-        return value;
+        return EdtDispatch.call("top-menu EDT operation", operation::run);
+    }
+
+    /**
+     * Idempotent removal work: on acceptance timeout the task stays queued and still runs
+     * exactly once when the EDT drains, so a closed menu is never orphaned.
+     */
+    private static void onEdtEventually(final Runnable operation) {
+        EdtDispatch.runEventually("top-menu EDT removal", operation);
     }
 
     @FunctionalInterface
