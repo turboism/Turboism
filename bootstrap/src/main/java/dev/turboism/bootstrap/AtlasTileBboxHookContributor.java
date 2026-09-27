@@ -46,13 +46,15 @@ final class AtlasTileBboxHookContributor implements HookContributor {
                     environment.instrumentation(),
                     // Premain runs before the diagnostics sink exists; the console is the
                     // only place the admission verdict survives on a real host.
-                    code -> System.err.println("[turboism] atlas-tile-bbox " + code)
+                    code -> {
+                        // System.err.println("[turboism] atlas-tile-bbox " + code);
+                    }
                 );
-            RuntimeDiagnostics.debug(
-                "bootstrap",
-                "Atlas tile-bbox status=" + installation.status()
-                    + ", transformOutcome=" + installation.transformOutcome()
-            );
+            // RuntimeDiagnostics.debug(
+            //     "bootstrap",
+            //     "Atlas tile-bbox status=" + installation.status()
+            //         + ", transformOutcome=" + installation.transformOutcome()
+            // );
             return installation;
         } catch (final Throwable failure) {
             RuntimeDiagnostics.error(
