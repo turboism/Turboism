@@ -14,7 +14,7 @@ import java.util.Objects;
  * @param kind the object type
  * @param children child nodes in palette order; empty for leaf objects
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditObjectNode(
         String name,
         ModelObjectId id,

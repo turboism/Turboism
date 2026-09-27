@@ -14,7 +14,7 @@ import java.util.Objects;
  * closed with {@link EditUnavailableException} on every supported editor version until the
  * verification records land.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public interface SelectionOps {
 
     /**

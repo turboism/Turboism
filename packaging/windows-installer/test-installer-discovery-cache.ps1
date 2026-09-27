@@ -18,6 +18,36 @@ function Assert-DiscoveryCacheThrows {
     Assert-DiscoveryCache $failed $Message
 }
 
+# Exercise the production wire parser, not only the post-parse resolver seam.
+$probeDocument = [ordered]@{
+    schemaVersion = 2; status = 'COMPATIBLE'; reason = 'structural preflight passed'
+    runtimeAdmitted = $true; identity = [ordered]@{ version = '5.3.99' }
+    evidenceStage = 'STATIC_PREFLIGHT'; runtimeHooksVerified = $false
+}
+$probeJson = $probeDocument | ConvertTo-Json -Depth 8
+$parsedProbe = ConvertFrom-CubismHostProbeResult -JsonText $probeJson -ExitCode 0
+Assert-DiscoveryCache ($null -ne $parsedProbe -and $parsedProbe.Version -ceq '5.3.99' -and $parsedProbe.CompatStatus -ceq 'COMPATIBLE') 'schema v2 compatible result keeps the unknown declared version'
+$probeDocument.status = 'VERIFIED'
+$probeDocument.identity.version = '5.3.02'
+$parsedProbe = ConvertFrom-CubismHostProbeResult -JsonText ($probeDocument | ConvertTo-Json -Depth 8) -ExitCode 0
+Assert-DiscoveryCache ($null -ne $parsedProbe -and $parsedProbe.CompatStatus -ceq 'VERIFIED') 'schema v2 reviewed result is accepted'
+$probeDocument.runtimeAdmitted = $false
+$probeDocument.reason = 'base runtime capability did not resolve'
+$parsedProbe = ConvertFrom-CubismHostProbeResult -JsonText ($probeDocument | ConvertTo-Json -Depth 8) -ExitCode 1
+Assert-DiscoveryCache ($parsedProbe.CompatStatus -ceq 'REJECTED' -and $parsedProbe.Version -ceq '5.3.02' -and $parsedProbe.Reason -ceq $probeDocument.reason) 'exit 1 preserves identity and the admission failure'
+$probeDocument.status = 'REJECTED'
+$probeDocument.identity = [ordered]@{}
+$parsedProbe = ConvertFrom-CubismHostProbeResult -JsonText ($probeDocument | ConvertTo-Json -Depth 8) -ExitCode 1
+Assert-DiscoveryCache ($null -ne $parsedProbe -and $parsedProbe.Version -ceq '' -and $parsedProbe.CompatStatus -ceq 'REJECTED') 'identity rejection with no version is retained'
+$probeDocument.schemaVersion = 1
+Assert-DiscoveryCache ($null -eq (ConvertFrom-CubismHostProbeResult -JsonText ($probeDocument | ConvertTo-Json -Depth 8) -ExitCode 1)) 'obsolete probe schema is rejected'
+$probeDocument.schemaVersion = 2
+$probeDocument.runtimeAdmitted = 'true'
+Assert-DiscoveryCache ($null -eq (ConvertFrom-CubismHostProbeResult -JsonText ($probeDocument | ConvertTo-Json -Depth 8) -ExitCode 0)) 'text cannot substitute for the runtime admission boolean'
+Assert-DiscoveryCache ($null -eq (ConvertFrom-CubismHostProbeResult -JsonText '{}' -ExitCode 0)) 'missing probe fields fail closed under strict mode'
+Assert-DiscoveryCache ($null -eq (ConvertFrom-CubismHostProbeResult -JsonText '{' -ExitCode 0)) 'malformed probe JSON fails closed'
+Assert-DiscoveryCache ($null -eq (ConvertFrom-CubismHostProbeResult -JsonText $probeJson -ExitCode 2)) 'probe process errors cannot become compatible'
+
 $fixture = Join-Path ([System.IO.Path]::GetTempPath()) ('turboism-discovery-regression-' + [guid]::NewGuid().ToString('N'))
 [void][System.IO.Directory]::CreateDirectory($fixture)
 try {
@@ -109,6 +139,25 @@ try {
     $racing = New-CubismInstallationCandidate -Root $root -TurboismHome $homePath
     Assert-DiscoveryCache (-not $racing.Selectable) 'a host updated during the version probe is not admitted'
     [System.IO.File]::WriteAllText($jar, 'synthetic reviewed artifact')
+    $script:CubismArtifactVersionResolver = {
+        param($j, $a, $h)
+        return [pscustomobject]@{
+            Version='5.3.99'; CompatStatus='REJECTED'; Reason='base runtime capability did not resolve'
+        }
+    }
+    $rejected = New-CubismInstallationCandidate -Root $root -TurboismHome $homePath
+    Assert-DiscoveryCache (-not $rejected.Selectable -and $rejected.Status -eq 'Unsupported') 'coherent identity with failed base admission remains unselectable'
+    Assert-DiscoveryCache ($rejected.Version -eq '5.3.99' -and $rejected.Reason -eq 'base runtime capability did not resolve') 'base admission failure preserves the declared version and real reason'
+    $script:CubismArtifactVersionResolver = {
+        param($j, $a, $h)
+        return ConvertFrom-CubismHostProbeResult -JsonText $probeJson -ExitCode 0
+    }
+    $compatible = New-CubismInstallationCandidate -Root $root -TurboismHome $homePath
+    Assert-DiscoveryCache ($compatible.Selectable -and $compatible.Status -ceq 'Compatible' -and $compatible.Version -ceq '5.3.99') 'unknown compatible version remains selectable after parsing and candidate discovery'
+    $compatibleSnapshot = Join-Path $homePath 'compatible-snapshot.json'
+    Write-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $compatibleSnapshot -Candidates @($compatible)
+    $compatibleCached = @(Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $compatibleSnapshot -ExpectedSha256 (Get-CubismSha256 $compatibleSnapshot))
+    Assert-DiscoveryCache ($compatibleCached.Count -eq 1 -and $compatibleCached[0].Status -ceq 'Compatible' -and $compatibleCached[0].Version -ceq '5.3.99' -and $compatibleCached[0].Selectable) 'snapshot reuse preserves unknown version and compatibility status'
     $script:CubismArtifactVersionResolver = { param($j, $a, $h) return '5.3.03' }
     $stable = New-CubismInstallationCandidate -Root $root -TurboismHome $homePath
     Assert-DiscoveryCache $stable.Selectable 'an unchanged exact candidate remains admissible'

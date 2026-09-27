@@ -13,7 +13,7 @@ import java.util.Optional;
  * list of lattice cells; {@code BezierDivH}/{@code BezierDivV} are nullable and are absent
  * when the deformer has no bezier subdivision extension.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditWarpDeformerData(
         String name,
         Optional<PartId> parentId,

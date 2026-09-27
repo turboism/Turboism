@@ -32,5 +32,10 @@
       "forbiddenAccessFlags": 0,
       "status": "VERIFIED_STATIC"
     }
-  ]
+  ],
+  "capabilityConditions": {
+    "turboism.performance.stats.read": [
+      "hook:performance-fps"
+    ]
+  }
 }

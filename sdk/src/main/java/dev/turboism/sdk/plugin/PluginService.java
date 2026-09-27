@@ -64,6 +64,9 @@ public enum PluginService {
     /** {@link PluginContext#physicsEditor()} */
     PHYSICS_EDITOR,
 
+    /** {@link PluginContext#exportSettings()} */
+    EXPORT_SETTINGS,
+
     /** {@link PluginContext#fileChooserHistory()} */
     FILE_CHOOSER_HISTORY,
 
@@ -143,5 +146,8 @@ public enum PluginService {
     WARP_ALT_MIRROR_PARTICIPATION,
 
     /** {@link PluginContext#viewContextMenu()} */
-    VIEW_CONTEXT_MENU
+    VIEW_CONTEXT_MENU,
+
+    /** {@link PluginContext#uiResources()} */
+    UI_RESOURCES
 }

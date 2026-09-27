@@ -13,6 +13,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PerformanceProbeReportWriterTest {
@@ -120,6 +121,25 @@ class PerformanceProbeReportWriterTest {
         assertEquals(1, decode.path("sampled").asLong());
         assertEquals(1, decode.path("latency").path("samples").asLong());
         assertTrue(decode.path("latency").path("p95UpperBoundNanos").asLong() >= decode.path("maxNanos").asLong());
+    }
+
+    @Test
+    void imageReportPreservesRepackedIdentityAndRejectsUnsupportedGeneration() throws Exception {
+        final PerformanceProbeRecorder recorder = new PerformanceProbeRecorder();
+        final Path output = temporary.resolve("images-repacked.json");
+        final String repackedSha = "c".repeat(64);
+        final PerformanceProbeReportWriter writer = new PerformanceProbeReportWriter();
+        writer.write(output, "5.3.02", repackedSha, AGENT_SHA, FIXTURE_SHA,
+            "images", 1000, 2000, recorder.snapshot());
+        final JsonNode root = JSON.readTree(Files.readAllBytes(output));
+        assertEquals("5.3.02", root.path("cubismVersion").asText());
+        assertEquals(repackedSha, root.path("artifactSha256").asText());
+        assertThrows(IllegalArgumentException.class, () -> writer.write(output,
+            "5.3.99", repackedSha, AGENT_SHA, FIXTURE_SHA,
+            "images", 1000, 2000, recorder.snapshot()));
+        assertThrows(IllegalArgumentException.class, () -> writer.write(output,
+            "5.3.02", "missing", AGENT_SHA, FIXTURE_SHA,
+            "images", 1000, 2000, recorder.snapshot()));
     }
 
     @Test

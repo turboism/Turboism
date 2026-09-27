@@ -71,6 +71,9 @@ Common options:
   --focus-editor-window                     opt-in task-local niri focus tracking
   --jvm-option <JVM option>                  repeatable
   --windows-env <NAME=value>                 repeatable task-local launch environment
+  --linux-env <NAME=value>                   repeatable job-local Linux launch environment;
+      restricted to reviewed Mesa/Proton debug names (mesa_glthread, MESA_*, GALLIUM_HUD*);
+      mesa_glthread accepts true/false and resolves together with the deferred-check JVM flag
   --cubism-java <Windows executable path>    override JAVA_EXE in the task-local launch
   --cubism-java-console-marker <exact text>  require this text in Cubism console evidence
   --run-label <label, default r1>
@@ -347,6 +350,7 @@ client_python=''
 focus_editor_window=0
 jvm_options=()
 windows_environment=()
+linux_environment=()
 cubism_java=''
 cubism_java_console_marker=''
 run_label='r1'
@@ -403,6 +407,7 @@ while [ "$#" -gt 0 ]; do
     --focus-editor-window) focus_editor_window=1; shift ;;
     --jvm-option) require_value "$@"; jvm_options+=("$2"); shift 2 ;;
     --windows-env) require_value "$@"; windows_environment+=("$2"); shift 2 ;;
+    --linux-env) require_value "$@"; linux_environment+=("$2"); shift 2 ;;
     --cubism-java) require_value "$@"; cubism_java="$2"; shift 2 ;;
     --cubism-java-console-marker) require_value "$@"; cubism_java_console_marker="$2"; shift 2 ;;
     --run-label) require_value "$@"; run_label="$2"; shift 2 ;;
@@ -594,6 +599,31 @@ for assignment in "${windows_environment[@]}"; do
     [[ "$environment_value" != *"$forbidden"* ]] \
       || fail "Windows environment value contains an unsupported command character: $forbidden"
   done
+done
+
+# Job-local Linux-side environment. Only reviewed Mesa/Proton debug names may
+# pass; the value charset excludes every shell metacharacter so the generated
+# launch script can export them literally without quoting risk. Linux names are
+# case-sensitive (mesa_glthread is lowercase); duplicates compare exactly.
+linux_environment_names=()
+for assignment in "${linux_environment[@]}"; do
+  require_safe_text "$assignment" "Linux environment assignment"
+  [[ "$assignment" =~ ^([A-Za-z_][A-Za-z0-9_]*)=.+$ ]] \
+    || fail "Linux environment assignment must use NAME=value: $assignment"
+  environment_name="${BASH_REMATCH[1]}"
+  environment_value="${assignment#*=}"
+  case "$environment_name" in
+    mesa_glthread|GALLIUM_HUD|GALLIUM_HUD_PERIOD) ;;
+    *) [[ "$environment_name" =~ ^MESA_[A-Z0-9_]{1,48}$ ]] \
+        || fail "Linux environment name is not an admitted Mesa debug variable: $environment_name" ;;
+  esac
+  [[ "$environment_value" =~ ^[A-Za-z0-9._:,=+/-]{1,200}$ ]] \
+    || fail "Linux environment value contains an unsupported character"
+  for existing_name in "${linux_environment_names[@]}"; do
+    [ "$existing_name" != "$environment_name" ] \
+      || fail "duplicate Linux environment name: $environment_name"
+  done
+  linux_environment_names+=("$environment_name")
 done
 
 for hook in "$remote_pre_launch" "$remote_post_launch" "$remote_pre_cleanup"; do
@@ -834,6 +864,7 @@ fi
 [ "$focus_editor_window" = 1 ] && normalized_argv+=(--focus-editor-window)
 for option in "${jvm_options[@]}"; do normalized_argv+=(--jvm-option "$option"); done
 for assignment in "${windows_environment[@]}"; do normalized_argv+=(--windows-env "$assignment"); done
+for assignment in "${linux_environment[@]}"; do normalized_argv+=(--linux-env "$assignment"); done
 [ -n "$cubism_java" ] && normalized_argv+=(--cubism-java "$cubism_java")
 [ -n "$cubism_java_console_marker" ] && normalized_argv+=(--cubism-java-console-marker "$cubism_java_console_marker")
 [ "$keep_prefix" = 1 ] && normalized_argv+=(--keep-prefix)
@@ -863,6 +894,167 @@ if [ -n "$prepare_dir" ]; then
   write_runner_request
   printf 'preparedRequest=%s\n' "$prepare_dir/runner-request.json"
   exit 0
+fi
+
+# Resolve preferences, final JVM overrides and prerequisites before generating
+# either half of the combined Mesa/deferred option. Runtime admission still
+# verifies the host bytecode; its ACTIVE marker is checked below.
+mesa_gl_thread=1
+input_path_elision=1
+upload_elision=1
+uniform_location_cache=1
+safe_mode=0
+uniform_hook_enabled=1
+deferred_hook_enabled=1
+config_readable=1
+launcher_prefs="$(python3 - "$home_config" <<'PY'
+import json, sys
+try:
+    document = {}
+    if sys.argv[1]:
+        with open(sys.argv[1], 'rb') as stream:
+            data = stream.read(65537)
+        if len(data) > 65536:
+            raise ValueError('oversize config')
+        document = json.loads(data)
+    if not isinstance(document, dict):
+        raise ValueError('config must be an object')
+    launcher = document.get('launcher', {})
+    hooks = document.get('hooks', {})
+    if not isinstance(launcher, dict) or not isinstance(hooks, dict):
+        raise ValueError('invalid launcher/hooks')
+    safe = document.get('safeMode', False)
+    disabled = hooks.get('disabledIds', [])
+    if type(safe) is not bool or not isinstance(disabled, list) or any(
+            not isinstance(item, str) for item in disabled):
+        raise ValueError('invalid startup policy')
+    preferences = {}
+    for name in ('mesaGlThread', 'inputPathElision', 'uploadElision', 'uniformLocationCache'):
+        value = launcher.get(name, True)
+        if type(value) is not bool:
+            raise ValueError('invalid launcher boolean')
+        preferences[name] = int(value)
+    for name, value in preferences.items():
+        print('%s=%s' % (name, value))
+    print('safeMode=%d' % safe)
+    print('uniformHook=%d' % ('cubism.render.uniform-location-cache' not in disabled))
+    print('deferredHook=%d' % ('cubism.render.mesa-gl-thread' not in disabled))
+except (OSError, ValueError, TypeError):
+    # Do not turn a parse failure into Proton default-on. The runtime's full
+    # schema/host admission can reject further cases and emits an INACTIVE warning.
+    print('configReadable=0')
+PY
+)"
+while IFS='=' read -r pref_name pref_value; do
+  case "$pref_name" in
+    mesaGlThread) mesa_gl_thread="$pref_value" ;;
+    inputPathElision) input_path_elision="$pref_value" ;;
+    uploadElision) upload_elision="$pref_value" ;;
+    uniformLocationCache) uniform_location_cache="$pref_value" ;;
+    safeMode) safe_mode="$pref_value" ;;
+    uniformHook) uniform_hook_enabled="$pref_value" ;;
+    deferredHook) deferred_hook_enabled="$pref_value" ;;
+    configReadable) config_readable="$pref_value" ;;
+  esac
+done <<PREFS
+$launcher_prefs
+PREFS
+
+# Match Boolean.parseBoolean (including empty/bare properties), with the JVM's
+# last-value-wins semantics. Remove the managed tokens and emit one canonical
+# value each only after dependency resolution.
+mesa_jvm_declared=0
+validation_error_elision=0
+resolved_jvm_options=()
+for option in "${jvm_options[@]}"; do
+  property="${option%%=*}"
+  value=''
+  [[ "$option" != *=* ]] || value="${option#*=}"
+  boolean_value=0
+  [[ "${value,,}" != true ]] || boolean_value=1
+  case "$property" in
+    -Dturboism.optimization.mesaGlThread)
+      mesa_gl_thread="$boolean_value"; mesa_jvm_declared=1 ;;
+    -Dturboism.optimization.inputPathElision) input_path_elision="$boolean_value" ;;
+    -Dturboism.optimization.uploadElision) upload_elision="$boolean_value" ;;
+    -Dturboism.optimization.uniformLocationCache) uniform_location_cache="$boolean_value" ;;
+    -Dturboism.validation.glGetErrorElision)
+      validation_error_elision="$boolean_value"; resolved_jvm_options+=("$option") ;;
+    *) resolved_jvm_options+=("$option") ;;
+  esac
+done
+mesa_declared=0
+for assignment in "${linux_environment[@]}"; do
+  case "$assignment" in
+    mesa_glthread=*)
+      mesa_declared=1
+      case "${assignment#*=}" in
+        true) mesa_pin_resolved=1 ;;
+        false) mesa_pin_resolved=0 ;;
+        *) fail "mesa_glthread must be true or false" ;;
+      esac
+      if [ "$mesa_jvm_declared" = 1 ] && [ "$mesa_gl_thread" != "$mesa_pin_resolved" ]; then
+        fail "conflicting mesaGlThread overrides: final JVM property and mesa_glthread disagree"
+      fi
+      mesa_gl_thread="$mesa_pin_resolved" ;;
+  esac
+done
+mesa_gl_thread_reason=resolved
+if [ "$config_readable" = 0 ]; then
+  mesa_gl_thread_reason=config-unreadable
+elif [ "$safe_mode" = 1 ]; then
+  mesa_gl_thread_reason=safe-mode
+elif [ "$uniform_hook_enabled" = 0 ]; then
+  mesa_gl_thread_reason=uniform-hook-disabled
+elif [ "$deferred_hook_enabled" = 0 ]; then
+  mesa_gl_thread_reason=deferred-hook-disabled
+elif [ "$uniform_location_cache" = 0 ]; then
+  mesa_gl_thread_reason=uniform-location-cache-disabled
+elif [ "$validation_error_elision" = 1 ]; then
+  mesa_gl_thread_reason=validation-elision-enabled
+fi
+if [ "$mesa_gl_thread_reason" != resolved ]; then
+  if [ "$mesa_gl_thread" = 1 ]; then
+    log "WARNING: disabling mesaGlThread and deferred checking: $mesa_gl_thread_reason"
+  fi
+  mesa_gl_thread=0
+fi
+
+# Both dry-run and the actual JAVA_TOOL_OPTIONS consume this exact resolved list.
+for preference in mesaGlThread inputPathElision uploadElision uniformLocationCache; do
+  case "$preference" in
+    mesaGlThread) value="$mesa_gl_thread" ;;
+    inputPathElision) value="$input_path_elision" ;;
+    uploadElision) value="$upload_elision" ;;
+    uniformLocationCache) value="$uniform_location_cache" ;;
+  esac
+  literal=false
+  [ "$value" = 0 ] || literal=true
+  resolved_jvm_options+=("-Dturboism.optimization.$preference=$literal")
+done
+jvm_options=("${resolved_jvm_options[@]}")
+mesa_literal=false
+[ "$mesa_gl_thread" = 0 ] || mesa_literal=true
+if [ "$mesa_declared" = 1 ]; then
+  for index in "${!linux_environment[@]}"; do
+    case "${linux_environment[$index]}" in
+      mesa_glthread=*) linux_environment[$index]="mesa_glthread=$mesa_literal" ;;
+    esac
+  done
+elif [ "$mesa_gl_thread" = 1 ]; then
+  linux_environment+=("mesa_glthread=true")
+  linux_environment_names+=("mesa_glthread")
+fi
+# This launch path always runs under Wine/Proton: publish the managed marker
+# so the JVM-side Proton-default resolution for the scoped options has an
+# authoritative signal instead of relying only on generic Wine markers.
+turboism_proton_declared=0
+for existing_name in "${linux_environment_names[@]}"; do
+  [ "$existing_name" = "TURBOISM_PROTON" ] && turboism_proton_declared=1 && break
+done
+if [ "$turboism_proton_declared" = 0 ]; then
+  linux_environment+=("TURBOISM_PROTON=1")
+  linux_environment_names+=("TURBOISM_PROTON")
 fi
 
 if [ "$dry_run" = 1 ]; then
@@ -897,6 +1089,7 @@ if [ "$dry_run" = 1 ]; then
     "remotePostLaunch=$remote_post_launch" \
     "remotePreCleanup=$remote_pre_cleanup" \
     "windowsEnvironmentCount=${#windows_environment[@]}" \
+    "linuxEnvironmentCount=${#linux_environment[@]}" \
     "graphicsDevice=$graphics_device" \
     "goldenCubism=$golden_cubism" \
     "clonedCubism=$cloned_cubism" \
@@ -909,7 +1102,10 @@ if [ "$dry_run" = 1 ]; then
     "clientScript=$client_script" \
     "clientScriptTaskName=$client_script_remote_name" \
     "evidenceArchiver=$repo_root/scripts/preview/archive-cubism-host-evidence.sh" \
-    "localEvidenceDir=$local_evidence_dir"
+    "localEvidenceDir=$local_evidence_dir" \
+    "mesaGlThread=$mesa_gl_thread" \
+    "mesaGlThreadReason=$mesa_gl_thread_reason" \
+    "inputPathElision=$input_path_elision"
   for index in "${!resolved_plugins[@]}"; do printf 'plugin.%s=%s\n' "$index" "${resolved_plugins[$index]}"; done
   for index in "${!resolved_home_files[@]}"; do printf 'homeFile.%s=%s\n' "$index" "${resolved_home_files[$index]}"; done
   for index in "${!resolved_home_dirs[@]}"; do printf 'homeDir.%s=%s\n' "$index" "${resolved_home_dirs[$index]}"; done
@@ -935,6 +1131,9 @@ if [ "$dry_run" = 1 ]; then
     dry_environment="${dry_environment//\{FIXTURE\}/$dry_win_fixture}"
     dry_environment="${dry_environment//\{FIXTURE_NAME\}/$fixture_name}"
     printf 'windowsEnvironment.%s=%s\n' "$index" "$dry_environment"
+  done
+  for index in "${!linux_environment[@]}"; do
+    printf 'linuxEnvironment.%s=%s\n' "$index" "${linux_environment[$index]}"
   done
   for index in "${!jvm_options[@]}"; do
     dry_option="${jvm_options[$index]}"
@@ -1458,6 +1657,183 @@ raise SystemExit(1)
 PY
 }
 
+# Snapshot the task-bound Java process evidence: Linux thread comm names
+# (a Mesa glthread worker appears as "gl0" per util_queue "%s%i" naming) and the
+# whitelisted debug variables the process actually inherited. Task binding uses
+# the exact TURBOISM_HOST_VALIDATION_TASK_DIR marker first and a normalized
+# WINEPREFIX path second, never a comm substring on foreign jobs. The Java
+# process is the task-bound process whose comm (or argv0 basename) is a
+# java-family name — java.exe or javaw.exe — because the official launcher may
+# start either. Every task-bound process and every process carrying a
+# WINEPREFIX marker is listed as diagnostics so a zero-match run shows exactly
+# which name or path form the field used.
+capture_java_gl_evidence() {
+  local phase="$1"
+  local proc_root="${2:-/proc}"
+  if ! python3 - "$phase" "$task_dir" "$prefix_dir" "$evidence_dir" "$proc_root" <<'PY'; then
+import os
+import re
+import sys
+from pathlib import Path
+
+phase = sys.argv[1]
+task_dir = sys.argv[2]
+prefix_arg = sys.argv[3]
+evidence = Path(sys.argv[4])
+proc_root = Path(sys.argv[5])
+
+task_dir_real = os.path.realpath(task_dir)
+prefix_real = {os.path.realpath(prefix_arg),
+               os.path.realpath(os.path.join(prefix_arg, "pfx"))}
+
+JAVA_COMMS = {"java.exe", "javaw.exe", "java", "javaw"}
+
+def environ_map(raw):
+    entries = {}
+    for entry in raw.split(b"\x00"):
+        if not entry or b"=" not in entry:
+            continue
+        name, _, value = entry.partition(b"=")
+        entries[name.decode("utf-8", "replace")] = value.decode("utf-8", "replace")
+    return entries
+
+def start_time(stat):
+    closing = stat.rfind(b")")
+    if closing < 0:
+        return None
+    fields = stat[closing + 2:].split()
+    return fields[19].decode("ascii") if len(fields) >= 20 else None
+
+def admitted_env_name(name):
+    return name == "mesa_glthread" or name.startswith("MESA_") or name.startswith("GALLIUM_HUD")
+
+def java_match(comm, cmdline):
+    if comm.lower() in JAVA_COMMS:
+        return "comm"
+    argv0 = cmdline.split(b"\x00", 1)[0].replace(b"\\", b"/").rsplit(b"/", 1)[-1].lower()
+    if argv0 in {b"java.exe", b"javaw.exe", b"java", b"javaw"}:
+        return "cmdline"
+    return ""
+
+task_bound = []
+prefix_carriers = []
+for proc in proc_root.iterdir():
+    if not proc.name.isdigit():
+        continue
+    try:
+        comm = (proc / "comm").read_bytes().rstrip(b"\n").decode("utf-8", "replace")
+        environ = environ_map((proc / "environ").read_bytes())
+        try:
+            cmdline = (proc / "cmdline").read_bytes()
+        except OSError:
+            cmdline = b""
+        try:
+            start = start_time((proc / "stat").read_bytes())
+        except OSError:
+            start = None
+    except OSError:
+        continue
+    wineprefix = environ.get("WINEPREFIX")
+    marker = environ.get("TURBOISM_HOST_VALIDATION_TASK_DIR")
+    if wineprefix is not None or marker is not None:
+        prefix_carriers.append((proc.name, comm, wineprefix or "", marker or ""))
+    bound_via = ""
+    if marker is not None and os.path.realpath(marker) == task_dir_real:
+        bound_via = "taskDir"
+    elif wineprefix is not None and os.path.realpath(wineprefix) in prefix_real:
+        bound_via = "wineprefix"
+    if bound_via:
+        task_bound.append({
+            "pid": int(proc.name), "comm": comm, "environ": environ,
+            "cmdline": cmdline, "start": start, "via": bound_via,
+        })
+
+matches = []
+for proc in task_bound:
+    matched = java_match(proc["comm"], proc["cmdline"])
+    if matched:
+        proc["match"] = matched
+        matches.append(proc)
+
+thread_rows = []
+gl_thread_count = 0
+for proc in matches:
+    pid = proc["pid"]
+    proc["threadCount"] = 0
+    try:
+        tasks = sorted((proc_root / str(pid) / "task").iterdir(), key=lambda path: int(path.name))
+        for task in tasks:
+            try:
+                comm = (task / "comm").read_bytes().rstrip(b"\n").decode("utf-8", "replace")
+            except OSError:
+                continue
+            # Wine tags thread comm names with the process image ("java.exe:gl0"),
+            # so the Mesa glthread worker matches a gl<index> suffix after an
+            # optional "<image>:" prefix — never a bare substring.
+            if re.search(r"(^|:)gl[0-9]+$", comm):
+                gl_thread_count += 1
+            proc["threadCount"] += 1
+            thread_rows.append(f"{pid}\t{task.name}\t{comm}")
+    except OSError:
+        thread_rows.append(f"{pid}\tunreadable\tprocess-vanished")
+
+def clean(text):
+    return re.sub(r"[\x00-\x1f\x7f]", "?", text)
+
+with (evidence / f"java-process.{phase}.properties").open("w", encoding="utf-8") as stream:
+    stream.write("schemaVersion=2\n")
+    stream.write(f"phase={phase}\n")
+    stream.write(f"javaProcessCount={len(matches)}\n")
+    stream.write(f"glThreadCount={gl_thread_count}\n")
+    stream.write(f"taskProcessCount={len(task_bound)}\n")
+    stream.write(f"prefixCarrierCount={len(prefix_carriers)}\n")
+    for index, proc in enumerate(matches):
+        stream.write(f"java.{index}.pid={proc['pid']}\n")
+        stream.write(f"java.{index}.start={proc['start'] or 'unknown'}\n")
+        stream.write(f"java.{index}.comm={clean(proc['comm'])}\n")
+        stream.write(f"java.{index}.match={proc['match']}\n")
+        stream.write(f"java.{index}.boundVia={proc['via']}\n")
+        stream.write(f"java.{index}.threadCount={proc.get('threadCount', 0)}\n")
+    for index, proc in enumerate(task_bound):
+        stream.write(f"task.{index}.pid={proc['pid']}\n")
+        stream.write(f"task.{index}.comm={clean(proc['comm'])}\n")
+        stream.write(f"task.{index}.boundVia={proc['via']}\n")
+        stream.write(f"task.{index}.wineprefix={clean(proc['environ'].get('WINEPREFIX', 'ABSENT'))}\n")
+    for index, (pid, comm, wineprefix, marker) in enumerate(prefix_carriers):
+        stream.write(f"carrier.{index}.pid={pid}\n")
+        stream.write(f"carrier.{index}.comm={clean(comm)}\n")
+        stream.write(f"carrier.{index}.wineprefix={clean(wineprefix or 'ABSENT')}\n")
+        stream.write(f"carrier.{index}.taskDir={clean(marker or 'ABSENT')}\n")
+
+with (evidence / f"java-threads.{phase}.txt").open("w", encoding="utf-8") as stream:
+    stream.write("pid\ttid\tcomm\n")
+    for row in thread_rows:
+        stream.write(row + "\n")
+
+observed_glthread = False
+with (evidence / f"java-environ.{phase}.properties").open("w", encoding="utf-8") as stream:
+    stream.write("schemaVersion=2\n")
+    stream.write(f"phase={phase}\n")
+    for proc in matches:
+        for name, value in sorted(proc["environ"].items()):
+            if not admitted_env_name(name):
+                continue
+            if re.search(r"[\x00-\x1f\x7f]", value):
+                continue
+            stream.write(f"java.{proc['pid']}.{name}={value}\n")
+            if name == "mesa_glthread":
+                observed_glthread = True
+        stream.write(f"java.{proc['pid']}.wineprefix={clean(proc['environ'].get('WINEPREFIX', 'ABSENT'))}\n")
+        stream.write(f"java.{proc['pid']}.taskDir={clean(proc['environ'].get('TURBOISM_HOST_VALIDATION_TASK_DIR', 'ABSENT'))}\n")
+    if not observed_glthread:
+        stream.write("mesa_glthread=ABSENT\n")
+PY
+    printf 'schemaVersion=1\nphase=%s\ncapture=error\n' "$phase" \
+      > "$evidence_dir/java-gl-${phase}.properties"
+    return 0
+  fi
+}
+
 verify_staged_artifacts() {
   local phase="$1" actual expected spec local_path remote_name
   expected="$(sha256_file "$agent")"
@@ -1790,6 +2166,7 @@ for spec in "${resolved_home_dirs[@]}"; do
   local_prepare_directory "$home_dir/$relative_path"
   local_copy_dir_contents_to "$local_path" "$home_dir/$relative_path"
 done
+
 for spec in "${resolved_aux_agents[@]}"; do
   local_path="${spec%%:*}"
   remote_name="${spec#*:}"
@@ -1895,6 +2272,8 @@ for option in "${jvm_options[@]}"; do
   option="${option//\{FIXTURE_NAME\}/$fixture_name}"
   all_jvm_options+=("$option")
 done
+# Managed optimization properties were normalized before dry-run; never
+# independently resolve or append a second Mesa/deferred value here.
 java_tool_options=''
 for option in "${all_jvm_options[@]}"; do
   quoted_option="$(windows_java_tool_option "$option")"
@@ -1930,12 +2309,29 @@ exit /b %ERRORLEVEL%
 BAT
 run_remote_hook "$remote_pre_launch"
 local_copy_to "$local_tmp/launch.bat" "$task_dir/launch.bat"
+# Whitelist-checked Mesa/Proton debug variables for this job only; every name
+# and value was charset-validated, so a literal export line cannot smuggle
+# shell syntax into the generated script. The enumerable managed names are
+# unset first so an ambient mesa_glthread/GALLIUM_HUD in the worker environment
+# cannot leak into a job that did not declare it (OFF legs stay genuinely off).
+linux_environment_exports=''
+for assignment in "${linux_environment[@]}"; do
+  linux_environment_exports+="export ${assignment}"$'\n'
+done
+linux_environment_unsets=''
+for managed_name in mesa_glthread GALLIUM_HUD GALLIUM_HUD_PERIOD; do
+  managed_declared=0
+  for existing_name in "${linux_environment_names[@]}"; do
+    [ "$existing_name" = "$managed_name" ] && managed_declared=1 && break
+  done
+  [ "$managed_declared" = 1 ] || linux_environment_unsets+="unset ${managed_name}"$'\n'
+done
 cat > "$local_tmp/launch.sh" <<SH
 #!/bin/sh
 set -u
 export DISPLAY="$display"
 export TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir"
-# Select the GLX vendor before Proton/Wine initializes its Unix graphics stack.
+${linux_environment_unsets}${linux_environment_exports}# Select the GLX vendor before Proton/Wine initializes its Unix graphics stack.
 # The fixed enum is validated and snapshotted; inherit makes no environment change.
 if [ "$graphics_device" = nvidia ]; then
   export __NV_PRIME_RENDER_OFFLOAD=1
@@ -1990,6 +2386,17 @@ SH
 local_copy_to "$local_tmp/launch.sh" "$task_dir/launch.sh"
 chmod 700 -- "$task_dir/launch.sh"
 
+{
+  printf 'schemaVersion=1\n'
+  printf 'mesaGlThread=%s\n' "$mesa_gl_thread"
+  printf 'inputPathElision=%s\n' "$input_path_elision"
+  printf 'linuxEnvironmentCount=%s\n' "${#linux_environment[@]}"
+  for index in "${!linux_environment[@]}"; do
+    printf 'linuxEnvironment.%s=%s\n' "$index" "${linux_environment[$index]}"
+  done
+  printf 'graphicsDevice=%s\n' "$graphics_device"
+} > "$evidence_dir/launch-environment.properties"
+
 # External-host admission is checked by the queue while holding its account lock.
 log "launching exact Cubism $version through official BAT"
 (
@@ -2018,6 +2425,31 @@ if [ "${#ready_markers[@]}" -gt 0 ]; then
     sleep "$poll_seconds"
   done
   [ "${ready:-0}" = 1 ] || fail "readiness timeout after ${ready_timeout}s"
+fi
+capture_java_gl_evidence ready
+
+# When the combined mesaGlThread option is effective on, the deferred GL
+# error-check contributor must actually have been admitted — without it the
+# run silently becomes glthread-alone, the measured regressive combination.
+# The runtime log marker is authoritative: missing/absent markers are written
+# to evidence and rejected before any trigger/client/result processing. The
+# existing EXIT trap and contained supervisor retain evidence and clean up.
+if [ "$mesa_gl_thread" = 1 ]; then
+  log_file="$(latest_runtime_log || true)"
+  deferred_check_state=unknown
+  if [ -n "$log_file" ]; then
+    if runtime_log_contains "$log_file" 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE'; then
+      deferred_check_state=active
+    elif runtime_log_contains "$log_file" 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=INACTIVE'; then
+      deferred_check_state=inactive
+    fi
+  fi
+  printf 'schemaVersion=1\nmesaGlThreadEffective=%s\ndeferredCheck=%s\n' \
+    "$mesa_gl_thread" "$deferred_check_state" \
+    > "$evidence_dir/deferred-check.properties"
+  if [ "$deferred_check_state" != active ]; then
+    fail "mesaGlThread effective on but deferred GL error check is $deferred_check_state; refusing validation workload (risk of the T22 glthread-only regression)"
+  fi
 fi
 
 if [ -n "$trigger_path" ]; then
@@ -2065,6 +2497,7 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   sleep "$poll_seconds"
 done
 [ "$result_passed" = 1 ] || fail "result timeout after ${result_timeout}s"
+capture_java_gl_evidence result
 
 log "terminal PASS observed; waiting for graceful launcher exit"
 deadline=$((SECONDS + exit_timeout))

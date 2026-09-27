@@ -95,23 +95,57 @@ final class NarrowUniformTrial implements AutoCloseable {
     }
     FrameReadback capture(JComponent canvas) {
         requireEdt();
+        boolean enabled = Boolean.getBoolean(matrixComparison ? MATRIX_ENABLE : ENABLE);
+        boolean uniformEnabled = matrixComparison || enabled;
+        Map<String, Long> before = snapshot();
+        FrameReadback first = paint(canvas);
+        Map<String, Long> after = snapshot();
+        // OFF controls discard the table. After enabling deferred checks, the
+        // first real paint can only confirm pending locations at its END. This
+        // untimed parity capture needs a second paint to exercise cached pixels.
+        // Do not relax requireLeg: timed legs and the final captured paint must
+        // still demonstrate hits. Never retry until success.
+        if (uniformEnabled && delta(before, after, "hits") == 0
+                && delta(before, after, "deferredFrames") > 0
+                && after.getOrDefault("retained", 0L) > 0) {
+            requireExecution(before, after, 1);
+            before = after;
+            FrameReadback confirmed = paint(canvas);
+            after = snapshot();
+            requireLeg(before, after, enabled, 1);
+            if (!first.samePixels(confirmed)) {
+                throw new IllegalStateException("cold/confirmed canvas pixels differ: " + first.difference(confirmed));
+            }
+            return confirmed;
+        }
+        requireLeg(before, after, enabled, 1);
+        return first;
+    }
+    private FrameReadback paint(JComponent canvas) {
         int width = canvas.getWidth(), height = canvas.getHeight();
         if (width <= 0 || height <= 0 || (long) width * height > 16_777_216L) {
             throw new IllegalArgumentException("invalid capture dimensions");
         }
-        Map<String, Long> before = snapshot();
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
         try {
             graphics.setClip(0, 0, width, height);
             canvas.paint(graphics);
         } finally { graphics.dispose(); }
-        Map<String, Long> after = snapshot();
-        requireLeg(before, after, Boolean.getBoolean(matrixComparison ? MATRIX_ENABLE : ENABLE), 1);
         FrameReadback result = FrameReadback.fromArgb(width, height,
             image.getRGB(0, 0, width, height, null, 0, width));
         if (result.distinctPixels() < 2) throw new IllegalStateException("blank canvas cannot certify parity");
         return result;
+    }
+    private void requireExecution(Map<String, Long> before, Map<String, Long> after, int samples) {
+        if (after.getOrDefault("active", 0L) != 1L || delta(before, after, "completedFrames") < samples
+                || delta(before, after, "queries") <= 0
+                || after.getOrDefault("failures", 0L) != 0L || after.getOrDefault("glErrors", 0L) != 0L
+                || after.getOrDefault("shadowMismatches", 0L) != 0L
+                || after.getOrDefault("deferredErrors", 0L) != 0L
+                || after.getOrDefault("deferredThrows", 0L) != 0L) {
+            throw new IllegalStateException("narrow hook capture did not complete cleanly: stats=" + after);
+        }
     }
     void requireLeg(Map<String, Long> before, Map<String, Long> after, boolean enabled, int samples) {
         if (matrixComparison) {
@@ -120,6 +154,7 @@ final class NarrowUniformTrial implements AutoCloseable {
                 throw new IllegalStateException("matrix comparison control changed; uniform must remain ON");
             }
         }
+        requireExecution(before, after, samples);
         boolean uniformEnabled = matrixComparison || enabled;
         long frames = delta(before, after, "completedFrames");
         long queries = delta(before, after, "queries"), hits = delta(before, after, "hits");

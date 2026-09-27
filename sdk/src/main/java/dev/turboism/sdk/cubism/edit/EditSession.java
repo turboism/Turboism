@@ -22,7 +22,7 @@ import java.util.Optional;
  * cancellation raises {@link EditCancelledException}, work after close or on {@link
  * #unavailable()} raises {@link EditUnavailableException}.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public interface EditSession {
 
     /**

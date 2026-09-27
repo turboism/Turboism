@@ -91,10 +91,10 @@ public final class VerifiedEditToggleHookInstaller implements AutoCloseable {
         final ClassLoader hostClassLoader
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        final boolean is5203 = verified.isExactCubismVersion("5.2.03");
+        final boolean is5203 = verified.isAdmittedCubismVersion("5.2.03");
         if (!is5203
-            && !verified.isExactCubismVersion("5.3.02")
-            && !verified.isExactCubismVersion("5.3.03")) {
+            && !verified.isAdmittedCubismVersion("5.3.02")
+            && !verified.isAdmittedCubismVersion("5.3.03")) {
             throw new IllegalArgumentException(
                 "Edit-toggle dialog hook version is unsupported.");
         }

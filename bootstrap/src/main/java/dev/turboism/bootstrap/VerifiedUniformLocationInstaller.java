@@ -1,6 +1,9 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTarget;
+import dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTransformer;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationCallSiteTransformer;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer;
@@ -23,7 +26,7 @@ import java.util.function.Supplier;
 import java.util.jar.JarFile;
 
 /**
- * Exact installation for reviewed Editors and their separately verified JOGL artifact.
+ * Target-verified installation with an independently pinned JOGL artifact.
  * Callbacks are published only after all required transforms succeed. Closing disables
  * reuse first, removes every owned transformer and verifies all original class
  * digests. An installation or restoration failure never becomes a silent success.
@@ -39,15 +42,25 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
     private record Target(Class<?> type, ClassFileTransformer transformer, String before,
                           IntSupplier matches, Supplier<String> failure) { }
 
-    static boolean admitted(HostArtifactDigest digest, RuntimeStartupConfig config, boolean requested, int jvm) {
+    private static final List<ReviewedHostContract.Candidate<Map<UniformLocationLifecycleTransformer.Role, String>>> CANDIDATES =
+        ReviewedHostContract.candidates(
+            UniformLocationLifecycleTransformer.reviewedClassSha256(), version -> {
+                final Map<UniformLocationLifecycleTransformer.Role, String> owners = new HashMap<>();
+                for (final var role : UniformLocationLifecycleTransformer.Role.values()) {
+                    owners.put(role, role.ownerForVersion(version));
+                }
+                return Map.copyOf(owners);
+            });
+
+    static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvm) {
         return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
-            && UniformLocationLifecycleTransformer.supportedEditor(digest);
+            && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
     VerifiedUniformLocationInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader) throws Exception {
-        HostArtifactDigest editor = HostArtifactDigest.from(artifact);
-        if (!UniformLocationLifecycleTransformer.supportedEditor(editor)) {
-            throw new IllegalArgumentException("uniform cache requires a reviewed Editor artifact");
-        }
+        final var contract = ReviewedHostContract.requireBound(
+            ReviewedHostContract.resolve(artifact, CANDIDATES), "uniform cache");
+        final String editorVersion = contract.sourceVersion();
+        final HostArtifactDigest editor = HostArtifactDigest.from(artifact);
         if (Runtime.version().feature() < 17 || !instrumentation.isRetransformClassesSupported()) {
             throw new IllegalStateException("uniform cache requires JVM17+ retransformation");
         }
@@ -63,18 +76,21 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             Class<?> shader = Class.forName(UniformLocationCallSiteTransformer.OWNER.replace('/', '.'), false, loader);
             attest(shader, loader, artifact);
             byte[] before = capture(shader); observed.put(shader, before);
-            verify(cubism, shader, before, UniformLocationCallSiteTransformer.METHOD, UniformLocationCallSiteTransformer.DESCRIPTOR);
+            verify(cubism, shader, before, UniformLocationCallSiteTransformer.METHOD, UniformLocationCallSiteTransformer.DESCRIPTOR, null);
             UniformLocationCallSiteTransformer query = new UniformLocationCallSiteTransformer(loader, artifact, reference(cubism, shader));
             targets.add(new Target(shader, query, sha256(before), query::matches, query::failure));
             for (var role : UniformLocationLifecycleTransformer.Role.values()) {
-                Class<?> type = Class.forName(role.owner(editor).replace('/', '.'), false, loader);
+                Class<?> type = Class.forName(role.ownerForVersion(editorVersion).replace('/', '.'), false, loader);
                 Path source = role.programMutations() ? joglArtifact : artifact;
                 ClassLoader ownerLoader = role.programMutations() ? type.getClassLoader() : loader;
                 attest(type, ownerLoader, source);
                 byte[] actual = capture(type); observed.put(type, actual);
                 JarFile jar = role.programMutations() ? jogl : cubism;
-                for (var method : role.methods().entrySet()) verify(jar, type, actual, method.getKey(), method.getValue());
-                UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(ownerLoader, source, reference(jar, type), role, editor);
+                Map<String, List<String>> composed = composedShapes(jar, type, source, ownerLoader, role, editor);
+                for (var method : role.methods().entrySet())
+                    verify(jar, type, actual, method.getKey(), method.getValue(), composed.get(method.getKey()));
+                UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(ownerLoader, source, reference(jar, type), role, editorVersion);
+                composed.forEach(transformer::acceptComposedShape);
                 transformer.onRejection(bridge::retire);
                 targets.add(new Target(type, transformer, sha256(actual), transformer::matches, transformer::failure));
             }
@@ -84,6 +100,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             verifyDependency(jogl, joglArtifact, loader, "com.jogamp.opengl.GLContext", "isShared", "()Z", observed);
             verifyDependency(jogl, joglArtifact, loader, "com.jogamp.opengl.GLContext", "isCreated", "()Z", observed);
         }
+        contract.requireUnchanged(artifact);
     }
     static void verifyMutationInventory(JarFile jar) throws Exception {
         UniformLocationLifecycleTransformer.verifyMutationInventory(jar);
@@ -94,7 +111,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
         attest(type, type.getClassLoader(), source);
         byte[] actual = observed.get(type);
         if (actual == null) { actual = capture(type); observed.put(type, actual); }
-        verify(jar, type, actual, method, descriptor);
+        verify(jar, type, actual, method, descriptor, null);
     }
     private static void attest(Class<?> type, ClassLoader loader, Path artifact) throws Exception {
         if (type.getClassLoader() != loader || type.getProtectionDomain().getCodeSource() == null
@@ -103,10 +120,47 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             throw new IllegalArgumentException("uniform dependency loader/source mismatch: " + type.getName());
         }
     }
-    private static void verify(JarFile jar, Class<?> type, byte[] actual, String name, String descriptor) throws Exception {
+    /**
+     * Computes the exact method shapes the reviewed glGetError elision produces
+     * on the official bodies, for the ERROR role only. The elision transform is
+     * registered upstream of this one in the retransform chain, so when it is
+     * installed the ERROR owner legitimately arrives already elided; the shape
+     * is derived by running the elision's own probe over the attested JAR
+     * reference, never by trusting the observed chain output. An elision that
+     * is not installed, an unreviewed host artifact, or a shape the probe
+     * cannot produce all leave the acceptance set empty — the strict check
+     * stays fail-closed.
+     */
+    private static Map<String, List<String>> composedShapes(JarFile jar, Class<?> type, Path source,
+            ClassLoader ownerLoader, UniformLocationLifecycleTransformer.Role role,
+            HostArtifactDigest editor) throws Exception {
+        if (role != UniformLocationLifecycleTransformer.Role.ERROR) return Map.of();
+        var elision = GlGetErrorElisionTarget.of(editor);
+        // The marker is keyed by the elision target's own owner; admitting the
+        // composed shape also requires this role's class to be that owner.
+        if (elision.isEmpty() || !elision.get().owner().equals(role.owner(editor))
+            || !GlGetErrorElisionTransformer.isInstalled(ownerLoader, elision.get().owner())) {
+            return Map.of();
+        }
+        Map<String, List<String>> composed = new HashMap<>();
+        for (var method : role.methods().entrySet()) {
+            if (!elision.get().method().equals(method.getKey())
+                || !elision.get().descriptor().equals(method.getValue())) {
+                continue;
+            }
+            List<String> shape = GlGetErrorElisionTransformer.composedShape(
+                ownerLoader, source, reference(jar, type), elision.get(), type);
+            if (shape != null) composed.put(method.getKey(), shape);
+        }
+        return composed;
+    }
+    private static void verify(JarFile jar, Class<?> type, byte[] actual, String name,
+                               String descriptor, List<String> composed) throws Exception {
         String owner = type.getName().replace('.', '/');
         List<String> expected = ReviewedMethodShape.read(reference(jar, type), owner, name, descriptor);
-        if (expected == null || !expected.equals(ReviewedMethodShape.read(actual, owner, name, descriptor))) {
+        List<String> observed = ReviewedMethodShape.read(actual, owner, name, descriptor);
+        if (expected == null || (!expected.equals(observed)
+            && (composed == null || !composed.equals(observed)))) {
             throw new IllegalStateException("uniform dependency body mismatch: " + owner + "." + name);
         }
     }

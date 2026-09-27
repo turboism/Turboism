@@ -1,7 +1,6 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer;
-import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 
 /** Contributor for the verified matrix scratch-buffer optimization. */
@@ -14,7 +13,7 @@ final class MatrixScratchHookContributor extends NativeOptimizationHookContribut
     @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         final var host = environment.host().orElseThrow();
         if (!VerifiedMatrixScratchInstaller.admitted(
-            HostArtifactDigest.from(host.artifact()),
+            host.artifact(),
             NativeOptimizationPolicy.load(environment.options().home()),
             Boolean.getBoolean(MatrixScratchTransformer.ENABLE_PROPERTY),
             Runtime.version().feature()

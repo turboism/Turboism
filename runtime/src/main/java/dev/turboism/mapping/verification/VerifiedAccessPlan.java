@@ -4,27 +4,46 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
-/** Immutable alias plan available only after exact artifact and selector verification. */
+/** Immutable alias plan containing only selectors verified against the admitted artifact. */
 final class VerifiedAccessPlan {
+
+    /** How this plan was admitted relative to reviewed artifacts. */
+    enum BindingMode {
+        /** The artifact is byte-identical to a reviewed Cubism build. */
+        EXACT,
+        /** The artifact declared an unreviewed identity and matched one reviewed contract structurally. */
+        COMPATIBLE
+    }
 
     private final String adapterSliceId;
     private final java.util.Set<String> capabilityIds;
     private final String cubismVersion;
     private final HostArtifactFingerprint artifact;
     private final Map<String, StaticSelector> selectors;
+    private final BindingMode bindingMode;
+    private final String sourceVersion;
+    private final Map<String, java.util.List<String>> capabilityConditions;
 
     private VerifiedAccessPlan(
         final String adapterSliceId,
         final java.util.Set<String> capabilityIds,
         final String cubismVersion,
         final HostArtifactFingerprint artifact,
-        final Map<String, StaticSelector> selectors
+        final Map<String, StaticSelector> selectors,
+        final BindingMode bindingMode,
+        final String sourceVersion,
+        final Map<String, java.util.List<String>> capabilityConditions
     ) {
         this.adapterSliceId = adapterSliceId;
         this.capabilityIds = java.util.Set.copyOf(capabilityIds);
         this.cubismVersion = cubismVersion;
         this.artifact = artifact;
         this.selectors = Map.copyOf(selectors);
+        this.bindingMode = Objects.requireNonNull(bindingMode, "bindingMode");
+        this.sourceVersion = Objects.requireNonNull(sourceVersion, "sourceVersion");
+        this.capabilityConditions = this.capabilityIds.stream().collect(
+            java.util.stream.Collectors.toUnmodifiableMap(id -> id,
+                id -> java.util.List.copyOf(capabilityConditions.get(id))));
     }
 
     static VerifiedAccessPlan from(
@@ -67,7 +86,74 @@ final class VerifiedAccessPlan {
             java.util.Set.copyOf(record.capabilityIds()),
             record.cubismVersion(),
             record.artifact(),
-            verified
+            verified,
+            BindingMode.EXACT,
+            record.cubismVersion(),
+            record.capabilityConditions()
+        );
+    }
+
+    /**
+     * Builds a plan for a compatibility-bound host: the artifact is NOT the
+     * reviewed one, so the whole-file fingerprint is measured rather than
+     * matched. Only successful selectors enter the plan, and each admitted
+     * capability requires its complete selector dependency set.
+     *
+     * @param record the reviewed record whose selector contract was probed
+     * @param report structural verification outcome against the live artifact
+     * @param declaredVersion the version the host itself declared
+     * @param actualArtifact measured size/SHA-256 of the live artifact
+     * @return the verified subset of the reviewed contract, marked
+     *     {@link BindingMode#COMPATIBLE}
+     */
+    static VerifiedAccessPlan fromCompatibility(
+        final StaticVerificationRecord record,
+        final StaticSelectorVerifier.StructureVerificationReport report,
+        final String declaredVersion,
+        final HostArtifactFingerprint actualArtifact
+    ) {
+        Objects.requireNonNull(record, "record");
+        Objects.requireNonNull(report, "report");
+        Objects.requireNonNull(declaredVersion, "declaredVersion");
+        Objects.requireNonNull(actualArtifact, "actualArtifact");
+        if (declaredVersion.isBlank()) {
+            throw new IllegalArgumentException("declaredVersion must not be blank");
+        }
+        if (report.artifact().size() != actualArtifact.size()
+            || !report.artifact().sha256().equals(actualArtifact.sha256())) {
+            throw new IllegalArgumentException("structural report does not describe the admitted artifact");
+        }
+        if (report.results().size() != record.selectors().size()) {
+            throw new IllegalArgumentException("structural report does not cover the complete selector set");
+        }
+        final Map<String, StaticSelectorResult> results = new LinkedHashMap<>();
+        for (StaticSelectorResult result : report.results()) {
+            if (results.put(result.alias(), result) != null) {
+                throw new IllegalArgumentException("duplicate result alias: " + result.alias());
+            }
+        }
+        final Map<String, StaticSelector> verified = new LinkedHashMap<>();
+        for (StaticSelector selector : record.selectors()) {
+            final StaticSelectorResult result = results.get(selector.alias());
+            if (result == null || !result.selector().equals(selector)) {
+                throw new IllegalArgumentException("selector tuple is not verified: " + selector.alias());
+            }
+            if (result.status() != StaticVerificationStatus.VERIFIED_STATIC) {
+                continue;
+            }
+            if (verified.put(selector.alias(), selector) != null) {
+                throw new IllegalArgumentException("duplicate selector alias: " + selector.alias());
+            }
+        }
+        return new VerifiedAccessPlan(
+            record.adapterSliceId(),
+            CapabilitySelectorDependencies.capabilities(record, verified.keySet()),
+            declaredVersion,
+            actualArtifact,
+            verified,
+            BindingMode.COMPATIBLE,
+            record.cubismVersion(),
+            record.capabilityConditions()
         );
     }
 
@@ -130,8 +216,18 @@ final class VerifiedAccessPlan {
             capabilities,
             cubismVersion,
             artifact,
-            restrictedSelectors
+            restrictedSelectors,
+            bindingMode,
+            sourceVersion,
+            capabilityConditions
         );
+    }
+
+    java.util.Set<String> capabilitiesRequiringHook(final String hookId) {
+        final String condition = "hook:" + hookId;
+        return capabilityConditions.entrySet().stream()
+            .filter(entry -> entry.getValue().contains(condition))
+            .map(Map.Entry::getKey).collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
     java.util.List<StaticSelector> selectors() {
@@ -140,6 +236,41 @@ final class VerifiedAccessPlan {
 
     String cubismVersion() {
         return cubismVersion;
+    }
+
+    /**
+     * The reviewed Cubism version this plan's contract was authored against:
+     * the declared version for exact bindings, the bound record's version for
+     * compatibility bindings.
+     */
+    String admittedCubismVersion() {
+        return bindingMode == BindingMode.EXACT ? cubismVersion : sourceVersion;
+    }
+
+    BindingMode bindingMode() {
+        return bindingMode;
+    }
+
+    String sourceVersion() {
+        return sourceVersion;
+    }
+
+    String adapterSliceId() {
+        return adapterSliceId;
+    }
+
+    boolean isExactCubismVersion(final String expectedVersion) {
+        return bindingMode == BindingMode.EXACT && cubismVersion.equals(expectedVersion);
+    }
+
+    /**
+     * Whether this plan bound the given reviewed generation — the declared
+     * version for exact hosts, the verified contract's source generation for
+     * compatibility-bound hosts. Selector and profile checks that key on the
+     * reviewed generation must use this, not the host-declared version.
+     */
+    boolean isAdmittedCubismVersion(final String expectedVersion) {
+        return admittedCubismVersion().equals(expectedVersion);
     }
 
     HostArtifactFingerprint artifact() {

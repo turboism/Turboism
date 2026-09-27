@@ -78,6 +78,60 @@ final class PinnedVerifiedResolverWorkflow {
         return new VerifiedMemberResolver(accessPlan, hostClassLoader);
     }
 
+    /**
+     * Builds a resolver under a compatibility {@link SliceContract}: the record
+     * must still be the pinned trust-root bytes and every exposed selector must
+     * verify statically, but the artifact digest is measured rather than matched to a
+     * reviewed fingerprint. Classloader/CodeSource attestation and the
+     * unchanged-artifact post-check are identical to the exact path.
+     */
+    VerifiedMemberResolver createCompatible(
+        final Path reviewedRecord,
+        final Path hostArtifact,
+        final ClassLoader hostClassLoader,
+        final SliceContract contract
+    ) throws IOException {
+        Objects.requireNonNull(reviewedRecord, "reviewedRecord");
+        Objects.requireNonNull(hostArtifact, "hostArtifact");
+        Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        Objects.requireNonNull(contract, "contract");
+        if (!contract.compatible()) {
+            throw new IllegalArgumentException("compatibility resolver requires a compatible contract");
+        }
+        final StaticVerificationRecordLoader.LoadedRecord loaded = loader.load(reviewedRecord);
+        if (!loaded.sha256().equals(contract.recordSha256())) {
+            throw new IllegalArgumentException("verification record is not the catalog-pinned record");
+        }
+        final StaticVerificationRecord record = loaded.record();
+        if (!record.verificationId().equals(contract.verificationId())
+            || !record.adapterSliceId().equals(contract.adapterSliceId())
+            || !record.cubismVersion().equals(contract.sourceVersion())) {
+            throw new IllegalArgumentException("verification record does not match the admitted contract");
+        }
+        final HostArtifactDigest before = HostArtifactDigest.from(hostArtifact);
+        if (!before.equals(contract.probedArtifact())) {
+            throw new IllegalArgumentException("host artifact changed since compatibility probing");
+        }
+        final StaticSelectorVerifier.StructureVerificationReport report =
+            verifier.verifyStructure(hostArtifact, record.selectors());
+        final VerifiedAccessPlan verifiedPlan = VerifiedAccessPlan.fromCompatibility(
+            record,
+            report,
+            contract.declaredVersion(),
+            new HostArtifactFingerprint(contract.declaredVersion(), before.size(), before.sha256())
+        );
+        attestor.attest(hostArtifact, hostClassLoader, verifiedPlan.selectors());
+        final HostArtifactDigest after = HostArtifactDigest.from(hostArtifact);
+        if (!after.equals(before)) {
+            throw new IllegalArgumentException("admitted artifact changed during runtime attestation");
+        }
+        final VerifiedAccessPlan accessPlan = verifiedPlan.restrictTo(
+            contract.capabilities(),
+            verifiedPlan.selectors().stream().map(StaticSelector::alias).collect(java.util.stream.Collectors.toSet())
+        );
+        return new VerifiedMemberResolver(accessPlan, hostClassLoader);
+    }
+
     private static void requireManifestRecord(
         final StaticVerificationRecord record,
         final Manifest manifest

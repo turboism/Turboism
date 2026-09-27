@@ -18,7 +18,7 @@ public final class MappingPackValidator extends AbstractJsonValidator {
     );
     private static final Set<String> ALLOWED_STATUSES = Set.of("DRAFT", "QUARANTINE");
     private static final Set<String> ALLOWED_KINDS = Set.of(
-        "class", "constructor", "method", "field"
+        "class", "constructor", "method", "field", "inherits"
     );
     private static final Set<String> ALLOWED_CONFIDENCES = Set.of("high", "medium", "low", "inferred", "probe");
 
@@ -69,7 +69,7 @@ public final class MappingPackValidator extends AbstractJsonValidator {
         if (!ALLOWED_KINDS.contains(e.get("kind").asText(""))) {
             errors.add(error(
                 "MAPPING_PACK_ENTRY_BAD_KIND",
-                "Entry kind must be class, constructor, method, or field",
+                "Entry kind must be class, constructor, method, field, or inherits",
                 "entries[" + index + "].kind",
                 source
             ));

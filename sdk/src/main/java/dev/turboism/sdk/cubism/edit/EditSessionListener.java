@@ -9,7 +9,7 @@ import dev.turboism.sdk.CubismEditor;
  * with {@code Enabled = true}. Sessions without a listener behave as if the notification is
  * disabled.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 @FunctionalInterface
 public interface EditSessionListener {
 

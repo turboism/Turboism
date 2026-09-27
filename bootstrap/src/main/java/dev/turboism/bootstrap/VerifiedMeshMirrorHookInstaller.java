@@ -9,6 +9,7 @@ import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -86,6 +87,19 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         final MeshMirrorHostProfile profile,
         final Consumer<String> diagnostic
     ) {
+        this(instrumentation, hostClassLoader, hostArtifact, axis, ui, profile, Map.of(), diagnostic);
+    }
+
+    VerifiedMeshMirrorHookInstaller(
+        final Instrumentation instrumentation,
+        final ClassLoader hostClassLoader,
+        final Path hostArtifact,
+        final RuntimeMeshMirrorAxisService axis,
+        final RuntimeMeshEditUiService ui,
+        final MeshMirrorHostProfile profile,
+        final Map<String, String> pinnedClassSha256,
+        final Consumer<String> diagnostic
+    ) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = hostClassLoader;
         this.axis = axis;
@@ -97,6 +111,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             hostArtifact == null ? null : hostArtifact.toAbsolutePath().normalize(),
             null,
             instrumentation,
+            pinnedClassSha256,
             this::report
         );
         // Every owner the transformer may rewrite must be listed here, or a preloaded
@@ -143,10 +158,18 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
      * fail-closed: every target must be defined by that loader and observed by Instrumentation.
      */
     void defineLazyTargets() {
+        defineLazyTargets(hostClassLoader);
+    }
+
+    void defineLazyTargets(final ClassLoader locatedHostLoader) {
         synchronized (lifecycleLock) {
             if (closed) throw new IllegalStateException("mesh mirror hook installer is closed");
             if (!installed) throw new IllegalStateException("mesh mirror transformer is not installed");
-            final ClassLoader loader = transformer.admittedClassLoader();
+            final ClassLoader admitted = transformer.admittedClassLoader();
+            if (admitted != null && locatedHostLoader != null && admitted != locatedHostLoader) {
+                throw new IllegalStateException("mesh mirror runtime loader differs from the transformed host");
+            }
+            final ClassLoader loader = admitted == null ? locatedHostLoader : admitted;
             if (loader == null) throw new IllegalStateException("mesh mirror host loader is not admitted");
             try {
                 final List<String> missing = new ArrayList<>(List.of(targetClassNames));
@@ -161,6 +184,12 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                 }
                 if (!missing.isEmpty()) {
                     throw new IllegalStateException("mesh mirror lazy targets were not observed: " + missing);
+                }
+                final var transformed = transformer.transformedOwners();
+                for (final String target : targetClassNames) {
+                    if (!transformed.contains(target.replace('.', '/'))) {
+                        throw new IllegalStateException("mesh mirror required target was not transformed: " + target);
+                    }
                 }
             } catch (ClassNotFoundException | LinkageError failure) {
                 throw new IllegalStateException("mesh mirror lazy target definition failed", failure);
@@ -257,6 +286,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
 
     /** Must be called under lifecycleLock; revokes runtime state even when restoration fails. */
     private void rollback() {
+        transformer.deactivate();
         final List<String> failures = new ArrayList<>();
         bound = false;
         try {
@@ -308,10 +338,11 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         final ClassLoader owner = transformer.admittedClassLoader() == null
             ? hostClassLoader
             : transformer.admittedClassLoader();
+        if (owner == null) return;
         try {
             for (Class<?> type : instrumentation.getAllLoadedClasses()) {
                 try {
-                    if ((owner == null || type.getClassLoader() == owner)
+                    if (type.getClassLoader() == owner
                         && isTarget(safeName(type))
                         && instrumentation.isModifiableClass(type)) {
                         instrumentation.retransformClasses(type);

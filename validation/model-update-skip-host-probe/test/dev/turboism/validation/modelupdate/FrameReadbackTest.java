@@ -34,6 +34,21 @@ public final class FrameReadbackTest {
         try { a.difference(FrameReadback.fromArgb(4, 1, new int[4])); }
         catch (IllegalArgumentException expected) { rejected = true; }
         check(rejected, "difference rejects incompatible layout");
+        java.nio.file.Path png = java.nio.file.Files.createTempFile("frame-readback-", ".png");
+        try {
+            int[] argb = {0x00112233, 0x7f234567, 0xff89abcd, 0xff012345};
+            FrameReadback exact = FrameReadback.fromArgb(2, 2, argb);
+            exact.writeArgbPng(png);
+            java.awt.image.BufferedImage decoded = javax.imageio.ImageIO.read(png.toFile());
+            check(exact.samePixels(FrameReadback.fromArgb(decoded.getWidth(), decoded.getHeight(),
+                decoded.getRGB(0, 0, 2, 2, null, 0, 2))), "diagnostic PNG preserves every ARGB bit");
+            rejected = false;
+            try { image.writeArgbPng(png); }
+            catch (IllegalArgumentException expected) { rejected = true; }
+            check(rejected, "raw GL layout must not be mislabeled as ARGB");
+        } finally {
+            java.nio.file.Files.deleteIfExists(png);
+        }
         System.out.println("FrameReadbackTest PASS (row padding, position, types, non-vacuous pixels, bounds, exact diagnostics)");
     }
     private static void check(boolean ok, String reason) { if (!ok) throw new AssertionError(reason); }

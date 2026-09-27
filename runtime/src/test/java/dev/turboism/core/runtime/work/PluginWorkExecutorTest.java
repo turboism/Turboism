@@ -264,6 +264,100 @@ class PluginWorkExecutorTest {
     }
 
     @Test
+    void workerThreadsAreDaemonAndNamedForPlugin() throws InterruptedException {
+        // Given
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        PluginWorkExecutor executor = new PluginWorkExecutor(PLUGIN_ID, 1, 1, events::add, CLOCK);
+        CountDownLatch completed = new CountDownLatch(1);
+        AtomicReference<Thread> worker = new AtomicReference<>();
+
+        // When
+        executor.execute(task("action.handle"), () -> {
+            worker.set(Thread.currentThread());
+            completed.countDown();
+        });
+
+        // Then
+        assertTrue(completed.await(1, TimeUnit.SECONDS));
+        assertTrue(
+            worker.get().isDaemon(),
+            "plugin work threads must be daemon so a live executor cannot pin the JVM: "
+                + worker.get()
+        );
+        assertTrue(
+            worker.get().getName().contains(PLUGIN_ID),
+            "worker thread name must attribute the plugin: " + worker.get().getName()
+        );
+        executor.shutdown();
+    }
+
+    @Test
+    void timeoutSchedulerThreadsAreDaemonAndNamedForPlugin() throws InterruptedException {
+        // Given
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        PluginWorkExecutor executor = new PluginWorkExecutor(
+            PLUGIN_ID,
+            PluginWorkExecutorConfiguration.of(50, 1, 1, 50.0f),
+            events::add,
+            CLOCK
+        );
+        CountDownLatch started = new CountDownLatch(1);
+        AtomicReference<Thread> timeoutThread = new AtomicReference<>();
+
+        // When: the timeout action runs on the timeout scheduler thread.
+        executor.submit(
+            task("action.handle"),
+            () -> {
+                started.countDown();
+                try {
+                    Thread.sleep(1_000L);
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                }
+            },
+            () -> timeoutThread.set(Thread.currentThread())
+        );
+
+        // Then
+        assertTrue(started.await(1, TimeUnit.SECONDS));
+        awaitEvent(events, PluginWorkBudgetEvent.Phase.TIMED_OUT);
+        assertTrue(
+            timeoutThread.get().isDaemon(),
+            "timeout scheduler threads must be daemon: " + timeoutThread.get()
+        );
+        assertTrue(
+            timeoutThread.get().getName().contains(PLUGIN_ID),
+            "timeout thread name must attribute the plugin: " + timeoutThread.get().getName()
+        );
+        executor.shutdown();
+    }
+
+    @Test
+    void releaseShutsClaimedSetWithoutTouchingItsReplacement() {
+        // Given
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        PluginWorkExecutorRegistry registry = new PluginWorkExecutorRegistry(1, 1, events::add, CLOCK);
+        PluginExecutorSet first = registry.claim(PLUGIN_ID);
+
+        // When the captured generation is released
+        registry.release(PLUGIN_ID, first);
+
+        // Then the claimed set is gone and a later claim sees a fresh set
+        assertTrue(first.isTerminated());
+        PluginExecutorSet second = registry.claim(PLUGIN_ID);
+        assertNotSame(first, second, "a later claim must produce a fresh executor set");
+        assertTrue(second.tasks().submit(task("action.handle"), () -> { }).accepted());
+
+        // And a stale release of the old generation cannot close the replacement
+        registry.release(PLUGIN_ID, first);
+        assertFalse(second.isTerminated());
+        assertTrue(second.tasks().submit(task("action.handle"), () -> { }).accepted());
+
+        registry.shutdownAll();
+        assertTrue(second.isTerminated());
+    }
+
+    @Test
     void registryCreatesOneExecutorPerPluginAndShutdownIsIdempotent() {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();

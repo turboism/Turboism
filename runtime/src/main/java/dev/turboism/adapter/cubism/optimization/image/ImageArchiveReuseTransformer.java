@@ -14,6 +14,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -166,4 +167,19 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
         }
     }
     private record Handler(Label start,Label end,Label handler,String type) { }
+
+    /**
+     * SHA-256 of the image classes this hook rewrites and bridges, keyed by internal name, per reviewed generation. A
+     * repackaged or differently-declared artifact binds this hook only when
+     * one distinct contract's pins match every class entry; identical contracts merge.
+     */
+    public static Map<String, Map<String, String>> reviewedClassSha256() {
+        return REVIEWED_CLASS_SHA256;
+    }
+
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
+        Map.of(
+        "5.3.02", Map.ofEntries(
+            Map.entry("com/live2d/graphics/CImageResource", "0b7e56b4b3a1baa314daa6266b2f36f29fb7cab679f51afbe19490ce77a69c14"),
+            Map.entry("com/live2d/graphics/CWritableImage", "1ab08de5a3746e3f1fe2885ad9202c15fcc4144345cf1d5f1910f12179ce8f09")));
 }

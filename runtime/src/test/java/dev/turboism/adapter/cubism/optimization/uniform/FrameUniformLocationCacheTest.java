@@ -100,6 +100,27 @@ class FrameUniformLocationCacheTest {
         assertEquals(0, cache.retained());
         assertEquals(0, cache.begin(context, true));
     }
+    @Test void deferredResultsCannotCrossRenderThreadsOrUncheckedFrames() throws Exception {
+        long scope = cache.begin(context, true, true);
+        cache.record(context, 7, "color", 12);
+        assertEquals(FrameUniformLocationCache.MISS, cache.lookup(context, 7, "color"));
+        cache.end(scope, true);
+        AtomicInteger result = new AtomicInteger(123);
+        Thread next = new Thread(() -> {
+            long other = cache.begin(context, true, true);
+            result.set(cache.lookup(context, 7, "color"));
+            cache.end(other, true);
+        });
+        next.start(); next.join();
+        assertEquals(FrameUniformLocationCache.MISS, result.get());
+        scope = cache.begin(context, true, true);
+        cache.record(context, 7, "color", 14);
+        cache.end(scope, false);
+        scope = cache.begin(context, true, true);
+        assertEquals(FrameUniformLocationCache.MISS, cache.lookup(context, 7, "color"));
+        cache.end(scope);
+    }
+
     private long confirmed() {
         long scope = cache.begin(context, true);
         cache.record(context, 7, "color", 12); cache.checkedError(context, 0);

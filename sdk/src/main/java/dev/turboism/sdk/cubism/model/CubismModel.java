@@ -12,8 +12,8 @@ import java.util.Optional;
 /** One Cubism model exposed as natural objects and methods. */
 public interface CubismModel {
 
-    /** Returns this model's stable identity within the current session. */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    /** Returns this model's stable identity when the model-read contract is admitted. */
+    @CubismEditor(from = "5.2.03")
     ModelId id();
 
     /**

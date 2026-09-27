@@ -297,5 +297,13 @@
    "forbiddenAccessFlags": 8,
    "status": "VERIFIED_STATIC"
   }
- ]
+ ],
+  "capabilityConditions": {
+    "cubism.autobackup.settings": [
+      "structure"
+    ],
+    "cubism.autobackup.backup": [
+      "structure"
+    ]
+  }
 }

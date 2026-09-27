@@ -16,6 +16,38 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class VerifiedMemberResolverTest {
 
     @Test
+    void failedRuntimeDependencyDisablesOnlyCapabilitiesThatRequireIt() {
+        final var capabilities = java.util.Set.of("fixture.read", "fixture.write");
+        final var conditions = java.util.Map.of(
+            "fixture.read", List.of("structure"), "fixture.write", List.of("hook:fixture-hook"));
+        final var selectors = List.of(StaticSelector.classSelector("fixture.class", internalName(SyntheticHost.class)));
+        final var loader = SyntheticHost.class.getClassLoader();
+        for (final var resolver : List.of(
+            TestVerifiedResolvers.create("5.3.02", "fixture", capabilities, conditions, selectors, loader),
+            TestVerifiedResolvers.createCompatible("5.3.02", "5.3.99", "fixture",
+                capabilities, conditions, selectors, loader)
+        )) {
+            assertTrue(resolver.authorizesFeature("fixture", "fixture.write", java.util.Set.of("fixture.class")));
+            resolver.deferCapabilitiesRequiringHook("fixture-hook");
+            assertFalse(resolver.authorizesFeature("fixture", "fixture.write", java.util.Set.of("fixture.class")));
+            assertTrue(resolver.authorizesFeature("fixture", "fixture.read", java.util.Set.of("fixture.class")));
+            resolver.completeHookBinding("another-hook");
+            assertFalse(resolver.authorizesFeature("fixture", "fixture.write", java.util.Set.of("fixture.class")));
+            resolver.completeHookBinding("fixture-hook");
+            assertTrue(resolver.authorizesFeature("fixture", "fixture.write", java.util.Set.of("fixture.class")));
+            resolver.deferCapabilitiesRequiringHook("fixture-hook");
+            assertEquals(java.util.Set.of("fixture.write"), resolver.disableCapabilitiesRequiringHook("fixture-hook"));
+            resolver.completeHookBinding("fixture-hook");
+            assertFalse(resolver.authorizesFeature("fixture", "fixture.write", java.util.Set.of("fixture.class")));
+            assertTrue(resolver.authorizesFeature("fixture", "fixture.read", java.util.Set.of("fixture.class")));
+            assertFalse(resolver.authorizes("fixture", capabilities, java.util.Set.of("fixture.class")));
+            assertEquals(java.util.Set.of("fixture.write"), resolver.disabledCapabilities());
+            assertEquals(java.util.Set.of(), resolver.disableCapabilitiesRequiringHook("another-hook"));
+            assertThrows(UnsupportedOperationException.class, () -> resolver.disabledCapabilities().clear());
+        }
+    }
+
+    @Test
     void exposesOnlyTheAttestedDefiningClassloader() {
         ClassLoader loader = SyntheticHost.class.getClassLoader();
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
@@ -436,6 +468,7 @@ class VerifiedMemberResolverTest {
             "fixture.static",
             "adapter.project-workspace.readonly",
             List.of("cubism.project.read"),
+            java.util.Map.of("cubism.project.read", java.util.List.of("structure")),
             "5.3.02",
             "cubism-5.3.02",
             fingerprint,

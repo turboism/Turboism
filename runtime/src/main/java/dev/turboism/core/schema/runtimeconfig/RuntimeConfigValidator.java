@@ -34,12 +34,23 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory"
     );
     private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of(
-        "cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"
+        "cubismJvm", "graalVmPath", "zgc", "memoryProfile",
+        "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache",
+        "uploadElision", "inputPathElision", "mesaGlThread"
     );
     private static final Set<String> ALLOWED_CUBISM_JVMS = Set.of("graalvm", "bundled");
+    private static final Set<String> ALLOWED_MEMORY_PROFILES = Set.of(
+        "system", "balanced4g", "balanced4gFastSoft"
+    );
+
+    /** True when the value is one of the accepted persisted memory-profile choices. */
+    public static boolean isAllowedMemoryProfile(final String value) {
+        return ALLOWED_MEMORY_PROFILES.contains(value);
+    }
     private static final Set<String> ALLOWED_TEXTURE_ATLAS_FIELDS = Set.of("algorithmId", "parallel");
     private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
-        "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"
+        "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
+        "inputPathElision", "mesaGlThread"
     );
 
     public RuntimeConfigValidator() {
@@ -52,9 +63,11 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     }
 
     /**
-     * Read-mode validation: an unsupported persisted {@code locale} is tolerated (the caller
-     * treats that one field as absent and emits a structured diagnostic) while every other
-     * malformed/unsafe config failure stays fail-closed. Writes keep {@link #validate} strict.
+     * Read-mode validation: an unsupported persisted {@code locale} or
+     * {@code launcher.memoryProfile} is tolerated (the caller treats that one
+     * field as absent and emits a structured diagnostic) while every other
+     * malformed/unsafe config failure stays fail-closed. Writes keep
+     * {@link #validate} strict.
      */
     public List<SchemaValidationError> validateForRead(JsonNode node, String source) {
         return validate(node, source, true);
@@ -68,7 +81,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     private List<SchemaValidationError> validate(
         final JsonNode node,
         final String source,
-        final boolean tolerateLocale
+        final boolean tolerateUnsupportedChoices
     ) {
         List<SchemaValidationError> errors = new ArrayList<>(validateRoot(node, source));
         requireStringField(node, "worktreeId", "RUNTIME_CONFIG_MISSING", errors, source);
@@ -112,7 +125,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
         if (node.has("locale") && (!node.get("locale").isTextual()
             || !ALLOWED_LOCALES.contains(node.get("locale").asText()))) {
-            if (!tolerateLocale) {
+            if (!tolerateUnsupportedChoices) {
                 errors.add(error(
                     "RUNTIME_CONFIG_BAD_LOCALE",
                     "locale must be one of " + ALLOWED_LOCALES,
@@ -150,7 +163,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         validateOptionalBoolean(node, "atlasTileBbox", errors, source);
         validateOptionalBoolean(node, "atlasCacheReuse", errors, source);
         validateHooks(node, errors, source);
-        validateLauncher(node, errors, source);
+        validateLauncher(node, errors, source, tolerateUnsupportedChoices);
         validateTextureAtlas(node, errors, source);
 
         return errors;
@@ -209,7 +222,8 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     private void validateLauncher(
         final JsonNode root,
         final List<SchemaValidationError> errors,
-        final String source
+        final String source,
+        final boolean tolerateUnsupportedChoices
     ) {
         if (!root.has("launcher")) return;
         final JsonNode launcher = root.get("launcher");
@@ -243,6 +257,20 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
                 "RUNTIME_CONFIG_BAD_ZGC",
                 "launcher.zgc must be a boolean",
                 "launcher.zgc",
+                source
+            ));
+        }
+        // Like the top-level locale, an unsupported persisted memory profile is
+        // tolerated on read (dropped by the repository with a diagnostic) but
+        // stays a strict error for writes.
+        if (launcher.has("memoryProfile")
+            && !tolerateUnsupportedChoices
+            && (!launcher.get("memoryProfile").isTextual()
+                || !ALLOWED_MEMORY_PROFILES.contains(launcher.get("memoryProfile").asText()))) {
+            errors.add(error(
+                "RUNTIME_CONFIG_BAD_MEMORY_PROFILE",
+                "launcher.memoryProfile must be one of " + ALLOWED_MEMORY_PROFILES,
+                "launcher.memoryProfile",
                 source
             ));
         }

@@ -303,6 +303,48 @@ class EditorTextureAccessTest {
         return new EditorTextureAccess(resolver(version, includeCapability), (identity, model) -> { });
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    void compatibleHostUsesItsMatchedTextureUndoRoute(final String sourceVersion) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final VerifiedMemberResolver resolver = resolver(sourceVersion, true,
+            java.util.Set.of(EditorTextureSelectorContract.READ_CAPABILITY_ID,
+                EditorTextureSelectorContract.WRITE_CAPABILITY_ID), true, "5.3.99");
+        final ModelTextures textures = new EditorTextureAccess(resolver, (identity, model) -> { })
+            .textures("compatible-session", fixture.source, fixture.model);
+
+        assertEquals("5.3.99", resolver.cubismVersion());
+        assertEquals(sourceVersion, resolver.admittedCubismVersion());
+        textures.removeRawImage(new RawImageId("raw-1"));
+        assertTrue(fixture.manager.rawImages.isEmpty());
+        fixture.editMode.undo();
+        assertEquals(1, fixture.manager.rawImages.size());
+        fixture.editMode.redo();
+        assertTrue(fixture.manager.rawImages.isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "cubism.editor-model.edit-mode.begin", "cubism.editor-model.edit-mode.end",
+        "cubism.editor-model.undo.add", "cubism.editor-model.texture-undo.undo",
+        "cubism.editor-model.model-source.update-instances",
+        "cubism.editor-model.app-controller.current-document"
+    })
+    void compatibleWriteRequiresEveryTransactionDependency(final String omittedAlias) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final VerifiedMemberResolver resolver = resolver("5.3.02", true,
+            java.util.Set.of(EditorTextureSelectorContract.READ_CAPABILITY_ID,
+                EditorTextureSelectorContract.WRITE_CAPABILITY_ID), true, "5.3.99", omittedAlias);
+        final ModelTextures textures = new EditorTextureAccess(resolver, (identity, model) -> { })
+            .textures("compatible-session", fixture.source, fixture.model);
+
+        assertThrows(UnsupportedOperationException.class, () -> textures.addModelImageGroup("blocked"));
+        assertEquals(1, fixture.manager.modelImageGroups.size());
+        assertTrue(fixture.editMode.labels.isEmpty(), "missing dependencies must reject before beginEdit");
+    }
+
     private static EditorTextureAccess readOnly(final String version) {
         return new EditorTextureAccess(
             resolver(version, true, java.util.Set.of(
@@ -337,6 +379,27 @@ class EditorTextureAccessTest {
         final boolean includeCapability,
         final java.util.Set<String> capabilities,
         final boolean include52Removal
+    ) {
+        return resolver(version, includeCapability, capabilities, include52Removal, version);
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final String version,
+        final boolean includeCapability,
+        final java.util.Set<String> capabilities,
+        final boolean include52Removal,
+        final String declaredVersion
+    ) {
+        return resolver(version, includeCapability, capabilities, include52Removal, declaredVersion, "");
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final String version,
+        final boolean includeCapability,
+        final java.util.Set<String> capabilities,
+        final boolean include52Removal,
+        final String declaredVersion,
+        final String omittedAlias
     ) {
         final List<StaticSelector> values = new ArrayList<>();
         values.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
@@ -415,6 +478,13 @@ class EditorTextureAccessTest {
                 internal(PreparedRawImageUndo.class), "(" + type(ModelSource.class)
                     + type(HostLayeredImage.class) + "IZ)V", StaticSelector.ACCESS_PUBLIC));
             values.add(method("cubism.editor-model.texture-undo.force-redo", Undo.class, "forceRedo", desc(Undo.class)));
+        }
+        values.removeIf(selector -> selector.alias().equals(omittedAlias));
+        if (!version.equals(declaredVersion)) {
+            return TestVerifiedResolvers.createCompatible(
+                version, declaredVersion, "adapter.editor-model.readwrite", capabilities, values,
+                Host.class.getClassLoader()
+            );
         }
         return TestVerifiedResolvers.create(
             version, "adapter.editor-model.readwrite", capabilities, values, Host.class.getClassLoader()

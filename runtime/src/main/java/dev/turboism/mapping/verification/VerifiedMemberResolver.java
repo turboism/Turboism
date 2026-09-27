@@ -19,6 +19,9 @@ public final class VerifiedMemberResolver {
 
     private final VerifiedAccessPlan accessPlan;
     private final ClassLoader hostClassLoader;
+    private volatile java.util.Set<String> disabledCapabilities = java.util.Set.of();
+    private final java.util.Map<String, java.util.Set<String>> pendingHooks = new java.util.HashMap<>();
+    private volatile java.util.Set<String> unavailableCapabilities = java.util.Set.of();
     // The immutable access plan and defining loader belong to this resolver's lifetime.
     // Do not make this process-global: provider replacement must release cached host members.
     private final java.util.concurrent.ConcurrentMap<String, Method> invocationMethods =
@@ -55,7 +58,8 @@ public final class VerifiedMemberResolver {
         final java.util.Set<String> capabilityIds,
         final java.util.Set<String> aliases
     ) {
-        return accessPlan.authorizes(adapterSliceId, capabilityIds, aliases);
+        return java.util.Collections.disjoint(unavailableCapabilities, capabilityIds)
+            && accessPlan.authorizes(adapterSliceId, capabilityIds, aliases);
     }
 
     /** Checks whether one additive feature is fully covered by this verified plan. */
@@ -65,7 +69,7 @@ public final class VerifiedMemberResolver {
         final java.util.Set<String> aliases
     ) {
         Objects.requireNonNull(capabilityId, "capabilityId");
-        return accessPlan.authorizesFeature(
+        return !unavailableCapabilities.contains(capabilityId) && accessPlan.authorizesFeature(
             Objects.requireNonNull(adapterSliceId, "adapterSliceId"),
             capabilityId,
             java.util.Set.copyOf(Objects.requireNonNull(aliases, "aliases"))
@@ -73,22 +77,115 @@ public final class VerifiedMemberResolver {
     }
 
     /**
-     * Returns whether the admitted artifact is exactly one Cubism version.
+     * Removes capabilities whose reviewed contract requires a failed or closed runtime hook.
+     * This only narrows a resolver's original authority; a later installation needs a new
+     * connection rather than restoring a capability from stale evidence.
      *
-     * @param expectedVersion the version string to compare against
-     * @return {@code true} only on exact equality; no range or prefix matching
+     * @param hookId catalog hook identity without the {@code hook:} prefix
+     * @return the capabilities requiring that hook within this resolver's admitted scope
      */
-    public boolean isExactCubismVersion(final String expectedVersion) {
-        return accessPlan.cubismVersion().equals(expectedVersion);
+    public synchronized java.util.Set<String> disableCapabilitiesRequiringHook(final String hookId) {
+        Objects.requireNonNull(hookId, "hookId");
+        if (hookId.isBlank()) throw new IllegalArgumentException("hookId must not be blank");
+        final java.util.Set<String> affected = accessPlan.capabilitiesRequiringHook(hookId);
+        if (!affected.isEmpty()) {
+            final java.util.Set<String> disabled = new java.util.HashSet<>(disabledCapabilities);
+            disabled.addAll(affected);
+            disabledCapabilities = java.util.Set.copyOf(disabled);
+        }
+        refreshUnavailableCapabilities();
+        return affected;
     }
 
     /**
-     * Returns the exact Cubism version of the admitted artifact.
+     * Keeps a statically eligible capability unavailable while its hook awaits runtime binding.
+     * @param hookId catalog hook identity without the {@code hook:} prefix
+     */
+    public synchronized void deferCapabilitiesRequiringHook(final String hookId) {
+        Objects.requireNonNull(hookId, "hookId");
+        if (hookId.isBlank()) throw new IllegalArgumentException("hookId must not be blank");
+        pendingHooks.put(hookId, accessPlan.capabilitiesRequiringHook(hookId));
+        refreshUnavailableCapabilities();
+    }
+
+    /**
+     * Completes a previously deferred binding. Failed/closed capabilities remain permanently
+     * disabled, and capabilities outside the original verified plan can never be introduced.
+     * @param hookId catalog hook identity whose runtime binding completed successfully
+     */
+    public synchronized void completeHookBinding(final String hookId) {
+        pendingHooks.remove(Objects.requireNonNull(hookId, "hookId"));
+        refreshUnavailableCapabilities();
+    }
+
+    private void refreshUnavailableCapabilities() {
+        final java.util.Set<String> unavailable = new java.util.HashSet<>(disabledCapabilities);
+        pendingHooks.values().forEach(unavailable::addAll);
+        unavailableCapabilities = java.util.Set.copyOf(unavailable);
+    }
+
+    /** @return immutable ids unavailable because their hooks are pending, failed or closed */
+    public java.util.Set<String> unavailableCapabilities() {
+        return unavailableCapabilities;
+    }
+
+    /** @return immutable capability ids removed because their runtime dependencies are unavailable */
+    public java.util.Set<String> disabledCapabilities() {
+        return disabledCapabilities;
+    }
+
+    /**
+     * Returns whether the admitted artifact is exactly one reviewed Cubism version.
      *
-     * @return the reviewed version string
+     * @param expectedVersion the version string to compare against
+     * @return {@code true} only on exact equality of a reviewed (not merely
+     *     compatibility-bound) artifact; no range or prefix matching
+     */
+    public boolean isExactCubismVersion(final String expectedVersion) {
+        return accessPlan.isExactCubismVersion(expectedVersion);
+    }
+
+    /**
+     * Returns whether the bound selector contract targets the given reviewed
+     * generation: the declared version for exact hosts, the bound record's
+     * source version for compatibility-bound hosts. Generation-keyed member
+     * selection must use this so a repacked artifact bound to its declared
+     * generation keeps the same verified call surface.
+     *
+     * @param expectedVersion the reviewed generation to compare against
+     * @return {@code true} when the bound contract was authored for that version
+     */
+    public boolean isAdmittedCubismVersion(final String expectedVersion) {
+        return accessPlan.isAdmittedCubismVersion(expectedVersion);
+    }
+
+    /**
+     * Returns the Cubism version the host itself declared.
+     *
+     * @return the reviewed version string for exact bindings, or the host's own
+     *     declared (possibly unreviewed) version for compatibility bindings
      */
     public String cubismVersion() {
         return accessPlan.cubismVersion();
+    }
+
+    /**
+     * Returns the reviewed Cubism version this resolver's selector contract was
+     * authored against: identical to {@link #cubismVersion()} for exact
+     * bindings and the bound record's version for compatibility bindings.
+     */
+    public String admittedCubismVersion() {
+        return accessPlan.admittedCubismVersion();
+    }
+
+    /**
+     * Returns whether this resolver was admitted through structural
+     * compatibility probing rather than exact reviewed-artifact admission.
+     * A compatibility-bound resolver has passed selector-level static
+     * verification only; it is not real-host validation evidence.
+     */
+    public boolean isCompatibilityBinding() {
+        return accessPlan.bindingMode() == VerifiedAccessPlan.BindingMode.COMPATIBLE;
     }
 
     /** Returns the defining classloader attested by this resolver without exposing host members. */

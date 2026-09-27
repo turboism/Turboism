@@ -19,7 +19,7 @@ final class FileChooserHistoryHookContributor implements HookContributor {
     }
 
     @Override public boolean admitted(final HookEnvironment environment) {
-        return environment.ordinaryReviewedRuntimeAdmitted();
+        return environment.hookRuntimeAdmitted();
     }
 
     @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
@@ -27,6 +27,8 @@ final class FileChooserHistoryHookContributor implements HookContributor {
         final var host = environment.host().orElseThrow();
         final var profile = FileChooserHistoryHostProfile.forArtifact(
             HostArtifactDigest.from(host.artifact())
+        ).or(() -> environment.admittedRuntimeGeneration()
+            .flatMap(FileChooserHistoryHostProfile::forReviewedVersion)
         ).orElseThrow(() -> new IllegalStateException(
             "Unsupported file-chooser history host artifact"
         ));

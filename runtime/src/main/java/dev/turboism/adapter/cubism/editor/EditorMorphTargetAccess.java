@@ -1,11 +1,14 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.selector.EditorMorphTargetSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.MorphTarget;
 import dev.turboism.sdk.cubism.model.MorphTargets;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -16,13 +19,23 @@ final class EditorMorphTargetAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorMorphTargetAccess(
         final VerifiedMemberResolver resolver,
         final EditorParameterCombinedAccess.ModelGuard modelGuard
     ) {
+        this(resolver, modelGuard, null);
+    }
+
+    EditorMorphTargetAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     MorphTargets morphTargets(final String identity, final Object source, final Object model, final Object objectSource) {
@@ -248,6 +261,14 @@ final class EditorMorphTargetAccess {
         }
 
         @Override public void setParameterAndKeyValue(final ParameterId id, final float value) {
+            EditorHostThread.dispatch("Cubism Morph Target write", () -> {
+                setParameterAndKeyValueOnEdt(id, value);
+                return null;
+            });
+        }
+
+        private void setParameterAndKeyValueOnEdt(final ParameterId id, final float value) {
+            EditorHostThread.requireHostThread("Cubism Morph Target write");
             Objects.requireNonNull(id, "id");
             if (!Float.isFinite(value)) throw new IllegalArgumentException("key value must be finite");
             requireWriteAuthorization();
@@ -255,6 +276,59 @@ final class EditorMorphTargetAccess {
             if (parameterId().equals(id) && Float.compare(keyValue(), value) == 0) return;
             final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
             final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+            final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
+            if (ambientJoin.isPresent()) {
+                final ParameterId beforeId = parameterId();
+                final float beforeValue = keyValue();
+                ambientJoin.orElseThrow().admit(
+                    "cubism.morph-target.set-parameter",
+                    "morph-target:" + Integer.toHexString(System.identityHashCode(expected)),
+                    "Turboism: Set Morph Target",
+                    (edit, transactionLabel) -> {
+                        // Construct-and-redo: captures the old binding and applies the new one.
+                        final Object utils = resolver.readStaticField(
+                            "cubism.editor-model.morph-target-utils.instance");
+                        final Object undo = resolver.invoke(
+                            "cubism.editor-model.morph-target.change-parameter",
+                            utils, expected, parameterGuid(source, id), Float.valueOf(value));
+                        HostUndoMutationScope.requireUndoAccepted(
+                            resolver.invoke("cubism.editor-model.undo.add", edit, undo,
+                                Boolean.TRUE), "Set Morph Target");
+                        final Object listener = resolver.createFunctionalProxy(
+                            "cubism.editor-model.undo-listener.class",
+                            ignored -> {
+                                resolver.invoke(
+                                    "cubism.editor-model.model-source.update-instances", source);
+                                refresh(app);
+                                return null;
+                            });
+                        resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                    },
+                    () -> { },
+                    () -> parameterId().equals(id) && Float.compare(keyValue(), value) == 0,
+                    () -> {
+                        final Object utils = resolver.readStaticField(
+                            "cubism.editor-model.morph-target-utils.instance");
+                        resolver.invoke(
+                            "cubism.editor-model.morph-target.change-parameter",
+                            utils, expected, parameterGuid(source, beforeId),
+                            Float.valueOf(beforeValue));
+                    },
+                    () -> parameterId().equals(beforeId)
+                        && Float.compare(keyValue(), beforeValue) == 0,
+                    EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.PART_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY
+                    )
+                );
+                currentSetOrThrow();
+                return;
+            }
+            EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+                authoringCoordinator, "MorphTarget.setParameterAndKeyValue"
+            );
             final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
             final Object edit = resolver.invoke(
                 "cubism.editor-model.edit-mode.begin", editMode, "Turboism: Set Morph Target");

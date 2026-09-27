@@ -146,9 +146,9 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
                 return;
             }
             transitioning = true;
-            releaseRequested = false;
             try {
                 interrupted |= awaitLeaseRelease();
+                releaseRequested = false;
                 final long nextGeneration = Math.incrementExact(generation);
                 cleared = activeModel != null;
                 activeModel = null;
@@ -176,9 +176,9 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
                 throw new IllegalStateException("Active Core model source is closed.");
             }
             transitioning = true;
-            releaseRequested = false;
             try {
                 interrupted |= awaitLeaseRelease();
+                releaseRequested = false;
                 final long nextGeneration = Math.incrementExact(generation);
                 cleared = activeModel != null && replacement == null;
                 activeModel = replacement;

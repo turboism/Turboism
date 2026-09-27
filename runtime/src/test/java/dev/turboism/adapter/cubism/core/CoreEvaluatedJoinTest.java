@@ -124,6 +124,32 @@ class CoreEvaluatedJoinTest {
     }
 
     @Test
+    void anIdleReleaseFollowedByASameIdentityRepublishRetracesTheNewSnapshot() {
+        final AtomicInteger canvasReads = new AtomicInteger();
+        final TestCoreApiFixture.Model first = model(canvasReads, drawableWithFlag((byte) 0x04));
+        final TestCoreApiFixture.Model second = model(canvasReads, drawableWithFlag((byte) 0x08));
+        try (Harness harness = harness("5.3.02", first)) {
+            final CoreEvaluatedJoin join = harness.join();
+            assertEquals(0x04, Byte.toUnsignedInt(
+                join.evaluated("identity-a").drawable("ArtMeshFace").constantFlag()
+            ));
+            assertEquals(1, canvasReads.get());
+
+            harness.source.releaseWhenIdle();
+            harness.source.publishBorrowedModel(second, "model-a");
+
+            assertEquals(0x08, Byte.toUnsignedInt(
+                join.evaluated("identity-a").drawable("ArtMeshFace").constantFlag()
+            ));
+            assertEquals(
+                2,
+                canvasReads.get(),
+                "the pin dropped on clear re-traces the republished model, not stale"
+            );
+        }
+    }
+
+    @Test
     void evaluatedFailsClosedWhenNoCoreModelIsPublished() {
         final AtomicInteger canvasReads = new AtomicInteger();
         final TestCoreApiFixture.Model coreModel = model(canvasReads, drawableWithFlag((byte) 0x04));

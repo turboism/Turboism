@@ -18,6 +18,11 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.task.PluginTaskKind;
+import dev.turboism.sdk.task.PluginTaskPriority;
+import dev.turboism.sdk.task.PluginTaskRequest;
+import dev.turboism.sdk.task.TaskId;
+import dev.turboism.sdk.task.TaskSubmission;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,6 +33,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -57,6 +63,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     private volatile WebDavConfig.RemoteTrigger triggerMode = WebDavConfig.RemoteTrigger.SAVE_TRIGGERED;
     private final Set<File> pendingTempFiles = ConcurrentHashMap.newKeySet();
     private final Set<String> scannedArtifacts = ConcurrentHashMap.newKeySet();
+    private final AtomicLong uploadSequence = new AtomicLong();
     private volatile Thread scannerThread;
 
     @Override
@@ -273,7 +280,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                             pendingTempFiles.add(file);
                         }
                     }
-                    syncCompletedArtifacts(event.newBackupFiles());
+                    submitUpload(callbackContext, event.newBackupFiles());
                     callbackContext.logger().info(
                         "BACKUP_AFTER_SAVE_OK files=" + event.newBackupFiles().size()
                     );
@@ -358,6 +365,25 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             requireContext().logger().info(
                 "BACKUP_COMPLETED artifacts=" + event.artifacts().size()
             );
+        }
+    }
+
+    /**
+     * Hands the upload to the long-task lane: the save completion callback runs on the
+     * plugin's completion lane, whose 5s bound would interrupt ordinary WebDAV transfers.
+     */
+    private void submitUpload(final PluginContext active, final List<File> files) {
+        final List<File> artifacts = List.copyOf(files);
+        final TaskSubmission submission = active.tasks().submit(new PluginTaskRequest(
+            new TaskId("webdav-upload-" + uploadSequence.incrementAndGet()),
+            PluginTaskKind.LONG_RUNNING,
+            PluginTaskPriority.NORMAL,
+            token -> syncCompletedArtifacts(artifacts)
+        ));
+        if (!submission.accepted()) {
+            active.logger().warn("WEBDAV_SYNC_REJECTED reason="
+                + submission.rejectionReason().map(Enum::name).orElse("UNKNOWN"));
+            cleanupTempFiles(artifacts);
         }
     }
 

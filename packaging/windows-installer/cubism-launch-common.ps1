@@ -16,6 +16,7 @@ $script:CubismMaxJdkOptionLength = 4096
 $script:CubismMaxLaunchArguments = 64
 $script:CubismScriptRoot = $PSScriptRoot
 $script:CubismArtifactVersionResolver = $null
+$script:CubismProbeSchemaVersion = 2
 $script:CubismArtifactProbeTimeoutMilliseconds = 20000
 $script:CubismMaxScanResults = 256
 $script:CubismMaxScanEntries = 4096
@@ -51,6 +52,39 @@ function Test-CubismFixedDrive {
     catch { return $false }
 }
 
+function ConvertFrom-CubismHostProbeResult {
+    param([string]$JsonText, [int]$ExitCode)
+    # Exit 1 also includes a coherent identity without the base runtime capabilities.
+    if ($ExitCode -notin @(0, 1)) { return $null }
+    try {
+        $verdict = $JsonText | ConvertFrom-Json -ErrorAction Stop
+        if ($verdict -isnot [pscustomobject] -or
+            ($verdict.schemaVersion -isnot [int] -and $verdict.schemaVersion -isnot [long]) -or
+            $verdict.schemaVersion -ne $script:CubismProbeSchemaVersion -or
+            $verdict.identity -isnot [pscustomobject] -or $verdict.reason -isnot [string] -or
+            $verdict.runtimeAdmitted -isnot [bool] -or
+            $verdict.status -notin @("VERIFIED", "COMPATIBLE", "REJECTED")) { return $null }
+        $declaredVersion = ""
+        $versionProperty = $verdict.identity.PSObject.Properties['version']
+        if ($null -ne $versionProperty -and $versionProperty.Value -is [string] -and
+            $versionProperty.Value -match '^[0-9]+\.[0-9]+\.[0-9]+$') {
+            $declaredVersion = [string]$versionProperty.Value
+        }
+        if ($ExitCode -eq 1 -or -not $verdict.runtimeAdmitted -or $verdict.status -eq "REJECTED") {
+            return [pscustomobject]@{
+                Version = $declaredVersion; CompatStatus = "REJECTED"; Reason = [string]$verdict.reason
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($declaredVersion)) { return $null }
+        return [pscustomobject]@{
+            Version = $declaredVersion
+            CompatStatus = [string]$verdict.status
+            Reason = [string]$verdict.reason
+        }
+    }
+    catch { return $null }
+}
+
 function Get-CubismVersionFromArtifact {
     param(
         [string]$Java,
@@ -58,7 +92,14 @@ function Get-CubismVersionFromArtifact {
         [string]$TurboismHome = ""
     )
     if ($null -ne $script:CubismArtifactVersionResolver) {
-        return & $script:CubismArtifactVersionResolver $Java $ApplicationJar $TurboismHome
+        # Test seam: a bare string is identity-only (compat status DECLARED);
+        # a PSCustomObject carries the full Version/CompatStatus/Reason verdict.
+        $resolved = & $script:CubismArtifactVersionResolver $Java $ApplicationJar $TurboismHome
+        if ($resolved -is [string]) {
+            return $(if ([string]::IsNullOrWhiteSpace($resolved)) { $null }
+                else { [pscustomobject]@{ Version = $resolved; CompatStatus = "DECLARED"; Reason = "declared identity probe" } })
+        }
+        return $resolved
     }
     if ([string]::IsNullOrWhiteSpace($Java) -or
         [string]::IsNullOrWhiteSpace($ApplicationJar)) { return $null }
@@ -71,7 +112,7 @@ function Get-CubismVersionFromArtifact {
     try {
         $info = [System.Diagnostics.ProcessStartInfo]::new()
         $info.FileName = $Java
-        $info.Arguments = '-cp "{0}" dev.turboism.mapping.verification.ReviewedHostArtifactCli "{1}"' -f $agent, $ApplicationJar
+        $info.Arguments = '-cp "{0}" dev.turboism.mapping.verification.CubismHostProbeCli "{1}"' -f $agent, $ApplicationJar
         $info.UseShellExecute = $false
         $info.CreateNoWindow = $true
         $info.RedirectStandardOutput = $true
@@ -90,11 +131,7 @@ function Get-CubismVersionFromArtifact {
             return $null
         }
         [void][System.Threading.Tasks.Task]::WaitAll(@($stdout, $stderr), 5000)
-        if ($process.ExitCode -ne 0) { return $null }
-        $version = @($stdout.Result -split '[\r\n]+' | Where-Object {
-            $_ -match '^5\.(?:2\.03|3\.(?:02|03))$'
-        } | Select-Object -First 1)
-        return $(if ($version.Count -eq 0) { $null } else { [string]$version[0] })
+        return ConvertFrom-CubismHostProbeResult -JsonText $stdout.Result -ExitCode $process.ExitCode
     }
     catch { return $null }
     finally {
@@ -162,6 +199,9 @@ function New-CubismInstallationCandidate {
     $java = Join-Path $canonical "app\jre\bin\java.exe"
     $applicationJar = Join-Path $canonical "app\lib\Live2D_Cubism.jar"
     $version = $null
+    $probe = $null
+    $compatStatus = ""
+    $probeReason = ""
     $applicationSha256 = ""
     $javaSha256 = ""
     $missing = @()
@@ -185,31 +225,48 @@ function New-CubismInstallationCandidate {
         try {
             $applicationSha256 = Get-CubismSha256 $applicationJar
             $javaSha256 = Get-CubismSha256 $java
-            $version = Get-CubismVersionFromArtifact -Java $java -ApplicationJar $applicationJar -TurboismHome $TurboismHome
+            $probe = Get-CubismVersionFromArtifact -Java $java -ApplicationJar $applicationJar -TurboismHome $TurboismHome
             if ((Get-CubismSha256 $applicationJar) -ine $applicationSha256 -or (Get-CubismSha256 $java) -ine $javaSha256) {
-                $version = $null
+                $probe = $null
             }
         }
-        catch { $version = $null }
+        catch { $probe = $null }
     }
+    if ($null -ne $probe) { $version = $probe.Version; $compatStatus = $probe.CompatStatus; $probeReason = $probe.Reason }
 
     if ($missing.Count -gt 0) {
         $status = "Invalid"
         $reason = "Missing: " + ($missing -join ", ") + "."
     }
-    elseif ($null -eq $version) {
+    elseif ($null -eq $probe -or $compatStatus -eq "REJECTED" -or [string]::IsNullOrWhiteSpace($version)) {
         $status = "Unsupported"
-        $reason = "Only exact Cubism 5.2.03, 5.3.02, and 5.3.03 application artifacts are selectable."
+        $reason = $(if ($null -ne $probe -and -not [string]::IsNullOrWhiteSpace($probeReason)) {
+            $probeReason
+        } else {
+            "Only Cubism application artifacts are selectable, and only when they declare a coherent release identity."
+        })
+    }
+    elseif ($compatStatus -eq "VERIFIED") {
+        $status = "Ready"
+        $reason = "Reviewed artifact; individual features are checked at startup."
+    }
+    elseif ($compatStatus -eq "COMPATIBLE") {
+        $status = "Compatible"
+        $reason = "Compatibility check passed; individual features are checked at startup."
     }
     else {
-        $status = "Ready"
-        $reason = "Requested exact installation identity; runtime artifact admission remains authoritative."
+        # DECLARED or anything else: identity established only. Selectable, but
+        # shown distinctly so a bare declaration never reads as verified.
+        $status = "Declared"
+        $reason = $(if ([string]::IsNullOrWhiteSpace($probeReason)) {
+            "Host declared a coherent identity; compatibility verdict was not determined."
+        } else { $probeReason })
     }
 
     return [pscustomobject]@{
         Root = $canonical; CanonicalRoot = $canonical; Key = (Get-CubismRootKey $canonical)
         Version = $(if ($null -eq $version) { "" } else { $version }); Source = $Source
-        Status = $status; Reason = $reason; Selectable = ($status -eq "Ready")
+        Status = $status; Reason = $reason; Selectable = ($status -in @("Ready", "Compatible", "Declared"))
         OfficialBat = $officialBat; D3DBat = (Get-CubismD3DBat $canonical)
         Java = $java; ApplicationJar = $applicationJar; Selected = $false
         ApplicationSha256 = $applicationSha256; JavaSha256 = $javaSha256
@@ -414,6 +471,7 @@ function Write-CubismInstallerSnapshot {
             [ordered]@{
                 root = $candidate.CanonicalRoot
                 version = $candidate.Version
+                status = $candidate.Status
                 applicationSha256 = $candidate.ApplicationSha256
                 javaSha256 = $candidate.JavaSha256
                 d3dName = $d3dName
@@ -423,7 +481,7 @@ function Write-CubismInstallerSnapshot {
     if ($entries.Count -gt $script:CubismMaxStateEntries) { throw "installer snapshot entry cap exceeded" }
     $document = [ordered]@{
         format = "turboism.cubism.discovery-snapshot"
-        schemaVersion = 1
+        schemaVersion = 2
         verifierSha256 = (Get-CubismSha256 $agent)
         installations = $entries
     }
@@ -456,7 +514,7 @@ function Read-CubismInstallerSnapshot {
         (@($document.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'format,installations,schemaVersion,verifierSha256' -or
         $document.format -cne 'turboism.cubism.discovery-snapshot' -or
         ($document.schemaVersion -isnot [int] -and $document.schemaVersion -isnot [long]) -or
-        $document.schemaVersion -ne 1 -or $document.installations -isnot [array] -or
+        $document.schemaVersion -ne 2 -or $document.installations -isnot [array] -or
         $document.installations.Count -gt $script:CubismMaxStateEntries -or
         $document.verifierSha256 -isnot [string] -or $document.verifierSha256 -notmatch '^[0-9a-fA-F]{64}$') {
         throw "installer discovery snapshot schema is invalid"
@@ -469,10 +527,11 @@ function Read-CubismInstallerSnapshot {
     $items = [System.Collections.Generic.List[object]]::new()
     foreach ($entry in $document.installations) {
         if ($null -eq $entry -or
-            (@($entry.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'applicationSha256,d3dName,javaSha256,root,version' -or
+            (@($entry.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'applicationSha256,d3dName,javaSha256,root,status,version' -or
             $entry.root -isnot [string] -or [string]::IsNullOrWhiteSpace($entry.root) -or
             $entry.root.Length -gt $script:CubismMaxStateFieldLength -or
-            $entry.version -isnot [string] -or $entry.version -notmatch '^5\.(?:2\.03|3\.(?:02|03))$' -or
+            $entry.version -isnot [string] -or $entry.version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$' -or
+            $entry.status -isnot [string] -or $entry.status -notin @('Ready', 'Compatible', 'Declared') -or
             $entry.applicationSha256 -isnot [string] -or $entry.applicationSha256 -notmatch '^[0-9a-fA-F]{64}$' -or
             $entry.javaSha256 -isnot [string] -or $entry.javaSha256 -notmatch '^[0-9a-fA-F]{64}$' -or
             $entry.d3dName -isnot [string] -or ($entry.d3dName -ne '' -and $entry.d3dName -notmatch '(?i)^CubismEditor5[-_]?D3D\.bat$')) {
@@ -498,7 +557,7 @@ function Read-CubismInstallerSnapshot {
         }
         [void]$items.Add([pscustomobject]@{
             Root=$root; CanonicalRoot=$root; Key=(Get-CubismRootKey $root); Version=$entry.version
-            Source='installer-snapshot'; Status='Ready'; Reason='Verified installer discovery snapshot.'
+            Source='installer-snapshot'; Status=$entry.status; Reason='Verified installer discovery snapshot.'
             Selectable=$true; Selected=$false; OfficialBat=$official; D3DBat=$d3d; Java=$java; ApplicationJar=$application
             ApplicationSha256=$entry.applicationSha256; JavaSha256=$entry.javaSha256
         })
@@ -549,17 +608,23 @@ function Write-CubismInstallerDiscoveryReport {
             $other = $candidates.Count - $supported
             $language = [System.Threading.Thread]::CurrentThread.CurrentUICulture.TwoLetterISOLanguageName
             $labels = switch ($language) {
-                "zh" { @{ Supported = "支持"; Unsupported = "不支持"; Invalid = "无效" } }
-                "ja" { @{ Supported = "対応"; Unsupported = "未対応"; Invalid = "不正" } }
-                default { @{ Supported = "Supported"; Unsupported = "Unsupported"; Invalid = "Invalid" } }
+                "zh" { @{ Supported = "支持"; Compatible = "兼容"; Detected = "已识别"; Unsupported = "不支持"; Invalid = "无效" } }
+                "ja" { @{ Supported = "対応"; Compatible = "互換"; Detected = "検出"; Unsupported = "未対応"; Invalid = "不正" } }
+                default { @{ Supported = "Supported"; Compatible = "Compatible"; Detected = "Detected"; Unsupported = "Unsupported"; Invalid = "Invalid" } }
             }
             $lines = [System.Collections.Generic.List[string]]::new()
             [void]$lines.Add("TURBOISM_CUBISM_SCAN_V1")
             [void]$lines.Add("RESULT|OK|$supported|$other")
             [void]$lines.Add("SNAPSHOT|$snapshotSha256")
             foreach ($candidate in $candidates) {
-                if ($candidate.Selectable) {
+                if ($candidate.Status -eq "Ready") {
                     $label = "$($labels.Supported) $($candidate.Version)"
+                }
+                elseif ($candidate.Status -eq "Compatible") {
+                    $label = "$($labels.Compatible) $($candidate.Version)"
+                }
+                elseif ($candidate.Status -eq "Declared") {
+                    $label = "$($labels.Detected) $($candidate.Version)"
                 }
                 elseif ($candidate.Status -eq "Unsupported") { $label = $labels.Unsupported }
                 else { $label = $labels.Invalid }
@@ -1758,7 +1823,7 @@ function Remove-TurboismJdkOptions {
         if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) { $value = $value.Substring(1, $value.Length - 2) }
         $probe = $value.Replace('"', '')
         if ($probe -match '(?i)^-Dturboism\.home=' -or
-            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|uniformLocationCache)=' -or
+            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|uniformLocationCache|uploadElision|inputPathElision|mesaGlThread)=' -or
             $probe -match '(?i)^-Dturboism\.graal\.(?:enabled|java|classpath|mainClass|startupTimeoutMillis)=' -or
             $probe -match '(?i)^-javaagent:.*turboism-agent\.jar(?:[=].*)?$' -or
             $probe -match '(?i)^--add-exports=java\.base[./]jdk\.internal\.org\.objectweb\.asm(?:[.]commons)?=ALL-UNNAMED$') { continue }
@@ -1775,6 +1840,20 @@ function Get-CubismManagedJdkOptionTokens {
     if (Read-CubismZgcPreference -TurboismHome $TurboismHome) {
         $tokens += "-XX:+UseZGC"
     }
+    # Memory-profile tiers are opt-in: "system" emits nothing, so the official
+    # BAT's -XX:MaxRAMPercentage=100 remains the only heap sizing and a default
+    # install is byte-identical in behavior. The capped tiers set an explicit
+    # MaxHeapSize, which HotSpot honors ahead of the BAT's percentage, and they
+    # compose with -XX:+UseZGC. An explicit -Xmx already present in the launch
+    # command still wins over the profile (see New-CubismManagedOptionsBat, and
+    # JAVA_TOOL_OPTIONS ordering in Get-CubismBatIntegrationText).
+    switch (Read-CubismMemoryProfile -TurboismHome $TurboismHome) {
+        "balanced4g" { $tokens += "-Xmx4g" }
+        "balanced4gFastSoft" {
+            $tokens += "-Xmx4g"
+            $tokens += "-XX:SoftRefLRUPolicyMSPerMB=100"
+        }
+    }
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "modelUpdateSkip")) {
         $tokens += "-Dturboism.optimization.modelUpdateSkip=false"
     }
@@ -1784,14 +1863,29 @@ function Get-CubismManagedJdkOptionTokens {
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uniformLocationCache")) {
         $tokens += "-Dturboism.optimization.uniformLocationCache=false"
     }
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uploadElision")) {
+        $tokens += "-Dturboism.optimization.uploadElision=false"
+    }
+    # inputPathElision/mesaGlThread are Proton-scoped: the Linux launcher is
+    # the only emitter of their =true flags. This native-Windows path never
+    # emits =true, but an explicit false is still passed through so a stray
+    # Wine/Proton marker on the JVM side can never re-enable them.
+    if (Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "inputPathElision") {
+        $tokens += "-Dturboism.optimization.inputPathElision=false"
+    }
+    if (Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "mesaGlThread") {
+        $tokens += "-Dturboism.optimization.mesaGlThread=false"
+    }
     return $tokens
 }
 
 function Read-CubismOptimizationPreference {
     param([string]$TurboismHome, [string]$Name)
-    # Only the experimental incremental geometry path requires explicit opt-in.
-    # Verified frame/query reuse remains default-on for admitted hosts.
-    $defaultValue = $Name -ne "incrementalUpdate"
+    # Verified optimizations default on; the incremental experiment and the
+    # Proton-scoped options default off on this native-Windows path.
+    # inputPathElision/mesaGlThread default on only under Wine/Proton, which
+    # the Linux launcher resolves — this script never runs there.
+    $defaultValue = $Name -ne "incrementalUpdate" -and $Name -ne "inputPathElision" -and $Name -ne "mesaGlThread"
     if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $defaultValue }
     $path = Join-Path $TurboismHome "config.json"
     if (-not (Test-Path -LiteralPath $path)) { return $defaultValue }
@@ -1804,6 +1898,24 @@ function Read-CubismOptimizationPreference {
     if ($null -eq $setting) { return $defaultValue }
     if ($setting.Value -isnot [bool]) { throw "Turboism launcher.$Name setting is invalid" }
     return [bool]$setting.Value
+}
+
+function Read-CubismExplicitFalse {
+    param([string]$TurboismHome, [string]$Name)
+    # True only when launcher.$Name is explicitly persisted as false —
+    # platform defaults are resolved by the caller-aware readers, not here.
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $false }
+    $path = Join-Path $TurboismHome "config.json"
+    if (-not (Test-Path -LiteralPath $path)) { return $false }
+    if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
+    try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "Turboism config is invalid or exceeds bound" }
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return $false }
+    $setting = $launcherProperty.Value.PSObject.Properties[$Name]
+    if ($null -eq $setting) { return $false }
+    if ($setting.Value -isnot [bool]) { throw "Turboism launcher.$Name setting is invalid" }
+    return (-not [bool]$setting.Value)
 }
 
 function Read-CubismZgcPreference {
@@ -1822,6 +1934,34 @@ function Read-CubismZgcPreference {
     if ($null -eq $zgcProperty -or $null -eq $zgcProperty.Value) { return $true }
     if ($zgcProperty.Value -isnot [bool]) { throw "Turboism launcher.zgc setting is invalid" }
     return [bool]$zgcProperty.Value
+}
+
+function Read-CubismMemoryProfile {
+    param([string]$TurboismHome)
+    # "system" is the default: the official BAT's -XX:MaxRAMPercentage=100
+    # stands untouched and the managed option block emits no heap flags. An
+    # absent home/config/field resolves to system. A malformed value also
+    # resolves to system (fail-closed, with a warning for diagnostics) rather
+    # than aborting the launch — matching the runtime's read-time tolerance
+    # that drops an unsupported launcher.memoryProfile with
+    # RUNTIME_CONFIG_BAD_MEMORY_PROFILE.
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return "system" }
+    $path = Join-Path $TurboismHome "config.json"
+    if (-not (Test-Path -LiteralPath $path)) { return "system" }
+    if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
+    try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "Turboism config is invalid or exceeds bound" }
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return "system" }
+    $profileProperty = $launcherProperty.Value.PSObject.Properties["memoryProfile"]
+    if ($null -eq $profileProperty -or $null -eq $profileProperty.Value) { return "system" }
+    $value = $profileProperty.Value
+    if ($value -isnot [string] -or
+        @("system", "balanced4g", "balanced4gFastSoft") -notcontains [string]$value) {
+        Write-Warning "Turboism launcher.memoryProfile setting is invalid; falling back to system"
+        return "system"
+    }
+    return [string]$value
 }
 
 function ConvertTo-JdkOptionToken {
@@ -2071,6 +2211,21 @@ function New-CubismJavaOverrideBat {
     }
 }
 
+function Test-CubismBatExplicitHeapLimit {
+    param([string]$Text)
+    # An explicit -Xmx/-XX:MaxHeapSize already on the official command line
+    # (e.g. an un-remmed "set MAXMEMORY=-Xmx..." line) must stay authoritative:
+    # managed option lines are inserted after the BAT's own options and
+    # HotSpot honors the last heap flag it parses. Comment lines are skipped
+    # so the stock "rem set MAXMEMORY=-Xmx%MAX_MEMORY%m" hint does not count.
+    foreach ($line in ($Text -split "`r?`n")) {
+        $probe = $line.TrimStart()
+        if ($probe -match '(?i)^(rem\b|::)') { continue }
+        if ($probe -match '(?i)-Xmx[^\s^]*' -or $probe -match '(?i)-XX:MaxHeapSize=') { return $true }
+    }
+    return $false
+}
+
 function New-CubismManagedOptionsBat {
     param(
         [string]$OfficialBat,
@@ -2110,6 +2265,15 @@ function New-CubismManagedOptionsBat {
     $text = [System.IO.File]::ReadAllText($source, $encoding)
     $legacy = '(?ims)^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?BEGIN)?\s*$.*?^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?END)?\s*$\r?\n?'
     $text = [regex]::Replace($text, $legacy, '')
+
+    if (Test-CubismBatExplicitHeapLimit -Text $text) {
+        # The BAT already carries an explicit heap limit; keep it authoritative
+        # over the managed memory profile's -Xmx (soft-reference tuning is
+        # orthogonal and still applies).
+        $managedOptions = @($managedOptions | Where-Object {
+            $_ -notmatch '(?i)^-Xmx' -and $_ -notmatch '(?i)^-XX:MaxHeapSize='
+        })
+    }
 
     $workingDirectoryPattern = '(?im)^cd[ \t]+/d[ \t]+"[^"\r\n]+"[ \t]*(?:\r?\n|$)'
     if ([regex]::Matches($text, $workingDirectoryPattern).Count -ne 1) {

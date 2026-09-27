@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /** Persists the managed launcher's Cubism JVM choice in the canonical config. */
 public final class CubismJvmSettingsFileService implements CubismJvmSettingsService, AutoCloseable {
@@ -28,8 +29,15 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     private final dev.turboism.graal.ManagedGraalRuntimeService managedRuntime;
 
     public CubismJvmSettingsFileService(final Path turboismHome) {
+        this(turboismHome, ignored -> { });
+    }
+
+    public CubismJvmSettingsFileService(
+        final Path turboismHome,
+        final Consumer<String> configDiagnostic
+    ) {
         this(
-            new RuntimeConfigRepository(turboismHome, ignored -> { }),
+            new RuntimeConfigRepository(turboismHome, configDiagnostic),
             turboismHome,
             System.getenv()
         );
@@ -180,6 +188,30 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public MemoryProfile memoryProfile() {
+        // The repository already drops an unsupported persisted value on read
+        // (RUNTIME_CONFIG_BAD_MEMORY_PROFILE diagnostic); the lenient parse is
+        // the second fail-closed layer for non-validating config sources.
+        final JsonNode value = config.read().path("launcher").path("memoryProfile");
+        return MemoryProfile.fromConfigOrSystem(value.isTextual() ? value.asText() : null);
+    }
+
+    @Override
+    public MemoryProfile saveMemoryProfile(final MemoryProfile value) {
+        final MemoryProfile requested = Objects.requireNonNull(value, "value");
+        config.update(root -> {
+            if (requested == MemoryProfile.SYSTEM) {
+                // Absent means the system default; only explicit tiers persist.
+                root.withObject("launcher").remove("memoryProfile");
+            } else {
+                root.withObject("launcher").put("memoryProfile", requested.configValue());
+            }
+            return root;
+        });
+        return requested;
+    }
+
+    @Override
     public boolean modelUpdateSkip() {
         return optimization("modelUpdateSkip");
     }
@@ -209,14 +241,62 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         return saveOptimization("uniformLocationCache", value);
     }
 
+    @Override
+    public boolean uploadElision() {
+        return optimization("uploadElision");
+    }
+
+    @Override
+    public boolean saveUploadElision(final boolean value) {
+        return saveOptimization("uploadElision", value);
+    }
+
+    @Override
+    public boolean inputPathElision() {
+        return optimization("inputPathElision");
+    }
+
+    @Override
+    public boolean saveInputPathElision(final boolean value) {
+        return saveOptimization("inputPathElision", value);
+    }
+
+    @Override
+    public boolean mesaGlThread() {
+        return optimization("mesaGlThread");
+    }
+
+    @Override
+    public boolean saveMesaGlThread(final boolean value) {
+        return saveOptimization("mesaGlThread", value);
+    }
+
+    /** Opt-in experiments default off; verified optimizations default on. */
+    private static final java.util.Set<String> DEFAULT_OFF_OPTIMIZATIONS =
+        java.util.Set.of("incrementalUpdate");
+    /**
+     * Platform-defaulted options: unset means on only for the Wine/Proton
+     * launch — the paths they optimize exist only there. Explicit values
+     * always win; the same platform default drives reads and saves so
+     * "value == platform default" removes the key under either host.
+     */
+    private static final java.util.Set<String> PROTON_DEFAULT_OPTIMIZATIONS =
+        java.util.Set.of("inputPathElision", "mesaGlThread");
+
+    private boolean defaultOptimization(final String name) {
+        return PROTON_DEFAULT_OPTIMIZATIONS.contains(name)
+            ? dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(environment)
+            : !DEFAULT_OFF_OPTIMIZATIONS.contains(name);
+    }
+
     private boolean optimization(final String name) {
-        return config.read().path("launcher").path(name).asBoolean(!"incrementalUpdate".equals(name));
+        return config.read().path("launcher").path(name)
+            .asBoolean(defaultOptimization(name));
     }
 
     private boolean saveOptimization(final String name, final boolean value) {
         config.update(root -> {
-            final boolean defaultValue = !"incrementalUpdate".equals(name);
-            if (value == defaultValue) {
+            if (value == defaultOptimization(name)) {
                 root.withObject("launcher").remove(name);
             } else {
                 root.withObject("launcher").put(name, value);

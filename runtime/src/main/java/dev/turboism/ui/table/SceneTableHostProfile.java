@@ -1,9 +1,13 @@
 package dev.turboism.ui.table;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.StaticSelectorVerifier;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -15,7 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Exact-artifact Scene palette profile backed only by reviewed static host evidence. */
+/** Scene palette profile backed by a reviewed selector contract and attested host sources. */
 public final class SceneTableHostProfile {
 
     public static final String CONTROLLER_CLASS = "cubism.scene-palette.controller.class";
@@ -194,12 +198,33 @@ public final class SceneTableHostProfile {
         return Optional.empty();
     }
 
-    /** Returns the exact reviewed Cubism semantic version this profile is admitted for. */
+    /** Binds the common Cubism 5 contract to the declared host and its actual runtime owners. */
+    static Optional<Bound> bindArtifact(final Path artifact, final ClassLoader hostClassLoader)
+        throws IOException {
+        final var identity = CubismEditorReleaseDetector.probe(artifact).identity();
+        if (identity.isEmpty() || identity.orElseThrow().majorVersion() != 5) {
+            return Optional.empty();
+        }
+        final var declared = identity.orElseThrow();
+        final var report = new StaticSelectorVerifier().verifyRuntimeStructure(
+            artifact, hostClassLoader, REVIEWED_SELECTORS);
+        if (!report.allVerified() || !declared.artifact().equals(report.artifact())) {
+            return Optional.empty();
+        }
+        final Bound bound = new SceneTableHostProfile(
+            declared.version(), declared.artifact(), REVIEWED_SELECTORS).bind(hostClassLoader);
+        if (!declared.artifact().equals(HostArtifactDigest.from(artifact))) {
+            throw new IllegalArgumentException("Scene palette artifact changed during binding");
+        }
+        return Optional.of(bound);
+    }
+
+    /** Returns the Cubism semantic version represented by this profile. */
     public String cubismVersion() {
         return cubismVersion;
     }
 
-    /** Returns the exact reviewed host artifact digest this profile is bound to. */
+    /** Returns the actual host artifact digest this profile is bound to. */
     public HostArtifactDigest artifact() {
         return artifact;
     }

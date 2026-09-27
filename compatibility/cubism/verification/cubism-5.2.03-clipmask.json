@@ -197,5 +197,10 @@
   "status": "VERIFIED_STATIC",
   "verificationId": "cubism-5.2.03.clipmask.static",
   "verifiedAt": "2026-08-19T00:00:00Z",
-  "verifiedBy": "turboism-static-verifier"
+  "verifiedBy": "turboism-static-verifier",
+  "capabilityConditions": {
+    "cubism.clipmask.read": [
+      "structure"
+    ]
+  }
 }

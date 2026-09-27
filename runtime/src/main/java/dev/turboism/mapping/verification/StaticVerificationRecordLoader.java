@@ -33,9 +33,18 @@ final class StaticVerificationRecordLoader {
 
     LoadedRecord load(final Path recordPath) throws IOException {
         Objects.requireNonNull(recordPath, "recordPath");
-        final byte[] bytes = Files.readAllBytes(recordPath);
+        return load(Files.readAllBytes(recordPath), recordPath.toString());
+    }
+
+    /**
+     * Loads a record from already-extracted bytes (embedded resource or byte
+     * snapshot) so compatibility probing does not depend on filesystem paths.
+     */
+    LoadedRecord load(final byte[] bytes, final String sourceName) throws IOException {
+        Objects.requireNonNull(bytes, "bytes");
+        Objects.requireNonNull(sourceName, "sourceName");
         final JsonNode root = mapper.readTree(bytes);
-        final List<SchemaValidationError> errors = validator.validate(root, recordPath.toString());
+        final List<SchemaValidationError> errors = validator.validate(root, sourceName);
         if (!errors.isEmpty()) {
             throw new IllegalArgumentException("Invalid static verification record: " + errors);
         }
@@ -47,12 +56,19 @@ final class StaticVerificationRecordLoader {
         );
         final List<String> capabilityIds = new ArrayList<>();
         root.get("capabilityIds").forEach(node -> capabilityIds.add(node.asText()));
+        final java.util.Map<String, List<String>> capabilityConditions = new java.util.LinkedHashMap<>();
+        root.get("capabilityConditions").fields().forEachRemaining(entry -> {
+            final List<String> conditions = new ArrayList<>();
+            entry.getValue().forEach(condition -> conditions.add(condition.asText()));
+            capabilityConditions.put(entry.getKey(), List.copyOf(conditions));
+        });
         final List<StaticSelector> selectors = new ArrayList<>();
         root.get("selectors").forEach(node -> selectors.add(selector(node)));
         final StaticVerificationRecord record = new StaticVerificationRecord(
             root.get("verificationId").asText(),
             root.get("adapterSliceId").asText(),
             capabilityIds,
+            java.util.Map.copyOf(capabilityConditions),
             root.get("cubismVersion").asText(),
             root.get("profileId").asText(),
             artifact,

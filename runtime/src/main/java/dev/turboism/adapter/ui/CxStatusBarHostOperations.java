@@ -34,6 +34,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
     private static final String LATEST_NOTIFICATION_SLOT = "notification:latest";
 
     private final String hostVersion;
+    private final String contractVersion;
     private final CxStatusBarHostAccess access;
     private final Map<String, Entry> entries = new HashMap<>();
     private final Map<String, CanvasHintEntry> canvasHintEntries = new HashMap<>();
@@ -42,13 +43,24 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         final String hostVersion,
         final CxStatusBarHostAccess access
     ) {
+        this(hostVersion, hostVersion, access);
+    }
+
+    CxStatusBarHostOperations(
+        final String hostVersion, final String contractVersion, final CxStatusBarHostAccess access
+    ) {
         this.hostVersion = requireText(hostVersion, "hostVersion");
+        this.contractVersion = requireText(contractVersion, "contractVersion");
         this.access = Objects.requireNonNull(access, "access");
     }
 
     @Override
     public String hostVersion() {
         return hostVersion;
+    }
+
+    @Override public String contractVersion() {
+        return contractVersion;
     }
 
     @Override

@@ -162,6 +162,7 @@ class BoundingBoxOverlayButtonHookInstallerTest {
             "fixture.overlay-buttons",
             "adapter.editor-ui.bounding-box-overlay-button",
             List.of("cubism.editor-ui.bounding-box-overlay-button"),
+            java.util.Map.of("cubism.editor-ui.bounding-box-overlay-button", java.util.List.of("structure")),
             "5.3.02",
             "cubism-5.3.02",
             fingerprint,

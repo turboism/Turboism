@@ -1,7 +1,6 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseBridge;
-import dev.turboism.mapping.verification.HostArtifactDigest;
 
 /** Contributor for the verified image archive reuse optimization (exact 5.3.02). */
 final class ImageArchiveReuseHookContributor extends NativeOptimizationHookContributor {
@@ -16,7 +15,7 @@ final class ImageArchiveReuseHookContributor extends NativeOptimizationHookContr
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedImageArchiveReuseInstaller.admitted(
-            HostArtifactDigest.from(host.artifact()),
+            host.artifact(),
             NativeOptimizationPolicy.load(environment.options().home()),
             true
         )) {

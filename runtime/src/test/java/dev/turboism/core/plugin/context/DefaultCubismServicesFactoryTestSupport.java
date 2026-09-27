@@ -40,6 +40,8 @@ final class DefaultCubismServicesFactoryTestSupport {
         return new DefaultCubismServicesFactory(
             hostAdapters,
             () -> java.util.Optional.of("5.3.02"),
+            DefaultCubismServicesFactoryTestSupport::allCapabilities,
+            () -> java.util.Optional.of("5.3.02"),
             modelAccess,
             unavailableCoreRuntime(),
             parameterLifecycle,
@@ -73,6 +75,27 @@ final class DefaultCubismServicesFactoryTestSupport {
             new PhysicsEditorCoordinator(),
             EditorCommandAdapter.unavailable(),
             EditorFileCommandResolver.unavailable()
+        );
+    }
+
+    /**
+     * The capability-id set an exact reviewed session admits: every id the
+     * availability interceptor maps onto an SDK surface.
+     */
+    static java.util.Set<String> allCapabilities() {
+        return java.util.Set.of(
+            "cubism.editor-model.read",
+            "cubism.editor-model.write",
+            "cubism.editor-model.texture.read",
+            "cubism.editor-model.texture.write",
+            "cubism.editor-model.physics.read",
+            "cubism.editor-model.edit.session.edit-begin",
+            "cubism.editor-model.warp-mirror",
+            "cubism.editor-history.read",
+            "cubism.clipmask.read",
+            "cubism.editor-ui.top-menu",
+            "cubism.autobackup.settings",
+            "cubism.autobackup.backup"
         );
     }
 

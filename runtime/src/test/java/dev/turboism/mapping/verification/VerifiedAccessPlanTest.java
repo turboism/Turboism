@@ -102,6 +102,7 @@ class VerifiedAccessPlanTest {
             "fixture.static",
             "adapter.project-workspace.readonly",
             List.of("cubism.project.read"),
+            java.util.Map.of("cubism.project.read", java.util.List.of("structure")),
             "5.3.02",
             "cubism-5.3.02",
             fingerprint,

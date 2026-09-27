@@ -16,8 +16,8 @@ import java.util.concurrent.CompletionStage;
  *
  * <p>The service only mutates settings through the verified manager setters
  * (the host owns UUConfig persistence) and triggers backups through the
- * verified {@code updateAutoBackup} path. Every operation is exact-version
- * verified and fails closed to UNAVAILABLE when any required selector is
+ * verified {@code updateAutoBackup} path. Every operation requires the matched native contract
+ * and fails closed to UNAVAILABLE when any required selector is
  * missing or the host slice is not connected.</p>
  */
 public interface EditorAutoBackupService {
@@ -27,7 +27,7 @@ public interface EditorAutoBackupService {
      *
      * @throws UnsupportedOperationException when the service is unavailable
      */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.2.03")
     EditorAutoBackupSettings settings();
 
     /**
@@ -41,14 +41,14 @@ public interface EditorAutoBackupService {
      * @throws UnsupportedOperationException when the service is unavailable
      * @throws IllegalStateException when the update failed and the rollback is unverified
      */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.2.03")
     EditorAutoBackupSettings updateSettings(EditorAutoBackupSettings settings);
 
     /**
      * Per-document auto-backup snapshot (lastAutoBackupTime / lastSavedTime /
      * modifiedAfterSaving / file) for every file content in the current pack.
      */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.2.03")
     List<EditorAutoBackupStatus> statuses();
 
     /**
@@ -63,7 +63,7 @@ public interface EditorAutoBackupService {
      * via {@link #registerSyncTarget} are invoked with the new files after
      * completion; target failures never fail the backup result.</p>
      */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.2.03")
     CompletionStage<BackupRunResult> backupNow();
 
     /**
@@ -94,13 +94,14 @@ public interface EditorAutoBackupService {
      *         no pack content matches the snapshot, the host call failed, the
      *         artifact polling timed out, or the service is unavailable
      */
+    @CubismEditor(from = "5.2.03")
     CompletionStage<BackupRunResult> backupAfterSave(ProjectContentSnapshot saved);
 
     /**
      * Registers a sync target invoked with the new backup files after each
      * successful {@link #backupNow()} completion.
      */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.2.03")
     Registration registerSyncTarget(BackupSyncTarget target);
 
     /**

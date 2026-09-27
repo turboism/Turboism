@@ -2,6 +2,7 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
 import dev.turboism.config.RuntimeStartupConfig;
+import dev.turboism.mapping.verification.CompatibilityResolution;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.preview.PreviewRuntime;
 
@@ -15,9 +16,10 @@ import java.util.Optional;
  * located host (once resolved), the preview runtime (once started), agent
  * options, and the admission facts the agent has already established.
  *
- * <p>Hooks never re-derive admission from the artifact themselves; the agent
- * computes the reviewed profile and full-runtime admission once and hands the
- * verdict down, so a contributor cannot widen its own admission.</p>
+ * <p>The agent supplies shared runtime and slice admission. A contributor may
+ * additionally prove its own target contract, but cannot widen that admission.
+ * Premain hooks inspect their targets before a runtime verdict exists and defer
+ * runtime-dependent capability readiness until binding.</p>
  */
 final class HookEnvironment {
 
@@ -26,6 +28,7 @@ final class HookEnvironment {
     private final HostClassLocator.LocatedHost host;
     private final PreviewRuntime runtime;
     private final String profile;
+    private final CompatibilityResolution hostResolution;
     private final boolean fullRuntimeAdmission;
     private final boolean safeMode;
     private final Path verificationDirectory;
@@ -39,6 +42,7 @@ final class HookEnvironment {
         this.host = builder.host;
         this.runtime = builder.runtime;
         this.profile = builder.profile;
+        this.hostResolution = builder.hostResolution;
         this.fullRuntimeAdmission = builder.fullRuntimeAdmission;
         this.safeMode = builder.safeMode;
         this.verificationDirectory = builder.verificationDirectory;
@@ -91,11 +95,131 @@ final class HookEnvironment {
     }
 
     /**
+     * The compatibility resolution that admitted this host, when the launcher
+     * computed one. Hooks must read admission from here instead of deriving
+     * eligibility from artifact digests themselves.
+     *
+     * @return the shared admission verdict, empty before host resolution
+     */
+    Optional<CompatibilityResolution> hostResolution() {
+        return Optional.ofNullable(hostResolution);
+    }
+
+    /**
+     * Whether the resolved admission granted a catalog slice. Individual optional
+     * capabilities may still be unavailable; consumers must check their own
+     * capability evidence and hooks must prove their target contracts.
+     *
+     * @param sliceId catalog slice key such as {@code "editor-model"}
+     * @return {@code true} only when the slice was admitted
+     */
+    boolean sliceAdmitted(final String sliceId) {
+        return hostResolution != null && hostResolution.slice(sliceId).admitted();
+    }
+
+    /**
+     * Allows a runtime hook to attempt its own target proof for one admitted slice.
+     * Contributors using this gate must verify actual transformation and withdraw
+     * dependent capabilities on failure before plugin initialization.
+     */
+    boolean runtimeSliceAdmitted(final String sliceId) {
+        return hostResolution == null ? ordinaryReviewedRuntimeAdmitted()
+            : hostResolution.runtimeAdmitted() && sliceAdmitted(sliceId);
+    }
+
+    /**
      * @return whether the runtime is both reviewed-admitted and full-runtime admitted
      *     for the located host profile
      */
     boolean ordinaryReviewedRuntimeAdmitted() {
-        return fullRuntimeAdmission && ReviewedHostArtifacts.admitsFullRuntime(profile);
+        return fullRuntimeAdmission && profile != null
+            && ReviewedHostArtifacts.admitsFullRuntime(profile);
+    }
+
+    /**
+     * Whether the compatibility resolution bound every admitted slice to the
+     * host's declared reviewed generation. Only a repacked artifact whose
+     * declared identity is a reviewed runtime generation — and whose entire
+     * selector surface verified against that generation's records — reaches
+     * {@code true}; unknown declared versions and partially bound resolutions
+     * stay {@code false}.
+     *
+     * @return whether runtime hooks may treat the host as its declared generation
+     */
+    boolean declaredGenerationBound() {
+        return hostResolution != null && hostResolution.declaredGenerationBound();
+    }
+
+    /**
+     * The gate runtime-phase hooks install under: byte-exact reviewed hosts as
+     * before, plus compatibility hosts whose Editor-model contract bound the
+     * declared reviewed generation. Independent Core and optional UI bindings do not
+     * change that Editor contract. Hooks still verify their own selectors at
+     * install time — this gate only decides whether they are attempted at all.
+     *
+     * @return whether runtime-installed hooks may run on this host
+     */
+    boolean hookRuntimeAdmitted() {
+        return ordinaryReviewedRuntimeAdmitted()
+            || (hostResolution != null && hostResolution.runtimeAdmitted()
+                && hostResolution.contractFor("editor-model")
+                    .map(dev.turboism.mapping.verification.SliceContract::declaredGenerationBound)
+                    .orElse(false));
+    }
+
+    /**
+     * The reviewed generation runtime hooks bind profiles to: the declared
+     * version on exact hosts, or the declared reviewed generation a compatible
+     * host fully bound. Empty on compatibility sessions bound to foreign or
+     * unreviewed generations — digest-keyed profiles must not answer those.
+     *
+     * @return the generation to resolve hook profiles by, or empty
+     */
+    Optional<String> admittedRuntimeGeneration() {
+        if (ordinaryReviewedRuntimeAdmitted()) {
+            return Optional.ofNullable(profile);
+        }
+        if (hookRuntimeAdmitted()) {
+            return hostResolution.contractFor("editor-model")
+                .map(dev.turboism.mapping.verification.SliceContract::sourceVersion);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Creates one slice's member resolver honouring the admission mode: the
+     * exact reviewed path keeps its byte-pinned manifest, while a
+     * compatibility-bound slice re-binds the catalog-pinned record through its
+     * {@link dev.turboism.mapping.verification.SliceContract}.
+     *
+     * @param factory the slice's resolver factory
+     * @param recordFileName record to use when no compatibility contract exists
+     * @param sliceId the catalog slice key the resolver belongs to
+     * @return the verified member resolver for this slice
+     * @throws java.io.IOException when the record cannot be extracted or verified
+     */
+    dev.turboism.mapping.verification.VerifiedMemberResolver sliceResolver(
+        final dev.turboism.mapping.verification.SliceResolverFactory factory,
+        final String recordFileName,
+        final String sliceId
+    ) throws java.io.IOException {
+        final var located = host().orElseThrow();
+        final var contract = hostResolution != null
+            ? hostResolution.contractFor(sliceId)
+            : java.util.Optional.<dev.turboism.mapping.verification.SliceContract>empty();
+        if (contract.isPresent() && contract.orElseThrow().compatible()) {
+            return factory.createCompatible(
+                verificationRecord(contract.orElseThrow().recordFileName()),
+                located.artifact(),
+                located.classLoader(),
+                contract.orElseThrow()
+            );
+        }
+        return factory.create(
+            verificationRecord(recordFileName),
+            located.artifact(),
+            located.classLoader()
+        );
     }
 
     /**
@@ -196,6 +320,7 @@ final class HookEnvironment {
         private HostClassLocator.LocatedHost host;
         private PreviewRuntime runtime;
         private String profile;
+        private CompatibilityResolution hostResolution;
         private boolean fullRuntimeAdmission;
         private boolean safeMode;
         private Path verificationDirectory;
@@ -225,6 +350,11 @@ final class HookEnvironment {
 
         Builder profile(final String value) {
             this.profile = value;
+            return this;
+        }
+
+        Builder hostResolution(final CompatibilityResolution value) {
+            this.hostResolution = value;
             return this;
         }
 

@@ -31,6 +31,8 @@ public final class NativeEditBeginTransformer implements ClassFileTransformer {
     private final String descriptor;
     private final ClassLoader expectedClassLoader;
     private final String callbackKey;
+    private final java.util.concurrent.atomic.AtomicLong successfulTransformations =
+        new java.util.concurrent.atomic.AtomicLong();
 
     /**
      * Creates a transformer for one exact method.
@@ -74,10 +76,17 @@ public final class NativeEditBeginTransformer implements ClassFileTransformer {
         }
         final boolean[] transformed = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
+        if (!hasUninstrumentedInstanceEntry(reader)) {
+            return null;
+        }
         final ClassWriter writer = new ClassWriter(
             reader,
             ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS
-        );
+        ) {
+            @Override protected ClassLoader getClassLoader() {
+                return loader == null ? super.getClassLoader() : loader;
+            }
+        };
         reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
             @Override
             public MethodVisitor visitMethod(
@@ -152,7 +161,48 @@ public final class NativeEditBeginTransformer implements ClassFileTransformer {
                 };
             }
         }, ClassReader.EXPAND_FRAMES);
-        return transformed[0] ? writer.toByteArray() : null;
+        if (!transformed[0]) {
+            return null;
+        }
+        final byte[] result = writer.toByteArray();
+        successfulTransformations.incrementAndGet();
+        return result;
+    }
+
+    /** Counts emitted patches, so installers do not mistake a no-op retransformation for success. */
+    long successfulTransformationCount() {
+        return successfulTransformations.get();
+    }
+
+    private boolean hasUninstrumentedInstanceEntry(final ClassReader reader) {
+        if (!ownerInternalName.equals(reader.getClassName())) {
+            return false;
+        }
+        final int[] matches = {0};
+        final boolean[] valid = {true};
+        final boolean[] code = {false};
+        final boolean[] alreadyInstrumented = {false};
+        reader.accept(new ClassVisitor(Opcodes.ASM9) {
+            @Override public MethodVisitor visitMethod(
+                final int access, final String name, final String methodDescriptor,
+                final String signature, final String[] exceptions
+            ) {
+                if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) return null;
+                matches[0]++;
+                valid[0] &= (access & Opcodes.ACC_PUBLIC) != 0
+                    && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0;
+                return new MethodVisitor(Opcodes.ASM9) {
+                    @Override public void visitCode() {
+                        code[0] = true;
+                    }
+
+                    @Override public void visitLdcInsn(final Object value) {
+                        if (callbackKey.equals(value)) alreadyInstrumented[0] = true;
+                    }
+                };
+            }
+        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        return matches[0] == 1 && valid[0] && code[0] && !alreadyInstrumented[0];
     }
 
     private static String requireText(final String value, final String name) {

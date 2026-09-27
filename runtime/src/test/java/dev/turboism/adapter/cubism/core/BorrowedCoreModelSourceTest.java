@@ -297,6 +297,44 @@ class BorrowedCoreModelSourceTest {
     }
 
     @Test
+    void aReleaseRequestedWhileATransitionWaitsDoesNotForgetTheReplacement() {
+        final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
+        final SyntheticModel replacement = new SyntheticModel("model-b");
+        source.publishBorrowedModel(new SyntheticModel("model-a"), "model-a");
+        final CoreModelLease lease = source.acquire(provider("5.2.03"))
+            .lease().orElseThrow();
+
+        final AtomicReference<Throwable> publishFailure = new AtomicReference<>();
+        final Thread publishing = new Thread(
+            () -> captureFailure(
+                () -> source.publishBorrowedModel(replacement, "model-b"),
+                publishFailure
+            ),
+            "core-model-republish"
+        );
+        publishing.start();
+        awaitWaiting(publishing);
+
+        // The pending release was requested against the model being replaced; the
+        // in-flight publication must supersede it, not leave it armed for the new model.
+        source.releaseWhenIdle();
+
+        lease.close();
+        join(publishing);
+        assertNull(publishFailure.get());
+
+        final CoreModelLease republished = source.acquire(provider("5.3.02"))
+            .lease().orElseThrow();
+        republished.close();
+        assertSame(
+            replacement,
+            source.publishedModel(),
+            "a release racing a blocked publication must not forget the new model"
+        );
+        source.close();
+    }
+
+    @Test
     void modelClearedListenersFireOnEveryClearPath() {
         final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
         final AtomicInteger cleared = new AtomicInteger();

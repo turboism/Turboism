@@ -12,7 +12,7 @@ import java.util.Optional;
  * {@code RotationDeformer} data block of {@code GetObject} (external API 1.1.0). The official
  * block reports a single {@code Position{X,Y}} pivot — it does not return a vertex list.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditRotationDeformerData(
         String name,
         Optional<PartId> parentId,

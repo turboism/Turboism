@@ -4,9 +4,11 @@ import dev.turboism.adapter.host.HostInstanceDescriptor;
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.adapter.host.HostVerificationEvidence;
+import dev.turboism.mapping.verification.CompatibilityResolution;
 import dev.turboism.mapping.verification.CubismEditorReleaseDeclaration;
 import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.mapping.verification.SliceContract;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
@@ -43,7 +45,7 @@ public final class PreviewRuntime implements AutoCloseable {
     private final RuntimeScheduler scheduler;
     private final HostRuntimeIngress hostIngress;
     private final LocalPluginRuntime pluginRuntime;
-    private final LocalPluginRuntime.LoadReport loadReport;
+    private volatile LocalPluginRuntime.LoadReport loadReport;
     private final PreviewReportWriter reportWriter;
     private final String runtimeId;
     private final Path verificationRecord;
@@ -51,6 +53,7 @@ public final class PreviewRuntime implements AutoCloseable {
     private final java.util.Locale effectiveLocale;
     private final ShutdownLifecycle shutdownLifecycle;
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final AtomicBoolean pluginsStarted = new AtomicBoolean(false);
     private volatile dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService;
     private volatile dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettingsAuthority;
     private volatile dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExportOrchestrator;
@@ -233,15 +236,180 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path coreArtifact,
         final ClassLoader hostClassLoader
     ) throws IOException {
+        return start(
+            requestedHome,
+            verificationRecord,
+            editorModelVerificationRecord,
+            coreRuntimeVerificationRecord,
+            mainToolbarVerificationRecord,
+            embeddedPanelVerificationRecord,
+            topMenuVerificationRecord,
+            boundingBoxOverlayVerificationRecord,
+            statusBarVerificationRecord,
+            clipMaskVerificationRecord,
+            autoBackupVerificationRecord,
+            protectedExportVerificationRecord,
+            hostArtifact,
+            coreArtifact,
+            hostClassLoader,
+            null,
+            runtime -> { },
+            runtime -> { }
+        );
+    }
+
+    /**
+     * Starts the preview under an already-computed host compatibility
+     * resolution.
+     *
+     * <p>{@code hostResolution == null} preserves the legacy exact-review
+     * contract: the artifact must be a byte-identical reviewed release. A
+     * {@code COMPATIBLE} resolution binds admitted slices structurally without
+     * claiming reviewed status; a {@code REJECTED} resolution fails closed.
+     * Every record argument a compat resolution did not admit is ignored only
+     * when it is {@code null}; passing a record for a non-admitted slice throws,
+     * so callers cannot smuggle unadmitted adapters into a degraded host.</p>
+     */
+    public static PreviewRuntime start(
+        final Path requestedHome,
+        final Path verificationRecord,
+        final Path editorModelVerificationRecord,
+        final Path coreRuntimeVerificationRecord,
+        final Path mainToolbarVerificationRecord,
+        final Path embeddedPanelVerificationRecord,
+        final Path topMenuVerificationRecord,
+        final Path boundingBoxOverlayVerificationRecord,
+        final Optional<Path> statusBarVerificationRecord,
+        final Optional<Path> clipMaskVerificationRecord,
+        final Path autoBackupVerificationRecord,
+        final Path hostArtifact,
+        final Path coreArtifact,
+        final ClassLoader hostClassLoader,
+        final CompatibilityResolution hostResolution
+    ) throws IOException {
+        return start(
+            requestedHome, verificationRecord, editorModelVerificationRecord,
+            coreRuntimeVerificationRecord, mainToolbarVerificationRecord,
+            embeddedPanelVerificationRecord, topMenuVerificationRecord,
+            boundingBoxOverlayVerificationRecord, statusBarVerificationRecord,
+            clipMaskVerificationRecord, autoBackupVerificationRecord,
+            hostArtifact, coreArtifact,
+            hostClassLoader, hostResolution, runtime -> { }
+        );
+    }
+
+    /**
+     * Prepares the host services, runs trusted bootstrap installation, then loads plugins.
+     * A failed bootstrap callback prevents plugin initialization and tears down the prepared
+     * runtime. The caller owns any hook handles installed by its callback and must close them
+     * if this method fails.
+     *
+     * @param requestedHome runtime home directory
+     * @param verificationRecord project/workspace mapping record
+     * @param editorModelVerificationRecord editor-model mapping record
+     * @param coreRuntimeVerificationRecord optional Core mapping record
+     * @param mainToolbarVerificationRecord optional main-toolbar mapping record
+     * @param embeddedPanelVerificationRecord optional embedded-panel mapping record
+     * @param topMenuVerificationRecord optional top-menu mapping record
+     * @param boundingBoxOverlayVerificationRecord optional overlay mapping record
+     * @param statusBarVerificationRecord optional status-bar mapping record
+     * @param clipMaskVerificationRecord optional clip-mask mapping record
+     * @param autoBackupVerificationRecord optional auto-backup mapping record
+     * @param hostArtifact actual Editor artifact
+     * @param coreArtifact actual Core artifact when present
+     * @param hostClassLoader loader owning the host classes
+     * @param hostResolution admission decision, or null for the legacy exact path
+     * @param beforePlugins trusted bootstrap work that must finish before plugin code runs
+     * @return the started runtime
+     * @throws IOException if runtime files cannot be prepared
+     */
+    public static PreviewRuntime start(
+        final Path requestedHome,
+        final Path verificationRecord,
+        final Path editorModelVerificationRecord,
+        final Path coreRuntimeVerificationRecord,
+        final Path mainToolbarVerificationRecord,
+        final Path embeddedPanelVerificationRecord,
+        final Path topMenuVerificationRecord,
+        final Path boundingBoxOverlayVerificationRecord,
+        final Optional<Path> statusBarVerificationRecord,
+        final Optional<Path> clipMaskVerificationRecord,
+        final Path autoBackupVerificationRecord,
+        final Path hostArtifact,
+        final Path coreArtifact,
+        final ClassLoader hostClassLoader,
+        final CompatibilityResolution hostResolution,
+        final java.util.function.Consumer<PreviewRuntime> beforePlugins
+    ) throws IOException {
+        return start(requestedHome, verificationRecord, editorModelVerificationRecord,
+            coreRuntimeVerificationRecord, mainToolbarVerificationRecord, embeddedPanelVerificationRecord,
+            topMenuVerificationRecord, boundingBoxOverlayVerificationRecord, statusBarVerificationRecord,
+            clipMaskVerificationRecord, autoBackupVerificationRecord,
+            hostArtifact, coreArtifact, hostClassLoader, hostResolution, beforePlugins, runtime -> { });
+    }
+
+    /**
+     * Starts the runtime with bootstrap work before plugin initialization and consumer-dependent
+     * binding after plugins have enabled, before startup events and reports are published.
+     * Deferred capabilities must remain unavailable until their runtime binding succeeds.
+     */
+    public static PreviewRuntime start(
+        final Path requestedHome,
+        final Path verificationRecord,
+        final Path editorModelVerificationRecord,
+        final Path coreRuntimeVerificationRecord,
+        final Path mainToolbarVerificationRecord,
+        final Path embeddedPanelVerificationRecord,
+        final Path topMenuVerificationRecord,
+        final Path boundingBoxOverlayVerificationRecord,
+        final Optional<Path> statusBarVerificationRecord,
+        final Optional<Path> clipMaskVerificationRecord,
+        final Path autoBackupVerificationRecord,
+        final Path hostArtifact,
+        final Path coreArtifact,
+        final ClassLoader hostClassLoader,
+        final CompatibilityResolution hostResolution,
+        final java.util.function.Consumer<PreviewRuntime> beforePlugins,
+        final java.util.function.Consumer<PreviewRuntime> afterPlugins
+    ) throws IOException {
+        return start(requestedHome, verificationRecord, editorModelVerificationRecord,
+            coreRuntimeVerificationRecord, mainToolbarVerificationRecord, embeddedPanelVerificationRecord,
+            topMenuVerificationRecord, boundingBoxOverlayVerificationRecord, statusBarVerificationRecord,
+            clipMaskVerificationRecord, autoBackupVerificationRecord, Optional.empty(),
+            hostArtifact, coreArtifact, hostClassLoader, hostResolution, beforePlugins, afterPlugins);
+    }
+
+    /** Starts an admitted runtime with an optional exact-review protected-export record. */
+    public static PreviewRuntime start(
+        final Path requestedHome,
+        final Path verificationRecord,
+        final Path editorModelVerificationRecord,
+        final Path coreRuntimeVerificationRecord,
+        final Path mainToolbarVerificationRecord,
+        final Path embeddedPanelVerificationRecord,
+        final Path topMenuVerificationRecord,
+        final Path boundingBoxOverlayVerificationRecord,
+        final Optional<Path> statusBarVerificationRecord,
+        final Optional<Path> clipMaskVerificationRecord,
+        final Path autoBackupVerificationRecord,
+        final Optional<Path> protectedExportVerificationRecord,
+        final Path hostArtifact,
+        final Path coreArtifact,
+        final ClassLoader hostClassLoader,
+        final CompatibilityResolution hostResolution,
+        final java.util.function.Consumer<PreviewRuntime> beforePlugins,
+        final java.util.function.Consumer<PreviewRuntime> afterPlugins
+    ) throws IOException {
+        Objects.requireNonNull(beforePlugins, "beforePlugins");
+        Objects.requireNonNull(afterPlugins, "afterPlugins");
         Objects.requireNonNull(statusBarVerificationRecord, "statusBarVerificationRecord");
         Objects.requireNonNull(clipMaskVerificationRecord, "clipMaskVerificationRecord");
-        Objects.requireNonNull(autoBackupVerificationRecord, "autoBackupVerificationRecord");
         Objects.requireNonNull(protectedExportVerificationRecord, "protectedExportVerificationRecord");
         final Path normalizedHostArtifact = Objects.requireNonNull(
             hostArtifact,
             "hostArtifact"
         ).toAbsolutePath().normalize();
-        requireReviewedEditorRelease(normalizedHostArtifact);
+        requireAdmittedEditorRelease(normalizedHostArtifact, hostResolution);
         final TurboismHomeLayout layout = TurboismHomeLayout.create(requestedHome);
         final Path home = layout.home();
         LegacyHomeMigration.migrate(home);
@@ -328,84 +496,102 @@ public final class PreviewRuntime implements AutoCloseable {
             final Path normalizedCoreArtifact = coreArtifact == null
                 ? null
                 : coreArtifact.toAbsolutePath().normalize();
-            final HostVerificationEvidence.Slice projectWorkspace = new HostVerificationEvidence.Slice(
+            final HostVerificationEvidence.Slice projectWorkspace = editorSlice(
                 normalizedVerificationRecord,
                 normalizedHostArtifact,
-                verifiedHostClassLoader
+                verifiedHostClassLoader,
+                hostResolution,
+                "project-workspace"
             );
-            final HostVerificationEvidence.Slice editorModel = new HostVerificationEvidence.Slice(
+            final HostVerificationEvidence.Slice editorModel = editorSlice(
                 Objects.requireNonNull(editorModelVerificationRecord, "editorModelVerificationRecord")
                     .toAbsolutePath().normalize(),
                 normalizedHostArtifact,
-                verifiedHostClassLoader
+                verifiedHostClassLoader,
+                hostResolution,
+                "editor-model"
             );
-            final HostVerificationEvidence.Slice coreRuntime =
-                coreRuntimeVerificationRecord == null || normalizedCoreArtifact == null
-                    ? null
-                    : new HostVerificationEvidence.Slice(
-                        coreRuntimeVerificationRecord.toAbsolutePath().normalize(),
-                        normalizedCoreArtifact,
-                        verifiedHostClassLoader
-                    );
-            final HostVerificationEvidence.Slice mainToolbar = new HostVerificationEvidence.Slice(
-                Objects.requireNonNull(mainToolbarVerificationRecord, "mainToolbarVerificationRecord")
-                    .toAbsolutePath().normalize(),
-                normalizedHostArtifact,
-                verifiedHostClassLoader
-            );
-            final HostVerificationEvidence.Slice embeddedPanel = new HostVerificationEvidence.Slice(
-                Objects.requireNonNull(embeddedPanelVerificationRecord, "embeddedPanelVerificationRecord")
-                    .toAbsolutePath().normalize(),
-                normalizedHostArtifact,
-                verifiedHostClassLoader
-            );
-            final HostVerificationEvidence.Slice topMenu = new HostVerificationEvidence.Slice(
-                Objects.requireNonNull(topMenuVerificationRecord, "topMenuVerificationRecord")
-                    .toAbsolutePath().normalize(),
-                normalizedHostArtifact,
-                verifiedHostClassLoader
-            );
-            final HostVerificationEvidence.Slice boundingBoxOverlayButton =
-                new HostVerificationEvidence.Slice(
-                    Objects.requireNonNull(
-                        boundingBoxOverlayVerificationRecord,
-                        "boundingBoxOverlayVerificationRecord"
-                    ).toAbsolutePath().normalize(),
+            // Compatibility-bound hosts admit slices individually: a record is
+            // only present when the slice's full contract was verified, so
+            // optional slices accumulate conditionally instead of requiring
+            // every record path up front.
+            HostVerificationEvidence evidence = HostVerificationEvidence
+                .withEditorModel(projectWorkspace, editorModel);
+            if (coreRuntimeVerificationRecord != null && normalizedCoreArtifact != null) {
+                evidence = evidence.addingCoreRuntime(editorSlice(
+                    coreRuntimeVerificationRecord.toAbsolutePath().normalize(),
+                    normalizedCoreArtifact,
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "core-model-read"
+                ));
+            }
+            if (mainToolbarVerificationRecord != null) {
+                evidence = evidence.addingMainToolbar(editorSlice(
+                    mainToolbarVerificationRecord.toAbsolutePath().normalize(),
                     normalizedHostArtifact,
-                    verifiedHostClassLoader
-                );
-            final HostVerificationEvidence evidence = HostVerificationEvidence
-                .withEditorModel(projectWorkspace, editorModel)
-                .addingMainToolbar(mainToolbar)
-                .addingEmbeddedPanel(embeddedPanel)
-                .addingTopMenu(topMenu)
-                .addingBoundingBoxOverlayButton(boundingBoxOverlayButton);
-            final HostVerificationEvidence evidenceWithCore = coreRuntime == null
-                ? evidence
-                : evidence.addingCoreRuntime(coreRuntime);
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "ui-main-toolbar"
+                ));
+            }
+            if (embeddedPanelVerificationRecord != null) {
+                evidence = evidence.addingEmbeddedPanel(editorSlice(
+                    embeddedPanelVerificationRecord.toAbsolutePath().normalize(),
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "ui-embedded-panel"
+                ));
+            }
+            if (topMenuVerificationRecord != null) {
+                evidence = evidence.addingTopMenu(editorSlice(
+                    topMenuVerificationRecord.toAbsolutePath().normalize(),
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "ui-top-menu"
+                ));
+            }
+            if (boundingBoxOverlayVerificationRecord != null) {
+                evidence = evidence.addingBoundingBoxOverlayButton(editorSlice(
+                    boundingBoxOverlayVerificationRecord.toAbsolutePath().normalize(),
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "ui-bounding-box-overlay"
+                ));
+            }
+            final HostVerificationEvidence evidenceWithCore = evidence;
             final HostVerificationEvidence evidenceWithStatus = statusBarVerificationRecord
                 .map(record -> record.toAbsolutePath().normalize())
-                .map(record -> evidenceWithCore.addingStatusBar(new HostVerificationEvidence.Slice(
+                .map(record -> evidenceWithCore.addingStatusBar(editorSlice(
                     record,
                     normalizedHostArtifact,
-                    verifiedHostClassLoader
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "ui-status-bar"
                 )))
                 .orElse(evidenceWithCore);
             final HostVerificationEvidence evidenceWithClipMask = clipMaskVerificationRecord
                 .map(record -> record.toAbsolutePath().normalize())
-                .map(record -> evidenceWithStatus.addingClipMask(new HostVerificationEvidence.Slice(
+                .map(record -> evidenceWithStatus.addingClipMask(editorSlice(
                     record,
                     normalizedHostArtifact,
-                    verifiedHostClassLoader
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "clipmask"
                 )))
                 .orElse(evidenceWithStatus);
-            final HostVerificationEvidence evidenceWithAutoBackup = evidenceWithClipMask.addingAutoBackup(
-                new HostVerificationEvidence.Slice(
+            final HostVerificationEvidence evidenceWithAutoBackup = autoBackupVerificationRecord == null
+                ? evidenceWithClipMask
+                : evidenceWithClipMask.addingAutoBackup(editorSlice(
                     autoBackupVerificationRecord.toAbsolutePath().normalize(),
                     normalizedHostArtifact,
-                    verifiedHostClassLoader
-                )
-            );
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "autobackup"
+                ));
             final HostSession.State hostState = ingress.publish(new HostInstanceDescriptor(
                 "cubism-" + ProcessHandle.current().pid(),
                 evidenceWithAutoBackup
@@ -482,16 +668,6 @@ public final class PreviewRuntime implements AutoCloseable {
             if (protectedExport != null) {
                 exportSettings.protectedExportOrchestrator(protectedExport);
             }
-            final LocalPluginRuntime.LoadReport report = plugins.loadAll();
-            startupTimer.completed("plugin-loading", message -> log.info("startup", message));
-            ingress.adapterAccess().editorLifecycleEvents().publishStartup(
-                dev.turboism.mapping.verification.EditorModelVerificationManifest
-                    .resourceProfileForArtifact(
-                        dev.turboism.mapping.verification.HostArtifactDigest.from(
-                            normalizedHostArtifact
-                        )
-                    )
-            );
             final PreviewReportWriter reportWriter = new PreviewReportWriter(
                 layout.runtimeStateDir(),
                 diagnostic -> log.warn(
@@ -506,7 +682,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 scheduler,
                 ingress,
                 plugins,
-                report,
+                new LocalPluginRuntime.LoadReport(List.of(), List.of(), List.of()),
                 reportWriter,
                 "runtime-" + UUID.randomUUID(),
                 normalizedVerificationRecord,
@@ -516,6 +692,12 @@ public final class PreviewRuntime implements AutoCloseable {
             runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.bindExportSettingsAuthority(exportSettings);
             runtime.bindProtectedExportOrchestrator(protectedExport);
+            runtime.loadPluginsAfterBootstrap(beforePlugins, afterPlugins);
+            startupTimer.completed("plugin-loading", message -> log.info("startup", message));
+            // Only publish startup after the hooks and plugin listeners are ready.
+            ingress.adapterAccess().editorLifecycleEvents().publishStartup(
+                startupHostVersion(normalizedHostArtifact, hostResolution)
+            );
             runtime.writeInitialReports(hostState);
             runtime.publishStartupBanner();
             publishNativeStartupNotice(verifiedHostClassLoader, log);
@@ -526,6 +708,106 @@ public final class PreviewRuntime implements AutoCloseable {
             RecentPreviewDiagnostics.uninstall();
             throw failure;
         }
+    }
+
+    /** The same startup barrier is used by production and plugin-initialization tests. */
+    void loadPluginsAfterBootstrap(final java.util.function.Consumer<PreviewRuntime> beforePlugins) {
+        loadPluginsAfterBootstrap(beforePlugins, runtime -> { });
+    }
+
+    void loadPluginsAfterBootstrap(
+        final java.util.function.Consumer<PreviewRuntime> beforePlugins,
+        final java.util.function.Consumer<PreviewRuntime> afterPlugins
+    ) {
+        Objects.requireNonNull(beforePlugins, "beforePlugins");
+        Objects.requireNonNull(afterPlugins, "afterPlugins");
+        if (closed.get() || !pluginsStarted.compareAndSet(false, true)) {
+            throw new IllegalStateException("Plugin startup is no longer available");
+        }
+        beforePlugins.accept(this);
+        loadReport = pluginRuntime.loadAll();
+        afterPlugins.accept(this);
+    }
+
+    /**
+     * Admission gate for the editor artifact. {@code hostResolution == null}
+     * keeps the legacy exact requirement; a resolution must be DECLARED —
+     * {@code VERIFIED} hosts satisfy the reviewed-artifact check as before,
+     * {@code COMPATIBLE} hosts are admitted on their structurally verified
+     * contracts instead, and {@code REJECTED} verdicts always fail closed.
+     */
+    static String requireAdmittedEditorRelease(
+        final Path hostArtifact,
+        final CompatibilityResolution hostResolution
+    ) throws IOException {
+        if (hostResolution == null) {
+            return requireReviewedEditorRelease(hostArtifact);
+        }
+        if (hostResolution.mode() == CompatibilityResolution.Mode.REJECTED) {
+            throw new IllegalStateException(
+                "Cubism host identity rejected: " + hostResolution.detail()
+            );
+        }
+        if (!hostResolution.runtimeAdmitted()) {
+            throw new IllegalStateException("Cubism admission resolved no base runtime capability");
+        }
+        if (!dev.turboism.mapping.verification.HostArtifactDigest.from(hostArtifact)
+            .equals(hostResolution.identity().orElseThrow().artifact())) {
+            throw new IllegalStateException("Cubism host artifact changed since compatibility probing");
+        }
+        if (hostResolution.mode() == CompatibilityResolution.Mode.COMPATIBLE) {
+            return hostResolution.declaredVersion();
+        }
+        return requireReviewedEditorRelease(hostArtifact);
+    }
+
+    /**
+     * Version published to the editor-lifecycle startup event. Compatibility
+     * resolutions publish the host-declared version; the legacy path keeps the
+     * exact reviewed profile lookup.
+     */
+    private static String startupHostVersion(
+        final Path normalizedHostArtifact,
+        final CompatibilityResolution hostResolution
+    ) throws IOException {
+        if (hostResolution != null) {
+            return hostResolution.declaredVersion();
+        }
+        return dev.turboism.mapping.verification.EditorModelVerificationManifest
+            .resourceProfileForArtifact(
+                dev.turboism.mapping.verification.HostArtifactDigest.from(normalizedHostArtifact)
+            );
+    }
+
+    /**
+     * Builds an evidence slice, attaching the admitted compatibility contract
+     * when a resolution governs this start. A resolution in {@code COMPATIBLE}
+     * mode must have admitted the slice; a missing contract fails closed so a
+     * caller cannot bypass per-feature admission by passing a record anyway.
+     */
+    private static HostVerificationEvidence.Slice editorSlice(
+        final Path record,
+        final Path artifact,
+        final ClassLoader hostClassLoader,
+        final CompatibilityResolution hostResolution,
+        final String sliceId
+    ) {
+        if (hostResolution == null) {
+            return new HostVerificationEvidence.Slice(record, artifact, hostClassLoader);
+        }
+        final CompatibilityResolution.SliceResolution slice = hostResolution.slice(sliceId);
+        if (hostResolution.mode() == CompatibilityResolution.Mode.COMPATIBLE
+            && slice.contract().isEmpty()) {
+            throw new IllegalStateException(
+                "record passed for slice " + sliceId + " that compatibility admission rejected"
+            );
+        }
+        return new HostVerificationEvidence.Slice(
+            record,
+            artifact,
+            hostClassLoader,
+            slice.contract()
+        );
     }
 
     /** Package-private exact release/artifact agreement seam for focused admission tests. */
@@ -914,6 +1196,27 @@ public final class PreviewRuntime implements AutoCloseable {
      */
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         return hostIngress.editorModelResolver();
+    }
+
+    /**
+     * Withdraws Editor capabilities that depend on a failed or closed bootstrap hook. SDK
+     * proxies consult the live session view, so previously acquired handles also see the loss.
+     *
+     * @param hookId catalog hook identity without the {@code hook:} prefix
+     * @return affected capability ids, empty after the host connection has closed
+     */
+    public java.util.Set<String> disableEditorCapabilitiesRequiringHook(final String hookId) {
+        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver;
+        try {
+            resolver = editorModelResolver();
+        } catch (IllegalStateException unavailable) {
+            return java.util.Set.of();
+        }
+        final var disabled = resolver.disableCapabilitiesRequiringHook(hookId);
+        if (!disabled.isEmpty()) {
+            log.warn("host-capabilities", "hook=" + hookId + " unavailable; disabled=" + disabled);
+        }
+        return disabled;
     }
 
     /**

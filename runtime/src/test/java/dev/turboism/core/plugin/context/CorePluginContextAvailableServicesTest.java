@@ -24,6 +24,13 @@ import dev.turboism.sdk.script.ScriptRunHandle;
 import dev.turboism.sdk.script.ScriptRunRequest;
 import dev.turboism.sdk.script.ScriptService;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.config.PluginConfigRegistry;
+import dev.turboism.sdk.ui.context.ContextMenuRegistry;
+import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
+import dev.turboism.sdk.ui.resource.UiIconAvailability;
+import dev.turboism.sdk.ui.resource.UiResourceService;
+import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
+import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -68,6 +75,7 @@ class CorePluginContextAvailableServicesTest {
             PluginService.SCRIPTS,
             PluginService.USER_FILES,
             PluginService.FILE_CHOOSER_HISTORY,
+            PluginService.EXPORT_SETTINGS,
             PluginService.PHYSICS_EDITOR,
             PluginService.SCENE_TABLE,
             PluginService.CUBISM_LOG,
@@ -78,7 +86,8 @@ class CorePluginContextAvailableServicesTest {
             PluginService.WORKSPACE,
             PluginService.WORKSPACE_LAYOUT,
             PluginService.RUNTIME_SETTINGS,
-            PluginService.MCP_CONNECTIONS
+            PluginService.MCP_CONNECTIONS,
+            PluginService.UI_RESOURCES
         );
         final Set<PluginService> expectedPresent = Set.of(
             PluginService.PARAMETER_QUERY,
@@ -164,6 +173,79 @@ class CorePluginContextAvailableServicesTest {
             FileChooserHistoryService.unavailable()
         );
         assertFalse(context.availableServices().contains(PluginService.FILE_CHOOSER_HISTORY));
+    }
+
+    @Test
+    void installedUiResourceServiceIsReportedPresent() {
+        final UiResourceService installed =
+            reference -> UiIconAvailability.AVAILABLE;
+        final CorePluginContext context = new CorePluginContext(
+            dependencies(TEMP),
+            RuntimeHostAdapters.withUiResources(RuntimeHostAdapters.safeMode(), installed)
+        );
+        assertTrue(context.availableServices().contains(PluginService.UI_RESOURCES));
+    }
+
+    @Test
+    void sentinelRegistriesInstalledViaDependenciesAreReportedAbsent() {
+        final CorePluginContext.Dependencies base = dependencies(TEMP);
+        final CorePluginContext context = new CorePluginContext(
+            new CorePluginContext.Dependencies(
+                base.descriptor(),
+                base.logger(),
+                base.paths(),
+                base.permissions(),
+                base.eventBus(),
+                base.actions(),
+                base.menus(),
+                MainToolbarRegistry.unavailable(),
+                PaletteToolbarRegistry.unavailable(),
+                PaletteFilterRegistry.unavailable(),
+                ContextMenuRegistry.unavailable(),
+                PluginConfigRegistry.unavailable(),
+                base.uiScheduler(),
+                base.runtimeScheduler(),
+                base.diagnostics(),
+                base.disposableScope(),
+                base.hostSnapshotSource(),
+                base.m12ReadSnapshotSource(),
+                base.uiHostStateSource(),
+                base.cubismAuditSink(),
+                base.clock()
+            ),
+            RuntimeHostAdapters.safeMode()
+        );
+        final Set<PluginService> available = context.availableServices();
+        assertFalse(available.contains(PluginService.MAIN_TOOLBAR));
+        assertFalse(available.contains(PluginService.PALETTE_TOOLBAR));
+        assertFalse(available.contains(PluginService.PALETTE_FILTER));
+        assertFalse(available.contains(PluginService.CONTEXT_MENU));
+        assertFalse(available.contains(PluginService.CONFIG));
+    }
+
+    /**
+     * Pins why these members are reported without an {@code installed(...)} probe: every
+     * accessor below resolves to a runtime object the context constructs unconditionally
+     * (the {@code Authorized*} delegates, {@code uiHost}, {@code hostDialogs}) or lazily
+     * materializes on demand ({@code performanceStats}), so none of them can be an
+     * {@code unavailable()} sentinel.
+     */
+    @Test
+    void unconditionalMembersAreBackedByRealImplementations() {
+        final CorePluginContext context =
+            new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
+        assertTrue(context.meshMirrorAxis().isAvailable());
+        assertTrue(context.meshEdit().isAvailable());
+        assertTrue(context.meshEditParticipation().isAvailable());
+        assertTrue(context.meshMirrorCounterparts().isAvailable());
+        assertTrue(context.meshMirrorToolEligibility().isAvailable());
+        assertTrue(context.meshMirrorMoveParticipation().isAvailable());
+        assertTrue(context.meshEditUi().isAvailable());
+        assertTrue(context.warpAltMirrorParticipation().isAvailable());
+        assertTrue(context.viewContextMenu().isAvailable());
+        assertTrue(context.uiHost().isAvailable());
+        assertTrue(context.hostDialogs().isAvailable());
+        assertTrue(context.performanceStats().isAvailable());
     }
 
     @Test

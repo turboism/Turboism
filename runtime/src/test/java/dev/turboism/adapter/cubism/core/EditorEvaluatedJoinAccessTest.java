@@ -220,6 +220,33 @@ class EditorEvaluatedJoinAccessTest {
         }
     }
 
+    @Test
+    void evaluatedReadsRebindAfterAReleaseRepublishesUnderTheSameIdentity() {
+        final AtomicInteger canvasReads = new AtomicInteger();
+        final TestCoreApiFixture.Model first = lazyCoreModel(0x04, 0x21, 1, 3, 11);
+        final TestCoreApiFixture.Model second = lazyCoreModel(0x08, 0x21, 1, 3, 11);
+        final Fixture editor = new Fixture(first, canvasReads::incrementAndGet);
+
+        try (CountingHarness harness = countingHarness("5.3.02")) {
+            harness.source.delegate.publishBorrowedModel(editor.coreModel, "session-a:model-a");
+            final var access = new EditorBackedCubismModelAccess(
+                editor.resolver, "session-a", harness.join
+            );
+            final Drawable mesh = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
+            assertEquals(0x04, Byte.toUnsignedInt(mesh.constantFlag()));
+
+            access.releaseUnboundBorrowedModel();
+            assertNull(harness.source.publishedModel());
+            harness.source.delegate.publishBorrowedModel(second, "session-a:model-a");
+
+            assertEquals(
+                0x08,
+                Byte.toUnsignedInt(mesh.constantFlag()),
+                "the pin dropped on clear must re-trace the republished model, not fail stale"
+            );
+        }
+    }
+
     private static TestCoreApiFixture.Model lazyCoreModel(
         final int constantFlag,
         final int dynamicFlag,

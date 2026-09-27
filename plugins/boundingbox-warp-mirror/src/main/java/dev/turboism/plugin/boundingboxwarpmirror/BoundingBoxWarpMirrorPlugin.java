@@ -23,6 +23,7 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -182,7 +183,7 @@ public final class BoundingBoxWarpMirrorPlugin implements TurboismPlugin {
         final PluginLocalization localization,
         final WarpMirrorBlockerCode code
     ) {
-        final String key = "result.blocker." + code.name();
+        final String key = "result.blocker." + code.name().toLowerCase(Locale.ROOT).replace('_', '-');
         return localization.contains(key) ? localization.text(key) : code.name();
     }
 

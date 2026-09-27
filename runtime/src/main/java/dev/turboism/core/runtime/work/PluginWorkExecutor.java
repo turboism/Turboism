@@ -2,9 +2,6 @@ package dev.turboism.core.runtime.work;
 
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import io.github.resilience4j.bulkhead.BulkheadFullException;
-import io.github.resilience4j.bulkhead.ThreadPoolBulkhead;
-import io.github.resilience4j.bulkhead.ThreadPoolBulkheadConfig;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
@@ -12,11 +9,14 @@ import io.github.resilience4j.timelimiter.TimeLimiter;
 import io.github.resilience4j.timelimiter.TimeLimiterConfig;
 import java.time.Clock;
 import java.util.Objects;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,7 +40,7 @@ public final class PluginWorkExecutor {
     private final String pluginId;
     private final PluginWorkExecutorConfiguration configuration;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
-    private final ThreadPoolBulkhead bulkhead;
+    private final ThreadPoolExecutor workerPool;
     private final TimeLimiter timeLimiter;
     private final CircuitBreaker circuitBreaker;
     private final ScheduledExecutorService timeoutScheduler;
@@ -71,13 +71,18 @@ public final class PluginWorkExecutor {
         this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         Objects.requireNonNull(clock, "clock");
-        this.bulkhead = ThreadPoolBulkhead.of(
-            this.pluginId,
-            ThreadPoolBulkheadConfig.custom()
-                .coreThreadPoolSize(configuration.bulkheadPoolSize())
-                .maxThreadPoolSize(configuration.bulkheadPoolSize())
-                .queueCapacity(configuration.queueCapacity())
-                .build()
+        // A plain bounded pool replaces the resilience4j ThreadPoolBulkhead: identical
+        // admission (fixed workers + bounded queue + abort) but its threads are daemon and
+        // named after the plugin, so a live executor can neither pin the JVM nor leak
+        // unattributed threads.
+        this.workerPool = new ThreadPoolExecutor(
+            configuration.bulkheadPoolSize(),
+            configuration.bulkheadPoolSize(),
+            0L,
+            TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<>(configuration.queueCapacity()),
+            new PluginWorkThreadFactory(this.pluginId),
+            new ThreadPoolExecutor.AbortPolicy()
         );
         this.timeLimiter = TimeLimiter.of(
             this.pluginId,
@@ -207,7 +212,7 @@ public final class PluginWorkExecutor {
         } catch (CallNotPermittedException exception) {
             emit(task, PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN, PluginWorkBudgetEvent.Decision.REJECTED, PluginWorkBudgetEvent.Severity.WARNING);
             return rejected(PluginWorkStatus.REJECTED_CIRCUIT_OPEN, "CIRCUIT_OPEN");
-        } catch (BulkheadFullException exception) {
+        } catch (RejectedExecutionException exception) {
             reject(task);
             return rejected(PluginWorkStatus.REJECTED_BACKPRESSURE, "BACKPRESSURE");
         } catch (RuntimeException exception) {
@@ -217,41 +222,35 @@ public final class PluginWorkExecutor {
     }
 
     /**
-     * Closes the bulkhead and drains the timeout scheduler, waiting up to five seconds, then a further
-     * five after a forced shutdown.
+     * Closes the worker pool and drains the timeout scheduler, waiting up to five seconds, then a
+     * further five after a forced shutdown.
      *
      * <p>Idempotent: only the first call does work. After it, every submission is refused with
      * {@link PluginWorkStatus#RUNTIME_UNAVAILABLE}. An interrupt during the wait forces shutdown and
      * restores the thread's interrupt flag rather than throwing.
-     *
-     * @throws IllegalStateException if the bulkhead itself fails to close
      */
     public void shutdown() {
         if (!closed.compareAndSet(false, true)) {
             return;
         }
-        closeBulkhead();
-        timeoutScheduler.shutdown();
-        try {
-            if (!timeoutScheduler.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                timeoutScheduler.shutdownNow();
-                timeoutScheduler.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            }
-        } catch (InterruptedException exception) {
-            timeoutScheduler.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        shutdownPool(workerPool);
+        shutdownPool(timeoutScheduler);
     }
 
     boolean isTerminated() {
-        return timeoutScheduler.isTerminated();
+        return workerPool.isTerminated() && timeoutScheduler.isTerminated();
     }
 
-    private void closeBulkhead() {
+    private static void shutdownPool(final java.util.concurrent.ExecutorService pool) {
+        pool.shutdown();
         try {
-            bulkhead.close();
-        } catch (Exception exception) {
-            throw new IllegalStateException("Plugin work bulkhead failed to close for " + pluginId, exception);
+            if (!pool.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                pool.shutdownNow();
+                pool.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            }
+        } catch (InterruptedException exception) {
+            pool.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -263,14 +262,12 @@ public final class PluginWorkExecutor {
     }
 
     private Supplier<CompletionStage<Void>> decorateCompletion(PluginWorkItem workItem) {
-        Supplier<CompletionStage<Void>> bulkheaded = ThreadPoolBulkhead.decorateRunnable(
-            bulkhead,
-            workItem
-        );
+        Supplier<CompletionStage<Void>> pooled =
+            () -> CompletableFuture.runAsync(workItem, workerPool);
         return TimeLimiter.decorateCompletionStage(
             timeLimiter,
             timeoutScheduler,
-            bulkheaded
+            pooled
         );
     }
 
@@ -300,7 +297,7 @@ public final class PluginWorkExecutor {
             emit(workItem.task(), PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN, PluginWorkBudgetEvent.Decision.REJECTED, PluginWorkBudgetEvent.Severity.WARNING);
             return new PluginWorkResult(PluginWorkStatus.REJECTED_CIRCUIT_OPEN, "CIRCUIT_OPEN");
         }
-        if (cause instanceof BulkheadFullException) {
+        if (cause instanceof RejectedExecutionException) {
             emit(workItem.task(), PluginWorkBudgetEvent.Phase.REJECTED, PluginWorkBudgetEvent.Decision.REJECTED, PluginWorkBudgetEvent.Severity.WARNING);
             return new PluginWorkResult(PluginWorkStatus.REJECTED_BACKPRESSURE, "BACKPRESSURE");
         }

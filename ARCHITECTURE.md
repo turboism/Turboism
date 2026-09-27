@@ -326,6 +326,10 @@ host validation
 
 A bare multi-project `check` is not the daily workflow because Gradle expands every subproject's same-named task. Broad suites are run only when their affected surface justifies them.
 
+Host version admission is two-tiered. `VERIFIED` admission requires a byte-identical reviewed artifact whose declared version/build agrees with the reviewed release. `COMPATIBLE` admission covers coherent declarations with other artifact bytes. Each capability needs its complete selector dependency set, including applicable inheritance, transaction and lifecycle dependencies; capabilities without a smaller explicit contract require the complete slice record. An optional member failure or conflicting capability binding disables that capability while preserving independent verified features. Shared adapter groups bind one common candidate generation and never mix aliases from different records. A whole-package hash never decides the product version or global startup eligibility; it remains sample evidence, release-integrity data, and the exact-admission check. Compatibility admission is structural evidence only and never relabels a declared version or substitutes for real-host validation. SDK restrictions always evaluate the actual declared version.
+
+Hook eligibility in the static probe is separate from runtime readiness. Bytecode hooks prove their actual targets using reviewed class bytes or complete transformation contracts. Runtime-dependent hooks install before plugin initialization; premain hooks that require enabled consumer plugins bind after plugin loading and before startup publication. Their dependent capabilities remain unavailable while binding is pending and are permanently withdrawn if installation or binding fails. See `compatibility/cubism/index.md` for the admission contract and `compatibility/cubism/version-onboarding.md` for reviewed-release onboarding.
+
 ### Local host-validation admission
 
 `scripts/preview/host_validation.py` separates immutable preparation and durable

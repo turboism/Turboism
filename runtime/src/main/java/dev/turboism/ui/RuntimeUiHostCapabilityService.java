@@ -917,7 +917,13 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private Registration trackNotification(final StatusNotification notification) {
         final TrackedNotification tracked = new TrackedNotification(notification);
         notifications.put(notification.id(), tracked);
-        return () -> notifications.removeIfSame(notification.id(), tracked);
+        final Registration registration = () -> notifications.removeIfSame(notification.id(), tracked);
+        try {
+            return disposableScope.register(registration);
+        } catch (RuntimeException failure) {
+            registration.close();
+            throw failure;
+        }
     }
 
     private Registration trackCanvasHint(final CanvasHintNotification notification) {
@@ -937,14 +943,19 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final class CanvasHintHandleImpl implements CanvasHintHandle {
 
         private final CanvasHintNotification scopedNotification;
-        private final java.util.concurrent.atomic.AtomicReference<Registration> current;
-        private final java.util.concurrent.atomic.AtomicBoolean closed =
-            new java.util.concurrent.atomic.AtomicBoolean();
+        private final Object stateLock = new Object();
+        private Registration current;
+        private boolean closed;
 
         private CanvasHintHandleImpl(final CanvasHintNotification notification) {
             this.scopedNotification = scopedForAdapter(notification);
-            this.current = new java.util.concurrent.atomic.AtomicReference<>(show());
-            disposableScope.register(this::close);
+            this.current = show();
+            try {
+                disposableScope.register(this::close);
+            } catch (RuntimeException failure) {
+                close();
+                throw failure;
+            }
         }
 
         private Registration show() {
@@ -959,20 +970,30 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
 
         @Override
         public void renew() {
-            if (closed.get()) {
-                return;
+            synchronized (stateLock) {
+                if (closed) {
+                    return;
+                }
+                // The host replaces the hint under the same key; the previous registration
+                // for that key is stale by construction and must not be closed here.
+                current = show();
             }
-            // The host replaces the hint under the same key; the previous registration
-            // for that key is stale by construction and must not be closed here.
-            current.set(show());
         }
 
         @Override
         public void close() {
-            if (!closed.compareAndSet(false, true)) {
-                return;
+            final Registration toClose;
+            synchronized (stateLock) {
+                if (closed) {
+                    return;
+                }
+                closed = true;
+                toClose = current;
+                current = null;
             }
-            current.getAndSet(null).close();
+            if (toClose != null) {
+                toClose.close();
+            }
         }
     }
 
@@ -1007,12 +1028,20 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
                     return;
                 }
                 closed = true;
-                if (target.remove(value)) {
-                    authorityRegistration.close();
-                }
+                target.remove(value);
+                // The authority registration must always be released: it is idempotent and
+                // skips contributions a newer same-identity registration already owns.
+                authorityRegistration.close();
             }
         };
-        disposableScope.register(registration);
+        try {
+            disposableScope.register(registration);
+        } catch (RuntimeException failure) {
+            // Enrollment is what hands the registration to the plugin lifecycle; if the scope
+            // is already sealed, undo the authority and tracking writes so nothing leaks.
+            registration.close();
+            throw failure;
+        }
         return registration;
     }
 
@@ -1029,7 +1058,12 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
                 target.remove(value);
             }
         };
-        disposableScope.register(registration);
+        try {
+            disposableScope.register(registration);
+        } catch (RuntimeException failure) {
+            registration.close();
+            throw failure;
+        }
         return registration;
     }
 

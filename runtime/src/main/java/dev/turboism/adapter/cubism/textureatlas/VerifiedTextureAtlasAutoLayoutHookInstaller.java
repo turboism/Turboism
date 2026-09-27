@@ -80,8 +80,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             algorithmRegistry, Objects.requireNonNull(effectiveLocale, "effectiveLocale")
         );
         this.dialogIngress = dialogContributor.ingress();
-        if (resolverForConstructor.isExactCubismVersion("5.3.02")
-            || resolverForConstructor.isExactCubismVersion("5.3.03")) {
+        if (resolverForConstructor.isAdmittedCubismVersion("5.3.02")
+            || resolverForConstructor.isAdmittedCubismVersion("5.3.03")) {
             final StaticSelector statisticsEntry =
                 resolverForConstructor.verifiedSelector(STATISTICS_VIEW_INIT_ALIAS);
             this.statisticsIngress = editorUi.ingress();

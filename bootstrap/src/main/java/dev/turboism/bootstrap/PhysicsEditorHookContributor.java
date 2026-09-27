@@ -15,7 +15,7 @@ final class PhysicsEditorHookContributor implements HookContributor {
     }
 
     @Override public boolean admitted(final HookEnvironment environment) {
-        return environment.fullRuntimeAdmission();
+        return environment.hookRuntimeAdmitted();
     }
 
     @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
@@ -23,6 +23,8 @@ final class PhysicsEditorHookContributor implements HookContributor {
         final var host = environment.host().orElseThrow();
         final PhysicsEditorHostProfile profile = PhysicsEditorHostProfile.forArtifact(
             HostArtifactDigest.from(host.artifact())
+        ).or(() -> environment.admittedRuntimeGeneration()
+            .flatMap(PhysicsEditorHostProfile::forReviewedVersion)
         ).orElseThrow(() -> new IllegalStateException(
             "Unsupported Physics Settings host artifact"
         ));

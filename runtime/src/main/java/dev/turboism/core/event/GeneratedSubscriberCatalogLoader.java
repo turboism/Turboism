@@ -5,6 +5,7 @@ import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.event.EventSubscriberHandler;
 import dev.turboism.sdk.event.EventSubscriberRegistrar;
 import dev.turboism.sdk.event.GeneratedSubscriberCatalog;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -16,6 +17,9 @@ import java.util.ServiceLoader;
 
 /** Loads generated catalogs from one plugin artifact and falls back to reviewed reflection. */
 public final class GeneratedSubscriberCatalogLoader {
+
+    private static final String COMPONENT =
+        "dev.turboism.core.event.GeneratedSubscriberCatalogLoader";
 
     private final EntrypointSubscriberCatalog fallback = new EntrypointSubscriberCatalog();
 
@@ -44,6 +48,21 @@ public final class GeneratedSubscriberCatalogLoader {
         final Map<Class<?>, GeneratedSubscriberCatalog<?>> catalogs = pluginClassLoader == null
             ? Map.of()
             : load(pluginClassLoader);
+        // A catalog can only ever serve an entrypoint instance; one that matches none of the
+        // declared entrypoints indicates a stale or misplaced provider file. Diagnose it but
+        // keep registration semantics unchanged.
+        final java.util.Set<Class<?>> entrypointTypes = values.stream()
+            .map(Object::getClass)
+            .collect(java.util.stream.Collectors.toSet());
+        for (Class<?> catalogEntrypointType : catalogs.keySet()) {
+            if (!entrypointTypes.contains(catalogEntrypointType)) {
+                RuntimeDiagnostics.warn(
+                    COMPONENT,
+                    "Generated subscriber catalog matches no plugin entrypoint instance: "
+                        + catalogEntrypointType.getName()
+                );
+            }
+        }
         final List<EventSubscriberDescriptor> descriptors = new ArrayList<>();
         for (int entrypointOrdinal = 0; entrypointOrdinal < values.size(); entrypointOrdinal++) {
             final Object entrypoint = Objects.requireNonNull(values.get(entrypointOrdinal), "entrypoint");

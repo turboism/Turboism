@@ -5,6 +5,8 @@ import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.core.runtime.psd.PsdSessionBoundHost;
 import java.io.IOException;
 import java.nio.file.Path;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ModelImageId;
@@ -24,6 +26,7 @@ import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -89,12 +92,13 @@ final class EditorTextureAccess {
     private final Object exportDiagnosticGateLock = new Object();
     private final LinkedHashMap<ExportSessionKey, ExportDiagnosticGate> exportDiagnosticGates =
         new LinkedHashMap<>(MAX_EXPORT_DIAGNOSTIC_SESSIONS, 0.75f, true);
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorTextureAccess(
         final VerifiedMemberResolver resolver,
         final EditorParameterCombinedAccess.ModelGuard modelGuard
     ) {
-        this(resolver, modelGuard, () -> 0L);
+        this(resolver, modelGuard, () -> 0L, null);
     }
 
     EditorTextureAccess(
@@ -102,6 +106,24 @@ final class EditorTextureAccess {
         final EditorParameterCombinedAccess.ModelGuard modelGuard,
         final LongSupplier generationSupplier
     ) {
+        this(resolver, modelGuard, generationSupplier, null);
+    }
+
+    EditorTextureAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
+        this(resolver, modelGuard, () -> 0L, authoringCoordinator);
+    }
+
+    EditorTextureAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final LongSupplier generationSupplier,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
+        this.authoringCoordinator = authoringCoordinator;
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.generationSupplier = Objects.requireNonNull(generationSupplier, "generationSupplier");
@@ -137,7 +159,7 @@ final class EditorTextureAccess {
     private void requireReadAuthorization() {
         if (!readAuthorized()) {
             throw new UnsupportedOperationException(
-                "Texture-library reading is unavailable without exact verified host evidence."
+                "Texture-library reading is unavailable without an admitted texture contract."
             );
         }
     }
@@ -145,7 +167,7 @@ final class EditorTextureAccess {
     private void requireWriteAuthorization() {
         if (!writeAuthorized()) {
             throw new UnsupportedOperationException(
-                "Texture-library writing is unavailable without exact verified host evidence."
+                "Texture-library writing is unavailable without its verified transaction contract."
             );
         }
     }
@@ -154,12 +176,12 @@ final class EditorTextureAccess {
         if (!resolver.authorizesFeature(
             EditorTextureSelectorContract.ADAPTER_SLICE_ID,
             EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
-            resolver.cubismVersion().equals("5.2.03")
+            resolver.isAdmittedCubismVersion("5.2.03")
                 ? EditorTextureSelectorContract.REMOVE_RAW_IMAGE_5203_ALIASES
                 : EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
         )) {
             throw new UnsupportedOperationException(
-                "Raw image removal is unavailable without its exact non-dialog native Undo route."
+                "Raw image removal is unavailable without its verified non-dialog native Undo route."
             );
         }
     }
@@ -228,8 +250,44 @@ final class EditorTextureAccess {
         final Object source,
         final Operation operation
     ) {
+        EditorHostThread.requireHostThread("Cubism texture write");
         final Object app = resolver.invokeStatic(APP_INSTANCE);
         final Object document = resolver.invoke(CURRENT_DOCUMENT, app);
+        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
+        if (ambientJoin.isPresent()) {
+            ambientJoin.orElseThrow().admit(
+                "cubism.texture.write",
+                "texture:" + label,
+                label,
+                (edit, transactionLabel) -> {
+                    // Construct-and-redo: the operation applies against the supplied edit and
+                    // returns the undoable; register it on the ambient root exactly as the
+                    // standalone envelope does.
+                    final Object undoable = operation.apply(edit);
+                    if (undoable != edit) registerAppliedUndo(edit, undoable);
+                    final Object listener = resolver.createFunctionalProxy(
+                        UNDO_LISTENER_CLASS,
+                        ignored -> {
+                            resolver.invoke(UPDATE_INSTANCES, source);
+                            refresh(app);
+                            return null;
+                        });
+                    resolver.invoke(UNDO_ADD_LISTENER, undoable, listener);
+                },
+                () -> { },
+                () -> true,
+                EnumSet.of(
+                    EditorRefreshRequirement.MODEL_INSTANCES,
+                    EditorRefreshRequirement.PART_PALETTE,
+                    EditorRefreshRequirement.CANVAS,
+                    EditorRefreshRequirement.MARK_DIRTY
+                )
+            );
+            return;
+        }
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, label
+        );
         final Object editMode = resolver.invoke(EDIT_MODE, document);
         final Object edit = resolver.invoke(BEGIN_EDIT, editMode, label);
         boolean completed = false;
@@ -938,6 +996,13 @@ final class EditorTextureAccess {
 
         @Override
         public void addModelImageGroup(final String name) {
+            EditorHostThread.dispatch("Cubism texture write", () -> {
+                addModelImageGroupOnEdt(name);
+                return null;
+            });
+        }
+
+        private void addModelImageGroupOnEdt(final String name) {
             requireWriteAuthorization();
             final String value = Objects.requireNonNull(name, "name");
             if (value.strip().isEmpty()) throw new IllegalArgumentException("name must not be blank");
@@ -950,6 +1015,13 @@ final class EditorTextureAccess {
 
         @Override
         public void removeModelImage(final ModelImageId id) {
+            EditorHostThread.dispatch("Cubism texture write", () -> {
+                removeModelImageOnEdt(id);
+                return null;
+            });
+        }
+
+        private void removeModelImageOnEdt(final ModelImageId id) {
             requireWriteAuthorization();
             Objects.requireNonNull(id, "id");
             modelGuard.requireCurrent(identity, model);
@@ -960,6 +1032,16 @@ final class EditorTextureAccess {
 
         @Override
         public TextureAtlasId addTextureAtlas(final String name, final int widthPixels, final int heightPixels) {
+            return EditorHostThread.dispatch("Cubism texture write", () ->
+                addTextureAtlasOnEdt(name, widthPixels, heightPixels)
+            );
+        }
+
+        private TextureAtlasId addTextureAtlasOnEdt(
+            final String name,
+            final int widthPixels,
+            final int heightPixels
+        ) {
             requireWriteAuthorization();
             final String value = Objects.requireNonNull(name, "name");
             if (value.strip().isEmpty()) throw new IllegalArgumentException("name must not be blank");
@@ -977,6 +1059,13 @@ final class EditorTextureAccess {
 
         @Override
         public void removeTextureAtlas(final TextureAtlasId id) {
+            EditorHostThread.dispatch("Cubism texture write", () -> {
+                removeTextureAtlasOnEdt(id);
+                return null;
+            });
+        }
+
+        private void removeTextureAtlasOnEdt(final TextureAtlasId id) {
             requireWriteAuthorization();
             Objects.requireNonNull(id, "id");
             modelGuard.requireCurrent(identity, model);
@@ -987,11 +1076,18 @@ final class EditorTextureAccess {
 
         @Override
         public void removeRawImage(final RawImageId id) {
+            EditorHostThread.dispatch("Cubism texture write", () -> {
+                removeRawImageOnEdt(id);
+                return null;
+            });
+        }
+
+        private void removeRawImageOnEdt(final RawImageId id) {
             requireWriteAuthorization();
             requireRawImageRemoval();
             Objects.requireNonNull(id, "id");
             modelGuard.requireCurrent(identity, model);
-            if (resolver.cubismVersion().equals("5.2.03")) {
+            if (resolver.isAdmittedCubismVersion("5.2.03")) {
                 // Match the 5.3 handler's false branch: clear this raw image's layer inputs,
                 // then remove only its raw-image entry. Never invoke the 5.2 dialog or layer purge.
                 final List<Object> prepared = prepareRawImageRemoval5203(source, id);

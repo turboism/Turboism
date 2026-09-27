@@ -304,14 +304,19 @@ function Assert-RuntimeConfigV1 {
     if ($null -ne $launcherProperty) {
         $launcher = $launcherProperty.Value
         Assert-RuntimeAllowedProperties $launcher @(
-            "cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"
+            "cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread"
         ) "launcher"
         $cubismJvm = $launcher.PSObject.Properties["cubismJvm"]
         if ($null -ne $cubismJvm -and ($cubismJvm.Value -isnot [string] `
             -or @("graalvm", "bundled") -cnotcontains $cubismJvm.Value)) {
             throw "launcher.cubismJvm is invalid"
         }
-        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache")) {
+        $memoryProfile = $launcher.PSObject.Properties["memoryProfile"]
+        if ($null -ne $memoryProfile -and ($memoryProfile.Value -isnot [string] `
+            -or @("system", "balanced4g", "balanced4gFastSoft") -cnotcontains $memoryProfile.Value)) {
+            throw "launcher.memoryProfile is invalid"
+        }
+        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread")) {
             $property = $launcher.PSObject.Properties[$name]
             if ($null -ne $property -and $property.Value -isnot [bool]) {
                 throw "launcher.$name must be a boolean"
@@ -762,7 +767,7 @@ $uiStrings = @{
         FormTitle = "Turboism Configuration - {0}"; PluginsTab = "Plugins"; CubismTab = "Cubism installations"
         PluginPrompt = "Check the plugins to enable (unchecked ids are written to config.json):"
         CubismPrompt = "Select supported Cubism installations to manage and launch:"; Version = "Version"
-        Ready = "Ready"; Invalid = "Invalid"; Unsupported = "Unsupported"; Selected = "selected"
+        Ready = "Ready"; Compatible = "Compatible"; Detected = "Detected"; Invalid = "Invalid"; Unsupported = "Unsupported"; Selected = "selected"
         Rescan = "Rescan"; Add = "Add folder"; Remove = "Remove"; Save = "Save"; Cancel = "Cancel"
         LaunchMode = "Launch mode"; Independent = "Independent shortcuts (recommended)"; Takeover = "Take over existing Cubism shortcuts"
         ShortcutIntegration = "Create or update Turboism launch shortcuts for selected Cubism installations"
@@ -783,7 +788,7 @@ $uiStrings = @{
         FormTitle = "Turboism 配置 - {0}"; PluginsTab = "插件"; CubismTab = "Cubism 安装"
         PluginPrompt = "勾选要启用的插件（未勾选 id 将写入 config.json）："
         CubismPrompt = "选择要管理和启动的受支持 Cubism 安装："; Version = "版本"
-        Ready = "就绪"; Invalid = "无效"; Unsupported = "不支持"; Selected = "已选择"
+        Ready = "就绪"; Compatible = "兼容"; Detected = "已识别"; Invalid = "无效"; Unsupported = "不支持"; Selected = "已选择"
         Rescan = "重新扫描"; Add = "添加文件夹"; Remove = "移除"; Save = "保存"; Cancel = "取消"
         LaunchMode = "启动模式"; Independent = "独立快捷方式（推荐）"; Takeover = "接管现有 Cubism 快捷方式"
         ShortcutIntegration = "为所选 Cubism 安装创建或更新 Turboism 启动快捷方式"
@@ -802,7 +807,7 @@ $uiStrings = @{
         FormTitle = "Turboism 設定 - {0}"; PluginsTab = "プラグイン"; CubismTab = "Cubism インストール"
         PluginPrompt = "有効にするプラグインを選択してください（未選択 id は config.json に書き込みます）："
         CubismPrompt = "管理して起動する対応 Cubism インストールを選択してください："; Version = "バージョン"
-        Ready = "準備完了"; Invalid = "不正"; Unsupported = "未対応"; Selected = "選択済み"
+        Ready = "準備完了"; Compatible = "互換"; Detected = "検出"; Invalid = "不正"; Unsupported = "未対応"; Selected = "選択済み"
         Rescan = "再スキャン"; Add = "フォルダーを追加"; Remove = "削除"; Save = "保存"; Cancel = "キャンセル"
         LaunchMode = "起動モード"; Independent = "独立ショートカット（推奨）"; Takeover = "既存 Cubism ショートカットを引き継ぐ"
         ShortcutIntegration = "選択した Cubism 用の Turboism 起動ショートカットを作成または更新"
@@ -821,7 +826,7 @@ $uiStrings = @{
         FormTitle = "Turboism 설정 - {0}"; PluginsTab = "플러그인"; CubismTab = "Cubism 설치"
         PluginPrompt = "사용할 플러그인을 선택하세요(선택하지 않은 id는 config.json에 기록됩니다):"
         CubismPrompt = "관리하고 시작할 지원되는 Cubism 설치를 선택하세요:"; Version = "버전"
-        Ready = "준비됨"; Invalid = "잘못됨"; Unsupported = "지원 안 함"; Selected = "선택됨"
+        Ready = "준비됨"; Compatible = "호환"; Detected = "감지됨"; Invalid = "잘못됨"; Unsupported = "지원 안 함"; Selected = "선택됨"
         Rescan = "다시 검색"; Add = "폴더 추가"; Remove = "제거"; Save = "저장"; Cancel = "취소"
         LaunchMode = "시작 모드"; Independent = "독립 바로 가기(권장)"; Takeover = "기존 Cubism 바로 가기 인계"
         ShortcutIntegration = "선택한 Cubism 설치용 Turboism 시작 바로 가기 만들기 또는 업데이트"
@@ -949,7 +954,10 @@ function Update-LaunchModeSummary {
 function Render-CubismCandidates {
     $cubismList.Items.Clear()
     foreach ($candidate in @($candidates)) {
-        $stateText = if ($candidate.Selectable) { $S.Ready } elseif ($candidate.Status -eq "Unsupported") { $S.Unsupported } else { $S.Invalid }
+        $stateText = if ($candidate.Status -eq "Ready") { $S.Ready }
+            elseif ($candidate.Status -eq "Compatible") { $S.Compatible }
+            elseif ($candidate.Status -eq "Declared") { $S.Detected }
+            elseif ($candidate.Status -eq "Unsupported") { $S.Unsupported } else { $S.Invalid }
         $text = "{0}  |  {1}  |  {2}  |  {3}" -f $(if ($candidate.Version) { $candidate.Version } else { "?" }), $stateText, $candidate.CanonicalRoot, $candidate.Reason
         [void]$cubismList.Items.Add($text, ([bool]$candidate.Selected -and [bool]$candidate.Selectable))
     }

@@ -5,7 +5,10 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -18,7 +21,21 @@ import java.util.TreeMap;
 final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
     private static final class Metric {
         long calls, nanos, maximum, bytes, exceptions, nonzeroErrors;
-        void clear() { calls = nanos = maximum = bytes = exceptions = nonzeroErrors = 0L; }
+        long redundant, redundantNanos;
+        void clear() {
+            calls = nanos = maximum = bytes = exceptions = nonzeroErrors = 0L;
+            redundant = redundantNanos = 0L;
+        }
+    }
+    private static final class CallSite {
+        final Metric metric;
+        final int category;
+        final int track;       // GlRedundancyTracker kind, or -1
+        final int invalidate;  // GlRedundancyTracker invalidation mask
+        CallSite(Metric metric, int category, int track, int invalidate) {
+            this.metric = metric; this.category = category;
+            this.track = track; this.invalidate = invalidate;
+        }
     }
     private final Object downstream;
     private final Object pipeline;
@@ -26,10 +43,20 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
     private final UploadPayloadObserver payloads;
     private final Method contextGetter;
     private final Map<String, Metric> metrics = new TreeMap<>();
-    private final Map<Method, Metric> methods = new LinkedHashMap<>();
+    private final Map<Method, CallSite> methods = new LinkedHashMap<>();
     private static final String[] UPLOAD_TARGET_NAMES = {"ARRAY_BUFFER", "ELEMENT_ARRAY_BUFFER", "OTHER"};
     private final Metric[] uploadTargets = {new Metric(), new Metric(), new Metric()};
     private final Metric[] duplicateUploadTargets = {new Metric(), new Metric(), new Metric()};
+    // Opt-in per-category delegate-time partition. Null keeps the call path
+    // identical to the pre-attribution probe: no lookup, counter or timestamp
+    // beyond the existing per-method accounting is added when disabled.
+    private final Metric[] categories;
+    // Fixed bound for the opt-in top-methods ranking emitted at report time.
+    private static final int TOP_METHOD_LIMIT = 10;
+    // Opt-in redundant-state observation. Null keeps the call path identical to
+    // the pre-redundancy probe; no lookup, state table or context read exists.
+    private final GlRedundancyTracker redundancy;
+    private long observerNanos;
     private volatile boolean collecting;
     private Component drawable;
     private Method getGl, setGl;
@@ -41,21 +68,41 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
         this.downstream = downstream;
         this.apiName = api.getName();
         boolean observePayloads = Boolean.getBoolean("turboism.validation.modelUpdateUploadPayloads");
+        boolean redundant = Boolean.getBoolean("turboism.validation.modelUpdateGlRedundancy");
         payloads = observePayloads ? new UploadPayloadObserver() : null;
+        redundancy = redundant ? new GlRedundancyTracker(() -> readContext()) : null;
         Method getContext = null;
-        if (observePayloads) {
+        if (observePayloads || redundant) {
             try { getContext = api.getMethod("getContext"); }
             catch (NoSuchMethodException absent) {
-                throw new IllegalArgumentException("payload observation requires the public GL context accessor", absent);
+                throw new IllegalArgumentException("payload/redundancy observation requires the public GL context accessor", absent);
             }
         }
         contextGetter = getContext;
+        boolean attribute = Boolean.getBoolean("turboism.validation.modelUpdateGlCallCategories");
+        categories = attribute ? new Metric[GlCallCategory.values().length] : null;
+        if (categories != null) {
+            for (int index = 0; index < categories.length; index++) categories[index] = new Metric();
+        }
         for (Method method : api.getMethods()) {
             if (method.getName().startsWith("gl")) {
-                methods.put(method, metrics.computeIfAbsent(method.getName(), key -> new Metric()));
+                int spec = redundant ? GlRedundancyTracker.classify(method) : 0;
+                methods.put(method, new CallSite(
+                    metrics.computeIfAbsent(method.getName(), key -> new Metric()),
+                    categories == null ? -1 : GlCallCategory.of(method.getName()).ordinal(),
+                    GlRedundancyTracker.kindOf(spec), GlRedundancyTracker.maskOf(spec)));
             }
         }
         pipeline = Proxy.newProxyInstance(api.getClassLoader(), new Class<?>[]{api}, this);
+    }
+
+    private static final Object[] NO_ARGS = new Object[0];
+    private Object readContext() {
+        try {
+            return contextGetter.invoke(downstream, NO_ARGS);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("GL context read failed", failure);
+        }
     }
 
     static GlSubmissionProbe attach(Component drawable) throws Exception {
@@ -97,13 +144,24 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
                 default -> method.invoke(downstream, args);
             };
         }
-        Metric metric = collecting ? methods.get(method) : null;
+        boolean active = collecting;
+        // With categories enabled this timestamp bounds the wrapper bookkeeping
+        // interval; the delegate interval itself is unchanged.
+        long entered = active && categories != null ? System.nanoTime() : 0L;
+        CallSite site = active ? methods.get(method) : null;
+        Metric metric = site == null ? null : site.metric;
         Metric uploadMetric = metric != null && method.getName().equals("glBufferSubData")
             ? uploadTargets[uploadTarget(args)] : null;
         boolean identicalPayload = false;
         if (metric != null && payloads != null && observesBufferState(method.getName())) {
             try { identicalPayload = payloads.before(contextGetter.invoke(downstream), method.getName(), args); }
             catch (Throwable observationFailure) { payloads.observerFailure(); }
+        }
+        // Redundant-state evaluation reads only the call arguments and the
+        // recorded state table; it never suppresses or alters the delegate call.
+        boolean redundant = false;
+        if (metric != null && redundancy != null && site.track >= 0) {
+            redundant = redundancy.evaluate(site.track, args);
         }
         // Exclude the diagnostic payload scan from the native-delegate timer.
         long started = metric == null ? 0L : System.nanoTime();
@@ -148,7 +206,8 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
             throw failure.getCause();
         } finally {
             if (metric != null) {
-                long elapsed = (returnedAt == 0L ? System.nanoTime() : returnedAt) - started;
+                long completedAt = returnedAt == 0L ? System.nanoTime() : returnedAt;
+                long elapsed = completedAt - started;
                 metric.calls++;
                 metric.nanos += elapsed;
                 metric.maximum = Math.max(metric.maximum, elapsed);
@@ -157,6 +216,25 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
                     uploadMetric.calls++;
                     uploadMetric.nanos += elapsed;
                     uploadMetric.maximum = Math.max(uploadMetric.maximum, elapsed);
+                }
+                if (categories != null) {
+                    // Same delegate interval again: categories partition the
+                    // per-method totals and never measure an extra call.
+                    Metric category = categories[site.category];
+                    category.calls++;
+                    category.nanos += elapsed;
+                    category.maximum = Math.max(category.maximum, elapsed);
+                    // Wrapper bookkeeping outside the native delegate interval.
+                    // Includes the payload-scan section when that observer is
+                    // also enabled; it is never subtracted from delegate time.
+                    observerNanos += (started - entered) + (System.nanoTime() - completedAt);
+                }
+                if (redundancy != null && (site.track >= 0 || site.invalidate != 0)) {
+                    redundancy.apply(site.track, site.invalidate, args, returnedAt != 0L);
+                    if (redundant && returnedAt != 0L) {
+                        metric.redundant++;
+                        metric.redundantNanos += elapsed;
+                    }
                 }
             }
         }
@@ -187,6 +265,11 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
         metrics.values().forEach(Metric::clear);
         for (Metric metric : uploadTargets) metric.clear();
         for (Metric metric : duplicateUploadTargets) metric.clear();
+        if (categories != null) for (Metric metric : categories) metric.clear();
+        observerNanos = 0L;
+        // State learned outside a collection window is invisible to the probe;
+        // every window therefore starts with all entries unknown.
+        if (redundancy != null) redundancy.invalidateAll();
         if (payloads != null) payloads.start();
         collecting = true;
     }
@@ -205,6 +288,81 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
         for (int index = 0; index < uploadTargets.length; index++) {
             appendMetric(out, "glUploads." + UPLOAD_TARGET_NAMES[index] + ".", uploadTargets[index]);
             appendMetric(out, "glDuplicateUploads." + UPLOAD_TARGET_NAMES[index] + ".", duplicateUploadTargets[index]);
+        }
+        out.append("glCategories.enabled=").append(categories != null).append('\n');
+        if (categories != null) {
+            out.append("glCategories.meaning=partition-of-glCalls-delegate-time-not-additional-time\n")
+                .append("glCategories.observerMeaning=wrapper-bookkeeping-outside-delegate-intervals"
+                    + "-includes-payload-scan-when-enabled\n");
+            long observedCalls = 0L, observedNanos = 0L;
+            for (GlCallCategory category : GlCallCategory.values()) {
+                Metric metric = categories[category.ordinal()];
+                observedCalls += metric.calls;
+                observedNanos += metric.nanos;
+                out.append("glCategories.").append(category.reportKey())
+                    .append(".calls=").append(metric.calls).append('\n')
+                    .append("glCategories.").append(category.reportKey())
+                    .append(".nanos=").append(metric.nanos).append('\n')
+                    .append("glCategories.").append(category.reportKey())
+                    .append(".maxNanos=").append(metric.maximum).append('\n');
+            }
+            out.append("glCategories.observedCalls=").append(observedCalls).append('\n')
+                .append("glCategories.observedNanos=").append(observedNanos).append('\n')
+                .append("glCategories.observerNanos=").append(observerNanos).append('\n');
+            // Report-time ranking over the existing per-method metrics; the
+            // GL call path still performs no sorting or allocation.
+            out.append("glCategories.topMethods.bound=").append(TOP_METHOD_LIMIT).append('\n')
+                .append("glCategories.topMethods.meaning=ranking-of-existing-glCalls-delegate-nanos-"
+                    + "not-additional-time\n");
+            List<Map.Entry<String, Metric>> ranked = new ArrayList<>(metrics.entrySet());
+            ranked.removeIf(entry -> entry.getValue().calls == 0);
+            ranked.sort(Comparator
+                .<Map.Entry<String, Metric>>comparingLong(entry -> entry.getValue().nanos)
+                .reversed().thenComparing(Map.Entry::getKey));
+            for (int rank = 0; rank < Math.min(TOP_METHOD_LIMIT, ranked.size()); rank++) {
+                Map.Entry<String, Metric> entry = ranked.get(rank);
+                String prefix = "glCategories.top." + (rank + 1) + ".";
+                out.append(prefix).append("method=").append(entry.getKey()).append('\n')
+                    .append(prefix).append("calls=").append(entry.getValue().calls).append('\n')
+                    .append(prefix).append("nanos=").append(entry.getValue().nanos).append('\n');
+            }
+        }
+        out.append("glRedundancy.enabled=").append(redundancy != null).append('\n');
+        if (redundancy != null) {
+            // Upper bound only: entries are per-context, conservative and never
+            // suppress a call. Uniform writes aggregate under uniformRedundant.
+            out.append("glRedundancy.meaning=state-calls-identical-to-last-recorded-write-"
+                + "conservative-upper-bound-no-call-suppressed\n")
+                .append("glRedundancy.uniformRedundant.meaning=all-glUniform-and-glProgramUniform-"
+                    + "writes-keyed-by-program-location-value\n");
+            long trackedCalls = 0L, redundantCalls = 0L, redundantNanos = 0L;
+            long uniformCalls = 0L, uniformRedundant = 0L, uniformNanos = 0L;
+            java.util.Set<String> emitted = new java.util.HashSet<>();
+            for (Map.Entry<Method, CallSite> entry : methods.entrySet()) {
+                CallSite site = entry.getValue();
+                if (site.track < 0 || site.metric.calls == 0) continue;
+                String name = entry.getKey().getName();
+                if (GlRedundancyTracker.uniformKind(site.track)) {
+                    uniformCalls += site.metric.calls;
+                    uniformRedundant += site.metric.redundant;
+                    uniformNanos += site.metric.redundantNanos;
+                } else if (emitted.add(name)) {
+                    String prefix = "glRedundancy." + name + ".";
+                    out.append(prefix).append("calls=").append(site.metric.calls).append('\n')
+                        .append(prefix).append("redundant=").append(site.metric.redundant).append('\n')
+                        .append(prefix).append("redundantNanos=").append(site.metric.redundantNanos).append('\n');
+                }
+                trackedCalls += site.metric.calls;
+                redundantCalls += site.metric.redundant;
+                redundantNanos += site.metric.redundantNanos;
+            }
+            out.append("glRedundancy.uniformRedundant.calls=").append(uniformCalls).append('\n')
+                .append("glRedundancy.uniformRedundant.redundant=").append(uniformRedundant).append('\n')
+                .append("glRedundancy.uniformRedundant.redundantNanos=").append(uniformNanos).append('\n')
+                .append("glRedundancy.calls=").append(trackedCalls).append('\n')
+                .append("glRedundancy.redundant=").append(redundantCalls).append('\n')
+                .append("glRedundancy.redundantNanos=").append(redundantNanos).append('\n')
+                .append("glRedundancy.invalidations=").append(redundancy.invalidations()).append('\n');
         }
         if (payloads != null) out.append(payloads.report());
         return out.toString();
@@ -233,6 +391,19 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
         if (calls == 0 || errors != 0 || uploads == 0 || draws == 0 || readbacks == 0) {
             throw new IllegalStateException("GL attribution: calls=" + calls + " errors=" + errors
                 + " uploads=" + uploads + " draws=" + draws + " readbacks=" + readbacks);
+        }
+        if (categories != null) {
+            long categorized = 0L;
+            for (Metric category : categories) categorized += category.calls;
+            if (categorized != calls) {
+                throw new IllegalStateException("GL category partition incomplete: calls=" + calls
+                    + " categorized=" + categorized);
+            }
+        }
+        for (Metric metric : metrics.values()) {
+            if (metric.redundant > metric.calls || metric.redundantNanos > metric.nanos) {
+                throw new IllegalStateException("GL redundancy counters exceed call totals");
+            }
         }
     }
 

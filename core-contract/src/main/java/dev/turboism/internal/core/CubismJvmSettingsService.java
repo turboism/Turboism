@@ -84,6 +84,26 @@ public interface CubismJvmSettingsService {
     }
 
     /**
+     * Launcher preference: the memory tier applied to the next managed Cubism
+     * launch. {@link MemoryProfile#SYSTEM} is the default and keeps the official
+     * BAT's {@code -XX:MaxRAMPercentage=100} untouched; the capped tiers append
+     * an explicit {@code -Xmx} (and, for the fast-soft variant,
+     * {@code -XX:SoftRefLRUPolicyMSPerMB}) to the managed JVM options. An
+     * explicit {@code -Xmx} already present in the launch command always wins
+     * over the profile. A persisted value the runtime does not recognize reads
+     * back as {@link MemoryProfile#SYSTEM}. Launch-time setting — takes effect
+     * on the next launch only.
+     */
+    default MemoryProfile memoryProfile() {
+        return MemoryProfile.SYSTEM;
+    }
+
+    /** Persists the memory-profile launcher preference. */
+    default MemoryProfile saveMemoryProfile(final MemoryProfile value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
      * Launcher preference: when false the next managed Cubism launch adds
      * {@code -Dturboism.optimization.modelUpdateSkip=false} to the managed
      * JAVA_TOOL_OPTIONS block so the unchanged-frame skip hook is not
@@ -96,6 +116,58 @@ public interface CubismJvmSettingsService {
     /** Returns the default-on uniform-location cache preference for verified hosts. */
     default boolean uniformLocationCache() {
         return true;
+    }
+
+    /**
+     * Launcher preference: when true the next managed Cubism launch enables
+     * the skipped-frame buffer-upload elision hook (content compare, still
+     * gated on skipped frames). On by default on every platform; an explicit
+     * false opts out. Takes effect on the next launch.
+     */
+    default boolean uploadElision() {
+        return false;
+    }
+
+    /** Persists the upload-elision preference; installation changes require restart. */
+    default boolean saveUploadElision(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
+     * Launcher preference: when true the next managed Cubism launch enables
+     * the input-path elision hook (redundant focus/cursor forwards are
+     * short-circuited before they reach the native query). The elided path
+     * only exists under Wine/Proton, so the unset default is on there and
+     * off on native Windows; an explicit value always wins. Takes effect on
+     * the next launch.
+     */
+    default boolean inputPathElision() {
+        return false;
+    }
+
+    /** Persists the input-path elision preference; installation changes require restart. */
+    default boolean saveInputPathElision(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
+     * Launcher preference: under the Linux/Proton launch path the unset
+     * default is on — {@code mesa_glthread=true} is exported and
+     * {@code -Dturboism.optimization.mesaGlThread=true} is added, so Mesa
+     * submits GL work from a dedicated thread while the deferred error-check
+     * hook keeps the shader helper's per-call {@code glGetError} from
+     * flushing it. The pair is one combined option — Mesa threading without
+     * deferred checking was measured a regression. On native Windows the
+     * unset default is off and launches ignore it entirely; an explicit
+     * value always wins. Requires Mesa. Takes effect on next launch.
+     */
+    default boolean mesaGlThread() {
+        return false;
+    }
+
+    /** Persists the mesa-gl-thread preference; installation changes require restart. */
+    default boolean saveMesaGlThread(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 
     /** Persists the uniform-location cache preference; installation changes require restart. */
@@ -264,6 +336,62 @@ public interface CubismJvmSettingsService {
                 if (candidate.configValue.equals(normalized)) return candidate;
             }
             throw new IllegalArgumentException("unsupported Cubism JVM: " + value);
+        }
+    }
+
+    /**
+     * Which heap/soft-cache tier the managed launcher applies to the next
+     * Cubism start. {@link #SYSTEM} emits no extra option, so the official BAT
+     * keeps sizing the heap with {@code -XX:MaxRAMPercentage=100}.
+     * {@link #BALANCED_4G} sets an explicit {@code -Xmx4g}; under a bounded heap
+     * the collector can finally trigger the host's existing soft-reference
+     * cache release. {@link #BALANCED_4G_FAST_SOFT} additionally shortens the
+     * soft-reference LRU clock via {@code -XX:SoftRefLRUPolicyMSPerMB=100}.
+     * The tiers compose with the ZGC toggle and never override an explicit
+     * {@code -Xmx} already present in the launch command.
+     */
+    enum MemoryProfile {
+        SYSTEM("system"),
+        BALANCED_4G("balanced4g"),
+        BALANCED_4G_FAST_SOFT("balanced4gFastSoft");
+
+        private final String configValue;
+
+        MemoryProfile(final String configValue) {
+            this.configValue = configValue;
+        }
+
+        /** @return the normalized persisted configuration value */
+        public String configValue() {
+            return configValue;
+        }
+
+        /**
+         * Resolves a memory profile from persisted configuration.
+         *
+         * @param value persisted value
+         * @return the matching profile
+         * @throws IllegalArgumentException when the value is unsupported
+         */
+        public static MemoryProfile fromConfig(final String value) {
+            final String normalized = value == null ? "" : value.trim();
+            for (MemoryProfile candidate : values()) {
+                if (candidate.configValue.equals(normalized)) return candidate;
+            }
+            throw new IllegalArgumentException("unsupported memory profile: " + value);
+        }
+
+        /**
+         * Fail-closed resolution for reads: an absent, blank, or unrecognized
+         * persisted value yields {@link #SYSTEM} rather than an exception, so a
+         * corrupt preference can never widen the heap policy beyond stock.
+         */
+        public static MemoryProfile fromConfigOrSystem(final String value) {
+            try {
+                return fromConfig(value);
+            } catch (IllegalArgumentException unsupported) {
+                return SYSTEM;
+            }
         }
     }
 }
