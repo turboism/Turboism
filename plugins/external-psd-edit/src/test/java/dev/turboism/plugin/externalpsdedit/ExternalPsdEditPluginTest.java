@@ -198,6 +198,150 @@ class ExternalPsdEditPluginTest {
     }
 
     @Test
+    void atlasCurrentInputResolvesItsRetainedModelImageRegardlessOfInputOrder() {
+        final TextureInputBinding image = TextureInputBinding.modelImage(IMAGE_A);
+        final TextureInputBinding atlas = TextureInputBinding.atlas(new TextureAtlasId("atlas-1"));
+        for (List<TextureInputBinding> inputs : List.of(List.of(image, atlas), List.of(atlas, image))) {
+            final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+            context.cubism().relations(withMeshInputs(
+                relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A))), inputs, inputs.indexOf(atlas)));
+            final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+            plugin.init(context);
+            plugin.enable();
+            try {
+                for (int attempt = 0; attempt < 2; attempt++) {
+                    context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+                        BINDING, ContextMenuRegistry.Location.DEFORMER_TAB,
+                        item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")));
+                }
+                assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+                assertEquals(1, plugin.liveSessions());
+                assertEquals(2, context.cubism().textures().issued().get(RAW_A).openCalls.get());
+                assertTrue(context.cubism().textures().issued().get(RAW_A).subscribedBeforeOpen);
+                context.cubism().textures().issued().get(RAW_A).saveListener.accept(new TestRevision("atlas-save"));
+                assertEquals(List.of("export:raw-a", "replace:raw-a:atlas-save"),
+                    context.cubism().textures().calls());
+                assertTrue(context.uiHost().notifications().stream()
+                    .anyMatch(n -> n.id().equals("external-psd-edit.status.applied")));
+            } finally {
+                plugin.disable();
+            }
+        }
+    }
+
+    @Test
+    void atlasModelImageInputsSharingOneRawResolveToOneSession() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(withMeshInputs(
+            twoImageRelations(BINDING, 1L, 1L, RAW_A, RAW_A),
+            List.of(TextureInputBinding.modelImage(IMAGE_B),
+                TextureInputBinding.atlas(new TextureAtlasId("atlas-1")),
+                TextureInputBinding.modelImage(IMAGE_A)), 1));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        try {
+            context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+                BINDING, ContextMenuRegistry.Location.DEFORMER_TAB,
+                item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")));
+            assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+            assertEquals(1, plugin.liveSessions());
+            assertNull(context.uiHost().lastConfirmRequest());
+        } finally {
+            plugin.disable();
+        }
+    }
+
+    @Test
+    void atlasSourcesRejectAmbiguityMissingAndUnknownInputsWithoutExporting() {
+        final TextureInputBinding atlas = TextureInputBinding.atlas(new TextureAtlasId("atlas-1"));
+        final TextureInputBinding image = TextureInputBinding.modelImage(IMAGE_A);
+        final TextureRelationsSnapshot base = twoImageRelations(BINDING, 1L, 1L, RAW_A, RAW_B);
+        for (List<TextureInputBinding> inputs : List.of(
+            List.of(atlas),
+            List.of(atlas, image, TextureInputBinding.modelImage(IMAGE_B)),
+            List.of(atlas, TextureInputBinding.modelImage(IMAGE_B), image),
+            List.of(atlas, image, TextureInputBinding.unknown()),
+            List.of(atlas, image, TextureInputBinding.modelImage(new ModelImageId("missing"))),
+            List.of(atlas, TextureInputBinding.modelImage(IMAGE_A, TextureInputBinding.ResolutionState.UNKNOWN))
+        )) {
+            final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+            context.cubism().relations(withMeshInputs(base, inputs, 0));
+            final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+            plugin.init(context);
+            plugin.enable();
+            try {
+                context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+                    BINDING, ContextMenuRegistry.Location.DEFORMER_TAB,
+                    item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")));
+                assertTrue(context.cubism().textures().calls().isEmpty(), inputs.toString());
+                assertEquals(0, plugin.liveSessions(), inputs.toString());
+                assertTrue(context.uiHost().notifications().stream()
+                    .anyMatch(n -> n.id().equals("external-psd-edit.error.unresolved")), inputs.toString());
+            } finally {
+                plugin.disable();
+            }
+        }
+    }
+
+    @Test
+    void atlasSourcesNeverGuessFromCandidatesOrIncompleteResourceRecords() {
+        final TextureRelationsSnapshot base = relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A)));
+        final ModelImageRelation image = base.modelImages().get(0);
+        final ModelImageRelation noCurrent = new ModelImageRelation(
+            IMAGE_A, entry(IMAGE_A), List.of(RAW_A, RAW_B), Optional.empty(), Map.of(), List.of(new ArtMeshId("mesh-1")));
+        final List<TextureRelationsSnapshot> invalidGraphs = List.of(
+            new TextureRelationsSnapshot(base.availability(), BINDING, 1L, 1L,
+                base.rawImages(), List.of(noCurrent), base.groups(), base.artMeshInputs()),
+            new TextureRelationsSnapshot(base.availability(), BINDING, 1L, 1L,
+                base.rawImages(), List.of(image, image), base.groups(), base.artMeshInputs()),
+            new TextureRelationsSnapshot(base.availability(), BINDING, 1L, 1L,
+                List.of(), base.modelImages(), base.groups(), base.artMeshInputs())
+        );
+        for (TextureRelationsSnapshot graph : invalidGraphs) {
+            final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+            context.cubism().relations(withMeshInputs(graph,
+                List.of(TextureInputBinding.modelImage(IMAGE_A),
+                    TextureInputBinding.atlas(new TextureAtlasId("atlas-1"))), 1));
+            final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+            plugin.init(context);
+            plugin.enable();
+            try {
+                context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+                    BINDING, ContextMenuRegistry.Location.DEFORMER_TAB,
+                    item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")));
+                assertTrue(context.cubism().textures().calls().isEmpty());
+                assertEquals(0, plugin.liveSessions());
+                assertTrue(context.uiHost().notifications().stream()
+                    .anyMatch(n -> n.id().equals("external-psd-edit.error.unresolved")));
+            } finally {
+                plugin.disable();
+            }
+        }
+    }
+
+    @Test
+    void currentModelImageStillWinsOverOtherInputsAndAnAtlas() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(withMeshInputs(
+            twoImageRelations(BINDING, 1L, 1L, RAW_A, RAW_B),
+            List.of(TextureInputBinding.modelImage(IMAGE_A),
+                TextureInputBinding.atlas(new TextureAtlasId("atlas-1")),
+                TextureInputBinding.modelImage(IMAGE_B)), 2));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        try {
+            context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+                BINDING, ContextMenuRegistry.Location.DEFORMER_TAB,
+                item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")));
+            assertEquals(List.of("export:raw-b"), context.cubism().textures().calls());
+        } finally {
+            plugin.disable();
+        }
+    }
+
+    @Test
     void sharedModelImageDedupesToOneSessionPerRawImage() {
         final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
         context.cubism().relations(relations(BINDING, List.of(
@@ -1565,6 +1709,16 @@ class ExternalPsdEditPluginTest {
         final List<ArtMeshTextureInputs> artMeshes
     ) {
         return relations(binding, 1L, 1L, artMeshes, Map.of());
+    }
+
+    private static TextureRelationsSnapshot withMeshInputs(
+        final TextureRelationsSnapshot base,
+        final List<TextureInputBinding> inputs,
+        final int currentIndex
+    ) {
+        return new TextureRelationsSnapshot(base.availability(), base.binding(), base.generation(),
+            base.revision(), base.rawImages(), base.modelImages(), base.groups(),
+            List.of(new ArtMeshTextureInputs(new ArtMeshId("mesh-1"), inputs, OptionalInt.of(currentIndex))));
     }
 
     private static TextureRelationsSnapshot singleRelation(

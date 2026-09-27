@@ -1273,7 +1273,39 @@ final class ExternalPsdEditSessionManager {
             return Optional.empty();
         }
         final TextureInputBinding input = matched.inputs().get(index.getAsInt());
-        if (input.kind() != TextureInputBinding.Kind.MODEL_IMAGE
+        if (!input.isResolved()) {
+            return Optional.empty();
+        }
+        if (input.kind() == TextureInputBinding.Kind.MODEL_IMAGE) {
+            return rawForModelImageInput(relations, input);
+        }
+        if (input.kind() != TextureInputBinding.Kind.ATLAS) {
+            return Optional.empty();
+        }
+        // Atlas packing changes the rendering input, not necessarily the retained source.
+        // Follow only explicit model-image links; never choose the first candidate or a name.
+        RawImageId source = null;
+        for (final TextureInputBinding candidate : matched.inputs()) {
+            if (!candidate.isResolved()) {
+                return Optional.empty();
+            }
+            if (candidate.kind() != TextureInputBinding.Kind.MODEL_IMAGE) {
+                continue;
+            }
+            final Optional<RawImageId> raw = rawForModelImageInput(relations, candidate);
+            if (raw.isEmpty() || (source != null && !source.equals(raw.orElseThrow()))) {
+                return Optional.empty();
+            }
+            source = raw.orElseThrow();
+        }
+        return Optional.ofNullable(source);
+    }
+
+    private Optional<RawImageId> rawForModelImageInput(
+        final TextureRelationsSnapshot relations,
+        final TextureInputBinding input
+    ) {
+        if (!input.isResolved() || input.kind() != TextureInputBinding.Kind.MODEL_IMAGE
             || input.modelImageId().isEmpty()) {
             return Optional.empty();
         }
