@@ -51,7 +51,7 @@ class RuntimePsdReplaceServiceTest {
             nativeCalls.incrementAndGet();
             assertEquals(TARGET, target);
             assertTrue(Files.exists(stage));
-            assertEquals("external-edit.psd", sourceFileName);
+            assertEquals("原图 模型.PSD", sourceFileName);
             assertFalse(stage.getFileName().toString().equals(sourceFileName),
                 "the native source name must not expose a revision staging filename");
             return applied();
@@ -407,6 +407,7 @@ class RuntimePsdReplaceServiceTest {
     ) throws IOException {
         final PsdEditRegistry registry = new PsdEditRegistry();
         final PsdTemporaryFile allocation = PsdTemporaryFile.createIn(root);
+        allocation.useSourceName("原图 模型.PSD");
         Files.writeString(allocation.validatedPath(), "runtime PSD replace fixture");
         final PsdStableSnapshot.Snapshot baseline = PsdStableSnapshot.capture(allocation);
         final RuntimePsdEditFile file = new RuntimePsdEditFile(

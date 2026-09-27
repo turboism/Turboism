@@ -78,6 +78,7 @@ class EditorRawImagePsdNativeInvocationTest {
         assertEquals(target.toFile(), EditorRawImagePsdNativeFixture.parseTarget);
         assertEquals(target.toFile(), EditorRawImagePsdNativeFixture.constructedTarget);
         assertEquals("raw-source", EditorRawImagePsdNativeFixture.constructedName);
+        assertEquals("raw-source", result.observation().sourceName());
         assertEquals(0, source.disposeCalls);
         assertEquals(1, EditorRawImagePsdNativeFixture.lastConstructed.disposeCalls);
         assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.first.disposeCalls);

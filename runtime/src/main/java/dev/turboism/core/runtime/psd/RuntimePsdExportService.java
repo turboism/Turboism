@@ -232,6 +232,9 @@ public final class RuntimePsdExportService implements AutoCloseable {
             );
             requireOperational();
             checkPermissions();
+            if (observation != null && observation.readable()) {
+                temporary.useSourceName(observation.sourceName());
+            }
             return issue(
                 source,
                 host,
