@@ -902,5 +902,13 @@
    "forbiddenAccessFlags": 8,
    "status": "VERIFIED_STATIC"
   }
- ]
+ ],
+  "capabilityConditions": {
+    "cubism.core.owned-moc.read": [
+      "structure"
+    ],
+    "cubism.geometry.read": [
+      "structure"
+    ]
+  }
 }
