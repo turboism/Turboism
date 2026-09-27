@@ -129,6 +129,32 @@ class RuntimePsdReplaceServiceTest {
     }
 
     @Test
+    void unassociatedImportReportsSanitizedObservationWithoutClaimingApplication() throws Exception {
+        final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
+        try {
+            for (final var failure : List.of(
+                new PsdReplaceHost.Failure("POST_BINDING_OBSERVATION", "INCOMING_NOT_CURRENT"),
+                new PsdReplaceHost.Failure("/private/path", "native.Type: private-value"))) {
+                final var result = await(fixture.service.replaceRawImagePsd(
+                    (target, stage, name, admission) -> {
+                        admission.run();
+                        return new PsdReplaceHost.Replacement("NATIVE_RETURNED", true, true, false,
+                            false, true, Optional.empty(), "not associated", Optional.of(failure));
+                    }, TARGET, fixture.file, fixture.revision));
+                assertEquals(PsdReplaceResult.Status.PARTIAL_FAILURE, result.status());
+                assertTrue(result.after().isEmpty());
+                assertTrue(result.consumedRevision().isEmpty());
+                final boolean unknown = failure.phase().startsWith("/");
+                assertEquals("PSD_NATIVE_REPLACE;status=POST_REPLACEMENT_TARGET_ABSENT"
+                    + ";pause=automatic-import;phase=" + (unknown ? "UNKNOWN" : "POST_BINDING_OBSERVATION")
+                    + ";category=" + (unknown ? "UNKNOWN" : "INCOMING_NOT_CURRENT"), result.diagnostic());
+            }
+        } finally {
+            fixture.close();
+        }
+    }
+
+    @Test
     void stageFailureDetailsStaySanitizedAndLeaveTheRevisionUsable() throws Exception {
         final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
         try {

@@ -80,6 +80,47 @@ class EditorTextureRelationsAccessTest {
             TextureRelationsSnapshot.unavailable(), affected, incoming));
     }
 
+    @Test
+    void failedReplacementObservationDistinguishesImportFromLayerAssociation() {
+        final TextureRelationsSnapshot snapshot = replacementSnapshot();
+        final RawImageId target = new RawImageId("raw-a");
+        final RawImageId incoming = new RawImageId("raw-b");
+        assertEquals("INCOMING_NOT_CURRENT", EditorTextureAccess.replacementObservationFailure(
+            snapshot, snapshot, target, incoming).category());
+        assertEquals("INCOMING_RAW_ABSENT", EditorTextureAccess.replacementObservationFailure(
+            snapshot, snapshot, target, new RawImageId("absent")).category());
+        final var duplicateRaw = new ArrayList<>(snapshot.rawImages());
+        duplicateRaw.add(snapshot.rawImages().stream().filter(raw -> incoming.equals(raw.id()))
+            .findFirst().orElseThrow());
+        final var duplicateAfter = new TextureRelationsSnapshot(snapshot.availability(), snapshot.binding(),
+            snapshot.generation(), snapshot.revision(), duplicateRaw, snapshot.modelImages(),
+            snapshot.groups(), snapshot.artMeshInputs());
+        assertEquals("INCOMING_RAW_NOT_UNIQUE", EditorTextureAccess.replacementObservationFailure(
+            snapshot, duplicateAfter, target, incoming).category());
+        assertEquals(Optional.empty(), EditorTextureAccess.observedRawImage(
+            duplicateAfter, List.of(new ModelImageId("model-a")), incoming));
+        assertEquals("TARGET_MODEL_IMAGES_ABSENT", EditorTextureAccess.replacementObservationFailure(
+            snapshot, snapshot, new RawImageId("absent"), incoming).category());
+        final ModelImageRelation image = snapshot.modelImage(new ModelImageId("model-a")).orElseThrow();
+        final TextureRelationsSnapshot emptyBefore = withReplacementImages(snapshot, List.of(
+            new ModelImageRelation(image.id(), image.modelImage(), image.linkedRawImageIds(),
+                image.currentRawImageId(), Map.of(), image.usingArtMeshIds())));
+        assertEquals("TARGET_LAYER_INPUTS_EMPTY_BEFORE", EditorTextureAccess.replacementObservationFailure(
+            emptyBefore, snapshot, target, incoming).category());
+        final TextureRelationsSnapshot danglingCurrent = withReplacementImages(snapshot, List.of(
+            new ModelImageRelation(image.id(), image.modelImage(), List.of(),
+                Optional.of(incoming), Map.of(), image.usingArtMeshIds())));
+        assertEquals("INCOMING_LINK_MISSING", EditorTextureAccess.replacementObservationFailure(
+            snapshot, danglingCurrent, target, incoming).category());
+        final TextureRelationsSnapshot emptyAfter = withReplacementImages(snapshot, List.of(
+            new ModelImageRelation(image.id(), image.modelImage(), List.of(incoming),
+                Optional.of(incoming), Map.of(), image.usingArtMeshIds())));
+        assertEquals("INCOMING_LAYER_INPUTS_EMPTY", EditorTextureAccess.replacementObservationFailure(
+            snapshot, emptyAfter, target, incoming).category());
+        assertEquals(Optional.empty(), EditorTextureAccess.observedRawImage(
+            emptyAfter, List.of(image.id()), incoming));
+    }
+
     private static TextureRelationsSnapshot replacementSnapshot() {
         final Fixture fixture = new Fixture();
         return new EditorTextureRelationsAccess(resolver("5.3.02", true),

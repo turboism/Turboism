@@ -422,6 +422,45 @@ final class EditorTextureAccess {
         return observed ? Optional.of(expectedIncoming) : Optional.empty();
     }
 
+    /** Explains a failed observation using existing snapshots only; never changes admission or matching. */
+    static PsdReplaceHost.Failure replacementObservationFailure(
+        final TextureRelationsSnapshot before,
+        final TextureRelationsSnapshot after,
+        final RawImageId target,
+        final RawImageId incoming
+    ) {
+        final long incomingCount = after.rawImages().stream()
+            .filter(raw -> incoming.equals(raw.id())).count();
+        final List<ModelImageId> affected = modelImagesUsing(before, target);
+        String category = "INCOMING_NOT_CURRENT";
+        if (incomingCount == 0L) {
+            category = "INCOMING_RAW_ABSENT";
+        } else if (incomingCount != 1L) {
+            category = "INCOMING_RAW_NOT_UNIQUE";
+        } else if (affected.isEmpty()) {
+            category = "TARGET_MODEL_IMAGES_ABSENT";
+        } else {
+            boolean hasTargetLayerInputs = false;
+            for (final ModelImageId id : affected) {
+                final ModelImageRelation original = before.modelImage(id).orElseThrow();
+                hasTargetLayerInputs |= !original.inputsByRawImage()
+                    .getOrDefault(target, List.of()).isEmpty();
+                final Optional<ModelImageRelation> current = after.modelImage(id);
+                if (current.isEmpty() || current.orElseThrow().currentRawImageId()
+                    .filter(incoming::equals).isEmpty()) continue;
+                final ModelImageRelation image = current.orElseThrow();
+                if (!image.linkedRawImageIds().contains(incoming)) {
+                    return new PsdReplaceHost.Failure("POST_BINDING_OBSERVATION", "INCOMING_LINK_MISSING");
+                }
+                if (image.inputsByRawImage().getOrDefault(incoming, List.of()).isEmpty()) {
+                    return new PsdReplaceHost.Failure("POST_BINDING_OBSERVATION", "INCOMING_LAYER_INPUTS_EMPTY");
+                }
+            }
+            if (!hasTargetLayerInputs) category = "TARGET_LAYER_INPUTS_EMPTY_BEFORE";
+        }
+        return new PsdReplaceHost.Failure("POST_BINDING_OBSERVATION", category);
+    }
+
     private static String message(final Throwable failure) {
         return failure.getMessage() == null ? failure.getClass().getName() : failure.getMessage();
     }
@@ -904,6 +943,8 @@ final class EditorTextureAccess {
                     "The native replacement returned but the relation projection is unavailable."
                 );
             }
+            final Optional<RawImageId> observed =
+                observedRawImage(after, modelImagesUsing(before, target), incomingRaw);
             return new Replacement(
                 "NATIVE_RETURNED",
                 nativeResult.postCurrentGuardPassed(),
@@ -911,9 +952,11 @@ final class EditorTextureAccess {
                 false,
                 false,
                 true,
-                observedRawImage(after, modelImagesUsing(before, target), incomingRaw),
+                observed,
                 "The native replacement returned and current state was re-read; application evidence "
-                    + "requires an observed incoming binding on a previously targeted model image."
+                    + "requires an observed incoming binding on a previously targeted model image.",
+                observed.isPresent() ? Optional.empty()
+                    : Optional.of(replacementObservationFailure(before, after, target, incomingRaw))
             );
         }
 
