@@ -21952,10 +21952,10 @@
     "artifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
     "profileId": "cubism-5.3.03",
     "verificationId": "cubism-5.3.03.editor-model.static",
-    "selectorCount": 849,
+    "selectorCount": 858,
     "capabilityCount": 105,
     "validationNotes": "DRAFT only. Every selector is statically checked against the exact 5.3.03 JAR by kind/owner/name/descriptor/access. Runtime/host behavior is not claimed because no host was started.",
-    "verificationRecordSha256": "20000d6265ce9334c874ef62e30eda1ac41865ab863d838383099a15da7e8015",
+    "verificationRecordSha256": "1a777583425d8b651ce2c0b67de99e38a443594107cadd4e81baf0ca2cefa99e",
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
