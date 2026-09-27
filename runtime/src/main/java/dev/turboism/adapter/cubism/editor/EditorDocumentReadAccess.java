@@ -160,18 +160,16 @@ final class EditorDocumentReadAccess {
                     "Editor auto-Yure configuration is invalid."
                 );
                 final AutoYureConfig projectedConfig = yureConfig(config);
-                bindings.add(new AutoYureBinding() {
-                    @Override public DeformerId deformerId() { return new DeformerId(deformerId); }
-                    @Override public ParameterId parameterId() { return parameterId; }
-                    @Override public AutoYureConfig config() { return projectedConfig; }
-                });
+                bindings.add(new SimpleAutoYureBinding(
+                    new DeformerId(deformerId),
+                    parameterId,
+                    projectedConfig
+                ));
             }
         }
         final List<AutoYureBinding> projectedBindings = List.copyOf(bindings);
         modelGuard.requireCurrent(identity, model);
-        return new AutoYure() {
-            @Override public List<AutoYureBinding> bindings() { return projectedBindings; }
-        };
+        return new SimpleAutoYure(projectedBindings);
     }
 
     List<AnimationDocument> animationDocuments(
@@ -625,4 +623,14 @@ final class EditorDocumentReadAccess {
     private static IllegalStateException unavailable(final String message) {
         return new IllegalStateException(message);
     }
+
+    private record SimpleAutoYureBinding(
+        DeformerId deformerId,
+        ParameterId parameterId,
+        AutoYureConfig config
+    ) implements AutoYureBinding { }
+
+    private record SimpleAutoYure(
+        List<AutoYureBinding> bindings
+    ) implements AutoYure { }
 }

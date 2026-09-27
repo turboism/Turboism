@@ -380,18 +380,12 @@ final class EditorTextureAccess {
                 }
                 final String id = guidValue(
                     resolver.invoke("cubism.editor-model.layered-image.guid", image), "raw image");
-                values.add(new RawTexture() {
-                    @Override public RawImageId id() { return new RawImageId(id); }
-                    @Override public String name() {
-                        return EditorTextureAccess.this.name(image, "cubism.editor-model.layered-image.name", "raw image");
-                    }
-                    @Override public int width() {
-                        return EditorTextureAccess.this.dimension(image, "cubism.editor-model.layered-image.width", "raw image");
-                    }
-                    @Override public int height() {
-                        return EditorTextureAccess.this.dimension(image, "cubism.editor-model.layered-image.height", "raw image");
-                    }
-                });
+                values.add(new SimpleRawTexture(
+                    new RawImageId(id),
+                    name(image, "cubism.editor-model.layered-image.name", "raw image"),
+                    dimension(image, "cubism.editor-model.layered-image.width", "raw image"),
+                    dimension(image, "cubism.editor-model.layered-image.height", "raw image")
+                ));
             }
             return List.copyOf(values);
         }
@@ -416,24 +410,14 @@ final class EditorTextureAccess {
                     }
                     final String id = guidValue(
                         resolver.invoke("cubism.editor-model.model-image.guid", image), "model image");
-                    images.add(new ModelImageEntry() {
-                        @Override public ModelImageId id() { return new ModelImageId(id); }
-                        @Override public String name() {
-                            return EditorTextureAccess.this.name(image, "cubism.editor-model.model-image.name", "model image");
-                        }
-                        @Override public int width() {
-                            return EditorTextureAccess.this.dimension(image, "cubism.editor-model.model-image.width", "model image");
-                        }
-                        @Override public int height() {
-                            return EditorTextureAccess.this.dimension(image, "cubism.editor-model.model-image.height", "model image");
-                        }
-                    });
+                    images.add(new SimpleModelImageEntry(
+                        new ModelImageId(id),
+                        name(image, "cubism.editor-model.model-image.name", "model image"),
+                        dimension(image, "cubism.editor-model.model-image.width", "model image"),
+                        dimension(image, "cubism.editor-model.model-image.height", "model image")
+                    ));
                 }
-                values.add(new ModelImageGroup() {
-                    @Override public String groupName() { return groupName; }
-                    @Override public String memo() { return memo; }
-                    @Override public List<ModelImageEntry> modelImages() { return List.copyOf(images); }
-                });
+                values.add(new SimpleModelImageGroup(groupName, memo, List.copyOf(images)));
             }
             return List.copyOf(values);
         }
@@ -457,14 +441,14 @@ final class EditorTextureAccess {
                 final int atlasVersion = rawVersion instanceof Integer value ? value : 0;
                 final int modelImageCount = list(
                     "cubism.editor-model.texture-atlas.model-images", atlas, "texture atlas images").size();
-                values.add(new AtlasTexture() {
-                    @Override public TextureAtlasId id() { return new TextureAtlasId(id); }
-                    @Override public String name() { return atlasName; }
-                    @Override public int width() { return width; }
-                    @Override public int height() { return height; }
-                    @Override public int atlasVersion() { return atlasVersion; }
-                    @Override public int modelImageCount() { return modelImageCount; }
-                });
+                values.add(new SimpleAtlasTexture(
+                    new TextureAtlasId(id),
+                    atlasName,
+                    width,
+                    height,
+                    atlasVersion,
+                    modelImageCount
+                ));
             }
             return List.copyOf(values);
         }
@@ -582,4 +566,33 @@ final class EditorTextureAccess {
             }
         }
     }
+
+    private record SimpleRawTexture(
+        RawImageId id,
+        String name,
+        int width,
+        int height
+    ) implements RawTexture { }
+
+    private record SimpleModelImageEntry(
+        ModelImageId id,
+        String name,
+        int width,
+        int height
+    ) implements ModelImageEntry { }
+
+    private record SimpleModelImageGroup(
+        String groupName,
+        String memo,
+        List<ModelImageEntry> modelImages
+    ) implements ModelImageGroup { }
+
+    private record SimpleAtlasTexture(
+        TextureAtlasId id,
+        String name,
+        int width,
+        int height,
+        int atlasVersion,
+        int modelImageCount
+    ) implements AtlasTexture { }
 }
