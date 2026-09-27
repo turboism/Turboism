@@ -1020,6 +1020,12 @@ public final class CorePluginContext implements PluginContext {
         if (installed(mcpConnectionService, McpConnectionService.unavailable())) {
             available.add(PluginService.MCP_CONNECTIONS);
         }
+        if (installed(
+            exportSettingsContributionService,
+            ExportSettingsContributionService.unavailable()
+        )) {
+            available.add(PluginService.EXPORT_SETTINGS);
+        }
         available.add(PluginService.PERFORMANCE_STATS);
         return Collections.unmodifiableSet(available);
     }

@@ -1,13 +1,13 @@
 {
   "artifact": {
-    "sha256": "e197c9271af717848fd1dfe37c654c3fa9e06011f214915672f1622fde2392f2",
-    "size": 1093734
+    "sha256": "1576e17a11c483d8f965fbadadf7316c46dfb092614817d49c24413b96262589",
+    "size": 1093797
   },
   "canonicalDump": {
-    "lineCount": 8523,
-    "sha256": "27fedb07ac33097f326441d219ff13cbeca155e04154087b51865c1bd9b3c56b"
+    "lineCount": 8526,
+    "sha256": "02a64ad3092e6e847a9352008ed125ba9c5c4b0adb51142957851ad9a752d838"
   },
-  "commit": "02b22ad001f05b91d974b1600ae42fd19a2dd65d",
+  "commit": "181e9e9756e5dbb5a028c8f7f2c3c4b4ca76647d",
   "format": "turboism.sdk.api-baseline",
   "generatorVersion": 1,
   "role": "exact",
