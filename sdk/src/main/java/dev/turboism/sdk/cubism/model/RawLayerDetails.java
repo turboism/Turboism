@@ -39,6 +39,7 @@ public record RawLayerDetails(
         return id;
     }
 
+    /** Distinguishes a pixel layer from a nested layer group. */
     public enum EntryKind {
         PIXEL,
         GROUP

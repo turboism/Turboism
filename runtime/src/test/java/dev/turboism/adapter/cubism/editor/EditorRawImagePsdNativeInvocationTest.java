@@ -35,7 +35,7 @@ class EditorRawImagePsdNativeInvocationTest {
     }
 
     @Test
-    void savesWithConcreteProgressThenParsesAndReconstructsOnOneHostThread(@TempDir final Path temp)
+    void savesOnHostThreadWithoutParsingOrReconstructingExport(@TempDir final Path temp)
         throws Exception {
         final Path target = temp.resolve("export.psd");
         Files.createFile(target);
@@ -55,7 +55,7 @@ class EditorRawImagePsdNativeInvocationTest {
         );
 
         assertEquals(
-            EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED,
+            EditorRawImagePsdAccess.ExportStatus.SAVED_UNVERIFIED,
             result.status()
         );
         assertEquals(
@@ -69,20 +69,19 @@ class EditorRawImagePsdNativeInvocationTest {
             result.layerCompleteness()
         );
         assertEquals(
-            List.of("progress", "name", "save", "parse", "construct", "dispose", "parsed-dispose", "parsed-dispose"),
+            List.of("progress", "name", "save"),
             EditorRawImagePsdNativeFixture.events()
         );
         assertTrue(EditorRawImagePsdNativeFixture.edtEvents().stream().allMatch(Boolean::booleanValue));
-        assertFalse(EditorRawImagePsdNativeFixture.parseFirstFlag);
-        assertFalse(EditorRawImagePsdNativeFixture.parseSecondFlag);
-        assertEquals(target.toFile(), EditorRawImagePsdNativeFixture.parseTarget);
-        assertEquals(target.toFile(), EditorRawImagePsdNativeFixture.constructedTarget);
-        assertEquals("raw-source", EditorRawImagePsdNativeFixture.constructedName);
+        assertTrue(EditorRawImagePsdNativeFixture.parseFirstFlag);
+        assertTrue(EditorRawImagePsdNativeFixture.parseSecondFlag);
+        assertEquals(null, EditorRawImagePsdNativeFixture.parseTarget);
+        assertEquals(null, EditorRawImagePsdNativeFixture.constructedTarget);
+        assertEquals(null, EditorRawImagePsdNativeFixture.constructedName);
         assertEquals("raw-source", result.observation().sourceName());
         assertEquals(0, source.disposeCalls);
-        assertEquals(1, EditorRawImagePsdNativeFixture.lastConstructed.disposeCalls);
-        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.first.disposeCalls);
-        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.second.disposeCalls);
+        assertEquals(null, EditorRawImagePsdNativeFixture.lastConstructed);
+        assertEquals(null, EditorRawImagePsdNativeFixture.lastParsed);
         assertNotNull(EditorRawImagePsdNativeFixture.lastProgress);
         assertSame(EditorRawImagePsdNativeFixture.DEFAULT_PROGRESS, EditorRawImagePsdNativeFixture.lastProgress);
         assertTrue(Files.isRegularFile(target));
@@ -163,7 +162,7 @@ class EditorRawImagePsdNativeInvocationTest {
     }
 
     @Test
-    void reportsAParserFailureAfterSaveReturned(@TempDir final Path temp) {
+    void exportDoesNotInvokeParserEvenWhenParserWouldFail(@TempDir final Path temp) {
         EditorRawImagePsdNativeFixture.throwOnParse = true;
         final EditorRawImagePsdAccess.ExportResult result = access(
             resolver("5.3.02", true),
@@ -175,14 +174,12 @@ class EditorRawImagePsdNativeInvocationTest {
             temp.resolve("parse-failure.psd")
         );
 
-        assertEquals(EditorRawImagePsdAccess.ExportStatus.PARSE_FAILED, result.status());
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.SAVED_UNVERIFIED, result.status());
         assertTrue(result.saveReturned());
-        assertEquals(EditorRawImagePsdAccess.FailurePhase.PARSE, result.failurePhase());
-        assertEquals("PARSE", result.observation().failure().orElseThrow().phase());
-        assertEquals("ILLEGAL_STATE", result.observation().failure().orElseThrow().category());
-        assertTrue(result.observation().failure().orElseThrow().saveReturned());
+        assertEquals(EditorRawImagePsdAccess.FailurePhase.NONE, result.failurePhase());
+        assertTrue(result.observation().failure().isEmpty());
         assertEquals(
-            List.of("progress", "name", "save", "parse"),
+            List.of("progress", "name", "save"),
             EditorRawImagePsdNativeFixture.events()
         );
     }
@@ -217,51 +214,45 @@ class EditorRawImagePsdNativeInvocationTest {
     }
 
     @Test
-    void reportsTemporaryResourceCleanupFailureWithoutClaimingReadableExport(@TempDir final Path temp) {
+    void exportDoesNotCreateTemporaryHostResourcesToDispose(@TempDir final Path temp) {
         final var source = new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("source");
         EditorRawImagePsdNativeFixture.disposeFailure = () -> {
             throw new IllegalStateException("private disposal failure");
         };
         final var result = access(resolver("5.3.02", true), (identity, model) -> { })
             .exportBoundPsd("session-a", new Object(), source, temp.resolve("cleanup.psd"));
-        assertEquals(EditorRawImagePsdAccess.ExportStatus.NATIVE_FAILURE, result.status());
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.SAVED_UNVERIFIED, result.status());
         assertTrue(result.saveReturned());
-        assertFalse(result.outputReadable());
-        assertEquals("DISPOSE", result.failurePhase().name());
-        assertEquals("DISPOSE", result.observation().failure().orElseThrow().phase());
-        assertEquals("ILLEGAL_STATE", result.observation().failure().orElseThrow().category());
-        assertFalse(result.observation().toString().contains("private disposal failure"));
+        assertTrue(result.outputReadable());
+        assertTrue(result.observation().failure().isEmpty());
         assertEquals(0, source.disposeCalls);
-        assertEquals(1, EditorRawImagePsdNativeFixture.lastConstructed.disposeCalls);
-        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.first.disposeCalls);
-        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.second.disposeCalls);
+        assertEquals(null, EditorRawImagePsdNativeFixture.lastConstructed);
+        assertEquals(null, EditorRawImagePsdNativeFixture.lastParsed);
     }
 
     @Test
-    void cleansOwnedParsedImagesWhenReconstructionFails(@TempDir final Path temp) {
+    void exportDoesNotInvokeReconstructionEvenWhenItWouldFail(@TempDir final Path temp) {
         EditorRawImagePsdNativeFixture.constructFailure = () -> { throw new IllegalStateException("construction failed"); };
         final var result = access(resolver("5.3.02", true), (identity, model) -> { })
             .exportBoundPsd("session-a", new Object(),
                 new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("source"), temp.resolve("construct.psd"));
-        assertEquals(EditorRawImagePsdAccess.ExportStatus.PARSE_FAILED, result.status());
-        assertEquals("CONSTRUCT", result.failurePhase().name());
-        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.first.disposeCalls);
-        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.second.disposeCalls);
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.SAVED_UNVERIFIED, result.status());
+        assertEquals("NONE", result.failurePhase().name());
+        assertEquals(null, EditorRawImagePsdNativeFixture.lastConstructed);
+        assertEquals(null, EditorRawImagePsdNativeFixture.lastParsed);
     }
 
     @Test
-    void attemptsAllOwnedImagesAndRejectsParsedCleanupFailure(@TempDir final Path temp) {
+    void exportDoesNotAllocateParsedImages(@TempDir final Path temp) {
         EditorRawImagePsdNativeFixture.throwOnParsedImageDispose = true;
         final var result = access(resolver("5.3.02", true), (identity, model) -> { })
             .exportBoundPsd("session-a", new Object(),
                 new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("source"), temp.resolve("parsed-cleanup.psd"));
-        assertEquals(EditorRawImagePsdAccess.ExportStatus.NATIVE_FAILURE, result.status());
-        assertEquals("DISPOSE", result.failurePhase().name());
-        assertFalse(result.outputReadable());
-        assertFalse(result.observation().toString().contains("private parsed image"));
-        assertEquals(1, EditorRawImagePsdNativeFixture.lastConstructed.disposeCalls);
-        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.first.disposeCalls);
-        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.second.disposeCalls);
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.SAVED_UNVERIFIED, result.status());
+        assertEquals("NONE", result.failurePhase().name());
+        assertTrue(result.outputReadable());
+        assertEquals(null, EditorRawImagePsdNativeFixture.lastConstructed);
+        assertEquals(null, EditorRawImagePsdNativeFixture.lastParsed);
     }
 
     @Test
@@ -363,7 +354,7 @@ class EditorRawImagePsdNativeInvocationTest {
         assertEquals("document switched during PSD export", failure.getMessage());
         assertEquals(2, guardCalls.get());
         assertEquals(
-            List.of("progress", "name", "save", "parse", "construct", "dispose", "parsed-dispose", "parsed-dispose"),
+            List.of("progress", "name", "save"),
             EditorRawImagePsdNativeFixture.events()
         );
         assertTrue(EditorRawImagePsdNativeFixture.edtEvents().stream().allMatch(Boolean::booleanValue));

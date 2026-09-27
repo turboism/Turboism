@@ -37,6 +37,16 @@ final class EditorRawImagePsdSourceBinding {
      * Must be called inside the caller's one host-thread/current-model boundary.
      */
     BindingResult bindOnHostThread(final Object modelSource, final RawImageId targetId) {
+        return bindOnHostThread(modelSource, targetId, true);
+    }
+
+    /** Production export/replace identity lookup; does not inspect any layer tree. */
+    BindingResult bindIdentityOnHostThread(final Object modelSource, final RawImageId targetId) {
+        return bindOnHostThread(modelSource, targetId, false);
+    }
+
+    private BindingResult bindOnHostThread(final Object modelSource, final RawImageId targetId,
+        final boolean captureIntegrity) {
         if (!EditorHostThread.isCurrent()) {
             throw new IllegalStateException("PSD source binding must run on the Editor host thread");
         }
@@ -75,6 +85,7 @@ final class EditorRawImagePsdSourceBinding {
                         "Editor raw image identifiers are not unique"
                     );
                 }
+                if (!targetId.equals(id)) continue;
                 final Object nameValue = resolver.invoke(
                     "cubism.editor-model.layered-image.name",
                     layeredImage
@@ -105,7 +116,7 @@ final class EditorRawImagePsdSourceBinding {
             }
             final EditorRawImagePsdAccess.RawImageCandidate<Object> candidate = selection.candidate();
             final EditorRawImagePsdIntegrityAccess.Snapshot snapshot =
-                integrityAccess.captureOnHostThread(candidate.nativeSource());
+                captureIntegrity ? integrityAccess.captureOnHostThread(candidate.nativeSource()) : null;
             return new BindingResult(
                 BindingStatus.MATCHED,
                 candidate,
@@ -172,7 +183,7 @@ final class EditorRawImagePsdSourceBinding {
             detail = Objects.requireNonNull(detail, "detail");
             if (status == BindingStatus.MATCHED) {
                 Objects.requireNonNull(candidate, "candidate");
-                Objects.requireNonNull(snapshot, "snapshot");
+                // Identity-only production binding deliberately has no integrity snapshot.
             } else if (candidate != null || snapshot != null) {
                 throw new IllegalArgumentException("non-matched binding must not carry native state");
             }

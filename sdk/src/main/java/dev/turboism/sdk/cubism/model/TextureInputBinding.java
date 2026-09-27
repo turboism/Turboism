@@ -96,12 +96,14 @@ public record TextureInputBinding(
         return resolutionState == ResolutionState.RESOLVED;
     }
 
+    /** Native texture input category; unknown values carry no typed identity. */
     public enum Kind {
         MODEL_IMAGE,
         ATLAS,
         UNKNOWN
     }
 
+    /** Whether this input resolved to a known resource in the observation. */
     public enum ResolutionState {
         RESOLVED,
         UNKNOWN,

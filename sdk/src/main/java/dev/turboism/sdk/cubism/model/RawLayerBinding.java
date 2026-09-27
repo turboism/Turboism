@@ -26,6 +26,7 @@ public record RawLayerBinding(
         return rawLayerId;
     }
 
+    /** Whether the adapter observed the associated transform or clipping detail. */
     public enum DetailAvailability {
         AVAILABLE,
         UNKNOWN,

@@ -87,6 +87,7 @@ public record TextureRelationsSnapshot(
         return modelImages.stream().filter(value -> value.id().equals(id)).findFirst();
     }
 
+    /** Whether the adapter can provide the verified relation graph. */
     public enum Availability {
         AVAILABLE,
         UNAVAILABLE

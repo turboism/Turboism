@@ -48,13 +48,13 @@ class EditorRawImagePsdSourceBindingTest {
             target
         );
 
-        assertEquals(EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED, result.status());
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.SAVED_UNVERIFIED, result.status());
         assertSame(fixture.rawB, SyntheticSourceFixture.lastSavedSource);
         assertNotEquals(fixture.rawA, SyntheticSourceFixture.lastSavedSource);
         assertEquals("shared-source.psd", fixture.rawA.name);
         assertEquals("shared-source.psd", fixture.rawB.name);
-        assertTrue(result.integrityVerification().status()
-            == EditorRawImagePsdIntegrityAccess.VerificationStatus.MATCHED_UNVERIFIED);
+        assertEquals(EditorRawImagePsdIntegrityAccess.VerificationStatus.UNAVAILABLE,
+            result.integrityVerification().status());
     }
 
     @Test
@@ -105,18 +105,18 @@ class EditorRawImagePsdSourceBindingTest {
             temp.resolve("ordinary.psd")
         );
 
-        assertEquals(EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED, result.status());
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.SAVED_UNVERIFIED, result.status());
         assertTrue(result.saveReturned());
         assertTrue(result.outputReadable());
         assertSame(ordinary, SyntheticSourceFixture.lastSavedSource);
         assertEquals(
-            EditorRawImagePsdIntegrityAccess.VerificationStatus.MATCHED_UNVERIFIED,
+            EditorRawImagePsdIntegrityAccess.VerificationStatus.UNAVAILABLE,
             result.integrityVerification().status()
         );
         assertNull(ordinary.psdDoc);
         assertTrue(SyntheticSourceFixture.events().contains("save"));
-        assertTrue(SyntheticSourceFixture.events().contains("parse"));
-        assertTrue(SyntheticSourceFixture.events().contains("construct"));
+        assertFalse(SyntheticSourceFixture.events().contains("parse"));
+        assertFalse(SyntheticSourceFixture.events().contains("construct"));
         assertFalse(
             SyntheticSourceFixture.events().contains("image-psd-doc"),
             "source PSD document must not be required or queried for ordinary raw export"
@@ -133,12 +133,12 @@ class EditorRawImagePsdSourceBindingTest {
             temp.resolve("host-thread.psd")
         );
 
-        assertEquals(EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED, result.status());
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.SAVED_UNVERIFIED, result.status());
         assertTrue(result.saveReturned());
         assertTrue(result.outputReadable());
         assertTrue(SyntheticSourceFixture.events().contains("save"));
-        assertTrue(SyntheticSourceFixture.events().contains("parse"));
-        assertTrue(SyntheticSourceFixture.events().contains("construct"));
+        assertFalse(SyntheticSourceFixture.events().contains("parse"));
+        assertFalse(SyntheticSourceFixture.events().contains("construct"));
         assertTrue(
             SyntheticSourceFixture.hostEvents().stream().allMatch(Boolean::booleanValue),
             "all synthetic native reads and calls must be marshalled to the host thread"
@@ -149,13 +149,7 @@ class EditorRawImagePsdSourceBindingTest {
     void reportsTheVerifiedStructuralCandidateAndWrittenExportObservations(@TempDir final Path temp) {
         final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
 
-        final EditorRawImagePsdAccess.ExportResult result = export(
-            fixture,
-            new RawImageId("raw-a"),
-            temp.resolve("integrity.psd")
-        );
-        final EditorRawImagePsdIntegrityAccess.Verification verification =
-            result.integrityVerification();
+        final var verification = diagnosticVerification(fixture, temp.resolve("integrity.psd"));
 
         assertEquals(
             EditorRawImagePsdIntegrityAccess.VerificationStatus.MATCHED_UNVERIFIED,
@@ -201,19 +195,15 @@ class EditorRawImagePsdSourceBindingTest {
         for (final Map.Entry<SyntheticSourceFixture.ParseMode, String> entry : cases.entrySet()) {
             final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
             SyntheticSourceFixture.parseMode = entry.getKey();
-            final EditorRawImagePsdAccess.ExportResult result = export(
-                fixture,
-                new RawImageId("raw-a"),
-                temp.resolve(entry.getKey().name().toLowerCase() + ".psd")
-            );
-            assertEquals(EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED, result.status());
+            final var verification = diagnosticVerification(fixture,
+                temp.resolve(entry.getKey().name().toLowerCase() + ".psd"));
             assertEquals(
                 EditorRawImagePsdIntegrityAccess.VerificationStatus.MISMATCH,
-                result.integrityVerification().status(),
+                verification.status(),
                 entry.getKey().name()
             );
             assertTrue(
-                result.integrityVerification().detail().contains(entry.getValue()),
+                verification.detail().contains(entry.getValue()),
                 entry.getKey().name()
             );
         }
@@ -223,12 +213,7 @@ class EditorRawImagePsdSourceBindingTest {
     void observesClippingButDoesNotCertifyTheNonSerializedAttribute(@TempDir final Path temp) {
         final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
         SyntheticSourceFixture.parseMode = SyntheticSourceFixture.ParseMode.CHANGE_CLIPPING;
-        final EditorRawImagePsdAccess.ExportResult result = export(
-            fixture,
-            new RawImageId("raw-a"),
-            temp.resolve("clipping.psd")
-        );
-        final EditorRawImagePsdIntegrityAccess.Verification verification = result.integrityVerification();
+        final var verification = diagnosticVerification(fixture, temp.resolve("clipping.psd"));
 
         assertEquals(EditorRawImagePsdIntegrityAccess.VerificationStatus.MATCHED_UNVERIFIED, verification.status());
         assertTrue(verification.clippingObserved(), verification.detail());
@@ -246,8 +231,9 @@ class EditorRawImagePsdSourceBindingTest {
             temp.resolve("no-pixel-read.psd")
         );
 
-        assertEquals(EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED, result.status());
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.SAVED_UNVERIFIED, result.status());
         assertTrue(result.outputReadable());
+        assertFalse(SyntheticSourceFixture.events().contains("image-children"));
         assertFalse(SyntheticSourceFixture.events().contains("image-resource-image"));
         assertFalse(SyntheticSourceFixture.events().contains("writable-image-width"));
         assertFalse(SyntheticSourceFixture.events().contains("writable-image-height"));
@@ -293,15 +279,8 @@ class EditorRawImagePsdSourceBindingTest {
             final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
             SyntheticSourceFixture.parseMode = entry.getKey();
 
-            final EditorRawImagePsdAccess.ExportResult result = export(
-                fixture,
-                new RawImageId("raw-a"),
-                temp.resolve(entry.getKey().name().toLowerCase() + ".psd")
-            );
-            final EditorRawImagePsdIntegrityAccess.Verification verification =
-                result.integrityVerification();
-
-            assertEquals(EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED, result.status());
+            final var verification = diagnosticVerification(fixture,
+                temp.resolve(entry.getKey().name().toLowerCase() + ".psd"));
 
             if (entry.getKey() == SyntheticSourceFixture.ParseMode.CHANGE_LAYER_ID) {
                 assertEquals(
@@ -337,14 +316,15 @@ class EditorRawImagePsdSourceBindingTest {
             temp.resolve("malformed.psd")
         );
 
-        assertEquals(EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED, result.status());
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.SAVED_UNVERIFIED, result.status());
         assertTrue(result.outputReadable());
         assertEquals(
             EditorRawImagePsdIntegrityAccess.VerificationStatus.UNAVAILABLE,
             result.integrityVerification().status()
         );
-        assertTrue(result.integrityVerification().detail().contains("could not be observed"));
-        assertEquals(1L, SyntheticSourceFixture.events().stream().filter("dispose"::equals).count());
+        assertTrue(result.integrityVerification().detail().contains("not re-parsed"));
+        assertFalse(SyntheticSourceFixture.events().contains("parse"));
+        assertEquals(0L, SyntheticSourceFixture.events().stream().filter("dispose"::equals).count());
         assertTrue(SyntheticSourceFixture.hostEvents().stream().allMatch(Boolean::booleanValue));
     }
 
@@ -374,6 +354,26 @@ class EditorRawImagePsdSourceBindingTest {
         assertEquals("stale current model generation", failure.getMessage());
         assertEquals(1, guardCalls.get());
         assertTrue(SyntheticSourceFixture.events().isEmpty());
+    }
+
+    /** Explicit test-only fidelity diagnostic; production export must not perform this work. */
+    private static EditorRawImagePsdIntegrityAccess.Verification diagnosticVerification(
+        final SyntheticSourceFixture fixture, final Path target
+    ) {
+        final var before = capture(fixture.rawA);
+        final var result = export(fixture, new RawImageId("raw-a"), target);
+        assertTrue(result.outputReadable());
+        assertFalse(SyntheticSourceFixture.events().contains("parse"));
+        return EditorHostThread.dispatch("test-only PSD fidelity diagnostic", () -> {
+            try {
+                final var reconstructed = new EditorRawImagePsdAccess(resolver(), (identity, model) -> { })
+                    .parseStageOnHostThread(target, fixture.rawA.name);
+                final var integrity = new EditorRawImagePsdIntegrityAccess(resolver());
+                return integrity.verify(before, integrity.captureOnHostThread(reconstructed));
+            } catch (IOException failure) {
+                throw new AssertionError(failure);
+            }
+        });
     }
 
     private static EditorRawImagePsdAccess.ExportResult export(
@@ -755,18 +755,6 @@ class EditorRawImagePsdSourceBindingTest {
                 "(" + reference(SyntheticSourceFixture.PsdDocument.class)
                     + "Ljava/io/File;Ljava/lang/String;)V",
                 StaticSelector.ACCESS_PUBLIC
-            )
-        );
-        selectors.put(EditorRawImagePsdSelectorContract.PSD_DOCUMENT_LAYERS_OWNED_ALIAS,
-            instanceMethod(EditorRawImagePsdSelectorContract.PSD_DOCUMENT_LAYERS_OWNED_ALIAS,
-                SyntheticSourceFixture.PsdDocument.class, "h", "()[Ljava/lang/Object;"));
-        selectors.put(
-            EditorRawImagePsdSelectorContract.LAYERED_IMAGE_DISPOSE_OWNED_ALIAS,
-            instanceMethod(
-                EditorRawImagePsdSelectorContract.LAYERED_IMAGE_DISPOSE_OWNED_ALIAS,
-                SyntheticSourceFixture.LayeredImage.class,
-                "dispose",
-                "()V"
             )
         );
         selectors.put(

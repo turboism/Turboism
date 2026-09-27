@@ -47,6 +47,7 @@ public record RawImageDetails(
         return replaced;
     }
 
+    /** Source format identified by a verified host document, not by its filename. */
     public enum SourceKind {
         PSD,
         UNKNOWN
