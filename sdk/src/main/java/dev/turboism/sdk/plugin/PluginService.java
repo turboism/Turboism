@@ -146,5 +146,8 @@ public enum PluginService {
     VIEW_CONTEXT_MENU,
 
     /** {@link PluginContext#uiResources()} */
-    UI_RESOURCES
+    UI_RESOURCES,
+
+    /** {@link PluginContext#exportSettings()} */
+    EXPORT_SETTINGS
 }
