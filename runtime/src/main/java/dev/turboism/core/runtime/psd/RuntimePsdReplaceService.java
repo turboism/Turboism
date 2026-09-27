@@ -256,7 +256,7 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
             return partialFailure(target, "POST_REPLACEMENT_STATE_UNOBSERVED");
         }
         if (replacement.afterRawImageId().isEmpty()) {
-            return partialFailure(target, "POST_REPLACEMENT_TARGET_ABSENT");
+            return partialFailure(target, "POST_REPLACEMENT_TARGET_ABSENT", replacement.failure());
         }
         try {
             registry.retireRevision(bindingOf(handle), handle, token);
@@ -352,9 +352,16 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
     }
 
     private static PsdReplaceResult partialFailure(final RawImageId target, final String status) {
+        return partialFailure(target, status, Optional.empty());
+    }
+
+    private static PsdReplaceResult partialFailure(final RawImageId target, final String status,
+        final Optional<PsdReplaceHost.Failure> failure) {
+        final String detail = failure.map(value -> ";phase=" + safeToken(value.phase())
+            + ";category=" + safeToken(value.category())).orElse("");
         return new PsdReplaceResult(
             PsdReplaceResult.Status.PARTIAL_FAILURE,
-            "PSD_NATIVE_REPLACE;status=" + safeToken(status) + ";pause=automatic-import",
+            "PSD_NATIVE_REPLACE;status=" + safeToken(status) + ";pause=automatic-import" + detail,
             target,
             Optional.empty(),
             Optional.empty(),
