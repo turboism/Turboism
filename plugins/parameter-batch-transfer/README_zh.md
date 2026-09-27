@@ -31,7 +31,7 @@ interface: swing
 
 ## 功能概述
 
-- 向变形器、部件和工作区对象上下文菜单添加批量传输条目。
+- 向变形器和部件上下文菜单添加批量传输条目。
 - 从一个选定的 ArtMesh、Warp Deformer 或 Rotation Deformer 构建模态目标选择会话。
 - 应用经确认的传输，可选择反转，并报告每项结果。
 
@@ -69,7 +69,7 @@ interface: swing
 | `turboism.cubism.model.read` | `application` | 为传输会话读取选定对象的参数绑定和模型参数列表。 |
 | `turboism.cubism.model.write` | `application` | 通过类型化 Editor 创作 API 应用经确认的参数绑定传输。 |
 | `turboism.action.register` | `application` | 注册位于上下文菜单条目之后的批量传输打开操作。 |
-| `turboism.ui.context-menu.contribute` | `application` | 在变形器标签、部件标签和工作区对象上下文菜单中公开批量传输条目。 |
+| `turboism.ui.context-menu.contribute` | `application` | 在变形器标签和部件标签上下文菜单中公开批量传输条目。 |
 | `turboism.ui.status.notify` | `application` | 通知传输结果和前置条件跳过。 |
 
 ## 隐私与数据
@@ -99,7 +99,7 @@ interface: swing
 
 | 症状 | 检查事项 |
 |---|---|
-| 缺少上下文命令 | 在变形器、部件或工作区对象上下文中选择一个受支持对象。 |
+| 缺少上下文命令 | 在变形器或部件上下文中选择一个受支持对象。 |
 | 对话框没有源绑定 | 选择一个具有现有参数绑定的对象。 |
 | 某项传输被跳过 | 检查目标有效性、选择状态，以及状态通知中被拒绝行的内容。 |
 

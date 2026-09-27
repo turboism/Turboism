@@ -48,7 +48,7 @@ This official plugin is a **store candidate**, not yet a published store listing
 
 ## How to use
 
-1. Open **Turboism → Theme Manager** or the contributed workspace context-menu command.
+1. Open **Turboism → Theme Manager**.
 2. Choose a built-in theme, create or edit a user theme, or import a validated theme ZIP.
 3. Apply the selection; use the native theme option to restore Cubism's original appearance. Export or delete user packages from the manager when needed.
 
@@ -64,7 +64,6 @@ No capabilities are declared in the plugin manifest.
 | `turboism.ui.menu.contribute` | `application` | Adds theme management commands under the Turboism top-level menu. |
 | `turboism.config.plugin.read` | `application` | Reads the selected theme package from plugin-owned typed configuration. |
 | `turboism.config.plugin.write` | `application` | Persists the selected theme package after a successful host appearance apply. |
-| `turboism.ui.context-menu.contribute` | `application` | Adds theme management context-menu items. |
 | `turboism.cubism.project.read` | `application` | Reads the SDK theme status snapshot through the project-scoped Cubism read capability. |
 | `turboism.ui.dialog.contribute` | `application` | Shows the unified theme selection window and bounded package workflow dialogs. |
 | `turboism.ui.file-chooser.request` | `application` | Requests opaque ZIP theme package handles for import and export. |

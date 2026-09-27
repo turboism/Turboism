@@ -39,7 +39,7 @@
     {
       "id": "turboism.ui.context-menu.contribute",
       "scope": "application",
-      "reason": "Expose the batch-transfer entry in Deformer tab, Part tab, and workspace object context menus."
+      "reason": "Expose the batch-transfer entry in Deformer tab and Part tab context menus."
     },
     {
       "id": "turboism.ui.status.notify",

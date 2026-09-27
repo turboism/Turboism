@@ -175,6 +175,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   handle enrolled mid-pass stays enrolled instead of being half-closed.
 - The agent reads the hook manifest on the boot class path, so a manifest packaged inside the
   agent JAR resolves regardless of the process working directory.
+- The canvas (workspace object) context menu no longer receives plugin contributions: the UI Theme
+  plugin's Theme Manager entry and the Parameter and Parameter Batch Transfer plugins' workspace
+  entries are removed, while their palette-tab context-menu and top-menu entries are unchanged.
 
 ## [0.44.0] - 2026-09-11
 

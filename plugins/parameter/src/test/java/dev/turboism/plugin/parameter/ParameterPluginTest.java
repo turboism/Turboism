@@ -100,8 +100,7 @@ class ParameterPluginTest {
             Set.of(
                 "parameter.bindings.transfer.parameter",
                 "parameter.bindings.transfer.deformer",
-                "parameter.bindings.transfer.part",
-                "parameter.bindings.transfer.workspace"
+                "parameter.bindings.transfer.part"
             ),
             Set.copyOf(context.contextMenu().contributions().stream()
                 .map(ContextMenuRegistry.ContextMenuContribution::id)
