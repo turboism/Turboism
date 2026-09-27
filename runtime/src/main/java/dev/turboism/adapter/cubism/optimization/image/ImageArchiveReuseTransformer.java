@@ -56,16 +56,7 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
                     if (target < 0) return null;
                     if ((access & (Opcodes.ACC_SYNCHRONIZED | Opcodes.ACC_STATIC)) != Opcodes.ACC_SYNCHRONIZED) return null;
                     counts[target]++;
-                    return new MethodVisitor(Opcodes.ASM9) {
-                        @Override public void visitFieldInsn(int opcode,String owner,String field,String descriptor) {
-                            if (target == 0 && opcode == Opcodes.PUTFIELD && owner.equals(RESOURCE)
-                                && field.equals("image") && descriptor.equals("L"+IMAGE+";")) counts[2]++;
-                        }
-                        @Override public void visitMethodInsn(int opcode,String owner,String method,String descriptor,boolean itf) {
-                            if (target == 1 && isEncoder(opcode,owner,method,descriptor)) counts[3]++;
-                        }
-                        @Override public void visitMaxs(int stack,int localCount) { locals[target] = localCount; }
-                    };
+                    return new CountingMethodVisitor(target, counts, locals);
                 }
             }, ClassReader.SKIP_FRAMES);
             for (int count : counts) if (count != 1) {
@@ -110,6 +101,35 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
     private static String sha256(byte[] bytes) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)); }
         catch (NoSuchAlgorithmException failure) { throw new IllegalStateException(failure); }
+    }
+
+    private static final class CountingMethodVisitor extends MethodVisitor {
+        private final int target;
+        private final int[] counts;
+        private final int[] locals;
+
+        CountingMethodVisitor(final int target, final int[] counts, final int[] locals) {
+            super(Opcodes.ASM9);
+            this.target = target;
+            this.counts = counts;
+            this.locals = locals;
+        }
+
+        @Override
+        public void visitFieldInsn(final int opcode, final String owner, final String field, final String descriptor) {
+            if (target == 0 && opcode == Opcodes.PUTFIELD && owner.equals(RESOURCE)
+                && field.equals("image") && descriptor.equals("L" + IMAGE + ";")) counts[2]++;
+        }
+
+        @Override
+        public void visitMethodInsn(final int opcode, final String owner, final String method, final String descriptor, final boolean itf) {
+            if (target == 1 && isEncoder(opcode, owner, method, descriptor)) counts[3]++;
+        }
+
+        @Override
+        public void visitMaxs(final int stack, final int localCount) {
+            locals[target] = localCount;
+        }
     }
 
     private static final class Augmentation extends MethodVisitor {
