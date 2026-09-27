@@ -1,9 +1,11 @@
 package dev.turboism.ui.host;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.SwingUtilities;
+import java.awt.GraphicsEnvironment;
 import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
 import java.util.concurrent.Callable;
@@ -204,6 +206,8 @@ class EdtDispatchTest {
 
     @Test
     void postStartInterruptWithCompensationReleasesTheCaller() throws Exception {
+        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(),
+            "modal dialog handoff requires a visible AWT display");
         // A real modal Dialog blocks the EDT in a nested event pump that still dispatches
         // invokeLater work — the faithful stand-in for RuntimeChoiceDialogs.show(). A raw
         // latch wait would block the pump too and is the documented unrecoverable case.
