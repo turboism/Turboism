@@ -16778,7 +16778,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.dispatch-registry",
+      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.l_d",
       "kind": "field",
       "owner": "edit-api-bridge",
       "name": "cubism.integration.websocket.dispatch.registry",
@@ -16799,7 +16799,7 @@
       "descriptor": "Ljava/util/ArrayList;",
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.registry",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.dispatch-registry",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.l_d",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
@@ -17067,7 +17067,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.dispatch-holder-instance",
+      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.x_a",
       "kind": "field",
       "owner": "edit-api-bridge",
       "name": "cubism.integration.websocket.dispatch.holder-instance",
@@ -17088,7 +17088,7 @@
       "descriptor": "Lcom/live2d/cubism/doc/webSocket/x;",
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.holder-instance",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.dispatch-holder-instance",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.x_a",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
@@ -17146,7 +17146,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.dialog-remote-checkbox",
+      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.y_p",
       "kind": "field",
       "owner": "edit-toggle",
       "name": "cubism.integration.external-app-settings.dialog.remote-checkbox",
@@ -17167,7 +17167,7 @@
       "descriptor": "Lcom/live2d/ui/control/CCheckBox;",
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.dialog.remote-checkbox",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.dialog-remote-checkbox",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.y_p",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
@@ -17254,7 +17254,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.config-instance",
+      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.UUConfig_a",
       "kind": "field",
       "owner": "edit-toggle",
       "name": "cubism.integration.external-app-settings.config.instance",
@@ -17275,7 +17275,7 @@
       "descriptor": "Lcom/live2d/util/UUConfig;",
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.config.instance",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.config-instance",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.UUConfig_a",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
@@ -17332,6 +17332,249 @@
         "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.method.UUConfig_b",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 051 native-edit-toggle record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.inherits.GroupUndo_extends_ACUndoable",
+      "kind": "inherits",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.inherits.GroupUndo.extends.ACUndoable",
+      "runtime": "com/live2d/undo/ACUndoable",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/GroupUndo",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.inherits.GroupUndo.extends.ACUndoable",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.inherits.GroupUndo_extends_ACUndoable",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile superName/interface verification; generic-compatibility type-relation contract"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.inherits.GroupUndo_implements_ICTreeAccessible",
+      "kind": "inherits",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.inherits.GroupUndo.implements.ICTreeAccessible",
+      "runtime": "com/live2d/inspector/inspectorTree/ICTreeAccessible",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/GroupUndo",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.inherits.GroupUndo.implements.ICTreeAccessible",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.inherits.GroupUndo_implements_ICTreeAccessible",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile superName/interface verification; generic-compatibility type-relation contract"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.inherits.ACUndoable_implements_ICTreeAccessible",
+      "kind": "inherits",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.inherits.ACUndoable.implements.ICTreeAccessible",
+      "runtime": "com/live2d/inspector/inspectorTree/ICTreeAccessible",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/ACUndoable",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.inherits.ACUndoable.implements.ICTreeAccessible",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.inherits.ACUndoable_implements_ICTreeAccessible",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile superName/interface verification; generic-compatibility type-relation contract"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.inherits.CUndoManager_implements_ICTreeAccessible",
+      "kind": "inherits",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.inherits.CUndoManager.implements.ICTreeAccessible",
+      "runtime": "com/live2d/inspector/inspectorTree/ICTreeAccessible",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/CUndoManager",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.inherits.CUndoManager.implements.ICTreeAccessible",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.inherits.CUndoManager_implements_ICTreeAccessible",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile superName/interface verification; generic-compatibility type-relation contract"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.inherits.CArtMesh_extends_ACDrawable",
+      "kind": "inherits",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.inherits.CArtMesh.extends.ACDrawable",
+      "runtime": "com/live2d/cubism/doc/model/drawable/ACDrawable",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.inherits.CArtMesh.extends.ACDrawable",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.inherits.CArtMesh_extends_ACDrawable",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile superName/interface verification; generic-compatibility type-relation contract"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.inherits.CArtMesh_implements_ICTreeAccessible",
+      "kind": "inherits",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.inherits.CArtMesh.implements.ICTreeAccessible",
+      "runtime": "com/live2d/inspector/inspectorTree/ICTreeAccessible",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.inherits.CArtMesh.implements.ICTreeAccessible",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.inherits.CArtMesh_implements_ICTreeAccessible",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile superName/interface verification; generic-compatibility type-relation contract"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.inherits.SimpleUndo_extends_ACUndoable",
+      "kind": "inherits",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.inherits.SimpleUndo.extends.ACUndoable",
+      "runtime": "com/live2d/undo/ACUndoable",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/SimpleUndo",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.inherits.SimpleUndo.extends.ACUndoable",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.inherits.SimpleUndo_extends_ACUndoable",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile superName/interface verification; generic-compatibility type-relation contract"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.inherits.ListUndo_extends_ACUndoable",
+      "kind": "inherits",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.inherits.ListUndo.extends.ACUndoable",
+      "runtime": "com/live2d/undo/ACUndoable",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/ListUndo",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.inherits.ListUndo.extends.ACUndoable",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.inherits.ListUndo_extends_ACUndoable",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile superName/interface verification; generic-compatibility type-relation contract"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.inherits.PropertyUndo_extends_ACUndoable",
+      "kind": "inherits",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.inherits.PropertyUndo.extends.ACUndoable",
+      "runtime": "com/live2d/undo/ACUndoable",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/PropertyUndo",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.inherits.PropertyUndo.extends.ACUndoable",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.inherits.PropertyUndo_extends_ACUndoable",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     }
   ],
