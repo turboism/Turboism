@@ -108,26 +108,7 @@ public final class WarpAltRouteDiagnosticsTransformer implements ClassFileTransf
                         }
                         final boolean passStageAndEvent = !target.stage().equals("POINT_MOVE");
                         final MethodVisitor previous = delegate;
-                        delegate = new MethodVisitor(Opcodes.ASM9, previous) {
-                            @Override
-                            public void visitCode() {
-                                super.visitCode();
-                                visitLdcInsn(target.stage());
-                                visitVarInsn(Opcodes.ALOAD, 0);
-                                if (passStageAndEvent) {
-                                    visitVarInsn(Opcodes.ALOAD, 1);
-                                }
-                                visitMethodInsn(
-                                    Opcodes.INVOKESTATIC,
-                                    BRIDGE,
-                                    passStageAndEvent ? "diagRoute" : "diagPointMove",
-                                    passStageAndEvent
-                                        ? "(Ljava/lang/Object;Ljava/lang/Object;)V"
-                                        : "(Ljava/lang/Object;)V",
-                                    false
-                                );
-                            }
-                        };
+                        delegate = new RouteDiagnosticsMethodVisitor(previous, target, passStageAndEvent);
                         admittedOwner.compareAndSet(null, className);
                     }
                     return delegate;
@@ -137,6 +118,41 @@ public final class WarpAltRouteDiagnosticsTransformer implements ClassFileTransf
         } catch (Throwable failure) {
             failure.printStackTrace();
             return null;
+        }
+    }
+
+    private static final class RouteDiagnosticsMethodVisitor extends MethodVisitor {
+
+        private final RouteTarget target;
+        private final boolean passStageAndEvent;
+
+        RouteDiagnosticsMethodVisitor(
+            final MethodVisitor delegate,
+            final RouteTarget target,
+            final boolean passStageAndEvent
+        ) {
+            super(Opcodes.ASM9, delegate);
+            this.target = target;
+            this.passStageAndEvent = passStageAndEvent;
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            visitLdcInsn(target.stage());
+            visitVarInsn(Opcodes.ALOAD, 0);
+            if (passStageAndEvent) {
+                visitVarInsn(Opcodes.ALOAD, 1);
+            }
+            visitMethodInsn(
+                Opcodes.INVOKESTATIC,
+                BRIDGE,
+                passStageAndEvent ? "diagRoute" : "diagPointMove",
+                passStageAndEvent
+                    ? "(Ljava/lang/Object;Ljava/lang/Object;)V"
+                    : "(Ljava/lang/Object;)V",
+                false
+            );
         }
     }
 
