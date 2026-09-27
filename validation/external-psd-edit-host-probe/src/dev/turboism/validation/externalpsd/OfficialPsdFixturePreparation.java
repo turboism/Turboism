@@ -17,7 +17,7 @@ import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
+import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.ui.UserFileHandle;
 import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;

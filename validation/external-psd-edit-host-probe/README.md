@@ -1,7 +1,7 @@
 # External PSD Edit Host Probe (025, test-only)
 
 Drives the external PSD edit pipeline on the exact Cubism 5.3.02 host through the public
-SDK only. Four phases, selected by `-Dturboism.validation.externalpsd.phase=`. The
+SDK only. Phases are selected by `-Dturboism.validation.externalpsd.phase=`. The
 fixture-specific decoder is used only as validation evidence: persistence/reopen and GUI
 checks decode target RGB, while no production pixel API is involved.
 
@@ -59,6 +59,27 @@ ten ordered timing observations cannot be reported as complete evidence. This sl
 evidence only: `performance.gate=EVIDENCE_ONLY` and `performance.sc006=NOT_CLAIMED`; it does not
 declare SC-006 PASS or lower its thresholds. The standalone `test.sh` remains offline and does
 not start a host or enqueue a job.
+
+## export-profile (diagnostic only)
+
+Use `EXTERNAL_PSD_PHASE=export-profile` with a task-isolated copy of `heavy.cmo3`
+(or another explicitly admitted fixture). This phase selects one unambiguous PSD source
+through scoped ArtMesh queries, then performs three native SDK exports and stops each
+issued handle. It does not open an external editor, subscribe to saves, modify PSDs,
+import replacements, or mutate the model. Target discovery is outside export timing.
+
+The probe records one-second Java heap/nonheap samples and EDT heartbeat observations,
+bounded thread dumps, and live class histograms before export and after each stopped
+handle. Histogram collection requests GC **outside** the timed export interval; an
+unavailable histogram is reported explicitly. RSS/native allocation data is not collected.
+Artifacts are `export-profile.tsv`, `export-profile-stack-*.txt`, and
+`export-profile-*-live.txt` under the task probe state directory.
+
+This is diagnostic evidence only (`acceptance=NOT_CLAIMED`), not F1 pipeline performance
+acceptance and not proof that editor/watch/import paths are leak-free. The existing F1
+performance admission and thresholds remain unchanged. Offline tests can select an exact
+built SDK with `EXTERNAL_PSD_SDK_JAR=/absolute/path/to/sdk.jar` when multiple build versions
+exist; without this override, ambiguous SDK candidates still fail closed.
 
 ## prepare-fixture
 
