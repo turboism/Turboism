@@ -111,11 +111,20 @@ final class ExternalPsdEditSessionManager {
         final CubismModel model;
         final TextureRelationsSnapshot relations;
         final ModelId modelId;
+        String preparationStage = "active-model";
         try {
             model = context.cubism().model().active();
-            relations = model.textures().relations();
+            preparationStage = "model-textures";
+            final ModelTextures textures = model.textures();
+            preparationStage = "texture-relations";
+            relations = textures.relations();
+            preparationStage = "model-id";
             modelId = model.id();
         } catch (RuntimeException unavailable) {
+            // Version/capability gates, permissions and stale bindings can all reject here.
+            // Keep the original cause: the localized status alone cannot distinguish them.
+            context.logger().error(
+                "External PSD model preparation failed; stage=" + preparationStage, unavailable);
             notifyStatus("external-psd-edit.error.model-unavailable", "ERROR",
                 text("external-psd-edit.error.model-unavailable"));
             return;

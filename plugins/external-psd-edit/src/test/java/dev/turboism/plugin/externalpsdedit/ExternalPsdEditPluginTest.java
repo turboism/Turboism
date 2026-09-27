@@ -160,6 +160,44 @@ class ExternalPsdEditPluginTest {
     }
 
     @Test
+    void modelPreparationFailureLogsItsStageAndOriginalCauseWithoutExporting() {
+        for (String stage : List.of("active-model", "model-textures", "texture-relations", "model-id")) {
+            final TestPluginLogger logger = new TestPluginLogger();
+            final RecordingPluginContext context = new RecordingPluginContext(logger);
+            final RuntimeException failure = new IllegalStateException(
+                "rejected at " + stage, new UnsupportedOperationException("host contract rejected"));
+            context.cubism().relations(relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A))));
+            switch (stage) {
+                case "active-model" -> context.cubism().activeFailure = failure;
+                case "model-textures" -> context.cubism().texturesFailure = failure;
+                case "texture-relations" -> context.cubism().textures().onNextRelationsRead(() -> {
+                    throw failure;
+                });
+                case "model-id" -> context.cubism().identityFailure = failure;
+                default -> throw new AssertionError(stage);
+            }
+            final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+            plugin.init(context);
+            plugin.enable();
+            try {
+                context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+                    BINDING, ContextMenuRegistry.Location.PART_TAB,
+                    item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+                ));
+                assertTrue(context.uiHost().notifications().stream()
+                    .anyMatch(n -> n.id().equals("external-psd-edit.error.model-unavailable")), stage);
+                assertTrue(context.cubism().textures().calls().isEmpty(), stage);
+                assertEquals(0, plugin.liveSessions(), stage);
+                assertEquals(List.of(failure), logger.failures, stage);
+                assertTrue(logger.messages().stream().anyMatch(message ->
+                    message.contains("External PSD model preparation failed; stage=" + stage)), stage);
+            } finally {
+                plugin.disable();
+            }
+        }
+    }
+
+    @Test
     void sharedModelImageDedupesToOneSessionPerRawImage() {
         final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
         context.cubism().relations(relations(BINDING, List.of(
@@ -1854,6 +1892,9 @@ class ExternalPsdEditPluginTest {
 
     private static final class FixedCubismFacade implements CubismFacade {
         private final RecordingModelTextures textures = new RecordingModelTextures();
+        private RuntimeException activeFailure;
+        private RuntimeException texturesFailure;
+        private RuntimeException identityFailure;
 
         RecordingModelTextures textures() { return textures; }
         void relations(final TextureRelationsSnapshot snapshot) { textures.relations = snapshot; }
@@ -1864,9 +1905,16 @@ class ExternalPsdEditPluginTest {
         @Override public Optional<ModelSnapshot> activeModel() { return Optional.empty(); }
         @Override public boolean isHostPresent() { return true; }
         @Override public dev.turboism.sdk.cubism.model.CubismModelAccess model() {
+            if (activeFailure != null) { throw activeFailure; }
             return () -> new CubismModel() {
-                @Override public ModelId id() { return new ModelId("model-1"); }
-                @Override public ModelTextures textures() { return textures; }
+                @Override public ModelId id() {
+                    if (identityFailure != null) { throw identityFailure; }
+                    return new ModelId("model-1");
+                }
+                @Override public ModelTextures textures() {
+                    if (texturesFailure != null) { throw texturesFailure; }
+                    return textures;
+                }
                 @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
                     throw unsupported();
                 }
@@ -2163,11 +2211,13 @@ class ExternalPsdEditPluginTest {
 
     private static final class TestPluginLogger implements PluginLogger {
         private final List<String> messages = new ArrayList<>();
+        private final List<Throwable> failures = new ArrayList<>();
         @Override public void debug(final String message) { messages.add("DEBUG: " + message); }
         @Override public void info(final String message) { messages.add("INFO: " + message); }
         @Override public void warn(final String message) { messages.add("WARN: " + message); }
         @Override public void error(final String message) { messages.add("ERROR: " + message); }
         @Override public void error(final String message, final Throwable throwable) {
+            failures.add(throwable);
             messages.add("ERROR: " + message + ": " + throwable.getMessage());
         }
         List<String> messages() { return List.copyOf(messages); }
