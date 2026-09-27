@@ -33,6 +33,7 @@ Right-click ArtMeshes to edit their complete raw PSD in the operating system's d
 
 - Adds an "Edit Externally (PSD)" entry to ArtMesh-capable context menus (Parts, Deformer, and workspace object views).
 - Resolves each selected ArtMesh to its current raw image through the typed texture-relation graph and opens one editing session per distinct raw image; duplicated selections and already-open raw images are deduplicated.
+- When an ArtMesh currently renders from a texture atlas, follows its retained model-image inputs only if all resolve to one current raw image. Missing, unknown, or ambiguous sources are rejected; the rendering input is never switched. This path still requires Windows host validation.
 - Exports the complete raw PSD through Cubism's native layered-image export into a runtime-owned temporary file, then launches the operating system's default PSD application.
 - Watches the temporary file and applies Cubism's native explicit-target raw-image replacement for every stable save.
 - While a session is live, performs a bounded read-only relation refresh so Undo/Redo raw-image
