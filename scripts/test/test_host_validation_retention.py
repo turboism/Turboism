@@ -117,6 +117,22 @@ class RetentionTest(unittest.TestCase):
         report = report or self.plan()
         return gc.apply(report, report["planDigest"], self.root, now=self.now, busy=lambda: [])
 
+    def retarget_durable_task(self, job, directory, task):
+        final = gc.read_json(directory / "outcome.json")
+        final["details"]["taskDir"] = str(task)
+        q.atomic_json(directory / "outcome.json", final)
+        q.atomic_json(directory / "evidence/lifecycle-result.json", final)
+        info = task.stat()
+        with self.store.transaction() as db:
+            record = db.execute("SELECT metadata FROM retention_objects WHERE kind='job' AND object_id=?",
+                                (job["job_id"],)).fetchone()
+            metadata = json.loads(record["metadata"])
+            metadata.update(taskDir=str(task), taskIdentity=[info.st_dev, info.st_ino])
+            db.execute("UPDATE retention_objects SET metadata=? WHERE kind='job' AND object_id=?",
+                       (q.canonical_json(metadata), job["job_id"]))
+            db.execute("UPDATE jobs SET evidence_json=? WHERE job_id=?",
+                       (q.canonical_json(final), job["job_id"]))
+
     def test_default_report_does_not_delete_or_change_queue(self):
         job, task, _ = self.finish()
         before = q.tree_inventory(self.root)
@@ -202,6 +218,76 @@ class RetentionTest(unittest.TestCase):
         shutil.rmtree(self.root / "prepared" / kept)
         report = self.plan()
         self.assertTrue(any("cannot establish all protected input paths" in reason for reason in report["blocked"]))
+
+    def test_missing_terminal_prepared_does_not_block_unrelated_candidate(self):
+        candidate, _, _ = self.finish()
+        missing_prepared = self.make_prepared(marker=True)
+        missing, _, _ = self.finish(prepared=missing_prepared)
+        shutil.rmtree(self.root / "prepared" / missing_prepared)
+
+        report = self.plan()
+
+        self.assertEqual([], report["blocked"])
+        self.assertIn(candidate["job_id"], {item["id"] for item in report["candidates"]})
+        retained = {item["id"]: item.get("reason", "") for item in report["retained"] if item["kind"] == "job"}
+        self.assertIn(missing["job_id"], retained)
+        self.assertIn("prepared descriptor missing", retained[missing["job_id"]])
+
+    def test_missing_descriptor_task_path_still_rejects_same_or_nested_overlap(self):
+        for options, nested in (({"marker": True}, False), ({"result_file": "logs/result.log"}, True)):
+            with self.subTest(nested=nested):
+                candidate, candidate_task, _ = self.finish()
+                missing_prepared = self.make_prepared(**options)
+                missing, _, directory = self.finish(prepared=missing_prepared)
+                shutil.rmtree(self.root / "prepared" / missing_prepared)
+                target = candidate_task
+                if nested:
+                    target = candidate_task / "nested-task"
+                    target.mkdir()
+                self.retarget_durable_task(missing, directory, target)
+
+                report = self.plan()
+
+                self.assertNotIn(candidate["job_id"], {item["id"] for item in report["candidates"]})
+                retained = {item["id"]: item.get("reason", "") for item in report["retained"] if item["kind"] == "job"}
+                self.assertIn(candidate["job_id"], retained)
+                self.assertIn("task overlaps another run", retained[candidate["job_id"]])
+
+    def test_missing_descriptor_with_conflicting_durable_task_binding_is_retained(self):
+        candidate, _, _ = self.finish()
+        missing_prepared = self.make_prepared(marker=True)
+        missing, _, directory = self.finish(prepared=missing_prepared)
+        shutil.rmtree(self.root / "prepared" / missing_prepared)
+        final = gc.read_json(directory / "outcome.json")
+        final["details"]["taskDir"] = str(self.base / "unbound-task")
+        q.atomic_json(directory / "outcome.json", final)
+        q.atomic_json(directory / "evidence/lifecycle-result.json", final)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET evidence_json=? WHERE job_id=?",
+                       (q.canonical_json(final), missing["job_id"]))
+
+        report = self.plan()
+
+        self.assertNotIn(candidate["job_id"], {item["id"] for item in report["candidates"]})
+        retained = {item["id"]: item.get("reason", "") for item in report["retained"] if item["kind"] == "job"}
+        self.assertIn(missing["job_id"], retained)
+        self.assertIn("durable task directory binding conflicts", retained[candidate["job_id"]])
+
+    def test_missing_descriptor_for_nonterminal_or_abandoned_job_stays_protected(self):
+        for state in ("running", "mystery", "abandoned"):
+            with self.subTest(state=state):
+                candidate, _, _ = self.finish()
+                missing_prepared = self.make_prepared(result_file=f"logs/{state}.log")
+                missing, _, _ = self.finish(prepared=missing_prepared)
+                with self.store.transaction() as db:
+                    db.execute("UPDATE jobs SET state=?,run_id=NULL WHERE job_id=?", (state, missing["job_id"]))
+                shutil.rmtree(self.root / "prepared" / missing_prepared)
+
+                report = self.plan()
+
+                candidates = {item["id"] for item in report["candidates"]}
+                self.assertNotIn(candidate["job_id"], candidates)
+                self.assertNotIn(missing["job_id"], candidates)
 
     def test_legacy_requires_individual_adoption(self):
         job, task, _ = self.finish()
