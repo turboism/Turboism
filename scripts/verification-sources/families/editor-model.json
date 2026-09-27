@@ -114,7 +114,8 @@
   "cubism.integration.external-app-settings.edit-toggle",
   "cubism.integration.external-app-settings.dialog.class",
   "cubism.integration.external-app-settings.dialog.remote-checkbox",
-  "cubism.integration.external-app-settings.checkbox.jcheckbox"
+  "cubism.integration.external-app-settings.checkbox.jcheckbox",
+  "cubism.editor-model.object-hierarchy.apply-deformer-to-children"
  ],
  "coverageSourceGlobs": [
   "runtime/src/main/java/dev/turboism/adapter/cubism/**/*.java",

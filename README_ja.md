@@ -101,7 +101,7 @@ Windows では `./gradlew` の代わりに `gradlew.bat` を使用してくだ�
 
 - [ユーザー・開発者向けドキュメント](https://docs.turboism.dev)
 - [アーキテクチャ](ARCHITECTURE.md)と[ロードマップ](ROADMAP.md)
-- [SDK API 契約と互換性](sdk/api-contracts/)、[SDK v10 移行ガイド](sdk/api-contracts/sdk-api-v10-review.md)、[SDK v9](sdk/api-contracts/sdk-api-v9-review.md)・[SDK v7](sdk/api-contracts/sdk-api-v7-review.md) レビューは履歴監査として保持
+- [SDK API 契約と互換性](sdk/api-contracts/)、[SDK v11 移行ガイド](sdk/api-contracts/sdk-api-v11-review.md)、[v10](sdk/api-contracts/sdk-api-v10-review.md)・[v7](sdk/api-contracts/sdk-api-v7-review.md) レビューは履歴監査として保持
 - [デモプラグイン](plugins/demo/README.md)とスタンドアロンの[プラグインテンプレート](templates/plugin-template/)
 - [Java インストーラーの詳細](packaging/java-installer/README-java-installer.md)
 - [リリース手順](RELEASING.md)と[変更履歴](CHANGELOG.md)

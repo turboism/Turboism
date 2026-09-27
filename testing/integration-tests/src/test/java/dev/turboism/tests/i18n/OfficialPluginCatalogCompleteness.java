@@ -74,6 +74,7 @@ final class OfficialPluginCatalogCompleteness {
         "texture-atlas.algorithm.maxrects",
         "dialog.kernel.option.abey",
         "dialog.kernel.option.dalalah",
+        "result.failure.line",
         "chart.cpu.title",
         "history.entry.cursor-marker",
         "chart.cpu.series",
@@ -85,8 +86,7 @@ final class OfficialPluginCatalogCompleteness {
         "button.settings-short",
         "transcript.agent",
         "transcript.system",
-        "transcript.tool",
-        "result.failure.line"
+        "transcript.tool"
     );
 
     private OfficialPluginCatalogCompleteness() {

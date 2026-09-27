@@ -43,7 +43,7 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         if (!settings.init(context.config()).toCompletableFuture().join()) {
             throw new IllegalStateException("Texture Atlas configuration schema registration failed.");
         }
-        context.logger().info("Texture Atlas plugin initialized");
+        // context.logger().info("Texture Atlas plugin initialized");
     }
 
     @Override
@@ -55,8 +55,8 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         enabled = true;
         registerAlgorithms();
         applyLegacySelection();
-        context.logger().info("Texture Atlas automatic layout uses current-page scope; layout-mode="
-            + settings.confirmed().layoutMode() + " applies only to explicit complete-atlas SDK requests.");
+        // context.logger().info("Texture Atlas automatic layout uses current-page scope; layout-mode="
+        //     + settings.confirmed().layoutMode() + " applies only to explicit complete-atlas SDK requests.");
     }
 
     /** Registers this plugin's planner with the framework registry. */

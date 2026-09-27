@@ -5,7 +5,7 @@ import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.Objects;
 
-/** Routes only concise Turboism notices through Cubism's existing Log4j2 context. */
+/** Routes Turboism notices through Cubism's existing Log4j2 context. */
 final class CubismLoggerBridge {
 
     private static final String LOGGER_NAME = "dev.turboism";

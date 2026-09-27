@@ -697,6 +697,27 @@
         "host-slot": 1
       }
     },
+    "protected-export": {
+      "description": "Protected-export export-settings hook validation for the reviewed 5.2.03, 5.3.02 and 5.3.03 editors: the contributed option must be visible in the native Embedded-Model Export Settings dialog and default-off, an unchecked confirmation must continue the native export path unchanged, a checked candidate must be rejected by the decision gate without a continuation window, and a cancel must reach the bridge cleanup without a continuation window. The copy-binding variant additionally proves the disposable-copy open/restore path before any mutation is admitted. The staged candidate plugin is not part of any release.",
+      "command": "scripts/preview/run-protected-export-host-validation.sh",
+      "versions": ["5203", "5302", "5303"],
+      "variants": {
+        "dialog": ["{version}", "{runLabel}", "dialog"],
+        "copy-binding": ["{version}", "{runLabel}", "copy-binding"],
+        "flatten": ["{version}", "{runLabel}", "flatten"],
+        "export": ["{version}", "{runLabel}", "export"],
+        "dirty-export": ["{version}", "{runLabel}", "dirty-export"],
+        "glue-export": ["{version}", "{runLabel}", "glue-export"],
+        "physics-export": ["{version}", "{runLabel}", "physics-export"],
+        "broad-structure": ["{version}", "{runLabel}", "broad-structure"],
+        "atlas-fixture": ["{version}", "{runLabel}", "atlas-fixture"],
+        "expect-reject": ["{version}", "{runLabel}", "expect-reject"],
+        "expect-reject-structure": ["{version}", "{runLabel}", "expect-reject-structure"],
+        "full": ["{version}", "{runLabel}", "dialog,copy-binding,flatten"]
+      },
+      "defaultVariant": "dialog",
+      "resources": {"host-slot": 1}
+    },
     "recent-preview": {
       "description": "Recent-file preview and popup validation.",
       "command": "scripts/preview/run-recent-preview-host-validation.sh",

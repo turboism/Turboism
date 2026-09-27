@@ -237,6 +237,7 @@ MANIFEST_EXPECTED = [
     ":plugins:parameter-batch-transfer",
     ":plugins:perf-stats",
     ":plugins:physics-editor",
+    ":plugins:protected-export",
     ":plugins:psd-clip-mask-import",
     ":plugins:recent-preview",
     ":plugins:scene-palette-enhancer",
@@ -409,7 +410,7 @@ def load_release_manifest(path):
           "bad=%s" % malformed[:3])
     check("release manifest has no duplicates", len(set(lines)) == len(lines))
     check("release manifest is ASCII-sorted", lines == sorted(lines))
-    check("release manifest matches the frozen 16-project allowlist",
+    check("release manifest matches the frozen 17-project allowlist",
           lines == MANIFEST_EXPECTED, "n=%d" % len(lines))
     return [l[len(":plugins:"):] for l in lines]
 

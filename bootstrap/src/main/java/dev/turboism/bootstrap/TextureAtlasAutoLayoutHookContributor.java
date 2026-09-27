@@ -36,7 +36,7 @@ final class TextureAtlasAutoLayoutHookContributor implements HookContributor {
                 runtime.effectiveLocale()
             );
         installer.install();
-        runtime.info("bootstrap", id() + " installation=COMPLETE");
+        // runtime.info("bootstrap", id() + " installation=COMPLETE");
         return installer;
     }
 }

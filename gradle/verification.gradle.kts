@@ -1230,3 +1230,5 @@ tasks.register("checkRelease") {
 tasks.named("check") {
     dependsOn(devCheck)
 }
+
+// Gate notes: the unified channel check runs the full release gate on pushes touching gradle/runtime/packaging.

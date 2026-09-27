@@ -1289,15 +1289,19 @@ public final class CubismFacadeImpl implements CubismFacade {
     }
 
     dev.turboism.sdk.cubism.model.Deformer unwrapDeformer(
+        final Object expectedOwner,
         final dev.turboism.sdk.cubism.model.Deformer value
     ) {
-        if (value instanceof PermissionCheckedWarpDeformer checked) {
+        if (value instanceof PermissionCheckedWarpDeformer checked
+            && checked.ownedBy(expectedOwner)) {
             return checked.warp;
         }
-        if (value instanceof PermissionCheckedRotationDeformer checked) {
+        if (value instanceof PermissionCheckedRotationDeformer checked
+            && checked.ownedBy(expectedOwner)) {
             return checked.rotation;
         }
-        if (value instanceof PermissionCheckedDeformer checked) {
+        if (value instanceof PermissionCheckedDeformer checked
+            && checked.ownedBy(expectedOwner)) {
             return checked.delegate;
         }
         throw new IllegalArgumentException(

@@ -647,7 +647,13 @@ final class PermissionCheckedModel implements CubismModel {
                 final dev.turboism.sdk.cubism.model.Deformer deformer
             ) {
                 facade.requireModelWrite("model.deformers.remove");
-                values.remove(facade.unwrapDeformer(deformer));
+                values.remove(facade.unwrapDeformer(wrapperOwner, deformer));
+            }
+            @Override public void applyToChildren(
+                final dev.turboism.sdk.cubism.model.Deformer deformer
+            ) {
+                facade.requireModelWrite("model.deformers.applyToChildren");
+                values.applyToChildren(facade.unwrapDeformer(wrapperOwner, deformer));
             }
         };
     }

@@ -774,7 +774,10 @@ public final class EditorModelVerificationManifest {
                 )
             ),
             union(
-                EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES,
+                union(
+                    EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES,
+                    EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_REQUIRED_ALIASES
+                ),
                 union(
                     EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES,
                     union(
@@ -917,6 +920,14 @@ public final class EditorModelVerificationManifest {
         return Set.copyOf(values);
     }
 
+    private static Set<String> withoutApplyToChildren5302OnlyAliases(final Set<String> source) {
+        final java.util.HashSet<String> values = new java.util.HashSet<>(source);
+        values.removeAll(
+            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_5302_ONLY_ALIASES
+        );
+        return Set.copyOf(values);
+    }
+
     private static final Set<String> CUBISM_5303_ONLY_ALIASES = Set.of(
         "cubism.editor-model.keyform-grid.keyforms-on-grid",
         "cubism.editor-model.keyform-on-grid.form-guid",
@@ -937,7 +948,9 @@ public final class EditorModelVerificationManifest {
 
     /** Full exact-JAR selector roster carried by the independent 5.3.03 static record. */
     public static Set<String> cubism5303StaticAliases() {
-        final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        final java.util.HashSet<String> values = new java.util.HashSet<>(
+            withoutApplyToChildren5302OnlyAliases(REQUIRED_ALIASES)
+        );
         values.addAll(Set.of(
             "cubism.editor-model.modeling-document.last-active-view",
             "cubism.editor-model.modeling-view.model",
@@ -964,7 +977,7 @@ public final class EditorModelVerificationManifest {
     static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
         return new PinnedVerifiedResolverWorkflow.RuntimeScope(
             cubism5303Capabilities(),
-            cubism5303StaticAliases()
+            withoutApplyToChildren5302OnlyAliases(cubism5303StaticAliases())
         );
     }
 
@@ -1701,6 +1714,9 @@ public final class EditorModelVerificationManifest {
      */
     public static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        values.removeAll(
+            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_5302_ONLY_ALIASES
+        );
         values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.STATISTICS_ALIASES);

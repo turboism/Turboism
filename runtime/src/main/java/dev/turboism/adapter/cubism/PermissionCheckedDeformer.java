@@ -19,6 +19,9 @@ class PermissionCheckedDeformer implements dev.turboism.sdk.cubism.model.Deforme
         this.wrapperOwner = Objects.requireNonNull(wrapperOwner, "wrapperOwner");
         this.delegate = Objects.requireNonNull(delegate, "delegate");
     }
+    final boolean ownedBy(final Object owner) {
+        return wrapperOwner == owner;
+    }
     @Override public dev.turboism.sdk.ui.appearance.model.DeformerAppearance ui() {
         facade.requireModelRead("deformer.ui");
         return delegate.ui();
@@ -57,7 +60,7 @@ class PermissionCheckedDeformer implements dev.turboism.sdk.cubism.model.Deforme
         final int index
     ) {
         facade.requireModelWrite("deformer.setParentDeformer");
-        delegate.setParent(facade.unwrapDeformer(parent), index);
+        delegate.setParent(facade.unwrapDeformer(wrapperOwner, parent), index);
     }
     @Override public boolean visible() { facade.requireModelRead("deformer.visible"); return delegate.visible(); }
     @Override public void setVisible(final boolean visible) {
