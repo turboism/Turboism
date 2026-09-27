@@ -17,9 +17,11 @@ the frozen acceptance conditions, including the R2 repairs:
       exact current-schema bytes when that selection is already unchanged.
   5.  Config handling never damages the source on malformed, strict-number,
       oversized (including the exact MAX+1 consumed-byte boundary), symlink,
-      non-regular, future-schema, malformed-value, or malformed-escape cases. A
+      non-regular, foreign-format, or malformed-escape cases; every other
+      parseable config — unknown fields, odd schemaVersion tokens, invalid
+      values — is normalized to the current schema instead of aborting. A
       deterministic Java regression additionally covers strict number lexing,
-      current-schema selection updates, validated v0 migration, bounded reads
+      current-schema selection updates, config normalization, bounded reads
       with concurrent growth, and atomic REPLACE_EXISTING replacement. Retired
       descriptors are denied by the runtime's shared PluginJarContract boundary
       before entrypoint loading; the installer removes only JARs whose embedded
@@ -1079,46 +1081,86 @@ def assert_strict_numbers_fail_closed(jar):
                            lambda t, text=text: open(os.path.join(t, "config.json"), "w").write(text))
 
 
-def assert_canonical_identity_fail_closed(jar):
-    """Wrong current identity, future/type-invalid schema, and unknown legacy
-    fields fail closed without source mutation."""
-    cases = {
-        "missing-format": '{"schemaVersion":1}',
-        "wrong-format": '{"format":"other.runtime.config","schemaVersion":1}',
-        "schema-version-string": '{"format":"turboism.runtime.config","schemaVersion":"1"}',
-        "schema-version-decimal": '{"format":"turboism.runtime.config","schemaVersion":1.0}',
-        "schema-version-two": '{"format":"turboism.runtime.config","schemaVersion":2}',
-        "legacy-unknown-field": '{"legacyUnknown":true}',
+def assert_normalized_install(jar, name, text, dropped=(), carried=None):
+    """An ownable but non-v1 document normalizes to v1 and the install
+    completes: the source is upgraded, valid values carry, and unknown or
+    invalid fields are dropped."""
+    base = tempfile.mkdtemp(prefix="turboism-norm-%s " % name)
+    target = os.path.join(base, "home")
+    os.makedirs(target)
+    cfg = os.path.join(target, "config.json")
+    with open(cfg, "w") as f:
+        f.write(text)
+    clear_task_lock()
+    rc, out = run_console(jar, install_answers("lite", target))
+    check("%s installs via normalization" % name, rc == 0, "rc=%s" % rc)
+    config = json.load(open(cfg))
+    check("%s normalized to current v1" % name,
+          config.get("format") == "turboism.runtime.config"
+          and config.get("schemaVersion") == 1)
+    for field in dropped:
+        check("%s drops %s" % (name, field), field not in config)
+    for field, value in (carried or {}).items():
+        check("%s preserves %s" % (name, field), config.get(field) == value)
+    shutil.rmtree(base, ignore_errors=True)
+
+
+def assert_config_ownership_gate(jar):
+    """Only a document declaring a foreign product format fails closed; every
+    other parseable config — odd schemaVersion tokens, missing identity,
+    unknown fields — is normalized to v1 instead of aborting the install."""
+    assert_fail_closed(jar, "canonical-wrong-format",
+                       lambda t: open(os.path.join(t, "config.json"), "w").write(
+                           '{"format":"other.runtime.config","schemaVersion":1}'))
+    ownable = {
+        "missing-format": ('{"schemaVersion":1}', (), {}),
+        "schema-version-string": (
+            '{"format":"turboism.runtime.config","schemaVersion":"1"}', (), {}),
+        "schema-version-decimal": (
+            '{"format":"turboism.runtime.config","schemaVersion":1.0}', (), {}),
+        "schema-version-two": (
+            '{"format":"turboism.runtime.config","schemaVersion":2,'
+            '"worktreeId":"future-test","futureField":true}',
+            ("futureField",), {"worktreeId": "future-test"}),
+        "legacy-unknown-field": (
+            '{"legacyUnknown":true,"logLevel":"DEBUG"}',
+            ("legacyUnknown",), {"logLevel": "DEBUG"}),
     }
-    for name, text in cases.items():
-        assert_fail_closed(jar, "canonical-" + name,
-                           lambda t, text=text: open(os.path.join(t, "config.json"), "w").write(text))
+    for name, (text, dropped, carried) in ownable.items():
+        assert_normalized_install(jar, "canonical-" + name, text, dropped, carried)
 
 
-def assert_invalid_runtime_values_fail_closed(jar):
-    """Known fields with runtime-invalid values are rejected before any rewrite."""
+def assert_invalid_runtime_values_normalized(jar):
+    """Known fields carrying runtime-invalid values are dropped and the
+    document is normalized to v1 instead of being rejected."""
     current_prefix = ('{"format":"turboism.runtime.config","schemaVersion":1,'
                       '"worktreeId":"invalid-runtime",')
     cases = {
-        "current-plugin-dirs-scalar": current_prefix + '"pluginDirs":"plugins"}',
-        "current-log-level": current_prefix + '"logLevel":"BOGUS"}',
-        "current-log-limit-type": current_prefix + '"maxLogStorageMiB":"128"}',
-        "current-safe-mode-type": current_prefix + '"safeMode":"false"}',
-        "current-hooks-type": current_prefix + '"hooks":{"startup":{"skipSplash":"false"}}}',
-        "current-launcher-enum": current_prefix + '"launcher":{"cubismJvm":"other"}}',
-        "legacy-log-level": '{"logLevel":"BOGUS"}',
-        "legacy-safe-mode-type": '{"safeMode":"false"}',
-        "legacy-plugin-dirs-scalar": '{"pluginDirs":"plugins"}',
-        "legacy-launcher-enum": '{"cubismJvm":"other"}',
+        "current-plugin-dirs-scalar": (
+            current_prefix + '"pluginDirs":"plugins"}',
+            (), {"worktreeId": "invalid-runtime"}),
+        "current-log-level": (
+            current_prefix + '"logLevel":"BOGUS"}',
+            ("logLevel",), {}),
+        "current-log-limit-type": (
+            current_prefix + '"maxLogStorageMiB":"128"}',
+            ("maxLogStorageMiB",), {}),
+        "current-safe-mode-type": (
+            current_prefix + '"safeMode":"false"}',
+            ("safeMode",), {}),
+        "current-hooks-type": (
+            current_prefix + '"hooks":{"startup":{"skipSplash":"false"}}}',
+            (), {}),
+        "current-launcher-enum": (
+            current_prefix + '"launcher":{"cubismJvm":"other"}}',
+            (), {}),
+        "legacy-log-level": ('{"logLevel":"BOGUS"}', ("logLevel",), {}),
+        "legacy-safe-mode-type": ('{"safeMode":"false"}', ("safeMode",), {}),
+        "legacy-plugin-dirs-scalar": ('{"pluginDirs":"plugins"}', (), {}),
+        "legacy-launcher-enum": ('{"cubismJvm":"other"}', (), {}),
     }
-    for name, text in cases.items():
-        assert_fail_closed(
-            jar,
-            "runtime-value-" + name,
-            lambda target, text=text: open(
-                os.path.join(target, "config.json"), "w"
-            ).write(text),
-        )
+    for name, (text, dropped, carried) in cases.items():
+        assert_normalized_install(jar, "runtime-value-" + name, text, dropped, carried)
 
 
 def run_shipped_uninstaller(uninstaller_jar, delete_config, timeout=120):
@@ -1705,8 +1747,8 @@ def main():
                                    os.path.join(t, "config.json"), "wb"
                                ).write(source))
         assert_strict_numbers_fail_closed(jar)
-        assert_canonical_identity_fail_closed(jar)
-        assert_invalid_runtime_values_fail_closed(jar)
+        assert_config_ownership_gate(jar)
+        assert_invalid_runtime_values_normalized(jar)
         assert_malformed_utf8_fail_closed(jar)
 
         def symlink_setup(t):
