@@ -1,14 +1,13 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
-
 import java.io.File;
 import java.lang.reflect.Method;
-import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -20,24 +19,20 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Static bridge called only by verified host bytecode transformers. */
 public final class NativeProjectLifecycleBridge {
 
-    private static final AtomicReference<NativeProjectLifecycleBridge> INSTALLED =
-        new AtomicReference<>();
+    private static final AtomicReference<NativeProjectLifecycleBridge> INSTALLED = new AtomicReference<>();
     private static final java.util.concurrent.atomic.AtomicBoolean CONTENT_INGRESS_SEEN =
-        new java.util.concurrent.atomic.AtomicBoolean();
+            new java.util.concurrent.atomic.AtomicBoolean();
 
     private final ProjectFileLifecycleCoordinator projectFiles;
     private final EditorLifecycleCoordinator editor;
     private final String hostVersion;
-    private final ThreadLocal<Deque<FileInvocation>> files =
-        ThreadLocal.withInitial(ArrayDeque::new);
-    private final ThreadLocal<Deque<ExitFrame>> exits =
-        ThreadLocal.withInitial(ArrayDeque::new);
+    private final ThreadLocal<Deque<FileInvocation>> files = ThreadLocal.withInitial(ArrayDeque::new);
+    private final ThreadLocal<Deque<ExitFrame>> exits = ThreadLocal.withInitial(ArrayDeque::new);
 
     public NativeProjectLifecycleBridge(
-        final ProjectFileLifecycleCoordinator projectFiles,
-        final EditorLifecycleCoordinator editor,
-        final String hostVersion
-    ) {
+            final ProjectFileLifecycleCoordinator projectFiles,
+            final EditorLifecycleCoordinator editor,
+            final String hostVersion) {
         this.projectFiles = Objects.requireNonNull(projectFiles, "projectFiles");
         this.editor = Objects.requireNonNull(editor, "editor");
         this.hostVersion = requireText(hostVersion, "hostVersion");
@@ -95,11 +90,10 @@ public final class NativeProjectLifecycleBridge {
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeBeginOpen(
-            ProjectContentKind.ANIMATION,
-            bridge.stringProperty(animation, "getName").orElseGet(() -> fileName(file)),
-            file,
-            null
-        );
+                ProjectContentKind.ANIMATION,
+                bridge.stringProperty(animation, "getName").orElseGet(() -> fileName(file)),
+                file,
+                null);
     }
 
     /**
@@ -113,27 +107,22 @@ public final class NativeProjectLifecycleBridge {
      * @param kindOrdinal ordinal into {@code ProjectContentKind}
      * @param operationOrdinal ordinal into {@code ProjectFileOperationType}
      */
-    public static void beginContent(
-        final Object content,
-        final int kindOrdinal,
-        final int operationOrdinal
-    ) {
+    public static void beginContent(final Object content, final int kindOrdinal, final int operationOrdinal) {
         if (CONTENT_INGRESS_SEEN.compareAndSet(false, true)) {
             dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                "lifecycle",
-                "First lifecycle content ingress: content="
-                    + (content == null ? "null" : content.getClass().getName())
-                    + " kind=" + enumNameOrDash(ProjectContentKind.values(), kindOrdinal)
-                    + " operation="
-                    + enumNameOrDash(ProjectFileOperationType.values(), operationOrdinal));
+                    "lifecycle",
+                    "First lifecycle content ingress: content="
+                            + (content == null ? "null" : content.getClass().getName())
+                            + " kind=" + enumNameOrDash(ProjectContentKind.values(), kindOrdinal)
+                            + " operation="
+                            + enumNameOrDash(ProjectFileOperationType.values(), operationOrdinal));
         }
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeBeginExisting(
-            content,
-            enumValue(ProjectContentKind.values(), kindOrdinal, "kindOrdinal"),
-            enumValue(ProjectFileOperationType.values(), operationOrdinal, "operationOrdinal")
-        );
+                content,
+                enumValue(ProjectContentKind.values(), kindOrdinal, "kindOrdinal"),
+                enumValue(ProjectFileOperationType.values(), operationOrdinal, "operationOrdinal"));
     }
 
     /**
@@ -187,6 +176,7 @@ public final class NativeProjectLifecycleBridge {
         try {
             invocation = bridge.editor.beginExit(bridge.hostVersion);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Native ingress must fail open when lifecycle state is unavailable.
         }
         bridge.exits.get().push(new ExitFrame(invocation));
@@ -219,88 +209,58 @@ public final class NativeProjectLifecycleBridge {
     }
 
     private void safeBeginOpen(
-        final ProjectContentKind kind,
-        final String displayName,
-        final File file,
-        final Object subject
-    ) {
+            final ProjectContentKind kind, final String displayName, final File file, final Object subject) {
         try {
             beginOpen(kind, displayName, file, subject);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             files.get().push(FileInvocation.skipped());
         }
     }
 
     private void beginOpen(
-        final ProjectContentKind kind,
-        final String displayName,
-        final File file,
-        final Object subject
-    ) {
-        final ProjectFileOperationType operation = file == null
-            ? ProjectFileOperationType.CREATE
-            : ProjectFileOperationType.OPEN;
+            final ProjectContentKind kind, final String displayName, final File file, final Object subject) {
+        final ProjectFileOperationType operation =
+                file == null ? ProjectFileOperationType.CREATE : ProjectFileOperationType.OPEN;
         final ProjectFileOperation request = new ProjectFileOperation(
-            kind,
-            operation,
-            Optional.empty(),
-            normalizedDisplayName(displayName, file),
-            Optional.ofNullable(file).map(File::getName)
-        );
+                kind,
+                operation,
+                Optional.empty(),
+                normalizedDisplayName(displayName, file),
+                Optional.ofNullable(file).map(File::getName));
         files.get().push(new FileInvocation(projectFiles.begin(request), subject, null));
     }
 
     private void safeBeginExisting(
-        final Object content,
-        final ProjectContentKind kind,
-        final ProjectFileOperationType operation
-    ) {
+            final Object content, final ProjectContentKind kind, final ProjectFileOperationType operation) {
         try {
             beginExisting(content, kind, operation);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             reportSwallowed("beginContent", ignored);
             files.get().push(FileInvocation.skipped());
         }
     }
 
     private void beginExisting(
-        final Object content,
-        final ProjectContentKind kind,
-        final ProjectFileOperationType operation
-    ) {
+            final Object content, final ProjectContentKind kind, final ProjectFileOperationType operation) {
         final ProjectContentSnapshot beforeSnapshot = snapshot(content, kind, null);
         final ProjectFileOperation request = new ProjectFileOperation(
-            kind,
-            operation,
-            Optional.of(beforeSnapshot.contentId()),
-            beforeSnapshot.name(),
-            fileName(content)
-        );
-        files.get().push(new FileInvocation(
-            projectFiles.begin(request),
-            content,
-            beforeSnapshot
-        ));
+                kind, operation, Optional.of(beforeSnapshot.contentId()), beforeSnapshot.name(), fileName(content));
+        files.get().push(new FileInvocation(projectFiles.begin(request), content, beforeSnapshot));
     }
 
-    private void safeCompleteFile(
-        final Object returnedContent,
-        final boolean succeeded,
-        final Throwable failure
-    ) {
+    private void safeCompleteFile(final Object returnedContent, final boolean succeeded, final Throwable failure) {
         try {
             completeFile(returnedContent, succeeded, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Native completion must never destabilize Cubism.
             reportSwallowed("completeFile", ignored);
         }
     }
 
-    private void completeFile(
-        final Object returnedContent,
-        final boolean succeeded,
-        final Throwable failure
-    ) {
+    private void completeFile(final Object returnedContent, final boolean succeeded, final Throwable failure) {
         final Deque<FileInvocation> stack = files.get();
         final FileInvocation invocation = stack.poll();
         if (stack.isEmpty()) files.remove();
@@ -310,29 +270,25 @@ public final class NativeProjectLifecycleBridge {
         if (content != null) {
             try {
                 completionSnapshot = snapshot(
-                    content,
-                    invocation.lifecycle().operation().kind(),
-                    invocation.lifecycle().operation()
-                );
+                        content,
+                        invocation.lifecycle().operation().kind(),
+                        invocation.lifecycle().operation());
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Closing content may already be detached; retain the immutable before snapshot.
             }
         }
         if (completionSnapshot == null) {
             completionSnapshot = placeholder(invocation.lifecycle().operation());
         }
-        projectFiles.complete(
-            invocation.lifecycle(),
-            completionSnapshot,
-            succeeded,
-            failure
-        );
+        projectFiles.complete(invocation.lifecycle(), completionSnapshot, succeeded, failure);
     }
 
     private void safeCompleteExit(final boolean accepted, final Throwable failure) {
         try {
             completeExit(accepted, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Native completion must never destabilize Cubism.
         }
     }
@@ -347,35 +303,24 @@ public final class NativeProjectLifecycleBridge {
     }
 
     private ProjectContentSnapshot snapshot(
-        final Object content,
-        final ProjectContentKind kind,
-        final ProjectFileOperation fallback
-    ) {
+            final Object content, final ProjectContentKind kind, final ProjectFileOperation fallback) {
         Objects.requireNonNull(content, "content");
         final String id = kind == ProjectContentKind.MODEL || kind == ProjectContentKind.ANIMATION
-            ? ProjectContentIdentity.forLifecycleContent(kind, content)
-            : kind.name().toLowerCase(java.util.Locale.ROOT)
-                + ":" + Integer.toUnsignedString(System.identityHashCode(content), 16);
+                ? ProjectContentIdentity.forLifecycleContent(kind, content)
+                : kind.name().toLowerCase(java.util.Locale.ROOT) + ":"
+                        + Integer.toUnsignedString(System.identityHashCode(content), 16);
         final Optional<File> file = fileProperty(content);
         if (kind == ProjectContentKind.MODEL) {
-            final String name = stringProperty(content, "getModelName")
-                .orElseGet(() -> fallbackName(fallback, file.orElse(null)));
-            final List<String> documents = stringProperty(content, "getDocumentUID")
-                .map(List::of)
-                .orElseGet(List::of);
-            return new ProjectContentSnapshot(
-                id,
-                name,
-                kind,
-                Optional.empty(),
-                documents,
-                List.of()
-            );
+            final String name =
+                    stringProperty(content, "getModelName").orElseGet(() -> fallbackName(fallback, file.orElse(null)));
+            final List<String> documents =
+                    stringProperty(content, "getDocumentUID").map(List::of).orElseGet(List::of);
+            return new ProjectContentSnapshot(id, name, kind, Optional.empty(), documents, List.of());
         }
         if (kind == ProjectContentKind.ANIMATION) {
             final Object animation = invoke(content, "getAnimation").orElse(null);
-            final String name = stringProperty(animation, "getName")
-                .orElseGet(() -> fallbackName(fallback, file.orElse(null)));
+            final String name =
+                    stringProperty(animation, "getName").orElseGet(() -> fallbackName(fallback, file.orElse(null)));
             final List<String> documents = new ArrayList<>();
             final Object sceneDocs = invoke(content, "getSceneDocs").orElse(null);
             if (sceneDocs instanceof Iterable<?> iterable) {
@@ -383,35 +328,22 @@ public final class NativeProjectLifecycleBridge {
                     stringProperty(document, "getDocumentUID").ifPresent(documents::add);
                 }
             }
-            return new ProjectContentSnapshot(
-                id,
-                name,
-                kind,
-                Optional.empty(),
-                documents,
-                List.of()
-            );
+            return new ProjectContentSnapshot(id, name, kind, Optional.empty(), documents, List.of());
         }
         return new ProjectContentSnapshot(
-            id,
-            fallbackName(fallback, file.orElse(null)),
-            kind,
-            Optional.empty(),
-            List.of(),
-            List.of()
-        );
+                id, fallbackName(fallback, file.orElse(null)), kind, Optional.empty(), List.of(), List.of());
     }
 
     private static ProjectContentSnapshot placeholder(final ProjectFileOperation operation) {
         return new ProjectContentSnapshot(
-            operation.contentId().orElseGet(() -> operation.kind().name().toLowerCase(java.util.Locale.ROOT)
-                + ":pending"),
-            operation.displayName(),
-            operation.kind(),
-            Optional.empty(),
-            List.of(),
-            List.of()
-        );
+                operation
+                        .contentId()
+                        .orElseGet(() -> operation.kind().name().toLowerCase(java.util.Locale.ROOT) + ":pending"),
+                operation.displayName(),
+                operation.kind(),
+                Optional.empty(),
+                List.of(),
+                List.of());
     }
 
     private Optional<String> fileName(final Object content) {
@@ -423,8 +355,10 @@ public final class NativeProjectLifecycleBridge {
     }
 
     private Optional<String> stringProperty(final Object target, final String method) {
-        return invoke(target, method).filter(String.class::isInstance).map(String.class::cast)
-            .filter(value -> !value.isBlank());
+        return invoke(target, method)
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .filter(value -> !value.isBlank());
     }
 
     private Optional<Object> invoke(final Object target, final String methodName) {
@@ -475,22 +409,20 @@ public final class NativeProjectLifecycleBridge {
      */
     private static void reportSwallowed(final String phase, final Throwable failure) {
         dev.turboism.runtime.log.RuntimeDiagnostics.error(
-            "lifecycle",
-            "Lifecycle ingress swallowed at " + phase
-                + " (" + failure.getClass().getName() + ": " + failure.getMessage() + ")",
-            null);
+                "lifecycle",
+                "Lifecycle ingress swallowed at " + phase + " ("
+                        + failure.getClass().getName() + ": " + failure.getMessage() + ")",
+                null);
     }
 
     private record FileInvocation(
-        ProjectFileLifecycleCoordinator.Invocation lifecycle,
-        Object subject,
-        ProjectContentSnapshot beforeSnapshot
-    ) {
+            ProjectFileLifecycleCoordinator.Invocation lifecycle,
+            Object subject,
+            ProjectContentSnapshot beforeSnapshot) {
         private static FileInvocation skipped() {
             return new FileInvocation(null, null, null);
         }
     }
 
-    private record ExitFrame(EditorLifecycleCoordinator.ExitInvocation invocation) {
-    }
+    private record ExitFrame(EditorLifecycleCoordinator.ExitInvocation invocation) {}
 }

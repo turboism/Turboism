@@ -38,14 +38,13 @@ final class PsdSaveWatcher implements AutoCloseable {
     private int consecutiveFailures;
 
     PsdSaveWatcher(
-        final PsdTemporaryFile allocation,
-        final Publisher publisher,
-        final PsdSaveDebouncer debouncer,
-        final Scheduler scheduler,
-        final LongSupplier nanoClock,
-        final long pollMillis,
-        final long compensationDelayMillis
-    ) {
+            final PsdTemporaryFile allocation,
+            final Publisher publisher,
+            final PsdSaveDebouncer debouncer,
+            final Scheduler scheduler,
+            final LongSupplier nanoClock,
+            final long pollMillis,
+            final long compensationDelayMillis) {
         this.allocation = Objects.requireNonNull(allocation, "allocation");
         this.publisher = Objects.requireNonNull(publisher, "publisher");
         this.debouncer = Objects.requireNonNull(debouncer, "debouncer");

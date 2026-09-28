@@ -2,7 +2,6 @@ package dev.turboism.sdk.ui.viewcontext;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.resource.UiRasterImage;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -60,30 +59,29 @@ public interface ViewContextMenuRegistry {
     enum Unavailable implements ViewContextMenuRegistry {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration contributeStateButtons(
-            final StateButtonContribution contribution) {
+        @Override
+        public Registration contributeStateButtons(final StateButtonContribution contribution) {
             Objects.requireNonNull(contribution, "contribution");
-            throw new UnsupportedOperationException(
-                "viewContextMenu service is not available");
+            throw new UnsupportedOperationException("viewContextMenu service is not available");
         }
 
-        @Override public void updateButtonState(final String contributionId, final int axis) {
-            throw new UnsupportedOperationException(
-                "viewContextMenu service is not available");
+        @Override
+        public void updateButtonState(final String contributionId, final int axis) {
+            throw new UnsupportedOperationException("viewContextMenu service is not available");
         }
     }
 
     /** A state-cycling icon button owned by a plugin. */
     record StateButtonContribution(
-        String contributionId,
-        Map<Integer, UiRasterImage> stateIcons,
-        int initialState,
-        Consumer<Integer> onClick
-    ) {
+            String contributionId,
+            Map<Integer, UiRasterImage> stateIcons,
+            int initialState,
+            Consumer<Integer> onClick) {
         public StateButtonContribution {
             contributionId = Objects.requireNonNull(contributionId, "contributionId");
             stateIcons = Objects.requireNonNull(stateIcons, "stateIcons");
@@ -92,9 +90,8 @@ public interface ViewContextMenuRegistry {
                 throw new IllegalArgumentException("stateIcons must not be empty");
             }
             final Map<Integer, UiRasterImage> icons = new LinkedHashMap<>();
-            stateIcons.forEach((state, image) -> icons.put(
-                Objects.requireNonNull(state, "state"), Objects.requireNonNull(image, "image")
-            ));
+            stateIcons.forEach((state, image) ->
+                    icons.put(Objects.requireNonNull(state, "state"), Objects.requireNonNull(image, "image")));
             stateIcons = Collections.unmodifiableMap(icons);
         }
     }

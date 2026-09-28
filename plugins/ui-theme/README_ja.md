@@ -48,7 +48,7 @@ interface: none
 
 ## 使い方
 
-1. **Turboism → Theme Manager** または提供されるワークスペースのコンテキストメニューコマンドを開きます。
+1. **Turboism → Theme Manager** を開きます。
 2. 組み込みテーマを選択するか、ユーザーテーマを作成または編集するか、検証済みのテーマ ZIP をインポートします。
 3. 選択内容を適用します。Cubism 本来の外観を復元するにはネイティブテーマオプションを使用します。必要に応じて、マネージャーからユーザーパッケージをエクスポートまたは削除できます。
 
@@ -64,7 +64,6 @@ interface: none
 | `turboism.ui.menu.contribute` | `application` | Turboism のトップレベルメニューにテーマ管理コマンドを追加します。 |
 | `turboism.config.plugin.read` | `application` | プラグイン所有の型付き設定から選択したテーマパッケージを読み取ります。 |
 | `turboism.config.plugin.write` | `application` | ホスト外観の適用に成功した後、選択したテーマパッケージを保存します。 |
-| `turboism.ui.context-menu.contribute` | `application` | テーマ管理のコンテキストメニュー項目を追加します。 |
 | `turboism.cubism.project.read` | `application` | プロジェクトスコープの Cubism 読み取り機能を通じて SDK テーマ状態スナップショットを読み取ります。 |
 | `turboism.ui.dialog.contribute` | `application` | 統一されたテーマ選択ウィンドウと、サイズが制限されたパッケージワークフローのダイアログを表示します。 |
 | `turboism.ui.file-chooser.request` | `application` | インポートおよびエクスポート用の不透明な ZIP テーマパッケージハンドルを要求します。 |

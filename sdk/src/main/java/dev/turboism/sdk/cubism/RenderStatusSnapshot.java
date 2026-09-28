@@ -8,11 +8,7 @@ package dev.turboism.sdk.cubism;
  * @param framesPerSecond measured frame rate; must not be negative
  * @param rendererName host-reported name of the renderer backend; must not be blank
  */
-public record RenderStatusSnapshot(
-    boolean rendering,
-    double framesPerSecond,
-    String rendererName
-) {
+public record RenderStatusSnapshot(boolean rendering, double framesPerSecond, String rendererName) {
     /**
      * Validates the record components.
      *

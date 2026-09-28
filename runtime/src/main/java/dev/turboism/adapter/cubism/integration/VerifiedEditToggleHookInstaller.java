@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.integration;
 
-import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
+import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,15 +36,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class VerifiedEditToggleHookInstaller implements AutoCloseable {
 
     /** System-property key holding the loader-neutral ingress the injected code calls. */
-    public static final String INGRESS_KEY =
-        "dev.turboism.integration.edit-toggle.show-ingress";
+    public static final String INGRESS_KEY = "dev.turboism.integration.edit-toggle.show-ingress";
 
-    private static final String ADAPTER_SLICE_ID =
-        EditorIntegrationSettingsDialogSelectorContract.ADAPTER_SLICE_ID;
+    private static final String ADAPTER_SLICE_ID = EditorIntegrationSettingsDialogSelectorContract.ADAPTER_SLICE_ID;
     private static final String CAPABILITY_ID =
-        EditorIntegrationSettingsDialogSelectorContract.EDIT_TOGGLE_CAPABILITY_ID;
-    private static final String BUILD_HOOK_ALIAS =
-        EditorIntegrationSettingsDialogSelectorContract.BUILD_HOOK_ALIAS;
+            EditorIntegrationSettingsDialogSelectorContract.EDIT_TOGGLE_CAPABILITY_ID;
+    private static final String BUILD_HOOK_ALIAS = EditorIntegrationSettingsDialogSelectorContract.BUILD_HOOK_ALIAS;
 
     private static final String BUILD_OWNER = "com/live2d/cubism/doc/webSocket/y";
     private static final String BUILD_NAME = "b";
@@ -59,19 +56,11 @@ public final class VerifiedEditToggleHookInstaller implements AutoCloseable {
     private final AtomicBoolean installed = new AtomicBoolean(false);
 
     private VerifiedEditToggleHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final StaticSelector build
-    ) {
+            final Instrumentation instrumentation, final ClassLoader hostClassLoader, final StaticSelector build) {
         this.instrumentation = instrumentation;
         this.hostClassLoader = hostClassLoader;
         this.transformer = new NativeEditToggleShowTransformer(
-            build.ownerInternalName(),
-            build.memberName(),
-            build.descriptor(),
-            hostClassLoader,
-            INGRESS_KEY
-        );
+                build.ownerInternalName(), build.memberName(), build.descriptor(), hostClassLoader, INGRESS_KEY);
     }
 
     /**
@@ -86,39 +75,31 @@ public final class VerifiedEditToggleHookInstaller implements AutoCloseable {
      *                                  exact reviewed build method
      */
     public static VerifiedEditToggleHookInstaller fromVerifiedResolver(
-        final Instrumentation instrumentation,
-        final VerifiedMemberResolver resolver,
-        final ClassLoader hostClassLoader
-    ) {
+            final Instrumentation instrumentation,
+            final VerifiedMemberResolver resolver,
+            final ClassLoader hostClassLoader) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
         final boolean is5203 = verified.isAdmittedCubismVersion("5.2.03");
-        if (!is5203
-            && !verified.isAdmittedCubismVersion("5.3.02")
-            && !verified.isAdmittedCubismVersion("5.3.03")) {
-            throw new IllegalArgumentException(
-                "Edit-toggle dialog hook version is unsupported.");
+        if (!is5203 && !verified.isAdmittedCubismVersion("5.3.02") && !verified.isAdmittedCubismVersion("5.3.03")) {
+            throw new IllegalArgumentException("Edit-toggle dialog hook version is unsupported.");
         }
-        if (!verified.authorizesFeature(
-            ADAPTER_SLICE_ID, CAPABILITY_ID, Set.of(BUILD_HOOK_ALIAS))) {
-            throw new IllegalArgumentException(
-                "Edit-toggle dialog hook is not authorized.");
+        if (!verified.authorizesFeature(ADAPTER_SLICE_ID, CAPABILITY_ID, Set.of(BUILD_HOOK_ALIAS))) {
+            throw new IllegalArgumentException("Edit-toggle dialog hook is not authorized.");
         }
         final StaticSelector selector = verified.verifiedSelector(BUILD_HOOK_ALIAS);
-        final String expectedDescriptor =
-            is5203 ? BUILD_DESCRIPTOR_5203 : BUILD_DESCRIPTOR_530X;
+        final String expectedDescriptor = is5203 ? BUILD_DESCRIPTOR_5203 : BUILD_DESCRIPTOR_530X;
         if (selector.kind() != StaticSelector.Kind.METHOD
-            || !BUILD_OWNER.equals(selector.ownerInternalName())
-            || !BUILD_NAME.equals(selector.memberName())
-            || !expectedDescriptor.equals(selector.descriptor())
-            || selector.requiredAccessFlags() != BUILD_REQUIRED_ACCESS
-            || (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
-            throw new IllegalArgumentException(
-                "Verified edit-toggle build selector is invalid: " + BUILD_HOOK_ALIAS);
+                || !BUILD_OWNER.equals(selector.ownerInternalName())
+                || !BUILD_NAME.equals(selector.memberName())
+                || !expectedDescriptor.equals(selector.descriptor())
+                || selector.requiredAccessFlags() != BUILD_REQUIRED_ACCESS
+                || (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
+            throw new IllegalArgumentException("Verified edit-toggle build selector is invalid: " + BUILD_HOOK_ALIAS);
         }
         return new VerifiedEditToggleHookInstaller(
-            Objects.requireNonNull(instrumentation, "instrumentation"),
-            Objects.requireNonNull(hostClassLoader, "hostClassLoader"),
-            selector);
+                Objects.requireNonNull(instrumentation, "instrumentation"),
+                Objects.requireNonNull(hostClassLoader, "hostClassLoader"),
+                selector);
     }
 
     /**
@@ -138,8 +119,7 @@ public final class VerifiedEditToggleHookInstaller implements AutoCloseable {
      */
     public boolean install(final Runnable ingress) throws Exception {
         Objects.requireNonNull(ingress, "ingress");
-        if ("false".equalsIgnoreCase(
-            System.getProperty(NativeEditToggleInjector.ENABLED_PROPERTY))) {
+        if ("false".equalsIgnoreCase(System.getProperty(NativeEditToggleInjector.ENABLED_PROPERTY))) {
             return false;
         }
         if (!installed.compareAndSet(false, true)) return true;
@@ -152,6 +132,7 @@ public final class VerifiedEditToggleHookInstaller implements AutoCloseable {
             System.getProperties().put(INGRESS_KEY, ingress);
             retransform(BUILD_OWNER.replace('/', '.'));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }
@@ -161,17 +142,14 @@ public final class VerifiedEditToggleHookInstaller implements AutoCloseable {
     private void retransform(final String className) {
         for (final Class<?> loaded : instrumentation.getAllLoadedClasses()) {
             if (!loaded.getName().equals(className)
-                || loaded.getClassLoader() != hostClassLoader
-                || !instrumentation.isModifiableClass(loaded)) {
+                    || loaded.getClassLoader() != hostClassLoader
+                    || !instrumentation.isModifiableClass(loaded)) {
                 continue;
             }
             try {
                 instrumentation.retransformClasses(loaded);
             } catch (Exception failure) {
-                throw new IllegalStateException(
-                    "Edit-toggle dialog hook transformation failed: " + className,
-                    failure
-                );
+                throw new IllegalStateException("Edit-toggle dialog hook transformation failed: " + className, failure);
             }
             synchronized (transformed) {
                 transformed.add(loaded);
@@ -224,9 +202,7 @@ public final class VerifiedEditToggleHookInstaller implements AutoCloseable {
                 instrumentation.retransformClasses(loaded);
             } catch (Exception failure) {
                 throw new IllegalStateException(
-                    "Edit-toggle dialog hook restoration failed: " + loaded.getName(),
-                    failure
-                );
+                        "Edit-toggle dialog hook restoration failed: " + loaded.getName(), failure);
             }
         }
     }

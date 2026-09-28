@@ -4,7 +4,7 @@ import dev.turboism.adapter.cubism.physics.NativePhysicsEditorBridge;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorConstructorTransformer;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
-
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,11 +20,10 @@ final class VerifiedPhysicsEditorHookInstaller implements AutoCloseable {
     private final AtomicBoolean installed = new AtomicBoolean();
 
     VerifiedPhysicsEditorHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final PhysicsEditorCoordinator coordinator,
-        final PhysicsEditorHostProfile profile
-    ) {
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final PhysicsEditorCoordinator coordinator,
+            final PhysicsEditorHostProfile profile) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
@@ -44,17 +43,16 @@ final class VerifiedPhysicsEditorHookInstaller implements AutoCloseable {
         try {
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getName().equals(targetClassName)
-                    && loaded.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && loaded.getClassLoader() == hostClassLoader
+                        && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
                     break;
                 }
             }
             dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                "physics-editor",
-                "Installed verified physics editor hook"
-            );
+                    "physics-editor", "Installed verified physics editor hook");
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }

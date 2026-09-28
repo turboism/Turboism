@@ -9,8 +9,6 @@ import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
-
-import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -53,49 +51,44 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
      * file handle or revision issued there is the only accepted authority here.
      */
     public RuntimePsdReplaceService(
-        final String pluginId,
-        final PermissionChecker permissionChecker,
-        final BooleanSupplier activeScope,
-        final RuntimePluginTaskScheduler pluginTasks,
-        final RuntimePsdExportService owner
-    ) {
+            final String pluginId,
+            final PermissionChecker permissionChecker,
+            final BooleanSupplier activeScope,
+            final RuntimePluginTaskScheduler pluginTasks,
+            final RuntimePsdExportService owner) {
         this(
-            pluginId,
-            permissionChecker,
-            activeScope,
-            Objects.requireNonNull(pluginTasks, "pluginTasks")::dispatchContinuation,
-            Objects.requireNonNull(owner, "owner").registry()
-        );
+                pluginId,
+                permissionChecker,
+                activeScope,
+                Objects.requireNonNull(pluginTasks, "pluginTasks")::dispatchContinuation,
+                Objects.requireNonNull(owner, "owner").registry());
     }
 
     /** Test-only composition seam. */
     RuntimePsdReplaceService(
-        final String pluginId,
-        final PermissionChecker permissionChecker,
-        final BooleanSupplier activeScope,
-        final Consumer<Runnable> continuationDispatcher,
-        final PsdEditRegistry registry
-    ) {
+            final String pluginId,
+            final PermissionChecker permissionChecker,
+            final BooleanSupplier activeScope,
+            final Consumer<Runnable> continuationDispatcher,
+            final PsdEditRegistry registry) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.activeScope = Objects.requireNonNull(activeScope, "activeScope");
-        this.continuationDispatcher = Objects.requireNonNull(
-            continuationDispatcher, "continuationDispatcher");
+        this.continuationDispatcher = Objects.requireNonNull(continuationDispatcher, "continuationDispatcher");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.executor = new ThreadPoolExecutor(
-            WORKER_COUNT,
-            WORKER_COUNT,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(QUEUE_CAPACITY),
-            runnable -> {
-                final Thread thread = new Thread(
-                    runnable, "turboism.psd-replace." + this.pluginId.replaceAll("[^A-Za-z0-9_.-]", "_"));
-                thread.setDaemon(true);
-                return thread;
-            },
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+                WORKER_COUNT,
+                WORKER_COUNT,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(QUEUE_CAPACITY),
+                runnable -> {
+                    final Thread thread = new Thread(
+                            runnable, "turboism.psd-replace." + this.pluginId.replaceAll("[^A-Za-z0-9_.-]", "_"));
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
     /**
@@ -104,19 +97,16 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
      * @return a plugin-facing stage that completes once the outcome is known
      */
     public CompletionStage<PsdReplaceResult> replaceRawImagePsd(
-        final PsdReplaceHost host,
-        final RawImageId target,
-        final PsdEditFile file,
-        final PsdFileRevision revision
-    ) {
+            final PsdReplaceHost host,
+            final RawImageId target,
+            final PsdEditFile file,
+            final PsdFileRevision revision) {
         final PsdReplaceHost replaceHost = Objects.requireNonNull(host, "host");
         final RawImageId requested = Objects.requireNonNull(target, "target");
         final PsdEditFile handle = Objects.requireNonNull(file, "file");
         final PsdFileRevision token = Objects.requireNonNull(revision, "revision");
-        final PluginCompletionFuture<PsdReplaceResult> completion = new PluginCompletionFuture<>(
-            continuationDispatcher,
-            this::acceptsContinuation
-        );
+        final PluginCompletionFuture<PsdReplaceResult> completion =
+                new PluginCompletionFuture<>(continuationDispatcher, this::acceptsContinuation);
         final AtomicBoolean settled = new AtomicBoolean(false);
 
         final PsdStableSnapshot.Snapshot stage;
@@ -141,8 +131,7 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
         }
 
         try {
-            executor.execute(() -> settle(
-                completion, settled, execute(replaceHost, requested, handle, token, stage)));
+            executor.execute(() -> settle(completion, settled, execute(replaceHost, requested, handle, token, stage)));
         } catch (RejectedExecutionException queueRejected) {
             settle(completion, settled, rejected(requested, "QUEUE_REJECTED"));
         }
@@ -161,12 +150,11 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
     }
 
     private PsdReplaceResult execute(
-        final PsdReplaceHost host,
-        final RawImageId target,
-        final PsdEditFile handle,
-        final PsdFileRevision token,
-        final PsdStableSnapshot.Snapshot stage
-    ) {
+            final PsdReplaceHost host,
+            final RawImageId target,
+            final PsdEditFile handle,
+            final PsdFileRevision token,
+            final PsdStableSnapshot.Snapshot stage) {
         final PsdEditRegistry.Binding binding;
         try {
             requireOperational();
@@ -187,18 +175,16 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
         final PsdReplaceHost.Replacement replacement;
         try {
             replacement = Objects.requireNonNull(
-                host.replaceWithStagedPsd(
-                    target,
-                    stage.path(),
-                    registry.requireFile(binding, handle).fileName(),
-                    () -> {
-                        requireOperational();
-                        checkPermissions();
-                        registry.requireRevision(binding, handle, token);
-                    }
-                ),
-                "native replacement"
-            );
+                    host.replaceWithStagedPsd(
+                            target,
+                            stage.path(),
+                            registry.requireFile(binding, handle).fileName(),
+                            () -> {
+                                requireOperational();
+                                checkPermissions();
+                                registry.requireRevision(binding, handle, token);
+                            }),
+                    "native replacement");
         } catch (CubismPermissionException denied) {
             return rejected(target, "PERMISSION_DENIED");
         } catch (InactiveOperation inactive) {
@@ -225,11 +211,10 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
     }
 
     private PsdReplaceResult classify(
-        final RawImageId target,
-        final PsdEditFile handle,
-        final PsdFileRevision token,
-        final PsdReplaceHost.Replacement replacement
-    ) {
+            final RawImageId target,
+            final PsdEditFile handle,
+            final PsdFileRevision token,
+            final PsdReplaceHost.Replacement replacement) {
         final String status = safeToken(replacement.nativeStatus());
         if ("UNAVAILABLE".equals(status)) {
             return unavailable(target, status);
@@ -241,11 +226,18 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
             if (replacement.mutationUnknown()) {
                 return partialFailure(target, "NATIVE_MUTATION_UNKNOWN");
             }
-            final String detail = replacement.failure().map(failure ->
-                ";phase=" + safeToken(failure.phase()) + ";category=" + safeToken(failure.category())).orElse("");
-            return new PsdReplaceResult(PsdReplaceResult.Status.FAILED,
-                "PSD_NATIVE_REPLACE;status=" + status + detail, target, Optional.empty(), Optional.empty(),
-                Optional.empty());
+            final String detail = replacement
+                    .failure()
+                    .map(failure ->
+                            ";phase=" + safeToken(failure.phase()) + ";category=" + safeToken(failure.category()))
+                    .orElse("");
+            return new PsdReplaceResult(
+                    PsdReplaceResult.Status.FAILED,
+                    "PSD_NATIVE_REPLACE;status=" + status + detail,
+                    target,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
         }
         if (!replacement.sessionCurrent()) {
             // The session changed across the native call: the outcome cannot be attributed.
@@ -264,13 +256,12 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
             return failed(target, "REVISION_RETIRED_BEFORE_COMPLETION");
         }
         return new PsdReplaceResult(
-            PsdReplaceResult.Status.APPLIED,
-            "PSD_NATIVE_REPLACE;status=" + status + ";observed=applied",
-            target,
-            replacement.afterRawImageId(),
-            Optional.of(token),
-            Optional.empty()
-        );
+                PsdReplaceResult.Status.APPLIED,
+                "PSD_NATIVE_REPLACE;status=" + status + ";observed=applied",
+                target,
+                replacement.afterRawImageId(),
+                Optional.of(token),
+                Optional.empty());
     }
 
     private PsdEditRegistry.Binding bindingOf(final PsdEditFile handle) {
@@ -281,10 +272,9 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
     }
 
     private void settle(
-        final PluginCompletionFuture<PsdReplaceResult> completion,
-        final AtomicBoolean settled,
-        final PsdReplaceResult result
-    ) {
+            final PluginCompletionFuture<PsdReplaceResult> completion,
+            final AtomicBoolean settled,
+            final PsdReplaceResult result) {
         if (!settled.compareAndSet(false, true)) return;
         final Runnable publication = () -> completion.settle(result);
         try {
@@ -320,61 +310,56 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
 
     private static PsdReplaceResult unavailable(final RawImageId target, final String status) {
         return new PsdReplaceResult(
-            PsdReplaceResult.Status.UNAVAILABLE,
-            "PSD_NATIVE_REPLACE;status=" + safeToken(status),
-            target,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()
-        );
+                PsdReplaceResult.Status.UNAVAILABLE,
+                "PSD_NATIVE_REPLACE;status=" + safeToken(status),
+                target,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     private static PsdReplaceResult rejected(final RawImageId target, final String status) {
         return new PsdReplaceResult(
-            PsdReplaceResult.Status.REJECTED,
-            "PSD_NATIVE_REPLACE;status=" + safeToken(status),
-            target,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()
-        );
+                PsdReplaceResult.Status.REJECTED,
+                "PSD_NATIVE_REPLACE;status=" + safeToken(status),
+                target,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     private static PsdReplaceResult failed(final RawImageId target, final String status) {
         return new PsdReplaceResult(
-            PsdReplaceResult.Status.FAILED,
-            "PSD_NATIVE_REPLACE;status=" + safeToken(status),
-            target,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()
-        );
+                PsdReplaceResult.Status.FAILED,
+                "PSD_NATIVE_REPLACE;status=" + safeToken(status),
+                target,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     private static PsdReplaceResult partialFailure(final RawImageId target, final String status) {
         return partialFailure(target, status, Optional.empty());
     }
 
-    private static PsdReplaceResult partialFailure(final RawImageId target, final String status,
-        final Optional<PsdReplaceHost.Failure> failure) {
-        final String detail = failure.map(value -> ";phase=" + safeToken(value.phase())
-            + ";category=" + safeToken(value.category())).orElse("");
+    private static PsdReplaceResult partialFailure(
+            final RawImageId target, final String status, final Optional<PsdReplaceHost.Failure> failure) {
+        final String detail = failure.map(
+                        value -> ";phase=" + safeToken(value.phase()) + ";category=" + safeToken(value.category()))
+                .orElse("");
         return new PsdReplaceResult(
-            PsdReplaceResult.Status.PARTIAL_FAILURE,
-            "PSD_NATIVE_REPLACE;status=" + safeToken(status) + ";pause=automatic-import" + detail,
-            target,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()
-        );
+                PsdReplaceResult.Status.PARTIAL_FAILURE,
+                "PSD_NATIVE_REPLACE;status=" + safeToken(status) + ";pause=automatic-import" + detail,
+                target,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     /** Diagnostics must never echo native text, a path or an exception message. */
     private static String safeToken(final String value) {
         final String candidate = value == null ? "" : value;
-        return candidate.matches("[A-Z][A-Z0-9_]{0," + (MAX_TOKEN_LENGTH - 1) + "}")
-            ? candidate
-            : "UNKNOWN";
+        return candidate.matches("[A-Z][A-Z0-9_]{0," + (MAX_TOKEN_LENGTH - 1) + "}") ? candidate : "UNKNOWN";
     }
 
     private static String requireText(final String value, final String name) {

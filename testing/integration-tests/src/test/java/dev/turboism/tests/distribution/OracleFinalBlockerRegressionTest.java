@@ -1,17 +1,17 @@
 package dev.turboism.tests.distribution;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
 import dev.turboism.distribution.FrameworkInstallPlan;
 import dev.turboism.distribution.PackageIdentity;
 import dev.turboism.distribution.PlannedFile;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import org.junit.jupiter.api.Test;
 
 class OracleFinalBlockerRegressionTest extends DistributionRegressionSupport {
-    @Test void rejectsFakeTerminalEocdProbe() throws Exception {
+    @Test
+    void rejectsFakeTerminalEocdProbe() throws Exception {
         byte[] jar = validRuntime();
         byte[] forged = Arrays.copyOf(jar, jar.length + 22);
         putInt(forged, jar.length, 0x06054b50);
@@ -19,7 +19,8 @@ class OracleFinalBlockerRegressionTest extends DistributionRegressionSupport {
         assertArtifactRejected(forged, validSdk(), "ARTIFACT_JAR_INVALID", "artifacts[0]");
     }
 
-    @Test void publicPlanTypesHaveNoPublicConstructors() {
+    @Test
+    void publicPlanTypesHaveNoPublicConstructors() {
         assertNoPublicConstructor(FrameworkInstallPlan.class);
         assertNoPublicConstructor(PackageIdentity.class);
         assertNoPublicConstructor(PlannedFile.class);

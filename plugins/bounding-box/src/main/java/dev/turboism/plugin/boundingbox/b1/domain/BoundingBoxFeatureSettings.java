@@ -9,10 +9,7 @@ package dev.turboism.plugin.boundingbox.b1.domain;
  *     inverted sense — true means those actions are <em>not</em> offered
  */
 public record BoundingBoxFeatureSettings(
-    boolean overlayButtonsEnabled,
-    boolean workspaceButtonsEnabled,
-    boolean mirrorAndShrinkSuppressed
-) {
+        boolean overlayButtonsEnabled, boolean workspaceButtonsEnabled, boolean mirrorAndShrinkSuppressed) {
     /** @return the shipped defaults: both button surfaces on, mirror and shrink not suppressed */
     public static BoundingBoxFeatureSettings defaults() {
         return new BoundingBoxFeatureSettings(true, true, false);
@@ -24,8 +21,9 @@ public record BoundingBoxFeatureSettings(
      *     idempotent set costs no allocation and compares identical
      */
     public BoundingBoxFeatureSettings withOverlayButtonsEnabled(final boolean value) {
-        return value == overlayButtonsEnabled ? this
-            : new BoundingBoxFeatureSettings(value, workspaceButtonsEnabled, mirrorAndShrinkSuppressed);
+        return value == overlayButtonsEnabled
+                ? this
+                : new BoundingBoxFeatureSettings(value, workspaceButtonsEnabled, mirrorAndShrinkSuppressed);
     }
 
     /**
@@ -33,8 +31,9 @@ public record BoundingBoxFeatureSettings(
      * @return a settings value with that setting; {@code this} when the value is unchanged
      */
     public BoundingBoxFeatureSettings withWorkspaceButtonsEnabled(final boolean value) {
-        return value == workspaceButtonsEnabled ? this
-            : new BoundingBoxFeatureSettings(overlayButtonsEnabled, value, mirrorAndShrinkSuppressed);
+        return value == workspaceButtonsEnabled
+                ? this
+                : new BoundingBoxFeatureSettings(overlayButtonsEnabled, value, mirrorAndShrinkSuppressed);
     }
 
     /**
@@ -42,7 +41,8 @@ public record BoundingBoxFeatureSettings(
      * @return a settings value with that setting; {@code this} when the value is unchanged
      */
     public BoundingBoxFeatureSettings withMirrorAndShrinkSuppressed(final boolean value) {
-        return value == mirrorAndShrinkSuppressed ? this
-            : new BoundingBoxFeatureSettings(overlayButtonsEnabled, workspaceButtonsEnabled, value);
+        return value == mirrorAndShrinkSuppressed
+                ? this
+                : new BoundingBoxFeatureSettings(overlayButtonsEnabled, workspaceButtonsEnabled, value);
     }
 }

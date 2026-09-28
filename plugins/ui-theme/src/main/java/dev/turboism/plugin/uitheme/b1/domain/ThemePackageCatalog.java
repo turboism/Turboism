@@ -22,16 +22,15 @@ public final class ThemePackageCatalog {
     private static final int MAX_CANDIDATES = 256;
     private static final int MAX_DEPTH = 16;
     private static final Pattern ID = Pattern.compile("[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*");
-    private static final Comparator<Candidate> CANDIDATE_ORDER = Comparator
-        .comparing(Candidate::id, ThemePackageCatalog::asciiCompare)
-        .thenComparingInt(Candidate::ordinal);
-    private static final Comparator<Issue> ISSUE_ORDER = Comparator
-        .comparing(Issue::id, ThemePackageCatalog::asciiCompare)
-        .thenComparing(Issue::code)
-        .thenComparingInt(Issue::ordinal);
+    private static final Comparator<Candidate> CANDIDATE_ORDER = Comparator.comparing(
+                    Candidate::id, ThemePackageCatalog::asciiCompare)
+            .thenComparingInt(Candidate::ordinal);
+    private static final Comparator<Issue> ISSUE_ORDER = Comparator.comparing(
+                    Issue::id, ThemePackageCatalog::asciiCompare)
+            .thenComparing(Issue::code)
+            .thenComparingInt(Issue::ordinal);
 
-    private ThemePackageCatalog() {
-    }
+    private ThemePackageCatalog() {}
 
     /**
      * Classifies every candidate as accepted or rejected, recording one issue per rejection.
@@ -70,12 +69,14 @@ public final class ThemePackageCatalog {
             final ThemePackageMetadata value = candidate.metadata();
             if (!isValidId(value.id())) {
                 reject(candidate, IssueCode.INVALID_ID, rejected, issues);
-            } else if (value.name() == null || value.name().isEmpty() || value.name().length() > 128) {
+            } else if (value.name() == null
+                    || value.name().isEmpty()
+                    || value.name().length() > 128) {
                 reject(candidate, IssueCode.INVALID_NAME, rejected, issues);
             } else if (value.description().length() > 1024
-                || value.author().length() > 128
-                || value.url().length() > 2048
-                || value.version().length() > 64) {
+                    || value.author().length() > 128
+                    || value.url().length() > 2048
+                    || value.version().length() > 64) {
                 reject(candidate, IssueCode.FIELD_LIMIT, rejected, issues);
             }
         }
@@ -150,11 +151,10 @@ public final class ThemePackageCatalog {
     }
 
     private static void classifyInheritance(
-        final Candidate start,
-        final Map<String, Candidate> unique,
-        final Map<Integer, IssueCode> rejected,
-        final List<Issue> issues
-    ) {
+            final Candidate start,
+            final Map<String, Candidate> unique,
+            final Map<Integer, IssueCode> rejected,
+            final List<Issue> issues) {
         final Set<String> seen = new HashSet<>();
         Candidate current = start;
         int depth = 1;
@@ -177,11 +177,10 @@ public final class ThemePackageCatalog {
     }
 
     private static void markCycle(
-        final Candidate start,
-        final Map<String, Candidate> unique,
-        final Map<Integer, IssueCode> rejected,
-        final List<Issue> issues
-    ) {
+            final Candidate start,
+            final Map<String, Candidate> unique,
+            final Map<Integer, IssueCode> rejected,
+            final List<Issue> issues) {
         final Set<String> cycle = new HashSet<>();
         Candidate current = start;
         while (cycle.add(current.id())) {
@@ -198,29 +197,25 @@ public final class ThemePackageCatalog {
     }
 
     private static void reject(
-        final Candidate candidate,
-        final IssueCode code,
-        final Map<Integer, IssueCode> rejected,
-        final List<Issue> issues
-    ) {
+            final Candidate candidate,
+            final IssueCode code,
+            final Map<Integer, IssueCode> rejected,
+            final List<Issue> issues) {
         if (rejected.putIfAbsent(candidate.ordinal(), code) == null) {
             issues.add(new Issue(candidate.id(), code, candidate.ordinal()));
         }
     }
 
     private static Result result(
-        final List<Candidate> candidates,
-        final Map<Integer, IssueCode> rejected,
-        final List<Issue> issues
-    ) {
+            final List<Candidate> candidates, final Map<Integer, IssueCode> rejected, final List<Issue> issues) {
         final List<Candidate> acceptedValues = candidates.stream()
-            .filter(candidate -> !rejected.containsKey(candidate.ordinal()))
-            .sorted(CANDIDATE_ORDER)
-            .toList();
+                .filter(candidate -> !rejected.containsKey(candidate.ordinal()))
+                .sorted(CANDIDATE_ORDER)
+                .toList();
         final List<Candidate> rejectedValues = candidates.stream()
-            .filter(candidate -> rejected.containsKey(candidate.ordinal()))
-            .sorted(CANDIDATE_ORDER)
-            .toList();
+                .filter(candidate -> rejected.containsKey(candidate.ordinal()))
+                .sorted(CANDIDATE_ORDER)
+                .toList();
         final List<Issue> orderedIssues = issues.stream().sorted(ISSUE_ORDER).toList();
         return new Result(acceptedValues, rejectedValues, orderedIssues);
     }

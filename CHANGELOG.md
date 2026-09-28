@@ -18,6 +18,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `PluginContext.availableServices()` and the `PluginService` enum report which optional context
   services the runtime actually installed, so plugins no longer have to probe getters or guess at
   `unavailable()` sentinels; the default fails closed with an empty set.
+- `PluginContext.services()` and `PluginServiceDirectory` give plugins a typed lookup of the
+  optional context services the runtime actually installed (`services().get(ServiceType.class)`
+  returns `null` when absent); each `PluginService` member now carries its service type. The
+  pre-existing per-service `PluginContext` getters remain as deprecated bridges for binary
+  compatibility, and new optional services land on the directory instead of growing the context.
+- `@Incubating` marks SDK types and members that are published for early adopters but not yet
+  covered by the stable-API compatibility promises; the MCP surface, the generated-subscriber
+  catalog machinery and the new service directory ship incubating.
 - `TurboismWindowFactory.installWindowIcon` installs a process-wide window-icon override, so every
   plugin-owned window carries the same product icon the user picked for the main-toolbar button
   (text vs installer mode) instead of the bundled default.
@@ -175,6 +183,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   handle enrolled mid-pass stays enrolled instead of being half-closed.
 - The agent reads the hook manifest on the boot class path, so a manifest packaged inside the
   agent JAR resolves regardless of the process working directory.
+- The canvas (workspace object) context menu no longer receives plugin contributions: the UI Theme
+  plugin's Theme Manager entry and the Parameter and Parameter Batch Transfer plugins' workspace
+  entries are removed, while their palette-tab context-menu and top-menu entries are unchanged.
 
 ## [0.44.0] - 2026-09-11
 

@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.transaction;
 
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -19,12 +18,11 @@ import java.util.Optional;
  * @param historyEntryId stable Turboism identity of the committed history entry, when one exists
  */
 public record AuthoringTransactionReceipt(
-    String transactionId,
-    String label,
-    HistorySnapshot historyBefore,
-    HistorySnapshot historyAfter,
-    Optional<String> historyEntryId
-) {
+        String transactionId,
+        String label,
+        HistorySnapshot historyBefore,
+        HistorySnapshot historyAfter,
+        Optional<String> historyEntryId) {
 
     /** Maximum length of opaque transaction and history-entry identities. */
     public static final int MAX_ID_LENGTH = 128;
@@ -36,7 +34,7 @@ public record AuthoringTransactionReceipt(
         historyBefore = Objects.requireNonNull(historyBefore, "historyBefore");
         historyAfter = Objects.requireNonNull(historyAfter, "historyAfter");
         historyEntryId = Objects.requireNonNull(historyEntryId, "historyEntryId")
-            .map(value -> normalizedId(value, "historyEntryId"));
+                .map(value -> normalizedId(value, "historyEntryId"));
     }
 
     private static String normalizedId(final String value, final String field) {
@@ -45,9 +43,7 @@ public record AuthoringTransactionReceipt(
             throw new IllegalArgumentException(field + " must not be blank");
         }
         if (normalized.length() > MAX_ID_LENGTH) {
-            throw new IllegalArgumentException(
-                field + " must not exceed " + MAX_ID_LENGTH + " characters"
-            );
+            throw new IllegalArgumentException(field + " must not exceed " + MAX_ID_LENGTH + " characters");
         }
         if (normalized.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException(field + " must not contain control characters");

@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism;
 
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
-
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -27,11 +26,7 @@ import java.util.function.BiConsumer;
  * @param summary the project-less observed selection identity
  *     ({@link SelectionSummaries#observedIdentity})
  */
-public record SelectionObservation(
-    Object source,
-    long sourceVersion,
-    SelectionSummary summary
-) {
+public record SelectionObservation(Object source, long sourceVersion, SelectionSummary summary) {
     public SelectionObservation {
         source = Objects.requireNonNull(source, "source");
         summary = Objects.requireNonNull(summary, "summary");
@@ -64,10 +59,9 @@ public record SelectionObservation(
      * @return {@code true} when a transition was committed and published
      */
     public static boolean commit(
-        final AtomicReference<SelectionObservation> baseline,
-        final SelectionObservation next,
-        final BiConsumer<SelectionSummary, SelectionSummary> publisher
-    ) {
+            final AtomicReference<SelectionObservation> baseline,
+            final SelectionObservation next,
+            final BiConsumer<SelectionSummary, SelectionSummary> publisher) {
         Objects.requireNonNull(baseline, "baseline");
         Objects.requireNonNull(next, "next");
         Objects.requireNonNull(publisher, "publisher");

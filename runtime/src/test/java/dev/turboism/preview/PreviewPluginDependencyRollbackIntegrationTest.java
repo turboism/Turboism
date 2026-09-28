@@ -1,16 +1,15 @@
 package dev.turboism.preview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.event.EventBus;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,10 +21,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * A required {@code before} dependency lets the declarer load ahead of its target; when the
@@ -44,8 +43,8 @@ class PreviewPluginDependencyRollbackIntegrationTest {
     private static final String DISABLE_STARTED_PROPERTY = "dev.example.disable-started";
     private static final String RELEASE_DISABLE_PROPERTY = "dev.example.release-disable";
     private static final String SUBSCRIBE_PERMISSION =
-        "[{\"id\":\"turboism.event.subscribe\",\"scope\":\"application\","
-            + "\"reason\":\"Fence admission probe.\"}]";
+            "[{\"id\":\"turboism.event.subscribe\",\"scope\":\"application\","
+                    + "\"reason\":\"Fence admission probe.\"}]";
 
     @TempDir
     Path temporary;
@@ -61,40 +60,39 @@ class PreviewPluginDependencyRollbackIntegrationTest {
         System.clearProperty(DISABLE_ORDER_PROPERTY);
 
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
-            final LocalPluginRuntime runtime = new LocalPluginRuntime(
-                home, scheduler, host.adapterAccess(), log
-            );
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log);
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
 
-                assertEquals("init", System.getProperty(INIT_PROPERTY),
-                    "before ordering must let the consumer initialize ahead of the provider");
                 assertEquals(
-                    TOP_CONSUMER_ID + ";" + CONSUMER_ID + ";",
-                    System.getProperty(DISABLE_ORDER_PROPERTY),
-                    "dependents must unload before the members they require"
-                );
+                        "init",
+                        System.getProperty(INIT_PROPERTY),
+                        "before ordering must let the consumer initialize ahead of the provider");
+                assertEquals(
+                        TOP_CONSUMER_ID + ";" + CONSUMER_ID + ";",
+                        System.getProperty(DISABLE_ORDER_PROPERTY),
+                        "dependents must unload before the members they require");
 
                 final List<LocalPluginRuntime.LoadedPluginSummary> external = report.loaded().stream()
-                    .filter(summary -> !summary.id().equals("turboism.core"))
-                    .toList();
-                assertTrue(external.isEmpty(),
-                    "no member of the failed closure may stay loaded: " + external);
+                        .filter(summary -> !summary.id().equals("turboism.core"))
+                        .toList();
+                assertTrue(external.isEmpty(), "no member of the failed closure may stay loaded: " + external);
 
                 for (String dependentId : List.of(CONSUMER_ID, TOP_CONSUMER_ID)) {
                     final LocalPluginRuntime.PluginFailure failure = report.failures().stream()
-                        .filter(entry -> entry.pluginId().equals(dependentId))
-                        .findFirst()
-                        .orElseThrow(() -> new AssertionError(
-                            "missing rollback failure for " + dependentId + ": " + report.failures()));
+                            .filter(entry -> entry.pluginId().equals(dependentId))
+                            .findFirst()
+                            .orElseThrow(() -> new AssertionError(
+                                    "missing rollback failure for " + dependentId + ": " + report.failures()));
                     assertEquals("DEPENDENCY_LOAD_FAILED", failure.code());
                 }
-                assertTrue(report.failures().stream().anyMatch(failure ->
-                    failure.pluginId().equals(PROVIDER_ID)));
+                assertTrue(report.failures().stream()
+                        .anyMatch(failure -> failure.pluginId().equals(PROVIDER_ID)));
                 assertTrue(report.dependencyCycles().isEmpty());
 
-                assertFalse(runtime.loadedPlugins().stream().anyMatch(plugin ->
-                    plugin.id().equals(CONSUMER_ID) || plugin.id().equals(TOP_CONSUMER_ID)));
+                assertFalse(runtime.loadedPlugins().stream()
+                        .anyMatch(plugin ->
+                                plugin.id().equals(CONSUMER_ID) || plugin.id().equals(TOP_CONSUMER_ID)));
             } finally {
                 runtime.close();
             }
@@ -120,10 +118,8 @@ class PreviewPluginDependencyRollbackIntegrationTest {
 
         final RuntimeScheduler scheduler = scheduler();
         final HostSession host = new HostSession(Optional::empty);
-        for (String property : List.of(
-            INIT_PROPERTY, DISABLE_ORDER_PROPERTY, DISABLE_STARTED_PROPERTY,
-            RELEASE_DISABLE_PROPERTY
-        )) {
+        for (String property :
+                List.of(INIT_PROPERTY, DISABLE_ORDER_PROPERTY, DISABLE_STARTED_PROPERTY, RELEASE_DISABLE_PROPERTY)) {
             System.clearProperty(property);
         }
         System.getProperties().remove(BUS_PROPERTY);
@@ -146,7 +142,7 @@ class PreviewPluginDependencyRollbackIntegrationTest {
                     return;
                 }
                 try {
-                    eventBus.subscribe(ProbeEvent.class, event -> { });
+                    eventBus.subscribe(ProbeEvent.class, event -> {});
                     probe.set("admitted");
                 } catch (IllegalStateException closed) {
                     probe.set("rejected:" + closed.getMessage());
@@ -162,30 +158,29 @@ class PreviewPluginDependencyRollbackIntegrationTest {
         checker.start();
 
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
-            final LocalPluginRuntime runtime = new LocalPluginRuntime(
-                home, scheduler, host.adapterAccess(), log
-            );
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log);
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
                 checker.join(TimeUnit.SECONDS.toMillis(30));
 
                 final String outcome = probe.get();
-                assertTrue(outcome.startsWith("rejected:"),
-                    "consumer event owner must reject subscriptions while the top consumer's "
-                        + "disable is still blocked; got: " + outcome);
-                assertTrue(outcome.contains("does not accept subscriptions")
-                        || outcome.contains("Plugin generation is closed for new work"),
-                    "rejection must come from a generation admission gate, not permissions: " + outcome);
+                assertTrue(
+                        outcome.startsWith("rejected:"),
+                        "consumer event owner must reject subscriptions while the top consumer's "
+                                + "disable is still blocked; got: " + outcome);
+                assertTrue(
+                        outcome.contains("does not accept subscriptions")
+                                || outcome.contains("Plugin generation is closed for new work"),
+                        "rejection must come from a generation admission gate, not permissions: " + outcome);
 
                 assertEquals(
-                    TOP_CONSUMER_ID + ";" + CONSUMER_ID + ";",
-                    System.getProperty(DISABLE_ORDER_PROPERTY),
-                    "dependents must unload before the members they require"
-                );
-                assertTrue(report.failures().stream().allMatch(failure ->
-                    !failure.pluginId().equals(CONSUMER_ID)
-                        && !failure.pluginId().equals(TOP_CONSUMER_ID)
-                        || "DEPENDENCY_LOAD_FAILED".equals(failure.code())));
+                        TOP_CONSUMER_ID + ";" + CONSUMER_ID + ";",
+                        System.getProperty(DISABLE_ORDER_PROPERTY),
+                        "dependents must unload before the members they require");
+                assertTrue(report.failures().stream()
+                        .allMatch(failure -> !failure.pluginId().equals(CONSUMER_ID)
+                                        && !failure.pluginId().equals(TOP_CONSUMER_ID)
+                                || "DEPENDENCY_LOAD_FAILED".equals(failure.code())));
             } finally {
                 System.setProperty(RELEASE_DISABLE_PROPERTY, "1");
                 runtime.close();
@@ -212,53 +207,38 @@ class PreviewPluginDependencyRollbackIntegrationTest {
         final String failedId = "dev.example.failed-load";
         final Path home = temporary.resolve("home");
         writePlugin(
-            home.resolve("plugins").resolve("00-failing.jar"),
-            failedId,
-            "dev.example.failedload.FailedLoadPlugin",
-            failedLoadEntrypoint(),
-            null,
-            "[]"
-        );
-        final PluginWorkExecutorRegistry registry = new PluginWorkExecutorRegistry(
-            1, 16, ignored -> { }, Clock.systemUTC()
-        );
-        final RuntimeScheduler scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            registry,
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                home.resolve("plugins").resolve("00-failing.jar"),
+                failedId,
+                "dev.example.failedload.FailedLoadPlugin",
+                failedLoadEntrypoint(),
+                null,
+                "[]");
+        final PluginWorkExecutorRegistry registry =
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC());
+        final RuntimeScheduler scheduler =
+                new RuntimeScheduler(new DefaultWorkBudgetPolicy(), registry, SidecarDispatcher.noop(), ignored -> {});
         final HostSession host = new HostSession(Optional::empty);
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
-            final LocalPluginRuntime runtime = new LocalPluginRuntime(
-                home, scheduler, host.adapterAccess(), log
-            );
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log);
             try {
                 // Seed the executor so the reclamation is observable: the plugin's init
                 // task lands on this same instance while the generation is alive.
-                final dev.turboism.core.runtime.work.PluginWorkExecutor executor =
-                    registry.get(failedId);
+                final dev.turboism.core.runtime.work.PluginWorkExecutor executor = registry.get(failedId);
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
 
                 assertTrue(
-                    report.failures().stream().anyMatch(failure ->
-                        failure.pluginId().equals(failedId)),
-                    "the fixture plugin must fail at enable: " + report.failures()
-                );
+                        report.failures().stream()
+                                .anyMatch(failure -> failure.pluginId().equals(failedId)),
+                        "the fixture plugin must fail at enable: " + report.failures());
                 assertFalse(
-                    executor.submit(
-                        new dev.turboism.core.runtime.PluginTask(
-                            "plugin.compute.normal", failedId, "probe", "none"
-                        ),
-                        () -> { }
-                    ).accepted(),
-                    "a failed generation's executor must be reclaimed during load cleanup"
-                );
+                        executor.submit(
+                                        new dev.turboism.core.runtime.PluginTask(
+                                                "plugin.compute.normal", failedId, "probe", "none"),
+                                        () -> {})
+                                .accepted(),
+                        "a failed generation's executor must be reclaimed during load cleanup");
                 org.junit.jupiter.api.Assertions.assertNotSame(
-                    executor,
-                    registry.get(failedId),
-                    "the reclaimed executor must not be handed out again"
-                );
+                        executor, registry.get(failedId), "the reclaimed executor must not be handed out again");
             } finally {
                 runtime.close();
             }
@@ -297,28 +277,34 @@ class PreviewPluginDependencyRollbackIntegrationTest {
     }
 
     /** Custom event type with no public route and no domain permission requirement. */
-    public static final class ProbeEvent implements EventBus.TurboismEvent {
-    }
+    public static final class ProbeEvent implements EventBus.TurboismEvent {}
 
-    private void writeFixturePlugins(
-        final Path plugins,
-        final String consumerPermissions
-    ) throws Exception {
+    private void writeFixturePlugins(final Path plugins, final String consumerPermissions) throws Exception {
         writePlugin(
-            plugins.resolve("00-consumer.jar"), CONSUMER_ID,
-            "dev.example.consumer.ConsumerPlugin", consumerEntrypoint(),
-            """
+                plugins.resolve("00-consumer.jar"),
+                CONSUMER_ID,
+                "dev.example.consumer.ConsumerPlugin",
+                consumerEntrypoint(),
+                """
             {"id":"%s","version":"[0.1.0,0.2.0)","type":"required","ordering":"before"}
-            """.formatted(PROVIDER_ID), consumerPermissions);
+            """.formatted(PROVIDER_ID),
+                consumerPermissions);
         writePlugin(
-            plugins.resolve("05-top.jar"), TOP_CONSUMER_ID,
-            "dev.example.top.TopConsumerPlugin", topConsumerEntrypoint(),
-            """
+                plugins.resolve("05-top.jar"),
+                TOP_CONSUMER_ID,
+                "dev.example.top.TopConsumerPlugin",
+                topConsumerEntrypoint(),
+                """
             {"id":"%s","version":"[0.1.0,0.2.0)","type":"required","ordering":"after"}
-            """.formatted(CONSUMER_ID), "[]");
+            """.formatted(CONSUMER_ID),
+                "[]");
         writePlugin(
-            plugins.resolve("10-provider.jar"), PROVIDER_ID,
-            "dev.example.provider.ProviderPlugin", providerEntrypoint(), null, "[]");
+                plugins.resolve("10-provider.jar"),
+                PROVIDER_ID,
+                "dev.example.provider.ProviderPlugin",
+                providerEntrypoint(),
+                null,
+                "[]");
     }
 
     private static String consumerEntrypoint() {
@@ -388,13 +374,13 @@ class PreviewPluginDependencyRollbackIntegrationTest {
     }
 
     private void writePlugin(
-        final Path jar,
-        final String id,
-        final String className,
-        final String entrypointSource,
-        final String dependency,
-        final String permissions
-    ) throws Exception {
+            final Path jar,
+            final String id,
+            final String className,
+            final String entrypointSource,
+            final String dependency,
+            final String permissions)
+            throws Exception {
         final String baseName = id.substring(id.lastIndexOf('-') + 1);
         final Path sourceRoot = temporary.resolve("source-" + baseName);
         final Path classes = temporary.resolve("classes-" + baseName);
@@ -404,11 +390,14 @@ class PreviewPluginDependencyRollbackIntegrationTest {
         Files.createDirectories(classes);
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         final int result = compiler.run(
-            null, null, null,
-            "-classpath", System.getProperty("java.class.path"),
-            "-d", classes.toString(),
-            source.toString()
-        );
+                null,
+                null,
+                null,
+                "-classpath",
+                System.getProperty("java.class.path"),
+                "-d",
+                classes.toString(),
+                source.toString());
         if (result != 0) {
             throw new IllegalStateException("fixture compilation failed for " + id);
         }
@@ -417,23 +406,21 @@ class PreviewPluginDependencyRollbackIntegrationTest {
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             try (var paths = Files.walk(classes)) {
                 for (Path path : paths.filter(Files::isRegularFile)
-                    .sorted(Comparator.naturalOrder()).toList()) {
-                    add(output, classes.relativize(path).toString().replace('\\', '/'),
-                        Files.readAllBytes(path));
+                        .sorted(Comparator.naturalOrder())
+                        .toList()) {
+                    add(output, classes.relativize(path).toString().replace('\\', '/'), Files.readAllBytes(path));
                 }
             }
-            add(output, "META-INF/turboism/plugin.json",
-                descriptor(id, className, dependency, permissions).getBytes(StandardCharsets.UTF_8));
+            add(
+                    output,
+                    "META-INF/turboism/plugin.json",
+                    descriptor(id, className, dependency, permissions).getBytes(StandardCharsets.UTF_8));
             add(output, "META-INF/turboism/i18n/messages.properties", new byte[0]);
         }
     }
 
     private static String descriptor(
-        final String id,
-        final String entrypoint,
-        final String dependency,
-        final String permissions
-    ) {
+            final String id, final String entrypoint, final String dependency, final String permissions) {
         final String dependencies = dependency == null ? "[]" : "[" + dependency + "]";
         return """
             {"format":"turboism.plugin.meta","schemaVersion":2,
@@ -449,18 +436,13 @@ class PreviewPluginDependencyRollbackIntegrationTest {
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 16, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 
-    private static void add(
-        final JarOutputStream output,
-        final String name,
-        final byte[] content
-    ) throws Exception {
+    private static void add(final JarOutputStream output, final String name, final byte[] content) throws Exception {
         output.putNextEntry(new JarEntry(name));
         output.write(content);
         output.closeEntry();

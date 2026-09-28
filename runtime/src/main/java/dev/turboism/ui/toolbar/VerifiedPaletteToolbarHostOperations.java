@@ -2,16 +2,6 @@ package dev.turboism.ui.toolbar;
 
 import dev.turboism.ui.host.EdtDispatch;
 import dev.turboism.ui.palette.LogPaletteHostStructure;
-
-import javax.swing.BorderFactory;
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import javax.swing.JComponent;
-import javax.swing.JPanel;
-import javax.swing.JTextPane;
-import javax.swing.JViewport;
-import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
@@ -23,6 +13,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import javax.swing.BorderFactory;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JPanel;
+import javax.swing.JTextPane;
+import javax.swing.JViewport;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 /** Self-healing production host operations for toolbar buttons on the Cubism Log palette. */
 public final class VerifiedPaletteToolbarHostOperations implements PaletteToolbarHostOperations {
@@ -35,10 +34,8 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
     private static final int FAST_POLL_DELAY_MS = 250;
     private static final int IDLE_POLL_DELAY_MS = 2_000;
     private static final int FAST_POLL_ATTEMPTS = 300;
-    private static final Set<String> WRAPPER_MARKERS = Set.of(
-        WRAPPER_MARKER_KEY,
-        LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY
-    );
+    private static final Set<String> WRAPPER_MARKERS =
+            Set.of(WRAPPER_MARKER_KEY, LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY);
 
     private final EditorUiPluginResourceRegistry resources;
     private final LogPaletteRootResolver logPaletteRoot;
@@ -49,17 +46,13 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
     private int contributionsVersion;
     private int syncedVersion = -1;
 
-    public VerifiedPaletteToolbarHostOperations(
-        final EditorUiPluginResourceRegistry resources
-    ) {
+    public VerifiedPaletteToolbarHostOperations(final EditorUiPluginResourceRegistry resources) {
         this(resources, LogPaletteHostStructure::findLogTextPane);
     }
 
     /** Test seam for replacing the current LOG palette root within one host generation. */
     VerifiedPaletteToolbarHostOperations(
-        final EditorUiPluginResourceRegistry resources,
-        final LogPaletteRootResolver logPaletteRoot
-    ) {
+            final EditorUiPluginResourceRegistry resources, final LogPaletteRootResolver logPaletteRoot) {
         this.resources = resources;
         this.logPaletteRoot = Objects.requireNonNull(logPaletteRoot, "logPaletteRoot");
     }
@@ -75,8 +68,7 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
                 final ButtonContribution previous = next.put(descriptor.nativeId(), contribution);
                 if (previous != null) {
                     throw new IllegalArgumentException(
-                        "duplicate palette toolbar contribution: " + descriptor.nativeId()
-                    );
+                            "duplicate palette toolbar contribution: " + descriptor.nativeId());
                 }
             }
             contributions.clear();
@@ -145,10 +137,7 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
             throw new IllegalStateException("log-palette-scroll-shell-not-found");
         }
         final Container scrollShell = viewport.getParent();
-        Container target = LogPaletteHostStructure.outermostMarkedWrapper(
-            scrollShell,
-            WRAPPER_MARKERS
-        );
+        Container target = LogPaletteHostStructure.outermostMarkedWrapper(scrollShell, WRAPPER_MARKERS);
         if (isToolbarWrapper(target)) {
             target = unwrapStaleToolbarWrapper(target);
         }
@@ -180,14 +169,13 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
         if (currentPane == null || currentPane != binding.pane) {
             return false;
         }
-        if (binding.wrapper.getParent() != binding.originalParent
-            || binding.row.getParent() != binding.wrapper) {
+        if (binding.wrapper.getParent() != binding.originalParent || binding.row.getParent() != binding.wrapper) {
             return false;
         }
         final JViewport viewport = LogPaletteHostStructure.findAncestorViewport(currentPane);
         return viewport != null
-            && viewport.getParent() == binding.scrollShell
-            && SwingUtilities.isDescendingFrom(currentPane, binding.wrapper);
+                && viewport.getParent() == binding.scrollShell
+                && SwingUtilities.isDescendingFrom(currentPane, binding.wrapper);
     }
 
     private void syncButtons() {
@@ -201,10 +189,7 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
             final ButtonState current = binding.buttons.get(nativeId);
             if (current == null || !current.contribution.equals(contribution)) {
                 removeButton(nativeId);
-                binding.buttons.put(nativeId, new ButtonState(
-                    contribution,
-                    createButton(contribution)
-                ));
+                binding.buttons.put(nativeId, new ButtonState(contribution, createButton(contribution)));
             }
         }
         binding.left.removeAll();
@@ -221,9 +206,11 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
     /** Cheap per-poll check: every contributed button still sits in its anchor group. */
     private boolean buttonsIntact() {
         for (ButtonContribution contribution : contributions.values()) {
-            final ButtonState state = binding.buttons.get(contribution.descriptor().nativeId());
+            final ButtonState state =
+                    binding.buttons.get(contribution.descriptor().nativeId());
             if (state == null
-                || state.button.getParent() != groupFor(contribution.descriptor().anchor())) {
+                    || state.button.getParent()
+                            != groupFor(contribution.descriptor().anchor())) {
                 return false;
             }
         }
@@ -256,10 +243,9 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
         if (resources == null) {
             return null;
         }
-        final URL url = resources.resource(
-            contribution.pluginId(),
-            contribution.iconResourcePath()
-        ).orElse(null);
+        final URL url = resources
+                .resource(contribution.pluginId(), contribution.iconResourcePath())
+                .orElse(null);
         return url == null ? null : new ImageIcon(url);
     }
 
@@ -271,16 +257,9 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
         binding.buttons.clear();
         binding.row.removeAll();
         if (binding.wrapper.getParent() == binding.originalParent) {
-            final Component restored = LogPaletteHostStructure.centerComponent(
-                binding.wrapper,
-                binding.target
-            );
+            final Component restored = LogPaletteHostStructure.centerComponent(binding.wrapper, binding.target);
             binding.wrapper.remove(restored);
-            LogPaletteHostStructure.replaceComponent(
-                binding.originalParent,
-                binding.wrapper,
-                restored
-            );
+            LogPaletteHostStructure.replaceComponent(binding.originalParent, binding.wrapper, restored);
         }
         binding = null;
     }
@@ -317,10 +296,10 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
         try {
             reconcile();
         } catch (RuntimeException failure) {
-            System.getLogger(getClass().getName()).log(
-                System.Logger.Level.WARNING,
-                "Palette toolbar lifecycle reconcile failed: " + failure.getMessage()
-            );
+            System.getLogger(getClass().getName())
+                    .log(
+                            System.Logger.Level.WARNING,
+                            "Palette toolbar lifecycle reconcile failed: " + failure.getMessage());
         }
         pollAttempt++;
         if (pollAttempt == FAST_POLL_ATTEMPTS && pollTimer != null) {
@@ -344,16 +323,14 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
 
     private static boolean isToolbarWrapper(final Container component) {
         return component instanceof JComponent value
-            && Boolean.TRUE.equals(value.getClientProperty(WRAPPER_MARKER_KEY));
+                && Boolean.TRUE.equals(value.getClientProperty(WRAPPER_MARKER_KEY));
     }
 
     private static int alignment(final String anchor) {
         return switch (anchor) {
             case "start", "first" -> FlowLayout.LEFT;
             case "end", "last" -> FlowLayout.RIGHT;
-            default -> throw new IllegalStateException(
-                "palette toolbar anchor is unsupported: " + anchor
-            );
+            default -> throw new IllegalStateException("palette toolbar anchor is unsupported: " + anchor);
         };
     }
 
@@ -393,15 +370,14 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
         private final Map<String, ButtonState> buttons = new LinkedHashMap<>();
 
         private Binding(
-            final JTextPane pane,
-            final Container scrollShell,
-            final Container target,
-            final Container originalParent,
-            final JPanel wrapper,
-            final JPanel row,
-            final JPanel left,
-            final JPanel right
-        ) {
+                final JTextPane pane,
+                final Container scrollShell,
+                final Container target,
+                final Container originalParent,
+                final JPanel wrapper,
+                final JPanel row,
+                final JPanel left,
+                final JPanel right) {
             this.pane = pane;
             this.scrollShell = scrollShell;
             this.target = target;
@@ -413,6 +389,5 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
         }
     }
 
-    private record ButtonState(ButtonContribution contribution, JButton button) {
-    }
+    private record ButtonState(ButtonContribution contribution, JButton button) {}
 }

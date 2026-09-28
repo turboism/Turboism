@@ -1,6 +1,5 @@
 package dev.turboism.sdk.appearance;
 
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -21,13 +20,12 @@ import java.util.Optional;
  *     present
  */
 public record AppearanceStatus(
-    Availability availability,
-    Source source,
-    Optional<String> appearanceId,
-    AppearanceBase base,
-    long revision,
-    Optional<String> diagnosticId
-) {
+        Availability availability,
+        Source source,
+        Optional<String> appearanceId,
+        AppearanceBase base,
+        long revision,
+        Optional<String> diagnosticId) {
     public AppearanceStatus {
         availability = Objects.requireNonNull(availability, "availability");
         source = Objects.requireNonNull(source, "source");

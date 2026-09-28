@@ -14,19 +14,12 @@ public final class PreviewReportValidationException extends RuntimeException {
 
     private final String code;
 
-    public PreviewReportValidationException(
-        final String code,
-        final String message
-    ) {
+    public PreviewReportValidationException(final String code, final String message) {
         super(Objects.requireNonNull(message, "message"));
         this.code = requireCode(code);
     }
 
-    public PreviewReportValidationException(
-        final String code,
-        final String message,
-        final Throwable cause
-    ) {
+    public PreviewReportValidationException(final String code, final String message, final Throwable cause) {
         super(Objects.requireNonNull(message, "message"), cause);
         this.code = requireCode(code);
     }

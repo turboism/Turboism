@@ -20,9 +20,6 @@
  "verifiedBy": "turboism-protected-export-static-verifier",
  "verifiedAt": "2026-09-22T00:00:00Z",
  "safeMode": "Fail closed and keep protected-export orchestration unavailable whenever any pinned host member, artifact identity, or attestation fails; native export behavior stays untouched.",
- "capabilityConditions": {
-  "cubism.protected-export.orchestration": ["hook:protected-export"]
- },
  "selectors": [
   {
    "mappingId": "cubism.mapping.v5_3_03.protected_export.class.alias_source_class",
@@ -2444,5 +2441,10 @@
    "forbiddenAccessFlags": 0,
    "status": "VERIFIED_STATIC"
   }
- ]
+ ],
+  "capabilityConditions": {
+    "cubism.protected-export.orchestration": [
+      "hook:protected-export"
+    ]
+  }
 }

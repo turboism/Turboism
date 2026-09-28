@@ -2,14 +2,13 @@ package dev.turboism.plugin.externalpsdedit;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismPlugin;
-import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.EditorLifecycleSnapshot;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-
 import java.util.Objects;
 import java.util.Set;
 
@@ -31,8 +30,7 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
     private PluginLocalization localization;
     private ExternalPsdEditSessionManager sessions;
 
-    public ExternalPsdEditPlugin() {
-    }
+    public ExternalPsdEditPlugin() {}
 
     ExternalPsdEditPlugin(final ExternalPsdEditSessionManager sessions) {
         this.sessions = sessions;
@@ -54,22 +52,12 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
         sessions.reopen();
         try {
             registerAction(
-                OPEN_ACTION_ID,
-                text("external-psd-edit.action.open"),
-                actionContext -> sessions.openFromContextMenu(actionContext)
-            );
-            registerContextMenu(
-                PART_CONTEXT_MENU_ID,
-                ContextMenuRegistry.Location.PART_TAB
-            );
-            registerContextMenu(
-                DEFORMER_CONTEXT_MENU_ID,
-                ContextMenuRegistry.Location.DEFORMER_TAB
-            );
-            registerContextMenu(
-                WORKSPACE_CONTEXT_MENU_ID,
-                ContextMenuRegistry.Location.WORKSPACE_OBJECT
-            );
+                    OPEN_ACTION_ID,
+                    text("external-psd-edit.action.open"),
+                    actionContext -> sessions.openFromContextMenu(actionContext));
+            registerContextMenu(PART_CONTEXT_MENU_ID, ContextMenuRegistry.Location.PART_TAB);
+            registerContextMenu(DEFORMER_CONTEXT_MENU_ID, ContextMenuRegistry.Location.DEFORMER_TAB);
+            registerContextMenu(WORKSPACE_CONTEXT_MENU_ID, ContextMenuRegistry.Location.WORKSPACE_OBJECT);
         } catch (RuntimeException failure) {
             closeDisposableScopeQuietly();
             sessions.stopAll("plugin enable rollback");
@@ -110,10 +98,9 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
     }
 
     private void registerAction(
-        final String id,
-        final String label,
-        final java.util.function.Consumer<ActionRegistry.ActionContext> handler
-    ) {
+            final String id,
+            final String label,
+            final java.util.function.Consumer<ActionRegistry.ActionContext> handler) {
         final Registration registration = context.actions().register(id, new ActionRegistry.Action() {
             @Override
             public String id() {
@@ -134,17 +121,16 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
     }
 
     private void registerContextMenu(final String id, final ContextMenuRegistry.Location location) {
-        context.disposableScope().register(context.contextMenu().contribute(
-            new ContextMenuRegistry.ContextMenuContribution(
-                id,
-                OPEN_ACTION_ID,
-                text("external-psd-edit.menu"),
-                null,
-                location,
-                Set.of(ContextMenuRegistry.ObjectKind.ART_MESH),
-                110
-            )
-        ));
+        context.disposableScope()
+                .register(context.contextMenu()
+                        .contribute(new ContextMenuRegistry.ContextMenuContribution(
+                                id,
+                                OPEN_ACTION_ID,
+                                text("external-psd-edit.menu"),
+                                null,
+                                location,
+                                Set.of(ContextMenuRegistry.ObjectKind.ART_MESH),
+                                110)));
     }
 
     private String text(final String key) {
@@ -155,10 +141,7 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
         try {
             context.disposableScope().close();
         } catch (Exception closeFailure) {
-            logger.warn(localization.format(
-                "external-psd-edit.enable.rollback-failed",
-                closeFailure.getMessage()
-            ));
+            logger.warn(localization.format("external-psd-edit.enable.rollback-failed", closeFailure.getMessage()));
         }
     }
 
@@ -167,12 +150,25 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
             return context.localization();
         } catch (UnsupportedOperationException unavailable) {
             return new PluginLocalization() {
-                @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
-                @Override public String text(final String key) { return key; }
-                @Override public String format(final String key, final Object... arguments) {
+                @Override
+                public java.util.Locale locale() {
+                    return java.util.Locale.ENGLISH;
+                }
+
+                @Override
+                public String text(final String key) {
+                    return key;
+                }
+
+                @Override
+                public String format(final String key, final Object... arguments) {
                     return java.text.MessageFormat.format(text(key), arguments);
                 }
-                @Override public boolean contains(final String key) { return true; }
+
+                @Override
+                public boolean contains(final String key) {
+                    return true;
+                }
             };
         }
     }

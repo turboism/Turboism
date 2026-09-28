@@ -25,10 +25,7 @@ public interface PluginStorage {
      * @return the decoded text, or a {@link StorageError} when the file is
      *     missing, is not a regular file, or the read fails
      */
-    CompletionStage<StorageReadResult<String>> readUtf8(
-        StoragePath path,
-        int maxBytes
-    );
+    CompletionStage<StorageReadResult<String>> readUtf8(StoragePath path, int maxBytes);
 
     /**
      * Reads a file as raw bytes.
@@ -40,10 +37,7 @@ public interface PluginStorage {
      *     carried array is cloned on every access, so callers never share a
      *     mutable buffer
      */
-    CompletionStage<StorageReadResult<byte[]>> readBytes(
-        StoragePath path,
-        int maxBytes
-    );
+    CompletionStage<StorageReadResult<byte[]>> readBytes(StoragePath path, int maxBytes);
 
     /**
      * Replaces a file with the given text, encoded as UTF-8, atomically: a
@@ -56,10 +50,7 @@ public interface PluginStorage {
      *     {@link StorageErrorCode#ATOMIC_REPLACE_UNAVAILABLE} when the host
      *     filesystem cannot guarantee atomicity
      */
-    CompletionStage<StorageWriteResult> writeUtf8Atomic(
-        StoragePath path,
-        String content
-    );
+    CompletionStage<StorageWriteResult> writeUtf8Atomic(StoragePath path, String content);
 
     /**
      * Replaces a file with the given bytes atomically.
@@ -69,10 +60,7 @@ public interface PluginStorage {
      * @return a written result, or a {@link StorageError} describing why the
      *     atomic replace could not be completed
      */
-    CompletionStage<StorageWriteResult> writeBytesAtomic(
-        StoragePath path,
-        byte[] content
-    );
+    CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content);
 
     /**
      * Lists the immediate children of a directory; the listing does not
@@ -84,10 +72,7 @@ public interface PluginStorage {
      * @return the entries, or a {@link StorageError}; a failed listing carries
      *     no entries and is never marked truncated
      */
-    CompletionStage<StorageListResult> list(
-        StoragePath directory,
-        int maxEntries
-    );
+    CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries);
 
     /**
      * Copies a file or directory to another location under a granted root.
@@ -98,11 +83,7 @@ public interface PluginStorage {
      *     {@link StorageErrorCode#ALREADY_EXISTS} instead of being overwritten
      * @return whether anything changed, plus the error when it did not
      */
-    CompletionStage<StorageMutationResult> copy(
-        StoragePath source,
-        StoragePath target,
-        boolean replaceExisting
-    );
+    CompletionStage<StorageMutationResult> copy(StoragePath source, StoragePath target, boolean replaceExisting);
 
     /**
      * Moves a path atomically. A move between two different
@@ -115,11 +96,7 @@ public interface PluginStorage {
      *     {@link StorageErrorCode#ALREADY_EXISTS}
      * @return whether anything changed, plus the error when it did not
      */
-    CompletionStage<StorageMutationResult> moveAtomic(
-        StoragePath source,
-        StoragePath target,
-        boolean replaceExisting
-    );
+    CompletionStage<StorageMutationResult> moveAtomic(StoragePath source, StoragePath target, boolean replaceExisting);
 
     /**
      * Deletes a file or directory.
@@ -131,10 +108,7 @@ public interface PluginStorage {
      *     {@link StorageErrorCode#PARTIAL_DELETE} error
      * @return whether anything changed, plus the error when it did not
      */
-    CompletionStage<StorageMutationResult> delete(
-        StoragePath path,
-        boolean recursive
-    );
+    CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive);
 
     /**
      * Reports whether a live runtime surface backs this instance.
@@ -158,82 +132,60 @@ public interface PluginStorage {
     enum Unavailable implements PluginStorage {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public CompletionStage<StorageReadResult<String>> readUtf8(
-            final StoragePath path,
-            final int maxBytes
-        ) {
-            return CompletableFuture.completedFuture(new StorageReadResult<>(
-                Optional.empty(), Optional.of(unavailable(path)), false));
-        }
-
-        @Override public CompletionStage<StorageReadResult<byte[]>> readBytes(
-            final StoragePath path,
-            final int maxBytes
-        ) {
-            return CompletableFuture.completedFuture(new StorageReadResult<>(
-                Optional.empty(), Optional.of(unavailable(path)), false));
-        }
-
-        @Override public CompletionStage<StorageWriteResult> writeUtf8Atomic(
-            final StoragePath path,
-            final String content
-        ) {
+        @Override
+        public CompletionStage<StorageReadResult<String>> readUtf8(final StoragePath path, final int maxBytes) {
             return CompletableFuture.completedFuture(
-                new StorageWriteResult(false, Optional.of(unavailable(path))));
+                    new StorageReadResult<>(Optional.empty(), Optional.of(unavailable(path)), false));
         }
 
-        @Override public CompletionStage<StorageWriteResult> writeBytesAtomic(
-            final StoragePath path,
-            final byte[] content
-        ) {
+        @Override
+        public CompletionStage<StorageReadResult<byte[]>> readBytes(final StoragePath path, final int maxBytes) {
             return CompletableFuture.completedFuture(
-                new StorageWriteResult(false, Optional.of(unavailable(path))));
+                    new StorageReadResult<>(Optional.empty(), Optional.of(unavailable(path)), false));
         }
 
-        @Override public CompletionStage<StorageListResult> list(
-            final StoragePath directory,
-            final int maxEntries
-        ) {
-            return CompletableFuture.completedFuture(new StorageListResult(
-                List.of(), Optional.of(unavailable(directory)), false));
+        @Override
+        public CompletionStage<StorageWriteResult> writeUtf8Atomic(final StoragePath path, final String content) {
+            return CompletableFuture.completedFuture(new StorageWriteResult(false, Optional.of(unavailable(path))));
         }
 
-        @Override public CompletionStage<StorageMutationResult> copy(
-            final StoragePath source,
-            final StoragePath target,
-            final boolean replaceExisting
-        ) {
+        @Override
+        public CompletionStage<StorageWriteResult> writeBytesAtomic(final StoragePath path, final byte[] content) {
+            return CompletableFuture.completedFuture(new StorageWriteResult(false, Optional.of(unavailable(path))));
+        }
+
+        @Override
+        public CompletionStage<StorageListResult> list(final StoragePath directory, final int maxEntries) {
             return CompletableFuture.completedFuture(
-                new StorageMutationResult(false, Optional.of(unavailable(source))));
+                    new StorageListResult(List.of(), Optional.of(unavailable(directory)), false));
         }
 
-        @Override public CompletionStage<StorageMutationResult> moveAtomic(
-            final StoragePath source,
-            final StoragePath target,
-            final boolean replaceExisting
-        ) {
+        @Override
+        public CompletionStage<StorageMutationResult> copy(
+                final StoragePath source, final StoragePath target, final boolean replaceExisting) {
             return CompletableFuture.completedFuture(
-                new StorageMutationResult(false, Optional.of(unavailable(source))));
+                    new StorageMutationResult(false, Optional.of(unavailable(source))));
         }
 
-        @Override public CompletionStage<StorageMutationResult> delete(
-            final StoragePath path,
-            final boolean recursive
-        ) {
+        @Override
+        public CompletionStage<StorageMutationResult> moveAtomic(
+                final StoragePath source, final StoragePath target, final boolean replaceExisting) {
             return CompletableFuture.completedFuture(
-                new StorageMutationResult(false, Optional.of(unavailable(path))));
+                    new StorageMutationResult(false, Optional.of(unavailable(source))));
+        }
+
+        @Override
+        public CompletionStage<StorageMutationResult> delete(final StoragePath path, final boolean recursive) {
+            return CompletableFuture.completedFuture(new StorageMutationResult(false, Optional.of(unavailable(path))));
         }
 
         private static StorageError unavailable(final StoragePath path) {
-            return new StorageError(
-                StorageErrorCode.RUNTIME_UNAVAILABLE,
-                "storage service is not available",
-                path
-            );
+            return new StorageError(StorageErrorCode.RUNTIME_UNAVAILABLE, "storage service is not available", path);
         }
     }
 }

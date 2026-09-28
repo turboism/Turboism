@@ -4,9 +4,16 @@ import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.UiInlineLabel;
 import dev.turboism.sdk.ui.resource.UiIconRef;
-
+import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Dimension;
+import java.io.ByteArrayInputStream;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import javax.imageio.ImageIO;
-
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -21,23 +28,14 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JTextField;
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.Dimension;
-import java.io.ByteArrayInputStream;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 
 /** Renders immutable SDK panel values into runtime-owned Swing components. */
 public final class SwingPanelViewRenderer {
 
     private static final BiFunction<UiIconRef, Boolean, Optional<Icon>> EMPTY_ICON_RESOLVER =
-        (reference, disabled) -> Optional.empty();
+            (reference, disabled) -> Optional.empty();
 
-    private SwingPanelViewRenderer() { }
+    private SwingPanelViewRenderer() {}
 
     /**
      * Renders a panel value using the locale the Cubism host is currently running in.
@@ -54,16 +52,8 @@ public final class SwingPanelViewRenderer {
      * @throws IllegalArgumentException if the tree holds a node kind this renderer does not
      *     support, or an image node whose bytes are not a readable PNG
      */
-    public static JComponent render(
-        final PanelView view,
-        final BiConsumer<String, Optional<UiActionEvent>> action
-    ) {
-        return render(
-            view,
-            action,
-            dev.turboism.i18n.CubismHostLocale.resolve(),
-            EMPTY_ICON_RESOLVER
-        );
+    public static JComponent render(final PanelView view, final BiConsumer<String, Optional<UiActionEvent>> action) {
+        return render(view, action, dev.turboism.i18n.CubismHostLocale.resolve(), EMPTY_ICON_RESOLVER);
     }
 
     /**
@@ -73,10 +63,9 @@ public final class SwingPanelViewRenderer {
      * <p>Must be called on the Swing event dispatch thread.</p>
      */
     public static JComponent render(
-        final PanelView view,
-        final BiConsumer<String, Optional<UiActionEvent>> action,
-        final java.util.Locale locale
-    ) {
+            final PanelView view,
+            final BiConsumer<String, Optional<UiActionEvent>> action,
+            final java.util.Locale locale) {
         return render(view, action, locale, EMPTY_ICON_RESOLVER);
     }
 
@@ -95,25 +84,18 @@ public final class SwingPanelViewRenderer {
      * @return the root Swing component for {@code view}
      */
     public static JComponent render(
-        final PanelView view,
-        final BiConsumer<String, Optional<UiActionEvent>> action,
-        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver
-    ) {
-        return render(
-            view,
-            action,
-            dev.turboism.i18n.CubismHostLocale.resolve(),
-            iconResolver
-        );
+            final PanelView view,
+            final BiConsumer<String, Optional<UiActionEvent>> action,
+            final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
+        return render(view, action, dev.turboism.i18n.CubismHostLocale.resolve(), iconResolver);
     }
 
     /** Renders with an explicit locale and Runtime-owned typed icon resolver. */
     public static JComponent render(
-        final PanelView view,
-        final BiConsumer<String, Optional<UiActionEvent>> action,
-        final java.util.Locale locale,
-        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver
-    ) {
+            final PanelView view,
+            final BiConsumer<String, Optional<UiActionEvent>> action,
+            final java.util.Locale locale,
+            final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
         Objects.requireNonNull(view, "view");
         Objects.requireNonNull(action, "action");
         Objects.requireNonNull(iconResolver, "iconResolver");
@@ -145,12 +127,11 @@ public final class SwingPanelViewRenderer {
     }
 
     private static JComponent renderNode(
-        final PanelView view,
-        final BiConsumer<String, Optional<UiActionEvent>> action,
-        final boolean chartTitleSuppressed,
-        final java.util.Locale locale,
-        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver
-    ) {
+            final PanelView view,
+            final BiConsumer<String, Optional<UiActionEvent>> action,
+            final boolean chartTitleSuppressed,
+            final java.util.Locale locale,
+            final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
         if (view instanceof PanelView.Column column) {
             return container(column.children(), BoxLayout.Y_AXIS, action, chartTitleSuppressed, locale, iconResolver);
         }
@@ -168,8 +149,8 @@ public final class SwingPanelViewRenderer {
             // the text in the middle of its region (e.g. the panel header).
             final String escaped = htmlEscape(text.value());
             final String html = text.centered()
-                ? "<html><div style='text-align:center'>" + escaped + "</div></html>"
-                : "<html>" + escaped + "</html>";
+                    ? "<html><div style='text-align:center'>" + escaped + "</div></html>"
+                    : "<html>" + escaped + "</html>";
             final JLabel label = new JLabel(html);
             if (text.grayed()) {
                 final java.awt.Color grayed = javax.swing.UIManager.getColor("Label.disabledForeground");
@@ -182,7 +163,8 @@ public final class SwingPanelViewRenderer {
             label.setName("panel-image");
             label.setIcon(icon(image.pngBytes()));
             label.setToolTipText(image.altText());
-            label.setPreferredSize(new Dimension(label.getIcon().getIconWidth(), label.getIcon().getIconHeight()));
+            label.setPreferredSize(new Dimension(
+                    label.getIcon().getIconWidth(), label.getIcon().getIconHeight()));
             return label;
         }
         if (view instanceof PanelView.Button button) {
@@ -194,28 +176,23 @@ public final class SwingPanelViewRenderer {
         if (view instanceof PanelView.TextInput input) {
             final JTextField component = new JTextField(input.value());
             component.setName(input.id());
-            component.addActionListener(ignored -> action.accept(
-                input.actionId(),
-                Optional.of(UiActionEvent.text(input.id(), component.getText()))
-            ));
+            component.addActionListener(ignored ->
+                    action.accept(input.actionId(), Optional.of(UiActionEvent.text(input.id(), component.getText()))));
             return labelled(input.label(), component);
         }
         if (view instanceof PanelView.Select select) {
-            final JComboBox<PanelView.Option> component = new JComboBox<>(
-                select.options().toArray(PanelView.Option[]::new)
-            );
+            final JComboBox<PanelView.Option> component =
+                    new JComboBox<>(select.options().toArray(PanelView.Option[]::new));
             component.setName(select.id());
             component.setSelectedItem(select.options().stream()
-                .filter(option -> option.value().equals(select.selectedValue()))
-                .findFirst()
-                .orElseThrow());
+                    .filter(option -> option.value().equals(select.selectedValue()))
+                    .findFirst()
+                    .orElseThrow());
             component.addActionListener(ignored -> {
                 final PanelView.Option selected = (PanelView.Option) component.getSelectedItem();
                 if (selected != null) {
                     action.accept(
-                        select.actionId(),
-                        Optional.of(UiActionEvent.selection(select.id(), selected.value()))
-                    );
+                            select.actionId(), Optional.of(UiActionEvent.selection(select.id(), selected.value())));
                 }
             });
             return labelled(select.label(), component);
@@ -223,42 +200,30 @@ public final class SwingPanelViewRenderer {
         if (view instanceof PanelView.Toggle toggle) {
             if (toggle.inlineLabel() != null) {
                 final InlineLabelCheckBox component = new InlineLabelCheckBox(
-                    toggle.id(),
-                    toggle.inlineLabel(),
-                    toggle.selected(),
-                    toggle.grayed(),
-                    iconResolver
-                );
+                        toggle.id(), toggle.inlineLabel(), toggle.selected(), toggle.grayed(), iconResolver);
                 component.addActionListener(ignored -> action.accept(
-                    toggle.actionId(),
-                    Optional.of(UiActionEvent.toggle(toggle.id(), component.isSelected()))
-                ));
+                        toggle.actionId(), Optional.of(UiActionEvent.toggle(toggle.id(), component.isSelected()))));
                 return component;
             }
             // Keep the established HTML-backed string renderer byte-for-byte in spirit for legacy
             // string toggles. The typed path above deliberately avoids HTML so literal plugin text
             // and fallback text cannot be interpreted as markup.
-            final JCheckBox component = new JCheckBox(
-                "<html>" + htmlEscape(toggle.label()) + "</html>",
-                toggle.selected()
-            );
+            final JCheckBox component =
+                    new JCheckBox("<html>" + htmlEscape(toggle.label()) + "</html>", toggle.selected());
             component.setName(toggle.id());
             if (toggle.grayed()) {
                 final java.awt.Color grayed = javax.swing.UIManager.getColor("Label.disabledForeground");
                 component.setForeground(grayed == null ? new java.awt.Color(0x999999) : grayed);
             }
             component.addActionListener(ignored -> action.accept(
-                toggle.actionId(),
-                Optional.of(UiActionEvent.toggle(toggle.id(), component.isSelected()))
-            ));
+                    toggle.actionId(), Optional.of(UiActionEvent.toggle(toggle.id(), component.isSelected()))));
             return component;
         }
         if (view instanceof PanelView.Scroll scroll) {
             final JScrollPane pane = new JScrollPane(
-                renderNode(scroll.child(), action, false, locale, iconResolver),
-                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
-            );
+                    renderNode(scroll.child(), action, false, locale, iconResolver),
+                    JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                    JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
             // Let the enclosing Y-axis layout hand the pane the available height
             // instead of growing to the child's preferred height, so long lists
             // scroll inside the panel instead of being clipped.
@@ -270,19 +235,19 @@ public final class SwingPanelViewRenderer {
             // A section holding exactly one chart already carries the chart
             // label as its border title; suppress the duplicated inner title
             // (runtime-private single-chart optimization, no SDK change).
-            final boolean singleChart = section.children().size() == 1
-                && section.children().get(0) instanceof PanelView.Chart;
+            final boolean singleChart =
+                    section.children().size() == 1 && section.children().get(0) instanceof PanelView.Chart;
             return CollapsibleSection.create(
-                section.title(),
-                container(section.children(), BoxLayout.Y_AXIS, action, singleChart, locale, iconResolver),
-                section.expandedByDefault(),
-                locale
-            );
+                    section.title(),
+                    container(section.children(), BoxLayout.Y_AXIS, action, singleChart, locale, iconResolver),
+                    section.expandedByDefault(),
+                    locale);
         }
         if (view instanceof PanelView.Separator) {
             return new JSeparator();
         }
-        throw new IllegalArgumentException("unsupported panel view: " + view.getClass().getName());
+        throw new IllegalArgumentException(
+                "unsupported panel view: " + view.getClass().getName());
     }
 
     private static Icon icon(final byte[] pngBytes) {
@@ -294,16 +259,13 @@ public final class SwingPanelViewRenderer {
     }
 
     private static JPanel container(
-        final java.util.List<PanelView> children,
-        final int axis,
-        final BiConsumer<String, Optional<UiActionEvent>> action,
-        final boolean chartTitleSuppressed,
-        final java.util.Locale locale,
-        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver
-    ) {
-        final JPanel panel = axis == BoxLayout.X_AXIS
-            ? new JPanel()
-            : new ScrollableFillPanel();
+            final java.util.List<PanelView> children,
+            final int axis,
+            final BiConsumer<String, Optional<UiActionEvent>> action,
+            final boolean chartTitleSuppressed,
+            final java.util.Locale locale,
+            final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
+        final JPanel panel = axis == BoxLayout.X_AXIS ? new JPanel() : new ScrollableFillPanel();
         // A vertical stack must stretch children to the panel width (so HTML
         // labels wrap) and hand a trailing JScrollPane the remaining height;
         // BoxLayout does neither for the cross axis. ScrollableFillPanel also
@@ -312,23 +274,19 @@ public final class SwingPanelViewRenderer {
             panel.setLayout(new BoxLayout(panel, axis));
         }
         for (int index = 0; index < children.size(); index++) {
-            final JComponent child = renderNode(children.get(index), action, chartTitleSuppressed, locale, iconResolver);
+            final JComponent child =
+                    renderNode(children.get(index), action, chartTitleSuppressed, locale, iconResolver);
             if (axis == BoxLayout.X_AXIS) {
                 child.setAlignmentY(Component.CENTER_ALIGNMENT);
             } else {
                 child.setAlignmentX(Component.LEFT_ALIGNMENT);
                 // Stretch to the panel width so JLabels with HTML wrap at the
                 // available width instead of growing to their preferred width.
-                child.setMaximumSize(new Dimension(
-                    Integer.MAX_VALUE,
-                    child.getMaximumSize().height
-                ));
+                child.setMaximumSize(new Dimension(Integer.MAX_VALUE, child.getMaximumSize().height));
             }
             panel.add(child);
             if (index + 1 < children.size()) {
-                panel.add(axis == BoxLayout.X_AXIS
-                    ? Box.createHorizontalStrut(2)
-                    : Box.createVerticalStrut(2));
+                panel.add(axis == BoxLayout.X_AXIS ? Box.createHorizontalStrut(2) : Box.createVerticalStrut(2));
             }
         }
         return panel;

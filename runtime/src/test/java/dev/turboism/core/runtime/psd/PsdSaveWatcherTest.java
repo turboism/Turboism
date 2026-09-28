@@ -1,7 +1,8 @@
 package dev.turboism.core.runtime.psd;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,17 +13,16 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Deterministic save-watcher contract: an injected scheduler and monotonic clock drive passes by
  * hand, so no real filesystem events, wall-clock timing or native host behavior are involved.
  */
 class PsdSaveWatcherTest {
-    @TempDir Path root;
+    @TempDir
+    Path root;
 
     @Test
     void stableChangePublishesExactlyOnceAndNeverReplays() throws Exception {
@@ -116,17 +116,16 @@ class PsdSaveWatcherTest {
         final List<String> published = new ArrayList<>();
         final AtomicBoolean fail = new AtomicBoolean(true);
         try (PsdSaveWatcher watcher = new PsdSaveWatcher(
-            allocation,
-            snapshot -> {
-                if (fail.get()) throw new IOException("staging rejected");
-                published.add(snapshot.sha256());
-            },
-            new PsdSaveDebouncer(digestOf("first"), Duration.ofMillis(750)),
-            scheduler,
-            scheduler::nanoTime,
-            PsdSaveWatcher.DEFAULT_POLL_MILLIS,
-            PsdSaveWatcher.COMPENSATION_DELAY_MILLIS
-        )) {
+                allocation,
+                snapshot -> {
+                    if (fail.get()) throw new IOException("staging rejected");
+                    published.add(snapshot.sha256());
+                },
+                new PsdSaveDebouncer(digestOf("first"), Duration.ofMillis(750)),
+                scheduler,
+                scheduler::nanoTime,
+                PsdSaveWatcher.DEFAULT_POLL_MILLIS,
+                PsdSaveWatcher.COMPENSATION_DELAY_MILLIS)) {
             watcher.start();
             pass(scheduler);
 
@@ -143,19 +142,16 @@ class PsdSaveWatcherTest {
     }
 
     private PsdSaveWatcher watcher(
-        final PsdTemporaryFile allocation,
-        final ManualScheduler scheduler,
-        final List<String> published
-    ) throws IOException {
+            final PsdTemporaryFile allocation, final ManualScheduler scheduler, final List<String> published)
+            throws IOException {
         return new PsdSaveWatcher(
-            allocation,
-            snapshot -> published.add(snapshot.sha256()),
-            new PsdSaveDebouncer(digestOf("first"), Duration.ofMillis(750)),
-            scheduler,
-            scheduler::nanoTime,
-            PsdSaveWatcher.DEFAULT_POLL_MILLIS,
-            PsdSaveWatcher.COMPENSATION_DELAY_MILLIS
-        );
+                allocation,
+                snapshot -> published.add(snapshot.sha256()),
+                new PsdSaveDebouncer(digestOf("first"), Duration.ofMillis(750)),
+                scheduler,
+                scheduler::nanoTime,
+                PsdSaveWatcher.DEFAULT_POLL_MILLIS,
+                PsdSaveWatcher.COMPENSATION_DELAY_MILLIS);
     }
 
     /** Advances the manual clock past the quiet window and runs the single pending pass. */

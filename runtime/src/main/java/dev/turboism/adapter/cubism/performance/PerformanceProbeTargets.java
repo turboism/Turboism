@@ -12,7 +12,7 @@ import java.util.List;
  */
 public final class PerformanceProbeTargets {
 
-    private PerformanceProbeTargets() { }
+    private PerformanceProbeTargets() {}
 
     /**
      * Cubism 5.2.03 RENDER_SCENE target. Verified against the exact reviewed
@@ -22,14 +22,11 @@ public final class PerformanceProbeTargets {
      * The FPS hook counts render calls only, so this slice carries no other metric.
      */
     public static List<PerformanceProbeMethodTransformer.Target> cubism5203() {
-        return List.of(
-            target(
+        return List.of(target(
                 "com/live2d/cubism/view/context/CEViewContext",
                 "renderScene_exe",
                 "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
-                PerformanceProbeMetric.RENDER_SCENE
-            )
-        );
+                PerformanceProbeMetric.RENDER_SCENE));
     }
 
     /**
@@ -57,76 +54,73 @@ public final class PerformanceProbeTargets {
      */
     public static List<PerformanceProbeMethodTransformer.Target> cubism5302Images() {
         final java.util.ArrayList<PerformanceProbeMethodTransformer.Target> targets =
-            new java.util.ArrayList<>(cubism5302());
+                new java.util.ArrayList<>(cubism5302());
         targets.addAll(List.of(
-            target("com/live2d/graphics/CWritableImage$b", "a",
-                "(Ljava/io/InputStream;Lcom/live2d/graphics/n;)Lcom/live2d/graphics/CWritableImage;",
-                PerformanceProbeMetric.IMAGE_DECODE),
-            target("com/live2d/graphics/CWritableImage", "writeImageAsPng",
-                "(Ljava/io/OutputStream;)V", PerformanceProbeMetric.PNG_ENCODE),
-            target("com/live2d/graphics/CImageResource", "archive",
-                "()V", PerformanceProbeMetric.IMAGE_ARCHIVE),
-            target("com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas", "setupCacheImage$cubism",
-                "(ZLcom/live2d/util/a/a;)V", PerformanceProbeMetric.ATLAS_REBUILD),
-            target("com/live2d/graphics3d/texture/GTexture2D", "redrawTexture",
-                "(Lcom/live2d/graphics3d/a;)V", PerformanceProbeMetric.TEXTURE_REDRAW)
-        ));
+                target(
+                        "com/live2d/graphics/CWritableImage$b",
+                        "a",
+                        "(Ljava/io/InputStream;Lcom/live2d/graphics/n;)Lcom/live2d/graphics/CWritableImage;",
+                        PerformanceProbeMetric.IMAGE_DECODE),
+                target(
+                        "com/live2d/graphics/CWritableImage",
+                        "writeImageAsPng",
+                        "(Ljava/io/OutputStream;)V",
+                        PerformanceProbeMetric.PNG_ENCODE),
+                target("com/live2d/graphics/CImageResource", "archive", "()V", PerformanceProbeMetric.IMAGE_ARCHIVE),
+                target(
+                        "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas",
+                        "setupCacheImage$cubism",
+                        "(ZLcom/live2d/util/a/a;)V",
+                        PerformanceProbeMetric.ATLAS_REBUILD),
+                target(
+                        "com/live2d/graphics3d/texture/GTexture2D",
+                        "redrawTexture",
+                        "(Lcom/live2d/graphics3d/a;)V",
+                        PerformanceProbeMetric.TEXTURE_REDRAW)));
         return List.copyOf(targets);
     }
 
     private static List<PerformanceProbeMethodTransformer.Target> full53Targets() {
         return List.of(
-            target(
-                "com/live2d/cubism/view/context/CEViewContext",
-                "renderScene_exe",
-                "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
-                PerformanceProbeMetric.RENDER_SCENE
-            ),
-            target(
-                "com/live2d/cubism/view/context/K",
-                "a",
-                "(Lcom/live2d/graphics3d/a;)V",
-                PerformanceProbeMetric.MODELING_PRE_RENDER_UPDATE
-            ),
-            target(
-                "com/live2d/graphics3d/rendering/e",
-                "b",
-                "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;ZZ)V",
-                PerformanceProbeMetric.RENDER_SYSTEM
-            ),
-            target(
-                "com/live2d/graphics3d/rendering/e",
-                "a",
-                "(Lcom/live2d/graphics3d/entity/GEntity;ZZZLjava/util/ArrayList;)V",
-                PerformanceProbeMetric.SCENE_TRAVERSAL
-            ),
-            target(
-                "com/live2d/graphics3d/rendering/e",
-                "a",
-                "(Lcom/live2d/graphics3d/component/AGRenderer;Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;)V",
-                PerformanceProbeMetric.RENDERER_DISPATCH
-            ),
-            target(
-                "com/live2d/cubism/doc/model/CModelSource",
-                "updateModelInstances",
-                "()V",
-                PerformanceProbeMetric.UPDATE_MODEL_INSTANCES
-            ),
-            target(
-                "com/live2d/cubism/doc/model/CModel",
-                "reinitModelInstance_exe",
-                "()V",
-                PerformanceProbeMetric.REINIT_MODEL_INSTANCE_EXE
-            )
-        );
+                target(
+                        "com/live2d/cubism/view/context/CEViewContext",
+                        "renderScene_exe",
+                        "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
+                        PerformanceProbeMetric.RENDER_SCENE),
+                target(
+                        "com/live2d/cubism/view/context/K",
+                        "a",
+                        "(Lcom/live2d/graphics3d/a;)V",
+                        PerformanceProbeMetric.MODELING_PRE_RENDER_UPDATE),
+                target(
+                        "com/live2d/graphics3d/rendering/e",
+                        "b",
+                        "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;ZZ)V",
+                        PerformanceProbeMetric.RENDER_SYSTEM),
+                target(
+                        "com/live2d/graphics3d/rendering/e",
+                        "a",
+                        "(Lcom/live2d/graphics3d/entity/GEntity;ZZZLjava/util/ArrayList;)V",
+                        PerformanceProbeMetric.SCENE_TRAVERSAL),
+                target(
+                        "com/live2d/graphics3d/rendering/e",
+                        "a",
+                        "(Lcom/live2d/graphics3d/component/AGRenderer;Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;)V",
+                        PerformanceProbeMetric.RENDERER_DISPATCH),
+                target(
+                        "com/live2d/cubism/doc/model/CModelSource",
+                        "updateModelInstances",
+                        "()V",
+                        PerformanceProbeMetric.UPDATE_MODEL_INSTANCES),
+                target(
+                        "com/live2d/cubism/doc/model/CModel",
+                        "reinitModelInstance_exe",
+                        "()V",
+                        PerformanceProbeMetric.REINIT_MODEL_INSTANCE_EXE));
     }
 
     private static PerformanceProbeMethodTransformer.Target target(
-        final String owner,
-        final String method,
-        final String descriptor,
-        final PerformanceProbeMetric metric
-    ) {
+            final String owner, final String method, final String descriptor, final PerformanceProbeMetric metric) {
         return new PerformanceProbeMethodTransformer.Target(owner, method, descriptor, metric);
     }
 }

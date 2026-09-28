@@ -39,11 +39,7 @@ public interface CorePublicApiProvider {
      * @return the capability flags; never null
      */
     default dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
-        return new dev.turboism.sdk.cubism.core.CoreCapabilities(
-            "5.3.02".equals(artifactProfile()),
-            true,
-            false
-        );
+        return new dev.turboism.sdk.cubism.core.CoreCapabilities("5.3.02".equals(artifactProfile()), true, false);
     }
 
     /**
@@ -78,7 +74,6 @@ public interface CorePublicApiProvider {
     default CoreProviderResult<Boolean> hasMocConsistency(final byte[] bytes) {
         return unavailableMocOperation();
     }
-
 
     /**
      * Returns the borrowed model's MOC format version (one of the Core
@@ -133,15 +128,14 @@ public interface CorePublicApiProvider {
 
     private static <T> CoreProviderResult<T> unavailableOwnedMocOperation() {
         return CoreProviderResult.failed(new CoreProviderFailure(
-            CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
-            "Core owned-Moc selector evidence is not admitted for this artifact profile."
-        ));
+                CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
+                "Core owned-Moc selector evidence is not admitted for this artifact profile."));
     }
+
     private static <T> CoreProviderResult<T> unavailableMocOperation() {
         return CoreProviderResult.failed(new CoreProviderFailure(
-            CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
-            "Core MOC selector evidence is not admitted for this artifact profile."
-        ));
+                CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
+                "Core MOC selector evidence is not admitted for this artifact profile."));
     }
 
     /**
@@ -157,11 +151,9 @@ public interface CorePublicApiProvider {
 
 final class UnavailableCorePublicApiProvider implements CorePublicApiProvider {
 
-    static final UnavailableCorePublicApiProvider INSTANCE =
-        new UnavailableCorePublicApiProvider();
+    static final UnavailableCorePublicApiProvider INSTANCE = new UnavailableCorePublicApiProvider();
 
-    private UnavailableCorePublicApiProvider() {
-    }
+    private UnavailableCorePublicApiProvider() {}
 
     @Override
     public String providerId() {
@@ -181,9 +173,8 @@ final class UnavailableCorePublicApiProvider implements CorePublicApiProvider {
     @Override
     public CoreProviderResult<CoreRuntimeVersion> runtimeVersion() {
         return CoreProviderResult.failed(new CoreProviderFailure(
-            CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
-            "Cubism Core public API provider is unavailable; safe mode is active."
-        ));
+                CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
+                "Cubism Core public API provider is unavailable; safe mode is active."));
     }
 
     @Override

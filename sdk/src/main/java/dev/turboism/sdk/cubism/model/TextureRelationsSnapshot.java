@@ -2,7 +2,6 @@ package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -16,15 +15,14 @@ import java.util.Optional;
  * graph.</p>
  */
 public record TextureRelationsSnapshot(
-    Availability availability,
-    String binding,
-    long generation,
-    long revision,
-    List<RawImageDetails> rawImages,
-    List<ModelImageRelation> modelImages,
-    List<ModelImageGroupRelation> groups,
-    List<ArtMeshTextureInputs> artMeshInputs
-) {
+        Availability availability,
+        String binding,
+        long generation,
+        long revision,
+        List<RawImageDetails> rawImages,
+        List<ModelImageRelation> modelImages,
+        List<ModelImageGroupRelation> groups,
+        List<ArtMeshTextureInputs> artMeshInputs) {
     public TextureRelationsSnapshot {
         availability = Objects.requireNonNull(availability, "availability");
         binding = Objects.requireNonNull(binding, "binding");
@@ -35,13 +33,13 @@ public record TextureRelationsSnapshot(
         groups = List.copyOf(Objects.requireNonNull(groups, "groups"));
         artMeshInputs = List.copyOf(Objects.requireNonNull(artMeshInputs, "artMeshInputs"));
         if (availability == Availability.UNAVAILABLE
-            && (generation != 0
-                || revision != 0
-                || !binding.isEmpty()
-                || !rawImages.isEmpty()
-                || !modelImages.isEmpty()
-                || !groups.isEmpty()
-                || !artMeshInputs.isEmpty())) {
+                && (generation != 0
+                        || revision != 0
+                        || !binding.isEmpty()
+                        || !rawImages.isEmpty()
+                        || !modelImages.isEmpty()
+                        || !groups.isEmpty()
+                        || !artMeshInputs.isEmpty())) {
             throw new IllegalArgumentException("unavailable relation snapshot must be empty");
         }
     }
@@ -49,15 +47,7 @@ public record TextureRelationsSnapshot(
     /** The typed fail-closed value used by unsupported/default implementations. */
     public static TextureRelationsSnapshot unavailable() {
         return new TextureRelationsSnapshot(
-            Availability.UNAVAILABLE,
-            "",
-            0,
-            0,
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of()
-        );
+                Availability.UNAVAILABLE, "", 0, 0, List.of(), List.of(), List.of(), List.of());
     }
 
     /** Returns whether the adapter supplied a relation projection. */

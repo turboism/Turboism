@@ -1,18 +1,17 @@
 package dev.turboism.config;
 
-import dev.turboism.internal.core.CubismJvmSettingsService;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.internal.core.CubismJvmSettingsService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class CubismJvmSettingsFileServiceTest {
 
@@ -31,11 +30,7 @@ class CubismJvmSettingsFileServiceTest {
               "hooks": {"disabledIds": [], "denylistedClasses": [], "startup": {}}
             }
             """);
-        return new CubismJvmSettingsFileService(
-            new RuntimeConfigRepository(home, ignored -> { }),
-            home,
-            environment
-        );
+        return new CubismJvmSettingsFileService(new RuntimeConfigRepository(home, ignored -> {}), home, environment);
     }
 
     @Test
@@ -50,31 +45,26 @@ class CubismJvmSettingsFileServiceTest {
         try (CubismJvmSettingsFileService service = service(Map.of())) {
             service.saveReduceAutoBackup(true);
             assertTrue(service.reduceAutoBackup());
-            assertTrue(Files.readString(home.resolve("config.json"))
-                .contains("\"reduceAutoBackup\" : true"));
+            assertTrue(Files.readString(home.resolve("config.json")).contains("\"reduceAutoBackup\" : true"));
             service.saveReduceAutoBackup(false);
             assertFalse(service.reduceAutoBackup());
-            assertFalse(Files.readString(home.resolve("config.json"))
-                .contains("reduceAutoBackup"));
+            assertFalse(Files.readString(home.resolve("config.json")).contains("reduceAutoBackup"));
         }
     }
 
     @Test
     void reduceAutoBackupEnvOverrideWins() throws Exception {
         for (String truthy : new String[] {"1", "true", "TRUE", "yes", "on", " true "}) {
-            try (CubismJvmSettingsFileService service = service(
-                Map.of("TURBOISM_REDUCE_AUTO_BACKUP", truthy))) {
+            try (CubismJvmSettingsFileService service = service(Map.of("TURBOISM_REDUCE_AUTO_BACKUP", truthy))) {
                 assertTrue(service.reduceAutoBackup(), "value=" + truthy);
             }
         }
         for (String falsy : new String[] {"0", "false", "no", "off", "junk"}) {
-            try (CubismJvmSettingsFileService service = service(
-                Map.of("TURBOISM_REDUCE_AUTO_BACKUP", falsy))) {
+            try (CubismJvmSettingsFileService service = service(Map.of("TURBOISM_REDUCE_AUTO_BACKUP", falsy))) {
                 assertFalse(service.reduceAutoBackup(), "value=" + falsy);
             }
         }
-        try (CubismJvmSettingsFileService service = service(
-            Map.of("TURBOISM_REDUCE_AUTO_BACKUP", "0"))) {
+        try (CubismJvmSettingsFileService service = service(Map.of("TURBOISM_REDUCE_AUTO_BACKUP", "0"))) {
             service.saveReduceAutoBackup(true);
             assertFalse(service.reduceAutoBackup());
         }
@@ -92,12 +82,10 @@ class CubismJvmSettingsFileServiceTest {
         try (CubismJvmSettingsFileService service = service(Map.of())) {
             service.saveZgc(false);
             assertFalse(service.zgc());
-            assertTrue(Files.readString(home.resolve("config.json"))
-                .contains("\"zgc\" : false"));
+            assertTrue(Files.readString(home.resolve("config.json")).contains("\"zgc\" : false"));
             service.saveZgc(true);
             assertTrue(service.zgc());
-            assertFalse(Files.readString(home.resolve("config.json"))
-                .contains("zgc"));
+            assertFalse(Files.readString(home.resolve("config.json")).contains("zgc"));
         }
     }
 
@@ -127,15 +115,11 @@ class CubismJvmSettingsFileServiceTest {
         try (CubismJvmSettingsFileService service = service(Map.of())) {
             service.saveMemoryProfile(CubismJvmSettingsService.MemoryProfile.BALANCED_4G);
             assertEquals(CubismJvmSettingsService.MemoryProfile.BALANCED_4G, service.memoryProfile());
-            assertTrue(Files.readString(home.resolve("config.json"))
-                .contains("\"memoryProfile\" : \"balanced4g\""));
+            assertTrue(Files.readString(home.resolve("config.json")).contains("\"memoryProfile\" : \"balanced4g\""));
             service.saveMemoryProfile(CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT);
-            assertEquals(
-                CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT,
-                service.memoryProfile()
-            );
+            assertEquals(CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT, service.memoryProfile());
             assertTrue(Files.readString(home.resolve("config.json"))
-                .contains("\"memoryProfile\" : \"balanced4gFastSoft\""));
+                    .contains("\"memoryProfile\" : \"balanced4gFastSoft\""));
             service.saveMemoryProfile(CubismJvmSettingsService.MemoryProfile.SYSTEM);
             assertEquals(CubismJvmSettingsService.MemoryProfile.SYSTEM, service.memoryProfile());
             assertFalse(Files.readString(home.resolve("config.json")).contains("memoryProfile"));
@@ -148,12 +132,9 @@ class CubismJvmSettingsFileServiceTest {
             service.saveZgc(false);
             service.saveMemoryProfile(CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT);
         }
-        try (CubismJvmSettingsFileService reopened = new CubismJvmSettingsFileService(
-                new RuntimeConfigRepository(home, ignored -> { }), home, Map.of())) {
-            assertEquals(
-                CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT,
-                reopened.memoryProfile()
-            );
+        try (CubismJvmSettingsFileService reopened =
+                new CubismJvmSettingsFileService(new RuntimeConfigRepository(home, ignored -> {}), home, Map.of())) {
+            assertEquals(CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT, reopened.memoryProfile());
             assertFalse(reopened.zgc(), "unrelated launcher preference is preserved");
         }
     }
@@ -173,12 +154,13 @@ class CubismJvmSettingsFileServiceTest {
             }
             """);
         final List<String> diagnostics = new ArrayList<>();
-        try (CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
-                new RuntimeConfigRepository(home, diagnostics::add), home, Map.of())) {
+        try (CubismJvmSettingsFileService service =
+                new CubismJvmSettingsFileService(new RuntimeConfigRepository(home, diagnostics::add), home, Map.of())) {
             assertEquals(CubismJvmSettingsService.MemoryProfile.SYSTEM, service.memoryProfile());
             assertTrue(diagnostics.contains("RUNTIME_CONFIG_BAD_MEMORY_PROFILE"));
-            assertTrue(Files.readString(home.resolve("config.json")).contains("extreme16g"),
-                "the corrupt persisted value stays on disk until an explicit save");
+            assertTrue(
+                    Files.readString(home.resolve("config.json")).contains("extreme16g"),
+                    "the corrupt persisted value stays on disk until an explicit save");
         }
     }
 
@@ -197,8 +179,8 @@ class CubismJvmSettingsFileServiceTest {
             }
             """);
         final List<String> diagnostics = new ArrayList<>();
-        try (CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
-                new RuntimeConfigRepository(home, diagnostics::add), home, Map.of())) {
+        try (CubismJvmSettingsFileService service =
+                new CubismJvmSettingsFileService(new RuntimeConfigRepository(home, diagnostics::add), home, Map.of())) {
             assertEquals(CubismJvmSettingsService.MemoryProfile.SYSTEM, service.memoryProfile());
             assertTrue(diagnostics.contains("RUNTIME_CONFIG_BAD_MEMORY_PROFILE"));
         }
@@ -212,8 +194,8 @@ class CubismJvmSettingsFileServiceTest {
             assertFalse(settings.saveUniformLocationCache(false));
             assertFalse(settings.uniformLocationCache());
         }
-        try (CubismJvmSettingsFileService reopened = new CubismJvmSettingsFileService(
-                new RuntimeConfigRepository(home, ignored -> { }), home, Map.of())) {
+        try (CubismJvmSettingsFileService reopened =
+                new CubismJvmSettingsFileService(new RuntimeConfigRepository(home, ignored -> {}), home, Map.of())) {
             assertFalse(reopened.uniformLocationCache(), "explicit opt-out survives restart");
             assertFalse(reopened.modelUpdateSkip(), "unrelated preference is preserved");
             assertTrue(reopened.saveUniformLocationCache(true));
@@ -237,8 +219,8 @@ class CubismJvmSettingsFileServiceTest {
             assertTrue(service.saveMesaGlThread(true));
             assertFalse(service.saveUploadElision(false));
         }
-        try (CubismJvmSettingsFileService reopened = new CubismJvmSettingsFileService(
-                new RuntimeConfigRepository(home, ignored -> { }), home, Map.of())) {
+        try (CubismJvmSettingsFileService reopened =
+                new CubismJvmSettingsFileService(new RuntimeConfigRepository(home, ignored -> {}), home, Map.of())) {
             assertTrue(reopened.incrementalUpdate(), "explicit experimental opt-in survives restart");
             assertTrue(reopened.inputPathElision(), "explicit input-path opt-in survives restart");
             assertTrue(reopened.mesaGlThread(), "explicit mesa-glthread opt-in survives restart");
@@ -262,8 +244,7 @@ class CubismJvmSettingsFileServiceTest {
 
     @Test
     void protonDefaultsAndExplicitOverrides() throws Exception {
-        final Map<String, String> proton =
-            Map.of(dev.turboism.runtime.env.ProtonEnvironment.MANAGED_MARKER, "1");
+        final Map<String, String> proton = Map.of(dev.turboism.runtime.env.ProtonEnvironment.MANAGED_MARKER, "1");
         try (CubismJvmSettingsFileService service = service(proton)) {
             assertTrue(service.uploadElision(), "upload elision defaults on under Proton too");
             assertTrue(service.inputPathElision(), "input-path elision defaults on under Proton");
@@ -278,8 +259,8 @@ class CubismJvmSettingsFileServiceTest {
             assertFalse(service.inputPathElision());
             assertFalse(service.mesaGlThread());
         }
-        try (CubismJvmSettingsFileService reopened = new CubismJvmSettingsFileService(
-                new RuntimeConfigRepository(home, ignored -> { }), home, proton)) {
+        try (CubismJvmSettingsFileService reopened =
+                new CubismJvmSettingsFileService(new RuntimeConfigRepository(home, ignored -> {}), home, proton)) {
             assertFalse(reopened.inputPathElision(), "explicit opt-out survives restart under Proton");
             assertFalse(reopened.mesaGlThread(), "explicit opt-out survives restart under Proton");
             final String saved = Files.readString(home.resolve("config.json"));
@@ -288,7 +269,7 @@ class CubismJvmSettingsFileServiceTest {
             // The same explicit opt-out reads false on native too — explicit
             // values always win over either platform default.
             try (CubismJvmSettingsFileService nativeReopen = new CubismJvmSettingsFileService(
-                    new RuntimeConfigRepository(home, ignored -> { }), home, Map.of())) {
+                    new RuntimeConfigRepository(home, ignored -> {}), home, Map.of())) {
                 assertFalse(nativeReopen.inputPathElision());
                 assertFalse(nativeReopen.mesaGlThread());
             }
@@ -300,17 +281,15 @@ class CubismJvmSettingsFileServiceTest {
         // Only the managed marker is authoritative for the platform default;
         // ambient Wine variables are user-settable on native Windows and must
         // never flip it.
-        try (CubismJvmSettingsFileService service = service(
-                Map.of("TURBOISM_PROTON", "1"))) {
+        try (CubismJvmSettingsFileService service = service(Map.of("TURBOISM_PROTON", "1"))) {
             assertTrue(service.inputPathElision());
             assertTrue(service.mesaGlThread());
         }
         for (final Map<String, String> env : java.util.List.of(
-            Map.of("WINEPREFIX", "/pfx"),
-            Map.of("STEAM_COMPAT_DATA_PATH", "/steam/compat"),
-            Map.of("WINEFSYNC", "1"),
-            Map.of("TURBOISM_PROTON", "")
-        )) {
+                Map.of("WINEPREFIX", "/pfx"),
+                Map.of("STEAM_COMPAT_DATA_PATH", "/steam/compat"),
+                Map.of("WINEFSYNC", "1"),
+                Map.of("TURBOISM_PROTON", ""))) {
             try (CubismJvmSettingsFileService service = service(env)) {
                 assertFalse(service.inputPathElision(), "env=" + env);
                 assertFalse(service.mesaGlThread(), "env=" + env);

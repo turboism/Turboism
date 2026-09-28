@@ -6,7 +6,6 @@ import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -19,15 +18,12 @@ public final class HorizontalToolbarContributionProvider implements EditorUiCont
     private final EditorUiActionRouter actionRouter;
 
     public HorizontalToolbarContributionProvider(
-        final EditorUiProviderAdmission admission,
-        final HorizontalToolbarHostOperations host,
-        final EditorUiActionRouter actionRouter
-    ) {
+            final EditorUiProviderAdmission admission,
+            final HorizontalToolbarHostOperations host,
+            final EditorUiActionRouter actionRouter) {
         this.admission = Objects.requireNonNull(admission, "admission");
         if (admission.family() != EditorUiFamily.HORIZONTAL_TOOLBAR) {
-            throw new IllegalArgumentException(
-                "horizontal-toolbar provider requires HORIZONTAL_TOOLBAR admission"
-            );
+            throw new IllegalArgumentException("horizontal-toolbar provider requires HORIZONTAL_TOOLBAR admission");
         }
         this.host = Objects.requireNonNull(host, "host");
         this.actionRouter = Objects.requireNonNull(actionRouter, "actionRouter");
@@ -44,16 +40,13 @@ public final class HorizontalToolbarContributionProvider implements EditorUiCont
     }
 
     @Override
-    public Registration apply(
-        final long hostGeneration,
-        final List<EditorUiContribution<?>> contributions
-    ) {
+    public Registration apply(final long hostGeneration, final List<EditorUiContribution<?>> contributions) {
         if (!admission.isAdmittedTo(hostGeneration)) {
             throw new IllegalStateException("horizontal-toolbar provider admission is stale");
         }
         final List<HorizontalToolbarContributionDescriptor> descriptors = contributions.stream()
-            .map(HorizontalToolbarContributionDescriptor::from)
-            .toList();
+                .map(HorizontalToolbarContributionDescriptor::from)
+                .toList();
         final Reconciler reconciler = new Reconciler(descriptors);
         reconciler.reconcile();
         final Registration rebuild = host.onRebuild(reconciler::reconcile);
@@ -78,11 +71,10 @@ public final class HorizontalToolbarContributionProvider implements EditorUiCont
             final List<Registration> next = new ArrayList<>();
             try {
                 for (final HorizontalToolbarContributionDescriptor descriptor : descriptors) {
-                    next.add(host.attach(descriptor, actionId -> actionRouter.invoke(
-                        descriptor.pluginId(),
-                        actionId,
-                        java.util.Optional.empty()
-                    )));
+                    next.add(host.attach(
+                            descriptor,
+                            actionId ->
+                                    actionRouter.invoke(descriptor.pluginId(), actionId, java.util.Optional.empty())));
                 }
                 installed.addAll(next);
             } catch (RuntimeException | Error failure) {

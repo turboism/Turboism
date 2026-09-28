@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.edit;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
-
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -17,11 +16,10 @@ import java.util.function.Consumer;
  *     channel); must not be {@code null}
  */
 public record EditSessionRecoveryRequest(
-    EditorAuthoringTransactionCoordinator.Binding binding,
-    Object editToken,
-    HistorySnapshot historyBefore,
-    Consumer<String> diagnostics
-) {
+        EditorAuthoringTransactionCoordinator.Binding binding,
+        Object editToken,
+        HistorySnapshot historyBefore,
+        Consumer<String> diagnostics) {
 
     public EditSessionRecoveryRequest {
         binding = Objects.requireNonNull(binding, "binding");

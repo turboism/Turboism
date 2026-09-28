@@ -1,14 +1,13 @@
 package dev.turboism.tests.plugin;
 
-import dev.turboism.sdk.ui.dialog.HostDialogOutcome;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.ui.dialog.HostDialogOutcome;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** Focused unit coverage for the dialog-automation probe's result contract. */
 class HostDialogAutomationValidationProbeTest {
@@ -20,9 +19,7 @@ class HostDialogAutomationValidationProbeTest {
     void actedOutcomeWritesPassWithExpectedActualAndStatus() throws Exception {
         final Path result = temporary.resolve("state/dialog-automation-result.properties");
 
-        HostDialogAutomationValidationProbe.writeResult(
-            result, "run-1", "5302", HostDialogOutcome.ACTED, true, 1234L
-        );
+        HostDialogAutomationValidationProbe.writeResult(result, "run-1", "5302", HostDialogOutcome.ACTED, true, 1234L);
 
         final String content = Files.readString(result);
         assertTrue(content.contains("expected=ACTED\n"));
@@ -37,8 +34,7 @@ class HostDialogAutomationValidationProbeTest {
         final Path result = temporary.resolve("state/dialog-automation-result.properties");
 
         HostDialogAutomationValidationProbe.writeResult(
-            result, "run-2", "5203", HostDialogOutcome.TIMEOUT, false, 30_000L
-        );
+                result, "run-2", "5203", HostDialogOutcome.TIMEOUT, false, 30_000L);
 
         final String content = Files.readString(result);
         assertTrue(content.contains("expected=ACTED\n"));
@@ -49,8 +45,7 @@ class HostDialogAutomationValidationProbeTest {
     @Test
     void outcomeVocabularyMatchesTheFrameworkContract() {
         assertEquals(
-            "[ACTED, NOT_FOUND, TIMEOUT, AMBIGUOUS, UNSUPPORTED, UNAVAILABLE]",
-            java.util.Arrays.toString(HostDialogOutcome.values())
-        );
+                "[ACTED, NOT_FOUND, TIMEOUT, AMBIGUOUS, UNSUPPORTED, UNAVAILABLE]",
+                java.util.Arrays.toString(HostDialogOutcome.values()));
     }
 }

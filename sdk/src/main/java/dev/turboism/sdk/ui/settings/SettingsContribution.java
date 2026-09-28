@@ -1,16 +1,10 @@
 package dev.turboism.sdk.ui.settings;
 
-
 import java.util.Objects;
 import java.util.OptionalInt;
 
 /** One plugin-owned control placed inside a named settings tab. */
-public record SettingsContribution(
-    String id,
-    SettingsTab tab,
-    OptionalInt index,
-    SettingsControl control
-) {
+public record SettingsContribution(String id, SettingsTab tab, OptionalInt index, SettingsControl control) {
     public SettingsContribution {
         Objects.requireNonNull(id, "id");
         if (!id.matches("[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}")) {
@@ -21,11 +15,7 @@ public record SettingsContribution(
         control = Objects.requireNonNull(control, "control");
     }
 
-    public SettingsContribution(
-        final String id,
-        final SettingsTab tab,
-        final SettingsControl control
-    ) {
+    public SettingsContribution(final String id, final SettingsTab tab, final SettingsControl control) {
         this(id, tab, OptionalInt.empty(), control);
     }
 }

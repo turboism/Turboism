@@ -1,11 +1,9 @@
 package dev.turboism.adapter.cubism.core;
 
-import dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract;
-import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
-import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
+import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -17,8 +15,7 @@ import java.util.Optional;
  */
 public final class CorePublicApiProviderFactory {
 
-    private CorePublicApiProviderFactory() {
-    }
+    private CorePublicApiProviderFactory() {}
 
     /**
      * Admits a Core provider only when the resolver already carries verified evidence for the whole
@@ -34,32 +31,26 @@ public final class CorePublicApiProviderFactory {
      * @throws NullPointerException if either argument is null
      */
     public static CoreProviderResult<CorePublicApiProvider> admit(
-        final VerifiedMemberResolver resolver,
-        final CoreVersionExpectation expectation
-    ) {
+            final VerifiedMemberResolver resolver, final CoreVersionExpectation expectation) {
         Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(expectation, "expectation");
 
         final String artifactProfile = artifactProfile(resolver.cubismVersion());
-        final Optional<String> providerId =
-            CorePublicApiSelectorContract.providerIdFor(artifactProfile);
+        final Optional<String> providerId = CorePublicApiSelectorContract.providerIdFor(artifactProfile);
         final Optional<java.util.Set<String>> requiredAliases =
-            CorePublicApiSelectorContract.requiredAliasesFor(artifactProfile);
+                CorePublicApiSelectorContract.requiredAliasesFor(artifactProfile);
         if (providerId.isEmpty() || requiredAliases.isEmpty()) {
             return failed(
-                CoreProviderFailure.Code.EVIDENCE_REJECTED,
-                "Core artifact profile is outside the supported selector contract."
-            );
+                    CoreProviderFailure.Code.EVIDENCE_REJECTED,
+                    "Core artifact profile is outside the supported selector contract.");
         }
         if (!resolver.authorizes(
-            CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
-            CorePublicApiSelectorContract.CAPABILITY_IDS,
-            requiredAliases.orElseThrow()
-        )) {
+                CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
+                CorePublicApiSelectorContract.CAPABILITY_IDS,
+                requiredAliases.orElseThrow())) {
             return failed(
-                CoreProviderFailure.Code.EVIDENCE_REJECTED,
-                "Verified resolver does not authorize the complete Core selector contract."
-            );
+                    CoreProviderFailure.Code.EVIDENCE_REJECTED,
+                    "Verified resolver does not authorize the complete Core selector contract.");
         }
 
         final CoreProviderResult<CoreRuntimeVersion> probe = probeVersion(resolver, expectation);
@@ -67,11 +58,7 @@ public final class CorePublicApiProviderFactory {
             return CoreProviderResult.failed(probe.failure().orElseThrow());
         }
         return CoreProviderResult.success(new AdmittedCorePublicApiProvider(
-            providerId.orElseThrow(),
-            artifactProfile,
-            probe.value().orElseThrow(),
-            resolver
-        ));
+                providerId.orElseThrow(), artifactProfile, probe.value().orElseThrow(), resolver));
     }
 
     /**
@@ -83,9 +70,7 @@ public final class CorePublicApiProviderFactory {
      * runs, so the admitted profile must be real.</p>
      */
     static CoreProviderResult<CorePublicApiProvider> admitForTesting(
-        final VerifiedMemberResolver resolver,
-        final CoreVersionExpectation expectation
-    ) {
+            final VerifiedMemberResolver resolver, final CoreVersionExpectation expectation) {
         Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(expectation, "expectation");
         final String artifactProfile = artifactProfile(resolver.cubismVersion());
@@ -94,13 +79,11 @@ public final class CorePublicApiProviderFactory {
             return CoreProviderResult.failed(probe.failure().orElseThrow());
         }
         return CoreProviderResult.success(new AdmittedCorePublicApiProvider(
-            "cubism-core-public-" + artifactProfile,
-            artifactProfile,
-            probe.value().orElseThrow(),
-            resolver
-        ));
+                "cubism-core-public-" + artifactProfile,
+                artifactProfile,
+                probe.value().orElseThrow(),
+                resolver));
     }
-
 
     /**
      * Returns the mapping-profile label for a reviewed Cubism version.
@@ -121,42 +104,23 @@ public final class CorePublicApiProviderFactory {
     }
 
     private static CoreProviderResult<CoreRuntimeVersion> probeVersion(
-        final VerifiedMemberResolver resolver,
-        final CoreVersionExpectation expectation
-    ) {
+            final VerifiedMemberResolver resolver, final CoreVersionExpectation expectation) {
         try {
-            final Object rawVersion = resolver.invokeStatic(
-                CorePublicApiSelectorContract.GET_VERSION
-            );
-            if (!resolver.isInstance(
-                CorePublicApiSelectorContract.CORE_VERSION_CLASS,
-                rawVersion
-            )) {
+            final Object rawVersion = resolver.invokeStatic(CorePublicApiSelectorContract.GET_VERSION);
+            if (!resolver.isInstance(CorePublicApiSelectorContract.CORE_VERSION_CLASS, rawVersion)) {
                 return failed(
-                    CoreProviderFailure.Code.INVALID_VERSION,
-                    "Core version probe returned an invalid value."
-                );
+                        CoreProviderFailure.Code.INVALID_VERSION, "Core version probe returned an invalid value.");
             }
 
-            final Object major = resolver.invoke(
-                CorePublicApiSelectorContract.GET_MAJOR,
-                rawVersion
-            );
-            final Object minor = resolver.invoke(
-                CorePublicApiSelectorContract.GET_MINOR,
-                rawVersion
-            );
-            final Object patch = resolver.invoke(
-                CorePublicApiSelectorContract.GET_PATCH,
-                rawVersion
-            );
+            final Object major = resolver.invoke(CorePublicApiSelectorContract.GET_MAJOR, rawVersion);
+            final Object minor = resolver.invoke(CorePublicApiSelectorContract.GET_MINOR, rawVersion);
+            final Object patch = resolver.invoke(CorePublicApiSelectorContract.GET_PATCH, rawVersion);
             if (!(major instanceof Integer majorValue)
-                || !(minor instanceof Integer minorValue)
-                || !(patch instanceof Integer patchValue)) {
+                    || !(minor instanceof Integer minorValue)
+                    || !(patch instanceof Integer patchValue)) {
                 return failed(
-                    CoreProviderFailure.Code.INVALID_VERSION,
-                    "Core version components have an invalid representation."
-                );
+                        CoreProviderFailure.Code.INVALID_VERSION,
+                        "Core version components have an invalid representation.");
             }
 
             final CoreRuntimeVersion actual;
@@ -164,46 +128,34 @@ public final class CorePublicApiProviderFactory {
                 actual = new CoreRuntimeVersion(majorValue, minorValue, patchValue);
             } catch (IllegalArgumentException exception) {
                 return failed(
-                    CoreProviderFailure.Code.INVALID_VERSION,
-                    "Core version components are outside the accepted domain."
-                );
+                        CoreProviderFailure.Code.INVALID_VERSION,
+                        "Core version components are outside the accepted domain.");
             }
             if (!expectation.matches(actual)) {
                 return failed(
-                    CoreProviderFailure.Code.VERSION_MISMATCH,
-                    "Core runtime version " + actual + " does not match reviewed expectation "
-                        + expectation.exactVersion() + "."
-                );
+                        CoreProviderFailure.Code.VERSION_MISMATCH,
+                        "Core runtime version " + actual + " does not match reviewed expectation "
+                                + expectation.exactVersion() + ".");
             }
             return CoreProviderResult.success(actual);
         } catch (VerifiedAccessException exception) {
             if (exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION) {
                 return failed(
-                    CoreProviderFailure.Code.RESOLUTION_FAILED,
-                    "Core version selector could not be resolved from verified evidence."
-                );
+                        CoreProviderFailure.Code.RESOLUTION_FAILED,
+                        "Core version selector could not be resolved from verified evidence.");
             }
-            return failed(
-                CoreProviderFailure.Code.INVOCATION_FAILED,
-                "Core version probe execution failed safely."
-            );
+            return failed(CoreProviderFailure.Code.INVOCATION_FAILED, "Core version probe execution failed safely.");
         } catch (RuntimeException exception) {
             return failed(
-                CoreProviderFailure.Code.INVALID_VERSION,
-                "Core version probe could not be normalized safely."
-            );
+                    CoreProviderFailure.Code.INVALID_VERSION, "Core version probe could not be normalized safely.");
         }
     }
 
-    private static <T> CoreProviderResult<T> failed(
-        final CoreProviderFailure.Code code,
-        final String message
-    ) {
+    private static <T> CoreProviderResult<T> failed(final CoreProviderFailure.Code code, final String message) {
         return CoreProviderResult.failed(new CoreProviderFailure(code, message));
     }
 
-    private static final class AdmittedCorePublicApiProvider
-        implements CorePublicApiProvider {
+    private static final class AdmittedCorePublicApiProvider implements CorePublicApiProvider {
 
         private final String providerId;
         private final String artifactProfile;
@@ -211,11 +163,10 @@ public final class CorePublicApiProviderFactory {
         private final VerifiedMemberResolver resolver;
 
         private AdmittedCorePublicApiProvider(
-            final String providerId,
-            final String artifactProfile,
-            final CoreRuntimeVersion version,
-            final VerifiedMemberResolver resolver
-        ) {
+                final String providerId,
+                final String artifactProfile,
+                final CoreRuntimeVersion version,
+                final VerifiedMemberResolver resolver) {
             this.providerId = providerId;
             this.artifactProfile = artifactProfile;
             this.version = version;
@@ -244,11 +195,7 @@ public final class CorePublicApiProviderFactory {
 
         @Override
         public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
-            return new dev.turboism.sdk.cubism.core.CoreCapabilities(
-                "5.3.02".equals(artifactProfile),
-                true,
-                true
-            );
+            return new dev.turboism.sdk.cubism.core.CoreCapabilities("5.3.02".equals(artifactProfile), true, true);
         }
 
         @Override
@@ -259,71 +206,56 @@ public final class CorePublicApiProviderFactory {
         @Override
         public CoreProviderResult<Integer> mocVersion(final byte[] bytes) {
             return invokeScalar(
-                CorePublicApiSelectorContract.GET_MOC_VERSION,
-                Integer.class,
-                Objects.requireNonNull(bytes, "bytes")
-            );
+                    CorePublicApiSelectorContract.GET_MOC_VERSION,
+                    Integer.class,
+                    Objects.requireNonNull(bytes, "bytes"));
         }
 
         @Override
         public CoreProviderResult<Boolean> hasMocConsistency(final byte[] bytes) {
             return invokeScalar(
-                CorePublicApiSelectorContract.HAS_MOC_CONSISTENCY,
-                Boolean.class,
-                Objects.requireNonNull(bytes, "bytes")
-            );
+                    CorePublicApiSelectorContract.HAS_MOC_CONSISTENCY,
+                    Boolean.class,
+                    Objects.requireNonNull(bytes, "bytes"));
         }
 
         @Override
         public CoreProviderResult<Integer> mocVersionOfModel(final Object model) {
             Objects.requireNonNull(model, "model");
             if (!resolver.authorizesFeature(
-                dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.ADAPTER_SLICE_ID,
-                dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.CAPABILITY_ID,
-                dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.REQUIRED_ALIASES
-            )) {
+                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.ADAPTER_SLICE_ID,
+                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.CAPABILITY_ID,
+                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.REQUIRED_ALIASES)) {
                 return failed(
-                    CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
-                    "Core MOC metadata selectors are not admitted for this artifact profile."
-                );
+                        CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
+                        "Core MOC metadata selectors are not admitted for this artifact profile.");
             }
             try {
                 final Object moc = resolver.invoke(
-                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MODEL_GET_MOC,
-                    model
-                );
+                        dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MODEL_GET_MOC, model);
                 if (!resolver.isInstance(
-                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MOC_CLASS,
-                    moc
-                )) {
+                        dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MOC_CLASS, moc)) {
                     return failed(
-                        CoreProviderFailure.Code.INVALID_STRUCTURE,
-                        "Borrowed Core model returned an invalid MOC instance."
-                    );
+                            CoreProviderFailure.Code.INVALID_STRUCTURE,
+                            "Borrowed Core model returned an invalid MOC instance.");
                 }
                 final Object version = resolver.invoke(
-                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION,
-                    moc
-                );
+                        dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION,
+                        moc);
                 if (!(version instanceof Integer value)) {
                     return failed(
-                        CoreProviderFailure.Code.INVALID_STRUCTURE,
-                        "Core MOC version selector returned an invalid value."
-                    );
+                            CoreProviderFailure.Code.INVALID_STRUCTURE,
+                            "Core MOC version selector returned an invalid value.");
                 }
                 return CoreProviderResult.success(value);
             } catch (VerifiedAccessException exception) {
                 return failed(
-                    exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
-                        ? CoreProviderFailure.Code.RESOLUTION_FAILED
-                        : CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Verified Core MOC metadata selector failed safely."
-                );
+                        exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
+                                ? CoreProviderFailure.Code.RESOLUTION_FAILED
+                                : CoreProviderFailure.Code.INVOCATION_FAILED,
+                        "Verified Core MOC metadata selector failed safely.");
             } catch (RuntimeException exception) {
-                return failed(
-                    CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Core MOC metadata read failed safely."
-                );
+                return failed(CoreProviderFailure.Code.INVOCATION_FAILED, "Core MOC metadata read failed safely.");
             }
         }
 
@@ -334,24 +266,19 @@ public final class CorePublicApiProviderFactory {
                 return ownedMocUnavailable();
             }
             try {
-                final Object moc = resolver.invokeStatic(
-                    OwnedMocSelectorContract.MOC_INSTANTIATE,
-                    bytes.clone()
-                );
+                final Object moc = resolver.invokeStatic(OwnedMocSelectorContract.MOC_INSTANTIATE, bytes.clone());
                 if (!resolver.isInstance(OwnedMocSelectorContract.MOC_CLASS, moc)) {
                     return failed(
-                        CoreProviderFailure.Code.INVALID_STRUCTURE,
-                        "Core MOC instantiation returned an invalid instance."
-                    );
+                            CoreProviderFailure.Code.INVALID_STRUCTURE,
+                            "Core MOC instantiation returned an invalid instance.");
                 }
                 return CoreProviderResult.success(moc);
             } catch (VerifiedAccessException exception) {
                 return verifiedFailure(exception, "Core MOC instantiation failed safely.");
             } catch (RuntimeException exception) {
                 return failed(
-                    CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Core MOC instantiation failed safely: " + exception
-                );
+                        CoreProviderFailure.Code.INVOCATION_FAILED,
+                        "Core MOC instantiation failed safely: " + exception);
             }
         }
 
@@ -362,24 +289,19 @@ public final class CorePublicApiProviderFactory {
                 return ownedMocUnavailable();
             }
             try {
-                final Object model = resolver.invoke(
-                    OwnedMocSelectorContract.MOC_INSTANTIATE_MODEL,
-                    moc
-                );
+                final Object model = resolver.invoke(OwnedMocSelectorContract.MOC_INSTANTIATE_MODEL, moc);
                 if (!resolver.isInstance(CorePublicApiSelectorContract.MODEL_CLASS, model)) {
                     return failed(
-                        CoreProviderFailure.Code.INVALID_STRUCTURE,
-                        "Core owned model instantiation returned an invalid instance."
-                    );
+                            CoreProviderFailure.Code.INVALID_STRUCTURE,
+                            "Core owned model instantiation returned an invalid instance.");
                 }
                 return CoreProviderResult.success(model);
             } catch (VerifiedAccessException exception) {
                 return verifiedFailure(exception, "Core owned model instantiation failed safely.");
             } catch (RuntimeException exception) {
                 return failed(
-                    CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Core owned model instantiation failed safely: " + exception
-                );
+                        CoreProviderFailure.Code.INVOCATION_FAILED,
+                        "Core owned model instantiation failed safely: " + exception);
             }
         }
 
@@ -408,9 +330,8 @@ public final class CorePublicApiProviderFactory {
                 return verifiedFailure(exception, "Core owned model update failed safely.");
             } catch (RuntimeException exception) {
                 return failed(
-                    CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Core owned model update failed safely: " + exception
-                );
+                        CoreProviderFailure.Code.INVOCATION_FAILED,
+                        "Core owned model update failed safely: " + exception);
             }
         }
 
@@ -427,9 +348,7 @@ public final class CorePublicApiProviderFactory {
                 return verifiedFailure(exception, "Core owned MOC close failed safely.");
             } catch (RuntimeException exception) {
                 return failed(
-                    CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Core owned MOC close failed safely: " + exception
-                );
+                        CoreProviderFailure.Code.INVOCATION_FAILED, "Core owned MOC close failed safely: " + exception);
             }
         }
 
@@ -446,24 +365,19 @@ public final class CorePublicApiProviderFactory {
                 return verifiedFailure(exception, "Core owned model close failed safely.");
             } catch (RuntimeException exception) {
                 return failed(
-                    CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Core owned model close failed safely: " + exception
-                );
+                        CoreProviderFailure.Code.INVOCATION_FAILED,
+                        "Core owned model close failed safely: " + exception);
             }
         }
 
         private boolean authorizesOwnedMoc() {
             return resolver.authorizesFeature(
-                OwnedMocSelectorContract.ADAPTER_SLICE_ID,
-                OwnedMocSelectorContract.CAPABILITY_ID,
-                OwnedMocSelectorContract.REQUIRED_ALIASES
-            );
+                    OwnedMocSelectorContract.ADAPTER_SLICE_ID,
+                    OwnedMocSelectorContract.CAPABILITY_ID,
+                    OwnedMocSelectorContract.REQUIRED_ALIASES);
         }
 
-        private CoreProviderResult<Long> nativeHandle(
-            final String alias,
-            final Object instance
-        ) {
+        private CoreProviderResult<Long> nativeHandle(final String alias, final Object instance) {
             if (!authorizesOwnedMoc()) {
                 return ownedMocUnavailable();
             }
@@ -471,66 +385,52 @@ public final class CorePublicApiProviderFactory {
                 final Object handle = resolver.invoke(alias, instance);
                 if (!(handle instanceof Long value)) {
                     return failed(
-                        CoreProviderFailure.Code.INVALID_STRUCTURE,
-                        "Core native-handle selector returned an invalid value."
-                    );
+                            CoreProviderFailure.Code.INVALID_STRUCTURE,
+                            "Core native-handle selector returned an invalid value.");
                 }
                 return CoreProviderResult.success(value);
             } catch (VerifiedAccessException exception) {
                 return verifiedFailure(exception, "Core native-handle read failed safely.");
             } catch (RuntimeException exception) {
                 return failed(
-                    CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Core native-handle read failed safely: " + exception
-                );
+                        CoreProviderFailure.Code.INVOCATION_FAILED,
+                        "Core native-handle read failed safely: " + exception);
             }
         }
 
         private <T> CoreProviderResult<T> ownedMocUnavailable() {
             return failed(
-                CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
-                "Core owned-Moc selectors are not admitted for this artifact profile."
-            );
+                    CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
+                    "Core owned-Moc selectors are not admitted for this artifact profile.");
         }
 
         private <T> CoreProviderResult<T> verifiedFailure(
-            final VerifiedAccessException exception,
-            final String message
-        ) {
+                final VerifiedAccessException exception, final String message) {
             return failed(
-                exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
-                    ? CoreProviderFailure.Code.RESOLUTION_FAILED
-                    : CoreProviderFailure.Code.INVOCATION_FAILED,
-                message
-            );
+                    exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
+                            ? CoreProviderFailure.Code.RESOLUTION_FAILED
+                            : CoreProviderFailure.Code.INVOCATION_FAILED,
+                    message);
         }
 
         private <T> CoreProviderResult<T> invokeScalar(
-            final String alias,
-            final Class<T> type,
-            final Object... arguments
-        ) {
+                final String alias, final Class<T> type, final Object... arguments) {
             try {
                 final Object value = resolver.invokeStatic(alias, arguments);
                 if (!type.isInstance(value)) {
                     return failed(
-                        CoreProviderFailure.Code.INVALID_STRUCTURE,
-                        "Core metadata selector returned an invalid value."
-                    );
+                            CoreProviderFailure.Code.INVALID_STRUCTURE,
+                            "Core metadata selector returned an invalid value.");
                 }
                 return CoreProviderResult.success(type.cast(value));
             } catch (VerifiedAccessException exception) {
                 return failed(
-                    exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
-                        ? CoreProviderFailure.Code.RESOLUTION_FAILED
-                        : CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Core metadata selector failed safely."
-                );
+                        exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
+                                ? CoreProviderFailure.Code.RESOLUTION_FAILED
+                                : CoreProviderFailure.Code.INVOCATION_FAILED,
+                        "Core metadata selector failed safely.");
             } catch (RuntimeException exception) {
-                return failed(
-                    CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Core metadata selector failed safely."
-                );
+                return failed(CoreProviderFailure.Code.INVOCATION_FAILED, "Core metadata selector failed safely.");
             }
         }
     }

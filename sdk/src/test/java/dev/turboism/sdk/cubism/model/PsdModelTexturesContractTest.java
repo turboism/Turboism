@@ -1,5 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.psd.PsdEditFile;
@@ -8,16 +13,10 @@ import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
 import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class PsdModelTexturesContractTest {
 
@@ -26,7 +25,7 @@ class PsdModelTexturesContractTest {
         final RawImageId source = new RawImageId("raw-source");
         final RawImageId target = new RawImageId("raw-target");
         final PsdEditFile file = forbiddenFile();
-        final PsdFileRevision revision = new PsdFileRevision() { };
+        final PsdFileRevision revision = new PsdFileRevision() {};
         final ModelTextures textures = emptyTextures();
 
         final var exportStage = textures.exportRawImagePsd(source);
@@ -51,45 +50,32 @@ class PsdModelTexturesContractTest {
     void nullPsdArgumentsAreRejectedBeforeReturningAStage() {
         final ModelTextures textures = emptyTextures();
         final PsdEditFile file = forbiddenFile();
-        final PsdFileRevision revision = new PsdFileRevision() { };
+        final PsdFileRevision revision = new PsdFileRevision() {};
 
         assertThrows(NullPointerException.class, () -> textures.exportRawImagePsd(null));
+        assertThrows(NullPointerException.class, () -> textures.replaceRawImagePsd(null, file, revision));
         assertThrows(
-            NullPointerException.class,
-            () -> textures.replaceRawImagePsd(null, file, revision)
-        );
+                NullPointerException.class,
+                () -> textures.replaceRawImagePsd(new RawImageId("raw-target"), null, revision));
         assertThrows(
-            NullPointerException.class,
-            () -> textures.replaceRawImagePsd(new RawImageId("raw-target"), null, revision)
-        );
-        assertThrows(
-            NullPointerException.class,
-            () -> textures.replaceRawImagePsd(
-                new RawImageId("raw-target"), file, null
-            )
-        );
+                NullPointerException.class,
+                () -> textures.replaceRawImagePsd(new RawImageId("raw-target"), file, null));
     }
 
     @Test
     void psdEntryPointsAreOnlyDeclaredForCubism5302() throws Exception {
         final var export = ModelTextures.class.getMethod("exportRawImagePsd", RawImageId.class);
         final var replace = ModelTextures.class.getMethod(
-            "replaceRawImagePsd",
-            RawImageId.class,
-            PsdEditFile.class,
-            PsdFileRevision.class
-        );
+                "replaceRawImagePsd", RawImageId.class, PsdEditFile.class, PsdFileRevision.class);
 
         assertEquals(CompletionStage.class, export.getReturnType());
         assertEquals(CompletionStage.class, replace.getReturnType());
         assertArrayEquals(
-            new String[] {"5.3.02"},
-            export.getAnnotation(CubismEditor.class).value()
-        );
+                new String[] {"5.3.02"},
+                export.getAnnotation(CubismEditor.class).value());
         assertArrayEquals(
-            new String[] {"5.3.02"},
-            replace.getAnnotation(CubismEditor.class).value()
-        );
+                new String[] {"5.3.02"},
+                replace.getAnnotation(CubismEditor.class).value());
     }
 
     private static PsdEditFile forbiddenFile() {
@@ -113,22 +99,38 @@ class PsdModelTexturesContractTest {
 
     private static ModelTextures emptyTextures() {
         return new ModelTextures() {
-            @Override public List<RawTexture> rawImages() { return List.of(); }
-            @Override public List<ModelImageGroup> modelImageGroups() { return List.of(); }
-            @Override public List<AtlasTexture> textureAtlases() { return List.of(); }
-            @Override public void addModelImageGroup(final String name) { }
-            @Override public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId id) { }
-            @Override public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
-                final String name,
-                final int widthPixels,
-                final int heightPixels
-            ) {
+            @Override
+            public List<RawTexture> rawImages() {
+                return List.of();
+            }
+
+            @Override
+            public List<ModelImageGroup> modelImageGroups() {
+                return List.of();
+            }
+
+            @Override
+            public List<AtlasTexture> textureAtlases() {
+                return List.of();
+            }
+
+            @Override
+            public void addModelImageGroup(final String name) {}
+
+            @Override
+            public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId id) {}
+
+            @Override
+            public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
+                    final String name, final int widthPixels, final int heightPixels) {
                 return new dev.turboism.sdk.cubism.id.TextureAtlasId("atlas");
             }
-            @Override public void removeTextureAtlas(
-                final dev.turboism.sdk.cubism.id.TextureAtlasId id
-            ) { }
-            @Override public void removeRawImage(final RawImageId id) { }
+
+            @Override
+            public void removeTextureAtlas(final dev.turboism.sdk.cubism.id.TextureAtlasId id) {}
+
+            @Override
+            public void removeRawImage(final RawImageId id) {}
         };
     }
 }

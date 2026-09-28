@@ -1,13 +1,12 @@
 package dev.turboism.core.runtime.psd;
 
-import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.Duration;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
 
 class PsdSaveDebouncerTest {
     private static final String INITIAL = "a".repeat(64);
@@ -128,10 +127,8 @@ class PsdSaveDebouncerTest {
         assertThrows(NullPointerException.class, () -> new PsdSaveDebouncer(null));
         assertThrows(IllegalArgumentException.class, () -> new PsdSaveDebouncer("not-a-digest"));
         assertThrows(IllegalArgumentException.class, () -> new PsdSaveDebouncer(INITIAL.toUpperCase()));
-        assertThrows(IllegalArgumentException.class,
-            () -> new PsdSaveDebouncer(INITIAL, Duration.ZERO));
-        assertThrows(IllegalArgumentException.class,
-            () -> new PsdSaveDebouncer(INITIAL, Duration.ofNanos(-1)));
+        assertThrows(IllegalArgumentException.class, () -> new PsdSaveDebouncer(INITIAL, Duration.ZERO));
+        assertThrows(IllegalArgumentException.class, () -> new PsdSaveDebouncer(INITIAL, Duration.ofNanos(-1)));
         final PsdSaveDebouncer gate = new PsdSaveDebouncer(INITIAL);
         assertThrows(IllegalArgumentException.class, () -> gate.observe("", 0));
     }

@@ -9,23 +9,23 @@ final class IncrementalUpdateHookContributor extends NativeOptimizationHookContr
         super("TURBOISM_INCREMENTAL_UPDATE");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!IncrementalUpdateBridge.flagEnabled()) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedIncrementalUpdateInstaller.admitted(
-            host.artifact(),
-            NativeOptimizationPolicy.load(environment.options().home()),
-            true,
-            Runtime.version().feature()
-        )) {
+                host.artifact(),
+                NativeOptimizationPolicy.load(environment.options().home()),
+                true,
+                Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
         final VerifiedIncrementalUpdateInstaller installer = new VerifiedIncrementalUpdateInstaller(
-            environment.instrumentation(), host.artifact(), host.classLoader());
+                environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
         return installer;
     }

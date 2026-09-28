@@ -15,7 +15,9 @@ public interface Parts {
      * <p>The native two-phase flow is used: construct {@code CPartSource} → add to the Part source
      * set → attach to the Part tree, all admitted into one native Undo entry.</p>
      */
-    default Part create(String name) { return create(name, null, -1); }
+    default Part create(String name) {
+        return create(name, null, -1);
+    }
 
     /**
      * Creates a Part with {@code name} under {@code parent} at {@code index} (negative = append;

@@ -1,17 +1,16 @@
 package dev.turboism.plugin.turboismwithfx;
 
-import dev.turboism.sdk.plugin.PluginPaths;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import dev.turboism.sdk.plugin.PluginPaths;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Optional;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class FxRuntimeResolverTest {
 
@@ -20,20 +19,13 @@ final class FxRuntimeResolverTest {
 
     @Test
     void blankOverrideSelectsManagedRuntimeAndFailsClosedWhenMissing() {
-        final FxRuntimeResolver resolver = new FxRuntimeResolver(
-            paths(),
-            () -> FxRuntimePlatform.detect("Linux", "amd64")
-        );
+        final FxRuntimeResolver resolver =
+                new FxRuntimeResolver(paths(), () -> FxRuntimePlatform.detect("Linux", "amd64"));
 
-        final FxRuntimeResolver.Resolution.Unavailable unavailable = assertInstanceOf(
-            FxRuntimeResolver.Resolution.Unavailable.class,
-            resolver.resolve("")
-        );
+        final FxRuntimeResolver.Resolution.Unavailable unavailable =
+                assertInstanceOf(FxRuntimeResolver.Resolution.Unavailable.class, resolver.resolve(""));
         assertEquals(FxRuntimeResolver.Problem.RUNTIME_MISSING, unavailable.problem());
-        assertEquals(
-            home.resolve("runtimes/fx").toAbsolutePath().normalize(),
-            resolver.managedRoot()
-        );
+        assertEquals(home.resolve("runtimes/fx").toAbsolutePath().normalize(), resolver.managedRoot());
     }
 
     @Test
@@ -43,59 +35,41 @@ final class FxRuntimeResolverTest {
         Files.createDirectories(outsidePlatform);
         Files.writeString(outsidePlatform.resolve("fx"), "fixture");
         Files.createSymbolicLink(home.resolve("runtimes"), outside);
-        final FxRuntimeResolver resolver = new FxRuntimeResolver(
-            paths(),
-            () -> FxRuntimePlatform.detect("Linux", "amd64")
-        );
+        final FxRuntimeResolver resolver =
+                new FxRuntimeResolver(paths(), () -> FxRuntimePlatform.detect("Linux", "amd64"));
 
-        final FxRuntimeResolver.Resolution.Unavailable unavailable = assertInstanceOf(
-            FxRuntimeResolver.Resolution.Unavailable.class,
-            resolver.resolve("")
-        );
+        final FxRuntimeResolver.Resolution.Unavailable unavailable =
+                assertInstanceOf(FxRuntimeResolver.Resolution.Unavailable.class, resolver.resolve(""));
         assertEquals(FxRuntimeResolver.Problem.RUNTIME_INVALID, unavailable.problem());
     }
 
     @Test
     void advancedOverrideUsesAnExistingAbsoluteRegularFile() throws Exception {
-        final FxRuntimeResolver resolver = new FxRuntimeResolver(
-            paths(),
-            Optional::empty
-        );
+        final FxRuntimeResolver resolver = new FxRuntimeResolver(paths(), Optional::empty);
         final Path executable = Files.writeString(home.resolve("fx-custom"), "fixture");
 
         final FxRuntimeResolver.Resolution.Available available = assertInstanceOf(
-            FxRuntimeResolver.Resolution.Available.class,
-            resolver.resolve("  " + executable + "  ")
-        );
+                FxRuntimeResolver.Resolution.Available.class, resolver.resolve("  " + executable + "  "));
         assertEquals(executable.toString(), available.executable());
         assertEquals(FxRuntimeResolver.Source.CUSTOM, available.source());
     }
 
     @Test
     void advancedOverrideNeverFallsBackToPathLookup() {
-        final FxRuntimeResolver resolver = new FxRuntimeResolver(
-            paths(),
-            Optional::empty
-        );
+        final FxRuntimeResolver resolver = new FxRuntimeResolver(paths(), Optional::empty);
 
-        final FxRuntimeResolver.Resolution.Unavailable unavailable = assertInstanceOf(
-            FxRuntimeResolver.Resolution.Unavailable.class,
-            resolver.resolve("fx")
-        );
+        final FxRuntimeResolver.Resolution.Unavailable unavailable =
+                assertInstanceOf(FxRuntimeResolver.Resolution.Unavailable.class, resolver.resolve("fx"));
         assertEquals(FxRuntimeResolver.Problem.RUNTIME_INVALID, unavailable.problem());
     }
 
     @Test
     void windowsProductPayloadIsSupportedAndFailsClosedWhenMissing() {
-        final FxRuntimeResolver resolver = new FxRuntimeResolver(
-            paths(),
-            () -> FxRuntimePlatform.detect("Windows 11", "amd64")
-        );
+        final FxRuntimeResolver resolver =
+                new FxRuntimeResolver(paths(), () -> FxRuntimePlatform.detect("Windows 11", "amd64"));
 
-        final FxRuntimeResolver.Resolution.Unavailable unavailable = assertInstanceOf(
-            FxRuntimeResolver.Resolution.Unavailable.class,
-            resolver.resolve(null)
-        );
+        final FxRuntimeResolver.Resolution.Unavailable unavailable =
+                assertInstanceOf(FxRuntimeResolver.Resolution.Unavailable.class, resolver.resolve(null));
         assertEquals(FxRuntimeResolver.Problem.RUNTIME_MISSING, unavailable.problem());
         assertEquals("windows-x86_64", unavailable.platformId());
     }
@@ -104,30 +78,20 @@ final class FxRuntimeResolverTest {
     void exactWindowsProductPayloadResolvesAsManaged() throws Exception {
         final String fixtureProperty = System.getProperty("turboism.windowsFxFixture");
         Assumptions.assumeTrue(
-            fixtureProperty != null && !fixtureProperty.isBlank(),
-            "Windows managed fx product payload fixture path is absent"
-        );
+                fixtureProperty != null && !fixtureProperty.isBlank(),
+                "Windows managed fx product payload fixture path is absent");
         final Path fixture = Path.of(fixtureProperty);
-        Assumptions.assumeTrue(Files.isRegularFile(fixture),
-            "Windows managed fx product payload fixture is absent");
-        final FxRuntimeManifest.Entry entry = FxRuntimeManifest.allEntries().get(
-            "windows-x86_64"
-        );
+        Assumptions.assumeTrue(Files.isRegularFile(fixture), "Windows managed fx product payload fixture is absent");
+        final FxRuntimeManifest.Entry entry = FxRuntimeManifest.allEntries().get("windows-x86_64");
         assertNotNull(entry);
-        final Path executable = home.resolve(
-            "runtimes/fx/0.0.5/windows-x86_64/fx.exe"
-        );
+        final Path executable = home.resolve("runtimes/fx/0.0.5/windows-x86_64/fx.exe");
         Files.createDirectories(executable.getParent());
         Files.copy(fixture, executable);
-        final FxRuntimeResolver resolver = new FxRuntimeResolver(
-            paths(),
-            () -> FxRuntimePlatform.detect("Windows 11", "amd64")
-        );
+        final FxRuntimeResolver resolver =
+                new FxRuntimeResolver(paths(), () -> FxRuntimePlatform.detect("Windows 11", "amd64"));
 
-        final FxRuntimeResolver.Resolution.Available available = assertInstanceOf(
-            FxRuntimeResolver.Resolution.Available.class,
-            resolver.resolve(null)
-        );
+        final FxRuntimeResolver.Resolution.Available available =
+                assertInstanceOf(FxRuntimeResolver.Resolution.Available.class, resolver.resolve(null));
         assertEquals(executable.toString(), available.executable());
         assertEquals(FxRuntimeResolver.Source.MANAGED, available.source());
         assertEquals("windows-x86_64", available.platformId());
@@ -138,11 +102,30 @@ final class FxRuntimeResolverTest {
     private PluginPaths paths() {
         final String plugin = "dev.turboism.plugin.turboism-with-fx";
         return new PluginPaths() {
-            @Override public Path configDir() { return home.resolve("config").resolve(plugin); }
-            @Override public Path dataDir() { return home.resolve("data").resolve(plugin); }
-            @Override public Path logsDir() { return home.resolve("logs").resolve(plugin); }
-            @Override public Path stateDir() { return home.resolve("state").resolve(plugin); }
-            @Override public Path cacheDir() { return home.resolve("cache").resolve(plugin); }
+            @Override
+            public Path configDir() {
+                return home.resolve("config").resolve(plugin);
+            }
+
+            @Override
+            public Path dataDir() {
+                return home.resolve("data").resolve(plugin);
+            }
+
+            @Override
+            public Path logsDir() {
+                return home.resolve("logs").resolve(plugin);
+            }
+
+            @Override
+            public Path stateDir() {
+                return home.resolve("state").resolve(plugin);
+            }
+
+            @Override
+            public Path cacheDir() {
+                return home.resolve("cache").resolve(plugin);
+            }
         };
     }
 }

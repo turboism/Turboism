@@ -2,7 +2,6 @@ package dev.turboism.sdk.cubism.psd;
 
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -21,13 +20,12 @@ import java.util.Optional;
  * @param relations optional available post-operation relation snapshot
  */
 public record PsdReplaceResult(
-    Status status,
-    String diagnostic,
-    RawImageId before,
-    Optional<RawImageId> after,
-    Optional<PsdFileRevision> consumedRevision,
-    Optional<TextureRelationsSnapshot> relations
-) {
+        Status status,
+        String diagnostic,
+        RawImageId before,
+        Optional<RawImageId> after,
+        Optional<PsdFileRevision> consumedRevision,
+        Optional<TextureRelationsSnapshot> relations) {
     public PsdReplaceResult {
         status = Objects.requireNonNull(status, "status");
         diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");

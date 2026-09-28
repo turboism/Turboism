@@ -1,41 +1,41 @@
 package dev.turboism.adapter.host;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
-import org.junit.jupiter.api.Test;
-
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
 
 class HostSessionCleanupErrorTest {
 
     @Test
     void registrationAssertionErrorCommitsFailedAndRemainsRetryable() {
-        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(
-            HostSessionTest.descriptor("session-a")
-        );
+        AtomicReference<HostInstanceDescriptor> current =
+                new AtomicReference<>(HostSessionTest.descriptor("session-a"));
         AtomicInteger closes = new AtomicInteger();
         RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
         StatusToolbarAdapter status = HostSessionTest.statusAdapter(() -> failFirst(closes));
         HostSession session = new HostSession(
-            () -> Optional.ofNullable(current.get()),
-            ignored -> HostAdapterConnection.of(new RuntimeHostAdapters(
-                safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
-                status, safe.uiSurface()
-            ))
-        );
+                () -> Optional.ofNullable(current.get()),
+                ignored -> HostAdapterConnection.of(new RuntimeHostAdapters(
+                        safe.themeStatus(),
+                        safe.renderStatus(),
+                        safe.projectWorkspace(),
+                        safe.clipMaskRead(),
+                        status,
+                        safe.uiSurface())));
         session.refresh();
-        Registration registration = session.adapters().statusToolbar().notifyStatus(
-            new StatusNotification("status", "INFO", "connected")
-        ).value().orElseThrow();
+        Registration registration = session.adapters()
+                .statusToolbar()
+                .notifyStatus(new StatusNotification("status", "INFO", "connected"))
+                .value()
+                .orElseThrow();
 
         assertThrows(AssertionError.class, session::close);
         assertCleanupFailed(session);
@@ -51,16 +51,17 @@ class HostSessionCleanupErrorTest {
     void activeConnectionAssertionErrorCommitsFailedAndRemainsRetryable() {
         AtomicInteger closes = new AtomicInteger();
         HostSession session = new HostSession(
-            () -> Optional.of(HostSessionTest.descriptor("session-a")),
-            ignored -> new HostAdapterConnection() {
-                @Override public RuntimeHostAdapters adapters() {
-                    return HostSessionTest.adapters("session-a");
-                }
-                @Override public void close() {
-                    failFirst(closes);
-                }
-            }
-        );
+                () -> Optional.of(HostSessionTest.descriptor("session-a")), ignored -> new HostAdapterConnection() {
+                    @Override
+                    public RuntimeHostAdapters adapters() {
+                        return HostSessionTest.adapters("session-a");
+                    }
+
+                    @Override
+                    public void close() {
+                        failFirst(closes);
+                    }
+                });
         session.refresh();
 
         assertThrows(AssertionError.class, session::close);
@@ -75,16 +76,17 @@ class HostSessionCleanupErrorTest {
     void candidateAssertionErrorCommitsFailedRetainsCandidateAndRemainsRetryable() {
         AtomicInteger closes = new AtomicInteger();
         HostSession session = new HostSession(
-            () -> Optional.of(HostSessionTest.descriptor("session-a")),
-            ignored -> new HostAdapterConnection() {
-                @Override public RuntimeHostAdapters adapters() {
-                    throw new IllegalStateException("candidate adapters failed");
-                }
-                @Override public void close() {
-                    failFirst(closes);
-                }
-            }
-        );
+                () -> Optional.of(HostSessionTest.descriptor("session-a")), ignored -> new HostAdapterConnection() {
+                    @Override
+                    public RuntimeHostAdapters adapters() {
+                        throw new IllegalStateException("candidate adapters failed");
+                    }
+
+                    @Override
+                    public void close() {
+                        failFirst(closes);
+                    }
+                });
 
         assertThrows(AssertionError.class, session::refresh);
         assertCleanupFailed(session);
@@ -99,17 +101,18 @@ class HostSessionCleanupErrorTest {
         AtomicInteger closes = new AtomicInteger();
         AtomicReference<HostSession> sessionRef = new AtomicReference<>();
         HostSession session = new HostSession(
-            () -> Optional.of(HostSessionTest.descriptor("session-a")),
-            ignored -> new HostAdapterConnection() {
-                @Override public RuntimeHostAdapters adapters() {
-                    sessionRef.get().close();
-                    return HostSessionTest.adapters("session-a");
-                }
-                @Override public void close() {
-                    failFirst(closes);
-                }
-            }
-        );
+                () -> Optional.of(HostSessionTest.descriptor("session-a")), ignored -> new HostAdapterConnection() {
+                    @Override
+                    public RuntimeHostAdapters adapters() {
+                        sessionRef.get().close();
+                        return HostSessionTest.adapters("session-a");
+                    }
+
+                    @Override
+                    public void close() {
+                        failFirst(closes);
+                    }
+                });
         sessionRef.set(session);
 
         assertThrows(AssertionError.class, session::refresh);
@@ -132,8 +135,7 @@ class HostSessionCleanupErrorTest {
     private static void assertCleanupFailed(final HostSession session) {
         assertEquals(HostSession.State.FAILED, session.state());
         assertEquals(
-            HostSessionFailure.Code.CLEANUP_FAILED,
-            session.lastFailure().orElseThrow().code()
-        );
+                HostSessionFailure.Code.CLEANUP_FAILED,
+                session.lastFailure().orElseThrow().code());
     }
 }

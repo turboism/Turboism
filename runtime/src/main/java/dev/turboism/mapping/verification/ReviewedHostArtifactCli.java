@@ -43,16 +43,12 @@ public final class ReviewedHostArtifactCli {
             final CubismHostIdentity identity = probe.identity().orElseThrow();
             System.out.println(identity.version());
             System.out.println(
-                ReviewedHostArtifacts.cubismVersionOf(identity.artifact()).isPresent()
-                    ? "reviewed"
-                    : "declared"
-            );
+                    ReviewedHostArtifacts.cubismVersionOf(identity.artifact()).isPresent() ? "reviewed" : "declared");
         } catch (Exception failure) {
             System.err.println(failure.getClass().getSimpleName());
             System.exit(2);
         }
     }
 
-    private ReviewedHostArtifactCli() {
-    }
+    private ReviewedHostArtifactCli() {}
 }

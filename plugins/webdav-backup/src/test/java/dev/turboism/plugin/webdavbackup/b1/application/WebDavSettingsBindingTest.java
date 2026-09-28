@@ -1,5 +1,7 @@
 package dev.turboism.plugin.webdavbackup.b1.application;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import dev.turboism.plugin.webdavbackup.webdav.WebDavConfig;
 import dev.turboism.sdk.config.ConfigKey;
 import dev.turboism.sdk.config.ConfigReadResult;
@@ -10,8 +12,6 @@ import dev.turboism.sdk.config.ConfigWriteResult;
 import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
 import java.net.URI;
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -21,8 +21,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 final class WebDavSettingsBindingTest {
 
@@ -37,9 +36,18 @@ final class WebDavSettingsBindingTest {
         binding.read().toCompletableFuture().join();
 
         final WebDavConfig target = new WebDavConfig(
-            true, URI.create("https://dav.example/remote.php/webdav"), "alice", "s3cret!",
-            "/turboism-backup", true, 2, 800, 45);
-        assertEquals(ConfigBindingResult.APPLIED, binding.update(target).toCompletableFuture().join());
+                true,
+                URI.create("https://dav.example/remote.php/webdav"),
+                "alice",
+                "s3cret!",
+                "/turboism-backup",
+                true,
+                2,
+                800,
+                45);
+        assertEquals(
+                ConfigBindingResult.APPLIED,
+                binding.update(target).toCompletableFuture().join());
 
         final WebDavConfig readback = binding.read().toCompletableFuture().join();
         assertEquals(target, readback, "the write path must be confirmed by readback");
@@ -55,7 +63,9 @@ final class WebDavSettingsBindingTest {
         binding.init(registry).toCompletableFuture().join();
         binding.enable();
         final WebDavConfig current = binding.read().toCompletableFuture().join();
-        assertEquals(ConfigBindingResult.UNCHANGED, binding.update(current).toCompletableFuture().join());
+        assertEquals(
+                ConfigBindingResult.UNCHANGED,
+                binding.update(current).toCompletableFuture().join());
         assertEquals(0, registry.writes.size(), "no write for an identical target");
     }
 
@@ -67,15 +77,13 @@ final class WebDavSettingsBindingTest {
         binding.enable();
         binding.read().toCompletableFuture().join();
         registry.readOverride = Optional.of(new ConfigReadResult<>(
-            new ConfigValue<>("http://other.example", ConfigValueSource.STORED, 99),
-            Optional.empty()));
-        final WebDavConfig target = new WebDavConfig(
-            true, URI.create("https://dav.example"), "", "", "/x", true, 1, 100, 30);
+                new ConfigValue<>("http://other.example", ConfigValueSource.STORED, 99), Optional.empty()));
+        final WebDavConfig target =
+                new WebDavConfig(true, URI.create("https://dav.example"), "", "", "/x", true, 1, 100, 30);
         assertEquals(
-            ConfigBindingResult.PARTIAL_PERSISTENCE,
-            binding.update(target).toCompletableFuture().join(),
-            "an unconfirmed readback must not be reported as applied"
-        );
+                ConfigBindingResult.PARTIAL_PERSISTENCE,
+                binding.update(target).toCompletableFuture().join(),
+                "an unconfirmed readback must not be reported as applied");
     }
 
     @Test
@@ -83,9 +91,11 @@ final class WebDavSettingsBindingTest {
         final FakeRegistry registry = new FakeRegistry();
         final WebDavSettingsBinding binding = new WebDavSettingsBinding();
         binding.init(registry).toCompletableFuture().join();
-        final WebDavConfig target = new WebDavConfig(
-            true, URI.create("https://dav.example"), "", "", "/x", true, 1, 100, 30);
-        assertEquals(ConfigBindingResult.DISABLED, binding.update(target).toCompletableFuture().join());
+        final WebDavConfig target =
+                new WebDavConfig(true, URI.create("https://dav.example"), "", "", "/x", true, 1, 100, 30);
+        assertEquals(
+                ConfigBindingResult.DISABLED,
+                binding.update(target).toCompletableFuture().join());
         assertEquals(0, registry.writes.size());
     }
 
@@ -100,8 +110,7 @@ final class WebDavSettingsBindingTest {
 
         @Override
         public CompletionStage<Void> registerSchema(
-            final ConfigSchema schema, final List<dev.turboism.sdk.config.ConfigMigration> migrations
-        ) {
+                final ConfigSchema schema, final List<dev.turboism.sdk.config.ConfigMigration> migrations) {
             return CompletableFuture.completedFuture(null);
         }
 
@@ -113,13 +122,12 @@ final class WebDavSettingsBindingTest {
             }
             final T value = (T) values.getOrDefault(key.name(), key.defaultValue());
             return CompletableFuture.completedFuture(new ConfigReadResult<>(
-                new ConfigValue<>(value, ConfigValueSource.STORED, revision), Optional.empty()));
+                    new ConfigValue<>(value, ConfigValueSource.STORED, revision), Optional.empty()));
         }
 
         @Override
         public <T> CompletionStage<ConfigWriteResult> write(
-            final ConfigKey<T> key, final T value, final long expected
-        ) {
+                final ConfigKey<T> key, final T value, final long expected) {
             writes.add(new Write(key.name(), expected));
             if (!writeResults.isEmpty()) {
                 final ConfigWriteResult queued = writeResults.remove();
@@ -134,12 +142,12 @@ final class WebDavSettingsBindingTest {
 
         @Override
         public Registration readScope(final String relativePath) {
-            return () -> { };
+            return () -> {};
         }
 
         @Override
         public Registration writeScope(final String relativePath) {
-            return () -> { };
+            return () -> {};
         }
 
         @Override
@@ -149,10 +157,10 @@ final class WebDavSettingsBindingTest {
 
         @Override
         public void writeString(final String relativePath, final String key, final String value)
-            throws PluginConfigException {
+                throws PluginConfigException {
             throw new PluginConfigException("not supported");
         }
 
-        record Write(String key, long expected) { }
+        record Write(String key, long expected) {}
     }
 }

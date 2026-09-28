@@ -13,18 +13,16 @@ import java.util.List;
 public final class BuiltinThemeCatalog {
 
     private static final List<Entry> ENTRIES = List.of(
-        new Entry("turboism.mint", "mint", true),
-        new Entry("turboism.paper-yellow", "paper-yellow", true),
-        new Entry("turboism.slate", "slate", true),
-        new Entry("turboism.nord", "nord", true),
-        new Entry("turboism.cherry-blossom", "cherry-blossom", true),
-        new Entry("turboism.sky-blue", "sky-blue", true),
-        new Entry("__cubism_light__", "cubism-light", false),
-        new Entry("__cubism_dark__", "cubism-dark", false)
-    );
+            new Entry("turboism.mint", "mint", true),
+            new Entry("turboism.paper-yellow", "paper-yellow", true),
+            new Entry("turboism.slate", "slate", true),
+            new Entry("turboism.nord", "nord", true),
+            new Entry("turboism.cherry-blossom", "cherry-blossom", true),
+            new Entry("turboism.sky-blue", "sky-blue", true),
+            new Entry("__cubism_light__", "cubism-light", false),
+            new Entry("__cubism_dark__", "cubism-dark", false));
 
-    private BuiltinThemeCatalog() {
-    }
+    private BuiltinThemeCatalog() {}
 
     /**
      * @return every catalogued builtin, including the host's own themes that are not offered for
@@ -60,6 +58,5 @@ public final class BuiltinThemeCatalog {
      * @param visible whether the theme is offered for selection; false for the host's own themes,
      *                which are catalogued only so their ids count as reviewed
      */
-    public record Entry(String id, String resourceDirectory, boolean visible) {
-    }
+    public record Entry(String id, String resourceDirectory, boolean visible) {}
 }

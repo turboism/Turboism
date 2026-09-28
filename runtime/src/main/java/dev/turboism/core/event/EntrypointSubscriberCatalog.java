@@ -2,7 +2,6 @@ package dev.turboism.core.event;
 
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.SubscribeEvent;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -19,33 +18,23 @@ public final class EntrypointSubscriberCatalog {
         final List<?> values = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
         final List<EventSubscriberDescriptor> descriptors = new ArrayList<>();
         for (int entrypointOrdinal = 0; entrypointOrdinal < values.size(); entrypointOrdinal++) {
-            descriptors.addAll(inspectOne(
-                Objects.requireNonNull(values.get(entrypointOrdinal), "entrypoint"),
-                entrypointOrdinal
-            ));
+            descriptors.addAll(
+                    inspectOne(Objects.requireNonNull(values.get(entrypointOrdinal), "entrypoint"), entrypointOrdinal));
         }
         return List.copyOf(descriptors);
     }
 
-    List<EventSubscriberDescriptor> inspectOne(
-        final Object entrypoint,
-        final int entrypointOrdinal
-    ) {
+    List<EventSubscriberDescriptor> inspectOne(final Object entrypoint, final int entrypointOrdinal) {
         final Object value = Objects.requireNonNull(entrypoint, "entrypoint");
         validateDeclaredMethods(value.getClass());
         final List<Method> methods = Arrays.stream(value.getClass().getMethods())
-            .filter(method -> method.isAnnotationPresent(SubscribeEvent.class))
-            .filter(method -> !method.isBridge() && !method.isSynthetic())
-            .sorted(Comparator.comparing(EntrypointSubscriberCatalog::signature))
-            .toList();
+                .filter(method -> method.isAnnotationPresent(SubscribeEvent.class))
+                .filter(method -> !method.isBridge() && !method.isSynthetic())
+                .sorted(Comparator.comparing(EntrypointSubscriberCatalog::signature))
+                .toList();
         final List<EventSubscriberDescriptor> descriptors = new ArrayList<>();
         for (int methodOrdinal = 0; methodOrdinal < methods.size(); methodOrdinal++) {
-            descriptors.add(descriptor(
-                value,
-                methods.get(methodOrdinal),
-                entrypointOrdinal,
-                methodOrdinal
-            ));
+            descriptors.add(descriptor(value, methods.get(methodOrdinal), entrypointOrdinal, methodOrdinal));
         }
         return List.copyOf(descriptors);
     }
@@ -53,8 +42,7 @@ public final class EntrypointSubscriberCatalog {
     private static void validateDeclaredMethods(final Class<?> type) {
         for (Class<?> current = type; current != null; current = current.getSuperclass()) {
             for (Method method : current.getDeclaredMethods()) {
-                if (!method.isAnnotationPresent(SubscribeEvent.class)
-                    || method.isBridge() || method.isSynthetic()) {
+                if (!method.isAnnotationPresent(SubscribeEvent.class) || method.isBridge() || method.isSynthetic()) {
                     continue;
                 }
                 if (!Modifier.isPublic(method.getModifiers())) {
@@ -65,11 +53,7 @@ public final class EntrypointSubscriberCatalog {
     }
 
     private static EventSubscriberDescriptor descriptor(
-        final Object entrypoint,
-        final Method method,
-        final int entrypointOrdinal,
-        final int methodOrdinal
-    ) {
+            final Object entrypoint, final Method method, final int entrypointOrdinal, final int methodOrdinal) {
         final int modifiers = method.getModifiers();
         if (!Modifier.isPublic(modifiers) || Modifier.isStatic(modifiers)) {
             throw invalid(method, "subscriber must be a public instance method");
@@ -86,33 +70,27 @@ public final class EntrypointSubscriberCatalog {
         }
         @SuppressWarnings("unchecked")
         final Class<? extends EventBus.TurboismEvent> eventType =
-            (Class<? extends EventBus.TurboismEvent>) parameterType;
+                (Class<? extends EventBus.TurboismEvent>) parameterType;
         return new EventSubscriberDescriptor(
-            entrypoint,
-            method,
-            eventType,
-            method.getAnnotation(SubscribeEvent.class).priority(),
-            entrypointOrdinal,
-            methodOrdinal,
-            signature(method)
-        );
+                entrypoint,
+                method,
+                eventType,
+                method.getAnnotation(SubscribeEvent.class).priority(),
+                entrypointOrdinal,
+                methodOrdinal,
+                signature(method));
     }
 
     private static String signature(final Method method) {
         return method.getDeclaringClass().getName()
-            + "#" + method.getName()
-            + Arrays.stream(method.getParameterTypes())
-                .map(Class::getName)
-                .collect(java.util.stream.Collectors.joining(",", "(", ")"))
-            + ":" + method.getReturnType().getName();
+                + "#" + method.getName()
+                + Arrays.stream(method.getParameterTypes())
+                        .map(Class::getName)
+                        .collect(java.util.stream.Collectors.joining(",", "(", ")"))
+                + ":" + method.getReturnType().getName();
     }
 
-    private static IllegalArgumentException invalid(
-        final Method method,
-        final String message
-    ) {
-        return new IllegalArgumentException(
-            "Invalid @SubscribeEvent method " + signature(method) + ": " + message
-        );
+    private static IllegalArgumentException invalid(final Method method, final String message) {
+        return new IllegalArgumentException("Invalid @SubscribeEvent method " + signature(method) + ": " + message);
     }
 }

@@ -1,9 +1,11 @@
 package dev.turboism.plugin.uitheme.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
+import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
@@ -14,13 +16,10 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 class ThemePackageStatusServiceTest {
 
@@ -28,95 +27,65 @@ class ThemePackageStatusServiceTest {
     void checkThemeStatus_emitsInfoWithThemeDetails_whenThemeAvailable() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost(Optional.empty());
-        ThemePackageStatusService service = new ThemePackageStatusService(
-            new AvailableThemeStatusReader("aurora", "Aurora"),
-            uiHost
-        );
+        ThemePackageStatusService service =
+                new ThemePackageStatusService(new AvailableThemeStatusReader("aurora", "Aurora"), uiHost);
 
         // When
         service.checkThemeStatus();
 
         // Then
         assertEquals(
-            List.of(new StatusNotification(
-                "ui-theme.package.status.available",
-                "INFO",
-                "Theme package available: Aurora (aurora)"
-            )),
-            uiHost.notifications()
-        );
+                List.of(new StatusNotification(
+                        "ui-theme.package.status.available", "INFO", "Theme package available: Aurora (aurora)")),
+                uiHost.notifications());
     }
 
     @Test
     void checkThemeStatus_emitsWarning_whenThemeUnavailable() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost(Optional.empty());
-        ThemePackageStatusService service = new ThemePackageStatusService(
-            new UnavailableThemeStatusReader(),
-            uiHost
-        );
+        ThemePackageStatusService service = new ThemePackageStatusService(new UnavailableThemeStatusReader(), uiHost);
 
         // When
         service.checkThemeStatus();
 
         // Then
         assertEquals(
-            List.of(new StatusNotification(
-                "ui-theme.package.status.unavailable",
-                "WARNING",
-                "Theme package is not available"
-            )),
-            uiHost.notifications()
-        );
+                List.of(new StatusNotification(
+                        "ui-theme.package.status.unavailable", "WARNING", "Theme package is not available")),
+                uiHost.notifications());
     }
 
     @Test
     void handleThemePackageImport_requestsZipFileShowsConfirmationAndEmitsStarted_whenConfirmed() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost(Optional.of("themes/aurora.zip"), true);
-        ThemePackageStatusService service = new ThemePackageStatusService(
-            new UnavailableThemeStatusReader(),
-            uiHost
-        );
+        ThemePackageStatusService service = new ThemePackageStatusService(new UnavailableThemeStatusReader(), uiHost);
 
         // When
         service.handleThemePackageImport();
 
         // Then
         assertEquals(
-            List.of(new FileChooserRequest(
-                "ui-theme.package.import.file",
-                "Import theme package",
-                List.of("zip")
-            )),
-            uiHost.fileRequests()
-        );
+                List.of(new FileChooserRequest("ui-theme.package.import.file", "Import theme package", List.of("zip"))),
+                uiHost.fileRequests());
         assertEquals(
-            List.of(new DialogRequest(
-                "ui-theme.package.import.confirm",
-                "Import theme package?",
-                "Import theme package themes/aurora.zip?"
-            )),
-            uiHost.dialogs()
-        );
+                List.of(new DialogRequest(
+                        "ui-theme.package.import.confirm",
+                        "Import theme package?",
+                        "Import theme package themes/aurora.zip?")),
+                uiHost.dialogs());
         assertEquals(
-            List.of(new StatusNotification(
-                "ui-theme.package.import.started",
-                "INFO",
-                "Theme package import started: themes/aurora.zip"
-            )),
-            uiHost.notifications()
-        );
+                List.of(new StatusNotification(
+                        "ui-theme.package.import.started", "INFO", "Theme package import started: themes/aurora.zip")),
+                uiHost.notifications());
     }
 
     @Test
     void handleThemePackageImport_doesNotConfirmOrNotify_whenNoFileSelected() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost(Optional.empty(), true);
-        ThemePackageStatusService service = new ThemePackageStatusService(
-            new UnavailableThemeStatusReader(),
-            uiHost
-        );
+        ThemePackageStatusService service = new ThemePackageStatusService(new UnavailableThemeStatusReader(), uiHost);
 
         // When
         service.handleThemePackageImport();
@@ -131,10 +100,7 @@ class ThemePackageStatusServiceTest {
     void handleThemePackageImport_doesNotNotify_whenConfirmationDeclined() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost(Optional.of("themes/aurora.zip"), false);
-        ThemePackageStatusService service = new ThemePackageStatusService(
-            new UnavailableThemeStatusReader(),
-            uiHost
-        );
+        ThemePackageStatusService service = new ThemePackageStatusService(new UnavailableThemeStatusReader(), uiHost);
 
         // When
         service.handleThemePackageImport();
@@ -145,7 +111,7 @@ class ThemePackageStatusServiceTest {
     }
 
     private record AvailableThemeStatusReader(String themeId, String displayName)
-        implements ThemePackageStatusService.ThemeStatusReadCapability {
+            implements ThemePackageStatusService.ThemeStatusReadCapability {
 
         @Override
         public Optional<ThemeStatusSnapshot> readStatus() {
@@ -197,6 +163,7 @@ class ThemePackageStatusServiceTest {
         public Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution) {
             throw new UnsupportedOperationException("bounding-box overlay buttons are not used by this service");
         }
+
         @Override
         public ContextSourceSnapshot contextSource() {
             throw new UnsupportedOperationException("context source is not used by this service");
@@ -247,7 +214,8 @@ class ThemePackageStatusServiceTest {
         }
 
         @Override
-        public Registration contributePaletteToolbar(final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
+        public Registration contributePaletteToolbar(
+                final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
             throw new UnsupportedOperationException("palette toolbar is not used by this service");
         }
     }

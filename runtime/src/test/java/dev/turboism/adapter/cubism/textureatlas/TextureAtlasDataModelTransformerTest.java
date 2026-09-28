@@ -1,14 +1,13 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.lang.reflect.InvocationTargetException;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.lang.reflect.InvocationTargetException;
-
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TextureAtlasDataModelTransformerTest {
 
@@ -16,17 +15,15 @@ class TextureAtlasDataModelTransformerTest {
     void capturesOnlyAfterSuccessfulExactInitializationAndClearsOnClose() throws Exception {
         final TextureAtlasDataModelCapture capture = new TextureAtlasDataModelCapture();
         final TextureAtlasDataModelTransformer transformer = new TextureAtlasDataModelTransformer(
-            "fixture/ModelImageList",
-            "initGui",
-            "()V",
-            null,
-            "getTaeDataModel",
-            "()Ljava/lang/Object;",
-            capture.key()
-        );
-        final byte[] transformed = transformer.transform(
-            null, null, "fixture/ModelImageList", null, null, fixtureClass()
-        );
+                "fixture/ModelImageList",
+                "initGui",
+                "()V",
+                null,
+                "getTaeDataModel",
+                "()Ljava/lang/Object;",
+                capture.key());
+        final byte[] transformed =
+                transformer.transform(null, null, "fixture/ModelImageList", null, null, fixtureClass());
         final FixtureLoader loader = new FixtureLoader(null);
         final Class<?> type = loader.define("fixture.ModelImageList", transformed);
         final Object instance = type.getConstructor().newInstance();
@@ -39,9 +36,8 @@ class TextureAtlasDataModelTransformerTest {
             type.getField("dataModel").set(instance, replacement);
             type.getField("fail").setBoolean(instance, true);
             org.junit.jupiter.api.Assertions.assertThrows(
-                InvocationTargetException.class,
-                () -> type.getMethod("initGui").invoke(instance)
-            );
+                    InvocationTargetException.class,
+                    () -> type.getMethod("initGui").invoke(instance));
             assertSame(dataModel, capture.current().orElseThrow());
 
             capture.close();
@@ -54,11 +50,10 @@ class TextureAtlasDataModelTransformerTest {
     private static byte[] fixtureClass() {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/ModelImageList", null, "java/lang/Object", null);
-        writer.visitField(Opcodes.ACC_PUBLIC, "dataModel", "Ljava/lang/Object;", null, null).visitEnd();
+        writer.visitField(Opcodes.ACC_PUBLIC, "dataModel", "Ljava/lang/Object;", null, null)
+                .visitEnd();
         writer.visitField(Opcodes.ACC_PUBLIC, "fail", "Z", null, null).visitEnd();
-        final MethodVisitor constructor = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "<init>", "()V", null, null
-        );
+        final MethodVisitor constructor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
@@ -71,9 +66,8 @@ class TextureAtlasDataModelTransformerTest {
         constructor.visitMaxs(0, 0);
         constructor.visitEnd();
 
-        final MethodVisitor getter = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "getTaeDataModel", "()Ljava/lang/Object;", null, null
-        );
+        final MethodVisitor getter =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, "getTaeDataModel", "()Ljava/lang/Object;", null, null);
         getter.visitCode();
         getter.visitVarInsn(Opcodes.ALOAD, 0);
         getter.visitFieldInsn(Opcodes.GETFIELD, "fixture/ModelImageList", "dataModel", "Ljava/lang/Object;");

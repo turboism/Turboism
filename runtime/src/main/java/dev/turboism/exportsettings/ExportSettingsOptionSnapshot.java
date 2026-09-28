@@ -10,12 +10,7 @@ import java.util.Objects;
  * Ownership is preserved as the plugin id plus the plugin generation captured when the
  * snapshot was taken.</p>
  */
-public record ExportSettingsOptionSnapshot(
-    String optionId,
-    String label,
-    String pluginId,
-    long pluginGeneration
-) {
+public record ExportSettingsOptionSnapshot(String optionId, String label, String pluginId, long pluginGeneration) {
 
     public ExportSettingsOptionSnapshot {
         optionId = requireText(optionId, "optionId");

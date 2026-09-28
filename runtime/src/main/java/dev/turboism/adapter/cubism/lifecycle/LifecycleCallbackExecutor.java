@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -18,25 +17,19 @@ final class LifecycleCallbackExecutor implements AutoCloseable {
     private final PluginWorkExecutorRegistry executors;
     private final List<CompletionStage<?>> pending = new java.util.concurrent.CopyOnWriteArrayList<>();
 
-    LifecycleCallbackExecutor(
-        final String lifecycleName,
-        final PluginWorkExecutorRegistry executors
-    ) {
+    LifecycleCallbackExecutor(final String lifecycleName, final PluginWorkExecutorRegistry executors) {
         this.lifecycleName = requireText(lifecycleName, "lifecycleName");
         this.executors = Objects.requireNonNull(executors, "executors");
     }
 
-    void submit(
-        final String pluginId,
-        final String operationId,
-        final Runnable callback
-    ) {
+    void submit(final String pluginId, final String operationId, final Runnable callback) {
         final String id = requireText(pluginId, "pluginId");
         final String operation = requireText(operationId, "operationId");
-        final var submission = executors.get(id).submit(
-            new PluginTask("event.subscribe", id, operation, "none"),
-            Objects.requireNonNull(callback, "callback")
-        );
+        final var submission = executors
+                .get(id)
+                .submit(
+                        new PluginTask("event.subscribe", id, operation, "none"),
+                        Objects.requireNonNull(callback, "callback"));
         if (submission.accepted()) {
             pending.add(submission.completion());
         }
@@ -46,9 +39,9 @@ final class LifecycleCallbackExecutor implements AutoCloseable {
         final CompletionStage<?>[] snapshot = pending.toArray(CompletionStage[]::new);
         try {
             CompletableFuture.allOf(Arrays.stream(snapshot)
-                .map(CompletionStage::toCompletableFuture)
-                .toArray(CompletableFuture[]::new))
-                .get(QUIESCENCE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                            .map(CompletionStage::toCompletableFuture)
+                            .toArray(CompletableFuture[]::new))
+                    .get(QUIESCENCE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             pending.removeAll(Arrays.asList(snapshot));
         } catch (InterruptedException failure) {
             Thread.currentThread().interrupt();
@@ -68,10 +61,7 @@ final class LifecycleCallbackExecutor implements AutoCloseable {
     }
 
     private IllegalStateException quiescenceFailure(final Exception failure) {
-        return new IllegalStateException(
-            lifecycleName + " lifecycle callbacks did not quiesce.",
-            failure
-        );
+        return new IllegalStateException(lifecycleName + " lifecycle callbacks did not quiesce.", failure);
     }
 
     private static String requireText(final String value, final String name) {

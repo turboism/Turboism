@@ -2,10 +2,8 @@ package dev.turboism.exportsettings;
 
 import dev.turboism.mapping.verification.ProtectedExportVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.io.File;
 import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -84,38 +82,23 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String MS_SAVE_MODEL = PREFIX + "model-source.save-model";
     private static final String MS_PARAMETERS = PREFIX + "model-source.all-parameters";
     private static final String MS_PHYSICS = PREFIX + "model-source.all-physics-settings";
-    private static final String MS_MOTION_SYNC =
-        PREFIX + "model-source.all-motion-sync-settings";
+    private static final String MS_MOTION_SYNC = PREFIX + "model-source.all-motion-sync-settings";
     private static final String MS_GUID = PREFIX + "model-source.guid";
-    private static final String MS_CONTAIN_MULTIPLY =
-        PREFIX + "model-source.contain-multiply-color";
-    private static final String MS_CONTAIN_SCREEN =
-        PREFIX + "model-source.contain-screen-color";
-    private static final String MS_CONTAIN_MORPH =
-        PREFIX + "model-source.contain-morph-target";
-    private static final String MS_CONTAIN_MORPH_ENH =
-        PREFIX + "model-source.contain-morph-target-enhancement";
-    private static final String MS_CONTAIN_ADVANCED_BLEND =
-        PREFIX + "model-source.contain-advanced-blend";
-    private static final String MS_CONTAIN_ART_PATH =
-        PREFIX + "model-source.contain-art-path";
-    private static final String MS_CONTAIN_ALIAS =
-        PREFIX + "model-source.contain-alias";
-    private static final String MS_CONTAIN_INVERT_CLIP =
-        PREFIX + "model-source.contain-invert-clipping";
-    private static final String MS_CONTAIN_QUAD =
-        PREFIX + "model-source.contain-quad-transform";
-    private static final String MS_CONTAIN_OFFSCREEN =
-        PREFIX + "model-source.contain-offscreen-rendering";
-    private static final String MS_CONTAIN_MOTION_SYNC =
-        PREFIX + "model-source.contain-motion-sync";
-    private static final String MS_CONTAIN_MOTION_SYNC_FIX =
-        PREFIX + "model-source.contain-motion-sync-correction";
+    private static final String MS_CONTAIN_MULTIPLY = PREFIX + "model-source.contain-multiply-color";
+    private static final String MS_CONTAIN_SCREEN = PREFIX + "model-source.contain-screen-color";
+    private static final String MS_CONTAIN_MORPH = PREFIX + "model-source.contain-morph-target";
+    private static final String MS_CONTAIN_MORPH_ENH = PREFIX + "model-source.contain-morph-target-enhancement";
+    private static final String MS_CONTAIN_ADVANCED_BLEND = PREFIX + "model-source.contain-advanced-blend";
+    private static final String MS_CONTAIN_ART_PATH = PREFIX + "model-source.contain-art-path";
+    private static final String MS_CONTAIN_ALIAS = PREFIX + "model-source.contain-alias";
+    private static final String MS_CONTAIN_INVERT_CLIP = PREFIX + "model-source.contain-invert-clipping";
+    private static final String MS_CONTAIN_QUAD = PREFIX + "model-source.contain-quad-transform";
+    private static final String MS_CONTAIN_OFFSCREEN = PREFIX + "model-source.contain-offscreen-rendering";
+    private static final String MS_CONTAIN_MOTION_SYNC = PREFIX + "model-source.contain-motion-sync";
+    private static final String MS_CONTAIN_MOTION_SYNC_FIX = PREFIX + "model-source.contain-motion-sync-correction";
 
-    private static final String SOURCE_MORPH_SET =
-        PREFIX + "source.keyform-morph-target-set";
-    private static final String SOURCE_EXT_MORPH_SET =
-        PREFIX + "source.extended-morph-target-set";
+    private static final String SOURCE_MORPH_SET = PREFIX + "source.keyform-morph-target-set";
+    private static final String SOURCE_EXT_MORPH_SET = PREFIX + "source.extended-morph-target-set";
     private static final String SOURCE_EXTENSIONS = PREFIX + "source.extensions";
     private static final String MORPH_SET_CLASS = PREFIX + "morph-target-set.class";
     private static final String MORPH_SET_TARGETS = PREFIX + "morph-target-set.morph-targets";
@@ -144,8 +127,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String PARAMETER_SOURCE_NAME = PREFIX + "parameter-source.name";
     private static final String PARAMETER_SOURCE_MIN = PREFIX + "parameter-source.min-value";
     private static final String PARAMETER_SOURCE_MAX = PREFIX + "parameter-source.max-value";
-    private static final String PARAMETER_SOURCE_DEFAULT =
-        PREFIX + "parameter-source.default-value";
+    private static final String PARAMETER_SOURCE_DEFAULT = PREFIX + "parameter-source.default-value";
     private static final String PARAMETER_SOURCE_REPEAT = PREFIX + "parameter-source.repeat";
     private static final String GUID_CLASS = PREFIX + "guid.class";
     private static final String GUID_UUID = PREFIX + "guid.uuid-string";
@@ -157,20 +139,15 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String PARAMETER_INSTANCE_CLASS = PREFIX + "parameter-instance.class";
     private static final String PARAMETER_INSTANCE_VALUE = PREFIX + "parameter-instance.value";
     private static final String PARAMETER_INSTANCE_ID = PREFIX + "parameter-instance.id";
-    private static final String PARAMETER_INSTANCE_SET_VALUE =
-        PREFIX + "parameter-instance.set-value";
+    private static final String PARAMETER_INSTANCE_SET_VALUE = PREFIX + "parameter-instance.set-value";
 
     private static final String MODEL_REINIT_EXE = PREFIX + "model.reinit-instance-exe";
     private static final String MODEL_ART_MESHES = PREFIX + "model.all-art-meshes";
-    private static final String ART_MESH_INSTANCE_CLASS =
-        PREFIX + "art-mesh-instance.class";
-    private static final String ART_MESH_INSTANCE_SOURCE =
-        PREFIX + "art-mesh-instance.source";
-    private static final String ART_MESH_INSTANCE_FORM =
-        PREFIX + "art-mesh-instance.calculated-form";
+    private static final String ART_MESH_INSTANCE_CLASS = PREFIX + "art-mesh-instance.class";
+    private static final String ART_MESH_INSTANCE_SOURCE = PREFIX + "art-mesh-instance.source";
+    private static final String ART_MESH_INSTANCE_FORM = PREFIX + "art-mesh-instance.calculated-form";
     private static final String ART_MESH_FORM_CLASS = PREFIX + "art-mesh-form.class";
-    private static final String ART_MESH_FORM_POSITIONS =
-        PREFIX + "art-mesh-form.positions";
+    private static final String ART_MESH_FORM_POSITIONS = PREFIX + "art-mesh-form.positions";
 
     private static final String GRID_CLASS = PREFIX + "keyform-grid.class";
     private static final String BINDING_CLASS = PREFIX + "keyform-binding.class";
@@ -180,8 +157,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String GRID_BINDINGS = PREFIX + "keyform-grid.bindings";
     private static final String BINDING_EXT_TYPE = PREFIX + "keyform-binding.extended-type";
     private static final String BINDING_ILLEGAL = PREFIX + "keyform-binding.illegal-extended";
-    private static final String BINDING_PARAMETER_ID =
-        PREFIX + "keyform-binding.parameter-id";
+    private static final String BINDING_PARAMETER_ID = PREFIX + "keyform-binding.parameter-id";
     private static final String BINDING_KEYS = PREFIX + "keyform-binding.keys";
     private static final String PART_CHILD_GUIDS = PREFIX + "part.child-guids";
 
@@ -200,105 +176,76 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String ALIAS_CLIP_GUIDS = PREFIX + "alias.clip-guids";
     private static final String ALIAS_INVERT_CLIP = PREFIX + "alias.invert-clipping";
     private static final String ALIAS_USE_OFFSCREEN = PREFIX + "alias.use-offscreen";
-    private static final String ALIAS_COLOR_COMPOSITION =
-        PREFIX + "alias.color-composition";
-    private static final String ALIAS_ALPHA_COMPOSITION =
-        PREFIX + "alias.alpha-composition";
+    private static final String ALIAS_COLOR_COMPOSITION = PREFIX + "alias.color-composition";
+    private static final String ALIAS_ALPHA_COMPOSITION = PREFIX + "alias.alpha-composition";
     private static final String ALIAS_CIRCULATED = PREFIX + "alias.circulated";
     private static final String PART_CLIP_GUIDS = PREFIX + "part.clip-guids";
     private static final String PART_INVERT_CLIP = PREFIX + "part.invert-clipping";
     private static final String PART_USE_OFFSCREEN = PREFIX + "part.use-offscreen";
     private static final String PART_COLOR_COMPOSITION = PREFIX + "part.color-composition";
     private static final String PART_ALPHA_COMPOSITION = PREFIX + "part.alpha-composition";
-    private static final String PHYSICS_SETTINGS_CLASS =
-        PREFIX + "physics-settings-source.class";
+    private static final String PHYSICS_SETTINGS_CLASS = PREFIX + "physics-settings-source.class";
     private static final String PHYSICS_SETTINGS_GUID = PREFIX + "physics-settings.guid";
     private static final String PHYSICS_SETTINGS_ID = PREFIX + "physics-settings.id";
     private static final String PHYSICS_SETTINGS_NAME = PREFIX + "physics-settings.name";
-    private static final String PHYSICS_SETTINGS_SET_NAME =
-        PREFIX + "physics-settings.set-name";
-    private static final String PHYSICS_SETTINGS_SET_ID =
-        PREFIX + "physics-settings.set-id";
-    private static final String PHYSICS_SETTING_ID_CLASS =
-        PREFIX + "physics-setting-id.class";
-    private static final String PHYSICS_SETTING_ID_CREATE =
-        PREFIX + "physics-setting-id.create";
+    private static final String PHYSICS_SETTINGS_SET_NAME = PREFIX + "physics-settings.set-name";
+    private static final String PHYSICS_SETTINGS_SET_ID = PREFIX + "physics-settings.set-id";
+    private static final String PHYSICS_SETTING_ID_CLASS = PREFIX + "physics-setting-id.class";
+    private static final String PHYSICS_SETTING_ID_CREATE = PREFIX + "physics-setting-id.create";
     private static final String PHYSICS_SETTINGS_ENABLE = PREFIX + "physics-settings.enable";
     private static final String PHYSICS_SETTINGS_INPUTS = PREFIX + "physics-settings.inputs";
     private static final String PHYSICS_SETTINGS_OUTPUTS = PREFIX + "physics-settings.outputs";
-    private static final String PHYSICS_SETTINGS_VERTICES =
-        PREFIX + "physics-settings.vertices";
-    private static final String PHYSICS_SETTINGS_TOTAL_ANGLE =
-        PREFIX + "physics-settings.total-angle";
-    private static final String PHYSICS_SETTINGS_NORM_POS_MIN =
-        PREFIX + "physics-settings.normalization-position-min";
+    private static final String PHYSICS_SETTINGS_VERTICES = PREFIX + "physics-settings.vertices";
+    private static final String PHYSICS_SETTINGS_TOTAL_ANGLE = PREFIX + "physics-settings.total-angle";
+    private static final String PHYSICS_SETTINGS_NORM_POS_MIN = PREFIX + "physics-settings.normalization-position-min";
     private static final String PHYSICS_SETTINGS_NORM_POS_DEFAULT =
-        PREFIX + "physics-settings.normalization-position-default";
-    private static final String PHYSICS_SETTINGS_NORM_POS_MAX =
-        PREFIX + "physics-settings.normalization-position-max";
-    private static final String PHYSICS_SETTINGS_NORM_ANGLE_MIN =
-        PREFIX + "physics-settings.normalization-angle-min";
+            PREFIX + "physics-settings.normalization-position-default";
+    private static final String PHYSICS_SETTINGS_NORM_POS_MAX = PREFIX + "physics-settings.normalization-position-max";
+    private static final String PHYSICS_SETTINGS_NORM_ANGLE_MIN = PREFIX + "physics-settings.normalization-angle-min";
     private static final String PHYSICS_SETTINGS_NORM_ANGLE_DEFAULT =
-        PREFIX + "physics-settings.normalization-angle-default";
-    private static final String PHYSICS_SETTINGS_NORM_ANGLE_MAX =
-        PREFIX + "physics-settings.normalization-angle-max";
+            PREFIX + "physics-settings.normalization-angle-default";
+    private static final String PHYSICS_SETTINGS_NORM_ANGLE_MAX = PREFIX + "physics-settings.normalization-angle-max";
     private static final String PHYSICS_INPUT_SOURCE = PREFIX + "physics-input.source";
     private static final String PHYSICS_INPUT_WEIGHT = PREFIX + "physics-input.weight";
     private static final String PHYSICS_INPUT_TYPE = PREFIX + "physics-input.type";
     private static final String PHYSICS_INPUT_REVERSE = PREFIX + "physics-input.reverse";
-    private static final String PHYSICS_INPUT_ANGLE_SCALE =
-        PREFIX + "physics-input.angle-scale";
-    private static final String PHYSICS_INPUT_TRANSLATION_SCALE =
-        PREFIX + "physics-input.translation-scale";
-    private static final String PHYSICS_OUTPUT_DESTINATION =
-        PREFIX + "physics-output.destination";
-    private static final String PHYSICS_OUTPUT_VERTEX_INDEX =
-        PREFIX + "physics-output.vertex-index";
+    private static final String PHYSICS_INPUT_ANGLE_SCALE = PREFIX + "physics-input.angle-scale";
+    private static final String PHYSICS_INPUT_TRANSLATION_SCALE = PREFIX + "physics-input.translation-scale";
+    private static final String PHYSICS_OUTPUT_DESTINATION = PREFIX + "physics-output.destination";
+    private static final String PHYSICS_OUTPUT_VERTEX_INDEX = PREFIX + "physics-output.vertex-index";
     private static final String PHYSICS_OUTPUT_WEIGHT = PREFIX + "physics-output.weight";
     private static final String PHYSICS_OUTPUT_TYPE = PREFIX + "physics-output.type";
     private static final String PHYSICS_OUTPUT_REVERSE = PREFIX + "physics-output.reverse";
-    private static final String PHYSICS_OUTPUT_ANGLE_SCALE =
-        PREFIX + "physics-output.angle-scale";
-    private static final String PHYSICS_OUTPUT_TRANSLATION_SCALE =
-        PREFIX + "physics-output.translation-scale";
-    private static final String PHYSICS_OUTPUT_BELOW_MINIMUM =
-        PREFIX + "physics-output.value-below-minimum";
-    private static final String PHYSICS_OUTPUT_EXCEEDED_MAXIMUM =
-        PREFIX + "physics-output.value-exceeded-maximum";
+    private static final String PHYSICS_OUTPUT_ANGLE_SCALE = PREFIX + "physics-output.angle-scale";
+    private static final String PHYSICS_OUTPUT_TRANSLATION_SCALE = PREFIX + "physics-output.translation-scale";
+    private static final String PHYSICS_OUTPUT_BELOW_MINIMUM = PREFIX + "physics-output.value-below-minimum";
+    private static final String PHYSICS_OUTPUT_EXCEEDED_MAXIMUM = PREFIX + "physics-output.value-exceeded-maximum";
     private static final String PHYSICS_VERTEX_POSITION = PREFIX + "physics-vertex.position";
     private static final String PHYSICS_VERTEX_MOBILITY = PREFIX + "physics-vertex.mobility";
     private static final String PHYSICS_VERTEX_DELAY = PREFIX + "physics-vertex.delay";
-    private static final String PHYSICS_VERTEX_ACCELERATION =
-        PREFIX + "physics-vertex.acceleration";
+    private static final String PHYSICS_VERTEX_ACCELERATION = PREFIX + "physics-vertex.acceleration";
     private static final String PHYSICS_VERTEX_RADIUS = PREFIX + "physics-vertex.radius";
     private static final String VECTOR2_X = PREFIX + "vector2.x";
     private static final String VECTOR2_Y = PREFIX + "vector2.y";
     private static final String PARAMETER_SOURCE_GUID = PREFIX + "parameter-source.guid";
-    private static final String MS_PHYSICS_SETTINGS_SET =
-        PREFIX + "model-source.physics-settings-set";
+    private static final String MS_PHYSICS_SETTINGS_SET = PREFIX + "model-source.physics-settings-set";
     private static final String PHYSICS_SET_GRAVITY = PREFIX + "physics-settings-set.gravity";
     private static final String PHYSICS_SET_WIND = PREFIX + "physics-settings-set.wind";
     private static final String PHYSICS_SET_FPS = PREFIX + "physics-settings-set.fps";
-    private static final String PHYSICS_SET_SELECTED =
-        PREFIX + "physics-settings-set.selected";
+    private static final String PHYSICS_SET_SELECTED = PREFIX + "physics-settings-set.selected";
     private static final String MOTION_SYNC_CLASS = PREFIX + "motion-sync-setting.class";
     private static final String MOTION_SYNC_GUID = PREFIX + "motion-sync-setting.guid";
     private static final String MOTION_SYNC_ID = PREFIX + "motion-sync-setting.id";
     private static final String MOTION_SYNC_ID_FIELD = PREFIX + "motion-sync-setting.id-field";
     private static final String MOTION_SYNC_NAME = PREFIX + "motion-sync-setting.name";
-    private static final String MOTION_SYNC_SET_NAME =
-        PREFIX + "motion-sync-setting.set-name";
+    private static final String MOTION_SYNC_SET_NAME = PREFIX + "motion-sync-setting.set-name";
     private static final String MOTION_SYNC_ID_CLASS = PREFIX + "motion-sync-setting-id.class";
-    private static final String MOTION_SYNC_ID_CREATE =
-        PREFIX + "motion-sync-setting-id.create";
+    private static final String MOTION_SYNC_ID_CREATE = PREFIX + "motion-sync-setting-id.create";
     private static final String MOTION_SYNC_MAPPING = PREFIX + "motion-sync-setting.mapping";
-    private static final String MOTION_SYNC_POSTPROC =
-        PREFIX + "motion-sync-setting.postproc";
+    private static final String MOTION_SYNC_POSTPROC = PREFIX + "motion-sync-setting.postproc";
     private static final String MOTION_SYNC_VERSION = PREFIX + "motion-sync-setting.version";
-    private static final String MOTION_SYNC_MAPPING_CHECKSUM =
-        PREFIX + "motion-sync-mapping.checksum";
-    private static final String MOTION_SYNC_POSTPROC_CHECKSUM =
-        PREFIX + "motion-sync-postproc.checksum";
+    private static final String MOTION_SYNC_MAPPING_CHECKSUM = PREFIX + "motion-sync-mapping.checksum";
+    private static final String MOTION_SYNC_POSTPROC_CHECKSUM = PREFIX + "motion-sync-postproc.checksum";
 
     private static final String DIALOG_CLASS = PREFIX + "export-dialog.class";
     private static final String DIALOG_MODEL_SOURCE = PREFIX + "export-dialog.model-source";
@@ -319,87 +266,227 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String FILE_HANDLE_RELEASE = PREFIX + "file-handle.release";
 
     private static final Set<String> METHOD_ALIASES_USED = Set.of(
-        APP_INSTANCE, CURRENT_DOCUMENT, CURRENT_PROJECT, COMMAND_OPEN, COMMAND_CLOSE,
-        MAIN_FRAME_CTRL, MAIN_FRAME, PROJECT_CHILDREN,
-        DOC_MODEL_SOURCE, DOC_FILE_CONTENT, DOC_SELECTOR, DOC_EDIT_MODE_CURRENT,
-        DOC_EDIT_MODE_MAIN, DOC_MARK_SAVED, DOC_FILE, DOC_UNDO,
-        FILE_CONTENT_FILE, FILE_CONTENT_MODIFIED,
-        UNDO_POSITION, UNDO_EDIT_COUNT, UNDO_CAN_UNDO,
-        SELECTOR_CLEAR, SELECTOR_SELECTED, SELECTOR_SELECTED_COUNT,
-        SELECTOR_ADD_SOURCE, SELECTOR_SELECTED_DEFORMERS, EDIT_MODE_APPLY,
-        MS_DOCUMENT, MS_INSTANCE, MS_DEFORMERS, MS_OBJECTS, MS_ART_MESHES, MS_PARTS,
-        MS_ROOT_PART, MS_PARAMETERS, MS_PHYSICS, MS_MOTION_SYNC, MS_GUID,
-        MS_SAVE_MODEL,
-        MS_CONTAIN_MULTIPLY, MS_CONTAIN_SCREEN, MS_CONTAIN_MORPH,
-        MS_CONTAIN_MORPH_ENH, MS_CONTAIN_ADVANCED_BLEND, MS_CONTAIN_ART_PATH,
-        MS_CONTAIN_ALIAS, MS_CONTAIN_INVERT_CLIP, MS_CONTAIN_QUAD,
-        MS_CONTAIN_OFFSCREEN, MS_CONTAIN_MOTION_SYNC, MS_CONTAIN_MOTION_SYNC_FIX,
-        SOURCE_MORPH_SET, SOURCE_EXT_MORPH_SET, SOURCE_EXTENSIONS,
-        MORPH_SET_TARGETS,
-        MODEL_PARAMETER_SET,
-        SOURCE_GUID, SOURCE_ID, SOURCE_LOCAL_NAME, SOURCE_SET_LOCAL_NAME,
-        SOURCE_GRID, SOURCE_EXT_GRID, GRID_BINDINGS, BINDING_EXT_TYPE, BINDING_ILLEGAL,
-        BINDING_PARAMETER_ID, BINDING_KEYS, PART_CHILD_GUIDS,
-        GLUE_TARGET_A, GLUE_TARGET_B,
-        SOURCE_TARGET_DEFORMER, DRAWABLE_CLIP_GUIDS, DRAWABLE_INVERT_CLIP,
-        ART_PATH_BRUSH,
-        ALIAS_REFERENCE, ALIAS_CLIP_GUIDS, ALIAS_INVERT_CLIP, ALIAS_USE_OFFSCREEN,
-        ALIAS_COLOR_COMPOSITION, ALIAS_ALPHA_COMPOSITION, ALIAS_CIRCULATED,
-        PART_CLIP_GUIDS, PART_INVERT_CLIP, PART_USE_OFFSCREEN,
-        PART_COLOR_COMPOSITION, PART_ALPHA_COMPOSITION,
-        PHYSICS_SETTINGS_GUID, PHYSICS_SETTINGS_ID, PHYSICS_SETTINGS_NAME,
-        PHYSICS_SETTINGS_SET_NAME, PHYSICS_SETTINGS_SET_ID, PHYSICS_SETTING_ID_CREATE,
-        PHYSICS_SETTINGS_ENABLE, PHYSICS_SETTINGS_INPUTS, PHYSICS_SETTINGS_OUTPUTS,
-        PHYSICS_SETTINGS_VERTICES, PHYSICS_SETTINGS_TOTAL_ANGLE,
-        PHYSICS_SETTINGS_NORM_POS_MIN, PHYSICS_SETTINGS_NORM_POS_DEFAULT,
-        PHYSICS_SETTINGS_NORM_POS_MAX,
-        PHYSICS_SETTINGS_NORM_ANGLE_MIN, PHYSICS_SETTINGS_NORM_ANGLE_DEFAULT,
-        PHYSICS_SETTINGS_NORM_ANGLE_MAX,
-        PHYSICS_INPUT_SOURCE, PHYSICS_INPUT_WEIGHT, PHYSICS_INPUT_TYPE,
-        PHYSICS_INPUT_REVERSE, PHYSICS_INPUT_ANGLE_SCALE,
-        PHYSICS_INPUT_TRANSLATION_SCALE,
-        PHYSICS_OUTPUT_DESTINATION, PHYSICS_OUTPUT_VERTEX_INDEX,
-        PHYSICS_OUTPUT_WEIGHT, PHYSICS_OUTPUT_TYPE, PHYSICS_OUTPUT_REVERSE,
-        PHYSICS_OUTPUT_ANGLE_SCALE, PHYSICS_OUTPUT_TRANSLATION_SCALE,
-        PHYSICS_OUTPUT_BELOW_MINIMUM, PHYSICS_OUTPUT_EXCEEDED_MAXIMUM,
-        PHYSICS_VERTEX_POSITION, PHYSICS_VERTEX_MOBILITY, PHYSICS_VERTEX_DELAY,
-        PHYSICS_VERTEX_ACCELERATION, PHYSICS_VERTEX_RADIUS,
-        VECTOR2_X, VECTOR2_Y, PARAMETER_SOURCE_GUID,
-        MS_PHYSICS_SETTINGS_SET, PHYSICS_SET_GRAVITY, PHYSICS_SET_WIND,
-        PHYSICS_SET_FPS, PHYSICS_SET_SELECTED,
-        MOTION_SYNC_GUID, MOTION_SYNC_ID, MOTION_SYNC_ID_FIELD, MOTION_SYNC_NAME,
-        MOTION_SYNC_SET_NAME, MOTION_SYNC_ID_CREATE,
-        MOTION_SYNC_MAPPING, MOTION_SYNC_POSTPROC, MOTION_SYNC_VERSION,
-        MOTION_SYNC_MAPPING_CHECKSUM, MOTION_SYNC_POSTPROC_CHECKSUM,
-        DEFORMER_GUID, DEFORMER_TARGET, DEFORMER_CHILDREN,
-        DRAWABLE_ID_GET, DRAWABLE_ID_SET, DRAWABLE_ID_CREATE,
-        GUID_UUID, ID_STRING,
-        PARAMETER_SET_PARAMETERS, PARAMETER_INSTANCE_VALUE, PARAMETER_INSTANCE_ID,
-        PARAMETER_INSTANCE_SET_VALUE, MODEL_REINIT_EXE, MODEL_ART_MESHES,
-        ART_MESH_INSTANCE_SOURCE, ART_MESH_INSTANCE_FORM, ART_MESH_FORM_POSITIONS,
-        PARAMETER_SOURCE_ID, PARAMETER_SOURCE_NAME,
-        PARAMETER_SOURCE_MIN, PARAMETER_SOURCE_MAX, PARAMETER_SOURCE_DEFAULT,
-        PARAMETER_SOURCE_REPEAT,
-        DIALOG_MODEL_SOURCE, DRIVER_INSTANCE, DRIVER_EXPORT,
-        FILE_CACHE_INSTANCE, FILE_CACHE_HANDLES, FILE_CACHE_BY_FILE, FILE_CACHE_REMOVE,
-        FILE_HANDLE_FILE, FILE_HANDLE_LOADER, FILE_HANDLE_LISTENERS,
-        FILE_HANDLE_UNLOAD, FILE_HANDLE_RELEASE
-    );
+            APP_INSTANCE,
+            CURRENT_DOCUMENT,
+            CURRENT_PROJECT,
+            COMMAND_OPEN,
+            COMMAND_CLOSE,
+            MAIN_FRAME_CTRL,
+            MAIN_FRAME,
+            PROJECT_CHILDREN,
+            DOC_MODEL_SOURCE,
+            DOC_FILE_CONTENT,
+            DOC_SELECTOR,
+            DOC_EDIT_MODE_CURRENT,
+            DOC_EDIT_MODE_MAIN,
+            DOC_MARK_SAVED,
+            DOC_FILE,
+            DOC_UNDO,
+            FILE_CONTENT_FILE,
+            FILE_CONTENT_MODIFIED,
+            UNDO_POSITION,
+            UNDO_EDIT_COUNT,
+            UNDO_CAN_UNDO,
+            SELECTOR_CLEAR,
+            SELECTOR_SELECTED,
+            SELECTOR_SELECTED_COUNT,
+            SELECTOR_ADD_SOURCE,
+            SELECTOR_SELECTED_DEFORMERS,
+            EDIT_MODE_APPLY,
+            MS_DOCUMENT,
+            MS_INSTANCE,
+            MS_DEFORMERS,
+            MS_OBJECTS,
+            MS_ART_MESHES,
+            MS_PARTS,
+            MS_ROOT_PART,
+            MS_PARAMETERS,
+            MS_PHYSICS,
+            MS_MOTION_SYNC,
+            MS_GUID,
+            MS_SAVE_MODEL,
+            MS_CONTAIN_MULTIPLY,
+            MS_CONTAIN_SCREEN,
+            MS_CONTAIN_MORPH,
+            MS_CONTAIN_MORPH_ENH,
+            MS_CONTAIN_ADVANCED_BLEND,
+            MS_CONTAIN_ART_PATH,
+            MS_CONTAIN_ALIAS,
+            MS_CONTAIN_INVERT_CLIP,
+            MS_CONTAIN_QUAD,
+            MS_CONTAIN_OFFSCREEN,
+            MS_CONTAIN_MOTION_SYNC,
+            MS_CONTAIN_MOTION_SYNC_FIX,
+            SOURCE_MORPH_SET,
+            SOURCE_EXT_MORPH_SET,
+            SOURCE_EXTENSIONS,
+            MORPH_SET_TARGETS,
+            MODEL_PARAMETER_SET,
+            SOURCE_GUID,
+            SOURCE_ID,
+            SOURCE_LOCAL_NAME,
+            SOURCE_SET_LOCAL_NAME,
+            SOURCE_GRID,
+            SOURCE_EXT_GRID,
+            GRID_BINDINGS,
+            BINDING_EXT_TYPE,
+            BINDING_ILLEGAL,
+            BINDING_PARAMETER_ID,
+            BINDING_KEYS,
+            PART_CHILD_GUIDS,
+            GLUE_TARGET_A,
+            GLUE_TARGET_B,
+            SOURCE_TARGET_DEFORMER,
+            DRAWABLE_CLIP_GUIDS,
+            DRAWABLE_INVERT_CLIP,
+            ART_PATH_BRUSH,
+            ALIAS_REFERENCE,
+            ALIAS_CLIP_GUIDS,
+            ALIAS_INVERT_CLIP,
+            ALIAS_USE_OFFSCREEN,
+            ALIAS_COLOR_COMPOSITION,
+            ALIAS_ALPHA_COMPOSITION,
+            ALIAS_CIRCULATED,
+            PART_CLIP_GUIDS,
+            PART_INVERT_CLIP,
+            PART_USE_OFFSCREEN,
+            PART_COLOR_COMPOSITION,
+            PART_ALPHA_COMPOSITION,
+            PHYSICS_SETTINGS_GUID,
+            PHYSICS_SETTINGS_ID,
+            PHYSICS_SETTINGS_NAME,
+            PHYSICS_SETTINGS_SET_NAME,
+            PHYSICS_SETTINGS_SET_ID,
+            PHYSICS_SETTING_ID_CREATE,
+            PHYSICS_SETTINGS_ENABLE,
+            PHYSICS_SETTINGS_INPUTS,
+            PHYSICS_SETTINGS_OUTPUTS,
+            PHYSICS_SETTINGS_VERTICES,
+            PHYSICS_SETTINGS_TOTAL_ANGLE,
+            PHYSICS_SETTINGS_NORM_POS_MIN,
+            PHYSICS_SETTINGS_NORM_POS_DEFAULT,
+            PHYSICS_SETTINGS_NORM_POS_MAX,
+            PHYSICS_SETTINGS_NORM_ANGLE_MIN,
+            PHYSICS_SETTINGS_NORM_ANGLE_DEFAULT,
+            PHYSICS_SETTINGS_NORM_ANGLE_MAX,
+            PHYSICS_INPUT_SOURCE,
+            PHYSICS_INPUT_WEIGHT,
+            PHYSICS_INPUT_TYPE,
+            PHYSICS_INPUT_REVERSE,
+            PHYSICS_INPUT_ANGLE_SCALE,
+            PHYSICS_INPUT_TRANSLATION_SCALE,
+            PHYSICS_OUTPUT_DESTINATION,
+            PHYSICS_OUTPUT_VERTEX_INDEX,
+            PHYSICS_OUTPUT_WEIGHT,
+            PHYSICS_OUTPUT_TYPE,
+            PHYSICS_OUTPUT_REVERSE,
+            PHYSICS_OUTPUT_ANGLE_SCALE,
+            PHYSICS_OUTPUT_TRANSLATION_SCALE,
+            PHYSICS_OUTPUT_BELOW_MINIMUM,
+            PHYSICS_OUTPUT_EXCEEDED_MAXIMUM,
+            PHYSICS_VERTEX_POSITION,
+            PHYSICS_VERTEX_MOBILITY,
+            PHYSICS_VERTEX_DELAY,
+            PHYSICS_VERTEX_ACCELERATION,
+            PHYSICS_VERTEX_RADIUS,
+            VECTOR2_X,
+            VECTOR2_Y,
+            PARAMETER_SOURCE_GUID,
+            MS_PHYSICS_SETTINGS_SET,
+            PHYSICS_SET_GRAVITY,
+            PHYSICS_SET_WIND,
+            PHYSICS_SET_FPS,
+            PHYSICS_SET_SELECTED,
+            MOTION_SYNC_GUID,
+            MOTION_SYNC_ID,
+            MOTION_SYNC_ID_FIELD,
+            MOTION_SYNC_NAME,
+            MOTION_SYNC_SET_NAME,
+            MOTION_SYNC_ID_CREATE,
+            MOTION_SYNC_MAPPING,
+            MOTION_SYNC_POSTPROC,
+            MOTION_SYNC_VERSION,
+            MOTION_SYNC_MAPPING_CHECKSUM,
+            MOTION_SYNC_POSTPROC_CHECKSUM,
+            DEFORMER_GUID,
+            DEFORMER_TARGET,
+            DEFORMER_CHILDREN,
+            DRAWABLE_ID_GET,
+            DRAWABLE_ID_SET,
+            DRAWABLE_ID_CREATE,
+            GUID_UUID,
+            ID_STRING,
+            PARAMETER_SET_PARAMETERS,
+            PARAMETER_INSTANCE_VALUE,
+            PARAMETER_INSTANCE_ID,
+            PARAMETER_INSTANCE_SET_VALUE,
+            MODEL_REINIT_EXE,
+            MODEL_ART_MESHES,
+            ART_MESH_INSTANCE_SOURCE,
+            ART_MESH_INSTANCE_FORM,
+            ART_MESH_FORM_POSITIONS,
+            PARAMETER_SOURCE_ID,
+            PARAMETER_SOURCE_NAME,
+            PARAMETER_SOURCE_MIN,
+            PARAMETER_SOURCE_MAX,
+            PARAMETER_SOURCE_DEFAULT,
+            PARAMETER_SOURCE_REPEAT,
+            DIALOG_MODEL_SOURCE,
+            DRIVER_INSTANCE,
+            DRIVER_EXPORT,
+            FILE_CACHE_INSTANCE,
+            FILE_CACHE_HANDLES,
+            FILE_CACHE_BY_FILE,
+            FILE_CACHE_REMOVE,
+            FILE_HANDLE_FILE,
+            FILE_HANDLE_LOADER,
+            FILE_HANDLE_LISTENERS,
+            FILE_HANDLE_UNLOAD,
+            FILE_HANDLE_RELEASE);
     private static final Set<String> CLASS_ALIASES_REQUIRED = Set.of(
-        APP_CONTROLLER_CLASS, PROJECT_CLASS, MAIN_FRAME_CTRL_CLASS,
-        DOCUMENT_CLASS, FILE_CONTENT_CLASS, UNDO_CLASS,
-        SELECTOR_INTERFACE, SELECTOR_CLASS, EDIT_MODE_BASE_CLASS, EDIT_MODE_CLASS,
-        MODEL_SOURCE_CLASS, MODEL_CLASS, DEFORMER_CLASS, WARP_CLASS, ROTATION_CLASS,
-        ART_MESH_CLASS, PART_CLASS, PARAMETER_CLASS, DRAWABLE_CLASS, GLUE_CLASS,
-        CONTROLLABLE_CLASS, ART_PATH_CLASS, ALIAS_CLASS,
-        PHYSICS_SETTINGS_CLASS, PHYSICS_SETTING_ID_CLASS,
-        MOTION_SYNC_CLASS, MOTION_SYNC_ID_CLASS,
-        DRAWABLE_ID_CLASS, PARAMETER_ID_CLASS, GUID_CLASS, ID_CLASS,
-        PARAMETER_SET_CLASS, PARAMETER_INSTANCE_CLASS,
-        ART_MESH_INSTANCE_CLASS, ART_MESH_FORM_CLASS,
-        GRID_CLASS, BINDING_CLASS, EXT_TYPE_CLASS, MORPH_SET_CLASS,
-        DIALOG_CLASS, DRIVER_CLASS, FILE_CACHE_CLASS, FILE_HANDLE_CLASS
-    );
+            APP_CONTROLLER_CLASS,
+            PROJECT_CLASS,
+            MAIN_FRAME_CTRL_CLASS,
+            DOCUMENT_CLASS,
+            FILE_CONTENT_CLASS,
+            UNDO_CLASS,
+            SELECTOR_INTERFACE,
+            SELECTOR_CLASS,
+            EDIT_MODE_BASE_CLASS,
+            EDIT_MODE_CLASS,
+            MODEL_SOURCE_CLASS,
+            MODEL_CLASS,
+            DEFORMER_CLASS,
+            WARP_CLASS,
+            ROTATION_CLASS,
+            ART_MESH_CLASS,
+            PART_CLASS,
+            PARAMETER_CLASS,
+            DRAWABLE_CLASS,
+            GLUE_CLASS,
+            CONTROLLABLE_CLASS,
+            ART_PATH_CLASS,
+            ALIAS_CLASS,
+            PHYSICS_SETTINGS_CLASS,
+            PHYSICS_SETTING_ID_CLASS,
+            MOTION_SYNC_CLASS,
+            MOTION_SYNC_ID_CLASS,
+            DRAWABLE_ID_CLASS,
+            PARAMETER_ID_CLASS,
+            GUID_CLASS,
+            ID_CLASS,
+            PARAMETER_SET_CLASS,
+            PARAMETER_INSTANCE_CLASS,
+            ART_MESH_INSTANCE_CLASS,
+            ART_MESH_FORM_CLASS,
+            GRID_CLASS,
+            BINDING_CLASS,
+            EXT_TYPE_CLASS,
+            MORPH_SET_CLASS,
+            DIALOG_CLASS,
+            DRIVER_CLASS,
+            FILE_CACHE_CLASS,
+            FILE_HANDLE_CLASS);
 
     /** Aliases independently required by this implementation, not copied from its trust manifest. */
     public static final Set<String> REQUIRED_ALIASES = requiredAliases();
@@ -413,20 +500,28 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * them; they remain mandatory on every 5.3.x admission.
      */
     private static final Set<String> CUBISM_5_3_ONLY_ALIASES = Set.of(
-        MS_CONTAIN_ADVANCED_BLEND, MS_CONTAIN_ALIAS, MS_CONTAIN_OFFSCREEN,
-        ALIAS_CLASS, ALIAS_REFERENCE, ALIAS_CLIP_GUIDS, ALIAS_INVERT_CLIP,
-        ALIAS_USE_OFFSCREEN, ALIAS_COLOR_COMPOSITION, ALIAS_ALPHA_COMPOSITION,
-        ALIAS_CIRCULATED,
-        PART_CLIP_GUIDS, PART_INVERT_CLIP, PART_USE_OFFSCREEN,
-        PART_COLOR_COMPOSITION, PART_ALPHA_COMPOSITION
-    );
+            MS_CONTAIN_ADVANCED_BLEND,
+            MS_CONTAIN_ALIAS,
+            MS_CONTAIN_OFFSCREEN,
+            ALIAS_CLASS,
+            ALIAS_REFERENCE,
+            ALIAS_CLIP_GUIDS,
+            ALIAS_INVERT_CLIP,
+            ALIAS_USE_OFFSCREEN,
+            ALIAS_COLOR_COMPOSITION,
+            ALIAS_ALPHA_COMPOSITION,
+            ALIAS_CIRCULATED,
+            PART_CLIP_GUIDS,
+            PART_INVERT_CLIP,
+            PART_USE_OFFSCREEN,
+            PART_COLOR_COMPOSITION,
+            PART_ALPHA_COMPOSITION);
 
     private static final Set<String> CUBISM_5_2_METHOD_ALIASES_USED =
-        without(METHOD_ALIASES_USED, CUBISM_5_3_ONLY_ALIASES);
+            without(METHOD_ALIASES_USED, CUBISM_5_3_ONLY_ALIASES);
 
     /** Exact alias roster this implementation requires on the reviewed 5.2.03 build. */
-    public static final Set<String> CUBISM_5_2_REQUIRED_ALIASES =
-        without(REQUIRED_ALIASES, CUBISM_5_3_ONLY_ALIASES);
+    public static final Set<String> CUBISM_5_2_REQUIRED_ALIASES = without(REQUIRED_ALIASES, CUBISM_5_3_ONLY_ALIASES);
 
     private static Set<String> requiredAliases() {
         final java.util.HashSet<String> aliases = new java.util.HashSet<>(METHOD_ALIASES_USED);
@@ -451,7 +546,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     }
 
     private static final Set<String> CUBISM_5_2_CLASS_ALIASES_USED =
-        without(CLASS_ALIASES_REQUIRED, CUBISM_5_3_ONLY_ALIASES);
+            without(CLASS_ALIASES_REQUIRED, CUBISM_5_3_ONLY_ALIASES);
 
     /** Exact class aliases used for runtime type validation by this implementation. */
     public static Set<String> classAliasesUsed() {
@@ -472,7 +567,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final Map<String, String> FEATURE_GATES = featureGates();
 
     private static final Map<String, String> CUBISM_5_2_FEATURE_GATES =
-        withoutGates(FEATURE_GATES, CUBISM_5_3_ONLY_ALIASES);
+            withoutGates(FEATURE_GATES, CUBISM_5_3_ONLY_ALIASES);
 
     private static Map<String, String> featureGates() {
         final Map<String, String> gates = new LinkedHashMap<>();
@@ -491,10 +586,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         return java.util.Collections.unmodifiableMap(gates);
     }
 
-    private static Map<String, String> withoutGates(
-        final Map<String, String> gates,
-        final Set<String> excluded
-    ) {
+    private static Map<String, String> withoutGates(final Map<String, String> gates, final Set<String> excluded) {
         final Map<String, String> remaining = new LinkedHashMap<>(gates);
         excluded.forEach(remaining::remove);
         return java.util.Collections.unmodifiableMap(remaining);
@@ -506,18 +598,13 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
 
     public VerifiedProtectedExportHostOperations(final VerifiedMemberResolver resolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
-        this.cubism52 = resolver.isExactCubismVersion(
-            ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_03
-        );
+        this.cubism52 = resolver.isExactCubismVersion(ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_03);
         this.admittedFeatureGates = cubism52 ? CUBISM_5_2_FEATURE_GATES : FEATURE_GATES;
         if (!resolver.authorizes(
-            ProtectedExportVerificationManifest.ADAPTER_SLICE_ID,
-            ProtectedExportVerificationManifest.CAPABILITY_IDS,
-            this.cubism52 ? CUBISM_5_2_REQUIRED_ALIASES : REQUIRED_ALIASES
-        )) {
-            throw new IllegalArgumentException(
-                "verified access plan does not authorize the protected-export slice"
-            );
+                ProtectedExportVerificationManifest.ADAPTER_SLICE_ID,
+                ProtectedExportVerificationManifest.CAPABILITY_IDS,
+                this.cubism52 ? CUBISM_5_2_REQUIRED_ALIASES : REQUIRED_ALIASES)) {
+            throw new IllegalArgumentException("verified access plan does not authorize the protected-export slice");
         }
     }
 
@@ -545,8 +632,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     @Override
     public boolean projectContains(final Object document) {
         final Object project = currentProject();
-        if (project == null || document == null
-            || !resolver.isInstance(PROJECT_CLASS, project)) {
+        if (project == null || document == null || !resolver.isInstance(PROJECT_CLASS, project)) {
             return false;
         }
         final Object children = resolver.invoke(PROJECT_CHILDREN, project);
@@ -595,14 +681,19 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
 
     @Override
     public void openFile(final File file) {
-        resolver.invoke(COMMAND_OPEN, Objects.requireNonNull(appController(), "appController"),
-            Objects.requireNonNull(file, "file"), Boolean.FALSE);
+        resolver.invoke(
+                COMMAND_OPEN,
+                Objects.requireNonNull(appController(), "appController"),
+                Objects.requireNonNull(file, "file"),
+                Boolean.FALSE);
     }
 
     @Override
     public void closeFileContent(final Object fileContent) {
-        resolver.invoke(COMMAND_CLOSE, Objects.requireNonNull(appController(), "appController"),
-            Objects.requireNonNull(fileContent, "fileContent"));
+        resolver.invoke(
+                COMMAND_CLOSE,
+                Objects.requireNonNull(appController(), "appController"),
+                Objects.requireNonNull(fileContent, "fileContent"));
     }
 
     // ------------------------------------------------------------------
@@ -652,8 +743,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
 
     @Override
     public void markDocumentSaved(final Object document) {
-        resolver.invoke(DOC_MARK_SAVED, Objects.requireNonNull(document, "document"),
-            Long.MAX_VALUE);
+        resolver.invoke(DOC_MARK_SAVED, Objects.requireNonNull(document, "document"), Long.MAX_VALUE);
     }
 
     // ------------------------------------------------------------------
@@ -689,8 +779,9 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
 
     @Override
     public boolean undoCanUndo(final Object undoManager) {
-        return undoManager != null && resolver.isInstance(UNDO_CLASS, undoManager)
-            && Boolean.TRUE.equals(resolver.invoke(UNDO_CAN_UNDO, undoManager));
+        return undoManager != null
+                && resolver.isInstance(UNDO_CLASS, undoManager)
+                && Boolean.TRUE.equals(resolver.invoke(UNDO_CAN_UNDO, undoManager));
     }
 
     // ------------------------------------------------------------------
@@ -720,18 +811,12 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
 
     @Override
     public void selectSource(final Object selector, final Object source) {
-        resolver.invoke(
-            SELECTOR_ADD_SOURCE,
-            requireSelector(selector),
-            Objects.requireNonNull(source, "source"),
-            -1
-        );
+        resolver.invoke(SELECTOR_ADD_SOURCE, requireSelector(selector), Objects.requireNonNull(source, "source"), -1);
     }
 
     @Override
     public List<?> selectedDeformers(final Object selector) {
-        final Object selected = resolver.invoke(
-            SELECTOR_SELECTED_DEFORMERS, requireSelector(selector));
+        final Object selected = resolver.invoke(SELECTOR_SELECTED_DEFORMERS, requireSelector(selector));
         return selected instanceof List<?> list ? List.copyOf(list) : List.of();
     }
 
@@ -813,8 +898,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         // save-obfuscation flag; staging always writes the un-obfuscated form
         // because the copy's census must match the live census before the
         // planned obfuscation pass rewrites it.
-        return Boolean.TRUE.equals(resolver.invoke(
-            MS_SAVE_MODEL, requireModelSource(modelSource), target, Boolean.FALSE));
+        return Boolean.TRUE.equals(
+                resolver.invoke(MS_SAVE_MODEL, requireModelSource(modelSource), target, Boolean.FALSE));
     }
 
     @Override
@@ -853,10 +938,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * writes only ever land on the disposable copy's model instance.
      */
     @Override
-    public void setParameterInstanceValue(
-        final Object parameterInstance,
-        final float value
-    ) {
+    public void setParameterInstanceValue(final Object parameterInstance, final float value) {
         if (!resolver.isInstance(PARAMETER_INSTANCE_CLASS, parameterInstance)) {
             throw new IllegalStateException("object is not a parameter instance");
         }
@@ -924,9 +1006,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      */
     @Override
     public void setObjectLocalName(final Object source, final String name) {
-        resolver.invoke(SOURCE_SET_LOCAL_NAME,
-            Objects.requireNonNull(source, "source"),
-            Objects.requireNonNull(name, "name"));
+        resolver.invoke(
+                SOURCE_SET_LOCAL_NAME, Objects.requireNonNull(source, "source"), Objects.requireNonNull(name, "name"));
     }
 
     /**
@@ -1005,14 +1086,11 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      */
     @Override
     public List<?> keyformBindings(final Object controllableSource) {
-        final java.util.Set<Object> grids = java.util.Collections.newSetFromMap(
-            new java.util.IdentityHashMap<>());
+        final java.util.Set<Object> grids = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         final List<Object> bindings = new ArrayList<>();
         for (String gridAlias : new String[] {SOURCE_GRID, SOURCE_EXT_GRID}) {
-            final Object grid = controllableSource == null
-                ? null : resolver.invoke(gridAlias, controllableSource);
-            if (grid == null || !grids.add(grid)
-                || !resolver.isInstance(GRID_CLASS, grid)) {
+            final Object grid = controllableSource == null ? null : resolver.invoke(gridAlias, controllableSource);
+            if (grid == null || !grids.add(grid) || !resolver.isInstance(GRID_CLASS, grid)) {
                 continue;
             }
             bindings.addAll(listOf(resolver.invoke(GRID_BINDINGS, grid)));
@@ -1065,8 +1143,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         final List<String> targets = new ArrayList<>(2);
         for (String alias : new String[] {GLUE_TARGET_A, GLUE_TARGET_B}) {
             final Object mesh = resolver.invoke(alias, glueSource);
-            targets.add(mesh == null || !resolver.isInstance(ART_MESH_CLASS, mesh)
-                ? null : objectGuid(mesh));
+            targets.add(mesh == null || !resolver.isInstance(ART_MESH_CLASS, mesh) ? null : objectGuid(mesh));
         }
         return java.util.Collections.unmodifiableList(targets);
     }
@@ -1154,20 +1231,16 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         if (!cubism52 && resolver.isInstance(ALIAS_CLASS, source)) {
             flags.add("invertClipping=" + flagValue(ALIAS_INVERT_CLIP, source));
             flags.add("useOffscreen=" + flagValue(ALIAS_USE_OFFSCREEN, source));
-            flags.add("colorComposition=" + enumName(
-                resolver.invoke(ALIAS_COLOR_COMPOSITION, source)));
-            flags.add("alphaComposition=" + enumName(
-                resolver.invoke(ALIAS_ALPHA_COMPOSITION, source)));
+            flags.add("colorComposition=" + enumName(resolver.invoke(ALIAS_COLOR_COMPOSITION, source)));
+            flags.add("alphaComposition=" + enumName(resolver.invoke(ALIAS_ALPHA_COMPOSITION, source)));
             flags.add("circulated=" + flagValue(ALIAS_CIRCULATED, source));
             return List.copyOf(flags);
         }
         if (!cubism52 && resolver.isInstance(PART_CLASS, source)) {
             flags.add("useOffscreen=" + flagValue(PART_USE_OFFSCREEN, source));
             flags.add("invertClipping=" + flagValue(PART_INVERT_CLIP, source));
-            flags.add("colorComposition=" + enumName(
-                resolver.invoke(PART_COLOR_COMPOSITION, source)));
-            flags.add("alphaComposition=" + enumName(
-                resolver.invoke(PART_ALPHA_COMPOSITION, source)));
+            flags.add("colorComposition=" + enumName(resolver.invoke(PART_COLOR_COMPOSITION, source)));
+            flags.add("alphaComposition=" + enumName(resolver.invoke(PART_ALPHA_COMPOSITION, source)));
             return List.copyOf(flags);
         }
         if (resolver.isInstance(DRAWABLE_CLASS, source)) {
@@ -1200,8 +1273,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
 
     /** Enum member rendered by name; falls back to the value's string form. */
     private static String enumName(final Object value) {
-        return value instanceof Enum<?> enumeration ? enumeration.name()
-            : String.valueOf(value);
+        return value instanceof Enum<?> enumeration ? enumeration.name() : String.valueOf(value);
     }
 
     @Override
@@ -1264,10 +1336,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * checksum covers the name).
      */
     @Override
-    public List<String> settingsSignature(
-        final Object modelSource,
-        final Object settingsSource
-    ) {
+    public List<String> settingsSignature(final Object modelSource, final Object settingsSource) {
         if (isPhysicsSettingsSource(settingsSource)) {
             return physicsSettingsSignature(modelSource, settingsSource);
         }
@@ -1278,11 +1347,9 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
                 return null;
             }
             return List.of(
-                "version=" + enumName(resolver.invoke(MOTION_SYNC_VERSION, settingsSource)),
-                "mapping.checksum=" + resolver.invoke(
-                    MOTION_SYNC_MAPPING_CHECKSUM, mapping),
-                "postproc.checksum=" + resolver.invoke(
-                    MOTION_SYNC_POSTPROC_CHECKSUM, postProc));
+                    "version=" + enumName(resolver.invoke(MOTION_SYNC_VERSION, settingsSource)),
+                    "mapping.checksum=" + resolver.invoke(MOTION_SYNC_MAPPING_CHECKSUM, mapping),
+                    "postproc.checksum=" + resolver.invoke(MOTION_SYNC_POSTPROC_CHECKSUM, postProc));
         }
         return null;
     }
@@ -1294,81 +1361,69 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * unpinnable ({@code null}) — a reference the export cannot preserve must
      * never slip through.
      */
-    private List<String> physicsSettingsSignature(
-        final Object modelSource,
-        final Object settingsSource
-    ) {
+    private List<String> physicsSettingsSignature(final Object modelSource, final Object settingsSource) {
         final Map<String, String> parameterIds = parameterIdsByGuid(modelSource);
         if (parameterIds == null) {
             return null;
         }
         final List<String> tokens = new ArrayList<>();
         tokens.add("enable=" + flagValue(PHYSICS_SETTINGS_ENABLE, settingsSource));
-        tokens.add("normalization.position=" + floatToken(PHYSICS_SETTINGS_NORM_POS_MIN,
-            settingsSource)
-            + "|" + floatToken(PHYSICS_SETTINGS_NORM_POS_DEFAULT, settingsSource)
-            + "|" + floatToken(PHYSICS_SETTINGS_NORM_POS_MAX, settingsSource));
-        tokens.add("normalization.angle=" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_MIN,
-            settingsSource)
-            + "|" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_DEFAULT, settingsSource)
-            + "|" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_MAX, settingsSource));
+        tokens.add("normalization.position=" + floatToken(PHYSICS_SETTINGS_NORM_POS_MIN, settingsSource)
+                + "|" + floatToken(PHYSICS_SETTINGS_NORM_POS_DEFAULT, settingsSource)
+                + "|" + floatToken(PHYSICS_SETTINGS_NORM_POS_MAX, settingsSource));
+        tokens.add("normalization.angle=" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_MIN, settingsSource)
+                + "|" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_DEFAULT, settingsSource)
+                + "|" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_MAX, settingsSource));
         tokens.add("totalAngle=" + floatToken(PHYSICS_SETTINGS_TOTAL_ANGLE, settingsSource));
-        final List<?> inputs = listOf(resolver.invoke(PHYSICS_SETTINGS_INPUTS,
-            settingsSource));
+        final List<?> inputs = listOf(resolver.invoke(PHYSICS_SETTINGS_INPUTS, settingsSource));
         for (int i = 0; i < inputs.size(); i++) {
             final Object input = inputs.get(i);
             if (input == null) {
                 return null;
             }
-            final String parameterId = physicsParameterId(parameterIds,
-                resolver.invoke(PHYSICS_INPUT_SOURCE, input));
+            final String parameterId = physicsParameterId(parameterIds, resolver.invoke(PHYSICS_INPUT_SOURCE, input));
             if (parameterId == null) {
                 return null;
             }
             tokens.add("input." + i + "=" + parameterId
-                + "|" + floatToken(PHYSICS_INPUT_WEIGHT, input)
-                + "|" + enumName(resolver.invoke(PHYSICS_INPUT_TYPE, input))
-                + "|" + flagValue(PHYSICS_INPUT_REVERSE, input)
-                + "|" + floatToken(PHYSICS_INPUT_ANGLE_SCALE, input)
-                + "|" + vectorToken(
-                    resolver.invoke(PHYSICS_INPUT_TRANSLATION_SCALE, input)));
+                    + "|" + floatToken(PHYSICS_INPUT_WEIGHT, input)
+                    + "|" + enumName(resolver.invoke(PHYSICS_INPUT_TYPE, input))
+                    + "|" + flagValue(PHYSICS_INPUT_REVERSE, input)
+                    + "|" + floatToken(PHYSICS_INPUT_ANGLE_SCALE, input)
+                    + "|" + vectorToken(resolver.invoke(PHYSICS_INPUT_TRANSLATION_SCALE, input)));
         }
-        final List<?> outputs = listOf(resolver.invoke(PHYSICS_SETTINGS_OUTPUTS,
-            settingsSource));
+        final List<?> outputs = listOf(resolver.invoke(PHYSICS_SETTINGS_OUTPUTS, settingsSource));
         for (int i = 0; i < outputs.size(); i++) {
             final Object output = outputs.get(i);
             if (output == null) {
                 return null;
             }
-            final String parameterId = physicsParameterId(parameterIds,
-                resolver.invoke(PHYSICS_OUTPUT_DESTINATION, output));
+            final String parameterId =
+                    physicsParameterId(parameterIds, resolver.invoke(PHYSICS_OUTPUT_DESTINATION, output));
             if (parameterId == null) {
                 return null;
             }
             tokens.add("output." + i + "=" + parameterId
-                + "|" + resolver.invoke(PHYSICS_OUTPUT_VERTEX_INDEX, output)
-                + "|" + floatToken(PHYSICS_OUTPUT_WEIGHT, output)
-                + "|" + enumName(resolver.invoke(PHYSICS_OUTPUT_TYPE, output))
-                + "|" + flagValue(PHYSICS_OUTPUT_REVERSE, output)
-                + "|" + floatToken(PHYSICS_OUTPUT_ANGLE_SCALE, output)
-                + "|" + vectorToken(
-                    resolver.invoke(PHYSICS_OUTPUT_TRANSLATION_SCALE, output))
-                + "|" + floatToken(PHYSICS_OUTPUT_BELOW_MINIMUM, output)
-                + "|" + floatToken(PHYSICS_OUTPUT_EXCEEDED_MAXIMUM, output));
+                    + "|" + resolver.invoke(PHYSICS_OUTPUT_VERTEX_INDEX, output)
+                    + "|" + floatToken(PHYSICS_OUTPUT_WEIGHT, output)
+                    + "|" + enumName(resolver.invoke(PHYSICS_OUTPUT_TYPE, output))
+                    + "|" + flagValue(PHYSICS_OUTPUT_REVERSE, output)
+                    + "|" + floatToken(PHYSICS_OUTPUT_ANGLE_SCALE, output)
+                    + "|" + vectorToken(resolver.invoke(PHYSICS_OUTPUT_TRANSLATION_SCALE, output))
+                    + "|" + floatToken(PHYSICS_OUTPUT_BELOW_MINIMUM, output)
+                    + "|" + floatToken(PHYSICS_OUTPUT_EXCEEDED_MAXIMUM, output));
         }
-        final List<?> vertices = listOf(resolver.invoke(PHYSICS_SETTINGS_VERTICES,
-            settingsSource));
+        final List<?> vertices = listOf(resolver.invoke(PHYSICS_SETTINGS_VERTICES, settingsSource));
         for (int i = 0; i < vertices.size(); i++) {
             final Object vertex = vertices.get(i);
             if (vertex == null) {
                 return null;
             }
-            tokens.add("vertex." + i + "=" + vectorToken(
-                resolver.invoke(PHYSICS_VERTEX_POSITION, vertex))
-                + "|" + floatToken(PHYSICS_VERTEX_MOBILITY, vertex)
-                + "|" + floatToken(PHYSICS_VERTEX_DELAY, vertex)
-                + "|" + floatToken(PHYSICS_VERTEX_ACCELERATION, vertex)
-                + "|" + floatToken(PHYSICS_VERTEX_RADIUS, vertex));
+            tokens.add("vertex." + i + "=" + vectorToken(resolver.invoke(PHYSICS_VERTEX_POSITION, vertex))
+                    + "|" + floatToken(PHYSICS_VERTEX_MOBILITY, vertex)
+                    + "|" + floatToken(PHYSICS_VERTEX_DELAY, vertex)
+                    + "|" + floatToken(PHYSICS_VERTEX_ACCELERATION, vertex)
+                    + "|" + floatToken(PHYSICS_VERTEX_RADIUS, vertex));
         }
         return List.copyOf(tokens);
     }
@@ -1395,10 +1450,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * Resolves a physics input/output parameter GUID to its pinned parameter
      * ID; {@code null} when the reference cannot be resolved (fail-closed).
      */
-    private String physicsParameterId(
-        final Map<String, String> parameterIds,
-        final Object parameterGuid
-    ) {
+    private String physicsParameterId(final Map<String, String> parameterIds, final Object parameterGuid) {
         final String guid = parameterGuid == null ? null : readGuid(parameterGuid);
         return guid == null ? null : parameterIds.get(guid);
     }
@@ -1413,8 +1465,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         if (vector == null) {
             return "null";
         }
-        return resolver.invoke(VECTOR2_X, vector)
-            + "," + resolver.invoke(VECTOR2_Y, vector);
+        return resolver.invoke(VECTOR2_X, vector) + "," + resolver.invoke(VECTOR2_Y, vector);
     }
 
     /**
@@ -1426,18 +1477,18 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     @Override
     public List<String> physicsSettingsSetSignature(final Object modelSource) {
         final Object set = resolver.isInstance(MODEL_SOURCE_CLASS, modelSource)
-            ? resolver.invoke(MS_PHYSICS_SETTINGS_SET, modelSource)
-            : null;
+                ? resolver.invoke(MS_PHYSICS_SETTINGS_SET, modelSource)
+                : null;
         if (set == null) {
             return allPhysicsSettings(modelSource).isEmpty() ? List.of() : null;
         }
         final Object gravity = resolver.invoke(PHYSICS_SET_GRAVITY, set);
         final Object wind = resolver.invoke(PHYSICS_SET_WIND, set);
         return List.of(
-            "gravity=" + vectorToken(gravity),
-            "wind=" + vectorToken(wind),
-            "fps=" + resolver.invoke(PHYSICS_SET_FPS, set),
-            "selected=" + readGuid(resolver.invoke(PHYSICS_SET_SELECTED, set)));
+                "gravity=" + vectorToken(gravity),
+                "wind=" + vectorToken(wind),
+                "fps=" + resolver.invoke(PHYSICS_SET_FPS, set),
+                "selected=" + readGuid(resolver.invoke(PHYSICS_SET_SELECTED, set)));
     }
 
     /**
@@ -1460,13 +1511,11 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     @Override
     public void setSettingsName(final Object settingsSource, final String name) {
         if (isPhysicsSettingsSource(settingsSource)) {
-            resolver.invoke(PHYSICS_SETTINGS_SET_NAME, settingsSource,
-                Objects.requireNonNull(name, "name"));
+            resolver.invoke(PHYSICS_SETTINGS_SET_NAME, settingsSource, Objects.requireNonNull(name, "name"));
             return;
         }
         if (isMotionSyncSettingSource(settingsSource)) {
-            resolver.invoke(MOTION_SYNC_SET_NAME, settingsSource,
-                Objects.requireNonNull(name, "name"));
+            resolver.invoke(MOTION_SYNC_SET_NAME, settingsSource, Objects.requireNonNull(name, "name"));
             return;
         }
         throw new IllegalStateException("object is not a settings source");
@@ -1483,13 +1532,13 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     public void setSettingsId(final Object settingsSource, final String idString) {
         Objects.requireNonNull(idString, "idString");
         if (isPhysicsSettingsSource(settingsSource)) {
-            resolver.invoke(PHYSICS_SETTINGS_SET_ID, settingsSource,
-                resolver.construct(PHYSICS_SETTING_ID_CREATE, idString));
+            resolver.invoke(
+                    PHYSICS_SETTINGS_SET_ID, settingsSource, resolver.construct(PHYSICS_SETTING_ID_CREATE, idString));
             return;
         }
         if (isMotionSyncSettingSource(settingsSource)) {
-            resolver.writeField(MOTION_SYNC_ID_FIELD, settingsSource,
-                resolver.construct(MOTION_SYNC_ID_CREATE, idString));
+            resolver.writeField(
+                    MOTION_SYNC_ID_FIELD, settingsSource, resolver.construct(MOTION_SYNC_ID_CREATE, idString));
             return;
         }
         throw new IllegalStateException("object is not a settings source");
@@ -1548,15 +1597,13 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
 
     @Override
     public String deformerGuid(final Object deformerSource) {
-        final Object guid = deformerSource == null
-            ? null : resolver.invoke(DEFORMER_GUID, deformerSource);
+        final Object guid = deformerSource == null ? null : resolver.invoke(DEFORMER_GUID, deformerSource);
         return guid == null ? null : (String) resolver.invoke(GUID_UUID, guid);
     }
 
     @Override
     public String deformerTargetGuid(final Object deformerSource) {
-        final Object guid = deformerSource == null
-            ? null : resolver.invoke(DEFORMER_TARGET, deformerSource);
+        final Object guid = deformerSource == null ? null : resolver.invoke(DEFORMER_TARGET, deformerSource);
         return guid == null ? null : (String) resolver.invoke(GUID_UUID, guid);
     }
 
@@ -1569,24 +1616,21 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         // Both grid accessors can return the same instance; dedupe by identity so a
         // binding is only judged once. A binding with a non-LINEAR extended type or
         // the illegal flag counts as extended-interpolation usage.
-        final java.util.Set<Object> seen = java.util.Collections.newSetFromMap(
-            new java.util.IdentityHashMap<>());
+        final java.util.Set<Object> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         for (Object object : allObjects(modelSource)) {
             if (object == null) {
                 continue;
             }
             for (String gridAlias : new String[] {SOURCE_GRID, SOURCE_EXT_GRID}) {
                 final Object grid = resolver.invoke(gridAlias, object);
-                if (grid == null || !seen.add(grid)
-                    || !resolver.isInstance(GRID_CLASS, grid)) {
+                if (grid == null || !seen.add(grid) || !resolver.isInstance(GRID_CLASS, grid)) {
                     continue;
                 }
                 for (Object binding : listOf(resolver.invoke(GRID_BINDINGS, grid))) {
                     if (binding == null || !resolver.isInstance(BINDING_CLASS, binding)) {
                         continue;
                     }
-                    if (Boolean.TRUE.equals(
-                        resolver.invoke(BINDING_ILLEGAL, binding))) {
+                    if (Boolean.TRUE.equals(resolver.invoke(BINDING_ILLEGAL, binding))) {
                         return true;
                     }
                     final Object type = resolver.invoke(BINDING_EXT_TYPE, binding);
@@ -1632,11 +1676,11 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * is recorded as pass-through content the census pins.
      */
     private static final Set<String> STANDARD_EXTENSION_CLASSES = Set.of(
-        "com.live2d.cubism.doc.model.extension.textureInput.CTextureInputExtension",
-        "com.live2d.cubism.doc.model.extension.editableMesh.CEditableMeshExtension",
-        "com.live2d.cubism.doc.model.extension.meshGenerator.CMeshGeneratorExtension",
-        "com.live2d.cubism.doc.model.extension.warpBezier.CWarpDeformerBezierExtension",
-        "com.live2d.cubism.doc.model.extension.deformerOriginalShape.CDeformerOriginalShapeExtension");
+            "com.live2d.cubism.doc.model.extension.textureInput.CTextureInputExtension",
+            "com.live2d.cubism.doc.model.extension.editableMesh.CEditableMeshExtension",
+            "com.live2d.cubism.doc.model.extension.meshGenerator.CMeshGeneratorExtension",
+            "com.live2d.cubism.doc.model.extension.warpBezier.CWarpDeformerBezierExtension",
+            "com.live2d.cubism.doc.model.extension.deformerOriginalShape.CDeformerOriginalShapeExtension");
 
     /**
      * Structures embedded inside a controllable source that never appear in the
@@ -1652,17 +1696,17 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         }
         final List<String> detected = new ArrayList<>();
         final Object morphSet = resolver.invoke(SOURCE_MORPH_SET, controllableSource);
-        if (morphSet != null && resolver.isInstance(MORPH_SET_CLASS, morphSet)
-            && !listOf(resolver.invoke(MORPH_SET_TARGETS, morphSet)).isEmpty()) {
+        if (morphSet != null
+                && resolver.isInstance(MORPH_SET_CLASS, morphSet)
+                && !listOf(resolver.invoke(MORPH_SET_TARGETS, morphSet)).isEmpty()) {
             detected.add("keyform-morph-target-set");
         }
         if (resolver.invoke(SOURCE_EXT_MORPH_SET, controllableSource) != null) {
             detected.add("extended-morph-target-set");
         }
-        for (Object extension : listOf(
-            resolver.invoke(SOURCE_EXTENSIONS, controllableSource))) {
+        for (Object extension : listOf(resolver.invoke(SOURCE_EXTENSIONS, controllableSource))) {
             if (extension != null
-                && !STANDARD_EXTENSION_CLASSES.contains(extension.getClass().getName())) {
+                    && !STANDARD_EXTENSION_CLASSES.contains(extension.getClass().getName())) {
                 detected.add("extension:" + extension.getClass().getName());
             }
         }
@@ -1676,17 +1720,13 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * Classes absent from an admitted build (aliases do not exist on 5.2.03)
      * simply never match there.
      */
-    private static final List<Map.Entry<String, String>> FAMILY_PREFIXES =
-        List.of(
-            Map.entry(
-                "com.live2d.cubism.doc.model.affecter.glue.deformPathSkinning.",
-                "deform-path"),
+    private static final List<Map.Entry<String, String>> FAMILY_PREFIXES = List.of(
+            Map.entry("com.live2d.cubism.doc.model.affecter.glue.deformPathSkinning.", "deform-path"),
             Map.entry("com.live2d.cubism.doc.model.affecter.glue.", "glue"),
             Map.entry("com.live2d.cubism.doc.model.drawable.artPath.", "art-path"),
             Map.entry("com.live2d.cubism.doc.model.alias.", "alias"),
             Map.entry("com.live2d.cubism.doc.model.motionSync.", "motion-sync"),
-            Map.entry("com.live2d.cubism.doc.gameData.physics.", "physics")
-        );
+            Map.entry("com.live2d.cubism.doc.gameData.physics.", "physics"));
 
     /**
      * Classifies a census object by its class-hierarchy package — a pure
@@ -1699,9 +1739,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         if (object == null) {
             return "unknown";
         }
-        for (Class<?> type = object.getClass();
-             type != null && type != Object.class;
-             type = type.getSuperclass()) {
+        for (Class<?> type = object.getClass(); type != null && type != Object.class; type = type.getSuperclass()) {
             final String name = type.getName();
             for (Map.Entry<String, String> family : FAMILY_PREFIXES) {
                 if (name.startsWith(family.getKey())) {
@@ -1709,10 +1747,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
                 }
             }
         }
-        final String clue = object.getClass().getSimpleName()
-            .replaceAll("[^A-Za-z0-9_$]", "-");
-        return "unknown:" + (clue.isBlank()
-            ? "object" : clue.substring(0, Math.min(clue.length(), 48)));
+        final String clue = object.getClass().getSimpleName().replaceAll("[^A-Za-z0-9_$]", "-");
+        return "unknown:" + (clue.isBlank() ? "object" : clue.substring(0, Math.min(clue.length(), 48)));
     }
 
     // ------------------------------------------------------------------
@@ -1739,17 +1775,16 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
 
     @Override
     public void invokeNativeExport(
-        final Object driver,
-        final Object modelSource,
-        final Object frame,
-        final Object completionCallback
-    ) {
+            final Object driver, final Object modelSource, final Object frame, final Object completionCallback) {
         if (driver == null || !resolver.isInstance(DRIVER_CLASS, driver)) {
             throw new IllegalStateException("export driver is not the verified driver type");
         }
-        resolver.invoke(DRIVER_EXPORT, driver,
-            Objects.requireNonNull(modelSource, "modelSource"), frame,
-            Objects.requireNonNull(completionCallback, "completionCallback"));
+        resolver.invoke(
+                DRIVER_EXPORT,
+                driver,
+                Objects.requireNonNull(modelSource, "modelSource"),
+                frame,
+                Objects.requireNonNull(completionCallback, "completionCallback"));
     }
 
     @Override
@@ -1759,8 +1794,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         // verified export descriptor already pins it as the callback parameter type.
         final ClassLoader hostLoader = resolver.hostClassLoader();
         try {
-            final Class<?> function2 = Class.forName(
-                "kotlin.jvm.functions.Function2", false, hostLoader);
+            final Class<?> function2 = Class.forName("kotlin.jvm.functions.Function2", false, hostLoader);
             if (!function2.isInterface()) {
                 throw new IllegalStateException("host Function2 is not an interface");
             }
@@ -1844,8 +1878,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
             }
             final Object loader = resolver.invoke(FILE_HANDLE_LOADER, handle);
             final Object listeners = resolver.invoke(FILE_HANDLE_LISTENERS, handle);
-            diagnostics.add(
-                handle.getClass().getName()
+            diagnostics.add(handle.getClass().getName()
                     + "|loader=" + (loader == null ? "null" : loader.getClass().getName())
                     + "|listeners=" + (listeners instanceof List<?> l ? l.size() : "?"));
         }

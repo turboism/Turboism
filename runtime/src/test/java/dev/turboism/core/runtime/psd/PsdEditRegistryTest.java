@@ -1,23 +1,24 @@
 package dev.turboism.core.runtime.psd;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import dev.turboism.sdk.cubism.psd.PsdEditFile;
 import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** Registry provenance fixtures only; no plugin permissions, live host or native writes exercised. */
 class PsdEditRegistryTest {
-    @TempDir Path root;
+    @TempDir
+    Path root;
+
     private final PsdEditRegistry.Binding binding = new PsdEditRegistry.Binding("session-a", 1);
 
     @Test
@@ -50,10 +51,10 @@ class PsdEditRegistryTest {
         final var registry = new PsdEditRegistry();
         final var file = new ExplosiveHandle();
         registry.register(binding, file, allocation());
-        assertThrows(SecurityException.class, () -> registry.requireFile(
-            new PsdEditRegistry.Binding("session-b", 1), file));
-        assertThrows(SecurityException.class, () -> registry.requireFile(
-            new PsdEditRegistry.Binding("session-a", 2), file));
+        assertThrows(
+                SecurityException.class, () -> registry.requireFile(new PsdEditRegistry.Binding("session-b", 1), file));
+        assertThrows(
+                SecurityException.class, () -> registry.requireFile(new PsdEditRegistry.Binding("session-a", 2), file));
     }
 
     @Test
@@ -67,8 +68,15 @@ class PsdEditRegistryTest {
         final var token = registry.issueRevision(binding, first, PsdStableSnapshot.capture(allocation));
         assertThrows(SecurityException.class, () -> registry.requireRevision(binding, second, token));
         final PsdFileRevision forged = new PsdFileRevision() {
-            @Override public boolean equals(Object other) { throw new AssertionError("equals invoked"); }
-            @Override public int hashCode() { throw new AssertionError("hashCode invoked"); }
+            @Override
+            public boolean equals(Object other) {
+                throw new AssertionError("equals invoked");
+            }
+
+            @Override
+            public int hashCode() {
+                throw new AssertionError("hashCode invoked");
+            }
         };
         assertThrows(SecurityException.class, () -> registry.requireRevision(binding, first, forged));
     }
@@ -151,17 +159,34 @@ class PsdEditRegistryTest {
     }
 
     private static final class ExplosiveHandle implements PsdEditFile {
-        @Override public CompletionStage<PsdFileOperationResult> openInDefaultApplication() {
+        @Override
+        public CompletionStage<PsdFileOperationResult> openInDefaultApplication() {
             throw new AssertionError("open invoked");
         }
-        @Override public Registration observeSaves(Consumer<PsdFileRevision> listener) {
+
+        @Override
+        public Registration observeSaves(Consumer<PsdFileRevision> listener) {
             throw new AssertionError("observe invoked");
         }
-        @Override public CompletionStage<PsdFileOperationResult> stop() {
+
+        @Override
+        public CompletionStage<PsdFileOperationResult> stop() {
             throw new AssertionError("stop invoked");
         }
-        @Override public boolean equals(Object other) { throw new AssertionError("equals invoked"); }
-        @Override public int hashCode() { throw new AssertionError("hashCode invoked"); }
-        @Override public String toString() { throw new AssertionError("toString invoked"); }
+
+        @Override
+        public boolean equals(Object other) {
+            throw new AssertionError("equals invoked");
+        }
+
+        @Override
+        public int hashCode() {
+            throw new AssertionError("hashCode invoked");
+        }
+
+        @Override
+        public String toString() {
+            throw new AssertionError("toString invoked");
+        }
     }
 }

@@ -3,12 +3,10 @@ package dev.turboism.adapter.cubism;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
-import javax.swing.JMenu;
-import javax.swing.JMenuItem;
-
 import java.nio.file.Path;
 import java.util.List;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
 
 /**
  * Test-only synthetic host graph + verified resolvers for the recent-preview slice.
@@ -16,53 +14,88 @@ import java.util.List;
  */
 public final class RecentPreviewHostFixture {
 
-    private RecentPreviewHostFixture() {
-    }
+    private RecentPreviewHostFixture() {}
 
     /** Project-workspace slice resolver: reviewed version, project slice id + capability. */
     public static VerifiedMemberResolver projectResolver(final String version, final ClassLoader loader) {
         final String owner = ProjectHost.class.getName().replace('.', '/');
         return TestVerifiedResolvers.create(
-            version,
-            "adapter.project-workspace.readonly",
-            java.util.Set.of("cubism.project.read"),
-            List.of(
-                StaticSelector.staticMethod("cubism.app-controller.instance", owner, "instance",
-                    "()Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.app-controller.current-document", owner, "currentDocument",
-                    "()Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.document.file-content", owner, "fileContent",
-                    "()Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.file-content.file", owner, "file",
-                    "()Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC)
-            ),
-            loader
-        );
+                version,
+                "adapter.project-workspace.readonly",
+                java.util.Set.of("cubism.project.read"),
+                List.of(
+                        StaticSelector.staticMethod(
+                                "cubism.app-controller.instance",
+                                owner,
+                                "instance",
+                                "()Ljava/lang/Object;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.app-controller.current-document",
+                                owner,
+                                "currentDocument",
+                                "()Ljava/lang/Object;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.document.file-content",
+                                owner,
+                                "fileContent",
+                                "()Ljava/lang/Object;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.file-content.file",
+                                owner,
+                                "file",
+                                "()Ljava/lang/Object;",
+                                StaticSelector.ACCESS_PUBLIC)),
+                loader);
     }
 
     /** Embedded-panel slice resolver: reviewed version, panel slice id + capability. */
     public static VerifiedMemberResolver panelResolver(final String version, final ClassLoader loader) {
         final String owner = PanelHost.class.getName().replace('.', '/');
         return TestVerifiedResolvers.create(
-            version,
-            "adapter.editor-ui.embedded-panel",
-            java.util.Set.of("cubism.editor-ui.embedded-panel"),
-            List.of(
-                StaticSelector.staticMethod("cubism.ui-panel.app-controller.instance", owner, "instance",
-                    "()Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-panel.app-controller.main-frame", owner, "mainFrame",
-                    "()Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-panel.main-frame.window", owner, "window",
-                    "()Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-panel.window.menu-bar", owner, "menuBar",
-                    "()Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-panel.menu-bar.menus", owner, "menus",
-                    "()Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-panel.menu.swing", owner, "swing",
-                    "()Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC)
-            ),
-            loader
-        );
+                version,
+                "adapter.editor-ui.embedded-panel",
+                java.util.Set.of("cubism.editor-ui.embedded-panel"),
+                List.of(
+                        StaticSelector.staticMethod(
+                                "cubism.ui-panel.app-controller.instance",
+                                owner,
+                                "instance",
+                                "()Ljava/lang/Object;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-panel.app-controller.main-frame",
+                                owner,
+                                "mainFrame",
+                                "()Ljava/lang/Object;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-panel.main-frame.window",
+                                owner,
+                                "window",
+                                "()Ljava/lang/Object;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-panel.window.menu-bar",
+                                owner,
+                                "menuBar",
+                                "()Ljava/lang/Object;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-panel.menu-bar.menus",
+                                owner,
+                                "menus",
+                                "()Ljava/lang/Object;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-panel.menu.swing",
+                                owner,
+                                "swing",
+                                "()Ljava/lang/Object;",
+                                StaticSelector.ACCESS_PUBLIC)),
+                loader);
     }
 
     public static final class ProjectHost {
@@ -107,12 +140,11 @@ public final class RecentPreviewHostFixture {
         private final Object swing;
 
         private PanelHost(
-            final Object mainFrame,
-            final Object window,
-            final Object menuBar,
-            final Object menus,
-            final Object swing
-        ) {
+                final Object mainFrame,
+                final Object window,
+                final Object menuBar,
+                final Object menus,
+                final Object swing) {
             this.mainFrame = mainFrame;
             this.window = window;
             this.menuBar = menuBar;

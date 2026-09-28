@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+
 /**
  * The typed {@code Data} payload of an object read ({@code GetObject} result).
  *

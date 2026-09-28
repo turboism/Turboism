@@ -53,8 +53,7 @@ public interface SelectionOps {
         }
 
         @Override
-        public boolean addSelectedObjects(final AddSelectedObjects request)
-                throws EditSessionException {
+        public boolean addSelectedObjects(final AddSelectedObjects request) throws EditSessionException {
             Objects.requireNonNull(request, "request");
             throw new EditUnavailableException("SelectionOps.addSelectedObjects");
         }

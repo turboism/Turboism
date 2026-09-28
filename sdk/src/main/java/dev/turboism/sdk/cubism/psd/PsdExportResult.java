@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.psd;
 
 import dev.turboism.sdk.cubism.id.RawImageId;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -19,12 +18,11 @@ import java.util.Optional;
  * @param initialRevision initial export baseline, not an external save notification
  */
 public record PsdExportResult(
-    Status status,
-    String diagnostic,
-    RawImageId source,
-    Optional<PsdEditFile> file,
-    Optional<PsdFileRevision> initialRevision
-) {
+        Status status,
+        String diagnostic,
+        RawImageId source,
+        Optional<PsdEditFile> file,
+        Optional<PsdFileRevision> initialRevision) {
     public PsdExportResult {
         status = Objects.requireNonNull(status, "status");
         diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");

@@ -51,26 +51,30 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
      * retransform, the startup policy did not disable the id, and the host
      * artifact is a reviewed version.
      */
-    static boolean admitted(final HostArtifactDigest digest,
-                            final dev.turboism.config.RuntimeStartupConfig config,
-                            final boolean requested, final int jvm) {
-        return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
-            && SkippedFrameUploadElisionTarget.of(digest).isPresent();
+    static boolean admitted(
+            final HostArtifactDigest digest,
+            final dev.turboism.config.RuntimeStartupConfig config,
+            final boolean requested,
+            final int jvm) {
+        return requested
+                && jvm >= 17
+                && config.hookEnabled(HOOK_ID)
+                && SkippedFrameUploadElisionTarget.of(digest).isPresent();
     }
 
-    VerifiedSkippedFrameUploadElisionInstaller(final Instrumentation instrumentation,
-                                               final Path artifact, final ClassLoader loader)
-            throws Exception {
+    VerifiedSkippedFrameUploadElisionInstaller(
+            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
         this(instrumentation, artifact, loader, false);
     }
 
-    VerifiedSkippedFrameUploadElisionInstaller(final Instrumentation instrumentation,
-                                               final Path artifact, final ClassLoader loader,
-                                               final boolean production)
+    VerifiedSkippedFrameUploadElisionInstaller(
+            final Instrumentation instrumentation,
+            final Path artifact,
+            final ClassLoader loader,
+            final boolean production)
             throws Exception {
         target = SkippedFrameUploadElisionTarget.of(HostArtifactDigest.from(artifact))
-            .orElseThrow(() -> new IllegalArgumentException(
-                "upload elision unsupported host artifact"));
+                .orElseThrow(() -> new IllegalArgumentException("upload elision unsupported host artifact"));
         if (Runtime.version().feature() < 17) {
             throw new IllegalArgumentException("upload elision requires JVM17+");
         }
@@ -83,50 +87,51 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
                 final Class<?> type = Class.forName(owner.replace('/', '.'), false, loader);
                 attest(type, loader, artifact);
                 entries.add(type);
-                transformers.add(new SkippedFrameUploadElisionTransformer(
-                    loader, artifact, reference(jar, type), owner));
+                transformers.add(
+                        new SkippedFrameUploadElisionTransformer(loader, artifact, reference(jar, type), owner));
             }
-            verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.BASE_OWNER,
-                "i", "()Ljava/nio/IntBuffer;");
-            verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.BASE_OWNER,
-                "k", "()Z");
+            verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.BASE_OWNER, "i", "()Ljava/nio/IntBuffer;");
+            verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.BASE_OWNER, "k", "()Z");
             for (final String owner : SkippedFrameUploadElisionTarget.OWNERS) {
                 verify(jar, loader, artifact, owner, "b", "()Ljava/nio/Buffer;");
             }
-            verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.SIZE_OWNER,
-                "a", "(Ljava/nio/Buffer;)J");
+            verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.SIZE_OWNER, "a", "(Ljava/nio/Buffer;)J");
         }
         bridge = new SkippedFrameUploadElisionBridge(loader, production);
     }
 
-    private static void attest(final Class<?> type, final ClassLoader loader,
-                               final Path artifact) throws Exception {
+    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {
         if (type.getClassLoader() != loader
-            || !Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI())
-                .toAbsolutePath().normalize().equals(artifact.toAbsolutePath().normalize())) {
-            throw new IllegalArgumentException(
-                "upload elision dependency loader/source mismatch: " + type.getName());
+                || !Path.of(type.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI())
+                        .toAbsolutePath()
+                        .normalize()
+                        .equals(artifact.toAbsolutePath().normalize())) {
+            throw new IllegalArgumentException("upload elision dependency loader/source mismatch: " + type.getName());
         }
     }
 
-    private void verify(final JarFile jar, final ClassLoader loader, final Path artifact,
-                        final String owner, final String method, final String descriptor)
+    private void verify(
+            final JarFile jar,
+            final ClassLoader loader,
+            final Path artifact,
+            final String owner,
+            final String method,
+            final String descriptor)
             throws Exception {
         final Class<?> type = Class.forName(owner.replace('/', '.'), false, loader);
         attest(type, loader, artifact);
         final byte[] actual = capture(type);
-        final List<String> expected =
-            ReviewedMethodShape.read(reference(jar, type), owner, method, descriptor);
-        if (expected == null
-            || !expected.equals(ReviewedMethodShape.read(actual, owner, method, descriptor))) {
-            throw new IllegalStateException(
-                "upload elision dependency body mismatch: " + owner + "." + method);
+        final List<String> expected = ReviewedMethodShape.read(reference(jar, type), owner, method, descriptor);
+        if (expected == null || !expected.equals(ReviewedMethodShape.read(actual, owner, method, descriptor))) {
+            throw new IllegalStateException("upload elision dependency body mismatch: " + owner + "." + method);
         }
     }
 
     private static byte[] reference(final JarFile jar, final Class<?> type) throws Exception {
-        try (var input = jar.getInputStream(
-                jar.getJarEntry(type.getName().replace('.', '/') + ".class"))) {
+        try (var input = jar.getInputStream(jar.getJarEntry(type.getName().replace('.', '/') + ".class"))) {
             return input.readAllBytes();
         }
     }
@@ -137,9 +142,14 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
         }
         final AtomicReference<byte[]> result = new AtomicReference<>();
         final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override public byte[] transform(final Module module, final ClassLoader loader,
-                                              final String name, final Class<?> redefined,
-                                              final ProtectionDomain domain, final byte[] bytes) {
+            @Override
+            public byte[] transform(
+                    final Module module,
+                    final ClassLoader loader,
+                    final String name,
+                    final Class<?> redefined,
+                    final ProtectionDomain domain,
+                    final byte[] bytes) {
                 if (redefined == type) result.set(bytes.clone());
                 return null;
             }
@@ -151,8 +161,7 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             instrumentation.removeTransformer(observer);
         }
         if (result.get() == null) {
-            throw new IllegalStateException(
-                "upload elision dependency inspection absent: " + type.getName());
+            throw new IllegalStateException("upload elision dependency inspection absent: " + type.getName());
         }
         return result.get();
     }
@@ -161,8 +170,7 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
         if (installed) return;
         for (final Class<?> type : entries) {
             if (!instrumentation.isModifiableClass(type)) {
-                throw new IllegalStateException("upload elision entry unmodifiable: "
-                    + type.getName());
+                throw new IllegalStateException("upload elision entry unmodifiable: " + type.getName());
             }
         }
         bridge.install();
@@ -172,10 +180,9 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
                 instrumentation.addTransformer(transformer, true);
                 registered.add(transformer);
                 instrumentation.retransformClasses(entries.get(i));
-                if (transformer.matches() != 1 || transformer.guarded() != 2
-                    || transformer.failure() != null) {
+                if (transformer.matches() != 1 || transformer.guarded() != 2 || transformer.failure() != null) {
                     throw new IllegalStateException("upload elision entry not admitted: "
-                        + entries.get(i).getName() + " " + transformer.failure());
+                            + entries.get(i).getName() + " " + transformer.failure());
                 }
             }
             installed = true;
@@ -200,7 +207,8 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
         return total;
     }
 
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         final Map<String, Long> stats = bridge.snapshot();
         bridge.close();
         if (restored) return;
@@ -222,11 +230,11 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             final String before = transformers.get(i).beforeSha256();
             if (before == null) continue;
             try {
-                final String hash = HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(capture(entries.get(i))));
+                final String hash = HexFormat.of()
+                        .formatHex(MessageDigest.getInstance("SHA-256").digest(capture(entries.get(i))));
                 if (!hash.equals(before)) {
                     throw new IllegalStateException("upload elision restoration not proven: "
-                        + entries.get(i).getName());
+                            + entries.get(i).getName());
                 }
             } catch (Exception | Error problem) {
                 if (failure == null) failure = new IllegalStateException("upload elision restoration failed");
@@ -235,41 +243,42 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
         }
         installed = false;
         restored = failure == null;
-        dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-            "TURBOISM_UPLOAD_ELISION closed elided=" + stats.get("elided")
-                + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
-                + " clears=" + stats.get("clears") + reportTail(stats)
-                + " restored=" + restored);
+        dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                "bootstrap",
+                "TURBOISM_UPLOAD_ELISION closed elided=" + stats.get("elided")
+                        + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
+                        + " clears=" + stats.get("clears") + reportTail(stats)
+                        + " restored=" + restored);
         if (failure != null) throw failure;
     }
 
     /** Pass-reason, per-kind and content-mode counters for the close marker. */
     private static String reportTail(final Map<String, Long> stats) {
         return " contextClears=" + stats.get("contextClears")
-            + " nonSkippedClears=" + stats.get("nonSkippedClears")
-            + " lifecycleClears=" + stats.get("lifecycleClears")
-            + " exceptionClears=" + stats.get("exceptionClears")
-            + " observerFailures=" + stats.get("observerFailures")
-            + " floatElided=" + stats.get("floatElided")
-            + " floatPassed=" + stats.get("floatPassed")
-            + " indexElided=" + stats.get("indexElided")
-            + " indexPassed=" + stats.get("indexPassed")
-            + " passGate=" + stats.get("passGate")
-            + " passNoBaseline=" + stats.get("passNoBaseline")
-            + " passSize=" + stats.get("passSize")
-            + " passBuffer=" + stats.get("passBuffer")
-            + " passRegion=" + stats.get("passRegion")
-            + " passContent=" + stats.get("passContent")
-            + " compares=" + stats.get("compares")
-            + " compareNanos=" + stats.get("compareNanos")
-            + " contentElided=" + stats.get("contentElided")
-            + " snapshotBytes=" + stats.get("snapshotBytes")
-            + " snapshotBytesPeak=" + stats.get("snapshotBytesPeak")
-            + " entries=" + stats.get("entries")
-            + " peakEntries=" + stats.get("peakEntries")
-            + " capacity=" + stats.get("capacity")
-            + " failedInserts=" + stats.get("failedInserts")
-            + " grows=" + stats.get("grows");
+                + " nonSkippedClears=" + stats.get("nonSkippedClears")
+                + " lifecycleClears=" + stats.get("lifecycleClears")
+                + " exceptionClears=" + stats.get("exceptionClears")
+                + " observerFailures=" + stats.get("observerFailures")
+                + " floatElided=" + stats.get("floatElided")
+                + " floatPassed=" + stats.get("floatPassed")
+                + " indexElided=" + stats.get("indexElided")
+                + " indexPassed=" + stats.get("indexPassed")
+                + " passGate=" + stats.get("passGate")
+                + " passNoBaseline=" + stats.get("passNoBaseline")
+                + " passSize=" + stats.get("passSize")
+                + " passBuffer=" + stats.get("passBuffer")
+                + " passRegion=" + stats.get("passRegion")
+                + " passContent=" + stats.get("passContent")
+                + " compares=" + stats.get("compares")
+                + " compareNanos=" + stats.get("compareNanos")
+                + " contentElided=" + stats.get("contentElided")
+                + " snapshotBytes=" + stats.get("snapshotBytes")
+                + " snapshotBytesPeak=" + stats.get("snapshotBytesPeak")
+                + " entries=" + stats.get("entries")
+                + " peakEntries=" + stats.get("peakEntries")
+                + " capacity=" + stats.get("capacity")
+                + " failedInserts=" + stats.get("failedInserts")
+                + " grows=" + stats.get("grows");
     }
 
     boolean restored() {

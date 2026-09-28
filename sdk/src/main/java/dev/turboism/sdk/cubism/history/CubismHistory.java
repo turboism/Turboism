@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.history;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -27,10 +26,7 @@ public interface CubismHistory {
      * Moves to {@code position}, using {@code expected}'s generation and revision.
      * Implementations with native document/Undo-manager binding checks should override this method.
      */
-    default HistoryMoveResult moveTo(
-        final HistorySnapshot expected,
-        final int position
-    ) {
+    default HistoryMoveResult moveTo(final HistorySnapshot expected, final int position) {
         Objects.requireNonNull(expected, "expected");
         return moveTo(expected.generation(), expected.revision(), position);
     }
@@ -72,18 +68,12 @@ public interface CubismHistory {
         if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE) {
             return noMove("history.move.unavailable");
         }
-        return moveTo(
-            snapshot,
-            Math.min(snapshot.entries().size(), snapshot.position() + steps)
-        );
+        return moveTo(snapshot, Math.min(snapshot.entries().size(), snapshot.position() + steps));
     }
 
     private static HistoryMoveResult noMove(final String diagnosticId) {
         return new HistoryMoveResult(
-            HistoryMoveResult.Outcome.NO_CHANGE,
-            HistorySnapshot.unavailable(),
-            Optional.of(diagnosticId)
-        );
+                HistoryMoveResult.Outcome.NO_CHANGE, HistorySnapshot.unavailable(), Optional.of(diagnosticId));
     }
 
     /** Returns the fail-closed history whose snapshot and moves all report unavailable. */
@@ -102,15 +92,9 @@ public interface CubismHistory {
 
         @Override
         public HistoryMoveResult moveTo(
-            final long expectedGeneration,
-            final long expectedRevision,
-            final int position
-        ) {
+                final long expectedGeneration, final long expectedRevision, final int position) {
             return new HistoryMoveResult(
-                HistoryMoveResult.Outcome.UNAVAILABLE,
-                snapshot(),
-                Optional.of("history.provider.unavailable")
-            );
+                    HistoryMoveResult.Outcome.UNAVAILABLE, snapshot(), Optional.of("history.provider.unavailable"));
         }
     }
 }

@@ -1,10 +1,10 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import dev.turboism.ui.context.ObjectContextMenuAppendNativeMethodTransformer;
 import dev.turboism.ui.context.ObjectContextMenuNativeMethodTransformer;
-
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
@@ -24,10 +24,7 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
     private final List<ClassFileTransformer> transformers = new ArrayList<>();
 
     VerifiedObjectContextMenuHookInstaller(
-        final Instrumentation instrumentation,
-        final List<Binding> bindings,
-        final ClassLoader hostClassLoader
-    ) {
+            final Instrumentation instrumentation, final List<Binding> bindings, final ClassLoader hostClassLoader) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.bindings = List.copyOf(Objects.requireNonNull(bindings, "bindings"));
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
@@ -51,17 +48,17 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
             }
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getClassLoader() == hostClassLoader
-                    && owners.contains(loaded.getName().replace('.', '/'))
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && owners.contains(loaded.getName().replace('.', '/'))
+                        && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw new IllegalStateException("Verified object context-menu hook installation failed", failure);
         }
     }
-
 
     @Override
     public void close() {
@@ -75,25 +72,25 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
         try {
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getClassLoader() == hostClassLoader
-                    && owners.contains(loaded.getName().replace('.', '/'))
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && owners.contains(loaded.getName().replace('.', '/'))
+                        && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("Verified object context-menu hook restoration failed", failure);
         }
     }
 
     record Binding(
-        StaticSelector operation,
-        StaticSelector append,
-        Location location,
-        Shape shape,
-        int expectedAppendPoints,
-        int injectionPoint,
-        int[] sourceLocals
-    ) {
+            StaticSelector operation,
+            StaticSelector append,
+            Location location,
+            Shape shape,
+            int expectedAppendPoints,
+            int injectionPoint,
+            int[] sourceLocals) {
         Binding {
             operation = requireInstanceMethod(operation, "operation");
             location = Objects.requireNonNull(location, "location");
@@ -104,14 +101,17 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
                 throw new IllegalArgumentException("return-point binding must not declare append selector");
             }
             if (shape == Shape.APPEND_POINT
-                && (expectedAppendPoints <= 0 || injectionPoint <= 0 || injectionPoint > expectedAppendPoints)) {
-                throw new IllegalArgumentException("append cardinality and injection point must be positive and bounded");
+                    && (expectedAppendPoints <= 0 || injectionPoint <= 0 || injectionPoint > expectedAppendPoints)) {
+                throw new IllegalArgumentException(
+                        "append cardinality and injection point must be positive and bounded");
             }
-            if (shape == Shape.APPEND_POINT && (sourceLocals.length == 0
-                || java.util.Arrays.stream(sourceLocals).anyMatch(value -> value < 0))) {
+            if (shape == Shape.APPEND_POINT
+                    && (sourceLocals.length == 0
+                            || java.util.Arrays.stream(sourceLocals).anyMatch(value -> value < 0))) {
                 throw new IllegalArgumentException("append-point source locals must be non-empty and non-negative");
             }
-            if (shape == Shape.RETURN_POINT && (expectedAppendPoints != 0 || injectionPoint != 0 || sourceLocals.length != 0)) {
+            if (shape == Shape.RETURN_POINT
+                    && (expectedAppendPoints != 0 || injectionPoint != 0 || sourceLocals.length != 0)) {
                 throw new IllegalArgumentException("return-point binding must not declare append cardinality");
             }
         }
@@ -121,51 +121,49 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
         }
 
         static Binding appendPoint(
-            final StaticSelector operation,
-            final StaticSelector append,
-            final Location location,
-            final int expectedAppendPoints,
-            final int injectionPoint,
-            final int... sourceLocals
-        ) {
+                final StaticSelector operation,
+                final StaticSelector append,
+                final Location location,
+                final int expectedAppendPoints,
+                final int injectionPoint,
+                final int... sourceLocals) {
             return new Binding(
-                operation, append, location, Shape.APPEND_POINT,
-                expectedAppendPoints, injectionPoint, sourceLocals.clone()
-            );
+                    operation,
+                    append,
+                    location,
+                    Shape.APPEND_POINT,
+                    expectedAppendPoints,
+                    injectionPoint,
+                    sourceLocals.clone());
         }
 
         ClassFileTransformer transformer(final ClassLoader hostClassLoader) {
             if (shape == Shape.RETURN_POINT) {
                 return new ObjectContextMenuNativeMethodTransformer(
+                        operation.ownerInternalName(),
+                        operation.memberName(),
+                        operation.descriptor(),
+                        hostClassLoader,
+                        location);
+            }
+            return new ObjectContextMenuAppendNativeMethodTransformer(
                     operation.ownerInternalName(),
                     operation.memberName(),
                     operation.descriptor(),
                     hostClassLoader,
-                    location
-                );
-            }
-            return new ObjectContextMenuAppendNativeMethodTransformer(
-                operation.ownerInternalName(),
-                operation.memberName(),
-                operation.descriptor(),
-                hostClassLoader,
-                append.ownerInternalName(),
-                append.memberName(),
-                append.descriptor(),
-                location,
-                expectedAppendPoints,
-                injectionPoint,
-                sourceLocals
-            );
+                    append.ownerInternalName(),
+                    append.memberName(),
+                    append.descriptor(),
+                    location,
+                    expectedAppendPoints,
+                    injectionPoint,
+                    sourceLocals);
         }
 
-        private static StaticSelector requireInstanceMethod(
-            final StaticSelector selector,
-            final String name
-        ) {
+        private static StaticSelector requireInstanceMethod(final StaticSelector selector, final String name) {
             Objects.requireNonNull(selector, name);
             if (selector.kind() != StaticSelector.Kind.METHOD
-                || (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
+                    || (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
                 throw new IllegalArgumentException(name + " selector must be an exact instance method");
             }
             return selector;

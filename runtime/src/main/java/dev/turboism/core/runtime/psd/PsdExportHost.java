@@ -1,7 +1,6 @@
 package dev.turboism.core.runtime.psd;
 
 import dev.turboism.sdk.cubism.id.RawImageId;
-
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
@@ -24,8 +23,13 @@ public interface PsdExportHost {
      * sourceName is the observed raw-image display name, not a path or identity; runtime validates
      * it as a safe PSD basename before publishing the temporary file. Empty means unavailable.
      */
-    record Observation(String nativeStatus, String integrityStatus, boolean readable, boolean structureMatches,
-                       Optional<Failure> failure, String sourceName) {
+    record Observation(
+            String nativeStatus,
+            String integrityStatus,
+            boolean readable,
+            boolean structureMatches,
+            Optional<Failure> failure,
+            String sourceName) {
         public Observation {
             Objects.requireNonNull(nativeStatus, "nativeStatus");
             Objects.requireNonNull(integrityStatus, "integrityStatus");
@@ -33,14 +37,20 @@ public interface PsdExportHost {
             Objects.requireNonNull(sourceName, "sourceName");
         }
 
-        public Observation(final String nativeStatus, final String integrityStatus,
-                           final boolean readable, final boolean structureMatches,
-                           final Optional<Failure> failure) {
+        public Observation(
+                final String nativeStatus,
+                final String integrityStatus,
+                final boolean readable,
+                final boolean structureMatches,
+                final Optional<Failure> failure) {
             this(nativeStatus, integrityStatus, readable, structureMatches, failure, "");
         }
 
-        public Observation(final String nativeStatus, final String integrityStatus,
-                           final boolean readable, final boolean structureMatches) {
+        public Observation(
+                final String nativeStatus,
+                final String integrityStatus,
+                final boolean readable,
+                final boolean structureMatches) {
             this(nativeStatus, integrityStatus, readable, structureMatches, Optional.empty());
         }
 

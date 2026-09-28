@@ -24,24 +24,22 @@ import java.util.stream.Stream;
 
 final class OfficialPluginCatalogCompleteness {
     static final List<String> CATALOG_FILES = List.of(
-        "messages.properties",
-        "messages_en.properties",
-        "messages_zh_Hans.properties",
-        "messages_zh_Hant.properties",
-        "messages_ja.properties",
-        "messages_ko.properties"
-    );
+            "messages.properties",
+            "messages_en.properties",
+            "messages_zh_Hans.properties",
+            "messages_zh_Hant.properties",
+            "messages_ja.properties",
+            "messages_ko.properties");
     private static final Map<String, Locale> CATALOG_LOCALES = Map.of(
-        "messages.properties", Locale.ROOT,
-        "messages_en.properties", Locale.ENGLISH,
-        "messages_zh_Hans.properties", Locale.forLanguageTag("zh-Hans"),
-        "messages_zh_Hant.properties", Locale.forLanguageTag("zh-Hant"),
-        "messages_ja.properties", Locale.JAPANESE,
-        "messages_ko.properties", Locale.KOREAN,
-        // Not part of the required matrix: the script-less zh catalog the framework
-        // resources carry as a compatibility alias (see FRAMEWORK_CATALOG_ALIASES).
-        "messages_zh.properties", Locale.forLanguageTag("zh")
-    );
+            "messages.properties", Locale.ROOT,
+            "messages_en.properties", Locale.ENGLISH,
+            "messages_zh_Hans.properties", Locale.forLanguageTag("zh-Hans"),
+            "messages_zh_Hant.properties", Locale.forLanguageTag("zh-Hant"),
+            "messages_ja.properties", Locale.JAPANESE,
+            "messages_ko.properties", Locale.KOREAN,
+            // Not part of the required matrix: the script-less zh catalog the framework
+            // resources carry as a compatibility alias (see FRAMEWORK_CATALOG_ALIASES).
+            "messages_zh.properties", Locale.forLanguageTag("zh"));
     private static final String BASELINE_FILE = "baseline-keys.txt";
     /**
      * Catalogs the framework resources may carry beyond the required matrix.
@@ -51,46 +49,44 @@ final class OfficialPluginCatalogCompleteness {
      * optional, but when present it is verified like every other catalog.</p>
      */
     private static final Set<String> FRAMEWORK_CATALOG_ALIASES = Set.of("messages_zh.properties");
+
     private static final Pattern VALID_KEY = Pattern.compile("[a-z][A-Za-z0-9]*(?:[._-][a-z][A-Za-z0-9]*)*");
-    private static final Pattern KEY_REFERENCE = Pattern.compile(
-        "[\\\"](?:labelKey|titleKey|messageKey)[\\\"]\\s*[:=]\\s*[\\\"]([^\\\"]+)[\\\"]"
-            + "|\\b(?:labelKey|titleKey|messageKey)\\s*\\(\\s*[\\\"]([^\\\"]+)[\\\"]"
-    );
+    private static final Pattern KEY_REFERENCE =
+            Pattern.compile("[\\\"](?:labelKey|titleKey|messageKey)[\\\"]\\s*[:=]\\s*[\\\"]([^\\\"]+)[\\\"]"
+                    + "|\\b(?:labelKey|titleKey|messageKey)\\s*\\(\\s*[\\\"]([^\\\"]+)[\\\"]");
     private static final Set<String> REQUIRED_DECLARED_LOCALES = Set.of("en", "ja", "ko", "zh-Hans", "zh-Hant");
     private static final Pattern I18N_BLOCK = Pattern.compile("\\\"i18n\\\"\\s*:\\s*\\{(.*?)\\}", Pattern.DOTALL);
     private static final Pattern JSON_STRING = Pattern.compile("\\\"([^\\\"]+)\\\"");
     private static final Set<String> REVIEWED_TECHNICAL_EQUAL_KEYS = Set.of(
-        "about.eula",
-        "about.github",
-        "common.turboism",
-        "plugins.column.id",
-        "plugins.details.api",
-        "plugins.details.id",
-        "plugins.details.readme",
-        "table.id",
-        "tooltip.guid",
-        "theme.detail.id",
-        "theme.detail.url",
-        "texture-atlas.algorithm.maxrects",
-        "dialog.kernel.option.abey",
-        "dialog.kernel.option.dalalah",
-        "chart.cpu.title",
-        "history.entry.cursor-marker",
-        "chart.cpu.series",
-        "series.cpu",
-        "status.cpu.label",
-        "value.none",
-        "button.new-session-short",
-        "button.refresh-short",
-        "button.settings-short",
-        "transcript.agent",
-        "transcript.system",
-        "transcript.tool",
-        "result.failure.line"
-    );
+            "about.eula",
+            "about.github",
+            "common.turboism",
+            "plugins.column.id",
+            "plugins.details.api",
+            "plugins.details.id",
+            "plugins.details.readme",
+            "table.id",
+            "tooltip.guid",
+            "theme.detail.id",
+            "theme.detail.url",
+            "texture-atlas.algorithm.maxrects",
+            "dialog.kernel.option.abey",
+            "dialog.kernel.option.dalalah",
+            "result.failure.line",
+            "chart.cpu.title",
+            "history.entry.cursor-marker",
+            "chart.cpu.series",
+            "series.cpu",
+            "status.cpu.label",
+            "value.none",
+            "button.new-session-short",
+            "button.refresh-short",
+            "button.settings-short",
+            "transcript.agent",
+            "transcript.system",
+            "transcript.tool");
 
-    private OfficialPluginCatalogCompleteness() {
-    }
+    private OfficialPluginCatalogCompleteness() {}
 
     static void verify(String pluginId, Path i18nDirectory) throws IOException {
         verify(pluginId, i18nDirectory, null);
@@ -108,7 +104,7 @@ final class OfficialPluginCatalogCompleteness {
                 Path i18nDirectory = productionRoot.resolve("resources/META-INF/turboism/i18n");
                 boolean hasDescriptor = Files.isRegularFile(descriptor);
                 boolean descriptorParticipates = hasDescriptor
-                    && descriptorDeclaresI18n(pluginRoot.getFileName().toString(), descriptor, problems);
+                        && descriptorDeclaresI18n(pluginRoot.getFileName().toString(), descriptor, problems);
                 // An official plugin descriptor without an i18n block is a completeness problem.
                 if (hasDescriptor && !descriptorParticipates) {
                     problems.add(pluginRoot.getFileName() + ": plugin descriptor has no i18n block");
@@ -169,9 +165,9 @@ final class OfficialPluginCatalogCompleteness {
         List<Path> catalogDirectories = new ArrayList<>();
         try (Stream<Path> tree = Files.walk(resourcesRoot)) {
             tree.filter(Files::isDirectory)
-                .filter(directory -> Files.isRegularFile(directory.resolve(CATALOG_FILES.get(0))))
-                .sorted()
-                .forEach(catalogDirectories::add);
+                    .filter(directory -> Files.isRegularFile(directory.resolve(CATALOG_FILES.get(0))))
+                    .sorted()
+                    .forEach(catalogDirectories::add);
         }
         if (catalogDirectories.isEmpty()) {
             throw new IllegalStateException("no framework message catalogs under " + resourcesRoot);
@@ -180,8 +176,7 @@ final class OfficialPluginCatalogCompleteness {
             String scopeId = "framework " + resourcesRoot.relativize(directory);
             // Baseline keys come from the catalog itself; pass null so the matrix reader derives
             // them from messages.properties, which CATALOG_FILES lists first.
-            verifyCatalogMatrix(
-                scopeId, directory, null, CATALOG_FILES, FRAMEWORK_CATALOG_ALIASES, problems);
+            verifyCatalogMatrix(scopeId, directory, null, CATALOG_FILES, FRAMEWORK_CATALOG_ALIASES, problems);
         }
         if (!problems.isEmpty()) {
             throw new IllegalStateException(String.join(System.lineSeparator(), problems));
@@ -201,13 +196,13 @@ final class OfficialPluginCatalogCompleteness {
      * @param problems accumulates failures
      */
     private static void verifyCatalogMatrix(
-        final String scopeId,
-        final Path directory,
-        final Set<String> baselineKeys,
-        final List<String> requiredCatalogs,
-        final Set<String> allowedExtraCatalogs,
-        final List<String> problems
-    ) throws IOException {
+            final String scopeId,
+            final Path directory,
+            final Set<String> baselineKeys,
+            final List<String> requiredCatalogs,
+            final Set<String> allowedExtraCatalogs,
+            final List<String> problems)
+            throws IOException {
         verifyCatalogFileSet(scopeId, directory, requiredCatalogs, allowedExtraCatalogs, problems);
 
         Set<String> expectedKeys = baselineKeys == null ? null : new LinkedHashSet<>(baselineKeys);
@@ -251,11 +246,8 @@ final class OfficialPluginCatalogCompleteness {
         verifyTranslationQuality(scopeId, catalogs, problems);
     }
 
-    private static boolean descriptorDeclaresI18n(
-        String pluginId,
-        Path descriptor,
-        List<String> problems
-    ) throws IOException {
+    private static boolean descriptorDeclaresI18n(String pluginId, Path descriptor, List<String> problems)
+            throws IOException {
         String json = Files.readString(descriptor, StandardCharsets.UTF_8);
         Matcher block = I18N_BLOCK.matcher(json);
         if (!block.find()) {
@@ -281,8 +273,7 @@ final class OfficialPluginCatalogCompleteness {
         return true;
     }
 
-    private static List<String> readBaseline(String pluginId, Path path, List<String> problems)
-        throws IOException {
+    private static List<String> readBaseline(String pluginId, Path path, List<String> problems) throws IOException {
         if (!Files.isRegularFile(path)) {
             problems.add(pluginId + ": missing " + BASELINE_FILE);
             return List.of();
@@ -317,25 +308,25 @@ final class OfficialPluginCatalogCompleteness {
     }
 
     private static void verifyCatalogFileSet(
-        final String scopeId,
-        final Path directory,
-        final List<String> requiredCatalogs,
-        final Set<String> allowedExtraCatalogs,
-        final List<String> problems
-    ) throws IOException {
+            final String scopeId,
+            final Path directory,
+            final List<String> requiredCatalogs,
+            final Set<String> allowedExtraCatalogs,
+            final List<String> problems)
+            throws IOException {
         Set<String> expected = Set.copyOf(requiredCatalogs);
         try (Stream<Path> paths = Files.list(directory)) {
             paths.filter(Files::isRegularFile)
-                .map(path -> path.getFileName().toString())
-                .filter(name -> name.startsWith("messages") && name.endsWith(".properties"))
-                .filter(name -> !expected.contains(name) && !allowedExtraCatalogs.contains(name))
-                .sorted()
-                .forEach(name -> problems.add(scopeId + ": unexpected catalog " + name));
+                    .map(path -> path.getFileName().toString())
+                    .filter(name -> name.startsWith("messages") && name.endsWith(".properties"))
+                    .filter(name -> !expected.contains(name) && !allowedExtraCatalogs.contains(name))
+                    .sorted()
+                    .forEach(name -> problems.add(scopeId + ": unexpected catalog " + name));
         }
     }
 
     private static Map<String, String> readCatalog(String pluginId, Path path, List<String> problems)
-        throws IOException {
+            throws IOException {
         String catalogFile = path.getFileName().toString();
         String text = decodeUtf8(pluginId, path, problems);
         Map<String, String> entries = new LinkedHashMap<>();
@@ -368,12 +359,7 @@ final class OfficialPluginCatalogCompleteness {
         return entries;
     }
 
-    private static List<String> logicalLines(
-        String pluginId,
-        String catalogFile,
-        String text,
-        List<String> problems
-    ) {
+    private static List<String> logicalLines(String pluginId, String catalogFile, String text, List<String> problems) {
         List<String> lines = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         boolean continuing = false;
@@ -405,19 +391,17 @@ final class OfficialPluginCatalogCompleteness {
 
     private static String decodeUtf8(String pluginId, Path path, List<String> problems) throws IOException {
         byte[] bytes = Files.readAllBytes(path);
-        if (bytes.length >= 3
-            && bytes[0] == (byte) 0xEF
-            && bytes[1] == (byte) 0xBB
-            && bytes[2] == (byte) 0xBF) {
+        if (bytes.length >= 3 && bytes[0] == (byte) 0xEF && bytes[1] == (byte) 0xBB && bytes[2] == (byte) 0xBF) {
             problems.add(pluginId + ": UTF-8 BOM is forbidden in " + path.getFileName());
             return new String(bytes, 3, bytes.length - 3, StandardCharsets.UTF_8);
         }
         try {
-            return StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes))
-                .toString();
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
         } catch (CharacterCodingException exception) {
             problems.add(pluginId + ": invalid UTF-8 in " + path.getFileName());
             return "";
@@ -425,42 +409,31 @@ final class OfficialPluginCatalogCompleteness {
     }
 
     private static void verifyKeyParity(
-        String pluginId,
-        String catalogFile,
-        Set<String> baseline,
-        Set<String> actual,
-        List<String> problems
-    ) {
+            String pluginId, String catalogFile, Set<String> baseline, Set<String> actual, List<String> problems) {
         baseline.stream()
-            .filter(key -> !actual.contains(key))
-            .forEach(key -> problems.add(pluginId + ": missing key " + key + " in " + catalogFile));
+                .filter(key -> !actual.contains(key))
+                .forEach(key -> problems.add(pluginId + ": missing key " + key + " in " + catalogFile));
         actual.stream()
-            .filter(key -> !baseline.contains(key))
-            .forEach(key -> problems.add(pluginId + ": extra key " + key + " in " + catalogFile));
+                .filter(key -> !baseline.contains(key))
+                .forEach(key -> problems.add(pluginId + ": extra key " + key + " in " + catalogFile));
     }
 
     private static void verifyMessagePatterns(
-        String pluginId,
-        Map<String, Map<String, String>> catalogs,
-        List<String> problems
-    ) {
+            String pluginId, Map<String, Map<String, String>> catalogs, List<String> problems) {
         Map<String, String> base = catalogs.get("messages.properties");
         if (base == null) {
             return;
         }
         Map<String, Set<Integer>> expectedIndexes = new LinkedHashMap<>();
         base.forEach((key, pattern) -> expectedIndexes.put(
-            key,
-            validateMessagePattern(pluginId, "messages.properties", key, pattern, Locale.ROOT, problems)
-        ));
+                key, validateMessagePattern(pluginId, "messages.properties", key, pattern, Locale.ROOT, problems)));
         catalogs.forEach((catalogFile, catalog) -> {
             if (catalogFile.equals("messages.properties")) {
                 return;
             }
             Locale locale = CATALOG_LOCALES.get(catalogFile);
             catalog.forEach((key, pattern) -> {
-                Set<Integer> indexes = validateMessagePattern(
-                    pluginId, catalogFile, key, pattern, locale, problems);
+                Set<Integer> indexes = validateMessagePattern(pluginId, catalogFile, key, pattern, locale, problems);
                 Set<Integer> expected = expectedIndexes.get(key);
                 if (expected != null && !indexes.equals(expected)) {
                     problems.add(pluginId + ": argument index mismatch for " + key + " in " + catalogFile);
@@ -470,17 +443,13 @@ final class OfficialPluginCatalogCompleteness {
     }
 
     private static void verifyTranslationQuality(
-        String pluginId,
-        Map<String, Map<String, String>> catalogs,
-        List<String> problems
-    ) {
+            String pluginId, Map<String, Map<String, String>> catalogs, List<String> problems) {
         Map<String, String> english = catalogs.get("messages_en.properties");
         if (english == null) {
             return;
         }
         catalogs.forEach((catalogFile, catalog) -> {
-            if (catalogFile.equals("messages.properties")
-                || catalogFile.equals("messages_en.properties")) {
+            if (catalogFile.equals("messages.properties") || catalogFile.equals("messages_en.properties")) {
                 return;
             }
             catalog.forEach((key, value) -> {
@@ -492,13 +461,7 @@ final class OfficialPluginCatalogCompleteness {
     }
 
     private static Set<Integer> validateMessagePattern(
-        String pluginId,
-        String catalogFile,
-        String key,
-        String pattern,
-        Locale locale,
-        List<String> problems
-    ) {
+            String pluginId, String catalogFile, String key, String pattern, Locale locale, List<String> problems) {
         try {
             new MessageFormat(pattern, locale);
         } catch (IllegalArgumentException exception) {
@@ -546,25 +509,23 @@ final class OfficialPluginCatalogCompleteness {
     }
 
     private static void verifyProductionKeyReferences(
-        String pluginId,
-        Path productionRoot,
-        Set<String> baseline,
-        List<String> problems
-    ) throws IOException {
+            String pluginId, Path productionRoot, Set<String> baseline, List<String> problems) throws IOException {
         if (!Files.isDirectory(productionRoot)) {
             return;
         }
         try (Stream<Path> paths = Files.walk(productionRoot)) {
             for (Path path : paths.filter(Files::isRegularFile)
-                .filter(file -> file.toString().endsWith(".java") || file.toString().endsWith(".json"))
-                .sorted().toList()) {
+                    .filter(file ->
+                            file.toString().endsWith(".java") || file.toString().endsWith(".json"))
+                    .sorted()
+                    .toList()) {
                 String source = decodeUtf8(pluginId, path, problems);
                 Matcher matcher = KEY_REFERENCE.matcher(source);
                 while (matcher.find()) {
                     String key = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
                     if (!baseline.contains(key)) {
-                        problems.add(pluginId + ": unknown production localization key " + key
-                            + " in " + productionRoot.relativize(path));
+                        problems.add(pluginId + ": unknown production localization key " + key + " in "
+                                + productionRoot.relativize(path));
                     }
                 }
             }

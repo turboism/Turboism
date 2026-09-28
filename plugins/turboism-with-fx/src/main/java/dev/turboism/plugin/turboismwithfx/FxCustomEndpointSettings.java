@@ -6,12 +6,7 @@ import java.util.regex.Pattern;
 
 /** Non-secret custom OpenAI-compatible endpoint metadata plus a session-only key value. */
 record FxCustomEndpointSettings(
-    boolean enabled,
-    String endpoint,
-    String model,
-    String apiKeyEnvironment,
-    String sessionApiKey
-) {
+        boolean enabled, String endpoint, String model, String apiKeyEnvironment, String sessionApiKey) {
     private static final Pattern ENVIRONMENT = Pattern.compile("[A-Za-z_][A-Za-z0-9_]{0,127}");
 
     FxCustomEndpointSettings {
@@ -22,7 +17,8 @@ record FxCustomEndpointSettings(
         if (endpoint.length() > 4096 || model.length() > 512 || sessionApiKey.length() > 4096) {
             throw new IllegalArgumentException("custom endpoint settings are too long");
         }
-        if (!apiKeyEnvironment.isEmpty() && !ENVIRONMENT.matcher(apiKeyEnvironment).matches()) {
+        if (!apiKeyEnvironment.isEmpty()
+                && !ENVIRONMENT.matcher(apiKeyEnvironment).matches()) {
             throw new IllegalArgumentException("API key environment variable name is invalid");
         }
         if (enabled) {
@@ -46,12 +42,11 @@ record FxCustomEndpointSettings(
     private static void validateEndpoint(final String value) {
         try {
             final URI uri = URI.create(value);
-            if (!("http".equalsIgnoreCase(uri.getScheme())
-                || "https".equalsIgnoreCase(uri.getScheme()))
-                || uri.getHost() == null
-                || uri.getRawUserInfo() != null
-                || uri.getRawQuery() != null
-                || uri.getRawFragment() != null) {
+            if (!("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
+                    || uri.getHost() == null
+                    || uri.getRawUserInfo() != null
+                    || uri.getRawQuery() != null
+                    || uri.getRawFragment() != null) {
                 throw new IllegalArgumentException("custom endpoint URL is invalid");
             }
         } catch (IllegalArgumentException failure) {

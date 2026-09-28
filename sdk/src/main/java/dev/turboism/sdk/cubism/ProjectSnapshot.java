@@ -13,12 +13,11 @@ import java.util.Optional;
  * documents are their currently available editor views.</p>
  */
 public record ProjectSnapshot(
-    String projectId,
-    String name,
-    Optional<Path> projectDirectory,
-    List<DocumentSnapshot> documents,
-    List<ProjectContentSnapshot> contents
-) {
+        String projectId,
+        String name,
+        Optional<Path> projectDirectory,
+        List<DocumentSnapshot> documents,
+        List<ProjectContentSnapshot> contents) {
     public ProjectSnapshot {
         projectId = requireText(projectId, "projectId");
         name = requireText(name, "name");
@@ -32,11 +31,10 @@ public record ProjectSnapshot(
 
     /** Legacy constructor for callers that have not yet separated file content from documents. */
     public ProjectSnapshot(
-        final String projectId,
-        final String name,
-        final Optional<Path> projectDirectory,
-        final List<DocumentSnapshot> documents
-    ) {
+            final String projectId,
+            final String name,
+            final Optional<Path> projectDirectory,
+            final List<DocumentSnapshot> documents) {
         this(projectId, name, projectDirectory, documents, List.of());
     }
 
@@ -50,7 +48,9 @@ public record ProjectSnapshot(
      */
     public Optional<ProjectContentSnapshot> content(final String contentId) {
         Objects.requireNonNull(contentId, "contentId");
-        return contents.stream().filter(content -> content.contentId().equals(contentId)).findFirst();
+        return contents.stream()
+                .filter(content -> content.contentId().equals(contentId))
+                .findFirst();
     }
 
     private static String requireText(final String value, final String name) {

@@ -1,11 +1,14 @@
 package dev.turboism.ui.contribution;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.SwingUtilities;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,12 +17,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
 
 class EditorUiContributionAuthorityTest {
 
@@ -40,10 +39,7 @@ class EditorUiContributionAuthorityTest {
         lifecycle.ready(generation, Set.of(EditorUiFamily.MENU));
 
         assertEquals(1, provider.snapshots.size());
-        assertEquals(
-            List.of("plugin-a:leading", "plugin-a:first", "plugin-b:second"),
-            provider.snapshots.get(0)
-        );
+        assertEquals(List.of("plugin-a:leading", "plugin-a:first", "plugin-b:second"), provider.snapshots.get(0));
     }
 
     @Test
@@ -111,9 +107,8 @@ class EditorUiContributionAuthorityTest {
         assertEquals(List.of(first), provider.generations);
         assertEquals(1, provider.closedRegistrations);
         assertEquals(
-            EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED,
-            authority.lastFailure(EditorUiFamily.MENU).orElseThrow().code()
-        );
+                EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED,
+                authority.lastFailure(EditorUiFamily.MENU).orElseThrow().code());
 
         authority.removeProvider(provider);
         provider.admit(second);
@@ -138,7 +133,9 @@ class EditorUiContributionAuthorityTest {
         // being rejected, so the host content can be updated in place.
         authority.contribute(contribution("plugin-a", "same", 1));
         assertEquals(1, authority.contributions(EditorUiFamily.MENU).size());
-        assertEquals("same", authority.contributions(EditorUiFamily.MENU).get(0).identity().contributionId());
+        assertEquals(
+                "same",
+                authority.contributions(EditorUiFamily.MENU).get(0).identity().contributionId());
         assertTrue(provider.generations.size() > reconciledBefore);
     }
 
@@ -154,9 +151,8 @@ class EditorUiContributionAuthorityTest {
 
         assertTrue(provider.snapshots.isEmpty());
         assertEquals(
-            EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED,
-            authority.lastFailure(EditorUiFamily.MENU).orElseThrow().code()
-        );
+                EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED,
+                authority.lastFailure(EditorUiFamily.MENU).orElseThrow().code());
     }
 
     @Test
@@ -164,10 +160,8 @@ class EditorUiContributionAuthorityTest {
         RuntimeEditorUiHostLifecycle lifecycle = new RuntimeEditorUiHostLifecycle();
         EditorUiContributionAuthority authority = new EditorUiContributionAuthority(lifecycle);
         RecordingProvider provider = new RecordingProvider(EditorUiFamily.MENU);
-        provider.admission = EditorUiProviderAdmission.safeMode(
-            EditorUiFamily.MAIN_TOOLBAR,
-            "ui.toolbar.mapping-not-verified"
-        );
+        provider.admission =
+                EditorUiProviderAdmission.safeMode(EditorUiFamily.MAIN_TOOLBAR, "ui.toolbar.mapping-not-verified");
 
         assertThrows(IllegalArgumentException.class, () -> authority.installProvider(provider));
     }
@@ -182,25 +176,18 @@ class EditorUiContributionAuthorityTest {
         EditorUiContributionAuthority authority = new EditorUiContributionAuthority(lifecycle);
         authority.installProvider(provider);
 
-        Thread first = new Thread(
-            () -> authority.contribute(contribution("plugin-a", "first", 0)),
-            "contribute-first"
-        );
+        Thread first = new Thread(() -> authority.contribute(contribution("plugin-a", "first", 0)), "contribute-first");
         first.start();
         assertTrue(
-            provider.applyEntered.await(5, TimeUnit.SECONDS),
-            "the first reconcile must reach the provider before the second contributes"
-        );
+                provider.applyEntered.await(5, TimeUnit.SECONDS),
+                "the first reconcile must reach the provider before the second contributes");
 
-        Thread second = new Thread(
-            () -> authority.contribute(contribution("plugin-b", "second", 1)),
-            "contribute-second"
-        );
+        Thread second =
+                new Thread(() -> authority.contribute(contribution("plugin-b", "second", 1)), "contribute-second");
         second.start();
         awaitTrue(
-            () -> authority.contributions(EditorUiFamily.MENU).size() == 2,
-            "the second contribution must be recorded before the gate opens"
-        );
+                () -> authority.contributions(EditorUiFamily.MENU).size() == 2,
+                "the second contribution must be recorded before the gate opens");
         provider.releaseApply.countDown();
         first.join(TimeUnit.SECONDS.toMillis(5));
         second.join(TimeUnit.SECONDS.toMillis(5));
@@ -208,20 +195,17 @@ class EditorUiContributionAuthorityTest {
         assertFalse(second.isAlive(), "second contribute did not finish");
 
         assertEquals(
-            1,
-            provider.liveInstalls().size(),
-            "concurrent reconciles must leave exactly one live native install, not one per writer"
-        );
+                1,
+                provider.liveInstalls().size(),
+                "concurrent reconciles must leave exactly one live native install, not one per writer");
         assertEquals(
-            List.of("plugin-a:first", "plugin-b:second"),
-            provider.liveInstalls().get(0).descriptors
-        );
+                List.of("plugin-a:first", "plugin-b:second"),
+                provider.liveInstalls().get(0).descriptors);
 
         authority.close();
         assertTrue(
-            provider.liveInstalls().isEmpty(),
-            "every registration the provider issued must be closed by authority close"
-        );
+                provider.liveInstalls().isEmpty(),
+                "every registration the provider issued must be closed by authority close");
     }
 
     @Test
@@ -239,32 +223,26 @@ class EditorUiContributionAuthorityTest {
         // second contribution to the same family. With a blocking per-family lock this
         // deadlocks: the writer holds the lock while waiting for the EDT, and the EDT-side
         // contribute() waits on the same lock.
-        Thread writer = new Thread(
-            () -> authority.contribute(contribution("plugin-a", "first", 0)),
-            "contribute-off-edt"
-        );
+        Thread writer =
+                new Thread(() -> authority.contribute(contribution("plugin-a", "first", 0)), "contribute-off-edt");
         writer.start();
         assertTrue(
-            provider.applyEntered.await(5, TimeUnit.SECONDS),
-            "the first reconcile must reach the provider before the EDT contribution runs"
-        );
+                provider.applyEntered.await(5, TimeUnit.SECONDS),
+                "the first reconcile must reach the provider before the EDT contribution runs");
         assertTrue(
-            provider.edtContributeDone.await(5, TimeUnit.SECONDS),
-            "an EDT contribute must return while another reconcile is parked in invokeAndWait"
-        );
+                provider.edtContributeDone.await(5, TimeUnit.SECONDS),
+                "an EDT contribute must return while another reconcile is parked in invokeAndWait");
         writer.join(TimeUnit.SECONDS.toMillis(5));
         assertFalse(writer.isAlive(), "the writer's contribute did not finish");
         assertNull(provider.edtFailure, "the EDT contribution must not fail");
 
         assertEquals(
-            1,
-            provider.liveInstalls().size(),
-            "the coalesced reconcile must fold both contributions into one live install"
-        );
+                1,
+                provider.liveInstalls().size(),
+                "the coalesced reconcile must fold both contributions into one live install");
         assertEquals(
-            List.of("plugin-a:first", "plugin-b:second"),
-            provider.liveInstalls().get(0).descriptors
-        );
+                List.of("plugin-a:first", "plugin-b:second"),
+                provider.liveInstalls().get(0).descriptors);
 
         authority.close();
         assertTrue(provider.liveInstalls().isEmpty());
@@ -285,40 +263,22 @@ class EditorUiContributionAuthorityTest {
         authority.close();
 
         assertEquals(1, provider.closedRegistrations);
-        assertThrows(
-            IllegalStateException.class,
-            () -> authority.contribute(contribution("plugin-a", "late", 0))
-        );
+        assertThrows(IllegalStateException.class, () -> authority.contribute(contribution("plugin-a", "late", 0)));
     }
 
-    private static EditorUiContribution<String> contribution(
-        final String pluginId,
-        final String id,
-        final int order
-    ) {
+    private static EditorUiContribution<String> contribution(final String pluginId, final String id, final int order) {
         return new EditorUiContribution<>(
-            new EditorUiContributionIdentity(pluginId, EditorUiFamily.MENU, id),
-            order,
-            pluginId + ":" + id
-        );
+                new EditorUiContributionIdentity(pluginId, EditorUiFamily.MENU, id), order, pluginId + ":" + id);
     }
 
     private static EditorUiContribution<String> panelContribution(
-        final String pluginId,
-        final String id,
-        final int order
-    ) {
+            final String pluginId, final String id, final int order) {
         return new EditorUiContribution<>(
-            new EditorUiContributionIdentity(pluginId, EditorUiFamily.PANEL, id),
-            order,
-            pluginId + ":" + id
-        );
+                new EditorUiContributionIdentity(pluginId, EditorUiFamily.PANEL, id), order, pluginId + ":" + id);
     }
 
-    private static void awaitTrue(
-        final java.util.function.BooleanSupplier condition,
-        final String description
-    ) throws InterruptedException {
+    private static void awaitTrue(final java.util.function.BooleanSupplier condition, final String description)
+            throws InterruptedException {
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) {
@@ -343,24 +303,19 @@ class EditorUiContributionAuthorityTest {
 
         private GatedProvider(final EditorUiFamily family) {
             this.family = family;
-            this.admission = EditorUiProviderAdmission.safeMode(
-                family,
-                "ui.provider.mapping-not-verified"
-            );
+            this.admission = EditorUiProviderAdmission.safeMode(family, "ui.provider.mapping-not-verified");
         }
 
         private void admit(final long generation) {
             admission = EditorUiProviderAdmission.admitted(
-                family,
-                generation,
-                new EditorUiProviderAdmission.VerificationEvidence(
-                    "5.3.02",
-                    42,
-                    "a".repeat(64),
-                    "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
-                    "b".repeat(64)
-                )
-            );
+                    family,
+                    generation,
+                    new EditorUiProviderAdmission.VerificationEvidence(
+                            "5.3.02",
+                            42,
+                            "a".repeat(64),
+                            "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
+                            "b".repeat(64)));
         }
 
         private List<Install> liveInstalls() {
@@ -378,13 +333,10 @@ class EditorUiContributionAuthorityTest {
         }
 
         @Override
-        public Registration apply(
-            final long hostGeneration,
-            final List<EditorUiContribution<?>> contributions
-        ) {
-            final Install install = new Install(
-                contributions.stream().map(value -> (String) value.descriptor()).toList()
-            );
+        public Registration apply(final long hostGeneration, final List<EditorUiContribution<?>> contributions) {
+            final Install install = new Install(contributions.stream()
+                    .map(value -> (String) value.descriptor())
+                    .toList());
             installs.add(install);
             if (gateArmed.compareAndSet(true, false)) {
                 applyEntered.countDown();
@@ -431,24 +383,19 @@ class EditorUiContributionAuthorityTest {
 
         private EdtDispatchProvider(final EditorUiFamily family) {
             this.family = family;
-            this.admission = EditorUiProviderAdmission.safeMode(
-                family,
-                "ui.provider.mapping-not-verified"
-            );
+            this.admission = EditorUiProviderAdmission.safeMode(family, "ui.provider.mapping-not-verified");
         }
 
         private void admit(final long generation) {
             admission = EditorUiProviderAdmission.admitted(
-                family,
-                generation,
-                new EditorUiProviderAdmission.VerificationEvidence(
-                    "5.3.02",
-                    42,
-                    "a".repeat(64),
-                    "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
-                    "b".repeat(64)
-                )
-            );
+                    family,
+                    generation,
+                    new EditorUiProviderAdmission.VerificationEvidence(
+                            "5.3.02",
+                            42,
+                            "a".repeat(64),
+                            "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
+                            "b".repeat(64)));
         }
 
         private List<Install> liveInstalls() {
@@ -466,13 +413,10 @@ class EditorUiContributionAuthorityTest {
         }
 
         @Override
-        public Registration apply(
-            final long hostGeneration,
-            final List<EditorUiContribution<?>> contributions
-        ) {
-            final Install install = new Install(
-                contributions.stream().map(value -> (String) value.descriptor()).toList()
-            );
+        public Registration apply(final long hostGeneration, final List<EditorUiContribution<?>> contributions) {
+            final Install install = new Install(contributions.stream()
+                    .map(value -> (String) value.descriptor())
+                    .toList());
             installs.add(install);
             if (dispatchArmed.compareAndSet(true, false)) {
                 applyEntered.countDown();
@@ -509,24 +453,19 @@ class EditorUiContributionAuthorityTest {
 
         private RecordingProvider(final EditorUiFamily family) {
             this.family = family;
-            this.admission = EditorUiProviderAdmission.safeMode(
-                family,
-                "ui.provider.mapping-not-verified"
-            );
+            this.admission = EditorUiProviderAdmission.safeMode(family, "ui.provider.mapping-not-verified");
         }
 
         private void admit(final long generation) {
             admission = EditorUiProviderAdmission.admitted(
-                family,
-                generation,
-                new EditorUiProviderAdmission.VerificationEvidence(
-                    "5.3.02",
-                    42,
-                    ARTIFACT_SHA256,
-                    "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
-                    RECORD_SHA256
-                )
-            );
+                    family,
+                    generation,
+                    new EditorUiProviderAdmission.VerificationEvidence(
+                            "5.3.02",
+                            42,
+                            ARTIFACT_SHA256,
+                            "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
+                            RECORD_SHA256));
         }
 
         @Override
@@ -540,37 +479,28 @@ class EditorUiContributionAuthorityTest {
         }
 
         @Override
-        public Registration apply(
-            final long hostGeneration,
-            final List<EditorUiContribution<?>> contributions
-        ) {
+        public Registration apply(final long hostGeneration, final List<EditorUiContribution<?>> contributions) {
             generations.add(hostGeneration);
-            snapshots.add(contributions.stream().map(value -> (String) value.descriptor()).toList());
+            snapshots.add(contributions.stream()
+                    .map(value -> (String) value.descriptor())
+                    .toList());
             return () -> closedRegistrations++;
         }
     }
 
     private static final class IncrementalRecordingProvider implements EditorUiContributionProvider {
-        private EditorUiProviderAdmission admission = EditorUiProviderAdmission.safeMode(
-            EditorUiFamily.PANEL,
-            "ui.provider.mapping-not-verified"
-        );
+        private EditorUiProviderAdmission admission =
+                EditorUiProviderAdmission.safeMode(EditorUiFamily.PANEL, "ui.provider.mapping-not-verified");
         private int applied;
         private int reconciled;
         private int closedRegistrations;
 
         private void admit(final long generation) {
             admission = EditorUiProviderAdmission.admitted(
-                EditorUiFamily.PANEL,
-                generation,
-                new EditorUiProviderAdmission.VerificationEvidence(
-                    "5.3.02",
-                    42,
-                    "a".repeat(64),
-                    "adapter.editor-ui.panel",
-                    "b".repeat(64)
-                )
-            );
+                    EditorUiFamily.PANEL,
+                    generation,
+                    new EditorUiProviderAdmission.VerificationEvidence(
+                            "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.panel", "b".repeat(64)));
         }
 
         @Override
@@ -589,20 +519,16 @@ class EditorUiContributionAuthorityTest {
         }
 
         @Override
-        public Registration apply(
-            final long hostGeneration,
-            final List<EditorUiContribution<?>> contributions
-        ) {
+        public Registration apply(final long hostGeneration, final List<EditorUiContribution<?>> contributions) {
             applied++;
             return () -> closedRegistrations++;
         }
 
         @Override
         public Registration reconcile(
-            final long hostGeneration,
-            final List<EditorUiContribution<?>> contributions,
-            final Registration existing
-        ) {
+                final long hostGeneration,
+                final List<EditorUiContribution<?>> contributions,
+                final Registration existing) {
             if (existing == null) {
                 return contributions.isEmpty() ? null : apply(hostGeneration, contributions);
             }

@@ -6,7 +6,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
 import javax.swing.JFileChooser;
 
 /**
@@ -17,8 +16,7 @@ import javax.swing.JFileChooser;
  */
 public final class FileChooserHistoryHostAdapter {
 
-    private FileChooserHistoryHostAdapter() {
-    }
+    private FileChooserHistoryHostAdapter() {}
 
     /**
      * Applies the given history to a raw chooser: writes the normalized list
@@ -35,7 +33,7 @@ public final class FileChooserHistoryHostAdapter {
         }
         writeFieldDeep(chooser, "b", new ArrayList<>(normalized));
         final Object chooserImpl = readFieldDeep(chooser, "d");
-        invoke(chooserImpl, "setCurrentDirectory", new Class<?>[]{File.class}, normalized.get(0));
+        invoke(chooserImpl, "setCurrentDirectory", new Class<?>[] {File.class}, normalized.get(0));
     }
 
     /**
@@ -122,11 +120,11 @@ public final class FileChooserHistoryHostAdapter {
                 // keep walking the hierarchy
             } catch (ReflectiveOperationException failure) {
                 throw new IllegalStateException(
-                    "cannot read field " + name + " on " + target.getClass().getName(), failure
-                );
+                        "cannot read field " + name + " on " + target.getClass().getName(), failure);
             }
         }
-        throw new IllegalStateException("field " + name + " not found on " + target.getClass().getName());
+        throw new IllegalStateException(
+                "field " + name + " not found on " + target.getClass().getName());
     }
 
     private static void writeFieldDeep(final Object target, final String name, final Object value) {
@@ -140,14 +138,17 @@ public final class FileChooserHistoryHostAdapter {
                 // keep walking the hierarchy
             } catch (ReflectiveOperationException failure) {
                 throw new IllegalStateException(
-                    "cannot write field " + name + " on " + target.getClass().getName(), failure
-                );
+                        "cannot write field " + name + " on "
+                                + target.getClass().getName(),
+                        failure);
             }
         }
-        throw new IllegalStateException("field " + name + " not found on " + target.getClass().getName());
+        throw new IllegalStateException(
+                "field " + name + " not found on " + target.getClass().getName());
     }
 
-    private static Object invoke(final Object target, final String name, final Class<?>[] types, final Object argument) {
+    private static Object invoke(
+            final Object target, final String name, final Class<?>[] types, final Object argument) {
         if (target == null) {
             return null;
         }
@@ -156,8 +157,7 @@ public final class FileChooserHistoryHostAdapter {
             return method.invoke(target, argument);
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException(
-                "cannot invoke " + name + " on " + target.getClass().getName(), failure
-            );
+                    "cannot invoke " + name + " on " + target.getClass().getName(), failure);
         }
     }
 
@@ -170,8 +170,7 @@ public final class FileChooserHistoryHostAdapter {
             return method.invoke(target);
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException(
-                "cannot invoke " + name + " on " + target.getClass().getName(), failure
-            );
+                    "cannot invoke " + name + " on " + target.getClass().getName(), failure);
         }
     }
 }

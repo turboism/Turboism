@@ -1,14 +1,14 @@
 package dev.turboism.adapter.cubism.warpalt;
 
-import com.live2d.graphics3d.sceneGraph.GSceneGraph;
-import dev.turboism.sdk.ui.resource.UiRasterImage;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.live2d.graphics3d.sceneGraph.GSceneGraph;
+import dev.turboism.sdk.ui.resource.UiRasterImage;
+import org.junit.jupiter.api.Test;
 
 final class RuntimeViewContextMenuRegistrySceneGraphTest {
 
@@ -82,15 +82,15 @@ final class RuntimeViewContextMenuRegistrySceneGraphTest {
 
     @Test
     void missingAccessorFailsClosed() {
-        final IllegalStateException failure = assertThrows(IllegalStateException.class,
-            () -> RuntimeViewContextMenuRegistry.sceneGraphOf(new StripMissing()));
+        final IllegalStateException failure = assertThrows(
+                IllegalStateException.class, () -> RuntimeViewContextMenuRegistry.sceneGraphOf(new StripMissing()));
         assertTrue(failure.getMessage().contains("not found"));
     }
 
     @Test
     void ambiguousAccessorFailsClosed() {
-        final IllegalStateException failure = assertThrows(IllegalStateException.class,
-            () -> RuntimeViewContextMenuRegistry.sceneGraphOf(new StripAmbiguous()));
+        final IllegalStateException failure = assertThrows(
+                IllegalStateException.class, () -> RuntimeViewContextMenuRegistry.sceneGraphOf(new StripAmbiguous()));
         assertTrue(failure.getMessage().contains("ambiguous"));
     }
 }

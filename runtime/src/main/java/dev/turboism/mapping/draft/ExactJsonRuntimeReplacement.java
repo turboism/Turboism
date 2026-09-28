@@ -1,10 +1,8 @@
 package dev.turboism.mapping.draft;
 
-import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -13,15 +11,14 @@ import java.util.List;
 
 /** Locates and replaces one runtime JSON string token without reserializing the pack. */
 final class ExactJsonRuntimeReplacement {
-    private ExactJsonRuntimeReplacement() { }
+    private ExactJsonRuntimeReplacement() {}
 
     static Replacement replace(
-        final byte[] baseBytes,
-        final JsonNode strictPack,
-        final String semanticName,
-        final String beforeRuntime,
-        final String afterRuntime
-    ) {
+            final byte[] baseBytes,
+            final JsonNode strictPack,
+            final String semanticName,
+            final String beforeRuntime,
+            final String afterRuntime) {
         if (beforeRuntime.equals(afterRuntime)) {
             fail("NO_CHANGE", "runtime update must change the selected value");
         }
@@ -42,25 +39,25 @@ final class ExactJsonRuntimeReplacement {
         final byte[] result = new byte[baseBytes.length - (span.end() - span.start()) + replacementToken.length];
         System.arraycopy(baseBytes, 0, result, 0, span.start());
         System.arraycopy(replacementToken, 0, result, span.start(), replacementToken.length);
-        System.arraycopy(baseBytes, span.end(), result, span.start() + replacementToken.length, baseBytes.length - span.end());
+        System.arraycopy(
+                baseBytes, span.end(), result, span.start() + replacementToken.length, baseBytes.length - span.end());
 
         verifyOnlyRuntimeChanged(baseBytes, result, semanticName, beforeRuntime, afterRuntime);
         return new Replacement(result, beforeRuntime, afterRuntime);
     }
 
     static Replacement verifyOnlyRuntimeChanged(
-        final byte[] baseBytes,
-        final byte[] resultBytes,
-        final String semanticName,
-        final String expectedBefore,
-        final String expectedAfter
-    ) {
+            final byte[] baseBytes,
+            final byte[] resultBytes,
+            final String semanticName,
+            final String expectedBefore,
+            final String expectedAfter) {
         final JsonNode base = StrictJson.read(baseBytes, "PACK_JSON_INVALID");
         final JsonNode result = StrictJson.read(resultBytes, "RESULT_PACK_JSON_INVALID");
         final JsonNode baseEntry = uniqueEntry(base, semanticName);
         final JsonNode resultEntry = uniqueEntry(result, semanticName);
         if (!expectedBefore.equals(baseEntry.path("runtime").asText())
-            || !expectedAfter.equals(resultEntry.path("runtime").asText())) {
+                || !expectedAfter.equals(resultEntry.path("runtime").asText())) {
             fail("RESULT_PACK_DIFF_INVALID", "base/result runtime values do not match the requested change");
         }
         final List<TokenSpan> baseSpans = locateRuntimeTokens(baseBytes, semanticName);
@@ -70,9 +67,12 @@ final class ExactJsonRuntimeReplacement {
         }
         final TokenSpan oldSpan = baseSpans.get(0);
         final TokenSpan newSpan = resultSpans.get(0);
-        if (!Arrays.equals(Arrays.copyOfRange(baseBytes, 0, oldSpan.start()), Arrays.copyOfRange(resultBytes, 0, newSpan.start()))
-            || !Arrays.equals(Arrays.copyOfRange(baseBytes, oldSpan.end(), baseBytes.length),
-                Arrays.copyOfRange(resultBytes, newSpan.end(), resultBytes.length))) {
+        if (!Arrays.equals(
+                        Arrays.copyOfRange(baseBytes, 0, oldSpan.start()),
+                        Arrays.copyOfRange(resultBytes, 0, newSpan.start()))
+                || !Arrays.equals(
+                        Arrays.copyOfRange(baseBytes, oldSpan.end(), baseBytes.length),
+                        Arrays.copyOfRange(resultBytes, newSpan.end(), resultBytes.length))) {
             fail("RESULT_PACK_DIFF_INVALID", "bytes outside the selected runtime token changed");
         }
         return new Replacement(resultBytes, expectedBefore, expectedAfter);
@@ -100,17 +100,15 @@ final class ExactJsonRuntimeReplacement {
         } catch (DraftMappingException exception) {
             throw exception;
         } catch (IOException | RuntimeException exception) {
-            throw new DraftMappingException("PACK_RUNTIME_TOKEN_LOCATION_FAILED", "could not safely locate runtime JSON token", exception);
+            throw new DraftMappingException(
+                    "PACK_RUNTIME_TOKEN_LOCATION_FAILED", "could not safely locate runtime JSON token", exception);
         }
     }
 
     /** Parser is positioned at the START_ARRAY value of the root entries field. */
     private static void locateEntryRuntimeTokens(
-        final byte[] bytes,
-        final JsonParser parser,
-        final String semanticName,
-        final List<TokenSpan> matches
-    ) throws IOException {
+            final byte[] bytes, final JsonParser parser, final String semanticName, final List<TokenSpan> matches)
+            throws IOException {
         while (parser.nextToken() != JsonToken.END_ARRAY) {
             if (parser.currentToken() != JsonToken.START_OBJECT) {
                 parser.skipChildren();
@@ -148,7 +146,9 @@ final class ExactJsonRuntimeReplacement {
         // Jackson versions may report the opening quote or the first string-content byte.
         // Keep the search deliberately local and require a decoded-value match, so an escaped
         // quote or an adjacent string can never be selected as the runtime token.
-        for (int candidate = Math.max(0, offset - 1); candidate <= Math.min(bytes.length - 1, offset + 1); candidate++) {
+        for (int candidate = Math.max(0, offset - 1);
+                candidate <= Math.min(bytes.length - 1, offset + 1);
+                candidate++) {
             if (bytes[candidate] != '"' || !followsValueSeparator(bytes, candidate)) {
                 continue;
             }
@@ -166,7 +166,8 @@ final class ExactJsonRuntimeReplacement {
         return match;
     }
 
-    private static TokenSpan stringSpanAt(final byte[] bytes, final int start, final String expectedValue) throws IOException {
+    private static TokenSpan stringSpanAt(final byte[] bytes, final int start, final String expectedValue)
+            throws IOException {
         boolean escaped = false;
         for (int index = start + 1; index < bytes.length; index++) {
             final byte value = bytes[index];
@@ -223,8 +224,12 @@ final class ExactJsonRuntimeReplacement {
         Replacement {
             bytes = bytes.clone();
         }
-        @Override public byte[] bytes() { return bytes.clone(); }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
     }
 
-    private record TokenSpan(int start, int end, String value) { }
+    private record TokenSpan(int start, int end, String value) {}
 }

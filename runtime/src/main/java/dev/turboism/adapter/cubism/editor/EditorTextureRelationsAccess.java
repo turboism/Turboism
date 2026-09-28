@@ -20,7 +20,6 @@ import dev.turboism.sdk.cubism.model.TextureInputBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import dev.turboism.sdk.cubism.model.TextureSourceQuery;
 import dev.turboism.sdk.cubism.model.TextureSourcesSnapshot;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -32,8 +31,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.function.LongSupplier;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 
 /**
  * Read-only projection of the verified 5.3.02 raw/model-image/ArtMesh relation graph.
@@ -53,7 +52,7 @@ final class EditorTextureRelationsAccess {
     private static final String ALL_MODEL_IMAGES = "cubism.editor-model.texture-manager.all-model-images";
     private static final String TEXTURE_ATLASES = "cubism.editor-model.texture-manager.texture-atlases";
     private static final String ART_MESH_USABLE_GROUPS =
-        "cubism.editor-model.texture-manager.art-mesh-usable-model-image-groups";
+            "cubism.editor-model.texture-manager.art-mesh-usable-model-image-groups";
     private static final String WRAPPER_IMAGE = "cubism.editor-model.layered-image-wrapper.image";
     private static final String WRAPPER_IMPORT_TIME = "cubism.editor-model.layered-image-wrapper.import-time";
     private static final String WRAPPER_MODIFIED_TIME = "cubism.editor-model.layered-image-wrapper.modified-time";
@@ -75,47 +74,38 @@ final class EditorTextureRelationsAccess {
     private static final String MODEL_IMAGE_NAME = "cubism.editor-model.model-image.name";
     private static final String MODEL_IMAGE_WIDTH = "cubism.editor-model.model-image.width";
     private static final String MODEL_IMAGE_HEIGHT = "cubism.editor-model.model-image.height";
-    private static final String MODEL_IMAGE_LINKED_RAW =
-        "cubism.editor-model.model-image.linked-raw-image-guids";
-    private static final String MODEL_IMAGE_INPUT_FILTER_ENV =
-        "cubism.editor-model.model-image.input-filter-env";
+    private static final String MODEL_IMAGE_LINKED_RAW = "cubism.editor-model.model-image.linked-raw-image-guids";
+    private static final String MODEL_IMAGE_INPUT_FILTER_ENV = "cubism.editor-model.model-image.input-filter-env";
     private static final String FILTER_ENV_CLASS = "cubism.editor-model.model-image-filter-env.class";
     private static final String FILTER_ENV_HAS_LAYER_INPUT =
-        "cubism.editor-model.model-image-filter-env.has-layer-input-data";
-    private static final String FILTER_ENV_LAYER_INPUT =
-        "cubism.editor-model.model-image-filter-env.layer-input-data";
+            "cubism.editor-model.model-image-filter-env.has-layer-input-data";
+    private static final String FILTER_ENV_LAYER_INPUT = "cubism.editor-model.model-image-filter-env.layer-input-data";
     private static final String FILTER_ENV_HAS_CURRENT =
-        "cubism.editor-model.model-image-filter-env.has-current-image-guid";
-    private static final String FILTER_ENV_CURRENT =
-        "cubism.editor-model.model-image-filter-env.current-image-guid";
+            "cubism.editor-model.model-image-filter-env.has-current-image-guid";
+    private static final String FILTER_ENV_CURRENT = "cubism.editor-model.model-image-filter-env.current-image-guid";
     private static final String SELECTOR_MAP_CLASS = "cubism.editor-model.layer-selector-map.class";
     private static final String SELECTOR_MAP_IMAGE_INPUTS =
-        "cubism.editor-model.layer-selector-map.image-to-layer-input";
+            "cubism.editor-model.layer-selector-map.image-to-layer-input";
     private static final String LAYER_INPUT_CLASS = "cubism.editor-model.layer-input-data.class";
     private static final String LAYER_INPUT_LAYER = "cubism.editor-model.layer-input-data.layer";
     private static final String LAYER_INPUT_AFFINE = "cubism.editor-model.layer-input-data.affine";
-    private static final String LAYER_INPUT_CLIPPING =
-        "cubism.editor-model.layer-input-data.clipping-on-texture-px";
+    private static final String LAYER_INPUT_CLIPPING = "cubism.editor-model.layer-input-data.clipping-on-texture-px";
     private static final String GROUP_CLASS = "cubism.editor-model.model-image-group.class";
     private static final String GROUP_NAME = "cubism.editor-model.model-image-group.group-name";
     private static final String GROUP_MEMO = "cubism.editor-model.model-image-group.memo";
     private static final String GROUP_IMAGES = "cubism.editor-model.model-image-group.model-images";
-    private static final String GROUP_LINKED_RAW =
-        "cubism.editor-model.model-image-group.linked-raw-image-guids";
+    private static final String GROUP_LINKED_RAW = "cubism.editor-model.model-image-group.linked-raw-image-guids";
     private static final String ATLAS_CLASS = "cubism.editor-model.texture-atlas.class";
     private static final String ATLAS_GUID = "cubism.editor-model.texture-atlas.guid";
     private static final String EXTENSION_CLASS = "cubism.editor-model.texture-input-extension.class";
-    private static final String EXTENSION_INPUTS =
-        "cubism.editor-model.texture-input-extension.texture-inputs";
+    private static final String EXTENSION_INPUTS = "cubism.editor-model.texture-input-extension.texture-inputs";
     private static final String EXTENSION_CURRENT =
-        "cubism.editor-model.texture-input-extension.current-texture-input-data";
+            "cubism.editor-model.texture-input-extension.current-texture-input-data";
     private static final String MODEL_INPUT_CLASS = "cubism.editor-model.texture-input-model-image.class";
-    private static final String MODEL_INPUT_GUID =
-        "cubism.editor-model.texture-input-model-image.model-image-guid";
-    private static final String ATLAS_INPUT_CLASS =
-        "cubism.editor-model.texture-input-texture-atlas-region.class";
+    private static final String MODEL_INPUT_GUID = "cubism.editor-model.texture-input-model-image.model-image-guid";
+    private static final String ATLAS_INPUT_CLASS = "cubism.editor-model.texture-input-texture-atlas-region.class";
     private static final String ATLAS_INPUT_GUID =
-        "cubism.editor-model.texture-input-texture-atlas-region.texture-atlas-guid";
+            "cubism.editor-model.texture-input-texture-atlas-region.texture-atlas-guid";
     private static final String ALL_ART_MESH_SOURCES = "cubism.editor-model.model-source.all-art-meshes";
     private static final String ALL_ART_MESHES = "cubism.editor-model.model.all-art-meshes";
     private static final String ART_MESH_SOURCE_CLASS = "cubism.editor-model.art-mesh-source.class";
@@ -132,20 +122,15 @@ final class EditorTextureRelationsAccess {
     private final AtomicLong revision = new AtomicLong();
 
     EditorTextureRelationsAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard,
-        final LongSupplier generationSupplier
-    ) {
+            final VerifiedMemberResolver resolver,
+            final EditorParameterCombinedAccess.ModelGuard modelGuard,
+            final LongSupplier generationSupplier) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.generationSupplier = Objects.requireNonNull(generationSupplier, "generationSupplier");
     }
 
-    TextureRelationsSnapshot relations(
-        final String identity,
-        final Object source,
-        final Object model
-    ) {
+    TextureRelationsSnapshot relations(final String identity, final Object source, final Object model) {
         Objects.requireNonNull(identity, "identity");
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(model, "model");
@@ -153,14 +138,12 @@ final class EditorTextureRelationsAccess {
             return TextureRelationsSnapshot.unavailable();
         }
         return EditorHostThread.dispatch(
-            "Cubism texture relations",
-            () -> relationsOnHostThread(identity, source, model)
-        );
+                "Cubism texture relations", () -> relationsOnHostThread(identity, source, model));
     }
 
     /** Scoped identity reads only: no layer tree, selector map, group or pixel observation. */
-    TextureSourcesSnapshot sources(final String identity, final Object source, final Object model,
-        final TextureSourceQuery query) {
+    TextureSourcesSnapshot sources(
+            final String identity, final Object source, final Object model, final TextureSourceQuery query) {
         Objects.requireNonNull(query, "query");
         if (!isAvailable()) return TextureSourcesSnapshot.unavailable();
         return EditorHostThread.dispatch("Cubism texture sources", () -> {
@@ -173,18 +156,20 @@ final class EditorTextureRelationsAccess {
                 final Map<ModelImageId, Object> imageIndex = new LinkedHashMap<>();
                 for (final Object image : list(resolver.invoke(ALL_MODEL_IMAGES, manager), "model images")) {
                     requireInstance(MODEL_IMAGE_CLASS, image, "model image");
-                    final ModelImageId id = new ModelImageId(guidValue(resolver.invoke(MODEL_IMAGE_GUID, image), "model image"));
+                    final ModelImageId id =
+                            new ModelImageId(guidValue(resolver.invoke(MODEL_IMAGE_GUID, image), "model image"));
                     if (imageIndex.put(id, image) != null) throw unavailable("Duplicate model image identity.");
                 }
                 final Set<ModelImageId> requested = new LinkedHashSet<>(query.modelImages());
                 final List<ArtMeshRead> meshes = readSelectedArtMeshes(source, model, query.artMeshes());
                 final Set<String> atlasIds = meshes.isEmpty() ? Set.of() : readAtlasIds(manager);
                 for (final ArtMeshRead mesh : meshes) {
-                    final ArtMeshTextureInputs value = readArtMeshInputs(mesh, imageIndex.keySet(), atlasIds,
-                        new LinkedHashMap<>());
+                    final ArtMeshTextureInputs value =
+                            readArtMeshInputs(mesh, imageIndex.keySet(), atlasIds, new LinkedHashMap<>());
                     inputs.add(value);
                     if (value.currentInputIndex().isEmpty()) continue;
-                    final TextureInputBinding current = value.inputs().get(value.currentInputIndex().getAsInt());
+                    final TextureInputBinding current =
+                            value.inputs().get(value.currentInputIndex().getAsInt());
                     if (current.kind() == TextureInputBinding.Kind.MODEL_IMAGE) {
                         current.modelImageId().ifPresent(requested::add);
                     } else if (current.kind() == TextureInputBinding.Kind.ATLAS) {
@@ -206,7 +191,8 @@ final class EditorTextureRelationsAccess {
                     for (final Object wrapper : list(resolver.invoke(RAW_IMAGES, manager), "raw images")) {
                         final Object raw = requireObject(resolver.invoke(WRAPPER_IMAGE, wrapper), "raw image");
                         requireInstance(LAYERED_IMAGE_CLASS, raw, "raw image");
-                        final RawImageId id = new RawImageId(guidValue(resolver.invoke(LAYERED_IMAGE_GUID, raw), "raw image"));
+                        final RawImageId id =
+                                new RawImageId(guidValue(resolver.invoke(LAYERED_IMAGE_GUID, raw), "raw image"));
                         if (!rawIds.contains(id)) continue;
                         if (!seen.add(id)) throw unavailable("Duplicate requested raw image identity.");
                         raws.add(immutableRawTexture(id, raw));
@@ -214,20 +200,26 @@ final class EditorTextureRelationsAccess {
                 }
             }
             modelGuard.requireCurrent(identity, model);
-            return new TextureSourcesSnapshot(TextureSourcesSnapshot.Availability.AVAILABLE,
-                identity, generationSupplier.getAsLong(), revision.incrementAndGet(), raws, images, inputs);
+            return new TextureSourcesSnapshot(
+                    TextureSourcesSnapshot.Availability.AVAILABLE,
+                    identity,
+                    generationSupplier.getAsLong(),
+                    revision.incrementAndGet(),
+                    raws,
+                    images,
+                    inputs);
         });
     }
 
-    private List<ArtMeshRead> readSelectedArtMeshes(final Object source, final Object model,
-        final Set<ArtMeshId> requested) {
+    private List<ArtMeshRead> readSelectedArtMeshes(
+            final Object source, final Object model, final Set<ArtMeshId> requested) {
         if (requested.isEmpty()) return List.of();
         final List<ArtMeshRead> selected = new ArrayList<>();
         final Set<ArtMeshId> ids = new HashSet<>();
         final Set<Object> selectedSources = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         for (final Object candidate : list(resolver.invoke(ALL_ART_MESH_SOURCES, source), "ArtMesh sources")) {
-            final ArtMeshId id = new ArtMeshId(stringValue(resolver.invoke(OBJECT_ID_VALUE,
-                resolver.invoke(OBJECT_ID, candidate)), "ArtMesh ID"));
+            final ArtMeshId id = new ArtMeshId(
+                    stringValue(resolver.invoke(OBJECT_ID_VALUE, resolver.invoke(OBJECT_ID, candidate)), "ArtMesh ID"));
             if (!requested.contains(id)) continue;
             requireInstance(ART_MESH_SOURCE_CLASS, candidate, "ArtMesh source");
             if (!ids.add(id) || !selectedSources.add(candidate)) throw unavailable("Duplicate selected ArtMesh.");
@@ -247,16 +239,10 @@ final class EditorTextureRelationsAccess {
 
     /** All native relation selectors run in one synchronous host-thread read boundary. */
     private TextureRelationsSnapshot relationsOnHostThread(
-        final String identity,
-        final Object source,
-        final Object model
-    ) {
+            final String identity, final Object source, final Object model) {
         modelGuard.requireCurrent(identity, model);
 
-        final Object textureManager = requireObject(
-            resolver.invoke(TEXTURE_MANAGER, source),
-            "Editor texture manager"
-        );
+        final Object textureManager = requireObject(resolver.invoke(TEXTURE_MANAGER, source), "Editor texture manager");
         final RawRead rawRead = readRawImages(textureManager);
         final ModelImageRead modelImageRead = readModelImages(textureManager);
         final Set<String> atlasIds = readAtlasIds(textureManager);
@@ -281,24 +267,22 @@ final class EditorTextureRelationsAccess {
         final long generation = generationSupplier.getAsLong();
         final long observedRevision = revision.incrementAndGet();
         return new TextureRelationsSnapshot(
-            TextureRelationsSnapshot.Availability.AVAILABLE,
-            identity,
-            generation,
-            observedRevision,
-            rawRead.values,
-            modelImages,
-            groups,
-            artMeshInputs
-        );
+                TextureRelationsSnapshot.Availability.AVAILABLE,
+                identity,
+                generation,
+                observedRevision,
+                rawRead.values,
+                modelImages,
+                groups,
+                artMeshInputs);
     }
 
     private boolean isAvailable() {
         return resolver.isExactCubismVersion(EditorTextureRelationsSelectorContract.SUPPORTED_CUBISM_VERSION)
-            && resolver.authorizesFeature(
-                EditorTextureRelationsSelectorContract.ADAPTER_SLICE_ID,
-                EditorTextureRelationsSelectorContract.CAPABILITY_ID,
-                EditorTextureRelationsSelectorContract.REQUIRED_ALIASES
-            );
+                && resolver.authorizesFeature(
+                        EditorTextureRelationsSelectorContract.ADAPTER_SLICE_ID,
+                        EditorTextureRelationsSelectorContract.CAPABILITY_ID,
+                        EditorTextureRelationsSelectorContract.REQUIRED_ALIASES);
     }
 
     private RawRead readRawImages(final Object textureManager) {
@@ -307,32 +291,24 @@ final class EditorTextureRelationsAccess {
         for (final Object wrapper : list(resolver.invoke(RAW_IMAGES, textureManager), "raw image")) {
             final Object image = requireObject(resolver.invoke(WRAPPER_IMAGE, wrapper), "raw layered image");
             requireInstance(LAYERED_IMAGE_CLASS, image, "raw layered image");
-            final RawImageId id = new RawImageId(guidValue(
-                resolver.invoke(LAYERED_IMAGE_GUID, image),
-                "raw image"
-            ));
+            final RawImageId id = new RawImageId(guidValue(resolver.invoke(LAYERED_IMAGE_GUID, image), "raw image"));
             final RawTexture rawTexture = immutableRawTexture(id, image);
-            final List<RawLayerDetails> layers = readLayers(
-                resolver.invoke(LAYERED_IMAGE_CHILDREN, image),
-                id,
-                new HashSet<>()
-            );
+            final List<RawLayerDetails> layers =
+                    readLayers(resolver.invoke(LAYERED_IMAGE_CHILDREN, image), id, new HashSet<>());
             // CLayeredImage.psdFile is shared by the ordinary CImageResource constructor and the
             // CPsdDocument constructor. Only a non-null, typed getPsdDoc result is positive PSD
             // evidence; a reopened document with a missing psdDoc remains UNKNOWN.
             final Object psdDocument = resolver.invoke(LAYERED_IMAGE_PSD_DOC, image);
-            final RawImageDetails.SourceKind sourceKind = psdDocument != null
-                ? RawImageDetails.SourceKind.PSD
-                : RawImageDetails.SourceKind.UNKNOWN;
+            final RawImageDetails.SourceKind sourceKind =
+                    psdDocument != null ? RawImageDetails.SourceKind.PSD : RawImageDetails.SourceKind.UNKNOWN;
             final RawImageDetails details = new RawImageDetails(
-                rawTexture,
-                sourceKind,
-                layers,
-                booleanValue(resolver.invoke(WRAPPER_REPLACED, wrapper), "raw image replaced"),
-                optionalString(resolver.invoke(WRAPPER_IMPORT_TIME, wrapper), "raw image import time"),
-                optionalString(resolver.invoke(WRAPPER_MODIFIED_TIME, wrapper), "raw image modified time"),
-                Optional.empty()
-            );
+                    rawTexture,
+                    sourceKind,
+                    layers,
+                    booleanValue(resolver.invoke(WRAPPER_REPLACED, wrapper), "raw image replaced"),
+                    optionalString(resolver.invoke(WRAPPER_IMPORT_TIME, wrapper), "raw image import time"),
+                    optionalString(resolver.invoke(WRAPPER_MODIFIED_TIME, wrapper), "raw image modified time"),
+                    Optional.empty());
             if (byId.put(id, details) != null) {
                 throw unavailable("Editor raw image identifiers are not unique.");
             }
@@ -342,25 +318,34 @@ final class EditorTextureRelationsAccess {
     }
 
     private RawTexture immutableRawTexture(final RawImageId id, final Object image) {
-        final String name = stringValue(
-            resolver.invoke(LAYERED_IMAGE_NAME, image),
-            "raw image name"
-        );
+        final String name = stringValue(resolver.invoke(LAYERED_IMAGE_NAME, image), "raw image name");
         final int width = dimension(resolver.invoke(LAYERED_IMAGE_WIDTH, image), "raw image width");
         final int height = dimension(resolver.invoke(LAYERED_IMAGE_HEIGHT, image), "raw image height");
         return new RawTexture() {
-            @Override public RawImageId id() { return id; }
-            @Override public String name() { return name; }
-            @Override public int width() { return width; }
-            @Override public int height() { return height; }
+            @Override
+            public RawImageId id() {
+                return id;
+            }
+
+            @Override
+            public String name() {
+                return name;
+            }
+
+            @Override
+            public int width() {
+                return width;
+            }
+
+            @Override
+            public int height() {
+                return height;
+            }
         };
     }
 
     private List<RawLayerDetails> readLayers(
-        final Object rawEntries,
-        final RawImageId ownerRawImageId,
-        final Set<String> seenIds
-    ) {
+            final Object rawEntries, final RawImageId ownerRawImageId, final Set<String> seenIds) {
         final List<RawLayerDetails> values = new ArrayList<>();
         for (final Object entry : list(rawEntries, "raw layer")) {
             requireInstance(LAYER_ENTRY_CLASS, entry, "raw layer entry");
@@ -372,23 +357,18 @@ final class EditorTextureRelationsAccess {
             final List<RawLayerDetails> children;
             if (resolver.isInstance(LAYER_GROUP_CLASS, entry)) {
                 kind = RawLayerDetails.EntryKind.GROUP;
-                children = readLayers(
-                    resolver.invoke(LAYER_GROUP_CHILDREN, entry),
-                    ownerRawImageId,
-                    seenIds
-                );
+                children = readLayers(resolver.invoke(LAYER_GROUP_CHILDREN, entry), ownerRawImageId, seenIds);
             } else {
                 kind = RawLayerDetails.EntryKind.PIXEL;
                 children = List.of();
             }
             values.add(new RawLayerDetails(
-                new RawLayerId(idValue),
-                ownerRawImageId,
-                kind,
-                stringValue(resolver.invoke(LAYER_ENTRY_NAME, entry), "raw layer name"),
-                Optional.empty(),
-                children
-            ));
+                    new RawLayerId(idValue),
+                    ownerRawImageId,
+                    kind,
+                    stringValue(resolver.invoke(LAYER_ENTRY_NAME, entry), "raw layer name"),
+                    Optional.empty(),
+                    children));
         }
         return List.copyOf(values);
     }
@@ -399,9 +379,8 @@ final class EditorTextureRelationsAccess {
         final IdentityHashMap<Object, ModelImageData> byHost = new IdentityHashMap<>();
         for (final Object image : list(resolver.invoke(ALL_MODEL_IMAGES, textureManager), "model image")) {
             requireInstance(MODEL_IMAGE_CLASS, image, "model image");
-            final ModelImageId id = new ModelImageId(
-                guidValue(resolver.invoke(MODEL_IMAGE_GUID, image), "model image")
-            );
+            final ModelImageId id =
+                    new ModelImageId(guidValue(resolver.invoke(MODEL_IMAGE_GUID, image), "model image"));
             final ModelImageEntry entry = immutableModelImageEntry(id, image);
             final ModelImageData data = new ModelImageData(image, id, entry);
             if (byId.put(id, data) != null || byHost.put(image, data) != null) {
@@ -413,17 +392,29 @@ final class EditorTextureRelationsAccess {
     }
 
     private ModelImageEntry immutableModelImageEntry(final ModelImageId id, final Object image) {
-        final String name = stringValue(
-            resolver.invoke(MODEL_IMAGE_NAME, image),
-            "model image name"
-        );
+        final String name = stringValue(resolver.invoke(MODEL_IMAGE_NAME, image), "model image name");
         final int width = dimension(resolver.invoke(MODEL_IMAGE_WIDTH, image), "model image width");
         final int height = dimension(resolver.invoke(MODEL_IMAGE_HEIGHT, image), "model image height");
         return new ModelImageEntry() {
-            @Override public ModelImageId id() { return id; }
-            @Override public String name() { return name; }
-            @Override public int width() { return width; }
-            @Override public int height() { return height; }
+            @Override
+            public ModelImageId id() {
+                return id;
+            }
+
+            @Override
+            public String name() {
+                return name;
+            }
+
+            @Override
+            public int width() {
+                return width;
+            }
+
+            @Override
+            public int height() {
+                return height;
+            }
         };
     }
 
@@ -439,62 +430,55 @@ final class EditorTextureRelationsAccess {
         return Set.copyOf(ids);
     }
 
-    private List<ModelImageGroupRelation> readGroups(
-        final Object textureManager,
-        final ModelImageRead modelImages
-    ) {
+    private List<ModelImageGroupRelation> readGroups(final Object textureManager, final ModelImageRead modelImages) {
         final Set<Object> usableGroups = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-        for (final Object group : list(
-            resolver.invoke(ART_MESH_USABLE_GROUPS, textureManager),
-            "art-mesh-usable model image group"
-        )) {
+        for (final Object group :
+                list(resolver.invoke(ART_MESH_USABLE_GROUPS, textureManager), "art-mesh-usable model image group")) {
             requireInstance(GROUP_CLASS, group, "art-mesh-usable model image group");
             usableGroups.add(group);
         }
 
         final List<ModelImageGroupRelation> values = new ArrayList<>();
-        for (final Object group : list(
-            resolver.invoke(MODEL_IMAGE_GROUPS, textureManager),
-            "model image group"
-        )) {
+        for (final Object group : list(resolver.invoke(MODEL_IMAGE_GROUPS, textureManager), "model image group")) {
             requireInstance(GROUP_CLASS, group, "model image group");
             final String groupName = stringValue(resolver.invoke(GROUP_NAME, group), "model image group name");
             final Object rawMemo = resolver.invoke(GROUP_MEMO, group);
             final String memo = rawMemo == null ? "" : stringValue(rawMemo, "model image group memo");
             final List<ModelImageEntry> entries = new ArrayList<>();
             final List<ModelImageId> modelImageIds = new ArrayList<>();
-            for (final Object image : list(
-                resolver.invoke(GROUP_IMAGES, group),
-                "model image group images"
-            )) {
+            for (final Object image : list(resolver.invoke(GROUP_IMAGES, group), "model image group images")) {
                 final ModelImageData data = modelImageData(image, modelImages);
                 entries.add(data.entry);
                 modelImageIds.add(data.id);
             }
             final ModelImageGroup groupValue = new ModelImageGroup() {
-                @Override public String groupName() { return groupName; }
-                @Override public String memo() { return memo; }
-                @Override public List<ModelImageEntry> modelImages() { return List.copyOf(entries); }
+                @Override
+                public String groupName() {
+                    return groupName;
+                }
+
+                @Override
+                public String memo() {
+                    return memo;
+                }
+
+                @Override
+                public List<ModelImageEntry> modelImages() {
+                    return List.copyOf(entries);
+                }
             };
             values.add(new ModelImageGroupRelation(
-                groupValue,
-                modelImageIds,
-                rawImageIds(resolver.invoke(GROUP_LINKED_RAW, group), "model image group linked raw images"),
-                Optional.of(usableGroups.contains(group))
-            ));
+                    groupValue,
+                    modelImageIds,
+                    rawImageIds(resolver.invoke(GROUP_LINKED_RAW, group), "model image group linked raw images"),
+                    Optional.of(usableGroups.contains(group))));
         }
         return List.copyOf(values);
     }
 
     private List<ArtMeshRead> readArtMeshes(final Object source, final Object model) {
-        final List<?> sources = list(
-            resolver.invoke(ALL_ART_MESH_SOURCES, source),
-            "ArtMesh source"
-        );
-        final List<?> instances = list(
-            resolver.invoke(ALL_ART_MESHES, model),
-            "ArtMesh instance"
-        );
+        final List<?> sources = list(resolver.invoke(ALL_ART_MESH_SOURCES, source), "ArtMesh source");
+        final List<?> instances = list(resolver.invoke(ALL_ART_MESHES, model), "ArtMesh instance");
         final IdentityHashMap<Object, Object> instanceBySource = new IdentityHashMap<>();
         for (final Object instance : instances) {
             requireInstance(ART_MESH_CLASS, instance, "ArtMesh instance");
@@ -513,7 +497,7 @@ final class EditorTextureRelationsAccess {
                 throw unavailable("Editor ArtMesh source has no active instance.");
             }
             final String id = stringValue(
-                resolver.invoke(OBJECT_ID_VALUE, resolver.invoke(OBJECT_ID, objectSource)), "ArtMesh ID");
+                    resolver.invoke(OBJECT_ID_VALUE, resolver.invoke(OBJECT_ID, objectSource)), "ArtMesh ID");
             if (!ids.add(id)) {
                 throw unavailable("Editor ArtMesh identifiers are not unique.");
             }
@@ -526,15 +510,12 @@ final class EditorTextureRelationsAccess {
     }
 
     private ArtMeshTextureInputs readArtMeshInputs(
-        final ArtMeshRead mesh,
-        final Set<ModelImageId> modelImages,
-        final Set<String> atlasIds,
-        final Map<ModelImageId, LinkedHashSet<ArtMeshId>> users
-    ) {
-        final Object extension = resolver.invoke(
-            "cubism.editor-model.art-mesh-source.texture-input-extension",
-            mesh.source
-        );
+            final ArtMeshRead mesh,
+            final Set<ModelImageId> modelImages,
+            final Set<String> atlasIds,
+            final Map<ModelImageId, LinkedHashSet<ArtMeshId>> users) {
+        final Object extension =
+                resolver.invoke("cubism.editor-model.art-mesh-source.texture-input-extension", mesh.source);
         if (extension == null) {
             return new ArtMeshTextureInputs(mesh.id, List.of(), OptionalInt.empty());
         }
@@ -568,10 +549,7 @@ final class EditorTextureRelationsAccess {
     }
 
     private TextureInputBinding textureInput(
-        final Object input,
-        final Set<ModelImageId> modelImages,
-        final Set<String> atlasIds
-    ) {
+            final Object input, final Set<ModelImageId> modelImages, final Set<String> atlasIds) {
         if (resolver.isInstance(MODEL_INPUT_CLASS, input)) {
             final Object guid = resolver.invoke(MODEL_INPUT_GUID, input);
             if (guid == null) {
@@ -579,11 +557,10 @@ final class EditorTextureRelationsAccess {
             }
             final ModelImageId id = new ModelImageId(guidValue(guid, "model image texture input"));
             return TextureInputBinding.modelImage(
-                id,
-                modelImages.contains(id)
-                    ? TextureInputBinding.ResolutionState.RESOLVED
-                    : TextureInputBinding.ResolutionState.UNAVAILABLE
-            );
+                    id,
+                    modelImages.contains(id)
+                            ? TextureInputBinding.ResolutionState.RESOLVED
+                            : TextureInputBinding.ResolutionState.UNAVAILABLE);
         }
         if (resolver.isInstance(ATLAS_INPUT_CLASS, input)) {
             final Object guid = resolver.invoke(ATLAS_INPUT_GUID, input);
@@ -592,23 +569,18 @@ final class EditorTextureRelationsAccess {
             }
             final TextureAtlasId id = new TextureAtlasId(guidValue(guid, "texture atlas texture input"));
             return TextureInputBinding.atlas(
-                id,
-                atlasIds.contains(id.value())
-                    ? TextureInputBinding.ResolutionState.RESOLVED
-                    : TextureInputBinding.ResolutionState.UNAVAILABLE
-            );
+                    id,
+                    atlasIds.contains(id.value())
+                            ? TextureInputBinding.ResolutionState.RESOLVED
+                            : TextureInputBinding.ResolutionState.UNAVAILABLE);
         }
         return TextureInputBinding.unknown();
     }
 
     private ModelImageRelation readModelImageRelation(
-        final ModelImageData image,
-        final Set<ArtMeshId> usingArtMeshIds
-    ) {
-        final List<RawImageId> linkedRawImageIds = rawImageIds(
-            resolver.invoke(MODEL_IMAGE_LINKED_RAW, image.host),
-            "model image linked raw images"
-        );
+            final ModelImageData image, final Set<ArtMeshId> usingArtMeshIds) {
+        final List<RawImageId> linkedRawImageIds =
+                rawImageIds(resolver.invoke(MODEL_IMAGE_LINKED_RAW, image.host), "model image linked raw images");
         final Object filterEnv = resolver.invoke(MODEL_IMAGE_INPUT_FILTER_ENV, image.host);
         final Optional<RawImageId> currentRawImageId;
         final Map<RawImageId, List<RawLayerBinding>> inputsByRawImage;
@@ -621,34 +593,29 @@ final class EditorTextureRelationsAccess {
             inputsByRawImage = readLayerInputs(filterEnv);
         }
         return new ModelImageRelation(
-            image.id,
-            image.entry,
-            linkedRawImageIds,
-            currentRawImageId,
-            inputsByRawImage,
-            List.copyOf(usingArtMeshIds)
-        );
+                image.id,
+                image.entry,
+                linkedRawImageIds,
+                currentRawImageId,
+                inputsByRawImage,
+                List.copyOf(usingArtMeshIds));
     }
 
     private Optional<RawImageId> readCurrentRawImage(final Object filterEnv) {
-        final boolean hasCurrent = booleanValue(
-            resolver.invoke(FILTER_ENV_HAS_CURRENT, filterEnv),
-            "model image current raw-image flag"
-        );
+        final boolean hasCurrent =
+                booleanValue(resolver.invoke(FILTER_ENV_HAS_CURRENT, filterEnv), "model image current raw-image flag");
         if (!hasCurrent) {
             return Optional.empty();
         }
         final Object guid = resolver.invoke(FILTER_ENV_CURRENT, filterEnv);
         return guid == null
-            ? Optional.empty()
-            : Optional.of(new RawImageId(guidValue(guid, "model image current raw image")));
+                ? Optional.empty()
+                : Optional.of(new RawImageId(guidValue(guid, "model image current raw image")));
     }
 
     private Map<RawImageId, List<RawLayerBinding>> readLayerInputs(final Object filterEnv) {
-        final boolean hasLayerInputData = booleanValue(
-            resolver.invoke(FILTER_ENV_HAS_LAYER_INPUT, filterEnv),
-            "model image layer-input flag"
-        );
+        final boolean hasLayerInputData =
+                booleanValue(resolver.invoke(FILTER_ENV_HAS_LAYER_INPUT, filterEnv), "model image layer-input flag");
         if (!hasLayerInputData) {
             return Map.of();
         }
@@ -668,16 +635,14 @@ final class EditorTextureRelationsAccess {
                 requireInstance(LAYER_INPUT_CLASS, layerInput, "model image layer input");
                 final Object layer = resolver.invoke(LAYER_INPUT_LAYER, layerInput);
                 requireInstance(LAYER_ENTRY_CLASS, layer, "model image layer entry");
-                final RawLayerId rawLayerId = new RawLayerId(
-                    guidValue(resolver.invoke(LAYER_ENTRY_GUID, layer), "model image raw layer")
-                );
+                final RawLayerId rawLayerId =
+                        new RawLayerId(guidValue(resolver.invoke(LAYER_ENTRY_GUID, layer), "model image raw layer"));
                 bindings.add(new RawLayerBinding(
-                    rawImageId,
-                    rawLayerId,
-                    inputOrder,
-                    detailAvailability(resolver.invoke(LAYER_INPUT_AFFINE, layerInput)),
-                    detailAvailability(resolver.invoke(LAYER_INPUT_CLIPPING, layerInput))
-                ));
+                        rawImageId,
+                        rawLayerId,
+                        inputOrder,
+                        detailAvailability(resolver.invoke(LAYER_INPUT_AFFINE, layerInput)),
+                        detailAvailability(resolver.invoke(LAYER_INPUT_CLIPPING, layerInput))));
             }
             if (values.put(rawImageId, List.copyOf(bindings)) != null) {
                 throw unavailable("Model image layer selector map repeats a raw image identifier.");
@@ -688,8 +653,8 @@ final class EditorTextureRelationsAccess {
 
     private RawLayerBinding.DetailAvailability detailAvailability(final Object value) {
         return value == null
-            ? RawLayerBinding.DetailAvailability.UNAVAILABLE
-            : RawLayerBinding.DetailAvailability.AVAILABLE;
+                ? RawLayerBinding.DetailAvailability.UNAVAILABLE
+                : RawLayerBinding.DetailAvailability.AVAILABLE;
     }
 
     private ModelImageData modelImageData(final Object image, final ModelImageRead modelImages) {
@@ -698,9 +663,8 @@ final class EditorTextureRelationsAccess {
             return byHost;
         }
         requireInstance(MODEL_IMAGE_CLASS, image, "model image group member");
-        final ModelImageId id = new ModelImageId(
-            guidValue(resolver.invoke(MODEL_IMAGE_GUID, image), "model image group member")
-        );
+        final ModelImageId id =
+                new ModelImageId(guidValue(resolver.invoke(MODEL_IMAGE_GUID, image), "model image group member"));
         final ModelImageData byId = modelImages.byId.get(id);
         if (byId == null) {
             throw unavailable("Model image group references an unenumerated model image.");
@@ -783,18 +747,14 @@ final class EditorTextureRelationsAccess {
         return new IllegalStateException(message);
     }
 
-    private record RawRead(
-        List<RawImageDetails> values,
-        Map<RawImageId, RawImageDetails> byId
-    ) { }
+    private record RawRead(List<RawImageDetails> values, Map<RawImageId, RawImageDetails> byId) {}
 
     private record ModelImageRead(
-        List<ModelImageData> values,
-        Map<ModelImageId, ModelImageData> byId,
-        IdentityHashMap<Object, ModelImageData> byHost
-    ) { }
+            List<ModelImageData> values,
+            Map<ModelImageId, ModelImageData> byId,
+            IdentityHashMap<Object, ModelImageData> byHost) {}
 
-    private record ModelImageData(Object host, ModelImageId id, ModelImageEntry entry) { }
+    private record ModelImageData(Object host, ModelImageId id, ModelImageEntry entry) {}
 
-    private record ArtMeshRead(Object source, ArtMeshId id) { }
+    private record ArtMeshRead(Object source, ArtMeshId id) {}
 }

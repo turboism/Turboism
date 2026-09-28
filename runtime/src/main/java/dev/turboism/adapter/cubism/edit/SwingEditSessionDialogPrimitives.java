@@ -1,12 +1,5 @@
 package dev.turboism.adapter.cubism.edit;
 
-import javax.swing.JButton;
-import javax.swing.JDialog;
-import javax.swing.JProgressBar;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 import java.awt.BorderLayout;
 import java.awt.Dialog;
 import java.awt.Frame;
@@ -15,6 +8,13 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JProgressBar;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 /**
  * Swing implementation of the session-UI primitives, used by the production {@link
@@ -28,6 +28,7 @@ public final class SwingEditSessionDialogPrimitives implements EditSessionDialog
     static final String INVISIBLE_MODAL_TITLE = "Invisible Modal Dialog";
     /** Official invisible-dialog dimensions. */
     static final int INVISIBLE_MODAL_WIDTH = 300;
+
     static final int INVISIBLE_MODAL_HEIGHT = 200;
 
     @Override
@@ -151,8 +152,9 @@ public final class SwingEditSessionDialogPrimitives implements EditSessionDialog
     private static boolean translucencySupported() {
         try {
             return !GraphicsEnvironment.isHeadless()
-                && GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
-                    .isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.TRANSLUCENT);
+                    && GraphicsEnvironment.getLocalGraphicsEnvironment()
+                            .getDefaultScreenDevice()
+                            .isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.TRANSLUCENT);
         } catch (RuntimeException unavailable) {
             return false;
         }

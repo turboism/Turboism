@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.command;
 
 import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
 import dev.turboism.sdk.ui.UserFileMode;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -18,8 +17,7 @@ import java.util.Objects;
  */
 final class EditorFileUsePointGuard {
 
-    private EditorFileUsePointGuard() {
-    }
+    private EditorFileUsePointGuard() {}
 
     static Result admit(final ResolvedEditorFileCommand command) {
         Objects.requireNonNull(command, "command");
@@ -40,7 +38,8 @@ final class EditorFileUsePointGuard {
             }
             return Result.allow();
         } catch (IOException exception) {
-            return Result.reject("target cannot be revalidated: " + exception.getClass().getSimpleName());
+            return Result.reject(
+                    "target cannot be revalidated: " + exception.getClass().getSimpleName());
         }
     }
 
@@ -67,7 +66,8 @@ final class EditorFileUsePointGuard {
             }
             return Result.allow();
         } catch (IOException exception) {
-            return Result.reject("target cannot be revalidated: " + exception.getClass().getSimpleName());
+            return Result.reject(
+                    "target cannot be revalidated: " + exception.getClass().getSimpleName());
         }
     }
 

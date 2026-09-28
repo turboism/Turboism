@@ -1,7 +1,6 @@
 package dev.turboism.task;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -18,9 +17,7 @@ final class PendingTaskOwnership implements AutoCloseable {
         CLOSED
     }
 
-    private final AtomicReference<State> state = new AtomicReference<>(
-        State.REGISTERED_UNBOUND
-    );
+    private final AtomicReference<State> state = new AtomicReference<>(State.REGISTERED_UNBOUND);
     private final CountDownLatch admissionDecided = new CountDownLatch(1);
     private final AtomicReference<AbstractRuntimeTaskHandle> candidate = new AtomicReference<>();
     private final AtomicReference<Registration> registration = new AtomicReference<>();
@@ -28,22 +25,13 @@ final class PendingTaskOwnership implements AutoCloseable {
     private final Runnable beginCleanup;
     private final Runnable recordCancellation;
 
-    PendingTaskOwnership(
-        final Runnable beginCleanup,
-        final Runnable recordCancellation
-    ) {
+    PendingTaskOwnership(final Runnable beginCleanup, final Runnable recordCancellation) {
         this.beginCleanup = Objects.requireNonNull(beginCleanup, "beginCleanup");
-        this.recordCancellation = Objects.requireNonNull(
-            recordCancellation,
-            "recordCancellation"
-        );
+        this.recordCancellation = Objects.requireNonNull(recordCancellation, "recordCancellation");
     }
 
     void attachRegistration(final Registration scopedRegistration) {
-        final Registration owned = Objects.requireNonNull(
-            scopedRegistration,
-            "scopedRegistration"
-        );
+        final Registration owned = Objects.requireNonNull(scopedRegistration, "scopedRegistration");
         if (!registration.compareAndSet(null, owned)) {
             throw new IllegalStateException("Task scope ownership is already registered");
         }
@@ -95,8 +83,7 @@ final class PendingTaskOwnership implements AutoCloseable {
                 admissionDecided.countDown();
                 return true;
             }
-            if (current != State.REGISTERED_UNBOUND
-                && current != State.CLOSE_REQUESTED_UNBOUND) {
+            if (current != State.REGISTERED_UNBOUND && current != State.CLOSE_REQUESTED_UNBOUND) {
                 return false;
             }
             if (state.compareAndSet(current, State.DISARMED)) {
@@ -144,9 +131,7 @@ final class PendingTaskOwnership implements AutoCloseable {
     public void close() {
         while (true) {
             final State current = state.get();
-            if (current == State.CLOSE_REQUESTED_UNBOUND
-                || current == State.CLOSED
-                || current == State.DISARMED) {
+            if (current == State.CLOSE_REQUESTED_UNBOUND || current == State.CLOSED || current == State.DISARMED) {
                 return;
             }
             if (current == State.REGISTERED_UNBOUND) {

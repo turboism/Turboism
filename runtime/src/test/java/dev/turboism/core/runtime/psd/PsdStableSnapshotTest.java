@@ -1,7 +1,6 @@
 package dev.turboism.core.runtime.psd;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -10,12 +9,13 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HexFormat;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** Filesystem fixtures only; arbitrary test bytes do not constitute valid PSD or host evidence. */
 class PsdStableSnapshotTest {
-    @TempDir Path root;
+    @TempDir
+    Path root;
 
     @Test
     void copiesIntoDistinctSiblingWithMatchingStreamedDigest() throws Exception {
@@ -30,7 +30,8 @@ class PsdStableSnapshotTest {
         assertArrayEquals(bytes, Files.readAllBytes(snapshot.path()));
         assertArrayEquals(bytes, Files.readAllBytes(source));
         assertEquals(bytes.length, snapshot.size());
-        assertEquals(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)), snapshot.sha256());
+        assertEquals(
+                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)), snapshot.sha256());
     }
 
     @Test
@@ -54,7 +55,9 @@ class PsdStableSnapshotTest {
         final PsdTemporaryFile allocation = PsdTemporaryFile.createIn(root);
         final Path live = allocation.validatedPath();
         assertThrows(IOException.class, () -> PsdStableSnapshot.capture(allocation));
-        try (var files = Files.list(live.getParent())) { assertEquals(1, files.count()); }
+        try (var files = Files.list(live.getParent())) {
+            assertEquals(1, files.count());
+        }
         assertTrue(Files.exists(live));
     }
 
@@ -67,8 +70,9 @@ class PsdStableSnapshotTest {
         assertThrows(IOException.class, () -> PsdStableSnapshot.capture(allocation, 1024));
         assertEquals(1025, PsdStableSnapshot.capture(allocation, 1025).size());
         assertThrows(IllegalArgumentException.class, () -> PsdStableSnapshot.capture(allocation, 0));
-        assertThrows(IllegalArgumentException.class,
-            () -> PsdStableSnapshot.capture(allocation, PsdStableSnapshot.MAX_BYTES + 1));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> PsdStableSnapshot.capture(allocation, PsdStableSnapshot.MAX_BYTES + 1));
         assertArrayEquals(bytes, Files.readAllBytes(allocation.validatedPath()));
     }
 

@@ -5,7 +5,6 @@ import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.CompatibilityResolution;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.preview.PreviewRuntime;
-
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -123,8 +122,9 @@ final class HookEnvironment {
      * dependent capabilities on failure before plugin initialization.
      */
     boolean runtimeSliceAdmitted(final String sliceId) {
-        return hostResolution == null ? ordinaryReviewedRuntimeAdmitted()
-            : hostResolution.runtimeAdmitted() && sliceAdmitted(sliceId);
+        return hostResolution == null
+                ? ordinaryReviewedRuntimeAdmitted()
+                : hostResolution.runtimeAdmitted() && sliceAdmitted(sliceId);
     }
 
     /**
@@ -132,8 +132,7 @@ final class HookEnvironment {
      *     for the located host profile
      */
     boolean ordinaryReviewedRuntimeAdmitted() {
-        return fullRuntimeAdmission && profile != null
-            && ReviewedHostArtifacts.admitsFullRuntime(profile);
+        return fullRuntimeAdmission && profile != null && ReviewedHostArtifacts.admitsFullRuntime(profile);
     }
 
     /**
@@ -161,10 +160,12 @@ final class HookEnvironment {
      */
     boolean hookRuntimeAdmitted() {
         return ordinaryReviewedRuntimeAdmitted()
-            || (hostResolution != null && hostResolution.runtimeAdmitted()
-                && hostResolution.contractFor("editor-model")
-                    .map(dev.turboism.mapping.verification.SliceContract::declaredGenerationBound)
-                    .orElse(false));
+                || (hostResolution != null
+                        && hostResolution.runtimeAdmitted()
+                        && hostResolution
+                                .contractFor("editor-model")
+                                .map(dev.turboism.mapping.verification.SliceContract::declaredGenerationBound)
+                                .orElse(false));
     }
 
     /**
@@ -180,8 +181,9 @@ final class HookEnvironment {
             return Optional.ofNullable(profile);
         }
         if (hookRuntimeAdmitted()) {
-            return hostResolution.contractFor("editor-model")
-                .map(dev.turboism.mapping.verification.SliceContract::sourceVersion);
+            return hostResolution
+                    .contractFor("editor-model")
+                    .map(dev.turboism.mapping.verification.SliceContract::sourceVersion);
         }
         return Optional.empty();
     }
@@ -199,27 +201,22 @@ final class HookEnvironment {
      * @throws java.io.IOException when the record cannot be extracted or verified
      */
     dev.turboism.mapping.verification.VerifiedMemberResolver sliceResolver(
-        final dev.turboism.mapping.verification.SliceResolverFactory factory,
-        final String recordFileName,
-        final String sliceId
-    ) throws java.io.IOException {
+            final dev.turboism.mapping.verification.SliceResolverFactory factory,
+            final String recordFileName,
+            final String sliceId)
+            throws java.io.IOException {
         final var located = host().orElseThrow();
         final var contract = hostResolution != null
-            ? hostResolution.contractFor(sliceId)
-            : java.util.Optional.<dev.turboism.mapping.verification.SliceContract>empty();
+                ? hostResolution.contractFor(sliceId)
+                : java.util.Optional.<dev.turboism.mapping.verification.SliceContract>empty();
         if (contract.isPresent() && contract.orElseThrow().compatible()) {
             return factory.createCompatible(
-                verificationRecord(contract.orElseThrow().recordFileName()),
-                located.artifact(),
-                located.classLoader(),
-                contract.orElseThrow()
-            );
+                    verificationRecord(contract.orElseThrow().recordFileName()),
+                    located.artifact(),
+                    located.classLoader(),
+                    contract.orElseThrow());
         }
-        return factory.create(
-            verificationRecord(recordFileName),
-            located.artifact(),
-            located.classLoader()
-        );
+        return factory.create(verificationRecord(recordFileName), located.artifact(), located.classLoader());
     }
 
     /**
@@ -255,27 +252,17 @@ final class HookEnvironment {
      * into {@code verificationDirectory}. Fail-closed: a missing embedded
      * record aborts the caller.
      */
-    static Path extractVerificationRecord(
-        final Path verificationDirectory,
-        final String fileName
-    ) throws java.io.IOException {
+    static Path extractVerificationRecord(final Path verificationDirectory, final String fileName)
+            throws java.io.IOException {
         final String resource = "/META-INF/turboism/verification/" + fileName;
-        final Path target = verificationDirectory.resolve(fileName)
-            .toAbsolutePath()
-            .normalize();
+        final Path target =
+                verificationDirectory.resolve(fileName).toAbsolutePath().normalize();
         java.nio.file.Files.createDirectories(target.getParent());
-        try (java.io.InputStream source =
-            HookEnvironment.class.getResourceAsStream(resource)) {
+        try (java.io.InputStream source = HookEnvironment.class.getResourceAsStream(resource)) {
             if (source == null) {
-                throw new java.io.IOException(
-                    "Embedded Cubism verification record is missing"
-                );
+                throw new java.io.IOException("Embedded Cubism verification record is missing");
             }
-            java.nio.file.Files.copy(
-                source,
-                target,
-                java.nio.file.StandardCopyOption.REPLACE_EXISTING
-            );
+            java.nio.file.Files.copy(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
         return target;
     }

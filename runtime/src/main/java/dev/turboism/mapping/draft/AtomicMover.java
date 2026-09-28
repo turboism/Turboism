@@ -29,11 +29,7 @@ public interface AtomicMover {
      *     than silently degrading to a copy when the filesystem cannot move atomically
      */
     static AtomicMover system() {
-        return (source, target) -> Files.move(
-            source,
-            target,
-            StandardCopyOption.ATOMIC_MOVE,
-            StandardCopyOption.REPLACE_EXISTING
-        );
+        return (source, target) ->
+                Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
 }

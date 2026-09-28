@@ -8,19 +8,18 @@ import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
-
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -60,55 +59,47 @@ public final class RuntimePsdExportService implements AutoCloseable {
 
     /** Creates the service with the owning plugin task completion lane. */
     public RuntimePsdExportService(
-        final String pluginId,
-        final PermissionChecker permissionChecker,
-        final BooleanSupplier activeScope,
-        final RuntimePluginTaskScheduler pluginTasks
-    ) {
+            final String pluginId,
+            final PermissionChecker permissionChecker,
+            final BooleanSupplier activeScope,
+            final RuntimePluginTaskScheduler pluginTasks) {
         this(
-            pluginId,
-            permissionChecker,
-            activeScope,
-            Objects.requireNonNull(pluginTasks, "pluginTasks")::dispatchContinuation,
-            PsdTemporaryFile::create,
-            PsdDefaultApplicationLauncher.system()
-        );
+                pluginId,
+                permissionChecker,
+                activeScope,
+                Objects.requireNonNull(pluginTasks, "pluginTasks")::dispatchContinuation,
+                PsdTemporaryFile::create,
+                PsdDefaultApplicationLauncher.system());
     }
 
     /** Test-only composition seam; it does not change the production queue or lifecycle policy. */
     RuntimePsdExportService(
-        final String pluginId,
-        final PermissionChecker permissionChecker,
-        final BooleanSupplier activeScope,
-        final Consumer<Runnable> continuationDispatcher,
-        final TemporaryFileFactory temporaryFileFactory,
-        final PsdDefaultApplicationLauncher launcher
-    ) {
+            final String pluginId,
+            final PermissionChecker permissionChecker,
+            final BooleanSupplier activeScope,
+            final Consumer<Runnable> continuationDispatcher,
+            final TemporaryFileFactory temporaryFileFactory,
+            final PsdDefaultApplicationLauncher launcher) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.activeScope = Objects.requireNonNull(activeScope, "activeScope");
-        this.continuationDispatcher = Objects.requireNonNull(
-            continuationDispatcher,
-            "continuationDispatcher"
-        );
+        this.continuationDispatcher = Objects.requireNonNull(continuationDispatcher, "continuationDispatcher");
         this.temporaryFileFactory = Objects.requireNonNull(temporaryFileFactory, "temporaryFileFactory");
         this.launcher = Objects.requireNonNull(launcher, "launcher");
         this.executor = new ThreadPoolExecutor(
-            WORKER_COUNT,
-            WORKER_COUNT,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(QUEUE_CAPACITY),
-            new PsdExportThreadFactory(this.pluginId),
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+                WORKER_COUNT,
+                WORKER_COUNT,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(QUEUE_CAPACITY),
+                new PsdExportThreadFactory(this.pluginId),
+                new ThreadPoolExecutor.AbortPolicy());
         // One bounded lane per plugin serializes every handle's save observation, so two documents
         // of one plugin can never interleave inside a watcher pass.
-        this.watchLane = Executors.newSingleThreadScheduledExecutor(
-            new PsdWatchThreadFactory(this.pluginId));
+        this.watchLane = Executors.newSingleThreadScheduledExecutor(new PsdWatchThreadFactory(this.pluginId));
         this.saveScheduler = (task, delayMillis) -> {
             final java.util.concurrent.ScheduledFuture<?> future =
-                watchLane.schedule(task, delayMillis, TimeUnit.MILLISECONDS);
+                    watchLane.schedule(task, delayMillis, TimeUnit.MILLISECONDS);
             return () -> future.cancel(false);
         };
     }
@@ -120,52 +111,31 @@ public final class RuntimePsdExportService implements AutoCloseable {
      * inside the worker, from the native admission callback, and on the completion lane before
      * publication.</p>
      */
-    public CompletionStage<PsdExportResult> exportRawImagePsd(
-        final PsdExportHost host,
-        final RawImageId source
-    ) {
+    public CompletionStage<PsdExportResult> exportRawImagePsd(final PsdExportHost host, final RawImageId source) {
         final PsdExportHost exportHost = Objects.requireNonNull(host, "host");
         final RawImageId rawImage = Objects.requireNonNull(source, "source");
-        final PluginCompletionFuture<PsdExportResult> completion = new PluginCompletionFuture<>(
-            continuationDispatcher,
-            this::acceptsContinuation
-        );
+        final PluginCompletionFuture<PsdExportResult> completion =
+                new PluginCompletionFuture<>(continuationDispatcher, this::acceptsContinuation);
         final AtomicBoolean settled = new AtomicBoolean(false);
 
         try {
             requireOperational();
             checkPermissions();
         } catch (CubismPermissionException denied) {
-            settle(
-                completion,
-                settled,
-                rejected(rawImage, "PERMISSION_DENIED", "UNAVAILABLE")
-            );
+            settle(completion, settled, rejected(rawImage, "PERMISSION_DENIED", "UNAVAILABLE"));
             return completion.stage();
         } catch (InactiveOperation inactiveOperation) {
-            settle(
-                completion,
-                settled,
-                unavailable(rawImage, "SERVICE_UNAVAILABLE", "UNAVAILABLE")
-            );
+            settle(completion, settled, unavailable(rawImage, "SERVICE_UNAVAILABLE", "UNAVAILABLE"));
             return completion.stage();
         } catch (RuntimeException failure) {
-            settle(
-                completion,
-                settled,
-                failed(rawImage, "ADMISSION_FAILURE", "UNAVAILABLE", false, false)
-            );
+            settle(completion, settled, failed(rawImage, "ADMISSION_FAILURE", "UNAVAILABLE", false, false));
             return completion.stage();
         }
 
         try {
             executor.execute(() -> run(exportHost, rawImage, completion, settled));
         } catch (RejectedExecutionException rejected) {
-            settle(
-                completion,
-                settled,
-                rejected(rawImage, "QUEUE_REJECTED", "UNAVAILABLE")
-            );
+            settle(completion, settled, rejected(rawImage, "QUEUE_REJECTED", "UNAVAILABLE"));
         }
         return completion.stage();
     }
@@ -199,11 +169,10 @@ public final class RuntimePsdExportService implements AutoCloseable {
     }
 
     private void run(
-        final PsdExportHost host,
-        final RawImageId source,
-        final PluginCompletionFuture<PsdExportResult> completion,
-        final AtomicBoolean settled
-    ) {
+            final PsdExportHost host,
+            final RawImageId source,
+            final PluginCompletionFuture<PsdExportResult> completion,
+            final AtomicBoolean settled) {
         settle(completion, settled, execute(host, source));
     }
 
@@ -220,27 +189,16 @@ public final class RuntimePsdExportService implements AutoCloseable {
         }
 
         try {
-            final PsdTemporaryFile temporary = Objects.requireNonNull(
-                temporaryFileFactory.create(),
-                "temporaryFileFactory result"
-            );
+            final PsdTemporaryFile temporary =
+                    Objects.requireNonNull(temporaryFileFactory.create(), "temporaryFileFactory result");
             final Path destination = temporary.validatedPath();
-            final PsdExportHost.Observation observation = host.exportPsdTo(
-                source,
-                destination,
-                this::admitNative
-            );
+            final PsdExportHost.Observation observation = host.exportPsdTo(source, destination, this::admitNative);
             requireOperational();
             checkPermissions();
             if (observation != null && observation.readable()) {
                 temporary.useSourceName(observation.sourceName());
             }
-            return issue(
-                source,
-                host,
-                temporary,
-                Objects.requireNonNull(observation, "native observation")
-            );
+            return issue(source, host, temporary, Objects.requireNonNull(observation, "native observation"));
         } catch (CubismPermissionException denied) {
             return rejected(source, "PERMISSION_DENIED", "UNAVAILABLE");
         } catch (InactiveOperation inactiveOperation) {
@@ -260,50 +218,52 @@ public final class RuntimePsdExportService implements AutoCloseable {
     }
 
     private PsdExportResult issue(
-        final RawImageId source,
-        final PsdExportHost host,
-        final PsdTemporaryFile allocation,
-        final PsdExportHost.Observation observation
-    ) {
+            final RawImageId source,
+            final PsdExportHost host,
+            final PsdTemporaryFile allocation,
+            final PsdExportHost.Observation observation) {
         final String nativeStatus = safeStatus(observation.nativeStatus());
         final String integrityStatus = safeStatus(observation.integrityStatus());
         if ("UNAVAILABLE".equals(nativeStatus)) {
             return unavailable(source, nativeStatus, integrityStatus);
         }
         if (!observation.readable()) {
-            final String detail = observation.failure().map(failure ->
-                ";phase=" + safeStatus(failure.phase())
-                    + ";category=" + safeStatus(failure.category())
-                    + ";saveReturned=" + failure.saveReturned()).orElse("");
-            return new PsdExportResult(PsdExportResult.Status.FAILED,
-                diagnostic(nativeStatus, integrityStatus, false, observation.structureMatches()) + detail,
-                source, Optional.empty(), Optional.empty());
+            final String detail = observation
+                    .failure()
+                    .map(failure -> ";phase=" + safeStatus(failure.phase())
+                            + ";category=" + safeStatus(failure.category())
+                            + ";saveReturned=" + failure.saveReturned())
+                    .orElse("");
+            return new PsdExportResult(
+                    PsdExportResult.Status.FAILED,
+                    diagnostic(nativeStatus, integrityStatus, false, observation.structureMatches()) + detail,
+                    source,
+                    Optional.empty(),
+                    Optional.empty());
         }
         if (!(host instanceof PsdSessionBoundHost bound)) {
             // Fail closed: without a runtime-issued session identity a handle could be replayed
             // across documents that share a model id.
-            return failed(
-                source, "EXPORTED_UNBOUND", integrityStatus, true, observation.structureMatches());
+            return failed(source, "EXPORTED_UNBOUND", integrityStatus, true, observation.structureMatches());
         }
         RuntimePsdEditFile file = null;
         try {
-            final PsdEditRegistry.Binding binding = new PsdEditRegistry.Binding(
-                bound.sessionIdentity(), bound.generation());
+            final PsdEditRegistry.Binding binding =
+                    new PsdEditRegistry.Binding(bound.sessionIdentity(), bound.generation());
             final PsdStableSnapshot.Snapshot baselineSnapshot = PsdStableSnapshot.capture(allocation);
             file = new RuntimePsdEditFile(
-                pluginId,
-                binding,
-                allocation,
-                registry,
-                permissionChecker,
-                activeScope,
-                continuationDispatcher,
-                executor,
-                launcher,
-                saveScheduler,
-                System::nanoTime,
-                baselineSnapshot.sha256()
-            );
+                    pluginId,
+                    binding,
+                    allocation,
+                    registry,
+                    permissionChecker,
+                    activeScope,
+                    continuationDispatcher,
+                    executor,
+                    launcher,
+                    saveScheduler,
+                    System::nanoTime,
+                    baselineSnapshot.sha256());
             registry.register(binding, file, allocation);
             final PsdFileRevision baseline = registry.issueRevision(binding, file, baselineSnapshot);
             synchronized (handles) {
@@ -311,24 +271,21 @@ public final class RuntimePsdExportService implements AutoCloseable {
             }
             file.beginWatching(baseline);
             return new PsdExportResult(
-                PsdExportResult.Status.EXPORTED,
-                diagnostic(nativeStatus, integrityStatus, true, observation.structureMatches()),
-                source,
-                Optional.of(file),
-                Optional.of(baseline)
-            );
+                    PsdExportResult.Status.EXPORTED,
+                    diagnostic(nativeStatus, integrityStatus, true, observation.structureMatches()),
+                    source,
+                    Optional.of(file),
+                    Optional.of(baseline));
         } catch (IOException | RuntimeException handleFailure) {
             if (file != null) registry.revoke(file);
-            return failed(
-                source, "EXPORTED_HANDLE_FAILED", integrityStatus, true, observation.structureMatches());
+            return failed(source, "EXPORTED_HANDLE_FAILED", integrityStatus, true, observation.structureMatches());
         }
     }
 
     private void settle(
-        final PluginCompletionFuture<PsdExportResult> completion,
-        final AtomicBoolean settled,
-        final PsdExportResult result
-    ) {
+            final PluginCompletionFuture<PsdExportResult> completion,
+            final AtomicBoolean settled,
+            final PsdExportResult result) {
         if (!settled.compareAndSet(false, true)) {
             return;
         }
@@ -381,90 +338,52 @@ public final class RuntimePsdExportService implements AutoCloseable {
     }
 
     private static PsdExportResult unavailable(
-        final RawImageId source,
-        final String nativeStatus,
-        final String integrityStatus
-    ) {
-        return result(
-            PsdExportResult.Status.UNAVAILABLE,
-            source,
-            nativeStatus,
-            integrityStatus,
-            false,
-            false
-        );
+            final RawImageId source, final String nativeStatus, final String integrityStatus) {
+        return result(PsdExportResult.Status.UNAVAILABLE, source, nativeStatus, integrityStatus, false, false);
     }
 
     private static PsdExportResult rejected(
-        final RawImageId source,
-        final String nativeStatus,
-        final String integrityStatus
-    ) {
-        return result(
-            PsdExportResult.Status.REJECTED,
-            source,
-            nativeStatus,
-            integrityStatus,
-            false,
-            false
-        );
+            final RawImageId source, final String nativeStatus, final String integrityStatus) {
+        return result(PsdExportResult.Status.REJECTED, source, nativeStatus, integrityStatus, false, false);
     }
 
     private static PsdExportResult staleTarget(final RawImageId source) {
-        return result(
-            PsdExportResult.Status.STALE_TARGET,
-            source,
-            "STALE_TARGET",
-            "UNAVAILABLE",
-            false,
-            false
-        );
+        return result(PsdExportResult.Status.STALE_TARGET, source, "STALE_TARGET", "UNAVAILABLE", false, false);
     }
 
     private static PsdExportResult failed(
-        final RawImageId source,
-        final String nativeStatus,
-        final String integrityStatus,
-        final boolean readable,
-        final boolean structureMatches
-    ) {
-        return result(
-            PsdExportResult.Status.FAILED,
-            source,
-            nativeStatus,
-            integrityStatus,
-            readable,
-            structureMatches
-        );
+            final RawImageId source,
+            final String nativeStatus,
+            final String integrityStatus,
+            final boolean readable,
+            final boolean structureMatches) {
+        return result(PsdExportResult.Status.FAILED, source, nativeStatus, integrityStatus, readable, structureMatches);
     }
 
     private static PsdExportResult result(
-        final PsdExportResult.Status status,
-        final RawImageId source,
-        final String nativeStatus,
-        final String integrityStatus,
-        final boolean readable,
-        final boolean structureMatches
-    ) {
+            final PsdExportResult.Status status,
+            final RawImageId source,
+            final String nativeStatus,
+            final String integrityStatus,
+            final boolean readable,
+            final boolean structureMatches) {
         return new PsdExportResult(
-            status,
-            diagnostic(nativeStatus, integrityStatus, readable, structureMatches),
-            source,
-            Optional.empty(),
-            Optional.empty()
-        );
+                status,
+                diagnostic(nativeStatus, integrityStatus, readable, structureMatches),
+                source,
+                Optional.empty(),
+                Optional.empty());
     }
 
     private static String diagnostic(
-        final String nativeStatus,
-        final String integrityStatus,
-        final boolean readable,
-        final boolean structureMatches
-    ) {
+            final String nativeStatus,
+            final String integrityStatus,
+            final boolean readable,
+            final boolean structureMatches) {
         return "PSD_NATIVE_EXPORT;status=" + safeStatus(nativeStatus)
-            + ";integrity=" + safeStatus(integrityStatus)
-            + ";readable=" + readable
-            + ";structure=" + structureMatches;
+                + ";integrity=" + safeStatus(integrityStatus)
+                + ";readable=" + readable
+                + ";structure=" + structureMatches;
     }
 
     private static String safeStatus(final String value) {

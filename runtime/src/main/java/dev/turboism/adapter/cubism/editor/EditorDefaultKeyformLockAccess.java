@@ -2,10 +2,9 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockWriteSelectorContract;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.util.EnumSet;
 import java.util.Objects;
 
@@ -19,38 +18,27 @@ final class EditorDefaultKeyformLockAccess {
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorDefaultKeyformLockAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard
-    ) {
+            final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard modelGuard) {
         this(resolver, modelGuard, null);
     }
 
     EditorDefaultKeyformLockAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard,
-        final EditorAuthoringTransactionCoordinator authoringCoordinator
-    ) {
+            final VerifiedMemberResolver resolver,
+            final EditorParameterCombinedAccess.ModelGuard modelGuard,
+            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.authoringCoordinator = authoringCoordinator;
     }
 
-    boolean locked(
-        final String expectedIdentity,
-        final Object source,
-        final Object expectedModel
-    ) {
+    boolean locked(final String expectedIdentity, final Object source, final Object expectedModel) {
         requireReadAuthorization();
         modelGuard.requireCurrent(expectedIdentity, expectedModel);
         return locked(source);
     }
 
     void setLocked(
-        final String expectedIdentity,
-        final Object source,
-        final Object expectedModel,
-        final boolean locked
-    ) {
+            final String expectedIdentity, final Object source, final Object expectedModel, final boolean locked) {
         EditorHostThread.dispatch("Cubism default-keyform lock write", () -> {
             setLockedOnEdt(expectedIdentity, source, expectedModel, locked);
             return null;
@@ -58,11 +46,7 @@ final class EditorDefaultKeyformLockAccess {
     }
 
     private void setLockedOnEdt(
-        final String expectedIdentity,
-        final Object source,
-        final Object expectedModel,
-        final boolean locked
-    ) {
+            final String expectedIdentity, final Object source, final Object expectedModel, final boolean locked) {
         EditorHostThread.requireHostThread("Cubism default-keyform lock write");
         requireWriteAuthorization();
         modelGuard.requireCurrent(expectedIdentity, expectedModel);
@@ -71,39 +55,32 @@ final class EditorDefaultKeyformLockAccess {
         }
 
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
-        );
+        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         final boolean before = locked(source);
         final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
         if (ambientJoin.isPresent()) {
-            ambientJoin.orElseThrow().admit(
-                "cubism.model.set-default-keyform-locked",
-                expectedIdentity + ":model:default-keyform-locked",
-                ACTION_NAME,
-                (edit, transactionLabel) -> addUndo(edit, source, before, locked, app),
-                () -> setLocked(source, locked),
-                () -> locked(source) == locked,
-                () -> setLocked(source, before),
-                () -> locked(source) == before,
-                EnumSet.of(
-                    EditorRefreshRequirement.PARAMETER_PALETTE,
-                    EditorRefreshRequirement.CANVAS,
-                    EditorRefreshRequirement.MARK_DIRTY
-                )
-            );
+            ambientJoin
+                    .orElseThrow()
+                    .admit(
+                            "cubism.model.set-default-keyform-locked",
+                            expectedIdentity + ":model:default-keyform-locked",
+                            ACTION_NAME,
+                            (edit, transactionLabel) -> addUndo(edit, source, before, locked, app),
+                            () -> setLocked(source, locked),
+                            () -> locked(source) == locked,
+                            () -> setLocked(source, before),
+                            () -> locked(source) == before,
+                            EnumSet.of(
+                                    EditorRefreshRequirement.PARAMETER_PALETTE,
+                                    EditorRefreshRequirement.CANVAS,
+                                    EditorRefreshRequirement.MARK_DIRTY));
             modelGuard.requireCurrent(expectedIdentity, expectedModel);
             return;
         }
         EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, "Model.setDefaultKeyformLocked"
-        );
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode", document
-        );
-        final Object undo = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin", editMode, ACTION_NAME
-        );
+                authoringCoordinator, "Model.setDefaultKeyformLocked");
+        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
+        final Object undo = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, ACTION_NAME);
         boolean completed = false;
         try {
             addUndo(undo, source, before, locked, app);
@@ -112,20 +89,13 @@ final class EditorDefaultKeyformLockAccess {
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
         } finally {
-            resolver.invoke(
-                "cubism.editor-model.edit-mode.end",
-                editMode,
-                Boolean.valueOf(!completed),
-                null
-            );
+            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
         }
         modelGuard.requireCurrent(expectedIdentity, expectedModel);
     }
 
     private boolean locked(final Object source) {
-        final Object value = resolver.invoke(
-            "cubism.editor-model.model-source.default-keyform-locked", source
-        );
+        final Object value = resolver.invoke("cubism.editor-model.model-source.default-keyform-locked", source);
         if (!(value instanceof Boolean locked)) {
             throw unavailable("Editor default-keyform lock state is unavailable.");
         }
@@ -133,122 +103,61 @@ final class EditorDefaultKeyformLockAccess {
     }
 
     private void addUndo(
-        final Object edit,
-        final Object source,
-        final boolean before,
-        final boolean after,
-        final Object app
-    ) {
+            final Object edit, final Object source, final boolean before, final boolean after, final Object app) {
         final String factoryAlias = "cubism.editor-model.undo.local-simple-factory-create";
-        final Object redo = resolver.createFunctionalArgumentProxy(
-            factoryAlias,
-            2,
-            ignored -> {
-                setLocked(source, after);
-                return null;
-            }
-        );
-        final Object undo = resolver.createFunctionalArgumentProxy(
-            factoryAlias,
-            3,
-            ignored -> {
-                setLocked(source, before);
-                return null;
-            }
-        );
-        final Object updated = resolver.createFunctionalArgumentProxy(
-            factoryAlias,
-            4,
-            ignored -> {
-                refreshUi(app);
-                return null;
-            }
-        );
-        final Object factory = resolver.readStaticField(
-            "cubism.editor-model.undo.local-simple-factory-instance"
-        );
-        final Object valueUndo = resolver.invoke(
-            factoryAlias,
-            factory,
-            ACTION_NAME,
-            Boolean.FALSE,
-            redo,
-            undo,
-            updated
-        );
-        final Object accepted = resolver.invoke(
-            "cubism.editor-model.undo.add",
-            edit,
-            valueUndo,
-            Boolean.TRUE
-        );
+        final Object redo = resolver.createFunctionalArgumentProxy(factoryAlias, 2, ignored -> {
+            setLocked(source, after);
+            return null;
+        });
+        final Object undo = resolver.createFunctionalArgumentProxy(factoryAlias, 3, ignored -> {
+            setLocked(source, before);
+            return null;
+        });
+        final Object updated = resolver.createFunctionalArgumentProxy(factoryAlias, 4, ignored -> {
+            refreshUi(app);
+            return null;
+        });
+        final Object factory = resolver.readStaticField("cubism.editor-model.undo.local-simple-factory-instance");
+        final Object valueUndo =
+                resolver.invoke(factoryAlias, factory, ACTION_NAME, Boolean.FALSE, redo, undo, updated);
+        final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, valueUndo, Boolean.TRUE);
         if (!(accepted instanceof Boolean value) || !value) {
             throw new IllegalStateException("Cubism rejected the default-keyform lock Undo entry.");
         }
     }
 
     private void setLocked(final Object source, final boolean locked) {
-        resolver.invoke(
-            "cubism.editor-model.model-source.set-default-keyform-locked",
-            source,
-            Boolean.valueOf(locked)
-        );
+        resolver.invoke("cubism.editor-model.model-source.set-default-keyform-locked", source, Boolean.valueOf(locked));
     }
 
     private void refreshUi(final Object app) {
-        final Object completePack = resolver.invoke(
-            "cubism.editor-model.app-controller.complete-pack", app
-        );
-        resolver.invoke(
-            "cubism.editor-model.complete-pack.update-parameter",
-            completePack,
-            Boolean.TRUE
-        );
-        resolver.invoke(
-            "cubism.editor-model.complete-pack.repaint-canvas",
-            completePack,
-            Boolean.TRUE
-        );
-        final Object mainFrame = resolver.invoke(
-            "cubism.editor-model.app-controller.main-frame", app
-        );
-        final Object palette = resolver.invoke(
-            "cubism.editor-model.main-frame.parameter-palette", mainFrame
-        );
-        final Object paletteView = resolver.invoke(
-            "cubism.editor-model.parameter-palette.view", palette
-        );
-        final Object operation = resolver.invoke(
-            "cubism.editor-model.parameter-palette-view.operation", paletteView
-        );
-        resolver.invoke(
-            "cubism.editor-model.parameter-operation.refresh",
-            operation,
-            Boolean.TRUE
-        );
+        final Object completePack = resolver.invoke("cubism.editor-model.app-controller.complete-pack", app);
+        resolver.invoke("cubism.editor-model.complete-pack.update-parameter", completePack, Boolean.TRUE);
+        resolver.invoke("cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE);
+        final Object mainFrame = resolver.invoke("cubism.editor-model.app-controller.main-frame", app);
+        final Object palette = resolver.invoke("cubism.editor-model.main-frame.parameter-palette", mainFrame);
+        final Object paletteView = resolver.invoke("cubism.editor-model.parameter-palette.view", palette);
+        final Object operation = resolver.invoke("cubism.editor-model.parameter-palette-view.operation", paletteView);
+        resolver.invoke("cubism.editor-model.parameter-operation.refresh", operation, Boolean.TRUE);
     }
 
     private void requireReadAuthorization() {
         if (!resolver.authorizesFeature(
-            EditorDefaultKeyformLockReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
-            EditorDefaultKeyformLockReadSelectorContract.REQUIRED_ALIASES
-        )) {
+                EditorDefaultKeyformLockReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
+                EditorDefaultKeyformLockReadSelectorContract.REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Default-keyform lock access is unavailable without exact verified host evidence."
-            );
+                    "Default-keyform lock access is unavailable without exact verified host evidence.");
         }
     }
 
     private void requireWriteAuthorization() {
         if (!resolver.authorizesFeature(
-            EditorDefaultKeyformLockWriteSelectorContract.ADAPTER_SLICE_ID,
-            EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID,
-            EditorDefaultKeyformLockWriteSelectorContract.REQUIRED_ALIASES
-        )) {
+                EditorDefaultKeyformLockWriteSelectorContract.ADAPTER_SLICE_ID,
+                EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID,
+                EditorDefaultKeyformLockWriteSelectorContract.REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Default-keyform lock editing is unavailable without exact verified host evidence."
-            );
+                    "Default-keyform lock editing is unavailable without exact verified host evidence.");
         }
     }
 

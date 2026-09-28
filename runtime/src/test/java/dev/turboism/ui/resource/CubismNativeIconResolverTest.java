@@ -1,12 +1,9 @@
 package dev.turboism.ui.resource;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.imageio.ImageIO;
-import javax.swing.SwingUtilities;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
@@ -14,11 +11,14 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
+import javax.imageio.ImageIO;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class CubismNativeIconResolverTest {
-    @TempDir Path temporary;
+    @TempDir
+    Path temporary;
 
     @Test
     void catalogHasExactlyTheReviewedEightyVariantsAndTwoArtifacts() {
@@ -31,8 +31,11 @@ class CubismNativeIconResolverTest {
             assertFalse(key.resourcePath().contains(".."));
         }
         for (CubismIcon icon : CubismIcon.values()) {
-            assertEquals(20L, CubismNativeIconCatalog.resources().keySet().stream()
-                .filter(key -> key.icon() == icon).count());
+            assertEquals(
+                    20L,
+                    CubismNativeIconCatalog.resources().keySet().stream()
+                            .filter(key -> key.icon() == icon)
+                            .count());
         }
         for (var theme : NativeIconVariant.Theme.values()) {
             for (boolean disabled : new boolean[] {false, true}) {
@@ -43,13 +46,17 @@ class CubismNativeIconResolverTest {
                 }
             }
         }
-        assertSame(dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_03,
-            CubismNativeIconCatalog.artifact("5.2.03").orElseThrow());
-        assertSame(dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_02,
-            CubismNativeIconCatalog.artifact("5.3.02").orElseThrow());
+        assertSame(
+                dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_03,
+                CubismNativeIconCatalog.artifact("5.2.03").orElseThrow());
+        assertSame(
+                dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_02,
+                CubismNativeIconCatalog.artifact("5.3.02").orElseThrow());
         assertTrue(CubismNativeIconCatalog.artifact("5.3.03").isEmpty());
         assertTrue(CubismNativeIconCatalog.artifact("5.3").isEmpty());
-        assertThrows(UnsupportedOperationException.class, () -> CubismNativeIconCatalog.resources().clear());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> CubismNativeIconCatalog.resources().clear());
     }
 
     @Test
@@ -58,7 +65,7 @@ class CubismNativeIconResolverTest {
         Files.writeString(fake, "not a reviewed host artifact");
         final NativeIconVariant key = normal();
         try (var unknown = CubismNativeIconResolver.preloadArtifact("5.3.03", fake);
-             var changed = CubismNativeIconResolver.preloadArtifact("5.3.02", fake)) {
+                var changed = CubismNativeIconResolver.preloadArtifact("5.3.02", fake)) {
             assertEquals(UiIconAvailability.HOST_UNVERIFIED, unknown.availability(key));
             assertEquals(UiIconAvailability.HOST_UNVERIFIED, changed.availability(key));
             assertTrue(changed.resolve(key).isEmpty());
@@ -69,10 +76,11 @@ class CubismNativeIconResolverTest {
     void sameSizeIsNotAHashAttestationAndMissingFilesAreUnavailable() throws Exception {
         final Path sameSize = temporary.resolve("same-size.jar");
         try (var file = new java.io.RandomAccessFile(sameSize.toFile(), "rw")) {
-            file.setLength(CubismNativeIconCatalog.artifact("5.2.03").orElseThrow().size());
+            file.setLength(
+                    CubismNativeIconCatalog.artifact("5.2.03").orElseThrow().size());
         }
         try (var provider = CubismNativeIconResolver.preloadArtifact("5.2.03", sameSize);
-             var missing = CubismNativeIconResolver.preloadArtifact("5.2.03", temporary.resolve("missing.jar"))) {
+                var missing = CubismNativeIconResolver.preloadArtifact("5.2.03", temporary.resolve("missing.jar"))) {
             assertEquals(UiIconAvailability.HOST_UNVERIFIED, provider.availability(normal()));
             assertTrue(provider.resolve(normal()).isEmpty());
             assertEquals(UiIconAvailability.HOST_UNVERIFIED, missing.availability(normal()));
@@ -83,16 +91,14 @@ class CubismNativeIconResolverTest {
     void decodingChecksDigestSignatureAndDimensionsBeforeAcceptingPixels() throws Exception {
         final byte[] png = png(16);
         assertNotNull(CubismNativeIconResolver.decodePng(png, sha(png), 16));
-        assertThrows(java.io.IOException.class,
-            () -> CubismNativeIconResolver.decodePng(png, "0".repeat(64), 16));
-        assertThrows(java.io.IOException.class,
-            () -> CubismNativeIconResolver.decodePng(png, sha(png), 32));
+        assertThrows(java.io.IOException.class, () -> CubismNativeIconResolver.decodePng(png, "0".repeat(64), 16));
+        assertThrows(java.io.IOException.class, () -> CubismNativeIconResolver.decodePng(png, sha(png), 32));
         final byte[] malformed = new byte[32];
-        assertThrows(java.io.IOException.class,
-            () -> CubismNativeIconResolver.decodePng(malformed, sha(malformed), 16));
+        assertThrows(
+                java.io.IOException.class, () -> CubismNativeIconResolver.decodePng(malformed, sha(malformed), 16));
         final byte[] oversized = new byte[4097];
-        assertThrows(java.io.IOException.class,
-            () -> CubismNativeIconResolver.decodePng(oversized, sha(oversized), 16));
+        assertThrows(
+                java.io.IOException.class, () -> CubismNativeIconResolver.decodePng(oversized, sha(oversized), 16));
     }
 
     @Test
@@ -124,35 +130,42 @@ class CubismNativeIconResolverTest {
 
     @Test
     void ioIsForbiddenOnEdtAndVariantInputsAreClosed() throws Exception {
-        SwingUtilities.invokeAndWait(() -> assertThrows(IllegalStateException.class,
-            () -> CubismNativeIconResolver.preloadArtifact("5.2.03", temporary.resolve("missing"))));
-        assertThrows(IllegalArgumentException.class,
-            () -> new NativeIconVariant(CubismIcon.ART_MESH, NativeIconVariant.Theme.LIGHT, 101, false));
-        assertThrows(NullPointerException.class,
-            () -> new NativeIconVariant(null, NativeIconVariant.Theme.LIGHT, 100, false));
+        SwingUtilities.invokeAndWait(() -> assertThrows(
+                IllegalStateException.class,
+                () -> CubismNativeIconResolver.preloadArtifact("5.2.03", temporary.resolve("missing"))));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new NativeIconVariant(CubismIcon.ART_MESH, NativeIconVariant.Theme.LIGHT, 101, false));
+        assertThrows(
+                NullPointerException.class,
+                () -> new NativeIconVariant(null, NativeIconVariant.Theme.LIGHT, 100, false));
     }
 
     private static boolean fixtureInitialized;
+
     private static final class UninitializedOwner {
-        static { fixtureInitialized = true; }
+        static {
+            fixtureInitialized = true;
+        }
     }
 
     @Test
     void publicFactoryRejectsUnverifiedCodeSourceAndNeverUsesContextLoaderOrInitializesOwner() {
         final ClassLoader trusted = getClass().getClassLoader();
         final var selector = dev.turboism.mapping.verification.StaticSelector.classSelector(
-            "fixture.owner", UninitializedOwner.class.getName().replace('.', '/'));
+                "fixture.owner", UninitializedOwner.class.getName().replace('.', '/'));
         final var resolver = dev.turboism.mapping.verification.TestVerifiedResolvers.create(
-            "fixture.icons", java.util.Set.of("fixture.icons"), java.util.List.of(selector), trusted);
+                "fixture.icons", java.util.Set.of("fixture.icons"), java.util.List.of(selector), trusted);
         final ClassLoader previous = Thread.currentThread().getContextClassLoader();
         final ClassLoader forbidden = new ClassLoader(null) {
-            @Override protected Class<?> loadClass(final String name, final boolean resolve) {
+            @Override
+            protected Class<?> loadClass(final String name, final boolean resolve) {
                 throw new AssertionError("context classloader must not be consulted");
             }
         };
         Thread.currentThread().setContextClassLoader(forbidden);
         try (var wrongSource = CubismNativeIconResolver.preload(resolver, "fixture.owner");
-             var missingAlias = CubismNativeIconResolver.preload(resolver, "not-admitted")) {
+                var missingAlias = CubismNativeIconResolver.preload(resolver, "not-admitted")) {
             assertEquals(UiIconAvailability.HOST_UNVERIFIED, wrongSource.availability(normal()));
             assertEquals(UiIconAvailability.HOST_UNVERIFIED, missingAlias.availability(normal()));
             assertFalse(fixtureInitialized);
@@ -163,11 +176,11 @@ class CubismNativeIconResolverTest {
 
     @Test
     void delegatedOwnerCannotSatisfyDefiningLoaderAttestation() {
-        final ClassLoader delegated = new ClassLoader(getClass().getClassLoader()) { };
+        final ClassLoader delegated = new ClassLoader(getClass().getClassLoader()) {};
         final var selector = dev.turboism.mapping.verification.StaticSelector.classSelector(
-            "fixture.owner", UninitializedOwner.class.getName().replace('.', '/'));
+                "fixture.owner", UninitializedOwner.class.getName().replace('.', '/'));
         final var resolver = dev.turboism.mapping.verification.TestVerifiedResolvers.create(
-            "fixture.icons", java.util.Set.of("fixture.icons"), java.util.List.of(selector), delegated);
+                "fixture.icons", java.util.Set.of("fixture.icons"), java.util.List.of(selector), delegated);
         try (var provider = CubismNativeIconResolver.preload(resolver, "fixture.owner")) {
             assertEquals(UiIconAvailability.HOST_UNVERIFIED, provider.availability(normal()));
         }

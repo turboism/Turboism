@@ -1,15 +1,21 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationSceneOperationSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationTimelineEditSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationTimelineReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
-import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.mapping.verification.TestVerifiedResolvers;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.AnimationAttribute;
@@ -20,26 +26,17 @@ import dev.turboism.sdk.cubism.model.AnimationScene;
 import dev.turboism.sdk.cubism.model.AnimationTrackKind;
 import dev.turboism.sdk.cubism.model.AutoYure;
 import dev.turboism.sdk.cubism.model.PhysicsSettings;
-import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
-import dev.turboism.sdk.cubism.model.PhysicsSettingsSource;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Read-only Editor document projections: auto-Yure evaluations, physics
@@ -60,7 +57,8 @@ class EditorDocumentReadAccessTest {
         assertEquals(0.5F, settings.windX());
         assertEquals(0.0F, settings.windY());
         assertEquals(Integer.valueOf(60), settings.settingFps());
-        final dev.turboism.sdk.cubism.model.PhysicsSettingsSource source = settings.sources().get(0);
+        final dev.turboism.sdk.cubism.model.PhysicsSettingsSource source =
+                settings.sources().get(0);
         assertEquals("PhysicsA", source.id());
         assertEquals("Physics A", source.name());
         assertEquals(90.0F, source.totalAngle());
@@ -87,7 +85,9 @@ class EditorDocumentReadAccessTest {
         assertEquals(2.0, binding.config().right().decayLevel());
         assertEquals(30.0F, binding.config().right().scalePercentX());
         assertTrue(binding.config().syncLeftRight());
-        assertEquals(dev.turboism.sdk.cubism.model.YureRootDirection.TOP, binding.config().rootDirection());
+        assertEquals(
+                dev.turboism.sdk.cubism.model.YureRootDirection.TOP,
+                binding.config().rootDirection());
         assertTrue(binding.config().isFlip());
     }
 
@@ -216,9 +216,7 @@ class EditorDocumentReadAccessTest {
     void animationScenesFailClosedWithoutTimelineCapability(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            shallowAnimationResolver(version), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(shallowAnimationResolver(version), "session-a").active();
 
         final AnimationDocument animation = model.animationDocuments().get(0);
         assertEquals("Animation A", animation.animationName());
@@ -231,21 +229,20 @@ class EditorDocumentReadAccessTest {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final List<StaticSelector> reduced = selectors().stream()
-            .filter(selector -> !"cubism.editor-model.track-source.name".equals(selector.alias()))
-            .toList();
+                .filter(selector -> !"cubism.editor-model.track-source.name".equals(selector.alias()))
+                .toList();
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorAnimationReadSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorAnimationTimelineReadSelectorContract.CAPABILITY_ID);
         final var model = new EditorBackedCubismModelAccess(
-            TestVerifiedResolvers.create(
-                version,
-                EditorAnimationReadSelectorContract.ADAPTER_SLICE_ID,
-                capabilities,
-                reduced,
-                Host.class.getClassLoader()
-            ),
-            "session-a"
-        ).active();
+                        TestVerifiedResolvers.create(
+                                version,
+                                EditorAnimationReadSelectorContract.ADAPTER_SLICE_ID,
+                                capabilities,
+                                reduced,
+                                Host.class.getClassLoader()),
+                        "session-a")
+                .active();
 
         final AnimationDocument animation = model.animationDocuments().get(0);
         assertThrows(UnsupportedOperationException.class, animation::scenes);
@@ -260,43 +257,32 @@ class EditorDocumentReadAccessTest {
     void timelineWriteInsideTransactionRejectsWithoutDetachedUndo() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var access = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        );
+        final var access = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a");
         final var model = access.active();
-        final var service = ((RuntimeAuthoringTransactionProvider) access)
-            .authoringTransactions("plugin.test");
+        final var service = ((RuntimeAuthoringTransactionProvider) access).authoringTransactions("plugin.test");
         final AnimationAttribute parameter = scene1Parameter(model);
         final SceneDocument sceneDocument = sceneDocument(fixture, 0);
         final int beganBefore = sceneDocument.editMode.began;
 
-        final var result = service.execute(
-            AuthoringTransactionOptions.of("Rejected timeline write"),
-            () -> {
-                final EditorAmbientTransactionRejection rejection = assertThrows(
+        final var result = service.execute(AuthoringTransactionOptions.of("Rejected timeline write"), () -> {
+            final EditorAmbientTransactionRejection rejection = assertThrows(
                     EditorAmbientTransactionRejection.class,
                     () -> parameter.setKeyframe(45, 0.75),
-                    "edit-mode-base envelopes must stay fail-closed inside a transaction"
-                );
-                assertTrue(rejection.getMessage().contains("detached Undo group"));
-                return null;
-            }
-        );
+                    "edit-mode-base envelopes must stay fail-closed inside a transaction");
+            assertTrue(rejection.getMessage().contains("detached Undo group"));
+            return null;
+        });
 
         assertEquals(AuthoringTransactionOutcome.NO_CHANGE, result.outcome());
-        assertEquals(beganBefore, sceneDocument.editMode.began,
-            "no scene edit-mode bracket may begin");
-        assertTrue(fixture.document.undoManager().entries().isEmpty(),
-            "no detached Undo entry may be committed");
+        assertEquals(beganBefore, sceneDocument.editMode.began, "no scene edit-mode bracket may begin");
+        assertTrue(fixture.document.undoManager().entries().isEmpty(), "no detached Undo entry may be committed");
     }
 
     @Test
     void writesScalarKeyframeThroughNativeUndoEnvelope() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
         final AnimationAttribute parameter = scene1Parameter(model);
 
         parameter.setKeyframe(45, 0.75);
@@ -316,17 +302,16 @@ class EditorDocumentReadAccessTest {
         final var overwritten = reloaded.keyframes().get(1);
         assertEquals(0.9, overwritten.value().orElseThrow());
         assertEquals(AnimationCurveType.BEZIER, overwritten.curveType().orElseThrow());
-        assertEquals(AnimationCurveType.LINEAR,
-            reloaded.keyframes().get(2).curveType().orElseThrow());
+        assertEquals(
+                AnimationCurveType.LINEAR,
+                reloaded.keyframes().get(2).curveType().orElseThrow());
     }
 
     @Test
     void writesScalarKeyframeWithExplicitCurveType() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
 
         scene1Parameter(model).setKeyframe(15, 0.25, AnimationCurveType.STEP);
 
@@ -340,28 +325,42 @@ class EditorDocumentReadAccessTest {
     void writesPointKeyframe() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
-        final AnimationAttribute point = model.animationDocuments().get(0)
-            .scenes().get(0).tracks().get(1).children().get(0).attributes().get(0);
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
+        final AnimationAttribute point = model.animationDocuments()
+                .get(0)
+                .scenes()
+                .get(0)
+                .tracks()
+                .get(1)
+                .children()
+                .get(0)
+                .attributes()
+                .get(0);
 
         point.setKeyframe(60, 3.5F, -2.0F);
 
-        final var reloaded = model.animationDocuments().get(0)
-            .scenes().get(0).tracks().get(1).children().get(0).attributes().get(0);
+        final var reloaded = model.animationDocuments()
+                .get(0)
+                .scenes()
+                .get(0)
+                .tracks()
+                .get(1)
+                .children()
+                .get(0)
+                .attributes()
+                .get(0);
         assertEquals(List.of(0, 60, 120), frames(reloaded));
-        assertEquals(3.5F, reloaded.keyframes().get(1).pointValue().orElseThrow().x());
-        assertEquals(-2.0F, reloaded.keyframes().get(1).pointValue().orElseThrow().y());
+        assertEquals(
+                3.5F, reloaded.keyframes().get(1).pointValue().orElseThrow().x());
+        assertEquals(
+                -2.0F, reloaded.keyframes().get(1).pointValue().orElseThrow().y());
     }
 
     @Test
     void removesKeyframeAndIgnoresMissingFrames() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
         final AnimationAttribute parameter = scene1Parameter(model);
 
         parameter.removeKeyframe(30);
@@ -377,9 +376,7 @@ class EditorDocumentReadAccessTest {
     void offsetsKeyframesPreservingCurvesAndHandles() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
 
         final int moved = scene1Parameter(model).offsetKeyframes(10);
 
@@ -393,17 +390,16 @@ class EditorDocumentReadAccessTest {
         assertEquals(0.4, bezierKey.inHandle().orElseThrow().value());
         assertEquals(46.0F, bezierKey.outHandle().orElseThrow().frame());
         assertTrue(bezierKey.outHandle().orElseThrow().corner());
-        assertEquals(AnimationCurveType.LINEAR,
-            reloaded.keyframes().get(0).curveType().orElseThrow());
+        assertEquals(
+                AnimationCurveType.LINEAR,
+                reloaded.keyframes().get(0).curveType().orElseThrow());
     }
 
     @Test
     void scalesKeyframeTimesAroundOrigin() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
 
         final int scaled = scene1Parameter(model).scaleKeyframeTimes(2.0, 0);
 
@@ -420,17 +416,16 @@ class EditorDocumentReadAccessTest {
         assertEquals(72.0F, bezierKey.outHandle().orElseThrow().frame());
         assertEquals(0.6, bezierKey.outHandle().orElseThrow().value());
         assertTrue(bezierKey.outHandle().orElseThrow().corner());
-        assertEquals(AnimationCurveType.LINEAR,
-            reloaded.keyframes().get(0).curveType().orElseThrow());
+        assertEquals(
+                AnimationCurveType.LINEAR,
+                reloaded.keyframes().get(0).curveType().orElseThrow());
     }
 
     @Test
     void scalesKeyframeTimesAroundNonZeroOrigin() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
 
         final int scaled = scene1Parameter(model).scaleKeyframeTimes(0.5, 20);
 
@@ -452,16 +447,13 @@ class EditorDocumentReadAccessTest {
     void scaleKeyframeTimesPreservesHandlePrecisionAtLargeOrigins() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
 
         // Identity scaling is a no-op even at origins that are not exactly
         // representable as float; the affine math must not round origin or
         // handle offsets through float before scaling.
         for (final int origin : List.of(16777217, -16777217)) {
-            final int scaled =
-                scene1Parameter(model).scaleKeyframeTimes(1.0, origin);
+            final int scaled = scene1Parameter(model).scaleKeyframeTimes(1.0, origin);
 
             assertEquals(3, scaled);
             final AnimationAttribute reloaded = scene1Parameter(model);
@@ -479,9 +471,7 @@ class EditorDocumentReadAccessTest {
     void scaleKeyframeTimesRollsBackKeysAndHandlesWhenMutationFails() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
         final AnimationAttribute parameter = scene1Parameter(model);
         final Attr host = hostAttribute(fixture, 0);
         host.failWrites = true;
@@ -490,8 +480,8 @@ class EditorDocumentReadAccessTest {
         // failing insert must roll keys and stored bezier handles back through
         // the cancelled edit.
         assertThrows(
-            dev.turboism.mapping.verification.VerifiedAccessException.class,
-            () -> parameter.scaleKeyframeTimes(2.0, 0));
+                dev.turboism.mapping.verification.VerifiedAccessException.class,
+                () -> parameter.scaleKeyframeTimes(2.0, 0));
 
         final SceneDocument sceneDocument = sceneDocument(fixture, 0);
         assertTrue(sceneDocument.editMode.lastCancelled);
@@ -503,17 +493,16 @@ class EditorDocumentReadAccessTest {
         assertEquals(36.0F, restoredPoint.next().posF());
         assertEquals(0.6, restoredPoint.next().doubleValue());
         assertTrue(restoredPoint.next().corner());
-        assertEquals(AnimationCurveType.BEZIER,
-            scene1Parameter(model).keyframes().get(1).curveType().orElseThrow());
+        assertEquals(
+                AnimationCurveType.BEZIER,
+                scene1Parameter(model).keyframes().get(1).curveType().orElseThrow());
     }
 
     @Test
     void quantizesKeyframesCollapsingCollisionsInInsertionOrder() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
 
         final int processed = scene1Parameter(model).quantizeKeyframes(45);
 
@@ -527,11 +516,15 @@ class EditorDocumentReadAccessTest {
     void copiesKeyframesAcrossAttributesReplacingTargets() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
-        final AnimationAttribute source = model.animationDocuments().get(0)
-            .scenes().get(1).tracks().get(0).attributes().get(0);
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
+        final AnimationAttribute source = model.animationDocuments()
+                .get(0)
+                .scenes()
+                .get(1)
+                .tracks()
+                .get(0)
+                .attributes()
+                .get(0);
         assertEquals(AnimationAttributeKind.FLOAT, source.kind());
 
         final int copied = scene1Parameter(model).copyKeyframesFrom(source, true);
@@ -541,31 +534,36 @@ class EditorDocumentReadAccessTest {
         assertEquals(List.of(10, 50), frames(reloaded));
         assertEquals(1.0, reloaded.keyframes().get(0).value().orElseThrow());
         assertEquals(2.0, reloaded.keyframes().get(1).value().orElseThrow());
-        assertEquals(AnimationCurveType.SMOOTH,
-            reloaded.keyframes().get(0).curveType().orElseThrow());
+        assertEquals(
+                AnimationCurveType.SMOOTH,
+                reloaded.keyframes().get(0).curveType().orElseThrow());
     }
 
     @Test
     void copyKeyframesRejectsMismatchedKinds() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
-        final AnimationAttribute point = model.animationDocuments().get(0)
-            .scenes().get(0).tracks().get(1).children().get(0).attributes().get(0);
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
+        final AnimationAttribute point = model.animationDocuments()
+                .get(0)
+                .scenes()
+                .get(0)
+                .tracks()
+                .get(1)
+                .children()
+                .get(0)
+                .attributes()
+                .get(0);
 
-        assertThrows(IllegalArgumentException.class,
-            () -> scene1Parameter(model).copyKeyframesFrom(point, false));
+        assertThrows(
+                IllegalArgumentException.class, () -> scene1Parameter(model).copyKeyframesFrom(point, false));
     }
 
     @Test
     void renamesSceneThroughNativeUndoEnvelope() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
         final AnimationScene scene = model.animationDocuments().get(0).scenes().get(0);
 
         scene.rename("Renamed Scene");
@@ -583,9 +581,7 @@ class EditorDocumentReadAccessTest {
     void rollsBackSceneEditWhenMutationFails() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
         final AnimationAttribute parameter = scene1Parameter(model);
         final Attr host = hostAttribute(fixture, 0);
         host.failWrites = true;
@@ -593,8 +589,7 @@ class EditorDocumentReadAccessTest {
         // The offset removes every source key before re-inserting; the failing
         // insert must roll the removal back through the cancelled edit.
         assertThrows(
-            dev.turboism.mapping.verification.VerifiedAccessException.class,
-            () -> parameter.offsetKeyframes(10));
+                dev.turboism.mapping.verification.VerifiedAccessException.class, () -> parameter.offsetKeyframes(10));
 
         final SceneDocument sceneDocument = sceneDocument(fixture, 0);
         assertTrue(sceneDocument.editMode.lastCancelled);
@@ -606,20 +601,14 @@ class EditorDocumentReadAccessTest {
     void timelineWritesFailClosedWithoutWriteCapability() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            resolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final AnimationScene scene = model.animationDocuments().get(0).scenes().get(0);
         final AnimationAttribute parameter = scene.tracks().get(0).attributes().get(0);
 
-        assertThrows(UnsupportedOperationException.class,
-            () -> parameter.setKeyframe(15, 1.0));
-        assertThrows(UnsupportedOperationException.class,
-            () -> parameter.removeKeyframe(30));
-        assertThrows(UnsupportedOperationException.class,
-            () -> parameter.offsetKeyframes(5));
-        assertThrows(UnsupportedOperationException.class,
-            () -> scene.rename("Nope"));
+        assertThrows(UnsupportedOperationException.class, () -> parameter.setKeyframe(15, 1.0));
+        assertThrows(UnsupportedOperationException.class, () -> parameter.removeKeyframe(30));
+        assertThrows(UnsupportedOperationException.class, () -> parameter.offsetKeyframes(5));
+        assertThrows(UnsupportedOperationException.class, () -> scene.rename("Nope"));
     }
 
     @Test
@@ -627,41 +616,40 @@ class EditorDocumentReadAccessTest {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final List<StaticSelector> reduced = selectors().stream()
-            .filter(selector ->
-                !"cubism.editor-model.attr.set-value-auto".equals(selector.alias()))
-            .toList();
+                .filter(selector -> !"cubism.editor-model.attr.set-value-auto".equals(selector.alias()))
+                .toList();
         final var model = new EditorBackedCubismModelAccess(
-            TestVerifiedResolvers.create(
-                "5.3.02",
-                EditorAnimationReadSelectorContract.ADAPTER_SLICE_ID,
-                java.util.Set.of(
-                    EditorAnimationReadSelectorContract.CAPABILITY_ID,
-                    EditorAnimationTimelineReadSelectorContract.CAPABILITY_ID,
-                    EditorAnimationTimelineEditSelectorContract.WRITE_CAPABILITY_ID
-                ),
-                reduced,
-                Host.class.getClassLoader()
-            ),
-            "session-a"
-        ).active();
-        final AnimationAttribute parameter = model.animationDocuments().get(0)
-            .scenes().get(0).tracks().get(0).attributes().get(0);
+                        TestVerifiedResolvers.create(
+                                "5.3.02",
+                                EditorAnimationReadSelectorContract.ADAPTER_SLICE_ID,
+                                java.util.Set.of(
+                                        EditorAnimationReadSelectorContract.CAPABILITY_ID,
+                                        EditorAnimationTimelineReadSelectorContract.CAPABILITY_ID,
+                                        EditorAnimationTimelineEditSelectorContract.WRITE_CAPABILITY_ID),
+                                reduced,
+                                Host.class.getClassLoader()),
+                        "session-a")
+                .active();
+        final AnimationAttribute parameter = model.animationDocuments()
+                .get(0)
+                .scenes()
+                .get(0)
+                .tracks()
+                .get(0)
+                .attributes()
+                .get(0);
 
-        assertThrows(UnsupportedOperationException.class,
-            () -> parameter.setKeyframe(15, 1.0));
+        assertThrows(UnsupportedOperationException.class, () -> parameter.setKeyframe(15, 1.0));
     }
 
     @Test
     void playheadReadsAndSeekRepaintsWithoutUndo() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a").active();
-        final AnimationScene scene = model.animationDocuments().get(0)
-            .scenes().get(0);
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
+        final AnimationScene scene = model.animationDocuments().get(0).scenes().get(0);
         final SceneDocument document = sceneDocument(fixture, 0);
-        final SceneInstance instance =
-            document.sceneSource().sceneInstances().get(0);
+        final SceneInstance instance = document.sceneSource().sceneInstances().get(0);
 
         assertEquals(0, scene.playheadFrame());
         scene.seekTo(42);
@@ -676,11 +664,10 @@ class EditorDocumentReadAccessTest {
     void sceneActivationSwitchesCurrentSceneWithoutUndo() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a").active();
-        final List<AnimationScene> scenes = model.animationDocuments().get(0)
-            .scenes();
-        final AnimationFileContent fileContent = Host.instance().currentProject().animation();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
+        final List<AnimationScene> scenes = model.animationDocuments().get(0).scenes();
+        final AnimationFileContent fileContent =
+                Host.instance().currentProject().animation();
         final SceneDocument target = sceneDocument(fixture, 1);
 
         assertTrue(scenes.get(0).current());
@@ -700,10 +687,8 @@ class EditorDocumentReadAccessTest {
     void defaultCurveTypeReadsAndWritesThroughUndoEnvelope() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a").active();
-        final AnimationScene scene = model.animationDocuments().get(0)
-            .scenes().get(0);
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
+        final AnimationScene scene = model.animationDocuments().get(0).scenes().get(0);
         final SceneDocument document = sceneDocument(fixture, 0);
 
         assertEquals(AnimationCurveType.LINEAR, scene.defaultCurveType());
@@ -717,8 +702,7 @@ class EditorDocumentReadAccessTest {
     void applyCurveTypeRetimesOnlyKeyframesInRange() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a").active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
         final AnimationAttribute parameter = scene1Parameter(model);
         final AttrF attribute = (AttrF) hostAttribute(fixture, 0);
         final SceneEditMode editMode = sceneDocument(fixture, 0).currentEditMode();
@@ -738,24 +722,26 @@ class EditorDocumentReadAccessTest {
     void applyCurveTypeRejectsNonFloatAttributesAndBadRanges() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a").active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
         final AnimationAttribute parameter = scene1Parameter(model);
-        final AnimationAttribute integer = model.animationDocuments().get(0)
-            .scenes().get(0).tracks().get(0).attributes().get(1);
+        final AnimationAttribute integer = model.animationDocuments()
+                .get(0)
+                .scenes()
+                .get(0)
+                .tracks()
+                .get(0)
+                .attributes()
+                .get(1);
 
-        assertThrows(IllegalArgumentException.class,
-            () -> parameter.applyCurveType(AnimationCurveType.SMOOTH, 30, 0));
-        assertThrows(IllegalArgumentException.class,
-            () -> integer.applyCurveType(AnimationCurveType.SMOOTH));
+        assertThrows(IllegalArgumentException.class, () -> parameter.applyCurveType(AnimationCurveType.SMOOTH, 30, 0));
+        assertThrows(IllegalArgumentException.class, () -> integer.applyCurveType(AnimationCurveType.SMOOTH));
     }
 
     @Test
     void recordKeyframeWritesCurrentEvaluatedValue() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a").active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
         final AnimationAttribute parameter = scene1Parameter(model);
         final AttrF attribute = (AttrF) hostAttribute(fixture, 0);
         final SceneEditMode editMode = sceneDocument(fixture, 0).currentEditMode();
@@ -772,29 +758,31 @@ class EditorDocumentReadAccessTest {
     void recordKeyframeFailsWithoutLiveModelInstance() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a").active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
         // Scene 2's parameter attribute rides a text track — no model instance.
-        final AnimationAttribute parameter = model.animationDocuments().get(0)
-            .scenes().get(1).tracks().get(0).attributes().get(0);
+        final AnimationAttribute parameter = model.animationDocuments()
+                .get(0)
+                .scenes()
+                .get(1)
+                .tracks()
+                .get(0)
+                .attributes()
+                .get(0);
 
-        assertThrows(IllegalStateException.class,
-            () -> parameter.recordKeyframe(10, AnimationCurveType.LINEAR));
+        assertThrows(IllegalStateException.class, () -> parameter.recordKeyframe(10, AnimationCurveType.LINEAR));
     }
 
     @Test
     void bakeEvaluatedStepsThroughRangeAndRestoresPlayhead() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a").active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
         final AnimationAttribute parameter = scene1Parameter(model);
         final AttrF attribute = (AttrF) hostAttribute(fixture, 0);
         final SceneDocument document = sceneDocument(fixture, 0);
-        final SceneInstance instance =
-            document.sceneSource().sceneInstances().get(0);
+        final SceneInstance instance = document.sceneSource().sceneInstances().get(0);
         final ModelTrackInstance modelInstance =
-            (ModelTrackInstance) instance.allTracks().get(0);
+                (ModelTrackInstance) instance.allTracks().get(0);
 
         assertEquals(3, parameter.bakeEvaluated(0, 10, 5, AnimationCurveType.STEP));
 
@@ -812,14 +800,13 @@ class EditorDocumentReadAccessTest {
     void bakeEvaluatedRejectsInvalidRanges() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            writeResolver("5.3.02"), "session-a").active();
+        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
         final AnimationAttribute parameter = scene1Parameter(model);
 
-        assertThrows(IllegalArgumentException.class,
-            () -> parameter.bakeEvaluated(10, 0, 1, AnimationCurveType.LINEAR));
-        assertThrows(IllegalArgumentException.class,
-            () -> parameter.bakeEvaluated(0, 10, 0, AnimationCurveType.LINEAR));
+        assertThrows(
+                IllegalArgumentException.class, () -> parameter.bakeEvaluated(10, 0, 1, AnimationCurveType.LINEAR));
+        assertThrows(
+                IllegalArgumentException.class, () -> parameter.bakeEvaluated(0, 10, 0, AnimationCurveType.LINEAR));
     }
 
     @Test
@@ -827,12 +814,11 @@ class EditorDocumentReadAccessTest {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final var model = new EditorBackedCubismModelAccess(
-            writeResolverWithout(
-                "5.3.02",
-                EditorAnimationSceneOperationSelectorContract.PLAYBACK_CAPABILITY_ID
-            ), "session-a").active();
-        final AnimationScene scene = model.animationDocuments().get(0)
-            .scenes().get(0);
+                        writeResolverWithout(
+                                "5.3.02", EditorAnimationSceneOperationSelectorContract.PLAYBACK_CAPABILITY_ID),
+                        "session-a")
+                .active();
+        final AnimationScene scene = model.animationDocuments().get(0).scenes().get(0);
 
         assertThrows(UnsupportedOperationException.class, scene::playheadFrame);
         assertThrows(UnsupportedOperationException.class, () -> scene.seekTo(10));
@@ -843,18 +829,16 @@ class EditorDocumentReadAccessTest {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final var model = new EditorBackedCubismModelAccess(
-            writeResolverWithout(
-                "5.3.02",
-                EditorAnimationSceneOperationSelectorContract.SCENE_EDIT_CAPABILITY_ID
-            ), "session-a").active();
-        final AnimationScene scene = model.animationDocuments().get(0)
-            .scenes().get(0);
+                        writeResolverWithout(
+                                "5.3.02", EditorAnimationSceneOperationSelectorContract.SCENE_EDIT_CAPABILITY_ID),
+                        "session-a")
+                .active();
+        final AnimationScene scene = model.animationDocuments().get(0).scenes().get(0);
 
         assertThrows(UnsupportedOperationException.class, scene::current);
         assertThrows(UnsupportedOperationException.class, scene::activate);
         assertThrows(UnsupportedOperationException.class, scene::defaultCurveType);
-        assertThrows(UnsupportedOperationException.class,
-            () -> scene.setDefaultCurveType(AnimationCurveType.STEP));
+        assertThrows(UnsupportedOperationException.class, () -> scene.setDefaultCurveType(AnimationCurveType.STEP));
     }
 
     @Test
@@ -862,24 +846,29 @@ class EditorDocumentReadAccessTest {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final var model = new EditorBackedCubismModelAccess(
-            writeResolverWithout(
-                "5.3.02",
-                EditorAnimationSceneOperationSelectorContract.EVAL_CAPABILITY_ID
-            ), "session-a").active();
+                        writeResolverWithout(
+                                "5.3.02", EditorAnimationSceneOperationSelectorContract.EVAL_CAPABILITY_ID),
+                        "session-a")
+                .active();
         final AnimationAttribute parameter = scene1Parameter(model);
 
-        assertThrows(UnsupportedOperationException.class,
-            () -> parameter.recordKeyframe(10, AnimationCurveType.LINEAR));
-        assertThrows(UnsupportedOperationException.class,
-            () -> parameter.bakeEvaluated(0, 10, 5, AnimationCurveType.LINEAR));
+        assertThrows(
+                UnsupportedOperationException.class, () -> parameter.recordKeyframe(10, AnimationCurveType.LINEAR));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> parameter.bakeEvaluated(0, 10, 5, AnimationCurveType.LINEAR));
     }
 
-    private static AnimationAttribute scene1Parameter(
-        final dev.turboism.sdk.cubism.model.CubismModel model
-    ) {
+    private static AnimationAttribute scene1Parameter(final dev.turboism.sdk.cubism.model.CubismModel model) {
         // FLOAT attribute "Angle X" on Scene 1's model track.
-        return model.animationDocuments().get(0)
-            .scenes().get(0).tracks().get(0).attributes().get(0);
+        return model.animationDocuments()
+                .get(0)
+                .scenes()
+                .get(0)
+                .tracks()
+                .get(0)
+                .attributes()
+                .get(0);
     }
 
     private static SceneDocument sceneDocument(final Fixture fixture, final int index) {
@@ -887,8 +876,8 @@ class EditorDocumentReadAccessTest {
     }
 
     private static Attr hostAttribute(final Fixture fixture, final int sceneIndex) {
-        final GroupTrack root = (GroupTrack)
-            sceneDocument(fixture, sceneIndex).sceneSource().rootTrack();
+        final GroupTrack root =
+                (GroupTrack) sceneDocument(fixture, sceneIndex).sceneSource().rootTrack();
         final ModelTrack modelTrack = (ModelTrack) root.childTracks().get(0);
         return modelTrack.effectManager().effectList()[0].attrList()[0];
     }
@@ -905,10 +894,7 @@ class EditorDocumentReadAccessTest {
         return writeResolverWithout(version, null);
     }
 
-    private static VerifiedMemberResolver writeResolverWithout(
-        final String version,
-        final String excludedCapability
-    ) {
+    private static VerifiedMemberResolver writeResolverWithout(final String version, final String excludedCapability) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorPhysicsReadSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorAutoYureReadSelectorContract.CAPABILITY_ID);
@@ -921,12 +907,11 @@ class EditorDocumentReadAccessTest {
         capabilities.add("cubism.editor-history.read");
         capabilities.remove(excludedCapability);
         return TestVerifiedResolvers.create(
-            version,
-            EditorPhysicsReadSelectorContract.ADAPTER_SLICE_ID,
-            capabilities,
-            selectors(),
-            Host.class.getClassLoader()
-        );
+                version,
+                EditorPhysicsReadSelectorContract.ADAPTER_SLICE_ID,
+                capabilities,
+                selectors(),
+                Host.class.getClassLoader());
     }
 
     @ParameterizedTest
@@ -934,9 +919,7 @@ class EditorDocumentReadAccessTest {
     void documentReadsFailClosedWithoutExactCapabilityEvidence(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var access = new EditorBackedCubismModelAccess(
-            resolver(version, false), "session-a"
-        );
+        final var access = new EditorBackedCubismModelAccess(resolver(version, false), "session-a");
         final var model = access.active();
         assertThrows(UnsupportedOperationException.class, model::physicsSettings);
         assertThrows(UnsupportedOperationException.class, model::autoYure);
@@ -947,10 +930,7 @@ class EditorDocumentReadAccessTest {
         return resolver(version, true);
     }
 
-    private static VerifiedMemberResolver resolver(
-        final String version,
-        final boolean includeDocumentReads
-    ) {
+    private static VerifiedMemberResolver resolver(final String version, final boolean includeDocumentReads) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         if (includeDocumentReads) {
             capabilities.add(EditorPhysicsReadSelectorContract.CAPABILITY_ID);
@@ -961,99 +941,268 @@ class EditorDocumentReadAccessTest {
             capabilities.add(dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract.CAPABILITY_ID);
         }
         return TestVerifiedResolvers.create(
-            version,
-            EditorPhysicsReadSelectorContract.ADAPTER_SLICE_ID,
-            capabilities,
-            selectors(),
-            Host.class.getClassLoader()
-        );
+                version,
+                EditorPhysicsReadSelectorContract.ADAPTER_SLICE_ID,
+                capabilities,
+                selectors(),
+                Host.class.getClassLoader());
     }
 
     private static VerifiedMemberResolver shallowAnimationResolver(final String version) {
         return TestVerifiedResolvers.create(
-            version,
-            EditorAnimationReadSelectorContract.ADAPTER_SLICE_ID,
-            java.util.Set.of(EditorAnimationReadSelectorContract.CAPABILITY_ID),
-            selectors(),
-            Host.class.getClassLoader()
-        );
+                version,
+                EditorAnimationReadSelectorContract.ADAPTER_SLICE_ID,
+                java.util.Set.of(EditorAnimationReadSelectorContract.CAPABILITY_ID),
+                selectors(),
+                Host.class.getClassLoader());
     }
 
     private static List<StaticSelector> selectors() {
         final List<StaticSelector> values = new ArrayList<>();
         values.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
-        values.add(StaticSelector.staticMethod("cubism.editor-model.app-controller.instance", internal(Host.class), "instance", "()L" + internal(Host.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(method("cubism.editor-model.app-controller.current-document", Host.class, "currentDocument", "()L" + internal(Document.class) + ";"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
-        values.add(method("cubism.editor-model.modeling-document.model-source", Document.class, "modelSource", "()L" + internal(ModelSource.class) + ";"));
+        values.add(StaticSelector.staticMethod(
+                "cubism.editor-model.app-controller.instance",
+                internal(Host.class),
+                "instance",
+                "()L" + internal(Host.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(method(
+                "cubism.editor-model.app-controller.current-document",
+                Host.class,
+                "currentDocument",
+                "()L" + internal(Document.class) + ";"));
+        values.add(
+                StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
+        values.add(method(
+                "cubism.editor-model.modeling-document.model-source",
+                Document.class,
+                "modelSource",
+                "()L" + internal(ModelSource.class) + ";"));
         values.add(method("cubism.editor-model.file-content.file", Document.class, "file", "()Ljava/io/File;"));
-        values.add(method("cubism.editor-model.app-controller.current-project", Host.class, "currentProject", "()L" + internal(Project.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.app-controller.current-project",
+                Host.class,
+                "currentProject",
+                "()L" + internal(Project.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.project.class", internal(Project.class)));
         values.add(method("cubism.editor-model.project.children", Project.class, "children", "()Ljava/util/List;"));
         values.add(StaticSelector.classSelector("cubism.editor-model.model-source.class", internal(ModelSource.class)));
-        values.add(method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", "()L" + internal(Id.class) + ";"));
-        values.add(method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", "()L" + internal(Model.class) + ";"));
-        values.add(method("cubism.editor-model.model-source.all-deformers", ModelSource.class, "allDeformers", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.model-source.physics-settings-source-set", ModelSource.class, "physicsSettingsSourceSet", "()L" + internal(PhysicsSettingsSourceSet.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.model-source.guid", ModelSource.class, "guid", "()L" + internal(Id.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.model-source.current-instance",
+                ModelSource.class,
+                "currentInstance",
+                "()L" + internal(Model.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.model-source.all-deformers",
+                ModelSource.class,
+                "allDeformers",
+                "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.model-source.physics-settings-source-set",
+                ModelSource.class,
+                "physicsSettingsSourceSet",
+                "()L" + internal(PhysicsSettingsSourceSet.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.model.class", internal(Model.class)));
-        values.add(method("cubism.editor-model.model.parameter-set", Model.class, "parameterSet", "()L" + internal(ParameterSet.class) + ";"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.parameter-set.class", internal(ParameterSet.class)));
-        values.add(method("cubism.editor-model.parameter-set.parameters", ParameterSet.class, "parameters", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.parameter-controllable-source.id", ObjectSource.class, "id", "()L" + internal(Id.class) + ";"));
-        values.add(method("cubism.editor-model.parameter-controllable-source.extensions", ObjectSource.class, "extensions", "()Ljava/util/List;"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.parameter.class", internal(ParameterHolder.class)));
-        values.add(method("cubism.editor-model.parameter.source", ParameterHolder.class, "source", "()L" + internal(ParameterSource.class) + ";"));
-        values.add(method("cubism.editor-model.parameter.id", ParameterHolder.class, "id", "()L" + internal(Id.class) + ";"));
-        values.add(method("cubism.editor-model.parameter-source.guid", ParameterSource.class, "guid", "()L" + internal(Id.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.model.parameter-set",
+                Model.class,
+                "parameterSet",
+                "()L" + internal(ParameterSet.class) + ";"));
+        values.add(
+                StaticSelector.classSelector("cubism.editor-model.parameter-set.class", internal(ParameterSet.class)));
+        values.add(method(
+                "cubism.editor-model.parameter-set.parameters",
+                ParameterSet.class,
+                "parameters",
+                "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.parameter-controllable-source.id",
+                ObjectSource.class,
+                "id",
+                "()L" + internal(Id.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.parameter-controllable-source.extensions",
+                ObjectSource.class,
+                "extensions",
+                "()Ljava/util/List;"));
+        values.add(
+                StaticSelector.classSelector("cubism.editor-model.parameter.class", internal(ParameterHolder.class)));
+        values.add(method(
+                "cubism.editor-model.parameter.source",
+                ParameterHolder.class,
+                "source",
+                "()L" + internal(ParameterSource.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.parameter.id", ParameterHolder.class, "id", "()L" + internal(Id.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.parameter-source.guid",
+                ParameterSource.class,
+                "guid",
+                "()L" + internal(Id.class) + ";"));
         values.add(method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"));
         values.add(method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"));
         values.add(StaticSelector.classSelector("cubism.editor-model.warp-source.class", internal(WarpSource.class)));
-        values.add(StaticSelector.classSelector("cubism.editor-model.auto-yure-config-extension.class", internal(AutoYureConfigExtension.class)));
-        values.add(method("cubism.editor-model.auto-yure-config-extension.param-to-config-map", AutoYureConfigExtension.class, "paramToConfigMap", "()Ljava/util/Map;"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.auto-yure-config.class", internal(AutoYureConfig.class)));
-        values.add(method("cubism.editor-model.auto-yure-config.left", AutoYureConfig.class, "left", "()L" + internal(YureDeformConfig.class) + ";"));
-        values.add(method("cubism.editor-model.auto-yure-config.right", AutoYureConfig.class, "right", "()L" + internal(YureDeformConfig.class) + ";"));
-        values.add(method("cubism.editor-model.auto-yure-config.sync-left-right", AutoYureConfig.class, "syncLeftRight", "()Z"));
-        values.add(method("cubism.editor-model.auto-yure-config.root-direction", AutoYureConfig.class, "rootDirection", "()L" + internal(YureRootDirection.class) + ";"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.auto-yure-config-extension.class", internal(AutoYureConfigExtension.class)));
+        values.add(method(
+                "cubism.editor-model.auto-yure-config-extension.param-to-config-map",
+                AutoYureConfigExtension.class,
+                "paramToConfigMap",
+                "()Ljava/util/Map;"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.auto-yure-config.class", internal(AutoYureConfig.class)));
+        values.add(method(
+                "cubism.editor-model.auto-yure-config.left",
+                AutoYureConfig.class,
+                "left",
+                "()L" + internal(YureDeformConfig.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.auto-yure-config.right",
+                AutoYureConfig.class,
+                "right",
+                "()L" + internal(YureDeformConfig.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.auto-yure-config.sync-left-right", AutoYureConfig.class, "syncLeftRight", "()Z"));
+        values.add(method(
+                "cubism.editor-model.auto-yure-config.root-direction",
+                AutoYureConfig.class,
+                "rootDirection",
+                "()L" + internal(YureRootDirection.class) + ";"));
         values.add(method("cubism.editor-model.auto-yure-config.flip", AutoYureConfig.class, "isFlip", "()Z"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.auto-yure-config-root-direction.class", internal(YureRootDirection.class)));
-        values.add(StaticSelector.field("cubism.editor-model.auto-yure-config-root-direction.top", internal(YureRootDirection.class), "TOP", "L" + internal(YureRootDirection.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(StaticSelector.field("cubism.editor-model.auto-yure-config-root-direction.right", internal(YureRootDirection.class), "RIGHT", "L" + internal(YureRootDirection.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(StaticSelector.field("cubism.editor-model.auto-yure-config-root-direction.bottom", internal(YureRootDirection.class), "BOTTOM", "L" + internal(YureRootDirection.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(StaticSelector.field("cubism.editor-model.auto-yure-config-root-direction.left", internal(YureRootDirection.class), "LEFT", "L" + internal(YureRootDirection.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(StaticSelector.classSelector("cubism.editor-model.yure-deform-config.class", internal(YureDeformConfig.class)));
-        values.add(method("cubism.editor-model.yure-deform-config.scale-percent-x", YureDeformConfig.class, "scalePercentX", "()F"));
-        values.add(method("cubism.editor-model.yure-deform-config.scale-percent-y", YureDeformConfig.class, "scalePercentY", "()F"));
-        values.add(method("cubism.editor-model.yure-deform-config.expand-scale", YureDeformConfig.class, "expandScale", "()F"));
-        values.add(method("cubism.editor-model.yure-deform-config.decay-level", YureDeformConfig.class, "decayLevel", "()D"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.physics-settings-source-set.class", internal(PhysicsSettingsSourceSet.class)));
-        values.add(method("cubism.editor-model.physics-settings-source-set.gravity", PhysicsSettingsSourceSet.class, "gravity", "()L" + internal(GVector2.class) + ";"));
-        values.add(method("cubism.editor-model.physics-settings-source-set.wind", PhysicsSettingsSourceSet.class, "wind", "()L" + internal(GVector2.class) + ";"));
-        values.add(method("cubism.editor-model.physics-settings-source-set.setting-fps", PhysicsSettingsSourceSet.class, "settingFps", "()Ljava/lang/Integer;"));
-        values.add(method("cubism.editor-model.physics-settings-source-set.sources", PhysicsSettingsSourceSet.class, "sources", "()Ljava/util/List;"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.physics-settings-source.class", internal(PhysicsSettingsSourceDoc.class)));
-        values.add(method("cubism.editor-model.physics-settings-source.id", PhysicsSettingsSourceDoc.class, "id", "()L" + internal(Id.class) + ";"));
-        values.add(method("cubism.editor-model.physics-settings-source.name", PhysicsSettingsSourceDoc.class, "name", "()Ljava/lang/String;"));
-        values.add(method("cubism.editor-model.physics-settings-source.total-angle", PhysicsSettingsSourceDoc.class, "totalAngle", "()F"));
-        values.add(method("cubism.editor-model.physics-settings-source.inputs", PhysicsSettingsSourceDoc.class, "inputs", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.physics-settings-source.outputs", PhysicsSettingsSourceDoc.class, "outputs", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.physics-settings-source.vertices", PhysicsSettingsSourceDoc.class, "vertices", "()Ljava/util/List;"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.auto-yure-config-root-direction.class", internal(YureRootDirection.class)));
+        values.add(StaticSelector.field(
+                "cubism.editor-model.auto-yure-config-root-direction.top",
+                internal(YureRootDirection.class),
+                "TOP",
+                "L" + internal(YureRootDirection.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(StaticSelector.field(
+                "cubism.editor-model.auto-yure-config-root-direction.right",
+                internal(YureRootDirection.class),
+                "RIGHT",
+                "L" + internal(YureRootDirection.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(StaticSelector.field(
+                "cubism.editor-model.auto-yure-config-root-direction.bottom",
+                internal(YureRootDirection.class),
+                "BOTTOM",
+                "L" + internal(YureRootDirection.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(StaticSelector.field(
+                "cubism.editor-model.auto-yure-config-root-direction.left",
+                internal(YureRootDirection.class),
+                "LEFT",
+                "L" + internal(YureRootDirection.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.yure-deform-config.class", internal(YureDeformConfig.class)));
+        values.add(method(
+                "cubism.editor-model.yure-deform-config.scale-percent-x",
+                YureDeformConfig.class,
+                "scalePercentX",
+                "()F"));
+        values.add(method(
+                "cubism.editor-model.yure-deform-config.scale-percent-y",
+                YureDeformConfig.class,
+                "scalePercentY",
+                "()F"));
+        values.add(method(
+                "cubism.editor-model.yure-deform-config.expand-scale", YureDeformConfig.class, "expandScale", "()F"));
+        values.add(method(
+                "cubism.editor-model.yure-deform-config.decay-level", YureDeformConfig.class, "decayLevel", "()D"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.physics-settings-source-set.class", internal(PhysicsSettingsSourceSet.class)));
+        values.add(method(
+                "cubism.editor-model.physics-settings-source-set.gravity",
+                PhysicsSettingsSourceSet.class,
+                "gravity",
+                "()L" + internal(GVector2.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.physics-settings-source-set.wind",
+                PhysicsSettingsSourceSet.class,
+                "wind",
+                "()L" + internal(GVector2.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.physics-settings-source-set.setting-fps",
+                PhysicsSettingsSourceSet.class,
+                "settingFps",
+                "()Ljava/lang/Integer;"));
+        values.add(method(
+                "cubism.editor-model.physics-settings-source-set.sources",
+                PhysicsSettingsSourceSet.class,
+                "sources",
+                "()Ljava/util/List;"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.physics-settings-source.class", internal(PhysicsSettingsSourceDoc.class)));
+        values.add(method(
+                "cubism.editor-model.physics-settings-source.id",
+                PhysicsSettingsSourceDoc.class,
+                "id",
+                "()L" + internal(Id.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.physics-settings-source.name",
+                PhysicsSettingsSourceDoc.class,
+                "name",
+                "()Ljava/lang/String;"));
+        values.add(method(
+                "cubism.editor-model.physics-settings-source.total-angle",
+                PhysicsSettingsSourceDoc.class,
+                "totalAngle",
+                "()F"));
+        values.add(method(
+                "cubism.editor-model.physics-settings-source.inputs",
+                PhysicsSettingsSourceDoc.class,
+                "inputs",
+                "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.physics-settings-source.outputs",
+                PhysicsSettingsSourceDoc.class,
+                "outputs",
+                "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.physics-settings-source.vertices",
+                PhysicsSettingsSourceDoc.class,
+                "vertices",
+                "()Ljava/util/List;"));
         values.add(StaticSelector.classSelector("cubism.editor-model.vector2.class", internal(GVector2.class)));
         values.add(method("cubism.editor-model.vector2.x", GVector2.class, "x", "()F"));
         values.add(method("cubism.editor-model.vector2.y", GVector2.class, "y", "()F"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.animation-file-content.class", internal(AnimationFileContent.class)));
-        values.add(method("cubism.editor-model.animation-file-content.animation", AnimationFileContent.class, "animation", "()L" + internal(Animation.class) + ";"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.animation-file-content.class", internal(AnimationFileContent.class)));
+        values.add(method(
+                "cubism.editor-model.animation-file-content.animation",
+                AnimationFileContent.class,
+                "animation",
+                "()L" + internal(Animation.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.animation.class", internal(Animation.class)));
         values.add(method("cubism.editor-model.animation.name", Animation.class, "name", "()Ljava/lang/String;"));
         values.add(method("cubism.editor-model.animation.scenes", Animation.class, "scenes", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.animation.current-scene", Animation.class, "currentScene", "()L" + internal(SceneSource.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.animation.current-scene",
+                Animation.class,
+                "currentScene",
+                "()L" + internal(SceneSource.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.scene-source.class", internal(SceneSource.class)));
-        values.add(method("cubism.editor-model.scene-source.scene-name", SceneSource.class, "sceneName", "()Ljava/lang/String;"));
-        values.add(method("cubism.editor-model.scene-source.guid", SceneSource.class, "guid", "()L" + internal(Id.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.scene-source.scene-name", SceneSource.class, "sceneName", "()Ljava/lang/String;"));
+        values.add(method(
+                "cubism.editor-model.scene-source.guid", SceneSource.class, "guid", "()L" + internal(Id.class) + ";"));
         values.add(method("cubism.editor-model.scene-source.tag", SceneSource.class, "tag", "()Ljava/lang/String;"));
-        values.add(method("cubism.editor-model.scene-source.marker", SceneSource.class, "marker", "()Ljava/util/HashMap;"));
-        values.add(method("cubism.editor-model.scene-source.movie-info", SceneSource.class, "movieInfo", "()L" + internal(MovieInfo.class) + ";"));
-        values.add(method("cubism.editor-model.scene-source.root-track", SceneSource.class, "rootTrack", "()L" + internal(GroupTrack.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.scene-source.marker", SceneSource.class, "marker", "()Ljava/util/HashMap;"));
+        values.add(method(
+                "cubism.editor-model.scene-source.movie-info",
+                SceneSource.class,
+                "movieInfo",
+                "()L" + internal(MovieInfo.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.scene-source.root-track",
+                SceneSource.class,
+                "rootTrack",
+                "()L" + internal(GroupTrack.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.movie-info.class", internal(MovieInfo.class)));
         values.add(method("cubism.editor-model.movie-info.start-frame", MovieInfo.class, "startFrame", "()I"));
         values.add(method("cubism.editor-model.movie-info.duration", MovieInfo.class, "duration", "()I"));
@@ -1065,7 +1214,8 @@ class EditorDocumentReadAccessTest {
         values.add(method("cubism.editor-model.movie-info.workspace-end", MovieInfo.class, "workspaceEnd", "()I"));
         values.add(StaticSelector.classSelector("cubism.editor-model.track-source.class", internal(TrackSource.class)));
         values.add(method("cubism.editor-model.track-source.name", TrackSource.class, "name", "()Ljava/lang/String;"));
-        values.add(method("cubism.editor-model.track-source.guid", TrackSource.class, "guid", "()L" + internal(Id.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.track-source.guid", TrackSource.class, "guid", "()L" + internal(Id.class) + ";"));
         values.add(method("cubism.editor-model.track-source.start", TrackSource.class, "start", "()I"));
         values.add(method("cubism.editor-model.track-source.duration", TrackSource.class, "duration", "()I"));
         values.add(method("cubism.editor-model.track-source.editable", TrackSource.class, "editable", "()Z"));
@@ -1073,26 +1223,52 @@ class EditorDocumentReadAccessTest {
         values.add(method("cubism.editor-model.track-source.mute", TrackSource.class, "mute", "()Z"));
         values.add(method("cubism.editor-model.track-source.repeat", TrackSource.class, "repeat", "()Z"));
         values.add(method("cubism.editor-model.track-source.key-frames", TrackSource.class, "keyFrames", "()[I"));
-        values.add(method("cubism.editor-model.track-source.effect-manager", TrackSource.class, "effectManager", "()L" + internal(EffectManager.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.track-source.effect-manager",
+                TrackSource.class,
+                "effectManager",
+                "()L" + internal(EffectManager.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.track-group.class", internal(GroupTrack.class)));
-        values.add(method("cubism.editor-model.track-group.children", GroupTrack.class, "childTracks", "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.track-group.children", GroupTrack.class, "childTracks", "()Ljava/util/List;"));
         values.add(StaticSelector.classSelector("cubism.editor-model.track-model.class", internal(ModelTrack.class)));
-        values.add(method("cubism.editor-model.track-model.model", ModelTrack.class, "model", "()L" + internal(ModelSource.class) + ";"));
-        values.add(method("cubism.editor-model.track-model.resource-ref", ModelTrack.class, "resourceRef", "()L" + internal(ResourceFile.class) + ";"));
-        values.add(method("cubism.editor-model.resource-file.src-file", ResourceFile.class, "srcFile", "()Ljava/io/File;"));
+        values.add(method(
+                "cubism.editor-model.track-model.model",
+                ModelTrack.class,
+                "model",
+                "()L" + internal(ModelSource.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.track-model.resource-ref",
+                ModelTrack.class,
+                "resourceRef",
+                "()L" + internal(ResourceFile.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.resource-file.src-file", ResourceFile.class, "srcFile", "()Ljava/io/File;"));
         values.add(StaticSelector.classSelector("cubism.editor-model.track-scene.class", internal(SceneTrack.class)));
-        values.add(method("cubism.editor-model.track-scene.resource-scene-guid", SceneTrack.class, "resourceGuid", "()L" + internal(Id.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.track-scene.resource-scene-guid",
+                SceneTrack.class,
+                "resourceGuid",
+                "()L" + internal(Id.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.track-image.class", internal(ImageTrack.class)));
-        values.add(StaticSelector.classSelector("cubism.editor-model.track-guide-image.class", internal(GuideImageTrack.class)));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.track-guide-image.class", internal(GuideImageTrack.class)));
         values.add(StaticSelector.classSelector("cubism.editor-model.track-text.class", internal(TextTrack.class)));
         values.add(StaticSelector.classSelector("cubism.editor-model.track-moc3.class", internal(Moc3Track.class)));
         values.add(StaticSelector.classSelector("cubism.editor-model.track-sound.class", internal(SoundTrack.class)));
-        values.add(StaticSelector.classSelector("cubism.editor-model.effect-manager.class", internal(EffectManager.class)));
-        values.add(method("cubism.editor-model.effect-manager.effects", EffectManager.class, "effectList", "()[L" + internal(Effect.class) + ";"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.effect-manager.class", internal(EffectManager.class)));
+        values.add(method(
+                "cubism.editor-model.effect-manager.effects",
+                EffectManager.class,
+                "effectList",
+                "()[L" + internal(Effect.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.effect.class", internal(Effect.class)));
         values.add(method("cubism.editor-model.effect.id", Effect.class, "id", "()L" + internal(Id.class) + ";"));
-        values.add(method("cubism.editor-model.effect.attrs", Effect.class, "attrList", "()[L" + internal(Attr.class) + ";"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.effect-parameter.class", internal(ParamEffect.class)));
+        values.add(method(
+                "cubism.editor-model.effect.attrs", Effect.class, "attrList", "()[L" + internal(Attr.class) + ";"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.effect-parameter.class", internal(ParamEffect.class)));
         values.add(StaticSelector.classSelector("cubism.editor-model.attr.class", internal(Attr.class)));
         values.add(method("cubism.editor-model.attr.id", Attr.class, "id", "()L" + internal(Id.class) + ";"));
         values.add(method("cubism.editor-model.attr.name", Attr.class, "name", "()Ljava/lang/String;"));
@@ -1102,95 +1278,255 @@ class EditorDocumentReadAccessTest {
         values.add(method("cubism.editor-model.attr.key-frames", Attr.class, "keyFrames", "()[I"));
         values.add(method("cubism.editor-model.attr.value", Attr.class, "value", "(I)Ljava/lang/Object;"));
         values.add(StaticSelector.classSelector("cubism.editor-model.attr-f.class", internal(AttrF.class)));
-        values.add(method("cubism.editor-model.attr-f.value-data", AttrF.class, "valueData", "()L" + internal(MutableSequence.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.attr-f.value-data",
+                AttrF.class,
+                "valueData",
+                "()L" + internal(MutableSequence.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.attr-i.class", internal(AttrI.class)));
         values.add(StaticSelector.classSelector("cubism.editor-model.attr-pt.class", internal(AttrPt.class)));
-        values.add(StaticSelector.classSelector("cubism.editor-model.mutable-sequence.class", internal(MutableSequence.class)));
-        values.add(method("cubism.editor-model.mutable-sequence.curve-type", MutableSequence.class, "curveType", "(I)L" + internal(CurveType.class) + ";"));
-        values.add(method("cubism.editor-model.mutable-sequence.point", MutableSequence.class, "point", "(I)L" + internal(BezierPt.class) + ";"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.mutable-sequence.class", internal(MutableSequence.class)));
+        values.add(method(
+                "cubism.editor-model.mutable-sequence.curve-type",
+                MutableSequence.class,
+                "curveType",
+                "(I)L" + internal(CurveType.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.mutable-sequence.point",
+                MutableSequence.class,
+                "point",
+                "(I)L" + internal(BezierPt.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.bezier-point.class", internal(BezierPt.class)));
-        values.add(method("cubism.editor-model.bezier-point.prev", BezierPt.class, "prev", "()L" + internal(CtrlPt.class) + ";"));
-        values.add(method("cubism.editor-model.bezier-point.next", BezierPt.class, "next", "()L" + internal(CtrlPt.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.bezier-point.prev", BezierPt.class, "prev", "()L" + internal(CtrlPt.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.bezier-point.next", BezierPt.class, "next", "()L" + internal(CtrlPt.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.bezier-ctrl-point.class", internal(CtrlPt.class)));
         values.add(method("cubism.editor-model.bezier-ctrl-point.pos", CtrlPt.class, "posF", "()F"));
         values.add(method("cubism.editor-model.bezier-ctrl-point.value", CtrlPt.class, "doubleValue", "()D"));
         values.add(method("cubism.editor-model.bezier-ctrl-point.corner", CtrlPt.class, "corner", "()Z"));
         values.add(StaticSelector.classSelector("cubism.editor-model.curve-type.class", internal(CurveType.class)));
-        values.add(StaticSelector.field("cubism.editor-model.curve-type.linear", internal(CurveType.class), "LINEAR", "L" + internal(CurveType.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(StaticSelector.field("cubism.editor-model.curve-type.bezier", internal(CurveType.class), "BEZIER", "L" + internal(CurveType.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(StaticSelector.field("cubism.editor-model.curve-type.smooth", internal(CurveType.class), "SMOOTH", "L" + internal(CurveType.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(StaticSelector.field("cubism.editor-model.curve-type.step", internal(CurveType.class), "STEP", "L" + internal(CurveType.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(StaticSelector.field("cubism.editor-model.curve-type.inverse-step", internal(CurveType.class), "INVERSE_STEP", "L" + internal(CurveType.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(method("cubism.editor-model.animation-file-content.scene-docs", AnimationFileContent.class, "sceneDocs", "()Ljava/util/List;"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.scene-document.class", internal(SceneDocument.class)));
-        values.add(method("cubism.editor-model.scene-document.scene-source", SceneDocument.class, "sceneSource", "()L" + internal(SceneSource.class) + ";"));
-        values.add(method("cubism.editor-model.scene-document.current-edit-mode", SceneDocument.class, "currentEditMode", "()L" + internal(SceneEditMode.class) + ";"));
-        values.add(method("cubism.editor-model.scene-document.complete-pack", SceneDocument.class, "completePack", "()L" + internal(CompletePack.class) + ";"));
-        values.add(method("cubism.editor-model.scene-document.update-modified", SceneDocument.class, "updateModified", "()V"));
-        values.add(method("cubism.editor-model.edit-mode-base.begin", EditModeBase.class, "begin", "(Ljava/lang/String;)L" + internal(GroupUndo.class) + ";"));
-        values.add(method("cubism.editor-model.edit-mode-base.end", EditModeBase.class, "end", "(ZLjava/lang/Object;)Z"));
-        values.add(method("cubism.editor-history.document.undo-manager", Document.class, "undoManager", "()L" + internal(UndoManager.class) + ";"));
+        values.add(StaticSelector.field(
+                "cubism.editor-model.curve-type.linear",
+                internal(CurveType.class),
+                "LINEAR",
+                "L" + internal(CurveType.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(StaticSelector.field(
+                "cubism.editor-model.curve-type.bezier",
+                internal(CurveType.class),
+                "BEZIER",
+                "L" + internal(CurveType.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(StaticSelector.field(
+                "cubism.editor-model.curve-type.smooth",
+                internal(CurveType.class),
+                "SMOOTH",
+                "L" + internal(CurveType.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(StaticSelector.field(
+                "cubism.editor-model.curve-type.step",
+                internal(CurveType.class),
+                "STEP",
+                "L" + internal(CurveType.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(StaticSelector.field(
+                "cubism.editor-model.curve-type.inverse-step",
+                internal(CurveType.class),
+                "INVERSE_STEP",
+                "L" + internal(CurveType.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(method(
+                "cubism.editor-model.animation-file-content.scene-docs",
+                AnimationFileContent.class,
+                "sceneDocs",
+                "()Ljava/util/List;"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.scene-document.class", internal(SceneDocument.class)));
+        values.add(method(
+                "cubism.editor-model.scene-document.scene-source",
+                SceneDocument.class,
+                "sceneSource",
+                "()L" + internal(SceneSource.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.scene-document.current-edit-mode",
+                SceneDocument.class,
+                "currentEditMode",
+                "()L" + internal(SceneEditMode.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.scene-document.complete-pack",
+                SceneDocument.class,
+                "completePack",
+                "()L" + internal(CompletePack.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.scene-document.update-modified", SceneDocument.class, "updateModified", "()V"));
+        values.add(method(
+                "cubism.editor-model.edit-mode-base.begin",
+                EditModeBase.class,
+                "begin",
+                "(Ljava/lang/String;)L" + internal(GroupUndo.class) + ";"));
+        values.add(
+                method("cubism.editor-model.edit-mode-base.end", EditModeBase.class, "end", "(ZLjava/lang/Object;)Z"));
+        values.add(method(
+                "cubism.editor-history.document.undo-manager",
+                Document.class,
+                "undoManager",
+                "()L" + internal(UndoManager.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-history.manager.class", internal(UndoManager.class)));
         values.add(method("cubism.editor-history.manager.entries", UndoManager.class, "entries", "()Ljava/util/List;"));
         values.add(method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"));
         values.add(method("cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Z"));
         values.add(method("cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Z"));
         values.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(HistoryEntry.class)));
-        values.add(method("cubism.editor-history.entry.presentation-name", HistoryEntry.class, "presentationName", "()Ljava/lang/String;"));
+        values.add(method(
+                "cubism.editor-history.entry.presentation-name",
+                HistoryEntry.class,
+                "presentationName",
+                "()Ljava/lang/String;"));
         values.add(method("cubism.editor-history.entry.significant", HistoryEntry.class, "significant", "()Z"));
-        values.add(method("cubism.editor-model.attr.set-value-auto", Attr.class, "setValueAuto", "(ILjava/lang/Object;)V"));
+        values.add(method(
+                "cubism.editor-model.attr.set-value-auto", Attr.class, "setValueAuto", "(ILjava/lang/Object;)V"));
         values.add(method("cubism.editor-model.attr.remove-value-auto", Attr.class, "removeValueAuto", "(I)V"));
-        values.add(method("cubism.editor-model.attr.track", Attr.class, "track", "()L" + internal(TrackSource.class) + ";"));
-        values.add(method("cubism.editor-model.attr-f.set-value-curve", AttrF.class, "setValueAndCurveType", "(IDL" + internal(CurveType.class) + ";)V"));
+        values.add(method(
+                "cubism.editor-model.attr.track", Attr.class, "track", "()L" + internal(TrackSource.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.attr-f.set-value-curve",
+                AttrF.class,
+                "setValueAndCurveType",
+                "(IDL" + internal(CurveType.class) + ";)V"));
         values.add(method("cubism.editor-model.attr-f.read-only", AttrF.class, "isReadOnly", "()Z"));
         values.add(method("cubism.editor-model.attr-i.set-value-auto", AttrI.class, "setValueAuto", "(ID)V"));
         values.add(method("cubism.editor-model.attr-pt.set-value-auto", AttrPt.class, "setValueAuto", "(IFF)V"));
         values.add(method("cubism.editor-model.bezier-ctrl-point.set-pos", CtrlPt.class, "setPos", "(F)V"));
         values.add(method("cubism.editor-model.bezier-ctrl-point.set-value", CtrlPt.class, "setValue", "(D)V"));
         values.add(method("cubism.editor-model.bezier-ctrl-point.set-corner", CtrlPt.class, "setCorner", "(Z)V"));
-        values.add(method("cubism.editor-model.mutable-sequence.force-update", MutableSequence.class, "forceUpdate", "()V"));
-        values.add(method("cubism.editor-model.scene-source.set-scene-name", SceneSource.class, "setSceneName", "(Ljava/lang/String;)V"));
-        values.add(method("cubism.editor-model.complete-pack.update-project", CompletePack.class, "updateProject", "()V"));
+        values.add(method(
+                "cubism.editor-model.mutable-sequence.force-update", MutableSequence.class, "forceUpdate", "()V"));
+        values.add(method(
+                "cubism.editor-model.scene-source.set-scene-name",
+                SceneSource.class,
+                "setSceneName",
+                "(Ljava/lang/String;)V"));
+        values.add(
+                method("cubism.editor-model.complete-pack.update-project", CompletePack.class, "updateProject", "()V"));
         values.add(method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"));
-        values.add(StaticSelector.constructor("cubism.editor-model.simple-undo.create", internal(SimpleUndo.class), "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC));
-        values.add(StaticSelector.constructor("cubism.editor-model.scene-handler.create", internal(SceneHandler.class), "(L" + internal(SceneSource.class) + ";)V", StaticSelector.ACCESS_PUBLIC));
-        values.add(method("cubism.editor-model.scene-handler.basic-undo", SceneHandler.class, "a", "(Ljava/lang/String;)L" + internal(Undo.class) + ";"));
-        values.add(method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(L" + internal(Undo.class) + ";Z)Z"));
-        values.add(method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(L" + internal(Listener.class) + ";)Z"));
+        values.add(StaticSelector.constructor(
+                "cubism.editor-model.simple-undo.create",
+                internal(SimpleUndo.class),
+                "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V",
+                StaticSelector.ACCESS_PUBLIC));
+        values.add(StaticSelector.constructor(
+                "cubism.editor-model.scene-handler.create",
+                internal(SceneHandler.class),
+                "(L" + internal(SceneSource.class) + ";)V",
+                StaticSelector.ACCESS_PUBLIC));
+        values.add(method(
+                "cubism.editor-model.scene-handler.basic-undo",
+                SceneHandler.class,
+                "a",
+                "(Ljava/lang/String;)L" + internal(Undo.class) + ";"));
+        values.add(
+                method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(L" + internal(Undo.class) + ";Z)Z"));
+        values.add(method(
+                "cubism.editor-model.undo.add-listener",
+                Undo.class,
+                "addListener",
+                "(L" + internal(Listener.class) + ";)Z"));
         values.add(StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
-        values.add(method("cubism.editor-model.scene-source.scene-instances", SceneSource.class, "sceneInstances", "()Ljava/util/List;"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.scene-instance.class", internal(SceneInstance.class)));
-        values.add(method("cubism.editor-model.scene-instance.current-time", SceneInstance.class, "currentTime", "()L" + internal(SceneTime.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.scene-source.scene-instances",
+                SceneSource.class,
+                "sceneInstances",
+                "()Ljava/util/List;"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.scene-instance.class", internal(SceneInstance.class)));
+        values.add(method(
+                "cubism.editor-model.scene-instance.current-time",
+                SceneInstance.class,
+                "currentTime",
+                "()L" + internal(SceneTime.class) + ";"));
         values.add(method("cubism.editor-model.scene-time.frame", SceneTime.class, "frame", "()I"));
         values.add(method("cubism.editor-model.scene-time.set-frame", SceneTime.class, "frame", "(I)V"));
-        values.add(method("cubism.editor-model.animation.set-current-scene", Animation.class, "setCurrentScene", "(L" + internal(SceneSource.class) + ";)V"));
-        values.add(method("cubism.editor-model.animation-file-content.current-scene-doc", AnimationFileContent.class, "currentSceneDoc", "()L" + internal(SceneDocument.class) + ";"));
-        values.add(method("cubism.editor-model.animation-file-content.set-current-scene-doc", AnimationFileContent.class, "setCurrentSceneDoc", "(L" + internal(SceneDocument.class) + ";)V"));
-        values.add(method("cubism.editor-model.scene-document.animation", SceneDocument.class, "animation", "()L" + internal(Animation.class) + ";"));
-        values.add(method("cubism.editor-model.scene-document.view-contexts", SceneDocument.class, "viewContexts", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.scene-source.default-curve-type", SceneSource.class, "defaultCurveType", "()L" + internal(CurveType.class) + ";"));
-        values.add(method("cubism.editor-model.scene-source.set-default-curve-type", SceneSource.class, "setDefaultCurveType", "(L" + internal(CurveType.class) + ";)V"));
-        values.add(method("cubism.editor-model.mutable-sequence.set-curve-type", MutableSequence.class, "setCurveType", "(IL" + internal(CurveType.class) + ";)V"));
-        values.add(method("cubism.editor-model.scene-instance.root-track", SceneInstance.class, "rootTrack", "()L" + internal(GroupTrackInstance.class) + ";"));
-        values.add(method("cubism.editor-model.scene-instance.all-tracks", SceneInstance.class, "allTracks", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.track-instance.update", TrackInstance.class, "update", "(Ljava/lang/Object;L" + internal(SceneTime.class) + ";L" + internal(EvalFlags.class) + ";)V"));
-        values.add(method("cubism.editor-model.track-instance.source", TrackInstance.class, "source", "()L" + internal(TrackSource.class) + ";"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.track-model-instance.class", internal(ModelTrackInstance.class)));
-        values.add(method("cubism.editor-model.track-model-instance.parameter-set", ModelTrackInstance.class, "parameterSet", "()L" + internal(ParameterSet.class) + ";"));
-        values.add(StaticSelector.constructor("cubism.editor-model.eval-flags.create", internal(EvalFlags.class), "(Z)V", StaticSelector.ACCESS_PUBLIC));
+        values.add(method(
+                "cubism.editor-model.animation.set-current-scene",
+                Animation.class,
+                "setCurrentScene",
+                "(L" + internal(SceneSource.class) + ";)V"));
+        values.add(method(
+                "cubism.editor-model.animation-file-content.current-scene-doc",
+                AnimationFileContent.class,
+                "currentSceneDoc",
+                "()L" + internal(SceneDocument.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.animation-file-content.set-current-scene-doc",
+                AnimationFileContent.class,
+                "setCurrentSceneDoc",
+                "(L" + internal(SceneDocument.class) + ";)V"));
+        values.add(method(
+                "cubism.editor-model.scene-document.animation",
+                SceneDocument.class,
+                "animation",
+                "()L" + internal(Animation.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.scene-document.view-contexts",
+                SceneDocument.class,
+                "viewContexts",
+                "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.scene-source.default-curve-type",
+                SceneSource.class,
+                "defaultCurveType",
+                "()L" + internal(CurveType.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.scene-source.set-default-curve-type",
+                SceneSource.class,
+                "setDefaultCurveType",
+                "(L" + internal(CurveType.class) + ";)V"));
+        values.add(method(
+                "cubism.editor-model.mutable-sequence.set-curve-type",
+                MutableSequence.class,
+                "setCurveType",
+                "(IL" + internal(CurveType.class) + ";)V"));
+        values.add(method(
+                "cubism.editor-model.scene-instance.root-track",
+                SceneInstance.class,
+                "rootTrack",
+                "()L" + internal(GroupTrackInstance.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.scene-instance.all-tracks",
+                SceneInstance.class,
+                "allTracks",
+                "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.track-instance.update",
+                TrackInstance.class,
+                "update",
+                "(Ljava/lang/Object;L" + internal(SceneTime.class) + ";L" + internal(EvalFlags.class) + ";)V"));
+        values.add(method(
+                "cubism.editor-model.track-instance.source",
+                TrackInstance.class,
+                "source",
+                "()L" + internal(TrackSource.class) + ";"));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.track-model-instance.class", internal(ModelTrackInstance.class)));
+        values.add(method(
+                "cubism.editor-model.track-model-instance.parameter-set",
+                ModelTrackInstance.class,
+                "parameterSet",
+                "()L" + internal(ParameterSet.class) + ";"));
+        values.add(StaticSelector.constructor(
+                "cubism.editor-model.eval-flags.create",
+                internal(EvalFlags.class),
+                "(Z)V",
+                StaticSelector.ACCESS_PUBLIC));
         values.add(method("cubism.editor-model.parameter.value", ParameterHolder.class, "value", "()F"));
         return List.copyOf(values);
     }
 
     private static StaticSelector method(
-        final String alias,
-        final Class<?> owner,
-        final String name,
-        final String descriptor
-    ) {
-        return StaticSelector.method(
-            alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC
-        );
+            final String alias, final Class<?> owner, final String name, final String descriptor) {
+        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
     private static String internal(final Class<?> type) {
@@ -1229,13 +1565,10 @@ class EditorDocumentReadAccessTest {
 
         Project(final Document document) {
             this.document = document;
-            this.animation = new AnimationFileContent(
-                new ModelSource("model-a-reloaded"), document.file(), "Animation A"
-            );
+            this.animation =
+                    new AnimationFileContent(new ModelSource("model-a-reloaded"), document.file(), "Animation A");
             this.decoy = new AnimationFileContent(
-                new ModelSource("model-b"), new java.io.File("probe-model-b.cmo3"),
-                "Decoy Animation"
-            );
+                    new ModelSource("model-b"), new java.io.File("probe-model-b.cmo3"), "Decoy Animation");
         }
 
         public List<Object> children() {
@@ -1267,18 +1600,39 @@ class EditorDocumentReadAccessTest {
 
     public static class HistoryEntry {
         private final String name;
-        HistoryEntry(final String name) { this.name = name; }
-        public String presentationName() { return name; }
-        public boolean significant() { return true; }
+
+        HistoryEntry(final String name) {
+            this.name = name;
+        }
+
+        public String presentationName() {
+            return name;
+        }
+
+        public boolean significant() {
+            return true;
+        }
     }
 
     public static final class UndoManager {
         final List<HistoryEntry> entries = new ArrayList<>();
         int position;
-        public List<HistoryEntry> entries() { return entries; }
-        public int position() { return position; }
-        public boolean canUndo() { return position > 0; }
-        public boolean canRedo() { return position < entries.size(); }
+
+        public List<HistoryEntry> entries() {
+            return entries;
+        }
+
+        public int position() {
+            return position;
+        }
+
+        public boolean canUndo() {
+            return position > 0;
+        }
+
+        public boolean canRedo() {
+            return position < entries.size();
+        }
     }
 
     public static final class ModelSource {
@@ -1535,8 +1889,15 @@ class EditorDocumentReadAccessTest {
         }
 
         public List<Object> vertices() {
-            return List.of(new Object(), new Object(), new Object(), new Object(),
-                new Object(), new Object(), new Object(), new Object());
+            return List.of(
+                    new Object(),
+                    new Object(),
+                    new Object(),
+                    new Object(),
+                    new Object(),
+                    new Object(),
+                    new Object(),
+                    new Object());
         }
     }
 
@@ -1545,9 +1906,7 @@ class EditorDocumentReadAccessTest {
         private final List<SceneDocument> sceneDocs = new ArrayList<>();
         private SceneDocument currentSceneDoc;
 
-        AnimationFileContent(
-            final ModelSource linked, final java.io.File linkedFile, final String name
-        ) {
+        AnimationFileContent(final ModelSource linked, final java.io.File linkedFile, final String name) {
             this.animation = new Animation(linked, linkedFile, name);
             for (SceneSource scene : animation.scenes()) {
                 sceneDocs.add(new SceneDocument(scene, animation));
@@ -1633,8 +1992,7 @@ class EditorDocumentReadAccessTest {
         }
     }
 
-    public static final class SceneEditMode extends EditModeBase {
-    }
+    public static final class SceneEditMode extends EditModeBase {}
 
     public static final class CompletePack {
         int projectUpdates;
@@ -1660,8 +2018,7 @@ class EditorDocumentReadAccessTest {
             return listeners.add(listener);
         }
 
-        public void undo() {
-        }
+        public void undo() {}
     }
 
     public static final class GroupUndo extends Undo {
@@ -1671,7 +2028,8 @@ class EditorDocumentReadAccessTest {
             return edits.add(undo);
         }
 
-        @Override public void undo() {
+        @Override
+        public void undo() {
             for (int index = edits.size() - 1; index >= 0; index--) {
                 edits.get(index).undo();
             }
@@ -1695,7 +2053,8 @@ class EditorDocumentReadAccessTest {
             }
         }
 
-        @Override public void undo() {
+        @Override
+        public void undo() {
             if (target instanceof Attr attribute) {
                 attribute.restore(snapshot);
             } else if (target instanceof SceneSource scene) {
@@ -1732,7 +2091,8 @@ class EditorDocumentReadAccessTest {
             this.curveType = scene.defaultCurveType();
         }
 
-        @Override public void undo() {
+        @Override
+        public void undo() {
             scene.setSceneName(name);
             scene.setDefaultCurveType(curveType);
         }
@@ -1743,9 +2103,7 @@ class EditorDocumentReadAccessTest {
         private final List<SceneSource> scenes;
         private SceneSource currentScene;
 
-        Animation(
-            final ModelSource linked, final java.io.File linkedFile, final String name
-        ) {
+        Animation(final ModelSource linked, final java.io.File linkedFile, final String name) {
             this.name = name;
             this.scenes = List.of(sceneOne(linked, linkedFile), sceneTwo());
             this.currentScene = scenes.get(1);
@@ -1769,52 +2127,91 @@ class EditorDocumentReadAccessTest {
 
         private static SceneSource sceneOne(final ModelSource linked, final java.io.File linkedFile) {
             final MutableSequence sequence = new MutableSequence(
-                Map.of(0, CurveType.LINEAR, 30, CurveType.BEZIER, 60, CurveType.STEP),
-                Map.of(30, new BezierPt(new CtrlPt(24.5F, 0.4, false), new CtrlPt(36.0F, 0.6, true)))
-            );
+                    Map.of(0, CurveType.LINEAR, 30, CurveType.BEZIER, 60, CurveType.STEP),
+                    Map.of(30, new BezierPt(new CtrlPt(24.5F, 0.4, false), new CtrlPt(36.0F, 0.6, true))));
             final ModelTrack modelTrack = new ModelTrack(
-                "track-model", "Model A", new int[]{0, 60, 120}, linked, linkedFile,
-                new EffectManager(
-                    new ParamEffect("effect-param", "Live2D Parameters",
-                        new AttrF("live2dParam_ParamAngleX", "Angle X", "attr-guid-1",
-                            new int[]{0, 30, 60}, Map.of(0, 0.0, 30, 0.5, 60, 1.0), sequence)),
-                    new Effect("effect-visual", "Placement",
-                        new AttrI("frameStep", "Frame Step", "attr-guid-2",
-                            new int[]{0, 120}, Map.of(0, 0, 120, 2)))
-                )
-            );
+                    "track-model",
+                    "Model A",
+                    new int[] {0, 60, 120},
+                    linked,
+                    linkedFile,
+                    new EffectManager(
+                            new ParamEffect(
+                                    "effect-param",
+                                    "Live2D Parameters",
+                                    new AttrF(
+                                            "live2dParam_ParamAngleX",
+                                            "Angle X",
+                                            "attr-guid-1",
+                                            new int[] {0, 30, 60},
+                                            Map.of(0, 0.0, 30, 0.5, 60, 1.0),
+                                            sequence)),
+                            new Effect(
+                                    "effect-visual",
+                                    "Placement",
+                                    new AttrI(
+                                            "frameStep",
+                                            "Frame Step",
+                                            "attr-guid-2",
+                                            new int[] {0, 120},
+                                            Map.of(0, 0, 120, 2)))));
             final GroupTrack subGroup = new GroupTrack(
-                "track-group", "Nested",
-                new ImageTrack("track-image", "Sprite", new int[]{0, 120},
-                    new EffectManager(new Effect("effect-layout", "Layout",
-                        new AttrPt("position", "Position", "attr-guid-3",
-                            new int[]{0, 120}, Map.of(0, new GVector2(0.0F, 0.0F), 120, new GVector2(10.0F, 5.0F)))))
-            ));
+                    "track-group",
+                    "Nested",
+                    new ImageTrack(
+                            "track-image",
+                            "Sprite",
+                            new int[] {0, 120},
+                            new EffectManager(new Effect(
+                                    "effect-layout",
+                                    "Layout",
+                                    new AttrPt(
+                                            "position",
+                                            "Position",
+                                            "attr-guid-3",
+                                            new int[] {0, 120},
+                                            Map.of(0, new GVector2(0.0F, 0.0F), 120, new GVector2(10.0F, 5.0F)))))));
             return new SceneSource(
-                "Scene 1", "scene-guid-1", "intro",
-                new LinkedHashMap<>(Map.of(0, "start", 60, "peak")),
-                new MovieInfo(0, 120, 30.0, 1920, 1080, true, 10, 100),
-                new GroupTrack("track-root", "Root",
-                    modelTrack, subGroup,
-                    new SceneTrack("track-scene", "Scene Ref", "scene-guid-2"),
-                    new SoundTrack("track-sound", "Voice", new int[]{10, 40}))
-            );
+                    "Scene 1",
+                    "scene-guid-1",
+                    "intro",
+                    new LinkedHashMap<>(Map.of(0, "start", 60, "peak")),
+                    new MovieInfo(0, 120, 30.0, 1920, 1080, true, 10, 100),
+                    new GroupTrack(
+                            "track-root",
+                            "Root",
+                            modelTrack,
+                            subGroup,
+                            new SceneTrack("track-scene", "Scene Ref", "scene-guid-2"),
+                            new SoundTrack("track-sound", "Voice", new int[] {10, 40})));
         }
 
         private static SceneSource sceneTwo() {
             return new SceneSource(
-                "Scene 2", "scene-guid-2", "",
-                new LinkedHashMap<>(),
-                new MovieInfo(0, 60, 24.0, 800, 600, false, 0, 60),
-                new GroupTrack("track-root-2", "Root",
-                    new TextTrack("track-text", "Caption", new int[]{0, 60},
-                        new EffectManager(new ParamEffect("effect-param-2", "Live2D Parameters",
-                            new AttrF("live2dParam_ParamAngleY", "Angle Y", "attr-guid-4",
-                                new int[]{10, 50}, Map.of(10, 1.0, 50, 2.0),
-                                new MutableSequence(
-                                    Map.of(10, CurveType.SMOOTH, 50, CurveType.SMOOTH),
-                                    Map.of()))))))
-            );
+                    "Scene 2",
+                    "scene-guid-2",
+                    "",
+                    new LinkedHashMap<>(),
+                    new MovieInfo(0, 60, 24.0, 800, 600, false, 0, 60),
+                    new GroupTrack(
+                            "track-root-2",
+                            "Root",
+                            new TextTrack(
+                                    "track-text",
+                                    "Caption",
+                                    new int[] {0, 60},
+                                    new EffectManager(new ParamEffect(
+                                            "effect-param-2",
+                                            "Live2D Parameters",
+                                            new AttrF(
+                                                    "live2dParam_ParamAngleY",
+                                                    "Angle Y",
+                                                    "attr-guid-4",
+                                                    new int[] {10, 50},
+                                                    Map.of(10, 1.0, 50, 2.0),
+                                                    new MutableSequence(
+                                                            Map.of(10, CurveType.SMOOTH, 50, CurveType.SMOOTH),
+                                                            Map.of())))))));
         }
     }
 
@@ -1829,19 +2226,22 @@ class EditorDocumentReadAccessTest {
         private CurveType defaultCurveType = CurveType.LINEAR;
 
         SceneSource(final String sceneName) {
-            this(sceneName, "scene-guid-" + sceneName, null, new LinkedHashMap<>(),
-                new MovieInfo(0, 60, 30.0, 800, 600, false, 0, 60),
-                new GroupTrack("track-root-" + sceneName, "Root"));
+            this(
+                    sceneName,
+                    "scene-guid-" + sceneName,
+                    null,
+                    new LinkedHashMap<>(),
+                    new MovieInfo(0, 60, 30.0, 800, 600, false, 0, 60),
+                    new GroupTrack("track-root-" + sceneName, "Root"));
         }
 
         SceneSource(
-            final String sceneName,
-            final String guid,
-            final String tag,
-            final HashMap<Integer, String> marker,
-            final MovieInfo movieInfo,
-            final GroupTrack rootTrack
-        ) {
+                final String sceneName,
+                final String guid,
+                final String tag,
+                final HashMap<Integer, String> marker,
+                final MovieInfo movieInfo,
+                final GroupTrack rootTrack) {
             this.sceneName = sceneName;
             this.guid = new Id(guid);
             this.tag = tag;
@@ -1903,15 +2303,14 @@ class EditorDocumentReadAccessTest {
         private final int workspaceEnd;
 
         MovieInfo(
-            final int startFrame,
-            final int duration,
-            final double fps,
-            final int width,
-            final int height,
-            final boolean loopMotion,
-            final int workspaceStart,
-            final int workspaceEnd
-        ) {
+                final int startFrame,
+                final int duration,
+                final double fps,
+                final int width,
+                final int height,
+                final boolean loopMotion,
+                final int workspaceStart,
+                final int workspaceEnd) {
             this.startFrame = startFrame;
             this.duration = duration;
             this.fps = fps;
@@ -1922,14 +2321,37 @@ class EditorDocumentReadAccessTest {
             this.workspaceEnd = workspaceEnd;
         }
 
-        public int startFrame() { return startFrame; }
-        public int duration() { return duration; }
-        public double fps() { return fps; }
-        public int width() { return width; }
-        public int height() { return height; }
-        public boolean isLoopMotion() { return loopMotion; }
-        public int workspaceStart() { return workspaceStart; }
-        public int workspaceEnd() { return workspaceEnd; }
+        public int startFrame() {
+            return startFrame;
+        }
+
+        public int duration() {
+            return duration;
+        }
+
+        public double fps() {
+            return fps;
+        }
+
+        public int width() {
+            return width;
+        }
+
+        public int height() {
+            return height;
+        }
+
+        public boolean isLoopMotion() {
+            return loopMotion;
+        }
+
+        public int workspaceStart() {
+            return workspaceStart;
+        }
+
+        public int workspaceEnd() {
+            return workspaceEnd;
+        }
     }
 
     public static class TrackSource {
@@ -1938,12 +2360,7 @@ class EditorDocumentReadAccessTest {
         private final int[] keyFrames;
         private final EffectManager effectManager;
 
-        TrackSource(
-            final String guid,
-            final String name,
-            final int[] keyFrames,
-            final EffectManager effectManager
-        ) {
+        TrackSource(final String guid, final String name, final int[] keyFrames, final EffectManager effectManager) {
             this.guid = new Id(guid);
             this.name = name;
             this.keyFrames = keyFrames;
@@ -1955,16 +2372,45 @@ class EditorDocumentReadAccessTest {
             }
         }
 
-        public String name() { return name; }
-        public Id guid() { return guid; }
-        public int start() { return 0; }
-        public int duration() { return 120; }
-        public boolean editable() { return true; }
-        public boolean visible() { return true; }
-        public boolean mute() { return false; }
-        public boolean repeat() { return false; }
-        public int[] keyFrames() { return keyFrames; }
-        public EffectManager effectManager() { return effectManager; }
+        public String name() {
+            return name;
+        }
+
+        public Id guid() {
+            return guid;
+        }
+
+        public int start() {
+            return 0;
+        }
+
+        public int duration() {
+            return 120;
+        }
+
+        public boolean editable() {
+            return true;
+        }
+
+        public boolean visible() {
+            return true;
+        }
+
+        public boolean mute() {
+            return false;
+        }
+
+        public boolean repeat() {
+            return false;
+        }
+
+        public int[] keyFrames() {
+            return keyFrames;
+        }
+
+        public EffectManager effectManager() {
+            return effectManager;
+        }
     }
 
     public static class GroupTrack extends TrackSource {
@@ -1985,13 +2431,12 @@ class EditorDocumentReadAccessTest {
         private final ResourceFile resourceRef;
 
         ModelTrack(
-            final String guid,
-            final String name,
-            final int[] keyFrames,
-            final ModelSource model,
-            final java.io.File srcFile,
-            final EffectManager effectManager
-        ) {
+                final String guid,
+                final String name,
+                final int[] keyFrames,
+                final ModelSource model,
+                final java.io.File srcFile,
+                final EffectManager effectManager) {
             super(guid, name, keyFrames, effectManager);
             this.model = model;
             this.resourceRef = new ResourceFile(srcFile);
@@ -2032,12 +2477,7 @@ class EditorDocumentReadAccessTest {
     }
 
     public static class ImageTrack extends TrackSource {
-        ImageTrack(
-            final String guid,
-            final String name,
-            final int[] keyFrames,
-            final EffectManager effectManager
-        ) {
+        ImageTrack(final String guid, final String name, final int[] keyFrames, final EffectManager effectManager) {
             super(guid, name, keyFrames, effectManager);
         }
     }
@@ -2053,12 +2493,7 @@ class EditorDocumentReadAccessTest {
             this(guid, name, keyFrames, new EffectManager());
         }
 
-        TextTrack(
-            final String guid,
-            final String name,
-            final int[] keyFrames,
-            final EffectManager effectManager
-        ) {
+        TextTrack(final String guid, final String name, final int[] keyFrames, final EffectManager effectManager) {
             super(guid, name, keyFrames, effectManager);
         }
     }
@@ -2098,10 +2533,21 @@ class EditorDocumentReadAccessTest {
             this.attrList = attrs;
         }
 
-        public Id id() { return id; }
-        public String name() { return name; }
-        public boolean active() { return true; }
-        public Attr[] attrList() { return attrList; }
+        public Id id() {
+            return id;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public boolean active() {
+            return true;
+        }
+
+        public Attr[] attrList() {
+            return attrList;
+        }
     }
 
     public static final class ParamEffect extends Effect {
@@ -2119,30 +2565,48 @@ class EditorDocumentReadAccessTest {
         boolean failWrites;
 
         Attr(
-            final String id,
-            final String name,
-            final String guid,
-            final int[] keyFrames,
-            final Map<Integer, Object> values
-        ) {
+                final String id,
+                final String name,
+                final String guid,
+                final int[] keyFrames,
+                final Map<Integer, Object> values) {
             this.id = new Id(id);
             this.name = name;
             this.guid = new Id(guid);
             this.values = new TreeMap<>(values);
         }
 
-        public Id id() { return id; }
-        public String name() { return name; }
-        public Id guid() { return guid; }
-        public boolean active() { return true; }
-        public boolean editable() { return true; }
+        public Id id() {
+            return id;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public Id guid() {
+            return guid;
+        }
+
+        public boolean active() {
+            return true;
+        }
+
+        public boolean editable() {
+            return true;
+        }
 
         public int[] keyFrames() {
             return values.keySet().stream().mapToInt(Integer::intValue).toArray();
         }
 
-        public Object value(final int frame) { return values.get(frame); }
-        public TrackSource track() { return track; }
+        public Object value(final int frame) {
+            return values.get(frame);
+        }
+
+        public TrackSource track() {
+            return track;
+        }
 
         public void setValueAuto(final int frame, final Object value) {
             failIfRequested();
@@ -2176,13 +2640,12 @@ class EditorDocumentReadAccessTest {
         private boolean readOnly;
 
         AttrF(
-            final String id,
-            final String name,
-            final String guid,
-            final int[] keyFrames,
-            final Map<Integer, Object> values,
-            final MutableSequence valueData
-        ) {
+                final String id,
+                final String name,
+                final String guid,
+                final int[] keyFrames,
+                final Map<Integer, Object> values,
+                final MutableSequence valueData) {
             super(id, name, guid, keyFrames, values);
             this.valueData = valueData;
         }
@@ -2195,38 +2658,42 @@ class EditorDocumentReadAccessTest {
             return readOnly;
         }
 
-        public void setValueAndCurveType(
-            final int frame,
-            final double value,
-            final CurveType curveType
-        ) {
+        public void setValueAndCurveType(final int frame, final double value, final CurveType curveType) {
             failIfRequested();
             values.put(frame, value);
             valueData.curveTypes.put(frame, curveType);
-            valueData.points.computeIfAbsent(frame, key -> new BezierPt(
-                new CtrlPt(frame - 5.0F, value, false), new CtrlPt(frame + 5.0F, value, false)));
+            valueData.points.computeIfAbsent(
+                    frame,
+                    key -> new BezierPt(
+                            new CtrlPt(frame - 5.0F, value, false), new CtrlPt(frame + 5.0F, value, false)));
         }
 
-        @Override public void setValueAuto(final int frame, final Object value) {
+        @Override
+        public void setValueAuto(final int frame, final Object value) {
             failIfRequested();
             values.put(frame, value);
             valueData.curveTypes.putIfAbsent(frame, CurveType.LINEAR);
-            valueData.points.computeIfAbsent(frame, key -> new BezierPt(
-                new CtrlPt(frame - 5.0F, ((Number) value).doubleValue(), false),
-                new CtrlPt(frame + 5.0F, ((Number) value).doubleValue(), false)));
+            valueData.points.computeIfAbsent(
+                    frame,
+                    key -> new BezierPt(
+                            new CtrlPt(frame - 5.0F, ((Number) value).doubleValue(), false),
+                            new CtrlPt(frame + 5.0F, ((Number) value).doubleValue(), false)));
         }
 
-        @Override public void removeValueAuto(final int frame) {
+        @Override
+        public void removeValueAuto(final int frame) {
             values.remove(frame);
             valueData.curveTypes.remove(frame);
             valueData.points.remove(frame);
         }
 
-        @Override Object snapshot() {
-            return new Object[]{new TreeMap<>(values), valueData.snapshot()};
+        @Override
+        Object snapshot() {
+            return new Object[] {new TreeMap<>(values), valueData.snapshot()};
         }
 
-        @Override void restore(final Object snapshot) {
+        @Override
+        void restore(final Object snapshot) {
             final Object[] state = (Object[]) snapshot;
             values.clear();
             @SuppressWarnings("unchecked")
@@ -2238,12 +2705,11 @@ class EditorDocumentReadAccessTest {
 
     public static final class AttrI extends Attr {
         AttrI(
-            final String id,
-            final String name,
-            final String guid,
-            final int[] keyFrames,
-            final Map<Integer, Object> values
-        ) {
+                final String id,
+                final String name,
+                final String guid,
+                final int[] keyFrames,
+                final Map<Integer, Object> values) {
             super(id, name, guid, keyFrames, values);
         }
 
@@ -2255,12 +2721,11 @@ class EditorDocumentReadAccessTest {
 
     public static final class AttrPt extends Attr {
         AttrPt(
-            final String id,
-            final String name,
-            final String guid,
-            final int[] keyFrames,
-            final Map<Integer, Object> values
-        ) {
+                final String id,
+                final String name,
+                final String guid,
+                final int[] keyFrames,
+                final Map<Integer, Object> values) {
             super(id, name, guid, keyFrames, values);
         }
 
@@ -2276,10 +2741,7 @@ class EditorDocumentReadAccessTest {
         int forceUpdates;
         boolean failWrites;
 
-        MutableSequence(
-            final Map<Integer, CurveType> curveTypes,
-            final Map<Integer, BezierPt> points
-        ) {
+        MutableSequence(final Map<Integer, CurveType> curveTypes, final Map<Integer, BezierPt> points) {
             this.curveTypes = new LinkedHashMap<>(curveTypes);
             this.points = new LinkedHashMap<>(points);
         }
@@ -2305,23 +2767,23 @@ class EditorDocumentReadAccessTest {
 
         Object snapshot() {
             final Map<Integer, BezierPt> pointCopies = new LinkedHashMap<>();
-            points.forEach((frame, point) -> pointCopies.put(frame, new BezierPt(
-                point.prev() == null ? null : point.prev().copy(),
-                point.next() == null ? null : point.next().copy())));
-            return new Object[]{new LinkedHashMap<>(curveTypes), pointCopies};
+            points.forEach((frame, point) -> pointCopies.put(
+                    frame,
+                    new BezierPt(
+                            point.prev() == null ? null : point.prev().copy(),
+                            point.next() == null ? null : point.next().copy())));
+            return new Object[] {new LinkedHashMap<>(curveTypes), pointCopies};
         }
 
         void restore(final Object snapshot) {
             final Object[] state = (Object[]) snapshot;
             curveTypes.clear();
             @SuppressWarnings("unchecked")
-            final Map<Integer, CurveType> restoredTypes =
-                (Map<Integer, CurveType>) state[0];
+            final Map<Integer, CurveType> restoredTypes = (Map<Integer, CurveType>) state[0];
             curveTypes.putAll(restoredTypes);
             points.clear();
             @SuppressWarnings("unchecked")
-            final Map<Integer, BezierPt> restoredPoints =
-                (Map<Integer, BezierPt>) state[1];
+            final Map<Integer, BezierPt> restoredPoints = (Map<Integer, BezierPt>) state[1];
             points.putAll(restoredPoints);
         }
     }
@@ -2355,12 +2817,29 @@ class EditorDocumentReadAccessTest {
             this.corner = corner;
         }
 
-        public float posF() { return posF; }
-        public double doubleValue() { return value; }
-        public boolean corner() { return corner; }
-        public void setPos(final float pos) { this.posF = pos; }
-        public void setValue(final double newValue) { this.value = newValue; }
-        public void setCorner(final boolean isCorner) { this.corner = isCorner; }
+        public float posF() {
+            return posF;
+        }
+
+        public double doubleValue() {
+            return value;
+        }
+
+        public boolean corner() {
+            return corner;
+        }
+
+        public void setPos(final float pos) {
+            this.posF = pos;
+        }
+
+        public void setValue(final double newValue) {
+            this.value = newValue;
+        }
+
+        public void setCorner(final boolean isCorner) {
+            this.corner = isCorner;
+        }
 
         CtrlPt copy() {
             return new CtrlPt(posF, value, corner);
@@ -2375,8 +2854,7 @@ class EditorDocumentReadAccessTest {
         INVERSE_STEP
     }
 
-    public static final class ViewContext {
-    }
+    public static final class ViewContext {}
 
     public static final class EvalFlags {
         private final boolean includePreview;
@@ -2405,9 +2883,8 @@ class EditorDocumentReadAccessTest {
         SceneInstance(final SceneSource source) {
             final List<TrackInstance> children = new ArrayList<>();
             for (TrackSource child : source.rootTrack().childTracks()) {
-                children.add(child instanceof ModelTrack model
-                    ? new ModelTrackInstance(model)
-                    : new TrackInstance(child));
+                children.add(
+                        child instanceof ModelTrack model ? new ModelTrackInstance(model) : new TrackInstance(child));
             }
             this.rootTrack = new GroupTrackInstance(source.rootTrack(), children);
         }
@@ -2436,8 +2913,7 @@ class EditorDocumentReadAccessTest {
             return source;
         }
 
-        public void update(final Object viewContext, final SceneTime time, final EvalFlags flags) {
-        }
+        public void update(final Object viewContext, final SceneTime time, final EvalFlags flags) {}
     }
 
     public static final class GroupTrackInstance extends TrackInstance {
@@ -2448,11 +2924,8 @@ class EditorDocumentReadAccessTest {
             this.children = children;
         }
 
-        @Override public void update(
-            final Object viewContext,
-            final SceneTime time,
-            final EvalFlags flags
-        ) {
+        @Override
+        public void update(final Object viewContext, final SceneTime time, final EvalFlags flags) {
             for (TrackInstance child : children) {
                 child.update(viewContext, time, flags);
             }
@@ -2471,11 +2944,8 @@ class EditorDocumentReadAccessTest {
             return parameterSet;
         }
 
-        @Override public void update(
-            final Object viewContext,
-            final SceneTime time,
-            final EvalFlags flags
-        ) {
+        @Override
+        public void update(final Object viewContext, final SceneTime time, final EvalFlags flags) {
             evaluations++;
             parameterSet.parameters().get(0).value = time.frame() * 0.5F;
         }

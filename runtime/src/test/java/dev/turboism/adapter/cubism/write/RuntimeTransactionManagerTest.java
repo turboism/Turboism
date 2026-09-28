@@ -1,15 +1,21 @@
 package dev.turboism.adapter.cubism.write;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.transaction.CommitFailedException;
-import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.ModelTransaction;
 import dev.turboism.sdk.cubism.transaction.RollbackFailedException;
 import dev.turboism.sdk.cubism.transaction.TransactionAlreadyActiveException;
@@ -20,9 +26,6 @@ import dev.turboism.sdk.cubism.write.WriteParameterCommand;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.WorkBudget;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -31,13 +34,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class RuntimeTransactionManagerTest {
 
@@ -57,20 +55,13 @@ class RuntimeTransactionManagerTest {
 
     @Test
     void rejectsBlankDocumentIdentityAtTransactionBoundary() {
-        final RuntimeTransactionManager manager = managerWith(
-            adapterWithParameterValue(0.25),
-            permission()
-        );
+        final RuntimeTransactionManager manager = managerWith(adapterWithParameterValue(0.25), permission());
         final DocumentId blank = new DocumentId("   ");
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> manager.openTransaction(new TestPluginContext("plugin.demo"), blank)
-        );
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> manager.query("plugin.demo", blank)
-        );
+                IllegalArgumentException.class,
+                () -> manager.openTransaction(new TestPluginContext("plugin.demo"), blank));
+        assertThrows(IllegalArgumentException.class, () -> manager.query("plugin.demo", blank));
     }
 
     @Test
@@ -152,11 +143,13 @@ class RuntimeTransactionManagerTest {
     @Test
     void rollbackFailureAfterPartialCommitFailureReportsRollbackFailure() throws TransactionException {
         final FailingRestoreAdapter adapter = new FailingRestoreAdapter();
-        adapter.addDocument("document-1", "Document", new FakeHostWriteAdapter.FakeModel(
-            MODEL_ID,
-            "Model",
-            List.of(new FakeHostWriteAdapter.FakeParameter(PARAMETER_ID.value(), "Parameter", 0.25))
-        ));
+        adapter.addDocument(
+                "document-1",
+                "Document",
+                new FakeHostWriteAdapter.FakeModel(
+                        MODEL_ID,
+                        "Model",
+                        List.of(new FakeHostWriteAdapter.FakeParameter(PARAMETER_ID.value(), "Parameter", 0.25))));
         final RuntimeTransactionManager manager = managerWith(adapter, permission());
         final ModelTransaction transaction = manager.openTransaction(new TestPluginContext("plugin.demo"), DOCUMENT_ID);
         transaction.enqueue(new WriteParameterCommand("command-1", MODEL_ID, PARAMETER_ID, 0.75F));
@@ -173,14 +166,11 @@ class RuntimeTransactionManagerTest {
         final RuntimeTransactionManager manager = managerWith(adapterWithParameterValue(0.25));
 
         final CubismPermissionException error = assertThrows(
-            CubismPermissionException.class,
-            () -> manager.openTransaction(new TestPluginContext("plugin.demo"), DOCUMENT_ID)
-        );
+                CubismPermissionException.class,
+                () -> manager.openTransaction(new TestPluginContext("plugin.demo"), DOCUMENT_ID));
 
         assertEquals(
-            "Missing required permission turboism.cubism.model.write for transaction.open",
-            error.getMessage()
-        );
+                "Missing required permission turboism.cubism.model.write for transaction.open", error.getMessage());
     }
 
     @Test
@@ -192,9 +182,8 @@ class RuntimeTransactionManagerTest {
         permission.setAllowed(false);
 
         assertThrows(
-            CubismPermissionException.class,
-            () -> transaction.enqueue(new WriteParameterCommand("command-1", MODEL_ID, PARAMETER_ID, 0.75F))
-        );
+                CubismPermissionException.class,
+                () -> transaction.enqueue(new WriteParameterCommand("command-1", MODEL_ID, PARAMETER_ID, 0.75F)));
         assertThrows(CubismPermissionException.class, transaction::commit);
     }
 
@@ -206,9 +195,7 @@ class RuntimeTransactionManagerTest {
         manager.openTransaction(context, DOCUMENT_ID);
 
         final TransactionAlreadyActiveException error = assertThrows(
-            TransactionAlreadyActiveException.class,
-            () -> manager.openTransaction(context, DOCUMENT_ID)
-        );
+                TransactionAlreadyActiveException.class, () -> manager.openTransaction(context, DOCUMENT_ID));
         assertEquals("Transaction already open for plugin plugin.demo and document document-1", error.getMessage());
     }
 
@@ -219,9 +206,8 @@ class RuntimeTransactionManagerTest {
         transaction.commit();
 
         assertThrows(
-            TransactionClosedException.class,
-            () -> transaction.enqueue(new WriteParameterCommand("command-1", MODEL_ID, PARAMETER_ID, 0.75F))
-        );
+                TransactionClosedException.class,
+                () -> transaction.enqueue(new WriteParameterCommand("command-1", MODEL_ID, PARAMETER_ID, 0.75F)));
     }
 
     @Test
@@ -236,50 +222,31 @@ class RuntimeTransactionManagerTest {
     }
 
     private RuntimeTransactionManager managerWith(
-        final FakeHostWriteAdapter adapter,
-        final PluginPermission... permissions
-    ) {
+            final FakeHostWriteAdapter adapter, final PluginPermission... permissions) {
         return managerWith(adapter, new RecordingPolicy(), permissions);
     }
 
     private RuntimeTransactionManager managerWith(
-        final FakeHostWriteAdapter adapter,
-        final WorkBudgetPolicy policy,
-        final PluginPermission... permissions
-    ) {
+            final FakeHostWriteAdapter adapter, final WorkBudgetPolicy policy, final PluginPermission... permissions) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            policy,
-            new PluginWorkExecutorRegistry(1, 8, events::add, CLOCK),
-            availableSidecar(),
-            events::add
-        );
+                policy, new PluginWorkExecutorRegistry(1, 8, events::add, CLOCK), availableSidecar(), events::add);
         return new RuntimeTransactionManager(
-            adapter,
-            dev.turboism.permissions.PermissionChecker.from(List.of(permissions)),
-            scheduler
-        );
+                adapter, dev.turboism.permissions.PermissionChecker.from(List.of(permissions)), scheduler);
     }
 
     private RuntimeTransactionManager managerWith(
-        final FakeHostWriteAdapter adapter,
-        final dev.turboism.permissions.PermissionChecker permissionChecker
-    ) {
+            final FakeHostWriteAdapter adapter, final dev.turboism.permissions.PermissionChecker permissionChecker) {
         return managerWith(adapter, new RecordingPolicy(), permissionChecker);
     }
 
     private RuntimeTransactionManager managerWith(
-        final FakeHostWriteAdapter adapter,
-        final WorkBudgetPolicy policy,
-        final dev.turboism.permissions.PermissionChecker permissionChecker
-    ) {
+            final FakeHostWriteAdapter adapter,
+            final WorkBudgetPolicy policy,
+            final dev.turboism.permissions.PermissionChecker permissionChecker) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            policy,
-            new PluginWorkExecutorRegistry(1, 8, events::add, CLOCK),
-            availableSidecar(),
-            events::add
-        );
+                policy, new PluginWorkExecutorRegistry(1, 8, events::add, CLOCK), availableSidecar(), events::add);
         return new RuntimeTransactionManager(adapter, permissionChecker, scheduler);
     }
 
@@ -287,18 +254,19 @@ class RuntimeTransactionManagerTest {
         return (task, callback) -> {
             callback.run();
             return java.util.concurrent.CompletableFuture.completedFuture(
-                dev.turboism.core.runtime.sidecar.SidecarResult.success("")
-            );
+                    dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
         };
     }
 
     private static FakeHostWriteAdapter adapterWithParameterValue(final double value) {
         final FakeHostWriteAdapter adapter = new FakeHostWriteAdapter();
-        adapter.addDocument("document-1", "Document", new FakeHostWriteAdapter.FakeModel(
-            MODEL_ID,
-            "Model",
-            List.of(new FakeHostWriteAdapter.FakeParameter(PARAMETER_ID.value(), "Parameter", value))
-        ));
+        adapter.addDocument(
+                "document-1",
+                "Document",
+                new FakeHostWriteAdapter.FakeModel(
+                        MODEL_ID,
+                        "Model",
+                        List.of(new FakeHostWriteAdapter.FakeParameter(PARAMETER_ID.value(), "Parameter", value))));
         return adapter;
     }
 

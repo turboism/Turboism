@@ -1,5 +1,7 @@
 package dev.turboism.core.plugin.context;
 
+import static org.junit.jupiter.api.Assertions.assertSame;
+
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
 import dev.turboism.adapter.cubism.command.EditorCommandAdapter;
@@ -9,12 +11,9 @@ import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
-import org.junit.jupiter.api.Test;
-
 import java.io.File;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertSame;
+import org.junit.jupiter.api.Test;
 
 /**
  * Guards the DefaultCubismServicesFactory wiring: every convenience constructor
@@ -43,14 +42,11 @@ class DefaultCubismServicesFactoryAutoBackupWiringTest {
             }
 
             @Override
-            public void triggerBackupNow() {
-            }
+            public void triggerBackupNow() {}
 
             @Override
             public File saveDocumentFor(
-                final File matchFile, final java.util.List<String> documentUids,
-                final long timestampMillis
-            ) {
+                    final File matchFile, final java.util.List<String> documentUids, final long timestampMillis) {
                 return null;
             }
         });
@@ -58,51 +54,52 @@ class DefaultCubismServicesFactoryAutoBackupWiringTest {
 
         // Test-only dependency injection lives in DefaultCubismServicesFactoryTestSupport.
         final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withEditorCommands(
-            hostAdapters,
-            unavailableModelAccess(),
-            new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator(),
-            new EditorObjectLifecycleCoordinator(),
-            new PhysicsEditorCoordinator(),
-            EditorCommandAdapter.unavailable(),
-            EditorFileCommandResolver.unavailable()
-        );
+                hostAdapters,
+                unavailableModelAccess(),
+                new ParameterLifecycleCoordinator(),
+                new PartLifecycleCoordinator(),
+                new EditorObjectLifecycleCoordinator(),
+                new PhysicsEditorCoordinator(),
+                EditorCommandAdapter.unavailable(),
+                EditorFileCommandResolver.unavailable());
 
-        assertSame(connected, factory.autoBackupAdapter(),
-            "the convenience constructor must forward hostAdapters.autoBackup()");
+        assertSame(
+                connected,
+                factory.autoBackupAdapter(),
+                "the convenience constructor must forward hostAdapters.autoBackup()");
     }
 
     @Test
     void convenienceConstructorKeepsSafeModeForTheSafeModeBundle() {
         final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withEditorCommands(
-            RuntimeHostAdapters.safeMode(),
-            unavailableModelAccess(),
-            new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator(),
-            new EditorObjectLifecycleCoordinator(),
-            new PhysicsEditorCoordinator(),
-            EditorCommandAdapter.unavailable(),
-            EditorFileCommandResolver.unavailable()
-        );
+                RuntimeHostAdapters.safeMode(),
+                unavailableModelAccess(),
+                new ParameterLifecycleCoordinator(),
+                new PartLifecycleCoordinator(),
+                new EditorObjectLifecycleCoordinator(),
+                new PhysicsEditorCoordinator(),
+                EditorCommandAdapter.unavailable(),
+                EditorFileCommandResolver.unavailable());
 
-        assertSame(AutoBackupAdapter.SafeMode.INSTANCE, factory.autoBackupAdapter(),
-            "the no-host path must keep the safe-mode adapter");
+        assertSame(
+                AutoBackupAdapter.SafeMode.INSTANCE,
+                factory.autoBackupAdapter(),
+                "the no-host path must keep the safe-mode adapter");
     }
 
     private static RuntimeHostAdapters connectedHostAdapters(final AutoBackupAdapter autoBackup) {
         final RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
         return new RuntimeHostAdapters(
-            safe.themeStatus(),
-            safe.renderStatus(),
-            safe.projectWorkspace(),
-            safe.clipMaskRead(),
-            safe.statusToolbar(),
-            safe.uiSurface(),
-            safe.recentFiles(),
-            safe.screenshots(),
-            safe.recentPreviews(),
-            autoBackup
-        );
+                safe.themeStatus(),
+                safe.renderStatus(),
+                safe.projectWorkspace(),
+                safe.clipMaskRead(),
+                safe.statusToolbar(),
+                safe.uiSurface(),
+                safe.recentFiles(),
+                safe.screenshots(),
+                safe.recentPreviews(),
+                autoBackup);
     }
 
     private static CubismModelAccess unavailableModelAccess() {

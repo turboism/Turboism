@@ -1,22 +1,21 @@
 package dev.turboism.tests.preview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.preview.LocalPluginRuntime;
 import dev.turboism.preview.PreviewLog;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class LocalPluginRuntimeMultiEntrypointIntegrationTest {
 
@@ -35,16 +34,17 @@ class LocalPluginRuntimeMultiEntrypointIntegrationTest {
         } finally {
             scenario.close();
         }
-        assertEquals(List.of(
-            "init:A",
-            "init:B",
-            "enable:A",
-            "enable:B",
-            "disable:B",
-            "disable:A",
-            "shutdown:B",
-            "shutdown:A"
-        ), Files.readAllLines(marker));
+        assertEquals(
+                List.of(
+                        "init:A",
+                        "init:B",
+                        "enable:A",
+                        "enable:B",
+                        "disable:B",
+                        "disable:A",
+                        "shutdown:B",
+                        "shutdown:A"),
+                Files.readAllLines(marker));
     }
 
     @Test
@@ -59,67 +59,34 @@ class LocalPluginRuntimeMultiEntrypointIntegrationTest {
         } finally {
             scenario.close();
         }
-        assertEquals(List.of(
-            "init:A",
-            "init:B",
-            "enable:A",
-            "enable:B",
-            "disable:A",
-            "shutdown:B",
-            "shutdown:A"
-        ), Files.readAllLines(marker));
+        assertEquals(
+                List.of("init:A", "init:B", "enable:A", "enable:B", "disable:A", "shutdown:B", "shutdown:A"),
+                Files.readAllLines(marker));
     }
 
-    private Scenario scenario(
-        final String name,
-        final Path marker,
-        final boolean failSecondEnable
-    ) throws Exception {
+    private Scenario scenario(final String name, final Path marker, final boolean failSecondEnable) throws Exception {
         final Path home = temporary.resolve(name + "-home");
-        MultiEntrypointPluginJarFixture.write(
-            home.resolve("plugins"),
-            temporary.resolve(name + "-build")
-        );
-        System.setProperty(
-            MultiEntrypointPluginJarFixture.MARKER_PROPERTY,
-            marker.toString()
-        );
-        System.setProperty(
-            MultiEntrypointPluginJarFixture.FAIL_PROPERTY,
-            Boolean.toString(failSecondEnable)
-        );
+        MultiEntrypointPluginJarFixture.write(home.resolve("plugins"), temporary.resolve(name + "-build"));
+        System.setProperty(MultiEntrypointPluginJarFixture.MARKER_PROPERTY, marker.toString());
+        System.setProperty(MultiEntrypointPluginJarFixture.FAIL_PROPERTY, Boolean.toString(failSecondEnable));
         final PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"));
         final RuntimeScheduler scheduler = scheduler();
         final HostRuntimeIngress hostIngress = new HostRuntimeIngress();
-        final LocalPluginRuntime runtime = new LocalPluginRuntime(
-            home,
-            scheduler,
-            hostIngress.adapterAccess(),
-            log
-        );
+        final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, hostIngress.adapterAccess(), log);
         return new Scenario(runtime, hostIngress, scheduler, log);
     }
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(
-                1,
-                16,
-                ignored -> { },
-                Clock.systemUTC()
-            ),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 
     private record Scenario(
-        LocalPluginRuntime runtime,
-        HostRuntimeIngress hostIngress,
-        RuntimeScheduler scheduler,
-        PreviewLog log
-    ) implements AutoCloseable {
+            LocalPluginRuntime runtime, HostRuntimeIngress hostIngress, RuntimeScheduler scheduler, PreviewLog log)
+            implements AutoCloseable {
         @Override
         public void close() throws Exception {
             try {
