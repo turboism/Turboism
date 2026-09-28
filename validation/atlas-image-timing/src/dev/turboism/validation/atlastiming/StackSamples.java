@@ -192,13 +192,16 @@ final class StackSamples {
         private long dequeued;
         private long written;
         private long unconfirmedWrites;
+        private long droppedStopped;
+        private long droppedInFlight;
         private long truncated;
         private long namesTruncated;
+        private long statusErrors;
         private long statusWriteFailures;
         private boolean incomplete;
         private boolean statusDisabled;
         private volatile String terminal;
-        private volatile String lastStatus;
+        private String lastAttempt;
 
         private Engine(final int requestedSamples, final int requestedQueue,
                 final Path outputDir, final FrameCollector collector,
@@ -244,12 +247,18 @@ final class StackSamples {
                 snap.put("dequeued", dequeued);
                 snap.put("written", written);
                 snap.put("unconfirmedWrites", unconfirmedWrites);
+                snap.put("droppedStopped", droppedStopped);
+                snap.put("droppedInFlight", droppedInFlight);
                 snap.put("truncated", truncated);
                 snap.put("namesTruncated", namesTruncated);
                 snap.put("pending", queued - dequeued);
-                snap.put("inFlight", reserved - sampleError - droppedQueue - queued);
+                snap.put("inFlight", reserved - sampleError - droppedQueue
+                    - droppedInFlight - queued);
                 snap.put("inWrite", dequeued - written - unconfirmedWrites);
                 snap.put("incomplete", incomplete ? 1L : 0L);
+                snap.put("statusErrors", statusErrors);
+                snap.put("statusWriteFailures", statusWriteFailures);
+                snap.put("statusDisabled", statusDisabled ? 1L : 0L);
                 snap.put("terminated", terminal != null ? 1L : 0L);
             }
             return snap;
@@ -268,6 +277,12 @@ final class StackSamples {
                 final long seq;
                 synchronized (lock) {
                     attempted++;
+                    if (terminal != null) {
+                        // Dead writer: never reserve, never walk a stack.
+                        droppedStopped++;
+                        incomplete = true;
+                        return;
+                    }
                     if (reserved >= maxSamples) {
                         droppedBudget++;
                         incomplete = true;
@@ -288,7 +303,12 @@ final class StackSamples {
                     return;
                 }
                 synchronized (lock) {
-                    if (queue.size() < queueCapacity) {
+                    if (terminal != null) {
+                        // Writer died while this sample was collecting: bounded drop,
+                        // explicitly accounted instead of queued to a dead consumer.
+                        droppedInFlight++;
+                        incomplete = true;
+                    } else if (queue.size() < queueCapacity) {
                         final boolean wasEmpty = queue.isEmpty();
                         queue.addLast(record);
                         queued++;
@@ -406,8 +426,8 @@ final class StackSamples {
             } catch (Throwable failure) {
                 terminalReason = "failed:" + failure.getClass().getSimpleName();
             } finally {
-                terminal = terminalReason;
                 synchronized (lock) {
+                    terminal = terminalReason;
                     incomplete = true;
                 }
                 writeStatusTerminal(terminalReason);
@@ -443,18 +463,26 @@ final class StackSamples {
                     + "\ndequeued=" + dequeued
                     + "\nwritten=" + written
                     + "\nunconfirmedWrites=" + unconfirmedWrites
+                    + "\ndroppedStopped=" + droppedStopped
+                    + "\ndroppedInFlight=" + droppedInFlight
                     + "\ntruncated=" + truncated
                     + "\nnamesTruncated=" + namesTruncated
                     + "\npending=" + (queued - dequeued)
-                    + "\ninFlight=" + (reserved - sampleError - droppedQueue - queued)
+                    + "\ninFlight=" + (reserved - sampleError - droppedQueue
+                        - droppedInFlight - queued)
                     + "\ninWrite=" + (dequeued - written - unconfirmedWrites)
                     + "\nqueueDepth=" + queue.size()
                     + "\nincomplete=" + (incomplete ? 1 : 0)
+                    + "\nstatusErrors=" + statusErrors
                     + "\nstatusWriteFailures=" + statusWriteFailures
+                    + "\nstatusDisabled=" + (statusDisabled ? 1 : 0)
                     + '\n';
-                if (!force && status.equals(lastStatus)) {
+                // Same content is attempted at most once: an identical failed status is
+                // not retried on every idle wake, so failures map to real changes.
+                if (!force && status.equals(lastAttempt)) {
                     return;
                 }
+                lastAttempt = status;
             }
             boolean ok = false;
             try {
@@ -472,12 +500,14 @@ final class StackSamples {
             }
             synchronized (lock) {
                 if (ok) {
-                    lastStatus = status;
                     statusWriteFailures = 0;
                 } else {
-                    // Status writes cannot report their own failure; after a bounded run of
-                    // failures stop writing rather than keep producing suspect evidence.
+                    // Cumulative statusErrors never resets; the consecutive counter does.
+                    // The first failure already marks the run incomplete. Reaching the cap
+                    // only stops further status writes — records keep draining.
                     statusWriteFailures++;
+                    statusErrors++;
+                    incomplete = true;
                     if (statusWriteFailures >= MAX_STATUS_FAILURES) {
                         statusDisabled = true;
                     }
