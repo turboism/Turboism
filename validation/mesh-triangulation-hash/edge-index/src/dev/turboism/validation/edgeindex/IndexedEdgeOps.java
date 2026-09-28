@@ -20,7 +20,7 @@ import java.util.Map;
  * hash-index based; a production patch would scope index construction to the
  * apply batch itself.</p>
  */
-final class IndexedEdgeOps extends EdgeOps {
+class IndexedEdgeOps extends EdgeOps {
     private Map<Long, Integer> index;
     /** Entries scanned while (re)building the batch-local index. */
     long indexBuildEntries;
@@ -53,6 +53,11 @@ final class IndexedEdgeOps extends EdgeOps {
     @Override
     void endBatch() {
         index = null;
+    }
+
+    @Override
+    boolean batchIndexActive() {
+        return index != null;
     }
 
     private static long key(final int lo, final int hi) {

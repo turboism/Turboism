@@ -5,7 +5,7 @@ package dev.turboism.validation.edgeindex;
  * behavior: linear first-hit endpoint scan, in-place retype by priority,
  * tail append, per-call version bump, degenerate-edge log. No hash index.
  */
-final class NativeEdgeOps extends EdgeOps {
+class NativeEdgeOps extends EdgeOps {
     /** Endpoint-pair comparisons performed by the linear first-hit scan. */
     long endpointComparisons;
 

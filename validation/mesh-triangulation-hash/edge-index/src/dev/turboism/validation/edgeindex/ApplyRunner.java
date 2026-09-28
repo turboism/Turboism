@@ -21,14 +21,18 @@ final class ApplyRunner {
     private ApplyRunner() {
     }
 
-    /** One edge of a triangle, with bytecode-faithful argument read order. */
-    static void edge(final EdgeOps ops, final int[] tri, final int slot) {
-        switch (slot) {
+    /**
+     * One edge of a triangle, with bytecode-faithful argument read order.
+     * The returned index is retained for test observation; the host discards
+     * it ({@code pop}), so keeping it here changes no host-visible semantics.
+     */
+    static int edge(final EdgeOps ops, final int[] tri, final int slot) {
+        return switch (slot) {
             case 0 -> ops.addEdgeIfNotExists(tri[0], tri[1], EdgeType.AUTO_TRIANGULATION);
             case 1 -> ops.addEdgeIfNotExists(tri[1], tri[2], EdgeType.AUTO_TRIANGULATION);
             case 2 -> ops.addEdgeIfNotExists(tri[2], tri[0], EdgeType.AUTO_TRIANGULATION);
             default -> throw new AssertionError("slot");
-        }
+        };
     }
 
     /**
