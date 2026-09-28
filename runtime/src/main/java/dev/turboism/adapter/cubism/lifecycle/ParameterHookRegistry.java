@@ -18,8 +18,10 @@ import java.util.Objects;
 /** Adapts legacy parameter hook overrides onto the unified Runtime event broker. */
 public final class ParameterHookRegistry {
 
-    public static final String OBSERVE_PERMISSION = "turboism.cubism.model.observe";
-    public static final String INTERCEPT_PERMISSION = "turboism.cubism.model.intercept";
+    public static final String OBSERVE_PERMISSION =
+        dev.turboism.sdk.permission.PermissionIds.TURBOISM_CUBISM_MODEL_OBSERVE;
+    public static final String INTERCEPT_PERMISSION =
+        dev.turboism.sdk.permission.PermissionIds.TURBOISM_CUBISM_MODEL_INTERCEPT;
 
     private final ParameterLifecycleCoordinator coordinator;
     private final Object lifecycleLock = new Object();
