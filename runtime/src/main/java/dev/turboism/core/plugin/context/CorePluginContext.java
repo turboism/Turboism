@@ -875,6 +875,9 @@ public final class CorePluginContext implements PluginContext {
                 fileChooserHistory, dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.unavailable())) {
             available.add(PluginService.FILE_CHOOSER_HISTORY);
         }
+        if (installed(exportSettingsContributionService, ExportSettingsContributionService.unavailable())) {
+            available.add(PluginService.EXPORT_SETTINGS);
+        }
         available.add(PluginService.MESH_MIRROR_AXIS);
         available.add(PluginService.MESH_EDIT);
         available.add(PluginService.MESH_EDIT_PARTICIPATION);
