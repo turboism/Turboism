@@ -124,7 +124,7 @@ class EditorRawImagePsdSourceBindingTest {
     }
 
     @Test
-    void keepsBindingAndNativeObservationOnOneHostThread(@TempDir final Path temp) {
+    void keepsBindingOnHostThreadAndSerializesOnCallerThread(@TempDir final Path temp) {
         final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
 
         final EditorRawImagePsdAccess.ExportResult result = export(
@@ -139,10 +139,14 @@ class EditorRawImagePsdSourceBindingTest {
         assertTrue(SyntheticSourceFixture.events().contains("save"));
         assertFalse(SyntheticSourceFixture.events().contains("parse"));
         assertFalse(SyntheticSourceFixture.events().contains("construct"));
-        assertTrue(
-            SyntheticSourceFixture.hostEvents().stream().allMatch(Boolean::booleanValue),
-            "all synthetic native reads and calls must be marshalled to the host thread"
-        );
+        final List<String> events = SyntheticSourceFixture.events();
+        final List<Boolean> hostEvents = SyntheticSourceFixture.hostEvents();
+        final int exportStart = events.indexOf("progress");
+        assertTrue(exportStart >= 0, "the export must reach the native serialization phase");
+        for (int i = 0; i < events.size(); i++) {
+            assertEquals(i < exportStart, hostEvents.get(i),
+                "event " + events.get(i) + " host-thread expectation");
+        }
     }
 
     @Test
@@ -325,7 +329,14 @@ class EditorRawImagePsdSourceBindingTest {
         assertTrue(result.integrityVerification().detail().contains("not re-parsed"));
         assertFalse(SyntheticSourceFixture.events().contains("parse"));
         assertEquals(0L, SyntheticSourceFixture.events().stream().filter("dispose"::equals).count());
-        assertTrue(SyntheticSourceFixture.hostEvents().stream().allMatch(Boolean::booleanValue));
+        final List<String> events = SyntheticSourceFixture.events();
+        final List<Boolean> hostEvents = SyntheticSourceFixture.hostEvents();
+        final int exportStart = events.indexOf("progress");
+        assertTrue(exportStart >= 0, "the export must reach the native serialization phase");
+        for (int i = 0; i < events.size(); i++) {
+            assertEquals(i < exportStart, hostEvents.get(i),
+                "event " + events.get(i) + " host-thread expectation");
+        }
     }
 
     @Test
