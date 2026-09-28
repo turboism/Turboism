@@ -21,7 +21,7 @@ public final class PhysicsEditorPlugin implements TurboismPlugin {
     public void enable() {
         if (registration != null) return;
         registration = context.services()
-                .get(PhysicsEditorService.class)
+                .require(PhysicsEditorService.class)
                 .contribute(new PhysicsEditorContribution(true, true));
         context.logger().info("Physics editor header select-all and reopen retention enabled");
     }

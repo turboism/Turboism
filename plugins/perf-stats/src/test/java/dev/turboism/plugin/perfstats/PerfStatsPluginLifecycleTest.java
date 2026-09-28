@@ -16,6 +16,8 @@ import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.PluginService;
+import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.PanelView;
@@ -629,6 +631,26 @@ class PerfStatsPluginLifecycleTest {
                         }
                         if (method.getName().equals("uiHost")) {
                             return uiHost;
+                        }
+                        if (method.getName().equals("services")) {
+                            return new PluginServiceDirectory() {
+                                @Override
+                                public java.util.Set<PluginService> installed() {
+                                    return java.util.Set.of(PluginService.PERFORMANCE_STATS, PluginService.UI_HOST);
+                                }
+
+                                @Override
+                                @SuppressWarnings("unchecked")
+                                public <T> T get(final Class<T> serviceType) {
+                                    if (serviceType == PerformanceProbeService.class) {
+                                        return (T) stats;
+                                    }
+                                    if (serviceType == UiHostCapabilityService.class) {
+                                        return (T) uiHost;
+                                    }
+                                    return null;
+                                }
+                            };
                         }
                         if (method.getName().equals("disposableScope")) {
                             return scope;

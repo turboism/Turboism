@@ -198,7 +198,7 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
                 .map(persisted::get)
                 .orElse(null);
         context.services()
-                .get(UiHostCapabilityService.class)
+                .require(UiHostCapabilityService.class)
                 .openColorPicker(
                         "palette-label-style.custom-color",
                         i18n.text("dialog.title"),
@@ -358,7 +358,7 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
                 actionPrefix + LabelStylePresets.CUSTOM_KEY));
         context.disposableScope()
                 .register(context.services()
-                        .get(ContextMenuRegistry.class)
+                        .require(ContextMenuRegistry.class)
                         .contribute(new ContextMenuContribution(
                                 contributionId,
                                 location,

@@ -28,6 +28,7 @@ class PhysicsEditorPluginTest {
                 (proxy, method, arguments) -> switch (method.getName()) {
                     case "physicsEditor" -> service;
                     case "logger" -> logger();
+                    case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
         final PhysicsEditorPlugin plugin = new PhysicsEditorPlugin();

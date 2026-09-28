@@ -122,7 +122,7 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
 
     private Registration contribute(final String id, final ContextMenuRegistry.Location location) {
         return context.services()
-                .get(ContextMenuRegistry.class)
+                .require(ContextMenuRegistry.class)
                 .contribute(new ContextMenuRegistry.ContextMenuContribution(
                         id,
                         ACTION_ID,
@@ -246,7 +246,7 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
 
     private void notify(final String id, final String severity, final String message) {
         context.services()
-                .get(UiHostCapabilityService.class)
+                .require(UiHostCapabilityService.class)
                 .notifyStatus(new StatusNotification(id, severity, message));
     }
 

@@ -56,7 +56,7 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
             final Registration candidate = Objects.requireNonNull(
                     activeContext
                             .services()
-                            .get(ExportSettingsContributionService.class)
+                            .require(ExportSettingsContributionService.class)
                             .contribute(new ExportSettingsContribution(
                                     OPTION_ID,
                                     OPTION_LABEL_KEY,

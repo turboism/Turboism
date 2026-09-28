@@ -218,6 +218,7 @@ class ClipMaskViewerPluginTest {
                     case "uiHost" -> uiHost;
                     case "tasks" -> tasks;
                     case "cubismClipMasks" -> clipMasks;
+                    case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
                     case "permissions" -> List.<PluginPermission>of();
                     case "toString" -> "FakePluginContext";
                     default -> throw new UnsupportedOperationException(method.getName());

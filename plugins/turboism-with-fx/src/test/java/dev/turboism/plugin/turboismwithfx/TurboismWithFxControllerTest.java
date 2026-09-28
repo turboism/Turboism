@@ -1498,6 +1498,7 @@ final class TurboismWithFxControllerTest {
                         case "toString" -> "TurboismWithFxControllerTestContext";
                         case "hashCode" -> System.identityHashCode(proxy);
                         case "equals" -> proxy == (arguments == null ? null : arguments[0]);
+                        case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
                         default ->
                             throw new UnsupportedOperationException("unused PluginContext method: " + method.getName());
                     });

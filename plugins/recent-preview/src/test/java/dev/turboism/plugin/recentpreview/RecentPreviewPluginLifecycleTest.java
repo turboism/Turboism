@@ -20,6 +20,7 @@ import dev.turboism.sdk.plugin.CancellationToken;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.sdk.plugin.PluginServices;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.storage.StorageListResult;
@@ -378,6 +379,7 @@ final class RecentPreviewPluginLifecycleTest {
                     case "recentFiles" -> recentFiles;
                     case "screenshots" -> screenshots;
                     case "recentPreviews" -> popups;
+                    case "services" -> PluginServices.of((PluginContext) proxy);
                     case "logger" -> logger;
                     case "disposableScope" -> scope;
                     case "tasks" -> tasks;

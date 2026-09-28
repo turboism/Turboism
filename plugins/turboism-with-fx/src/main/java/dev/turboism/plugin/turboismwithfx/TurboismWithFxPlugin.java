@@ -98,7 +98,7 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
                 }
             });
             toolbar = context.services()
-                    .get(MainToolbarRegistry.class)
+                    .require(MainToolbarRegistry.class)
                     .contributeButton(new MainToolbarRegistry.MainToolbarButtonContribution(
                             TOOLBAR_CONTRIBUTION_ID,
                             OPEN_ACTION_ID,

@@ -86,7 +86,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         try {
             context.disposableScope()
                     .register(context.services()
-                            .get(WarpAltMirrorParticipation.class)
+                            .require(WarpAltMirrorParticipation.class)
                             .participate());
         } catch (RuntimeException | Error unsupported) {
             logger.warn("warpAltMirrorParticipation unavailable: "
@@ -104,7 +104,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     private void contributeStripButton() {
         try {
             final dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry registry =
-                    context.services().get(ViewContextMenuRegistry.class);
+                    context.services().require(ViewContextMenuRegistry.class);
             final Map<Integer, UiRasterImage> icons = new java.util.LinkedHashMap<>();
             icons.put(1, loadIcon("Vertical.png"));
             icons.put(2, loadIcon("Horizon.png"));
@@ -146,8 +146,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     private void applyArmedAxis(final int axis) {
         armedAxis = axis;
         try {
-            context.services().get(WarpAltMirrorParticipation.class).setArmedAxis(axis);
-            context.services().get(ViewContextMenuRegistry.class).updateButtonState(AXIS_BUTTON_ID, axis);
+            context.services().require(WarpAltMirrorParticipation.class).setArmedAxis(axis);
+            context.services().require(ViewContextMenuRegistry.class).updateButtonState(AXIS_BUTTON_ID, axis);
         } catch (RuntimeException | Error unsupported) {
             logger.warn("armed-axis publish failed: " + unsupported.getClass().getSimpleName());
             return;
@@ -171,7 +171,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         try {
             if (axis != 0) {
                 next = context.services()
-                        .get(UiHostCapabilityService.class)
+                        .require(UiHostCapabilityService.class)
                         .notifyCanvasHint(new dev.turboism.sdk.ui.CanvasHintNotification(
                                 "warp-deformer-alt-symmetry.hint",
                                 // Text convention (operator feedback): armed state 1
@@ -291,7 +291,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
 
     private boolean nativeMirrorActive() {
         try {
-            return context.services().get(WarpAltMirrorParticipation.class).nativeMirrorActive();
+            return context.services().require(WarpAltMirrorParticipation.class).nativeMirrorActive();
         } catch (RuntimeException | Error unsupported) {
             return false;
         }

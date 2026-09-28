@@ -266,7 +266,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             final PluginContext callbackContext = context;
             callbackContext
                     .services()
-                    .get(EditorAutoBackupService.class)
+                    .require(EditorAutoBackupService.class)
                     .backupAfterSave(saved)
                     .whenComplete((event, failure) -> {
                         if (!enabled || context != callbackContext) {
@@ -526,8 +526,10 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         if (active == null || context == null) {
             return;
         }
-        final EditorAutoBackupSettings settings =
-                requireContext().services().get(EditorAutoBackupService.class).settings();
+        final EditorAutoBackupSettings settings = requireContext()
+                .services()
+                .require(EditorAutoBackupService.class)
+                .settings();
         final String backupDirPath = settings.backupDir();
         if (backupDirPath == null) {
             return;

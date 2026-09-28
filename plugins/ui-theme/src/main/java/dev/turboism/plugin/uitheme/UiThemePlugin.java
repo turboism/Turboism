@@ -51,27 +51,27 @@ public final class UiThemePlugin implements TurboismPlugin {
         this.logger = context.logger();
         this.themePackageStatusService = new ThemePackageStatusService(
                 () -> this.context.cubismRead().themeStatus(),
-                this.context.services().get(UiHostCapabilityService.class));
+                this.context.services().require(UiHostCapabilityService.class));
         this.builtinThemeAppearanceService = new BuiltinThemeAppearanceService(
                 getClass().getClassLoader(),
-                this.context.services().get(AppearanceService.class),
-                this.context.services().get(UiHostCapabilityService.class),
+                this.context.services().require(AppearanceService.class),
+                this.context.services().require(UiHostCapabilityService.class),
                 this.context.localization());
         final ThemeSelectionConfig selectionConfig = new ThemeSelectionConfig(this.context.config());
         selectionConfig.initialize().toCompletableFuture().join();
         final ThemePackageRepository repository = new ThemePackageRepository(this.context.storage());
         this.themeEditorService = new ThemeEditorService(
-                this.context.services().get(UiHostCapabilityService.class),
+                this.context.services().require(UiHostCapabilityService.class),
                 repository,
-                this.context.services().get(AppearanceService.class),
+                this.context.services().require(AppearanceService.class),
                 this.context.localization(),
                 logger);
         this.themeManagerService = new ThemeManagerService(
-                this.context.services().get(UiHostCapabilityService.class),
+                this.context.services().require(UiHostCapabilityService.class),
                 builtinThemeAppearanceService,
                 repository,
                 new ThemePackageTransferService(this.context.userFiles()),
-                new ThemeSelectionService(this.context.services().get(AppearanceService.class), selectionConfig),
+                new ThemeSelectionService(this.context.services().require(AppearanceService.class), selectionConfig),
                 selectionConfig,
                 logger,
                 this.context.localization(),
@@ -100,7 +100,7 @@ public final class UiThemePlugin implements TurboismPlugin {
     @Override
     public void disable() {
         final AppearanceRestoreResult restored = context.services()
-                .get(AppearanceService.class)
+                .require(AppearanceService.class)
                 .restoreOwnedAppearance()
                 .toCompletableFuture()
                 .join();

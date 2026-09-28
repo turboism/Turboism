@@ -1,7 +1,9 @@
 package dev.turboism.sdk.plugin;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.action.ActionRegistry;
@@ -107,6 +109,54 @@ class PluginServiceDirectoryContractTest {
     @Test
     void unknownServiceTypesResolveToNull() {
         assertNull(context.services().get(PluginServiceDirectory.class));
+    }
+
+    @Test
+    void requireThrowsStructuredExceptionForAbsentServices() {
+        final PluginServiceDirectory directory = context.services();
+        for (PluginService service : PluginService.values()) {
+            final PluginServiceUnavailableException failure = assertThrows(
+                    PluginServiceUnavailableException.class,
+                    () -> directory.require(service.type()),
+                    service + ".require() must fail structurally on an empty directory");
+            assertSame(service.type(), failure.serviceType(), service + " failure must carry the requested type");
+            assertSame(service, failure.service(), service + " failure must carry the catalog member");
+        }
+    }
+
+    @Test
+    void requireReturnsInstalledServices() {
+        final PluginServiceDirectory directory = new PluginServiceDirectory() {
+            @Override
+            public java.util.Set<PluginService> installed() {
+                return java.util.Set.of();
+            }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public <T> T get(final Class<T> serviceType) {
+                return serviceType == UiScheduler.class
+                        ? (T) new UiScheduler() {
+                            @Override
+                            public dev.turboism.sdk.plugin.Registration runOnUiThread(final Runnable work) {
+                                return null;
+                            }
+
+                            @Override
+                            public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(
+                                    final Runnable work, final java.time.Duration delay) {
+                                return null;
+                            }
+                        }
+                        : null;
+            }
+        };
+        final UiScheduler scheduler = directory.require(UiScheduler.class);
+        assertTrue(scheduler != null);
+        final PluginServiceUnavailableException failure = assertThrows(
+                PluginServiceUnavailableException.class, () -> directory.require(PluginServiceDirectory.class));
+        assertEquals(PluginServiceDirectory.class, failure.serviceType());
+        assertNull(failure.service());
     }
 
     private static String accessorName(final String memberName) {

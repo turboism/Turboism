@@ -49,7 +49,7 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
             context.disposableScope().register(registerAction(TOGGLE_ACTION_ID, "History", ignored -> toggle()));
             context.disposableScope()
                     .register(context.services()
-                            .get(UiHostCapabilityService.class)
+                            .require(UiHostCapabilityService.class)
                             .contributeVerticalToolbar(new VerticalToolbarContribution(
                                     STRIP_ID,
                                     List.of(new VerticalToolbarContribution.ToolButton(
@@ -82,7 +82,7 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
             try {
                 final HistoryPanelService service = new HistoryPanelService(
                         context.cubism().history(),
-                        context.services().get(UiHostCapabilityService.class),
+                        context.services().require(UiHostCapabilityService.class),
                         taskScheduler(),
                         logger,
                         localization,
