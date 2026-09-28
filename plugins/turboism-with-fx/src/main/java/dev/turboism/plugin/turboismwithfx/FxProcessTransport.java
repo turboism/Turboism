@@ -30,18 +30,16 @@ final class FxProcessTransport implements FxAcpTransport {
             descendantSampler = null;
             return;
         }
-        descendantSampler = new Thread(
-            this::sampleDescendantsWhileParentLives,
-            "turboism-fx-descendant-sampler-" + process.pid()
-        );
+        descendantSampler =
+                new Thread(this::sampleDescendantsWhileParentLives, "turboism-fx-descendant-sampler-" + process.pid());
         descendantSampler.setDaemon(true);
         descendantSampler.start();
     }
 
     static boolean tracksDescendants(final String operatingSystem) {
         return !Objects.requireNonNullElse(operatingSystem, "")
-            .toLowerCase(Locale.ROOT)
-            .startsWith("windows");
+                .toLowerCase(Locale.ROOT)
+                .startsWith("windows");
     }
 
     /** Starts {@code fx acp} directly without a shell using the validated launch mode. */
@@ -49,8 +47,7 @@ final class FxProcessTransport implements FxAcpTransport {
         final FxLaunchConfiguration launch = Objects.requireNonNull(configuration, "configuration");
         if (!launch.permitsStockFx()) {
             throw new IllegalStateException(
-                "MCP-only mode is unavailable with stock fx because native tools cannot be disabled"
-            );
+                    "MCP-only mode is unavailable with stock fx because native tools cannot be disabled");
         }
         verifyManagedRuntimeForLaunch(launch);
         final ProcessBuilder builder = new ProcessBuilder(command(launch));
@@ -59,18 +56,16 @@ final class FxProcessTransport implements FxAcpTransport {
         builder.environment().put("NO_COLOR", "1");
         builder.environment().putAll(launch.environment());
         if (validationJavaBridge(launch)) {
-            builder.environment().keySet().removeIf(name ->
-                "JAVA_TOOL_OPTIONS".equalsIgnoreCase(name)
-                    || "_JAVA_OPTIONS".equalsIgnoreCase(name)
-                    || "JDK_JAVA_OPTIONS".equalsIgnoreCase(name)
-            );
+            builder.environment()
+                    .keySet()
+                    .removeIf(name -> "JAVA_TOOL_OPTIONS".equalsIgnoreCase(name)
+                            || "_JAVA_OPTIONS".equalsIgnoreCase(name)
+                            || "JDK_JAVA_OPTIONS".equalsIgnoreCase(name));
         }
         return new FxProcessTransport(builder.start());
     }
 
-    static void verifyManagedRuntimeForLaunch(
-        final FxLaunchConfiguration launch
-    ) throws IOException {
+    static void verifyManagedRuntimeForLaunch(final FxLaunchConfiguration launch) throws IOException {
         final FxLaunchConfiguration.ManagedRuntimeIdentity identity = launch.managedRuntime();
         if (identity == null) return;
         final Path executable = Path.of(launch.executable()).toAbsolutePath().normalize();
@@ -82,36 +77,27 @@ final class FxProcessTransport implements FxAcpTransport {
             parent = parent.getParent();
         }
         if (!Files.isRegularFile(executable, LinkOption.NOFOLLOW_LINKS)
-            || Files.isSymbolicLink(executable)
-            || Files.size(executable) != identity.size()
-            || !identity.sha256().equals(FxRuntimeResolver.sha256(executable))) {
+                || Files.isSymbolicLink(executable)
+                || Files.size(executable) != identity.size()
+                || !identity.sha256().equals(FxRuntimeResolver.sha256(executable))) {
             throw new IOException("managed fx runtime changed before launch");
         }
     }
 
     private static List<String> command(final FxLaunchConfiguration launch) {
         if (!validationJavaBridge(launch)) return launch.command();
-        final String classPath = System.getProperty(
-            "turboism.fx.validation.bridgeClassPath",
-            ""
-        );
-        final String configuration = System.getProperty(
-            "turboism.fx.validation.bridgeConfig",
-            ""
-        );
+        final String classPath = System.getProperty("turboism.fx.validation.bridgeClassPath", "");
+        final String configuration = System.getProperty("turboism.fx.validation.bridgeConfig", "");
         if (classPath.isBlank() || configuration.isBlank()) {
-            throw new IllegalStateException(
-                "fx validation bridge properties are unavailable"
-            );
+            throw new IllegalStateException("fx validation bridge properties are unavailable");
         }
         final java.util.ArrayList<String> command = new java.util.ArrayList<>(List.of(
-            launch.executable(),
-            "-Dturboism.fx.validation.bridgeConfig=" + configuration,
-            "-cp",
-            classPath,
-            "acp",
-            "acp"
-        ));
+                launch.executable(),
+                "-Dturboism.fx.validation.bridgeConfig=" + configuration,
+                "-cp",
+                classPath,
+                "acp",
+                "acp"));
         if (!launch.startupModel().isEmpty()) {
             command.add("--model");
             command.add(launch.startupModel());
@@ -119,11 +105,9 @@ final class FxProcessTransport implements FxAcpTransport {
         return List.copyOf(command);
     }
 
-    private static boolean validationJavaBridge(
-        final FxLaunchConfiguration launch
-    ) {
+    private static boolean validationJavaBridge(final FxLaunchConfiguration launch) {
         return Boolean.getBoolean("turboism.fx.validation.bridge")
-            && launch.executable().toLowerCase(Locale.ROOT).endsWith("java.exe");
+                && launch.executable().toLowerCase(Locale.ROOT).endsWith("java.exe");
     }
 
     @Override
@@ -169,9 +153,9 @@ final class FxProcessTransport implements FxAcpTransport {
         do {
             retainDescendants();
             retained.values().stream()
-                .filter(ProcessHandle::isAlive)
-                .sorted(Comparator.comparingLong(ProcessHandle::pid).reversed())
-                .forEach(ProcessHandle::destroy);
+                    .filter(ProcessHandle::isAlive)
+                    .sorted(Comparator.comparingLong(ProcessHandle::pid).reversed())
+                    .forEach(ProcessHandle::destroy);
             process.destroy();
             if (!anyAlive() || millis == 0L) break;
             try {
@@ -187,9 +171,9 @@ final class FxProcessTransport implements FxAcpTransport {
         if (joinSamplerInterrupted()) interrupted = true;
         retainDescendants();
         final java.util.List<ProcessHandle> survivors = retained.values().stream()
-            .filter(ProcessHandle::isAlive)
-            .sorted(Comparator.comparingLong(ProcessHandle::pid).reversed())
-            .toList();
+                .filter(ProcessHandle::isAlive)
+                .sorted(Comparator.comparingLong(ProcessHandle::pid).reversed())
+                .toList();
         survivors.forEach(ProcessHandle::destroyForcibly);
         if (process.isAlive()) process.destroyForcibly();
         awaitExit(survivors, Math.max(1000L, Math.min(3000L, millis + 2250L)));
@@ -256,21 +240,15 @@ final class FxProcessTransport implements FxAcpTransport {
         return process.isAlive() || retained.values().stream().anyMatch(ProcessHandle::isAlive);
     }
 
-    private static void awaitExit(
-        final java.util.List<ProcessHandle> handles,
-        final long millis
-    ) {
+    private static void awaitExit(final java.util.List<ProcessHandle> handles, final long millis) {
         if (handles.isEmpty()) return;
-        final java.util.concurrent.CompletableFuture<?>[] exits = handles.stream()
-            .map(ProcessHandle::onExit)
-            .toArray(java.util.concurrent.CompletableFuture[]::new);
+        final java.util.concurrent.CompletableFuture<?>[] exits =
+                handles.stream().map(ProcessHandle::onExit).toArray(java.util.concurrent.CompletableFuture[]::new);
         try {
-            java.util.concurrent.CompletableFuture.allOf(exits)
-                .get(millis, TimeUnit.MILLISECONDS);
+            java.util.concurrent.CompletableFuture.allOf(exits).get(millis, TimeUnit.MILLISECONDS);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-        } catch (java.util.concurrent.ExecutionException
-            | java.util.concurrent.TimeoutException ignored) {
+        } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException ignored) {
             // Every survivor has already received a forcible termination request.
         }
     }

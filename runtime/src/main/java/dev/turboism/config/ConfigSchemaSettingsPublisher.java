@@ -12,7 +12,6 @@ import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.settings.SettingsControl;
 import dev.turboism.sdk.ui.settings.SettingsTab;
 import dev.turboism.ui.settings.SettingsContributionStore;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -46,25 +45,22 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
     private boolean active = true;
 
     ConfigSchemaSettingsPublisher(
-        final RuntimeTypedPluginConfigRegistry registry,
-        final String pluginId,
-        final String pluginName,
-        final SettingsContributionStore store
-    ) {
+            final RuntimeTypedPluginConfigRegistry registry,
+            final String pluginId,
+            final String pluginName,
+            final SettingsContributionStore store) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.pluginId = requireText(pluginId, "pluginId");
         this.pluginName = requireText(pluginName, "pluginName");
         this.store = Objects.requireNonNull(store, "store");
     }
 
-    PreparedEditor prepare(
-        final RegisteredSchema schema,
-        final ConfigSchemaEditor editor
-    ) {
+    PreparedEditor prepare(final RegisteredSchema schema, final ConfigSchemaEditor editor) {
         Objects.requireNonNull(schema, "schema");
         final List<IndexedField> declared = new ArrayList<>();
         int ordinal = 0;
-        for (ConfigSchemaEditor.Field field : Objects.requireNonNull(editor, "editor").fields()) {
+        for (ConfigSchemaEditor.Field field :
+                Objects.requireNonNull(editor, "editor").fields()) {
             final ConfigKey<?> key = schema.keys.get(field.key());
             if (key == null) {
                 throw unsupported(field.key(), "does not reference a key in the schema");
@@ -72,10 +68,10 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
             validateCompatibility(field, key);
             declared.add(new IndexedField(field, key, ordinal++));
         }
-        declared.sort(Comparator
-            .comparing((IndexedField value) -> value.field().index().isEmpty())
-            .thenComparingInt(value -> value.field().index().orElse(Integer.MAX_VALUE))
-            .thenComparingInt(IndexedField::ordinal));
+        declared.sort(Comparator.comparing(
+                        (IndexedField value) -> value.field().index().isEmpty())
+                .thenComparingInt(value -> value.field().index().orElse(Integer.MAX_VALUE))
+                .thenComparingInt(IndexedField::ordinal));
         final int base;
         synchronized (lifecycleLock) {
             try {
@@ -95,13 +91,15 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
         try {
             for (int ordinal = 0; ordinal < prepared.fields().size(); ordinal++) {
                 final IndexedField field = prepared.fields().get(ordinal);
-                final String id = contributionId(prepared.configId(), field.field().key());
-                added.add(store.register(pluginId, new SettingsContribution(
-                    id,
-                    tab,
-                    OptionalInt.of(Math.addExact(prepared.baseIndex(), ordinal)),
-                    control(id, field, bridge)
-                )));
+                final String id =
+                        contributionId(prepared.configId(), field.field().key());
+                added.add(store.register(
+                        pluginId,
+                        new SettingsContribution(
+                                id,
+                                tab,
+                                OptionalInt.of(Math.addExact(prepared.baseIndex(), ordinal)),
+                                control(id, field, bridge))));
             }
         } catch (RuntimeException failure) {
             closeReverse(added);
@@ -133,72 +131,48 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
     }
 
     private static SettingsControl control(
-        final String id,
-        final IndexedField indexed,
-        final ConfigRevisionBridge bridge
-    ) {
+            final String id, final IndexedField indexed, final ConfigRevisionBridge bridge) {
         final ConfigSchemaEditor.Field field = indexed.field();
         final ConfigKey<?> key = indexed.key();
         if (field instanceof ConfigSchemaEditor.Toggle toggle) {
             return new SettingsControl.Toggle(
-                id,
-                toggle.label(),
-                new ConfigBinding<>(
-                    booleanKey(key), bridge, Function.identity(), Function.identity()
-                )
-            );
+                    id,
+                    toggle.label(),
+                    new ConfigBinding<>(booleanKey(key), bridge, Function.identity(), Function.identity()));
         }
         if (field instanceof ConfigSchemaEditor.Text text) {
-            return new SettingsControl.Text(
-                id,
-                text.label(),
-                text.columns(),
-                textBinding(key, bridge)
-            );
+            return new SettingsControl.Text(id, text.label(), text.columns(), textBinding(key, bridge));
         }
         if (field instanceof ConfigSchemaEditor.Choice choice) {
             return new SettingsControl.Choice(
-                id,
-                choice.label(),
-                choice.options().stream()
-                    .map(option -> new SettingsControl.Option(option.value(), option.label()))
-                    .toList(),
-                choiceBinding(key, choice.options(), bridge)
-            );
+                    id,
+                    choice.label(),
+                    choice.options().stream()
+                            .map(option -> new SettingsControl.Option(option.value(), option.label()))
+                            .toList(),
+                    choiceBinding(key, choice.options(), bridge));
         }
         throw unsupported(field.key(), "uses an unsupported field kind");
     }
 
-    private static SettingsBinding<String> textBinding(
-        final ConfigKey<?> key,
-        final ConfigRevisionBridge bridge
-    ) {
+    private static SettingsBinding<String> textBinding(final ConfigKey<?> key, final ConfigRevisionBridge bridge) {
         final String type = key.codec().typeId();
         if (STRING.matcher(type).matches()) {
-            return new ConfigBinding<>(
-                stringKey(key), bridge, Function.identity(), Function.identity()
-            );
+            return new ConfigBinding<>(stringKey(key), bridge, Function.identity(), Function.identity());
         }
         final Matcher integer = INTEGER.matcher(type);
         if (!integer.matches()) throw unsupported(key.name(), "is not compatible with text");
         final int minimum = Integer.parseInt(integer.group(1));
         final int maximum = Integer.parseInt(integer.group(2));
         return new ConfigBinding<>(
-            integerKey(key),
-            bridge,
-            Object::toString,
-            value -> parseInteger(key.name(), value, minimum, maximum)
-        );
+                integerKey(key), bridge, Object::toString, value -> parseInteger(key.name(), value, minimum, maximum));
     }
 
     private static SettingsBinding<String> choiceBinding(
-        final ConfigKey<?> key,
-        final List<ConfigSchemaEditor.Option> options,
-        final ConfigRevisionBridge bridge
-    ) {
+            final ConfigKey<?> key, final List<ConfigSchemaEditor.Option> options, final ConfigRevisionBridge bridge) {
         final Set<String> allowed = options.stream()
-            .map(ConfigSchemaEditor.Option::value)
-            .collect(java.util.stream.Collectors.toUnmodifiableSet());
+                .map(ConfigSchemaEditor.Option::value)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         final String fallback = choiceValue(key.defaultValue());
         final Function<String, String> displayed = value -> allowed.contains(value) ? value : fallback;
         final String type = key.codec().typeId();
@@ -209,17 +183,10 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
             throw unsupported(key.name(), "is not compatible with choice");
         }
         return new ConfigBinding<>(
-            enumKey(key),
-            bridge,
-            value -> displayed.apply(value.name()),
-            value -> enumValue(key, value)
-        );
+                enumKey(key), bridge, value -> displayed.apply(value.name()), value -> enumValue(key, value));
     }
 
-    private static void validateCompatibility(
-        final ConfigSchemaEditor.Field field,
-        final ConfigKey<?> key
-    ) {
+    private static void validateCompatibility(final ConfigSchemaEditor.Field field, final ConfigKey<?> key) {
         final String type = key.codec().typeId();
         if (field instanceof ConfigSchemaEditor.Toggle) {
             if (!"boolean".equals(type)) {
@@ -243,8 +210,10 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
                 requireDefaultOption(choice, key);
                 return;
             }
-            if (type.startsWith("enum:") && key.defaultValue() instanceof Enum<?> defaultValue
-                && type.substring("enum:".length()).equals(defaultValue.getDeclaringClass().getName())) {
+            if (type.startsWith("enum:")
+                    && key.defaultValue() instanceof Enum<?> defaultValue
+                    && type.substring("enum:".length())
+                            .equals(defaultValue.getDeclaringClass().getName())) {
                 for (ConfigSchemaEditor.Option option : choice.options()) {
                     enumValue(key, option.value());
                 }
@@ -256,10 +225,7 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
         throw unsupported(field.key(), "uses an unsupported field kind");
     }
 
-    private static void requireDefaultOption(
-        final ConfigSchemaEditor.Choice choice,
-        final ConfigKey<?> key
-    ) {
+    private static void requireDefaultOption(final ConfigSchemaEditor.Choice choice, final ConfigKey<?> key) {
         final String defaultValue = choiceValue(key.defaultValue());
         if (choice.options().stream().noneMatch(option -> option.value().equals(defaultValue))) {
             throw unsupported(choice.key(), "choice options must include the key default value");
@@ -270,12 +236,7 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
         return value instanceof Enum<?> enumValue ? enumValue.name() : (String) value;
     }
 
-    private static int parseInteger(
-        final String key,
-        final String value,
-        final int minimum,
-        final int maximum
-    ) {
+    private static int parseInteger(final String key, final String value, final int minimum, final int maximum) {
         final int parsed;
         try {
             parsed = Integer.parseInt(Objects.requireNonNull(value, "value"));
@@ -326,9 +287,8 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
 
     private static String sha256(final String value) {
         try {
-            return HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))
-            );
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is unavailable", impossible);
         }
@@ -345,14 +305,13 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
     }
 
     private static void closeReverse(final List<Registration> values) {
-        for (int index = values.size() - 1; index >= 0; index--) values.get(index).close();
+        for (int index = values.size() - 1; index >= 0; index--)
+            values.get(index).close();
     }
 
-    record PreparedEditor(String configId, int baseIndex, List<IndexedField> fields) {
-    }
+    record PreparedEditor(String configId, int baseIndex, List<IndexedField> fields) {}
 
-    private record IndexedField(ConfigSchemaEditor.Field field, ConfigKey<?> key, int ordinal) {
-    }
+    private record IndexedField(ConfigSchemaEditor.Field field, ConfigKey<?> key, int ordinal) {}
 
     private static final class ConfigBinding<T, U> implements SettingsBinding<U> {
         private final ConfigKey<T> key;
@@ -363,11 +322,10 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
         private boolean initialized;
 
         private ConfigBinding(
-            final ConfigKey<T> key,
-            final ConfigRevisionBridge bridge,
-            final Function<? super T, ? extends U> display,
-            final Function<? super U, ? extends T> parse
-        ) {
+                final ConfigKey<T> key,
+                final ConfigRevisionBridge bridge,
+                final Function<? super T, ? extends U> display,
+                final Function<? super U, ? extends T> parse) {
             this.key = key;
             this.bridge = bridge;
             this.display = display;
@@ -407,43 +365,33 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
         synchronized <T> void write(final ConfigKey<T> key, final T value) {
             ConfigWriteResult result = writeOnce(key, value);
             if (!result.written()
-                && result.error().map(ConfigError::code)
-                    .filter(ConfigErrorCode.REVISION_CONFLICT::equals).isPresent()) {
+                    && result.error()
+                            .map(ConfigError::code)
+                            .filter(ConfigErrorCode.REVISION_CONFLICT::equals)
+                            .isPresent()) {
                 read(key);
                 result = writeOnce(key, value);
             }
             revision = result.revision();
             if (!result.written()) {
                 final ConfigError error = result.error().orElseThrow();
-                throw new IllegalStateException(
-                    "config settings write failed for " + key.name() + ": " + error.code()
-                );
+                throw new IllegalStateException("config settings write failed for " + key.name() + ": " + error.code());
             }
         }
 
         private <T> ConfigWriteResult writeOnce(final ConfigKey<T> key, final T value) {
-            final ConfigWriteResult result = await(
-                registry.write(key, value, revision),
-                "write",
-                key.name()
-            );
+            final ConfigWriteResult result = await(registry.write(key, value, revision), "write", key.name());
             revision = result.revision();
             return result;
         }
 
         private static <T> T await(
-            final java.util.concurrent.CompletionStage<T> stage,
-            final String operation,
-            final String key
-        ) {
+                final java.util.concurrent.CompletionStage<T> stage, final String operation, final String key) {
             try {
                 return stage.toCompletableFuture().join();
             } catch (CompletionException failure) {
                 final Throwable cause = failure.getCause() == null ? failure : failure.getCause();
-                throw new IllegalStateException(
-                    "config settings " + operation + " failed for " + key,
-                    cause
-                );
+                throw new IllegalStateException("config settings " + operation + " failed for " + key, cause);
             }
         }
     }

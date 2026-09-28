@@ -17,10 +17,9 @@ public interface ContextMenuHostOperations extends NativeObjectContextMenuBridge
 
     @Override
     default Object augment(
-        final Object menu,
-        final dev.turboism.sdk.ui.context.ContextMenuRegistry.Location location,
-        final Object source
-    ) {
+            final Object menu,
+            final dev.turboism.sdk.ui.context.ContextMenuRegistry.Location location,
+            final Object source) {
         return menu;
     }
 

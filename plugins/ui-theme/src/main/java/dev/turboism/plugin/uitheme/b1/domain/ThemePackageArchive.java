@@ -20,8 +20,7 @@ public final class ThemePackageArchive {
     private static final int MAX_ENTRIES = 5;
     private static final int MAX_ENTRY_BYTES = 524_288;
 
-    private ThemePackageArchive() {
-    }
+    private ThemePackageArchive() {}
 
     /**
      * Encodes a theme into a byte-for-byte reproducible ZIP archive.
@@ -41,9 +40,8 @@ public final class ThemePackageArchive {
         try {
             final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (ZipOutputStream output = new ZipOutputStream(bytes)) {
-                final List<Map.Entry<String, byte[]>> entries = new ArrayList<>(
-                    ThemePackageCodec.encodeZip(theme).entrySet()
-                );
+                final List<Map.Entry<String, byte[]>> entries =
+                        new ArrayList<>(ThemePackageCodec.encodeZip(theme).entrySet());
                 entries.sort(Map.Entry.comparingByKey());
                 for (Map.Entry<String, byte[]> entry : entries) {
                     final ZipEntry zip = new ZipEntry(entry.getKey());
@@ -104,8 +102,8 @@ public final class ThemePackageArchive {
         entries.sort(Comparator.comparing(ThemePackageEntry::name));
         final ThemePackageCodec.DecodeResult decoded = ThemePackageCodec.decode(entries);
         return decoded.valid()
-            ? new DecodeResult(decoded.theme(), Optional.empty())
-            : DecodeResult.invalid("PACKAGE_INVALID");
+                ? new DecodeResult(decoded.theme(), Optional.empty())
+                : DecodeResult.invalid("PACKAGE_INVALID");
     }
 
     /**

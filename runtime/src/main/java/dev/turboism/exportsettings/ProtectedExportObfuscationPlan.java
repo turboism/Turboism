@@ -40,16 +40,16 @@ public final class ProtectedExportObfuscationPlan {
     private static final String ID_PREFIX = "@";
     /** Physics settings token prefixes (name / ID). */
     static final String PHYSICS_NAME_PREFIX = "Physics_";
+
     static final String PHYSICS_ID_PREFIX = "PhysicsId_";
     /** Motion-sync settings token prefixes (name / ID). */
     static final String MOTION_SYNC_NAME_PREFIX = "MotionSync_";
+
     static final String MOTION_SYNC_ID_PREFIX = "MotionSyncId_";
     private static final int INITIAL_HASH_LENGTH = 16;
     private static final int MAX_TARGET_ID_LENGTH = 63;
-    private static final int MAX_HASH_PREFIX_LENGTH =
-        MAX_TARGET_ID_LENGTH - ID_PREFIX.length();
-    private static final int MAX_SETTINGS_HASH_PREFIX_LENGTH =
-        MAX_TARGET_ID_LENGTH - MOTION_SYNC_ID_PREFIX.length();
+    private static final int MAX_HASH_PREFIX_LENGTH = MAX_TARGET_ID_LENGTH - ID_PREFIX.length();
+    private static final int MAX_SETTINGS_HASH_PREFIX_LENGTH = MAX_TARGET_ID_LENGTH - MOTION_SYNC_ID_PREFIX.length();
 
     /** One censused identity's planned protected name and ID token. */
     public record Target(String name, String idToken) {
@@ -67,22 +67,18 @@ public final class ProtectedExportObfuscationPlan {
      * pass-through object keeps its authored name, ID and references.
      */
     public record Plan(
-        Map<String, Target> byGuid,
-        Map<String, Target> physicsSettings,
-        Map<String, Target> motionSyncSettings,
-        List<String> passThroughGuids
-    ) {
+            Map<String, Target> byGuid,
+            Map<String, Target> physicsSettings,
+            Map<String, Target> motionSyncSettings,
+            List<String> passThroughGuids) {
         public Plan {
             byGuid = java.util.Collections.unmodifiableMap(
-                new LinkedHashMap<>(Objects.requireNonNull(byGuid, "byGuid")));
+                    new LinkedHashMap<>(Objects.requireNonNull(byGuid, "byGuid")));
             physicsSettings = java.util.Collections.unmodifiableMap(
-                new LinkedHashMap<>(Objects.requireNonNull(
-                    physicsSettings, "physicsSettings")));
+                    new LinkedHashMap<>(Objects.requireNonNull(physicsSettings, "physicsSettings")));
             motionSyncSettings = java.util.Collections.unmodifiableMap(
-                new LinkedHashMap<>(Objects.requireNonNull(
-                    motionSyncSettings, "motionSyncSettings")));
-            passThroughGuids = List.copyOf(Objects.requireNonNull(
-                passThroughGuids, "passThroughGuids"));
+                    new LinkedHashMap<>(Objects.requireNonNull(motionSyncSettings, "motionSyncSettings")));
+            passThroughGuids = List.copyOf(Objects.requireNonNull(passThroughGuids, "passThroughGuids"));
         }
 
         /** Every planned drawable-ID token. */
@@ -93,8 +89,7 @@ public final class ProtectedExportObfuscationPlan {
         }
     }
 
-    private ProtectedExportObfuscationPlan() {
-    }
+    private ProtectedExportObfuscationPlan() {}
 
     /**
      * Computes the obfuscation plan for a bound copy's model source.
@@ -102,10 +97,7 @@ public final class ProtectedExportObfuscationPlan {
      * @throws ProtectedExportDeformerPlan.ProtectedExportPlanRejection on any
      *     unsupported or ambiguous census
      */
-    public static Plan plan(
-        final ProtectedExportHostOperations host,
-        final Object modelSource
-    ) {
+    public static Plan plan(final ProtectedExportHostOperations host, final Object modelSource) {
         Objects.requireNonNull(host, "host");
         Objects.requireNonNull(modelSource, "modelSource");
 
@@ -137,8 +129,10 @@ public final class ProtectedExportObfuscationPlan {
             if (object == null || !host.isControllableSource(object)) {
                 continue;
             }
-            if (!host.isWarpDeformer(object) && !host.isRotationDeformer(object)
-                && !host.isArtMeshSource(object) && !host.isPartSource(object)) {
+            if (!host.isWarpDeformer(object)
+                    && !host.isRotationDeformer(object)
+                    && !host.isArtMeshSource(object)
+                    && !host.isPartSource(object)) {
                 // Pass-through channel: the object's own identity is reserved
                 // like every other source's but never planned for a rewrite.
                 final String guid = host.objectGuid(object);
@@ -179,18 +173,15 @@ public final class ProtectedExportObfuscationPlan {
         // family-prefixed token pair is planned for the rewrite.
         final Map<String, Object> physicsByGuid = new LinkedHashMap<>();
         final Map<String, Object> motionSyncByGuid = new LinkedHashMap<>();
-        collectSettings(host, host.allPhysicsSettings(modelSource),
-            reservedIds, reservedNames, physicsByGuid);
-        collectSettings(host, host.allMotionSyncSettings(modelSource),
-            reservedIds, reservedNames, motionSyncByGuid);
+        collectSettings(host, host.allPhysicsSettings(modelSource), reservedIds, reservedNames, physicsByGuid);
+        collectSettings(host, host.allMotionSyncSettings(modelSource), reservedIds, reservedNames, motionSyncByGuid);
 
         final Map<String, Target> result = new LinkedHashMap<>();
         final Set<String> hashes = new LinkedHashSet<>();
         final Set<String> usedNames = new LinkedHashSet<>();
         final Set<String> usedIds = new LinkedHashSet<>();
-        final List<String> guids = byGuid.keySet().stream()
-            .sorted(Comparator.naturalOrder())
-            .toList();
+        final List<String> guids =
+                byGuid.keySet().stream().sorted(Comparator.naturalOrder()).toList();
         for (String guid : guids) {
             final String hash = sha256Hex(guid);
             if (!hashes.add(hash)) {
@@ -202,9 +193,12 @@ public final class ProtectedExportObfuscationPlan {
                 final String suffix = hash.substring(0, length);
                 final String name = NAME_PREFIX + suffix;
                 final String idToken = ID_PREFIX + suffix;
-                if (reservedNames.contains(name) || reservedNames.contains(idToken)
-                    || reservedIds.contains(name) || reservedIds.contains(idToken)
-                    || usedNames.contains(name) || usedIds.contains(idToken)) {
+                if (reservedNames.contains(name)
+                        || reservedNames.contains(idToken)
+                        || reservedIds.contains(name)
+                        || reservedIds.contains(idToken)
+                        || usedNames.contains(name)
+                        || usedIds.contains(idToken)) {
                     continue;
                 }
                 result.put(guid, new Target(name, idToken));
@@ -218,11 +212,23 @@ public final class ProtectedExportObfuscationPlan {
             }
         }
         final Map<String, Target> physics = allocateSettings(
-            physicsByGuid.keySet(), hashes, reservedNames, reservedIds,
-            usedNames, usedIds, PHYSICS_NAME_PREFIX, PHYSICS_ID_PREFIX);
+                physicsByGuid.keySet(),
+                hashes,
+                reservedNames,
+                reservedIds,
+                usedNames,
+                usedIds,
+                PHYSICS_NAME_PREFIX,
+                PHYSICS_ID_PREFIX);
         final Map<String, Target> motionSync = allocateSettings(
-            motionSyncByGuid.keySet(), hashes, reservedNames, reservedIds,
-            usedNames, usedIds, MOTION_SYNC_NAME_PREFIX, MOTION_SYNC_ID_PREFIX);
+                motionSyncByGuid.keySet(),
+                hashes,
+                reservedNames,
+                reservedIds,
+                usedNames,
+                usedIds,
+                MOTION_SYNC_NAME_PREFIX,
+                MOTION_SYNC_ID_PREFIX);
         final List<String> passThrough = new ArrayList<>(passThroughGuids);
         passThrough.sort(Comparator.naturalOrder());
         return new Plan(result, physics, motionSync, passThrough);
@@ -235,12 +241,11 @@ public final class ProtectedExportObfuscationPlan {
      * never lets an unpinnable member ride through.
      */
     private static void collectSettings(
-        final ProtectedExportHostOperations host,
-        final List<?> settings,
-        final Set<String> reservedIds,
-        final Set<String> reservedNames,
-        final Map<String, Object> byGuid
-    ) {
+            final ProtectedExportHostOperations host,
+            final List<?> settings,
+            final Set<String> reservedIds,
+            final Set<String> reservedNames,
+            final Map<String, Object> byGuid) {
         for (Object setting : settings) {
             final String guid = setting == null ? null : host.settingsGuid(setting);
             if (guid == null || guid.isBlank()) {
@@ -265,15 +270,14 @@ public final class ProtectedExportObfuscationPlan {
      * an ArtMesh token, another family's token, or any authored identity.
      */
     private static Map<String, Target> allocateSettings(
-        final java.util.Collection<String> guids,
-        final Set<String> hashes,
-        final Set<String> reservedNames,
-        final Set<String> reservedIds,
-        final Set<String> usedNames,
-        final Set<String> usedIds,
-        final String namePrefix,
-        final String idPrefix
-    ) {
+            final java.util.Collection<String> guids,
+            final Set<String> hashes,
+            final Set<String> reservedNames,
+            final Set<String> reservedIds,
+            final Set<String> usedNames,
+            final Set<String> usedIds,
+            final String namePrefix,
+            final String idPrefix) {
         final Map<String, Target> planned = new LinkedHashMap<>();
         for (String guid : guids.stream().sorted(Comparator.naturalOrder()).toList()) {
             final String hash = sha256Hex(guid);
@@ -286,9 +290,12 @@ public final class ProtectedExportObfuscationPlan {
                 final String suffix = hash.substring(0, length);
                 final String name = namePrefix + suffix;
                 final String idToken = idPrefix + suffix;
-                if (reservedNames.contains(name) || reservedNames.contains(idToken)
-                    || reservedIds.contains(name) || reservedIds.contains(idToken)
-                    || usedNames.contains(name) || usedIds.contains(idToken)) {
+                if (reservedNames.contains(name)
+                        || reservedNames.contains(idToken)
+                        || reservedIds.contains(name)
+                        || reservedIds.contains(idToken)
+                        || usedNames.contains(name)
+                        || usedIds.contains(idToken)) {
                     continue;
                 }
                 planned.put(guid, new Target(name, idToken));
@@ -315,13 +322,10 @@ public final class ProtectedExportObfuscationPlan {
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException(impossible);
         }
-        return HexFormat.of().formatHex(
-            digest.digest(guid.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        return HexFormat.of().formatHex(digest.digest(guid.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 
-    private static ProtectedExportDeformerPlan.ProtectedExportPlanRejection reject(
-        final String key
-    ) {
+    private static ProtectedExportDeformerPlan.ProtectedExportPlanRejection reject(final String key) {
         return new ProtectedExportDeformerPlan.ProtectedExportPlanRejection(key);
     }
 

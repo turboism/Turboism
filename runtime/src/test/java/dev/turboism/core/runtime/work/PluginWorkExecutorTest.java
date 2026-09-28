@@ -1,9 +1,15 @@
 package dev.turboism.core.runtime.work;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.PluginTask;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -12,14 +18,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class PluginWorkExecutorTest {
 
@@ -60,20 +59,21 @@ class PluginWorkExecutorTest {
             await(releaseWorker);
         });
         assertTrue(workerStarted.await(1, TimeUnit.SECONDS));
-        executor.execute(task("action.handle"), () -> { });
+        executor.execute(task("action.handle"), () -> {});
 
         // When
-        assertDoesNotThrow(() -> executor.execute(task("ui.schedule"), () -> { }));
+        assertDoesNotThrow(() -> executor.execute(task("ui.schedule"), () -> {}));
 
         // Then
         awaitEvent(events, PluginWorkBudgetEvent.Phase.REJECTED);
-        assertTrue(events.contains(new PluginWorkBudgetEvent(
-            PLUGIN_ID,
-            "ui.schedule",
-            PluginWorkBudgetEvent.Phase.REJECTED,
-            PluginWorkBudgetEvent.Decision.REJECTED,
-            PluginWorkBudgetEvent.Severity.WARNING
-        )), events.toString());
+        assertTrue(
+                events.contains(new PluginWorkBudgetEvent(
+                        PLUGIN_ID,
+                        "ui.schedule",
+                        PluginWorkBudgetEvent.Phase.REJECTED,
+                        PluginWorkBudgetEvent.Decision.REJECTED,
+                        PluginWorkBudgetEvent.Severity.WARNING)),
+                events.toString());
         releaseWorker.countDown();
         executor.shutdown();
     }
@@ -91,13 +91,12 @@ class PluginWorkExecutorTest {
             await(releaseWorker);
         });
         assertTrue(workerStarted.await(1, TimeUnit.SECONDS));
-        executor.execute(task("action.handle"), () -> { });
+        executor.execute(task("action.handle"), () -> {});
 
         // When
         executor.execute(
-            task("ui.schedule"),
-            () -> overflowThread.set(Thread.currentThread().getName())
-        );
+                task("ui.schedule"),
+                () -> overflowThread.set(Thread.currentThread().getName()));
 
         // Then
         awaitEvent(events, PluginWorkBudgetEvent.Phase.REJECTED);
@@ -138,11 +137,7 @@ class PluginWorkExecutorTest {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         PluginWorkExecutor executor = new PluginWorkExecutor(
-            PLUGIN_ID,
-            PluginWorkExecutorConfiguration.of(50, 1, 1, 50.0f),
-            events::add,
-            CLOCK
-        );
+                PLUGIN_ID, PluginWorkExecutorConfiguration.of(50, 1, 1, 50.0f), events::add, CLOCK);
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch interrupted = new CountDownLatch(1);
 
@@ -169,11 +164,7 @@ class PluginWorkExecutorTest {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         PluginWorkExecutor executor = new PluginWorkExecutor(
-            PLUGIN_ID,
-            PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f),
-            events::add,
-            CLOCK
-        );
+                PLUGIN_ID, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f), events::add, CLOCK);
 
         // When: each failed call emits only after its completion stage has updated the
         // circuit breaker, so waiting for the diagnostic makes the four-call window deterministic.
@@ -197,22 +188,20 @@ class PluginWorkExecutorTest {
     void admittedImmediateFailureRemainsAcceptedAndCompletesFailed() throws Exception {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         final PluginWorkExecutor executor = new PluginWorkExecutor(
-            PLUGIN_ID,
-            PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f),
-            events::add,
-            CLOCK
-        );
+                PLUGIN_ID, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f), events::add, CLOCK);
 
-        final PluginWorkSubmission submission = executor.submit(
-            task("action.handle"),
-            () -> { throw new IllegalStateException("immediate"); }
-        );
+        final PluginWorkSubmission submission = executor.submit(task("action.handle"), () -> {
+            throw new IllegalStateException("immediate");
+        });
 
         assertTrue(submission.accepted());
         assertEquals(
-            PluginWorkStatus.FAILED,
-            submission.completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status()
-        );
+                PluginWorkStatus.FAILED,
+                submission
+                        .completion()
+                        .toCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .status());
         executor.shutdown();
     }
 
@@ -221,24 +210,23 @@ class PluginWorkExecutorTest {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         PluginWorkExecutor executor = new PluginWorkExecutor(
-            PLUGIN_ID,
-            PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f),
-            events::add,
-            CLOCK
-        );
+                PLUGIN_ID, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f), events::add, CLOCK);
 
         // When
-        executor.execute(task("action.handle"), () -> { throw new IllegalStateException("boom"); });
+        executor.execute(task("action.handle"), () -> {
+            throw new IllegalStateException("boom");
+        });
 
         // Then
         awaitEvent(events, PluginWorkBudgetEvent.Phase.FAILED);
-        assertTrue(events.contains(new PluginWorkBudgetEvent(
-            PLUGIN_ID,
-            "action.handle",
-            PluginWorkBudgetEvent.Phase.FAILED,
-            PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
-            PluginWorkBudgetEvent.Severity.ERROR
-        )), events.toString());
+        assertTrue(
+                events.contains(new PluginWorkBudgetEvent(
+                        PLUGIN_ID,
+                        "action.handle",
+                        PluginWorkBudgetEvent.Phase.FAILED,
+                        PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
+                        PluginWorkBudgetEvent.Severity.ERROR)),
+                events.toString());
         executor.shutdown();
     }
 
@@ -247,11 +235,7 @@ class PluginWorkExecutorTest {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         PluginWorkExecutor executor = new PluginWorkExecutor(
-            PLUGIN_ID,
-            PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f),
-            events::add,
-            CLOCK
-        );
+                PLUGIN_ID, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f), events::add, CLOCK);
         CountDownLatch completed = new CountDownLatch(1);
 
         // When
@@ -280,14 +264,11 @@ class PluginWorkExecutorTest {
         // Then
         assertTrue(completed.await(1, TimeUnit.SECONDS));
         assertTrue(
-            worker.get().isDaemon(),
-            "plugin work threads must be daemon so a live executor cannot pin the JVM: "
-                + worker.get()
-        );
+                worker.get().isDaemon(),
+                "plugin work threads must be daemon so a live executor cannot pin the JVM: " + worker.get());
         assertTrue(
-            worker.get().getName().contains(PLUGIN_ID),
-            "worker thread name must attribute the plugin: " + worker.get().getName()
-        );
+                worker.get().getName().contains(PLUGIN_ID),
+                "worker thread name must attribute the plugin: " + worker.get().getName());
         executor.shutdown();
     }
 
@@ -296,39 +277,31 @@ class PluginWorkExecutorTest {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         PluginWorkExecutor executor = new PluginWorkExecutor(
-            PLUGIN_ID,
-            PluginWorkExecutorConfiguration.of(50, 1, 1, 50.0f),
-            events::add,
-            CLOCK
-        );
+                PLUGIN_ID, PluginWorkExecutorConfiguration.of(50, 1, 1, 50.0f), events::add, CLOCK);
         CountDownLatch started = new CountDownLatch(1);
         AtomicReference<Thread> timeoutThread = new AtomicReference<>();
 
         // When: the timeout action runs on the timeout scheduler thread.
         executor.submit(
-            task("action.handle"),
-            () -> {
-                started.countDown();
-                try {
-                    Thread.sleep(1_000L);
-                } catch (InterruptedException exception) {
-                    Thread.currentThread().interrupt();
-                }
-            },
-            () -> timeoutThread.set(Thread.currentThread())
-        );
+                task("action.handle"),
+                () -> {
+                    started.countDown();
+                    try {
+                        Thread.sleep(1_000L);
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                    }
+                },
+                () -> timeoutThread.set(Thread.currentThread()));
 
         // Then
         assertTrue(started.await(1, TimeUnit.SECONDS));
         awaitEvent(events, PluginWorkBudgetEvent.Phase.TIMED_OUT);
+        assertTrue(timeoutThread.get().isDaemon(), "timeout scheduler threads must be daemon: " + timeoutThread.get());
         assertTrue(
-            timeoutThread.get().isDaemon(),
-            "timeout scheduler threads must be daemon: " + timeoutThread.get()
-        );
-        assertTrue(
-            timeoutThread.get().getName().contains(PLUGIN_ID),
-            "timeout thread name must attribute the plugin: " + timeoutThread.get().getName()
-        );
+                timeoutThread.get().getName().contains(PLUGIN_ID),
+                "timeout thread name must attribute the plugin: "
+                        + timeoutThread.get().getName());
         executor.shutdown();
     }
 
@@ -346,12 +319,12 @@ class PluginWorkExecutorTest {
         assertTrue(first.isTerminated());
         PluginExecutorSet second = registry.claim(PLUGIN_ID);
         assertNotSame(first, second, "a later claim must produce a fresh executor set");
-        assertTrue(second.tasks().submit(task("action.handle"), () -> { }).accepted());
+        assertTrue(second.tasks().submit(task("action.handle"), () -> {}).accepted());
 
         // And a stale release of the old generation cannot close the replacement
         registry.release(PLUGIN_ID, first);
         assertFalse(second.isTerminated());
-        assertTrue(second.tasks().submit(task("action.handle"), () -> { }).accepted());
+        assertTrue(second.tasks().submit(task("action.handle"), () -> {}).accepted());
 
         registry.shutdownAll();
         assertTrue(second.isTerminated());
@@ -391,11 +364,7 @@ class PluginWorkExecutorTest {
     }
 
     private static void executeAndAwaitFailure(
-        PluginWorkExecutor executor,
-        List<PluginWorkBudgetEvent> events,
-        int eventIndex,
-        Runnable work
-    ) {
+            PluginWorkExecutor executor, List<PluginWorkBudgetEvent> events, int eventIndex, Runnable work) {
         CountDownLatch workCompleted = new CountDownLatch(1);
         executor.execute(task("action.handle"), () -> {
             try {

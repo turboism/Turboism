@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.mesh.MeshDeletion;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeKind;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
@@ -9,7 +10,6 @@ import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
 import dev.turboism.sdk.cubism.mesh.MeshSnapshot;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -27,34 +27,31 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
         return mirrorOf(deletion, null);
     }
 
-    MeshEditContribution mirrorOf(
-        final MeshDeletion deletion,
-        final MeshMirrorCounterpartResolver resolver
-    ) {
+    MeshEditContribution mirrorOf(final MeshDeletion deletion, final MeshMirrorCounterpartResolver resolver) {
         if (deletion == null) return MeshEditContribution.none();
         final NativeMeshMirrorBridge.LiveEdit live = NativeMeshMirrorBridge.liveEdit();
         if (live == null || !deletion.mirrorAxis().enabled()) return MeshEditContribution.none();
         try {
-            final MeshEditContribution contribution = resolver == null || deletion.points().isEmpty()
-                ? resolveInProcess(deletion, live)
-                : resolveThrough(resolver, deletion, live);
+            final MeshEditContribution contribution =
+                    resolver == null || deletion.points().isEmpty()
+                            ? resolveInProcess(deletion, live)
+                            : resolveThrough(resolver, deletion, live);
             if (resolver == null && !contribution.isEmpty()) {
                 NativeMeshMirrorBridge.rememberDefaultContribution(contribution);
             }
             return contribution;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             NativeMeshMirrorBridge.diagnostic(
-                "COUNTERPART_RESOLUTION_FAILED reason=" + failure.getClass().getName()
-            );
+                    "COUNTERPART_RESOLUTION_FAILED reason=" + failure.getClass().getName());
             return MeshEditContribution.none();
         }
     }
 
     /** The 008 rule, evaluated against live host geometry with no per-point boundary crossing. */
     private MeshEditContribution resolveInProcess(
-        final MeshDeletion deletion,
-        final NativeMeshMirrorBridge.LiveEdit live
-    ) throws ReflectiveOperationException {
+            final MeshDeletion deletion, final NativeMeshMirrorBridge.LiveEdit live)
+            throws ReflectiveOperationException {
         final List<MeshPointRef> points = new ArrayList<>();
         final List<MeshEdgeRef> edges = new ArrayList<>();
         final List<Object> seenPoints = new ArrayList<>();
@@ -65,22 +62,22 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
             final List<Object> compatibleSources = new ArrayList<>();
             for (Object source : live.sourcePoints()) {
                 final Object compatible = live.pointSourcesById()
-                    ? index.pointsById().get(NativeMeshMirrorBridge.pointId(source))
-                    : NativeMeshMirrorBridge.compatiblePoint(mesh, source, index);
-                if (compatible != null && !NativeMeshMirrorBridge.containsIdentity(
-                    compatibleSources, compatible
-                )) compatibleSources.add(compatible);
+                        ? index.pointsById().get(NativeMeshMirrorBridge.pointId(source))
+                        : NativeMeshMirrorBridge.compatiblePoint(mesh, source, index);
+                if (compatible != null && !NativeMeshMirrorBridge.containsIdentity(compatibleSources, compatible))
+                    compatibleSources.add(compatible);
             }
             final Object scale = NativeMeshMirrorBridge.call(live.pack(), "aL", new Class<?>[0]);
             final boolean toleranceKnown = scale instanceof Number;
             final float tolerance = toleranceKnown ? ((Number) scale).floatValue() : 0f;
             for (Object compatible : compatibleSources) {
-                final Object counterpart = !toleranceKnown ? null
-                    : NativeMeshMirrorBridge.counterpartPoint(
-                        live.mirror(), compatible, mesh, live.pack(), context, tolerance, index
-                    );
-                if (counterpart == null || NativeMeshMirrorBridge.containsIdentity(compatibleSources, counterpart)
-                    || NativeMeshMirrorBridge.containsIdentity(seenPoints, counterpart)) continue;
+                final Object counterpart = !toleranceKnown
+                        ? null
+                        : NativeMeshMirrorBridge.counterpartPoint(
+                                live.mirror(), compatible, mesh, live.pack(), context, tolerance, index);
+                if (counterpart == null
+                        || NativeMeshMirrorBridge.containsIdentity(compatibleSources, counterpart)
+                        || NativeMeshMirrorBridge.containsIdentity(seenPoints, counterpart)) continue;
                 final int id = NativeMeshMirrorBridge.pointId(counterpart);
                 final MeshPointRef ref = toRef(counterpart, id);
                 if (ref != null) {
@@ -92,20 +89,18 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
             final List<Object> compatibleEdges = new ArrayList<>();
             for (Object source : live.sourceEdges()) {
                 final Object compatible = live.endpointEdgeSources()
-                    ? endpointCompatibleEdge(index, source)
-                    : compatibleEdge(index, source);
-                if (compatible != null && !NativeMeshMirrorBridge.containsIdentity(
-                    compatibleEdges, compatible
-                )) compatibleEdges.add(compatible);
+                        ? endpointCompatibleEdge(index, source)
+                        : compatibleEdge(index, source);
+                if (compatible != null && !NativeMeshMirrorBridge.containsIdentity(compatibleEdges, compatible))
+                    compatibleEdges.add(compatible);
             }
             for (Object compatible : compatibleEdges) {
-                final Object counterpart = !toleranceKnown ? null
-                    : NativeMeshMirrorBridge.counterpartEdge(
-                        live.mirror(), compatible, mesh, live.pack(), context, tolerance, index
-                    );
-                if (counterpart == null || NativeMeshMirrorBridge.containsIdentity(
-                    compatibleEdges, counterpart
-                )) continue;
+                final Object counterpart = !toleranceKnown
+                        ? null
+                        : NativeMeshMirrorBridge.counterpartEdge(
+                                live.mirror(), compatible, mesh, live.pack(), context, tolerance, index);
+                if (counterpart == null || NativeMeshMirrorBridge.containsIdentity(compatibleEdges, counterpart))
+                    continue;
                 final MeshEdgeRef ref = toEdgeRef(counterpart);
                 if (ref != null) {
                     NativeMeshMirrorBridge.rememberDefaultCounterpartEdge(counterpart);
@@ -114,12 +109,12 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
             }
         }
         return points.isEmpty() && edges.isEmpty()
-            ? MeshEditContribution.none()
-            : new MeshEditContribution(points, edges);
+                ? MeshEditContribution.none()
+                : new MeshEditContribution(points, edges);
     }
 
     private static Object compatibleEdge(final MeshFrameIndex index, final Object reference)
-        throws ReflectiveOperationException {
+            throws ReflectiveOperationException {
         if (reference == null) return null;
         return index.edgeIdentity().contains(reference) ? reference : null;
     }
@@ -131,17 +126,17 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
      * discrete edge action keeps its stricter exact-identity mesh selection.
      */
     private static Object endpointCompatibleEdge(final MeshFrameIndex index, final Object reference)
-        throws ReflectiveOperationException {
+            throws ReflectiveOperationException {
         final MeshEdgeRef ref = toEdgeRef(reference);
         return ref == null ? null : liveEdge(index, ref);
     }
 
     /** The opt-in path: materialise the mesh and ask the plugin once per source point. */
     private MeshEditContribution resolveThrough(
-        final MeshMirrorCounterpartResolver resolver,
-        final MeshDeletion deletion,
-        final NativeMeshMirrorBridge.LiveEdit live
-    ) throws ReflectiveOperationException {
+            final MeshMirrorCounterpartResolver resolver,
+            final MeshDeletion deletion,
+            final NativeMeshMirrorBridge.LiveEdit live)
+            throws ReflectiveOperationException {
         final MeshSnapshot snapshot = deletion.mesh().points().isEmpty() ? snapshot(live) : deletion.mesh();
         final List<MeshPointRef> points = new ArrayList<>();
         for (MeshPointRef source : deletion.points()) {
@@ -149,9 +144,9 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
             try {
                 counterpart = resolver.counterpart(source, snapshot, deletion.mirrorAxis());
             } catch (Throwable failure) {
-                NativeMeshMirrorBridge.diagnostic(
-                    "COUNTERPART_OVERRIDE_FAILED reason=" + failure.getClass().getName()
-                );
+                FatalErrors.rethrowIfFatal(failure);
+                NativeMeshMirrorBridge.diagnostic("COUNTERPART_OVERRIDE_FAILED reason="
+                        + failure.getClass().getName());
                 return MeshEditContribution.none();
             }
             if (counterpart == null || counterpart.isEmpty()) continue;
@@ -204,7 +199,7 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
     }
 
     private static Object liveEdge(final MeshFrameIndex index, final MeshEdgeRef ref)
-        throws ReflectiveOperationException {
+            throws ReflectiveOperationException {
         return index.edgesByKey().get(MeshFrameIndex.refEdgeKey(ref));
     }
 

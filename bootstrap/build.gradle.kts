@@ -160,6 +160,7 @@ tasks.jar {
             overwrite = true
         )
     }
+    finalizedBy("checkBootstrapJarLicenses")
 }
 
 // Executable gate on the built bootstrap fat JAR: every component in the
@@ -251,8 +252,4 @@ val checkBootstrapJarDependencyIsolation by tasks.registering(JavaExec::class) {
             relocatedAgentJar.archiveFile.get().asFile.absolutePath
         )
     }
-}
-
-tasks.jar {
-    finalizedBy(checkBootstrapJarLicenses)
 }

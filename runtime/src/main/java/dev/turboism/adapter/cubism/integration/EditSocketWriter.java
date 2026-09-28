@@ -27,8 +27,7 @@ public interface EditSocketWriter {
      * appearing in this layer's signatures.</p>
      */
     static EditSocketWriter reflective() {
-        return (socket, text) -> socket.getClass()
-            .getMethod("send", String.class)
-            .invoke(socket, text);
+        return (socket, text) ->
+                socket.getClass().getMethod("send", String.class).invoke(socket, text);
     }
 }

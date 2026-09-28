@@ -1,9 +1,10 @@
 package dev.turboism.plugin.turboismwithfx;
 
-import dev.turboism.sdk.plugin.PluginLogger;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.plugin.PluginLogger;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -11,10 +12,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class FxSecretStoreTest {
 
@@ -93,11 +92,13 @@ final class FxSecretStoreTest {
 
     private static FxSecretStore.Protector reversing() {
         return new FxSecretStore.Protector() {
-            @Override public byte[] protect(final byte[] plain) {
+            @Override
+            public byte[] protect(final byte[] plain) {
                 return reverse(plain);
             }
 
-            @Override public byte[] unprotect(final byte[] protectedValue) {
+            @Override
+            public byte[] unprotect(final byte[] protectedValue) {
                 return reverse(protectedValue);
             }
 
@@ -113,11 +114,13 @@ final class FxSecretStoreTest {
 
     private static FxSecretStore.Protector failing() {
         return new FxSecretStore.Protector() {
-            @Override public byte[] protect(final byte[] plain) throws IOException {
+            @Override
+            public byte[] protect(final byte[] plain) throws IOException {
                 throw new IOException("credential helper failed");
             }
 
-            @Override public byte[] unprotect(final byte[] protectedValue) throws IOException {
+            @Override
+            public byte[] unprotect(final byte[] protectedValue) throws IOException {
                 throw new IOException("credential helper failed");
             }
         };
@@ -125,11 +128,22 @@ final class FxSecretStoreTest {
 
     private static PluginLogger logger(final List<String> warnings) {
         return new PluginLogger() {
-            @Override public void debug(final String message) { }
-            @Override public void info(final String message) { }
-            @Override public void warn(final String message) { warnings.add(message); }
-            @Override public void error(final String message) { }
-            @Override public void error(final String message, final Throwable throwable) { }
+            @Override
+            public void debug(final String message) {}
+
+            @Override
+            public void info(final String message) {}
+
+            @Override
+            public void warn(final String message) {
+                warnings.add(message);
+            }
+
+            @Override
+            public void error(final String message) {}
+
+            @Override
+            public void error(final String message, final Throwable throwable) {}
         };
     }
 }

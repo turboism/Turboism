@@ -11,10 +11,9 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
-
-import java.util.List;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,10 +56,7 @@ public final class EditorAuthoringTransactionCoordinator {
      *     holds it for a session's whole lifetime, so sessions and transactions can never
      *     interleave in either direction
      */
-    public EditorAuthoringTransactionCoordinator(
-        final Host host,
-        final AtomicBoolean editScopeGate
-    ) {
+    public EditorAuthoringTransactionCoordinator(final Host host, final AtomicBoolean editScopeGate) {
         this.host = Objects.requireNonNull(host, "host");
         this.editScopeGate = Objects.requireNonNull(editScopeGate, "editScopeGate");
     }
@@ -75,31 +71,21 @@ public final class EditorAuthoringTransactionCoordinator {
      * @return typed transaction result
      */
     public <T> AuthoringTransactionResult<T> execute(
-        final Binding binding,
-        final AuthoringTransactionOptions options,
-        final AuthoringTransactionWork<T> work
-    ) {
+            final Binding binding, final AuthoringTransactionOptions options, final AuthoringTransactionWork<T> work) {
         final Binding checkedBinding = Objects.requireNonNull(binding, "binding");
-        final AuthoringTransactionOptions checkedOptions = Objects.requireNonNull(
-            options,
-            "options"
-        );
+        final AuthoringTransactionOptions checkedOptions = Objects.requireNonNull(options, "options");
         final AuthoringTransactionWork<T> checkedWork = Objects.requireNonNull(work, "work");
 
         if (ambient.get() != null) {
             return AuthoringTransactionResult.rejectedScope(
-                Optional.empty(),
-                diagnostic("authoring.scope-rejected", null)
-            );
+                    Optional.empty(), diagnostic("authoring.scope-rejected", null));
         }
         // The shared editing-scope gate makes the session/transaction exclusion atomic across
         // threads: an admitted edit session holds the gate for its lifetime, so a concurrent
         // session open always wins or loses the CAS cleanly.
         if (!editScopeGate.compareAndSet(false, true)) {
             return AuthoringTransactionResult.rejectedScope(
-                Optional.empty(),
-                diagnostic("authoring.edit-scope-conflict", null)
-            );
+                    Optional.empty(), diagnostic("authoring.edit-scope-conflict", null));
         }
         // Once the CAS succeeds every path — including an Error raised before the scope is
         // established — must release the gate; a missed release wedges every session and
@@ -107,31 +93,21 @@ public final class EditorAuthoringTransactionCoordinator {
         try {
             if (!checkedBinding.isCurrentThread() || !current(checkedBinding)) {
                 return AuthoringTransactionResult.rejectedScope(
-                    Optional.empty(),
-                    diagnostic("authoring.scope-rejected", null)
-                );
+                        Optional.empty(), diagnostic("authoring.scope-rejected", null));
             }
 
             final HistorySnapshot before;
             try {
                 before = Objects.requireNonNull(host.history(checkedBinding), "history");
             } catch (RuntimeException failure) {
-                return AuthoringTransactionResult.unavailable(
-                    diagnostic("authoring.history-unavailable", failure)
-                );
+                return AuthoringTransactionResult.unavailable(diagnostic("authoring.history-unavailable", failure));
             }
             if (before.availability() != HistorySnapshot.Availability.AVAILABLE) {
-                return AuthoringTransactionResult.unavailable(
-                    diagnostic("authoring.history-unavailable", null)
-                );
+                return AuthoringTransactionResult.unavailable(diagnostic("authoring.history-unavailable", null));
             }
 
-            final EditorAuthoringScope scope = new EditorAuthoringScope(
-                checkedBinding,
-                checkedOptions,
-                nextTransactionId(),
-                before
-            );
+            final EditorAuthoringScope scope =
+                    new EditorAuthoringScope(checkedBinding, checkedOptions, nextTransactionId(), before);
             ambient.set(scope);
             try {
                 final T value;
@@ -181,9 +157,7 @@ public final class EditorAuthoringTransactionCoordinator {
     public void mutateEnvelope(final EditorUndoContribution contribution) {
         final EditorAuthoringScope scope = ambient.get();
         if (scope == null || !scope.binding().isCurrentThread()) {
-            throw new IllegalStateException(
-                "No ambient Editor authoring transaction is active on the host thread."
-            );
+            throw new IllegalStateException("No ambient Editor authoring transaction is active on the host thread.");
         }
         scope.noteEnvelopeContribution();
         apply(scope, scope.binding(), Objects.requireNonNull(contribution, "contribution"));
@@ -210,70 +184,44 @@ public final class EditorAuthoringTransactionCoordinator {
      * @param contribution changed authoring primitive
      * @throws IllegalStateException when a standalone transaction cannot commit safely
      */
-    public void mutate(
-        final Binding binding,
-        final EditorUndoContribution contribution
-    ) {
+    public void mutate(final Binding binding, final EditorUndoContribution contribution) {
         final Binding checkedBinding = Objects.requireNonNull(binding, "binding");
-        final EditorUndoContribution checkedContribution = Objects.requireNonNull(
-            contribution,
-            "contribution"
-        );
+        final EditorUndoContribution checkedContribution = Objects.requireNonNull(contribution, "contribution");
         final EditorAuthoringScope scope = ambient.get();
         if (scope != null) {
             apply(scope, checkedBinding, checkedContribution);
             return;
         }
 
-        final AuthoringTransactionResult<Void> result = execute(
-            checkedBinding,
-            AuthoringTransactionOptions.of(checkedContribution.standaloneLabel()),
-            () -> {
-                apply(Objects.requireNonNull(ambient.get(), "ambient scope"),
-                    checkedBinding, checkedContribution);
-                return null;
-            }
-        );
+        final AuthoringTransactionResult<Void> result =
+                execute(checkedBinding, AuthoringTransactionOptions.of(checkedContribution.standaloneLabel()), () -> {
+                    apply(Objects.requireNonNull(ambient.get(), "ambient scope"), checkedBinding, checkedContribution);
+                    return null;
+                });
         if (!result.successful()) {
-            throw new IllegalStateException(
-                "Standalone Editor authoring transaction failed: " + result.outcome()
-                    + result.diagnosticId().map(id -> " [" + id + "]").orElse("")
-            );
+            throw new IllegalStateException("Standalone Editor authoring transaction failed: " + result.outcome()
+                    + result.diagnosticId().map(id -> " [" + id + "]").orElse(""));
         }
     }
 
-    private <T> AuthoringTransactionResult<T> noChange(
-        final EditorAuthoringScope scope,
-        final T value
-    ) {
+    private <T> AuthoringTransactionResult<T> noChange(final EditorAuthoringScope scope, final T value) {
         final HistorySnapshot after;
         try {
             after = Objects.requireNonNull(host.history(scope.binding()), "history");
         } catch (RuntimeException failure) {
-            final AuthoringTransactionReceipt receipt = receipt(
-                scope,
-                HistorySnapshot.unavailable(),
-                Optional.empty()
-            );
+            final AuthoringTransactionReceipt receipt = receipt(scope, HistorySnapshot.unavailable(), Optional.empty());
             return AuthoringTransactionResult.recoveryFailed(
-                receipt,
-                diagnostic("authoring.no-change-history-unavailable", failure)
-            );
+                    receipt, diagnostic("authoring.no-change-history-unavailable", failure));
         }
         final AuthoringTransactionReceipt receipt = receipt(scope, after, Optional.empty());
         if (!scope.historyBefore().equals(after)) {
             return AuthoringTransactionResult.recoveryFailed(
-                receipt,
-                diagnostic("authoring.no-change-history-mutated", null)
-            );
+                    receipt, diagnostic("authoring.no-change-history-mutated", null));
         }
         return AuthoringTransactionResult.noChange(value, receipt);
     }
 
-    private <T> AuthoringTransactionResult<T> commit(
-        final EditorAuthoringScope scope,
-        final T value
-    ) {
+    private <T> AuthoringTransactionResult<T> commit(final EditorAuthoringScope scope, final T value) {
         final AggregatedSemantic semantic;
         Optional<String> preparedEntryId = Optional.empty();
         try {
@@ -288,8 +236,8 @@ public final class EditorAuthoringTransactionCoordinator {
                 throw new ScopeRejectedException("authoring binding changed before native commit");
             }
             semantic = aggregateSemantic(scope);
-            preparedEntryId = host.prepareHistoryMetadata(scope.binding(), scope.edit(),
-                scope.transactionId(), semantic.detail(), semantic.action());
+            preparedEntryId = host.prepareHistoryMetadata(
+                    scope.binding(), scope.edit(), scope.transactionId(), semantic.detail(), semantic.action());
             scope.markEditEndAttempted();
             host.endEdit(scope.binding(), scope.edit(), false);
             scope.markEditClosed();
@@ -304,82 +252,66 @@ public final class EditorAuthoringTransactionCoordinator {
             after = Objects.requireNonNull(host.history(scope.binding()), "history");
         } catch (RuntimeException failure) {
             return AuthoringTransactionResult.recoveryFailed(
-                receipt(scope, HistorySnapshot.unavailable(), Optional.empty()),
-                diagnostic("authoring.history-unverified", failure)
-            );
+                    receipt(scope, HistorySnapshot.unavailable(), Optional.empty()),
+                    diagnostic("authoring.history-unverified", failure));
         }
-        if (preparedEntryId.isPresent() && (after.entries().isEmpty()
-            || after.position() != after.entries().size()
-            || !after.entries().get(after.entries().size() - 1).entryId()
-                .map(id -> id.value()).equals(preparedEntryId))) {
+        if (preparedEntryId.isPresent()
+                && (after.entries().isEmpty()
+                        || after.position() != after.entries().size()
+                        || !after.entries()
+                                .get(after.entries().size() - 1)
+                                .entryId()
+                                .map(id -> id.value())
+                                .equals(preparedEntryId))) {
             return AuthoringTransactionResult.recoveryFailed(
-                receipt(scope, after, Optional.empty()), diagnostic("authoring.history-unverified", null));
+                    receipt(scope, after, Optional.empty()), diagnostic("authoring.history-unverified", null));
         }
         final Optional<String> entryId;
         try {
             entryId = Objects.requireNonNull(
-                host.committedHistoryEntryId(
-                    scope.binding(),
-                    scope.historyBefore(),
-                    after,
-                    scope.transactionId(),
-                    scope.options().label(),
-                    semantic.detail(),
-                    semantic.action()
-                ),
-                "committedHistoryEntryId"
-            );
+                    host.committedHistoryEntryId(
+                            scope.binding(),
+                            scope.historyBefore(),
+                            after,
+                            scope.transactionId(),
+                            scope.options().label(),
+                            semantic.detail(),
+                            semantic.action()),
+                    "committedHistoryEntryId");
         } catch (RuntimeException failure) {
             return AuthoringTransactionResult.recoveryFailed(
-                receipt(scope, after, Optional.empty()),
-                diagnostic("authoring.history-unverified", failure)
-            );
+                    receipt(scope, after, Optional.empty()), diagnostic("authoring.history-unverified", failure));
         }
         final AuthoringTransactionReceipt receipt = receipt(scope, after, entryId);
         if (entryId.isEmpty() || (preparedEntryId.isPresent() && !preparedEntryId.equals(entryId))) {
-            return AuthoringTransactionResult.recoveryFailed(
-                receipt,
-                diagnostic("authoring.history-unverified", null)
-            );
+            return AuthoringTransactionResult.recoveryFailed(receipt, diagnostic("authoring.history-unverified", null));
         }
         return AuthoringTransactionResult.committed(value, receipt);
     }
 
     private void apply(
-        final EditorAuthoringScope scope,
-        final Binding binding,
-        final EditorUndoContribution contribution
-    ) {
+            final EditorAuthoringScope scope, final Binding binding, final EditorUndoContribution contribution) {
         if (!scope.binding().sameScope(binding) || !binding.isCurrentThread()) {
-            throw new ScopeRejectedException(
-                "authoring contribution does not match the ambient scope"
-            );
+            throw new ScopeRejectedException("authoring contribution does not match the ambient scope");
         }
         if (!current(binding)) {
             throw new ScopeRejectedException("authoring contribution binding is stale");
         }
         if (scope.edit() == null) {
             scope.edit(Objects.requireNonNull(
-                host.beginEdit(binding, scope.options().label()),
-                "native edit"
-            ));
+                    host.beginEdit(binding, scope.options().label()), "native edit"));
         }
         contribution.undoAdmission().admit(scope.edit(), scope.options().label());
         scope.add(contribution);
         contribution.mutation().run();
         if (!contribution.applied().getAsBoolean()) {
-            throw new IllegalStateException(
-                "Authoring postcondition failed: " + contribution.operationId()
-            );
+            throw new IllegalStateException("Authoring postcondition failed: " + contribution.operationId());
         }
         scope.captureActual(contribution);
     }
 
     private <T> AuthoringTransactionResult<T> recover(
-        final EditorAuthoringScope scope,
-        final Throwable failure,
-        final boolean scopeRejected
-    ) {
+            final EditorAuthoringScope scope, final Throwable failure, final boolean scopeRejected) {
         Throwable recoveryFailure = null;
         if (scope.edit() != null && !scope.editEndAttempted()) {
             // Hand-written-envelope contributions admit arbitrary native Undo objects whose
@@ -404,11 +336,9 @@ public final class EditorAuthoringTransactionCoordinator {
             }
         } else if (scope.edit() != null && !scope.editClosed()) {
             recoveryFailure = append(
-                recoveryFailure,
-                new IllegalStateException(
-                    "native edit end outcome is uncertain; a second close was not attempted"
-                )
-            );
+                    recoveryFailure,
+                    new IllegalStateException(
+                            "native edit end outcome is uncertain; a second close was not attempted"));
         }
 
         final List<EditorUndoContribution> contributions = scope.contributions();
@@ -419,11 +349,9 @@ public final class EditorAuthoringTransactionCoordinator {
                     contribution.compensation().run();
                 }
                 if (!contribution.restored().getAsBoolean()) {
-                    throw new IllegalStateException(
-                        "Authoring rollback verification failed: "
+                    throw new IllegalStateException("Authoring rollback verification failed: "
                             + contribution.operationId()
-                            + " on " + contribution.targetIdentity()
-                    );
+                            + " on " + contribution.targetIdentity());
                 }
             } catch (RuntimeException | Error compensationFailure) {
                 recoveryFailure = append(recoveryFailure, compensationFailure);
@@ -434,10 +362,8 @@ public final class EditorAuthoringTransactionCoordinator {
         try {
             after = Objects.requireNonNull(host.history(scope.binding()), "history");
             if (!scope.historyBefore().equals(after)) {
-                recoveryFailure = append(
-                    recoveryFailure,
-                    new IllegalStateException("authoring history was not restored")
-                );
+                recoveryFailure =
+                        append(recoveryFailure, new IllegalStateException("authoring history was not restored"));
             }
         } catch (RuntimeException | Error historyFailure) {
             recoveryFailure = append(recoveryFailure, historyFailure);
@@ -459,38 +385,20 @@ public final class EditorAuthoringTransactionCoordinator {
         final AuthoringTransactionReceipt receipt = receipt(scope, after, Optional.empty());
         if (recoveryFailure != null) {
             return AuthoringTransactionResult.recoveryFailed(
-                receipt,
-                diagnostic("authoring.recovery-failed", recoveryFailure)
-            );
+                    receipt, diagnostic("authoring.recovery-failed", recoveryFailure));
         }
-        final String diagnostic = diagnostic(
-            scopeRejected ? "authoring.scope-rejected" : "authoring.callback-failed",
-            failure
-        );
+        final String diagnostic =
+                diagnostic(scopeRejected ? "authoring.scope-rejected" : "authoring.callback-failed", failure);
         if (scopeRejected && !scope.changed()) {
-            return AuthoringTransactionResult.rejectedScope(
-                Optional.of(receipt),
-                diagnostic
-            );
+            return AuthoringTransactionResult.rejectedScope(Optional.of(receipt), diagnostic);
         }
-        return AuthoringTransactionResult.rolledBack(
-            receipt,
-            diagnostic
-        );
+        return AuthoringTransactionResult.rolledBack(receipt, diagnostic);
     }
 
     private AuthoringTransactionReceipt receipt(
-        final EditorAuthoringScope scope,
-        final HistorySnapshot after,
-        final Optional<String> historyEntryId
-    ) {
+            final EditorAuthoringScope scope, final HistorySnapshot after, final Optional<String> historyEntryId) {
         return new AuthoringTransactionReceipt(
-            scope.transactionId(),
-            scope.options().label(),
-            scope.historyBefore(),
-            after,
-            historyEntryId
-        );
+                scope.transactionId(), scope.options().label(), scope.historyBefore(), after, historyEntryId);
     }
 
     private boolean current(final Binding binding) {
@@ -502,10 +410,7 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     private String nextTransactionId() {
-        return "authoring-" + Long.toUnsignedString(
-            transactionSequence.incrementAndGet(),
-            36
-        );
+        return "authoring-" + Long.toUnsignedString(transactionSequence.incrementAndGet(), 36);
     }
 
     private static AggregatedSemantic aggregateSemantic(final EditorAuthoringScope scope) {
@@ -550,44 +455,37 @@ public final class EditorAuthoringTransactionCoordinator {
                     truncated = true;
                     break;
                 }
-                final Optional<Integer> targetIndex = change.targetIndex()
-                    .map(index -> remapped[index])
-                    .filter(index -> index >= 0);
+                final Optional<Integer> targetIndex =
+                        change.targetIndex().map(index -> remapped[index]).filter(index -> index >= 0);
                 if (change.targetIndex().isPresent() && targetIndex.isEmpty()) {
                     truncated = true;
                     continue;
                 }
                 changes.add(new HistoryChange(
-                    change.operation(),
-                    targetIndex,
-                    change.property(),
-                    change.before(),
-                    change.after(),
-                    change.context(),
-                    change.relation()
-                ));
+                        change.operation(),
+                        targetIndex,
+                        change.property(),
+                        change.before(),
+                        change.after(),
+                        change.context(),
+                        change.relation()));
             }
         }
         final boolean complete = !truncated
-            && children.size() == contributions.size()
-            && children.stream().allMatch(child ->
-                child.detailLevel() == HistoryAction.DetailLevel.FULL);
+                && children.size() == contributions.size()
+                && children.stream().allMatch(child -> child.detailLevel() == HistoryAction.DetailLevel.FULL);
         final HistoryEntryDetail detail = new HistoryEntryDetail(
-            scope.options().label(),
-            complete ? HistoryAction.DetailLevel.FULL : HistoryAction.DetailLevel.PARTIAL,
-            HistoryOrigin.turboism(scope.binding().pluginId(), "authoring.transaction"),
-            targets,
-            changes,
-            Optional.of(new HistoryGroup(
-                Optional.of(scope.transactionId()),
-                contributions.size(),
-                children,
-                truncated
-            )),
-            complete ? Optional.empty() : Optional.of(
-                truncated ? "history.detail.transaction-limit" : "history.detail.transaction-partial"
-            )
-        );
+                scope.options().label(),
+                complete ? HistoryAction.DetailLevel.FULL : HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.turboism(scope.binding().pluginId(), "authoring.transaction"),
+                targets,
+                changes,
+                Optional.of(new HistoryGroup(
+                        Optional.of(scope.transactionId()), contributions.size(), children, truncated)),
+                complete
+                        ? Optional.empty()
+                        : Optional.of(
+                                truncated ? "history.detail.transaction-limit" : "history.detail.transaction-partial"));
         return new AggregatedSemantic(detail, Optional.empty());
     }
 
@@ -598,28 +496,23 @@ public final class EditorAuthoringTransactionCoordinator {
         final HistoryTarget target = detail.targets().get(0);
         final HistoryChange change = detail.changes().get(0);
         if (!"PARAMETER".equals(target.type())
-            || target.id().isEmpty()
-            || change.operation() != HistoryChange.Operation.SET
-            || change.targetIndex().filter(index -> index == 0).isEmpty()
-            || change.property().isEmpty()) {
+                || target.id().isEmpty()
+                || change.operation() != HistoryChange.Operation.SET
+                || change.targetIndex().filter(index -> index == 0).isEmpty()
+                || change.property().isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(new HistoryAction(
-            HistoryAction.Kind.SET_PARAMETER_VALUE,
-            target.type(),
-            target.id().orElseThrow(),
-            change.property().orElseThrow(),
-            change.before(),
-            change.after(),
-            detail.detailLevel()
-        ));
+                HistoryAction.Kind.SET_PARAMETER_VALUE,
+                target.type(),
+                target.id().orElseThrow(),
+                change.property().orElseThrow(),
+                change.before(),
+                change.after(),
+                detail.detailLevel()));
     }
 
-    private record AggregatedSemantic(
-        HistoryEntryDetail detail,
-        Optional<HistoryAction> action
-    ) {
-    }
+    private record AggregatedSemantic(HistoryEntryDetail detail, Optional<HistoryAction> action) {}
 
     private String diagnostic(final String code, final Throwable failure) {
         try {
@@ -659,13 +552,12 @@ public final class EditorAuthoringTransactionCoordinator {
      * @param hostThread exact host thread on which the callback must remain
      */
     public record Binding(
-        String pluginId,
-        String documentIdentity,
-        long documentGeneration,
-        String modelIdentity,
-        long modelGeneration,
-        Thread hostThread
-    ) {
+            String pluginId,
+            String documentIdentity,
+            long documentGeneration,
+            String modelIdentity,
+            long modelGeneration,
+            Thread hostThread) {
 
         /** Validates one generation-bound authoring identity. */
         public Binding {
@@ -684,10 +576,10 @@ public final class EditorAuthoringTransactionCoordinator {
         boolean sameScope(final Binding other) {
             final Binding checked = Objects.requireNonNull(other, "other");
             return documentGeneration == checked.documentGeneration
-                && modelGeneration == checked.modelGeneration
-                && documentIdentity.equals(checked.documentIdentity)
-                && modelIdentity.equals(checked.modelIdentity)
-                && hostThread == checked.hostThread;
+                    && modelGeneration == checked.modelGeneration
+                    && documentIdentity.equals(checked.documentIdentity)
+                    && modelIdentity.equals(checked.modelIdentity)
+                    && hostThread == checked.hostThread;
         }
 
         boolean isCurrentThread() {
@@ -736,12 +628,11 @@ public final class EditorAuthoringTransactionCoordinator {
 
         /** Prepares finalized detail on a root; presence is identity, not proof of admission. */
         default Optional<String> prepareHistoryMetadata(
-            final Binding binding,
-            final Object edit,
-            final String transactionId,
-            final HistoryEntryDetail detail,
-            final Optional<HistoryAction> action
-        ) {
+                final Binding binding,
+                final Object edit,
+                final String transactionId,
+                final HistoryEntryDetail detail,
+                final Optional<HistoryAction> action) {
             return Optional.empty();
         }
 
@@ -750,23 +641,17 @@ public final class EditorAuthoringTransactionCoordinator {
          * Empty means attribution could not be proven.
          */
         Optional<String> committedHistoryEntryId(
-            Binding binding,
-            HistorySnapshot before,
-            HistorySnapshot after,
-            String transactionId,
-            String label
-        );
+                Binding binding, HistorySnapshot before, HistorySnapshot after, String transactionId, String label);
 
         /** Registers semantic metadata for the exact committed entry. */
         default Optional<String> committedHistoryEntryId(
-            final Binding binding,
-            final HistorySnapshot before,
-            final HistorySnapshot after,
-            final String transactionId,
-            final String label,
-            final HistoryEntryDetail detail,
-            final Optional<HistoryAction> action
-        ) {
+                final Binding binding,
+                final HistorySnapshot before,
+                final HistorySnapshot after,
+                final String transactionId,
+                final String label,
+                final HistoryEntryDetail detail,
+                final Optional<HistoryAction> action) {
             Objects.requireNonNull(detail, "detail");
             Objects.requireNonNull(action, "action");
             return committedHistoryEntryId(binding, before, after, transactionId, label);

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.recentfile;
 
-
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
@@ -24,11 +23,7 @@ import java.util.Optional;
  * {@link Optional#empty()} and the summary carries no fabricated data.</p>
  */
 public record RecentFileSummary(
-    RecentFileId id,
-    String displayName,
-    Optional<Instant> lastModified,
-    Optional<String> path
-) {
+        RecentFileId id, String displayName, Optional<Instant> lastModified, Optional<String> path) {
     public RecentFileSummary {
         id = Objects.requireNonNull(id, "id");
         displayName = Objects.requireNonNull(displayName, "displayName");

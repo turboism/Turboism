@@ -1,9 +1,9 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.ui.context.NativeObjectContextMenuBridge;
 import dev.turboism.ui.context.NativeParameterPointContextMenuBridge;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,72 +14,66 @@ import java.util.List;
  */
 final class ObjectContextMenuHookContributor implements HookContributor {
 
-    @Override public String id() {
+    @Override
+    public String id() {
         return "TURBOISM_OBJECT_CONTEXT_MENU_HOOK";
     }
 
-    @Override public Phase phase() {
+    @Override
+    public Phase phase() {
         return Phase.RUNTIME_STARTED;
     }
 
-    @Override public boolean admitted(final HookEnvironment environment) {
+    @Override
+    public boolean admitted(final HookEnvironment environment) {
         return environment.hookRuntimeAdmitted();
     }
 
-    @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
+    @Override
+    public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
         final ObjectContextMenuHostProfile profile = ObjectContextMenuHostProfile.forArtifact(
-            HostArtifactDigest.from(host.artifact())
-        ).or(() -> environment.admittedRuntimeGeneration()
-            .flatMap(ObjectContextMenuHostProfile::forReviewedVersion)
-        ).orElseThrow(() -> new IllegalStateException(
-            "Unsupported object context-menu host artifact"
-        ));
+                        HostArtifactDigest.from(host.artifact()))
+                .or(() -> environment
+                        .admittedRuntimeGeneration()
+                        .flatMap(ObjectContextMenuHostProfile::forReviewedVersion))
+                .orElseThrow(() -> new IllegalStateException("Unsupported object context-menu host artifact"));
         final var handler = runtime.hostAccess().objectContextMenuHandler();
         if (handler == null) {
-            throw new IllegalStateException(
-                "Object context-menu runtime handler is unavailable"
-            );
+            throw new IllegalStateException("Object context-menu runtime handler is unavailable");
         }
         final List<AutoCloseable> handles = new ArrayList<>(4);
         try {
             handles.add(NativeObjectContextMenuBridge.install(handler));
             final var parameterPointHandler = runtime.hostAccess().parameterPointMenuHandler();
             if (parameterPointHandler == null) {
-                throw new IllegalStateException(
-                    "Parameter-point context-menu runtime handler is unavailable"
-                );
+                throw new IllegalStateException("Parameter-point context-menu runtime handler is unavailable");
             }
             handles.add(NativeParameterPointContextMenuBridge.install(parameterPointHandler));
 
-            final VerifiedObjectContextMenuHookInstaller installer =
-                new VerifiedObjectContextMenuHookInstaller(
-                    environment.instrumentation(),
-                    profile.bindings(),
-                    host.classLoader()
-                );
+            final VerifiedObjectContextMenuHookInstaller installer = new VerifiedObjectContextMenuHookInstaller(
+                    environment.instrumentation(), profile.bindings(), host.classLoader());
             installer.install();
             handles.add(installer);
 
             final ParameterPointContextMenuHostProfile parameterPointProfile =
-                ParameterPointContextMenuHostProfile.forArtifact(
-                    HostArtifactDigest.from(host.artifact())
-                ).or(() -> environment.admittedRuntimeGeneration()
-                    .flatMap(ParameterPointContextMenuHostProfile::forReviewedVersion)
-                ).orElseThrow(() -> new IllegalStateException(
-                    "Unsupported parameter-point context-menu host artifact"
-                ));
+                    ParameterPointContextMenuHostProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
+                            .or(() -> environment
+                                    .admittedRuntimeGeneration()
+                                    .flatMap(ParameterPointContextMenuHostProfile::forReviewedVersion))
+                            .orElseThrow(() -> new IllegalStateException(
+                                    "Unsupported parameter-point context-menu host artifact"));
             final VerifiedParameterPointContextMenuHookInstaller parameterPointInstaller =
-                new VerifiedParameterPointContextMenuHookInstaller(
-                    environment.instrumentation(),
-                    parameterPointProfile.owner(),
-                    parameterPointProfile.contextDescriptor(),
-                    host.classLoader()
-                );
+                    new VerifiedParameterPointContextMenuHookInstaller(
+                            environment.instrumentation(),
+                            parameterPointProfile.owner(),
+                            parameterPointProfile.contextDescriptor(),
+                            host.classLoader());
             parameterPointInstaller.install();
             handles.add(parameterPointInstaller);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             closeQuietly(handles);
             throw failure;
         }
@@ -91,6 +85,7 @@ final class ObjectContextMenuHookContributor implements HookContributor {
             try {
                 handles.get(index).close();
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Best-effort rollback; the install already failed closed.
             }
         }

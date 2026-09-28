@@ -12,8 +12,7 @@ import java.util.Optional;
  */
 public final class ActiveReadProjections {
 
-    private ActiveReadProjections() {
-    }
+    private ActiveReadProjections() {}
 
     /** Animation file owning the active ANIMATION_SCENE document, when present. */
     public static Optional<AnimationSnapshot> animationOf(final Optional<DocumentSnapshot> document) {
@@ -27,11 +26,8 @@ public final class ActiveReadProjections {
 
     /** Project entry owning the active document, when both are present and linked. */
     public static Optional<ProjectContentSnapshot> projectContentOf(
-        final Optional<ProjectSnapshot> project,
-        final Optional<DocumentSnapshot> document
-    ) {
-        return document
-            .flatMap(doc -> doc.contentId())
-            .flatMap(contentId -> project.flatMap(item -> item.content(contentId)));
+            final Optional<ProjectSnapshot> project, final Optional<DocumentSnapshot> document) {
+        return document.flatMap(doc -> doc.contentId())
+                .flatMap(contentId -> project.flatMap(item -> item.content(contentId)));
     }
 }

@@ -1,16 +1,15 @@
 package dev.turboism.mapping.verification;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class StaticVerificationRecordLoaderTest {
 
@@ -59,13 +58,10 @@ class StaticVerificationRecordLoaderTest {
               ]
             }
             """.formatted(
-                artifact.getFileName(),
-                fingerprint.size(),
-                fingerprint.sha256(),
-                owner
-            )));
+                        artifact.getFileName(), fingerprint.size(), fingerprint.sha256(), owner)));
 
-        StaticVerificationRecord loaded = new StaticVerificationRecordLoader().load(record).record();
+        StaticVerificationRecord loaded =
+                new StaticVerificationRecordLoader().load(record).record();
         StaticVerificationReport report = new StaticVerificationCli().verify(record, artifact);
 
         assertEquals("fixture.static", loaded.verificationId());
@@ -77,7 +73,7 @@ class StaticVerificationRecordLoaderTest {
         Path jar = Files.createTempFile("turboism-record-fixture", ".jar");
         String entryName = internalName(type) + ".class";
         try (InputStream input = type.getClassLoader().getResourceAsStream(entryName);
-             JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+                JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             output.putNextEntry(new JarEntry(entryName));
             input.transferTo(output);
             output.closeEntry();

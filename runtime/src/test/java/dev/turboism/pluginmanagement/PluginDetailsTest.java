@@ -1,39 +1,37 @@
 package dev.turboism.pluginmanagement;
 
-import dev.turboism.internal.core.CorePluginManagement;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.internal.core.CorePluginManagement;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class PluginDetailsTest {
-    @TempDir Path home;
+    @TempDir
+    Path home;
 
     @Test
     void installedArchiveExposesDescriptorMetadataAndReadme() throws Exception {
-        install("detailed.plugin", PluginManagementPackageFixture.detailedPluginJarBytes(
-            "detailed.plugin", "1.2.3"
-        ));
-        final RuntimePluginManagementService service = RuntimePluginManagementService.withMetadataLocale(
-            home, List::of, () -> Locale.ENGLISH
-        );
+        install("detailed.plugin", PluginManagementPackageFixture.detailedPluginJarBytes("detailed.plugin", "1.2.3"));
+        final RuntimePluginManagementService service =
+                RuntimePluginManagementService.withMetadataLocale(home, List::of, () -> Locale.ENGLISH);
 
-        final CorePluginManagement.PluginDetails details = service.details("detailed.plugin").orElseThrow();
+        final CorePluginManagement.PluginDetails details =
+                service.details("detailed.plugin").orElseThrow();
 
         assertEquals("detailed.plugin", details.plugin().id());
         assertEquals("[0.1.0,0.2.0)", details.turboismApi());
-        assertEquals(List.of(new CorePluginManagement.Author(
-            "Test Author", Optional.of("test@example.test")
-        )), details.authors());
+        assertEquals(
+                List.of(new CorePluginManagement.Author("Test Author", Optional.of("test@example.test"))),
+                details.authors());
         assertEquals("MIT", details.license());
         assertEquals(Optional.of("https://example.test/plugin"), details.website());
         assertEquals("required.plugin", details.dependencies().get(0).id());
@@ -52,41 +50,58 @@ class PluginDetailsTest {
 
     @Test
     void displayLocaleSelectsLocalizedReadmeAndFallsBackToEnglish() throws Exception {
-        install("localized.plugin", PluginManagementPackageFixture.pluginJarBytesWithReadmes(
-            "localized.plugin", "1.0.0", java.util.Map.of(
-                "META-INF/turboism/readme/README.md", "English README".getBytes(StandardCharsets.UTF_8),
-                "META-INF/turboism/readme/README_zh.md", "中文说明".getBytes(StandardCharsets.UTF_8),
-                "META-INF/turboism/readme/README_ja.md", "日本語説明".getBytes(StandardCharsets.UTF_8)
-            )
-        ));
+        install(
+                "localized.plugin",
+                PluginManagementPackageFixture.pluginJarBytesWithReadmes(
+                        "localized.plugin",
+                        "1.0.0",
+                        java.util.Map.of(
+                                "META-INF/turboism/readme/README.md", "English README".getBytes(StandardCharsets.UTF_8),
+                                "META-INF/turboism/readme/README_zh.md", "中文说明".getBytes(StandardCharsets.UTF_8),
+                                "META-INF/turboism/readme/README_ja.md", "日本語説明".getBytes(StandardCharsets.UTF_8))));
 
-        assertEquals("中文说明", details("localized.plugin", Locale.SIMPLIFIED_CHINESE).readme().orElseThrow());
-        assertEquals("中文说明", details("localized.plugin", Locale.TRADITIONAL_CHINESE).readme().orElseThrow());
-        assertEquals("日本語説明", details("localized.plugin", Locale.JAPANESE).readme().orElseThrow());
-        assertEquals("English README", details("localized.plugin", Locale.KOREAN).readme().orElseThrow());
+        assertEquals(
+                "中文说明",
+                details("localized.plugin", Locale.SIMPLIFIED_CHINESE).readme().orElseThrow());
+        assertEquals(
+                "中文说明",
+                details("localized.plugin", Locale.TRADITIONAL_CHINESE).readme().orElseThrow());
+        assertEquals(
+                "日本語説明", details("localized.plugin", Locale.JAPANESE).readme().orElseThrow());
+        assertEquals(
+                "English README",
+                details("localized.plugin", Locale.KOREAN).readme().orElseThrow());
     }
 
     @Test
     void missingOrInvalidLocalizedReadmeFallsBackToEnglish() throws Exception {
-        install("fallback.plugin", PluginManagementPackageFixture.pluginJarBytesWithReadmes(
-            "fallback.plugin", "1.0.0", java.util.Map.of(
-                "META-INF/turboism/readme/README.md", "English fallback".getBytes(StandardCharsets.UTF_8),
-                "META-INF/turboism/readme/README_ja.md", new byte[]{(byte) 0xc3, (byte) 0x28}
-            )
-        ));
+        install(
+                "fallback.plugin",
+                PluginManagementPackageFixture.pluginJarBytesWithReadmes(
+                        "fallback.plugin",
+                        "1.0.0",
+                        java.util.Map.of(
+                                "META-INF/turboism/readme/README.md",
+                                "English fallback".getBytes(StandardCharsets.UTF_8),
+                                "META-INF/turboism/readme/README_ja.md",
+                                new byte[] {(byte) 0xc3, (byte) 0x28})));
 
-        assertEquals("English fallback", details("fallback.plugin", Locale.JAPANESE).readme().orElseThrow());
-        assertEquals("English fallback", details("fallback.plugin", Locale.SIMPLIFIED_CHINESE).readme().orElseThrow());
+        assertEquals(
+                "English fallback",
+                details("fallback.plugin", Locale.JAPANESE).readme().orElseThrow());
+        assertEquals(
+                "English fallback",
+                details("fallback.plugin", Locale.SIMPLIFIED_CHINESE).readme().orElseThrow());
     }
 
     @Test
     void missingReadmeReturnsEmptyWithoutLosingMetadata() throws Exception {
         install("plain.plugin", PluginManagementPackageFixture.pluginJarBytes("plain.plugin", "1.0.0"));
-        final RuntimePluginManagementService service = new RuntimePluginManagementService(
-            home, Optional::empty, List::of
-        );
+        final RuntimePluginManagementService service =
+                new RuntimePluginManagementService(home, Optional::empty, List::of);
 
-        final CorePluginManagement.PluginDetails details = service.details("plain.plugin").orElseThrow();
+        final CorePluginManagement.PluginDetails details =
+                service.details("plain.plugin").orElseThrow();
 
         assertEquals("Test", details.license());
         assertFalse(details.readme().isPresent());
@@ -95,21 +110,19 @@ class PluginDetailsTest {
     @Test
     void oversizedReadmeIsRejected() throws Exception {
         final String readme = "x".repeat(PluginArchiveMetadata.MAX_README_BYTES + 1);
-        install("large.plugin", PluginManagementPackageFixture.pluginJarBytesWithReadme(
-            "large.plugin", "1.0.0", readme
-        ));
-        final RuntimePluginManagementService service = new RuntimePluginManagementService(
-            home, Optional::empty, List::of
-        );
+        install(
+                "large.plugin",
+                PluginManagementPackageFixture.pluginJarBytesWithReadme("large.plugin", "1.0.0", readme));
+        final RuntimePluginManagementService service =
+                new RuntimePluginManagementService(home, Optional::empty, List::of);
 
         assertFalse(service.details("large.plugin").orElseThrow().readme().isPresent());
     }
 
     @Test
     void unknownPluginHasNoDetails() {
-        final RuntimePluginManagementService service = new RuntimePluginManagementService(
-            home, Optional::empty, List::of
-        );
+        final RuntimePluginManagementService service =
+                new RuntimePluginManagementService(home, Optional::empty, List::of);
 
         assertTrue(service.details("missing.plugin").isEmpty());
         assertTrue(service.details(" ").isEmpty());
@@ -117,24 +130,22 @@ class PluginDetailsTest {
 
     @Test
     void builtInShellExposesSynthesizedDescriptorWithoutReadme() {
-        final RuntimePluginManagementService service = RuntimePluginManagementService.withMetadataLocale(
-            home, List::of, () -> Locale.ENGLISH
-        );
+        final RuntimePluginManagementService service =
+                RuntimePluginManagementService.withMetadataLocale(home, List::of, () -> Locale.ENGLISH);
 
-        final CorePluginManagement.PluginDetails details = service.details(
-            CorePluginManagement.CORE_PLUGIN_ID
-        ).orElseThrow();
+        final CorePluginManagement.PluginDetails details =
+                service.details(CorePluginManagement.CORE_PLUGIN_ID).orElseThrow();
 
         assertTrue(details.plugin().core());
         assertEquals("Project License", details.license());
         assertEquals(Optional.of("https://turboism.dev"), details.website());
-        assertTrue(details.readme().isEmpty(),
-            "the framework shell ships no plugin readme");
+        assertTrue(details.readme().isEmpty(), "the framework shell ships no plugin readme");
     }
 
     private CorePluginManagement.PluginDetails details(final String id, final Locale locale) {
         return RuntimePluginManagementService.withMetadataLocale(home, List::of, () -> locale)
-            .details(id).orElseThrow();
+                .details(id)
+                .orElseThrow();
     }
 
     private void install(final String id, final byte[] jar) throws Exception {

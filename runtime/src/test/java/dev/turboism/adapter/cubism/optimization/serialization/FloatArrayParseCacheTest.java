@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.serialization;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -7,19 +9,38 @@ import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 
 class FloatArrayParseCacheTest {
-    @Test void preservesReferenceBitsForSpecialDecimalAndHexTokens() {
+    @Test
+    void preservesReferenceBitsForSpecialDecimalAndHexTokens() {
         var cache = new FloatArrayParseCache(128, 4096);
-        List<String> text = List.of("0", "-0", "-0.0", "+0.0", "NaN", "-NaN", "Infinity", "-Infinity",
-            "1e-45", "-1e-50", "3.4028235e38", "1e100", "0x1.fffffep127", "0x0.000002p-126",
-            " 1.25 ", "1.0f", "-2.0D", "16777217", "1.234567890123456789");
+        List<String> text = List.of(
+                "0",
+                "-0",
+                "-0.0",
+                "+0.0",
+                "NaN",
+                "-NaN",
+                "Infinity",
+                "-Infinity",
+                "1e-45",
+                "-1e-50",
+                "3.4028235e38",
+                "1e100",
+                "0x1.fffffep127",
+                "0x0.000002p-126",
+                " 1.25 ",
+                "1.0f",
+                "-2.0D",
+                "16777217",
+                "1.234567890123456789");
         for (int iteration = 0; iteration < 3; iteration++) assertReference(text, cache.parse(text.size(), text));
-        assertTrue(cache.snapshot().get("hits") > 0); // Direct slots may evict on collisions; never return a wrong value.
+        assertTrue(
+                cache.snapshot().get("hits") > 0); // Direct slots may evict on collisions; never return a wrong value.
     }
 
-    @Test void randomFloatsRemainBitExactOnMissAndHit() {
+    @Test
+    void randomFloatsRemainBitExactOnMissAndHit() {
         var cache = new FloatArrayParseCache(4096, 262144);
         var random = new Random(5302);
         for (int batch = 0; batch < 30; batch++) {
@@ -31,7 +52,8 @@ class FloatArrayParseCacheTest {
         assertTrue(cache.snapshot().get("hits") >= 1000);
     }
 
-    @Test void eachResultIsOwnedAndLaterListMutationIsObserved() {
+    @Test
+    void eachResultIsOwnedAndLaterListMutationIsObserved() {
         var cache = new FloatArrayParseCache(16, 128);
         var input = new ArrayList<>(List.of("1.25", "-0"));
         float[] first = cache.parse(2, input);
@@ -45,7 +67,8 @@ class FloatArrayParseCacheTest {
         assertNotSame(cache.parse(0, List.of()), cache.parse(0, List.of()));
     }
 
-    @Test void nativeErrorCasesAndUnknownListImplementationsFallThrough() {
+    @Test
+    void nativeErrorCasesAndUnknownListImplementationsFallThrough() {
         var cache = new FloatArrayParseCache(8, 128);
         assertNull(cache.parse(-1, List.of()));
         assertNull(cache.parse(1_048_577, List.of()));
@@ -56,13 +79,21 @@ class FloatArrayParseCacheTest {
         assertNull(cache.parse(1, List.of(1)));
         assertNull(cache.parse(1, List.of("1".repeat(129))));
         assertNull(cache.parse(1, new ArrayList<String>() {
-            @Override public int size() { throw new AssertionError("foreign list must not be called"); }
-            @Override public String get(int index) { throw new AssertionError("foreign list must not be called"); }
+            @Override
+            public int size() {
+                throw new AssertionError("foreign list must not be called");
+            }
+
+            @Override
+            public String get(int index) {
+                throw new AssertionError("foreign list must not be called");
+            }
         }));
-        assertArrayEquals(new float[]{2}, cache.parse(1, List.of("2", "invalid trailing value is ignored natively")));
+        assertArrayEquals(new float[] {2}, cache.parse(1, List.of("2", "invalid trailing value is ignored natively")));
     }
 
-    @Test void boundsEntriesAndCharactersAndClearsAllRetainedText() {
+    @Test
+    void boundsEntriesAndCharactersAndClearsAllRetainedText() {
         var cache = new FloatArrayParseCache(4, 8);
         for (int i = 0; i < 1000; i++) {
             assertNotNull(cache.parse(1, List.of(Integer.toString(i))));
@@ -75,26 +106,31 @@ class FloatArrayParseCacheTest {
         assertEquals(1000L, cache.snapshot().get("arrays").longValue());
     }
 
-    @Test void concurrentParsesAndClearDoNotCrossContaminateResults() throws Exception {
+    @Test
+    void concurrentParsesAndClearDoNotCrossContaminateResults() throws Exception {
         var cache = new FloatArrayParseCache(64, 2048);
         var pool = Executors.newFixedThreadPool(4);
         try {
             var jobs = new ArrayList<Callable<Void>>();
-            for (int worker = 0; worker < 4; worker++) jobs.add(() -> {
-                for (int i = 0; i < 500; i++) {
-                    var input = List.of("1.25", Integer.toString(i), "-0.0");
-                    assertReference(input, cache.parse(3, input));
-                    if (i % 97 == 0) cache.clear();
-                }
-                return null;
-            });
+            for (int worker = 0; worker < 4; worker++)
+                jobs.add(() -> {
+                    for (int i = 0; i < 500; i++) {
+                        var input = List.of("1.25", Integer.toString(i), "-0.0");
+                        assertReference(input, cache.parse(3, input));
+                        if (i % 97 == 0) cache.clear();
+                    }
+                    return null;
+                });
             for (var future : pool.invokeAll(jobs)) future.get();
             assertEquals(2000L, cache.snapshot().get("arrays").longValue());
             assertEquals(6000L, cache.snapshot().get("tokens").longValue());
-        } finally { pool.shutdownNow(); }
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
-    @Test void slotCollisionsAndNonPowerOfTwoBudgetsRemainExact() {
+    @Test
+    void slotCollisionsAndNonPowerOfTwoBudgetsRemainExact() {
         var collision = new FloatArrayParseCache(1, 128);
         for (int i = 0; i < 100; i++) {
             var input = List.of("1.25", "-0.0", "99.5", "1.25");
@@ -114,7 +150,10 @@ class FloatArrayParseCacheTest {
         assertNotNull(actual);
         assertEquals(input.size(), actual.length);
         for (int i = 0; i < actual.length; i++) {
-            assertEquals(Float.floatToRawIntBits(Float.parseFloat(input.get(i))), Float.floatToRawIntBits(actual[i]), input.get(i));
+            assertEquals(
+                    Float.floatToRawIntBits(Float.parseFloat(input.get(i))),
+                    Float.floatToRawIntBits(actual[i]),
+                    input.get(i));
         }
     }
 }

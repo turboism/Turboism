@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.inputpath;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.objectweb.asm.Opcodes.*;
+
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.DefaultKeyboardFocusManager;
@@ -17,8 +20,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.objectweb.asm.Opcodes.*;
 
 /**
  * Verifies the input-path elision bridge's slot lifecycle and the redundancy
@@ -34,7 +35,10 @@ public class InputPathElisionBridgeTest {
     private static final String CCURSOR = "com/live2d/type/CCursor";
 
     private static final class Loader extends ClassLoader {
-        Loader() { super(InputPathElisionBridgeTest.class.getClassLoader()); }
+        Loader() {
+            super(InputPathElisionBridgeTest.class.getClassLoader());
+        }
+
         Class<?> define(String name, byte[] bytes) {
             return defineClass(name.replace('/', '.'), bytes, 0, bytes.length);
         }
@@ -45,17 +49,34 @@ public class InputPathElisionBridgeTest {
         private boolean showing, cursorSet;
         private Cursor cursor;
         private Window parentWindow;
-        @Override public java.awt.Container getParent() { return parentWindow; }
-        @Override public boolean isShowing() { return showing; }
-        @Override public boolean isCursorSet() { return cursorSet; }
-        @Override public Cursor getCursor() { return cursor; }
+
+        @Override
+        public java.awt.Container getParent() {
+            return parentWindow;
+        }
+
+        @Override
+        public boolean isShowing() {
+            return showing;
+        }
+
+        @Override
+        public boolean isCursorSet() {
+            return cursorSet;
+        }
+
+        @Override
+        public Cursor getCursor() {
+            return cursor;
+        }
     }
 
     /** {@code public JComponent component; public JComponent getJComponent()}. */
     private static byte[] widgetStub() {
         ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         w.visit(V17, ACC_PUBLIC, WIDGET, null, "java/lang/Object", null);
-        w.visitField(ACC_PUBLIC, "component", "Ljavax/swing/JComponent;", null, null).visitEnd();
+        w.visitField(ACC_PUBLIC, "component", "Ljavax/swing/JComponent;", null, null)
+                .visitEnd();
         MethodVisitor m = w.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
         m.visitCode();
         m.visitVarInsn(ALOAD, 0);
@@ -63,8 +84,7 @@ public class InputPathElisionBridgeTest {
         m.visitInsn(RETURN);
         m.visitMaxs(0, 0);
         m.visitEnd();
-        m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "getJComponent",
-            "()Ljavax/swing/JComponent;", null, null);
+        m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "getJComponent", "()Ljavax/swing/JComponent;", null, null);
         m.visitCode();
         m.visitVarInsn(ALOAD, 0);
         m.visitFieldInsn(GETFIELD, WIDGET, "component", "Ljavax/swing/JComponent;");
@@ -87,8 +107,7 @@ public class InputPathElisionBridgeTest {
         m.visitInsn(RETURN);
         m.visitMaxs(0, 0);
         m.visitEnd();
-        m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "getJCursor",
-            "()Ljava/awt/Cursor;", null, null);
+        m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "getJCursor", "()Ljava/awt/Cursor;", null, null);
         m.visitCode();
         m.visitVarInsn(ALOAD, 0);
         m.visitFieldInsn(GETFIELD, CCURSOR, "jcursor", "Ljava/awt/Cursor;");
@@ -116,7 +135,8 @@ public class InputPathElisionBridgeTest {
         widgetType.getField("component").set(widget, component);
     }
 
-    @AfterEach void tearDown() {
+    @AfterEach
+    void tearDown() {
         if (priorFocusManager != null) {
             KeyboardFocusManager.setCurrentKeyboardFocusManager(priorFocusManager);
         }
@@ -129,35 +149,31 @@ public class InputPathElisionBridgeTest {
     }
 
     private void arm(final boolean value) {
-        ((Consumer<Boolean>) System.getProperties().get(InputPathElisionBridge.GATE_PROPERTY))
-            .accept(value);
+        ((Consumer<Boolean>) System.getProperties().get(InputPathElisionBridge.GATE_PROPERTY)).accept(value);
     }
 
     private Predicate<Object> focusSlot() {
-        return (Predicate<Object>) System.getProperties()
-            .get(InputPathElisionBridge.FOCUS_PROPERTY);
+        return (Predicate<Object>) System.getProperties().get(InputPathElisionBridge.FOCUS_PROPERTY);
     }
 
     private BiPredicate<Object, Object> cursorSlot() {
-        return (BiPredicate<Object, Object>) System.getProperties()
-            .get(InputPathElisionBridge.CURSOR_PROPERTY);
+        return (BiPredicate<Object, Object>) System.getProperties().get(InputPathElisionBridge.CURSOR_PROPERTY);
     }
 
     @SuppressWarnings("unchecked")
     private Map<String, Long> stats() {
-        return ((Supplier<Map<String, Long>>) System.getProperties()
-            .get(InputPathElisionBridge.STATS_PROPERTY)).get();
+        return ((Supplier<Map<String, Long>>) System.getProperties().get(InputPathElisionBridge.STATS_PROPERTY)).get();
     }
 
-    @Test void installOccupiesAndCloseClearsAllSlots() throws Exception {
+    @Test
+    void installOccupiesAndCloseClearsAllSlots() throws Exception {
         setUp();
         final Properties properties = System.getProperties();
         assertTrue(properties.get(InputPathElisionBridge.FOCUS_PROPERTY) instanceof Predicate);
         assertTrue(properties.get(InputPathElisionBridge.CURSOR_PROPERTY) instanceof BiPredicate);
         assertTrue(properties.get(InputPathElisionBridge.GATE_PROPERTY) instanceof Consumer);
         assertTrue(properties.get(InputPathElisionBridge.STATS_PROPERTY) instanceof Supplier);
-        assertThrows(IllegalStateException.class, bridge::install,
-            "a second installation must not replace the slots");
+        assertThrows(IllegalStateException.class, bridge::install, "a second installation must not replace the slots");
         bridge.close();
         bridge = null;
         assertNull(properties.get(InputPathElisionBridge.FOCUS_PROPERTY));
@@ -166,7 +182,8 @@ public class InputPathElisionBridgeTest {
         assertNull(properties.get(InputPathElisionBridge.STATS_PROPERTY));
     }
 
-    @Test void disarmedConsultsPassAndCount() throws Exception {
+    @Test
+    void disarmedConsultsPassAndCount() throws Exception {
         setUp();
         component.showing = true;
         component.cursorSet = true;
@@ -184,7 +201,8 @@ public class InputPathElisionBridgeTest {
         assertEquals(0L, snapshot.get("armed"));
     }
 
-    @Test void identicalShowingCursorElides() throws Exception {
+    @Test
+    void identicalShowingCursorElides() throws Exception {
         setUp();
         arm(true);
         final Cursor shared = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR);
@@ -194,12 +212,12 @@ public class InputPathElisionBridgeTest {
         final Class<?> cursorType = loader.loadClass(CCURSOR.replace('/', '.'));
         final Object packCursor = cursorType.getDeclaredConstructor().newInstance();
         cursorType.getField("jcursor").set(packCursor, shared);
-        assertTrue(cursorSlot().test(widget, packCursor),
-            "same Cursor instance on a showing component is redundant");
+        assertTrue(cursorSlot().test(widget, packCursor), "same Cursor instance on a showing component is redundant");
         assertEquals(1L, stats().get("cursorElided"));
     }
 
-    @Test void differentOrUnsetCursorPasses() throws Exception {
+    @Test
+    void differentOrUnsetCursorPasses() throws Exception {
         setUp();
         arm(true);
         component.showing = true;
@@ -207,22 +225,18 @@ public class InputPathElisionBridgeTest {
         component.cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR);
         final Class<?> cursorType = loader.loadClass(CCURSOR.replace('/', '.'));
         final Object other = cursorType.getDeclaredConstructor().newInstance();
-        cursorType.getField("jcursor").set(other,
-            Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
-        assertFalse(cursorSlot().test(widget, other),
-            "a different Cursor instance must reach the native path");
-        assertFalse(cursorSlot().test(widget, null),
-            "a null argument never matches a set cursor");
+        cursorType.getField("jcursor").set(other, Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+        assertFalse(cursorSlot().test(widget, other), "a different Cursor instance must reach the native path");
+        assertFalse(cursorSlot().test(widget, null), "a null argument never matches a set cursor");
         component.cursorSet = false;
         component.cursor = null;
-        assertFalse(cursorSlot().test(widget, null),
-            "an unset cursor field is not proven identical");
+        assertFalse(cursorSlot().test(widget, null), "an unset cursor field is not proven identical");
         component.cursorSet = true;
         component.cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR);
         component.showing = false;
-        assertFalse(cursorSlot().test(widget,
-                pack(cursorType, Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
-            "a hidden component takes the native path per the reviewed rule");
+        assertFalse(
+                cursorSlot().test(widget, pack(cursorType, Cursor.getPredefinedCursor(Cursor.HAND_CURSOR))),
+                "a hidden component takes the native path per the reviewed rule");
         assertEquals(4L, stats().get("cursorPassed"));
         assertEquals(0L, stats().get("cursorElided"));
     }
@@ -238,9 +252,21 @@ public class InputPathElisionBridgeTest {
         private Component owner;
         private Window focusedWindow;
         private Window activeWindow;
-        @Override public Component getFocusOwner() { return owner; }
-        @Override public Window getFocusedWindow() { return focusedWindow; }
-        @Override public Window getActiveWindow() { return activeWindow; }
+
+        @Override
+        public Component getFocusOwner() {
+            return owner;
+        }
+
+        @Override
+        public Window getFocusedWindow() {
+            return focusedWindow;
+        }
+
+        @Override
+        public Window getActiveWindow() {
+            return activeWindow;
+        }
     }
 
     /**
@@ -253,14 +279,14 @@ public class InputPathElisionBridgeTest {
         try {
             final Field unsafe = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
             unsafe.setAccessible(true);
-            return (Window) ((sun.misc.Unsafe) unsafe.get(null))
-                .allocateInstance(Window.class);
+            return (Window) ((sun.misc.Unsafe) unsafe.get(null)).allocateInstance(Window.class);
         } catch (ReflectiveOperationException failure) {
             throw new AssertionError(failure);
         }
     }
 
-    @Test void productionFocusRequiresExactOwnerFocusedWindowAndActiveWindow() throws Exception {
+    @Test
+    void productionFocusRequiresExactOwnerFocusedWindowAndActiveWindow() throws Exception {
         setUp();
         bridge.close();
         bridge = new InputPathElisionBridge(loader);
@@ -294,7 +320,8 @@ public class InputPathElisionBridgeTest {
         assertEquals(0L, stats().get("observerFailures"));
     }
 
-    @Test void productionInstallArmsImmediately() throws Exception {
+    @Test
+    void productionInstallArmsImmediately() throws Exception {
         setUp();
         bridge.close();
         bridge = new InputPathElisionBridge(loader);
@@ -305,13 +332,13 @@ public class InputPathElisionBridgeTest {
         final Class<?> cursorType = loader.loadClass(CCURSOR.replace('/', '.'));
         final Object packCursor = cursorType.getDeclaredConstructor().newInstance();
         cursorType.getField("jcursor").set(packCursor, component.cursor);
-        assertTrue(cursorSlot().test(widget, packCursor),
-            "production installs consult armed without the leg gate");
+        assertTrue(cursorSlot().test(widget, packCursor), "production installs consult armed without the leg gate");
         assertEquals(1L, stats().get("cursorElided"));
         assertEquals(1L, stats().get("armed"));
     }
 
-    @Test void missingComponentCountsObserverFailure() throws Exception {
+    @Test
+    void missingComponentCountsObserverFailure() throws Exception {
         setUp();
         arm(true);
         widget.getClass().getField("component").set(widget, null);
@@ -322,7 +349,6 @@ public class InputPathElisionBridgeTest {
         assertEquals(1L, snapshot.get("cursorPassed"));
         assertEquals(0L, snapshot.get("focusElided"));
         assertEquals(0L, snapshot.get("cursorElided"));
-        assertEquals(0L, snapshot.get("observerFailures"),
-            "a null component is a pass, not an observer failure");
+        assertEquals(0L, snapshot.get("observerFailures"), "a null component is a pass, not an observer failure");
     }
 }

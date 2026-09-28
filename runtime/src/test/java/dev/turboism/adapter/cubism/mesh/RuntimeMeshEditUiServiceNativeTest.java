@@ -1,11 +1,11 @@
 package dev.turboism.adapter.cubism.mesh;
 
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
-import javax.swing.SwingUtilities;
-import javax.tools.ToolProvider;
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -14,11 +14,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import javax.swing.SwingUtilities;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Offline coverage for the host-native angle control: a fake {@code com.live2d} UI
@@ -35,9 +34,9 @@ final class RuntimeMeshEditUiServiceNativeTest {
     void attachesHostNativeControlsAfterThePositionRowAndRoutesChangesThenRemovesOnClose() throws Exception {
         final Path classes = fakeHostClasses();
         try (URLClassLoader loader = new URLClassLoader(
-            new URL[] { classes.toUri().toURL() }, getClass().getClassLoader())) {
+                new URL[] {classes.toUri().toURL()}, getClass().getClassLoader())) {
             final Class<?> panelType = Class.forName(
-                "com.live2d.cubism.view.palette.tool.toolMode.meshEditor.ToolPanel_MeshEdit", false, loader);
+                    "com.live2d.cubism.view.palette.tool.toolMode.meshEditor.ToolPanel_MeshEdit", false, loader);
             final Class<?> sliderType = Class.forName("com.live2d.ui.control.CSlidableFloat", false, loader);
             final Class<?> buttonType = Class.forName("com.live2d.ui.control.CButton", false, loader);
             final Class<?> boxType = Class.forName("com.live2d.ui.container.CHBox", false, loader);
@@ -46,12 +45,15 @@ final class RuntimeMeshEditUiServiceNativeTest {
             final RuntimeMeshEditUiService service = new RuntimeMeshEditUiService();
             final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
             final AtomicReference<Float> changed = new AtomicReference<>();
-            final var registration = service.contributeMirrorAxisAngleControl(
-                new MeshEditUiService.MirrorAxisAngleControl(
-                    "mesh.mirror-axis.angle", "Mirror Axis Rotation", "Reset to 0°",
-                    -180.0f, 180.0f, 0.1f, changed::set
-                )
-            );
+            final var registration =
+                    service.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+                            "mesh.mirror-axis.angle",
+                            "Mirror Axis Rotation",
+                            "Reset to 0°",
+                            -180.0f,
+                            180.0f,
+                            0.1f,
+                            changed::set));
             // The host widget (createWidgetMirrorEditForMeshEdit's CVBox return value) is
             // the mount target; the panel's mirrorEditFoldingPane field is assigned only
             // after that method returns, so it is not available at hook time.
@@ -63,7 +65,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
             invoke(widget, "add", "position-row", 1);
             service.attachNative(panel, widget, axis);
             service.attachNative(panel, widget, axis);
-            SwingUtilities.invokeAndWait(() -> { });
+            SwingUtilities.invokeAndWait(() -> {});
 
             assertNotNull(service.nativeAttachment());
             assertEquals(1, invoke(foldingPane, "getSetChildCount"));
@@ -95,7 +97,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
             assertEquals(0.0f, ((Number) invoke(slider, "getValue")).floatValue(), 0.0001f);
 
             registration.close();
-            SwingUtilities.invokeAndWait(() -> { });
+            SwingUtilities.invokeAndWait(() -> {});
             assertEquals(2, children(mount).size());
             assertEquals(2, invoke(foldingPane, "getSetChildCount"));
             assertEquals(2, invoke(foldingPane, "getWhiteBackgroundRows"));
@@ -106,23 +108,26 @@ final class RuntimeMeshEditUiServiceNativeTest {
     void emptyResetToolTipLeavesTheHostDefaultTooltipUntouched() throws Exception {
         final Path classes = fakeHostClasses();
         try (URLClassLoader loader = new URLClassLoader(
-            new URL[] { classes.toUri().toURL() }, getClass().getClassLoader())) {
+                new URL[] {classes.toUri().toURL()}, getClass().getClassLoader())) {
             final Class<?> panelType = Class.forName(
-                "com.live2d.cubism.view.palette.tool.toolMode.meshEditor.ToolPanel_MeshEdit", false, loader);
+                    "com.live2d.cubism.view.palette.tool.toolMode.meshEditor.ToolPanel_MeshEdit", false, loader);
             final Class<?> buttonType = Class.forName("com.live2d.ui.control.CButton", false, loader);
             final Object panel = panelType.getConstructor().newInstance();
 
             final RuntimeMeshEditUiService service = new RuntimeMeshEditUiService();
             final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
-            final var registration = service.contributeMirrorAxisAngleControl(
-                new MeshEditUiService.MirrorAxisAngleControl(
-                    "mesh.mirror-axis.angle", "Mirror Axis Rotation", "",
-                    -180.0f, 180.0f, 0.1f, ignored -> { }
-                )
-            );
+            final var registration =
+                    service.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+                            "mesh.mirror-axis.angle",
+                            "Mirror Axis Rotation",
+                            "",
+                            -180.0f,
+                            180.0f,
+                            0.1f,
+                            ignored -> {}));
             final Object widget = invoke(panel, "widgetForTesting");
             service.attachNative(panel, widget, axis);
-            SwingUtilities.invokeAndWait(() -> { });
+            SwingUtilities.invokeAndWait(() -> {});
 
             final List<?> wrapperChildren = children(children(widget).get(0));
             final List<?> rowChildren = children(wrapperChildren.get(1));
@@ -131,7 +136,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
             assertNull(invoke(button, "getToolTipText"));
 
             registration.close();
-            SwingUtilities.invokeAndWait(() -> { });
+            SwingUtilities.invokeAndWait(() -> {});
         }
     }
 
@@ -139,20 +144,16 @@ final class RuntimeMeshEditUiServiceNativeTest {
     void attachFailsClosedWhenHostControlClassesAreUnavailable() throws Exception {
         final RuntimeMeshEditUiService service = new RuntimeMeshEditUiService();
         final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
-        final var registration = service.contributeMirrorAxisAngleControl(
-                new MeshEditUiService.MirrorAxisAngleControl(
-                    "mesh.mirror-axis.angle", "Mirror Axis Rotation", null,
-                    -180.0f, 180.0f, 0.1f, ignored -> { }
-                )
-        );
+        final var registration = service.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+                "mesh.mirror-axis.angle", "Mirror Axis Rotation", null, -180.0f, 180.0f, 0.1f, ignored -> {}));
         // A plain panel: no folding pane, and its loader cannot provide com.live2d classes.
         service.attachNative(new Object(), new Object(), axis);
-        SwingUtilities.invokeAndWait(() -> { });
+        SwingUtilities.invokeAndWait(() -> {});
         assertNull(service.nativeAttachment());
 
         service.resetSession();
         registration.close();
-        SwingUtilities.invokeAndWait(() -> { });
+        SwingUtilities.invokeAndWait(() -> {});
         assertNull(service.nativeAttachment());
     }
 
@@ -161,12 +162,8 @@ final class RuntimeMeshEditUiServiceNativeTest {
         final RuntimeMeshEditUiService service = new RuntimeMeshEditUiService();
         final java.util.List<Boolean> changes = new ArrayList<>();
         final var observer = service.observeContribution(changes::add);
-        final var registration = service.contributeMirrorAxisAngleControl(
-                new MeshEditUiService.MirrorAxisAngleControl(
-                    "mesh.mirror-axis.angle", "Mirror Axis Rotation", "",
-                    -180.0f, 180.0f, 0.1f, ignored -> { }
-                )
-        );
+        final var registration = service.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+                "mesh.mirror-axis.angle", "Mirror Axis Rotation", "", -180.0f, 180.0f, 0.1f, ignored -> {}));
         registration.close();
         observer.close();
 
@@ -177,18 +174,18 @@ final class RuntimeMeshEditUiServiceNativeTest {
         final Path sourceRoot = Files.createDirectories(tempDir.resolve("fake-host/src"));
         final Path classes = Files.createDirectories(tempDir.resolve("fake-host/classes"));
         final List<FakeSource> sources = List.of(
-            new FakeSource("kotlin/Unit.java", """
+                new FakeSource("kotlin/Unit.java", """
                 package kotlin;
                 public final class Unit {
                     public static final Unit INSTANCE = new Unit();
                     private Unit() { }
                 }
                 """),
-            new FakeSource("kotlin/jvm/functions/Function1.java", """
+                new FakeSource("kotlin/jvm/functions/Function1.java", """
                 package kotlin.jvm.functions;
                 public interface Function1<P, R> { R invoke(P p); }
                 """),
-            new FakeSource("com/live2d/ui/CWidget.java", """
+                new FakeSource("com/live2d/ui/CWidget.java", """
                 package com.live2d.ui;
                 public class CWidget {
                     private Object backgroundColor;
@@ -199,7 +196,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
                     public void setOpaque(boolean value) { opaque = value; }
                 }
                 """),
-            new FakeSource("com/live2d/ui/control/CLabel.java", """
+                new FakeSource("com/live2d/ui/control/CLabel.java", """
                 package com.live2d.ui.control;
                 import com.live2d.ui.CWidget;
                 public final class CLabel extends CWidget {
@@ -208,7 +205,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
                     public String getText() { return text; }
                 }
                 """),
-            new FakeSource("com/live2d/ui/control/CSlidableFloat.java", """
+                new FakeSource("com/live2d/ui/control/CSlidableFloat.java", """
                 package com.live2d.ui.control;
                 import kotlin.jvm.functions.Function1;
                 import com.live2d.ui.CWidget;
@@ -227,7 +224,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
                     public void addOnAction(Function1 onAction) { }
                 }
                 """),
-            new FakeSource("com/live2d/ui/control/CButton.java", """
+                new FakeSource("com/live2d/ui/control/CButton.java", """
                 package com.live2d.ui.control;
                 import kotlin.jvm.functions.Function1;
                 import com.live2d.ui.CWidget;
@@ -243,14 +240,14 @@ final class RuntimeMeshEditUiServiceNativeTest {
                     public Object getOnAction() { return onAction; }
                 }
                 """),
-            new FakeSource("com/live2d/ui/container/CSpacer.java", """
+                new FakeSource("com/live2d/ui/container/CSpacer.java", """
                 package com.live2d.ui.container;
                 import com.live2d.ui.CWidget;
                 public final class CSpacer extends CWidget {
                     public CSpacer(int width, int height, int gap, Object parent) { }
                 }
                 """),
-            new FakeSource("com/live2d/ui/container/CVBox.java", """
+                new FakeSource("com/live2d/ui/container/CVBox.java", """
                 package com.live2d.ui.container;
                 import com.live2d.ui.CWidget;
                 import java.util.ArrayList;
@@ -265,11 +262,11 @@ final class RuntimeMeshEditUiServiceNativeTest {
                     public void repaint() { }
                 }
                 """),
-            new FakeSource("com/live2d/ui/container/CHBox.java", """
+                new FakeSource("com/live2d/ui/container/CHBox.java", """
                 package com.live2d.ui.container;
                 public class CHBox extends CVBox { }
                 """),
-            new FakeSource("com/live2d/ui/container/CFoldingPane.java", """
+                new FakeSource("com/live2d/ui/container/CFoldingPane.java", """
                 package com.live2d.ui.container;
                 import com.live2d.ui.CWidget;
                 public final class CFoldingPane {
@@ -302,7 +299,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
                     }
                 }
                 """),
-            new FakeSource("com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit.java", """
+                new FakeSource("com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit.java", """
                 package com.live2d.cubism.view.palette.tool.toolMode.meshEditor;
                 import com.live2d.ui.control.CLabel;
                 import com.live2d.ui.container.CFoldingPane;
@@ -320,8 +317,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
                         return box;
                     }
                 }
-                """)
-        );
+                """));
         for (FakeSource source : sources) {
             final Path file = sourceRoot.resolve(source.path());
             Files.createDirectories(file.getParent());
@@ -330,9 +326,9 @@ final class RuntimeMeshEditUiServiceNativeTest {
         final List<String> command = new ArrayList<>();
         command.add("-d");
         command.add(classes.toString());
-        for (FakeSource source : sources) command.add(sourceRoot.resolve(source.path()).toString());
-        final int exit = ToolProvider.getSystemJavaCompiler().run(
-            null, null, null, command.toArray(new String[0]));
+        for (FakeSource source : sources)
+            command.add(sourceRoot.resolve(source.path()).toString());
+        final int exit = ToolProvider.getSystemJavaCompiler().run(null, null, null, command.toArray(new String[0]));
         assertEquals(0, exit, "fake host compilation failed");
         return classes;
     }
@@ -350,5 +346,5 @@ final class RuntimeMeshEditUiServiceNativeTest {
         throw new NoSuchMethodException(target.getClass().getName() + "#" + name);
     }
 
-    private record FakeSource(String path, String body) { }
+    private record FakeSource(String path, String body) {}
 }

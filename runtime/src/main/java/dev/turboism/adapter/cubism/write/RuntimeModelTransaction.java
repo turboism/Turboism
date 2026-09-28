@@ -1,14 +1,13 @@
 package dev.turboism.adapter.cubism.write;
 
-import dev.turboism.sdk.cubism.transaction.CommitFailedException;
 import dev.turboism.sdk.cubism.id.DocumentId;
+import dev.turboism.sdk.cubism.transaction.CommitFailedException;
 import dev.turboism.sdk.cubism.transaction.ModelTransaction;
 import dev.turboism.sdk.cubism.transaction.RollbackFailedException;
 import dev.turboism.sdk.cubism.transaction.TransactionClosedException;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.transaction.TransactionStatus;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
-
 import java.util.Objects;
 
 /**
@@ -41,15 +40,14 @@ public final class RuntimeModelTransaction implements ModelTransaction {
     private TransactionStatus status = TransactionStatus.OPEN;
 
     RuntimeModelTransaction(
-        final String transactionId,
-        final String pluginId,
-        final DocumentId documentId,
-        final HostWriteAdapter adapter,
-        final HostWriteAdapter.HostSnapshot snapshot,
-        final TransactionRegistry registry,
-        final TransactionValidator validator,
-        final RuntimeTransactionManager permissionOwner
-    ) {
+            final String transactionId,
+            final String pluginId,
+            final DocumentId documentId,
+            final HostWriteAdapter adapter,
+            final HostWriteAdapter.HostSnapshot snapshot,
+            final TransactionRegistry registry,
+            final TransactionValidator validator,
+            final RuntimeTransactionManager permissionOwner) {
         this.transactionId = Objects.requireNonNull(transactionId, "transactionId");
         this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
         this.documentId = Objects.requireNonNull(documentId, "documentId");
@@ -122,11 +120,7 @@ public final class RuntimeModelTransaction implements ModelTransaction {
             registry.close(this);
         } catch (TransactionException | RuntimeException rollbackFailure) {
             status = TransactionStatus.FAILED;
-            throw new RollbackFailedException(
-                transactionId,
-                "Rollback failed after commit failure",
-                rollbackFailure
-            );
+            throw new RollbackFailedException(transactionId, "Rollback failed after commit failure", rollbackFailure);
         }
     }
 

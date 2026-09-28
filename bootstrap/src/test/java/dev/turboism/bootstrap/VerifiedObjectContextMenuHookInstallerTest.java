@@ -1,17 +1,16 @@
 package dev.turboism.bootstrap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
-import org.junit.jupiter.api.Test;
-
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
 
 class VerifiedObjectContextMenuHookInstallerTest {
 
@@ -22,29 +21,33 @@ class VerifiedObjectContextMenuHookInstallerTest {
         final Instrumentation instrumentation = instrumentation(calls, installed, false);
         final String owner = Target.class.getName().replace('.', '/');
 
-        try (VerifiedObjectContextMenuHookInstaller installer =
-                 new VerifiedObjectContextMenuHookInstaller(
-                     instrumentation,
-                     List.of(
-                         VerifiedObjectContextMenuHookInstaller.Binding.returnPoint(
-                             methodSelector("parts", owner, "parts", "(Ljava/lang/Object;)Ljava/lang/Object;"),
-                             Location.PART_TAB
-                         ),
-                         VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
-                             methodSelector("deformer", owner, "deformer", "(Ljava/lang/Object;)V"),
-                             methodSelector("append", "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V"),
-                            Location.DEFORMER_TAB, 1, 1, 0
-                         )
-                     ),
-                     Target.class.getClassLoader()
-                 )) {
+        try (VerifiedObjectContextMenuHookInstaller installer = new VerifiedObjectContextMenuHookInstaller(
+                instrumentation,
+                List.of(
+                        VerifiedObjectContextMenuHookInstaller.Binding.returnPoint(
+                                methodSelector("parts", owner, "parts", "(Ljava/lang/Object;)Ljava/lang/Object;"),
+                                Location.PART_TAB),
+                        VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
+                                methodSelector("deformer", owner, "deformer", "(Ljava/lang/Object;)V"),
+                                methodSelector(
+                                        "append", "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V"),
+                                Location.DEFORMER_TAB,
+                                1,
+                                1,
+                                0)),
+                Target.class.getClassLoader())) {
             installer.install();
         }
 
-        assertEquals(List.of(
-            "add:0", "add:1", "retransform:" + Target.class.getName(),
-            "remove:1", "remove:0", "retransform:" + Target.class.getName()
-        ), calls);
+        assertEquals(
+                List.of(
+                        "add:0",
+                        "add:1",
+                        "retransform:" + Target.class.getName(),
+                        "remove:1",
+                        "remove:0",
+                        "retransform:" + Target.class.getName()),
+                calls);
     }
 
     @Test
@@ -53,88 +56,91 @@ class VerifiedObjectContextMenuHookInstallerTest {
         final List<ClassFileTransformer> installed = new ArrayList<>();
         final Instrumentation instrumentation = instrumentation(calls, installed, true);
         final String owner = Target.class.getName().replace('.', '/');
-        final VerifiedObjectContextMenuHookInstaller installer =
-            new VerifiedObjectContextMenuHookInstaller(
+        final VerifiedObjectContextMenuHookInstaller installer = new VerifiedObjectContextMenuHookInstaller(
                 instrumentation,
                 List.of(
-                    VerifiedObjectContextMenuHookInstaller.Binding.returnPoint(
-                        methodSelector("parts", owner, "parts", "(Ljava/lang/Object;)Ljava/lang/Object;"),
-                        Location.PART_TAB
-                    ),
-                    VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
-                        methodSelector("deformer", owner, "deformer", "(Ljava/lang/Object;)V"),
-                        methodSelector("append", "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V"),
-                        Location.DEFORMER_TAB, 1, 1, 0
-                    )
-                ),
-                Target.class.getClassLoader()
-            );
+                        VerifiedObjectContextMenuHookInstaller.Binding.returnPoint(
+                                methodSelector("parts", owner, "parts", "(Ljava/lang/Object;)Ljava/lang/Object;"),
+                                Location.PART_TAB),
+                        VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
+                                methodSelector("deformer", owner, "deformer", "(Ljava/lang/Object;)V"),
+                                methodSelector(
+                                        "append", "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V"),
+                                Location.DEFORMER_TAB,
+                                1,
+                                1,
+                                0)),
+                Target.class.getClassLoader());
 
         assertThrows(IllegalStateException.class, installer::install);
-        assertEquals(List.of(
-            "add:0", "add:1", "retransform:" + Target.class.getName(),
-            "remove:1", "remove:0", "retransform:" + Target.class.getName()
-        ), calls);
+        assertEquals(
+                List.of(
+                        "add:0",
+                        "add:1",
+                        "retransform:" + Target.class.getName(),
+                        "remove:1",
+                        "remove:0",
+                        "retransform:" + Target.class.getName()),
+                calls);
     }
 
     @Test
     void rejectsStaticOrMismatchedSelectorsBeforeInstallation() {
         final String owner = Target.class.getName().replace('.', '/');
         final StaticSelector staticOperation = StaticSelector.staticMethod(
-            "static", owner, "deformer", "(Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC
-        );
+                "static", owner, "deformer", "(Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC);
 
-        assertThrows(IllegalArgumentException.class, () ->
-            VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
-                staticOperation,
-                methodSelector("append", "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V"),
-                Location.DEFORMER_TAB, 1, 1, 0
-            )
-        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
+                        staticOperation,
+                        methodSelector("append", "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V"),
+                        Location.DEFORMER_TAB,
+                        1,
+                        1,
+                        0));
     }
 
     private static Instrumentation instrumentation(
-        final List<String> calls,
-        final List<ClassFileTransformer> installed,
-        final boolean failRetransform
-    ) {
+            final List<String> calls, final List<ClassFileTransformer> installed, final boolean failRetransform) {
         return (Instrumentation) Proxy.newProxyInstance(
-            VerifiedObjectContextMenuHookInstallerTest.class.getClassLoader(),
-            new Class<?>[]{Instrumentation.class},
-            (proxy, method, arguments) -> {
-                switch (method.getName()) {
-                    case "isRetransformClassesSupported" -> { return true; }
-                    case "addTransformer" -> {
-                        installed.add((ClassFileTransformer) arguments[0]);
-                        calls.add("add:" + (installed.size() - 1));
-                        return null;
+                VerifiedObjectContextMenuHookInstallerTest.class.getClassLoader(),
+                new Class<?>[] {Instrumentation.class},
+                (proxy, method, arguments) -> {
+                    switch (method.getName()) {
+                        case "isRetransformClassesSupported" -> {
+                            return true;
+                        }
+                        case "addTransformer" -> {
+                            installed.add((ClassFileTransformer) arguments[0]);
+                            calls.add("add:" + (installed.size() - 1));
+                            return null;
+                        }
+                        case "getAllLoadedClasses" -> {
+                            return new Class<?>[] {Target.class};
+                        }
+                        case "isModifiableClass" -> {
+                            return true;
+                        }
+                        case "retransformClasses" -> {
+                            calls.add("retransform:" + ((Class<?>[]) arguments[0])[0].getName());
+                            if (failRetransform) throw new IllegalStateException("fixture failure");
+                            return null;
+                        }
+                        case "removeTransformer" -> {
+                            calls.add("remove:" + installed.indexOf(arguments[0]));
+                            return true;
+                        }
+                        default -> {
+                            return defaultValue(method.getReturnType());
+                        }
                     }
-                    case "getAllLoadedClasses" -> { return new Class<?>[]{Target.class}; }
-                    case "isModifiableClass" -> { return true; }
-                    case "retransformClasses" -> {
-                        calls.add("retransform:" + ((Class<?>[]) arguments[0])[0].getName());
-                        if (failRetransform) throw new IllegalStateException("fixture failure");
-                        return null;
-                    }
-                    case "removeTransformer" -> {
-                        calls.add("remove:" + installed.indexOf(arguments[0]));
-                        return true;
-                    }
-                    default -> { return defaultValue(method.getReturnType()); }
-                }
-            }
-        );
+                });
     }
 
     private static StaticSelector methodSelector(
-        final String alias,
-        final String owner,
-        final String name,
-        final String descriptor
-    ) {
-        return StaticSelector.method(
-            alias, owner, name, descriptor, StaticSelector.ACCESS_PUBLIC
-        );
+            final String alias, final String owner, final String name, final String descriptor) {
+        return StaticSelector.method(alias, owner, name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
     private static Object defaultValue(final Class<?> type) {
@@ -155,7 +161,6 @@ class VerifiedObjectContextMenuHookInstallerTest {
             return source;
         }
 
-        public void deformer(final Object source) {
-        }
+        public void deformer(final Object source) {}
     }
 }

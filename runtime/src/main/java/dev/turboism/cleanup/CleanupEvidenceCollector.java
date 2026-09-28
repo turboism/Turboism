@@ -65,14 +65,13 @@ public final class CleanupEvidenceCollector {
      */
     public Snapshot snapshot() {
         return new Snapshot(
-            taskHandlesCanceled.sum(),
-            taskCompletionsSettled.sum(),
-            pluginContinuationsDrained.sum(),
-            userFileHandlesRevoked.sum(),
-            configSchemasUnregistered.sum(),
-            temporaryFilesDeleted.sum(),
-            failures.sum()
-        );
+                taskHandlesCanceled.sum(),
+                taskCompletionsSettled.sum(),
+                pluginContinuationsDrained.sum(),
+                userFileHandlesRevoked.sum(),
+                configSchemasUnregistered.sum(),
+                temporaryFilesDeleted.sum(),
+                failures.sum());
     }
 
     /**
@@ -87,14 +86,13 @@ public final class CleanupEvidenceCollector {
      * @param failures cleanup steps that failed
      */
     public record Snapshot(
-        long taskHandlesCanceled,
-        long taskCompletionsSettled,
-        long pluginContinuationsDrained,
-        long userFileHandlesRevoked,
-        long configSchemasUnregistered,
-        long temporaryFilesDeleted,
-        long failures
-    ) {
+            long taskHandlesCanceled,
+            long taskCompletionsSettled,
+            long pluginContinuationsDrained,
+            long userFileHandlesRevoked,
+            long configSchemasUnregistered,
+            long temporaryFilesDeleted,
+            long failures) {
         /**
          * Returns an all-zero snapshot.
          *

@@ -1,5 +1,6 @@
 package dev.turboism.ui.panel;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -11,8 +12,7 @@ public final class NativeFloatingTabCloseBridge {
 
     private static final AtomicReference<Handler> HANDLER = new AtomicReference<>();
 
-    private NativeFloatingTabCloseBridge() {
-    }
+    private NativeFloatingTabCloseBridge() {}
 
     /**
      * Installs the single process-wide close handler.
@@ -50,11 +50,9 @@ public final class NativeFloatingTabCloseBridge {
         try {
             return handler.closeRequested(palette);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "floating-panels",
-                "Floating-tab close interception failed safely",
-                failure
-            );
+                    "floating-panels", "Floating-tab close interception failed safely", failure);
             return false;
         }
     }

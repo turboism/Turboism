@@ -12,17 +12,16 @@ import java.util.Objects;
  * default.</p>
  */
 public record WebDavConfig(
-    boolean enabled,
-    URI url,
-    String username,
-    String password,
-    String remotePath,
-    boolean verifyTls,
-    int retryMax,
-    long retryBaseDelayMs,
-    int timeoutSeconds,
-    RemoteTrigger remoteTrigger
-) {
+        boolean enabled,
+        URI url,
+        String username,
+        String password,
+        String remotePath,
+        boolean verifyTls,
+        int retryMax,
+        long retryBaseDelayMs,
+        int timeoutSeconds,
+        RemoteTrigger remoteTrigger) {
 
     /** How the remote backup is triggered. */
     public enum RemoteTrigger {
@@ -34,18 +33,26 @@ public record WebDavConfig(
 
     /** Convenience constructor: {@link RemoteTrigger#SAVE_TRIGGERED} default. */
     public WebDavConfig(
-        final boolean enabled,
-        final URI url,
-        final String username,
-        final String password,
-        final String remotePath,
-        final boolean verifyTls,
-        final int retryMax,
-        final long retryBaseDelayMs,
-        final int timeoutSeconds
-    ) {
-        this(enabled, url, username, password, remotePath, verifyTls, retryMax,
-            retryBaseDelayMs, timeoutSeconds, RemoteTrigger.SAVE_TRIGGERED);
+            final boolean enabled,
+            final URI url,
+            final String username,
+            final String password,
+            final String remotePath,
+            final boolean verifyTls,
+            final int retryMax,
+            final long retryBaseDelayMs,
+            final int timeoutSeconds) {
+        this(
+                enabled,
+                url,
+                username,
+                password,
+                remotePath,
+                verifyTls,
+                retryMax,
+                retryBaseDelayMs,
+                timeoutSeconds,
+                RemoteTrigger.SAVE_TRIGGERED);
     }
 
     public WebDavConfig {
@@ -100,9 +107,9 @@ public record WebDavConfig(
     @Override
     public String toString() {
         return "WebDavConfig[enabled=" + enabled + ", url=" + url
-            + ", username=" + username + ", password=<redacted>"
-            + ", remotePath=" + remotePath + ", verifyTls=" + verifyTls
-            + ", retryMax=" + retryMax + ", retryBaseDelayMs=" + retryBaseDelayMs
-            + ", timeoutSeconds=" + timeoutSeconds + "]";
+                + ", username=" + username + ", password=<redacted>"
+                + ", remotePath=" + remotePath + ", verifyTls=" + verifyTls
+                + ", retryMax=" + retryMax + ", retryBaseDelayMs=" + retryBaseDelayMs
+                + ", timeoutSeconds=" + timeoutSeconds + "]";
     }
 }

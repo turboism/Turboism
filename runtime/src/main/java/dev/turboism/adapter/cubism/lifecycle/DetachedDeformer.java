@@ -4,14 +4,20 @@ import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.IntSequence;
-
 import java.util.Objects;
 
 /** Immutable, host-detached Deformer projection for event delivery. */
 class DetachedDeformer implements Deformer {
     private static final IntSequence EMPTY_INTS = new IntSequence() {
-        @Override public int size() { return 0; }
-        @Override public int get(final int index) { throw new IndexOutOfBoundsException(index); }
+        @Override
+        public int size() {
+            return 0;
+        }
+
+        @Override
+        public int get(final int index) {
+            throw new IndexOutOfBoundsException(index);
+        }
     };
 
     private final DeformerId id;
@@ -41,18 +47,47 @@ class DetachedDeformer implements Deformer {
         return new DetachedDeformer(deformer, opacity);
     }
 
-    @Override public DeformerId id() { return id; }
-    @Override public float getOpacity() { return opacity; }
-    @Override public Color multiplyColor() { return multiplyColor.get(); }
-    @Override public Color screenColor() { return screenColor.get(); }
-    @Override public int parentPartIndex() { return parentPartIndex.get(); }
-    @Override public int parentDeformerIndex() { return parentDeformerIndex.get(); }
-    @Override public IntSequence parameters() { return EMPTY_INTS; }
-    @Override public void setOpacity(final float opacity) { throw detached(); }
+    @Override
+    public DeformerId id() {
+        return id;
+    }
+
+    @Override
+    public float getOpacity() {
+        return opacity;
+    }
+
+    @Override
+    public Color multiplyColor() {
+        return multiplyColor.get();
+    }
+
+    @Override
+    public Color screenColor() {
+        return screenColor.get();
+    }
+
+    @Override
+    public int parentPartIndex() {
+        return parentPartIndex.get();
+    }
+
+    @Override
+    public int parentDeformerIndex() {
+        return parentDeformerIndex.get();
+    }
+
+    @Override
+    public IntSequence parameters() {
+        return EMPTY_INTS;
+    }
+
+    @Override
+    public void setOpacity(final float opacity) {
+        throw detached();
+    }
 
     private static UnsupportedOperationException detached() {
-        return new UnsupportedOperationException(
-            "Event Deformer snapshots are read-only and host-detached."
-        );
+        return new UnsupportedOperationException("Event Deformer snapshots are read-only and host-detached.");
     }
 }

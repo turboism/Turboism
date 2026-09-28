@@ -2,11 +2,10 @@ package dev.turboism.sdk.ui.context;
 
 import dev.turboism.sdk.permission.RequiresPermission;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.List;
 import java.util.function.Predicate;
 
 /**
@@ -53,11 +52,13 @@ public interface ContextMenuRegistry {
     enum Unavailable implements ContextMenuRegistry {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration contribute(final ContextMenuContribution contribution) {
+        @Override
+        public Registration contribute(final ContextMenuContribution contribution) {
             Objects.requireNonNull(contribution, "contribution");
             throw new UnsupportedOperationException("contextMenu registry is not available");
         }
@@ -68,13 +69,12 @@ public interface ContextMenuRegistry {
         DEFORMER_TAB(EnumSet.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH)),
         PARAMETER_TAB(EnumSet.of(ObjectKind.PARAMETER, ObjectKind.PARAMETER_FOLDER)),
         PART_TAB(EnumSet.of(
-            ObjectKind.PART,
-            ObjectKind.PART_FOLDER,
-            ObjectKind.GLUE,
-            ObjectKind.WARP_DEFORMER,
-            ObjectKind.ROTATION_DEFORMER,
-            ObjectKind.ART_MESH
-        )),
+                ObjectKind.PART,
+                ObjectKind.PART_FOLDER,
+                ObjectKind.GLUE,
+                ObjectKind.WARP_DEFORMER,
+                ObjectKind.ROTATION_DEFORMER,
+                ObjectKind.ART_MESH)),
         WORKSPACE_OBJECT(EnumSet.allOf(ObjectKind.class));
 
         private final Set<ObjectKind> supportedKinds;
@@ -175,14 +175,18 @@ public interface ContextMenuRegistry {
          *
          * @return an absolute first placement
          */
-        public static Placement first() { return new Placement(PlacementKind.FIRST, ""); }
+        public static Placement first() {
+            return new Placement(PlacementKind.FIRST, "");
+        }
 
         /**
          * Places the entry after every existing entry.
          *
          * @return an absolute last placement
          */
-        public static Placement last() { return new Placement(PlacementKind.LAST, ""); }
+        public static Placement last() {
+            return new Placement(PlacementKind.LAST, "");
+        }
 
         /**
          * Places the entry immediately before an anchor.
@@ -190,7 +194,9 @@ public interface ContextMenuRegistry {
          * @param anchorId the entry to anchor against
          * @return a relative placement
          */
-        public static Placement before(final String anchorId) { return new Placement(PlacementKind.BEFORE, anchorId); }
+        public static Placement before(final String anchorId) {
+            return new Placement(PlacementKind.BEFORE, anchorId);
+        }
 
         /**
          * Places the entry immediately after an anchor.
@@ -198,7 +204,9 @@ public interface ContextMenuRegistry {
          * @param anchorId the entry to anchor against
          * @return a relative placement
          */
-        public static Placement after(final String anchorId) { return new Placement(PlacementKind.AFTER, anchorId); }
+        public static Placement after(final String anchorId) {
+            return new Placement(PlacementKind.AFTER, anchorId);
+        }
     }
 
     /**
@@ -212,13 +220,12 @@ public interface ContextMenuRegistry {
      * @param placement position within the host menu
      */
     record ContextMenuEntry(
-        EntryKind kind,
-        String id,
-        String label,
-        String actionId,
-        List<ContextMenuEntry> children,
-        Placement placement
-    ) {
+            EntryKind kind,
+            String id,
+            String label,
+            String actionId,
+            List<ContextMenuEntry> children,
+            Placement placement) {
         public ContextMenuEntry {
             kind = Objects.requireNonNull(kind, "kind");
             id = requireText(id, "id");
@@ -267,8 +274,7 @@ public interface ContextMenuRegistry {
          * @return the entry
          */
         public static ContextMenuEntry item(
-            final String id, final String label, final String actionId, final Placement placement
-        ) {
+                final String id, final String label, final String actionId, final Placement placement) {
             return new ContextMenuEntry(EntryKind.ITEM, id, label, actionId, List.of(), placement);
         }
 
@@ -302,8 +308,7 @@ public interface ContextMenuRegistry {
          * @return the submenu
          */
         public static ContextMenuEntry submenu(
-            final String id, final String label, final List<ContextMenuEntry> children
-        ) {
+                final String id, final String label, final List<ContextMenuEntry> children) {
             return submenu(id, label, children, Placement.last());
         }
 
@@ -317,11 +322,7 @@ public interface ContextMenuRegistry {
          * @return the submenu
          */
         public static ContextMenuEntry submenu(
-            final String id,
-            final String label,
-            final List<ContextMenuEntry> children,
-            final Placement placement
-        ) {
+                final String id, final String label, final List<ContextMenuEntry> children, final Placement placement) {
             return new ContextMenuEntry(EntryKind.SUBMENU, id, label, "", children, placement);
         }
 
@@ -334,20 +335,19 @@ public interface ContextMenuRegistry {
 
     /** One validated context-menu entry descriptor. */
     record ContextMenuContribution(
-        String id,
-        String actionId,
-        String label,
-        String icon,
-        String context,
-        Location location,
-        Set<ObjectKind> objectKinds,
-        int priority,
-        Target target,
-        Operation operation,
-        ContextMenuEntry entry,
-        Placement placement,
-        Predicate<ContextMenuSelection> visibleWhen
-    ) {
+            String id,
+            String actionId,
+            String label,
+            String icon,
+            String context,
+            Location location,
+            Set<ObjectKind> objectKinds,
+            int priority,
+            Target target,
+            Operation operation,
+            ContextMenuEntry entry,
+            Placement placement,
+            Predicate<ContextMenuSelection> visibleWhen) {
         public ContextMenuContribution {
             id = requireText(id, "id");
             actionId = requireText(actionId, "actionId");
@@ -373,120 +373,134 @@ public interface ContextMenuRegistry {
         }
 
         public ContextMenuContribution(
-            final String id,
-            final String actionId,
-            final String label,
-            final String icon,
-            final Location location,
-            final Set<ObjectKind> objectKinds,
-            final int priority
-        ) {
+                final String id,
+                final String actionId,
+                final String label,
+                final String icon,
+                final Location location,
+                final Set<ObjectKind> objectKinds,
+                final int priority) {
             this(
-                id, actionId, label, icon, location.context(), location, objectKinds, priority,
-                Target.SELECTION, Operation.ACTION,
-                ContextMenuEntry.item(id, label, actionId), Placement.last(), null
-            );
+                    id,
+                    actionId,
+                    label,
+                    icon,
+                    location.context(),
+                    location,
+                    objectKinds,
+                    priority,
+                    Target.SELECTION,
+                    Operation.ACTION,
+                    ContextMenuEntry.item(id, label, actionId),
+                    Placement.last(),
+                    null);
         }
 
         public ContextMenuContribution(
-            final String id,
-            final String actionId,
-            final String label,
-            final String icon,
-            final Location location,
-            final Set<ObjectKind> objectKinds,
-            final int priority,
-            final Predicate<ContextMenuSelection> visibleWhen
-        ) {
+                final String id,
+                final String actionId,
+                final String label,
+                final String icon,
+                final Location location,
+                final Set<ObjectKind> objectKinds,
+                final int priority,
+                final Predicate<ContextMenuSelection> visibleWhen) {
             this(
-                id, actionId, label, icon, location.context(), location, objectKinds, priority,
-                Target.SELECTION, Operation.ACTION,
-                ContextMenuEntry.item(id, label, actionId), Placement.last(), visibleWhen
-            );
+                    id,
+                    actionId,
+                    label,
+                    icon,
+                    location.context(),
+                    location,
+                    objectKinds,
+                    priority,
+                    Target.SELECTION,
+                    Operation.ACTION,
+                    ContextMenuEntry.item(id, label, actionId),
+                    Placement.last(),
+                    visibleWhen);
         }
 
         public ContextMenuContribution(
-            final String id,
-            final Location location,
-            final Set<ObjectKind> objectKinds,
-            final int priority,
-            final ContextMenuEntry entry
-        ) {
+                final String id,
+                final Location location,
+                final Set<ObjectKind> objectKinds,
+                final int priority,
+                final ContextMenuEntry entry) {
             this(
-                id,
-                firstActionId(entry),
-                entry.label().isBlank() ? id : entry.label(),
-                null,
-                location.context(),
-                location,
-                objectKinds,
-                priority,
-                Target.SELECTION,
-                Operation.ACTION,
-                entry,
-                entry.placement(),
-                null
-            );
+                    id,
+                    firstActionId(entry),
+                    entry.label().isBlank() ? id : entry.label(),
+                    null,
+                    location.context(),
+                    location,
+                    objectKinds,
+                    priority,
+                    Target.SELECTION,
+                    Operation.ACTION,
+                    entry,
+                    entry.placement(),
+                    null);
         }
 
         public ContextMenuContribution(
-            final String id,
-            final String actionId,
-            final String label,
-            final String icon,
-            final String context,
-            final Location location,
-            final Set<ObjectKind> objectKinds,
-            final int priority,
-            final Target target,
-            final Operation operation,
-            final ContextMenuEntry entry,
-            final Placement placement
-        ) {
+                final String id,
+                final String actionId,
+                final String label,
+                final String icon,
+                final String context,
+                final Location location,
+                final Set<ObjectKind> objectKinds,
+                final int priority,
+                final Target target,
+                final Operation operation,
+                final ContextMenuEntry entry,
+                final Placement placement) {
             this(
-                id, actionId, label, icon, context, location, objectKinds, priority,
-                target, operation, entry, placement, null
-            );
+                    id,
+                    actionId,
+                    label,
+                    icon,
+                    context,
+                    location,
+                    objectKinds,
+                    priority,
+                    target,
+                    operation,
+                    entry,
+                    placement,
+                    null);
         }
 
         /** Compatibility constructor for the earlier context-string Preview shape. */
         public ContextMenuContribution(
-            final String id,
-            final String label,
-            final String icon,
-            final String context,
-            final int priority
-        ) {
+                final String id, final String label, final String icon, final String context, final int priority) {
             this(id, label, icon, context, priority, Target.SELECTION, Operation.ACTION);
         }
 
         /** Compatibility constructor retained for panel-tab host contributions. */
         public ContextMenuContribution(
-            final String id,
-            final String label,
-            final String icon,
-            final String context,
-            final int priority,
-            final Target target,
-            final Operation operation
-        ) {
+                final String id,
+                final String label,
+                final String icon,
+                final String context,
+                final int priority,
+                final Target target,
+                final Operation operation) {
             this(
-                id,
-                id,
-                label,
-                icon,
-                context,
-                target == Target.SELECTION ? Location.legacy(context) : Location.WORKSPACE_OBJECT,
-                target == Target.SELECTION
-                    ? Location.legacy(context).supportedKinds()
-                    : Set.of(),
-                priority,
-                target,
-                operation,
-                ContextMenuEntry.item(id, label, id),
-                Placement.last(),
-                null
-            );
+                    id,
+                    id,
+                    label,
+                    icon,
+                    context,
+                    target == Target.SELECTION ? Location.legacy(context) : Location.WORKSPACE_OBJECT,
+                    target == Target.SELECTION ? Location.legacy(context).supportedKinds() : Set.of(),
+                    priority,
+                    target,
+                    operation,
+                    ContextMenuEntry.item(id, label, id),
+                    Placement.last(),
+                    null);
         }
 
         private static String firstActionId(final ContextMenuEntry entry) {

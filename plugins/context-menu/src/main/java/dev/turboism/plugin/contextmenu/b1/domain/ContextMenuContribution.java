@@ -14,12 +14,7 @@ import java.util.Objects;
  * @param labelKey    translation key for the entry's label, non-null; not the label itself
  * @param order       sort position within its surface, lower first
  */
-public record ContextMenuContribution(
-    String id,
-    ContextKind contextKind,
-    String labelKey,
-    int order
-) {
+public record ContextMenuContribution(String id, ContextKind contextKind, String labelKey, int order) {
     public ContextMenuContribution {
         id = Objects.requireNonNull(id, "id");
         contextKind = Objects.requireNonNull(contextKind, "contextKind");

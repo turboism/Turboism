@@ -21,8 +21,7 @@ import org.junit.jupiter.api.Test;
  */
 class TurboismWindowFactoryTest {
 
-    private static final String ICON_RESOURCE =
-        "dev/turboism/sdk/ui/window/turboism-window-icon.png";
+    private static final String ICON_RESOURCE = "dev/turboism/sdk/ui/window/turboism-window-icon.png";
 
     @Test
     void windowIconLoadsFromSdkClasspath() {
@@ -35,9 +34,8 @@ class TurboismWindowFactoryTest {
 
     @Test
     void windowIconResourceIsAValidPng() throws Exception {
-        try (java.io.InputStream in = TurboismWindowFactory.class
-            .getClassLoader()
-            .getResourceAsStream(ICON_RESOURCE)) {
+        try (java.io.InputStream in =
+                TurboismWindowFactory.class.getClassLoader().getResourceAsStream(ICON_RESOURCE)) {
             assertNotNull(in, "icon resource must be on the SDK classpath");
 
             BufferedImage decoded = ImageIO.read(in);
@@ -66,8 +64,8 @@ class TurboismWindowFactoryTest {
 
     @Test
     void missingIconResourceDegradesGracefullyToNull() {
-        assertNull(TurboismWindowFactory.loadWindowIcon(
-            "dev/turboism/sdk/ui/window/definitely-missing-window-icon.png"));
+        assertNull(
+                TurboismWindowFactory.loadWindowIcon("dev/turboism/sdk/ui/window/definitely-missing-window-icon.png"));
         assertNull(TurboismWindowFactory.loadWindowIcon(null));
     }
 

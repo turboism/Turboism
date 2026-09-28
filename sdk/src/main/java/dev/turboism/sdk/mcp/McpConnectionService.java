@@ -1,7 +1,7 @@
 package dev.turboism.sdk.mcp;
 
+import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Optional;
 
 /**
@@ -11,6 +11,7 @@ import java.util.Optional;
  * connection for the lifetime of its returned registration; an automation plugin reads a detached
  * immutable snapshot.</p>
  */
+@Incubating
 public interface McpConnectionService {
 
     /**
@@ -46,7 +47,8 @@ public interface McpConnectionService {
     enum Unavailable implements McpConnectionService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 

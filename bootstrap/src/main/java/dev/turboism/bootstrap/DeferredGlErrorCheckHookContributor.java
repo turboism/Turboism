@@ -19,18 +19,19 @@ import java.util.function.Supplier;
 final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookContributor {
 
     private static final Map<String, MethodType> REQUIRED_SEAM = Map.of(
-        UniformLocationHookBridge.BEGIN_PROPERTY, MethodType.methodType(long.class, Object.class),
-        UniformLocationHookBridge.END_PROPERTY, MethodType.methodType(void.class, long.class),
-        UniformLocationHookBridge.ERROR_PROPERTY, MethodType.methodType(void.class, Object.class, int.class),
-        UniformLocationHookBridge.DEFER_QUERY_PROPERTY,
-            MethodType.methodType(int.class, Object.class, String.class, boolean.class),
-        UniformLocationHookBridge.DEFER_REPORT_PROPERTY, MethodType.methodType(Object.class));
+            UniformLocationHookBridge.BEGIN_PROPERTY, MethodType.methodType(long.class, Object.class),
+            UniformLocationHookBridge.END_PROPERTY, MethodType.methodType(void.class, long.class),
+            UniformLocationHookBridge.ERROR_PROPERTY, MethodType.methodType(void.class, Object.class, int.class),
+            UniformLocationHookBridge.DEFER_QUERY_PROPERTY,
+                    MethodType.methodType(int.class, Object.class, String.class, boolean.class),
+            UniformLocationHookBridge.DEFER_REPORT_PROPERTY, MethodType.methodType(Object.class));
 
     DeferredGlErrorCheckHookContributor() {
         super("TURBOISM_DEFERRED_GL_ERROR_CHECK");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!DeferredGlErrorCheckTransformer.enabledByPreference()) {
             log(environment, id() + " deferred=INACTIVE installation=NOT_ADMITTED reason=preference-disabled");
             return noOp();
@@ -50,8 +51,7 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
                 warnInactive(environment, "admission-refused");
                 return noOp();
             }
-            final VerifiedDeferredGlErrorCheckInstaller installer =
-                new VerifiedDeferredGlErrorCheckInstaller(
+            final VerifiedDeferredGlErrorCheckInstaller installer = new VerifiedDeferredGlErrorCheckInstaller(
                     environment.instrumentation(), host.artifact(), host.classLoader());
             installer.install();
             log(environment, id() + " deferred=ACTIVE targets=" + installer.targetDescription());
@@ -71,10 +71,11 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
         }
         try {
             final Object statistics = System.getProperties().get(UniformLocationHookBridge.STATS_PROPERTY);
-            if (statistics instanceof Supplier<?> supplier && supplier.get() instanceof Map<?, ?> values
-                && Long.valueOf(1).equals(values.get("active"))
-                && Long.valueOf(1).equals(values.get("deferredReady"))
-                && Long.valueOf(1).equals(values.get("mutationCoverage"))) {
+            if (statistics instanceof Supplier<?> supplier
+                    && supplier.get() instanceof Map<?, ?> values
+                    && Long.valueOf(1).equals(values.get("active"))
+                    && Long.valueOf(1).equals(values.get("deferredReady"))
+                    && Long.valueOf(1).equals(values.get("mutationCoverage"))) {
                 return null;
             }
         } catch (RuntimeException | Error unavailable) {
@@ -85,7 +86,7 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
 
     private void warnInactive(final HookEnvironment environment, final String reason) {
         final String line = id() + " deferred=INACTIVE reason=" + reason
-            + "; requested mesaGlThread lacks deferred checks; Mesa-only performance may regress";
+                + "; requested mesaGlThread lacks deferred checks; Mesa-only performance may regress";
         if (environment.runtime().isPresent()) {
             environment.runtime().get().warn("bootstrap", line);
         } else {

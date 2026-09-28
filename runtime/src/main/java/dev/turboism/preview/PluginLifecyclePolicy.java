@@ -24,14 +24,13 @@ import java.util.Objects;
  *     need to be re-driven (for example backup quiescence retries)
  */
 public record PluginLifecyclePolicy(
-    int workerCount,
-    int queueCapacity,
-    Duration loadTimeout,
-    Duration cleanupTimeout,
-    Duration closeTimeout,
-    Duration eventQuiescenceTimeout,
-    Duration retentionRetryInterval
-) {
+        int workerCount,
+        int queueCapacity,
+        Duration loadTimeout,
+        Duration cleanupTimeout,
+        Duration closeTimeout,
+        Duration eventQuiescenceTimeout,
+        Duration retentionRetryInterval) {
     public PluginLifecyclePolicy {
         if (workerCount < 1) {
             throw new IllegalArgumentException("workerCount must be positive");
@@ -64,13 +63,12 @@ public record PluginLifecyclePolicy(
     /** Production bounds: a slow plugin is fenced rather than blocking startup or shutdown. */
     public static PluginLifecyclePolicy production() {
         return new PluginLifecyclePolicy(
-            4,
-            128,
-            Duration.ofSeconds(30),
-            Duration.ofSeconds(15),
-            Duration.ofSeconds(15),
-            Duration.ofSeconds(5),
-            Duration.ofSeconds(1)
-        );
+                4,
+                128,
+                Duration.ofSeconds(30),
+                Duration.ofSeconds(15),
+                Duration.ofSeconds(15),
+                Duration.ofSeconds(5),
+                Duration.ofSeconds(1));
     }
 }

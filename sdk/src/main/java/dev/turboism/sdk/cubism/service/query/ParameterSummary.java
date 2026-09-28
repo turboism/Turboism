@@ -17,13 +17,7 @@ import java.util.Objects;
  * @param editable whether the Editor permits the user to change the value
  */
 public record ParameterSummary(
-    ParameterId id,
-    String name,
-    double currentValue,
-    ParameterBounds bounds,
-    boolean visible,
-    boolean editable
-) {
+        ParameterId id, String name, double currentValue, ParameterBounds bounds, boolean visible, boolean editable) {
     public ParameterSummary {
         id = Objects.requireNonNull(id, "id");
         name = Objects.requireNonNull(name, "name");

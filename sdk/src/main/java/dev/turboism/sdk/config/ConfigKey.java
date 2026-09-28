@@ -12,10 +12,4 @@ package dev.turboism.sdk.config;
  * @param codec the codec describing how the value is encoded
  * @param <T> the value type
  */
-public record ConfigKey<T>(
-    String configId,
-    String name,
-    T defaultValue,
-    ConfigCodec<T> codec
-) {
-}
+public record ConfigKey<T>(String configId, String name, T defaultValue, ConfigCodec<T> codec) {}

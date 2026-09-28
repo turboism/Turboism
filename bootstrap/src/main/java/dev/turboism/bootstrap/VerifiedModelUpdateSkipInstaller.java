@@ -38,20 +38,22 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
     private boolean installed, restored;
 
     private static final List<ReviewedHostContract.Candidate<ModelUpdateSkipTarget>> CANDIDATES =
-        ReviewedHostContract.candidates(
-            ModelUpdateSkipTarget.reviewedClassSha256(),
-            version -> ModelUpdateSkipTarget.forReviewedVersion(version).orElse(null));
+            ReviewedHostContract.candidates(
+                    ModelUpdateSkipTarget.reviewedClassSha256(),
+                    version -> ModelUpdateSkipTarget.forReviewedVersion(version).orElse(null));
 
-    static boolean admitted(final Path artifact, final RuntimeStartupConfig config,
-                            final boolean requested, final int jvm) {
-        return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
-            && ReviewedHostContract.resolved(artifact, CANDIDATES);
+    static boolean admitted(
+            final Path artifact, final RuntimeStartupConfig config, final boolean requested, final int jvm) {
+        return requested
+                && jvm >= 17
+                && config.hookEnabled(HOOK_ID)
+                && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
-    VerifiedModelUpdateSkipInstaller(final Instrumentation instrumentation, final Path artifact,
-                                     final ClassLoader loader) throws Exception {
+    VerifiedModelUpdateSkipInstaller(
+            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
         final var contract = ReviewedHostContract.requireBound(
-            ReviewedHostContract.resolve(artifact, CANDIDATES), "model-update skip");
+                ReviewedHostContract.resolve(artifact, CANDIDATES), "model-update skip");
         target = contract.contract();
         if (Runtime.version().feature() < 17) {
             throw new IllegalArgumentException("model-update skip requires JVM17+");
@@ -75,17 +77,25 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
         contract.requireUnchanged(artifact);
     }
 
-    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact)
-            throws Exception {
+    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {
         if (type.getClassLoader() != loader
-            || !Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI())
-                .toAbsolutePath().normalize().equals(artifact.toAbsolutePath().normalize())) {
+                || !Path.of(type.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI())
+                        .toAbsolutePath()
+                        .normalize()
+                        .equals(artifact.toAbsolutePath().normalize())) {
             throw new IllegalArgumentException("model-update dependency loader/source mismatch");
         }
     }
 
-    private void verifyMethod(final JarFile jar, final Class<?> type, final String name,
-                              final String descriptor, final Map<Class<?>, byte[]> observed)
+    private void verifyMethod(
+            final JarFile jar,
+            final Class<?> type,
+            final String name,
+            final String descriptor,
+            final Map<Class<?>, byte[]> observed)
             throws Exception {
         byte[] actual = observed.get(type);
         if (actual == null) {
@@ -101,24 +111,23 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
             return;
         }
         if (!expected.equals(ReviewedMethodShape.read(actual, owner, name, descriptor))) {
-            throw new IllegalStateException("model-update dependency body changed: "
-                + owner + "." + name);
+            throw new IllegalStateException("model-update dependency body changed: " + owner + "." + name);
         }
     }
 
-    private static void verifyAbstract(final Class<?> type, final String name,
-                                       final String descriptor) throws NoSuchMethodException {
+    private static void verifyAbstract(final Class<?> type, final String name, final String descriptor)
+            throws NoSuchMethodException {
         for (final java.lang.reflect.Method method : type.getMethods()) {
             if (!method.getName().equals(name)) continue;
             final String actual = java.lang.invoke.MethodType.methodType(
-                method.getReturnType(), method.getParameterTypes()).descriptorString();
-            if (actual.equals(descriptor)
-                && java.lang.reflect.Modifier.isAbstract(method.getModifiers())) {
+                            method.getReturnType(), method.getParameterTypes())
+                    .descriptorString();
+            if (actual.equals(descriptor) && java.lang.reflect.Modifier.isAbstract(method.getModifiers())) {
                 return;
             }
         }
-        throw new NoSuchMethodException("abstract model-update dependency absent or concrete: "
-            + type.getName() + "." + name + descriptor);
+        throw new NoSuchMethodException(
+                "abstract model-update dependency absent or concrete: " + type.getName() + "." + name + descriptor);
     }
 
     private static byte[] reference(final JarFile jar, final Class<?> type) throws Exception {
@@ -133,9 +142,14 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
         }
         final AtomicReference<byte[]> result = new AtomicReference<>();
         final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override public byte[] transform(final Module module, final ClassLoader loader,
-                                              final String name, final Class<?> redefined,
-                                              final ProtectionDomain domain, final byte[] bytes) {
+            @Override
+            public byte[] transform(
+                    final Module module,
+                    final ClassLoader loader,
+                    final String name,
+                    final Class<?> redefined,
+                    final ProtectionDomain domain,
+                    final byte[] bytes) {
                 if (redefined == type) result.set(bytes.clone());
                 return null;
             }
@@ -163,8 +177,7 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
             installed = true;
             instrumentation.retransformClasses(entry);
             if (transformer.matches() != 1 || transformer.failure() != null) {
-                throw new IllegalStateException("model-update entry not admitted: "
-                    + transformer.failure());
+                throw new IllegalStateException("model-update entry not admitted: " + transformer.failure());
             }
         } catch (Exception | Error failure) {
             try {
@@ -177,14 +190,15 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
         }
     }
 
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         bridge.close();
         if (!installed) return;
         instrumentation.removeTransformer(transformer);
         try {
             final byte[] original = capture(entry);
-            final String hash = HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256").digest(original));
+            final String hash = HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(original));
             restored = hash.equals(transformer.beforeSha256());
             if (!restored) {
                 throw new IllegalStateException("native model-update entry restoration not proven");

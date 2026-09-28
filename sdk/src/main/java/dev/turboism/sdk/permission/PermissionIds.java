@@ -33,32 +33,22 @@ public final class PermissionIds {
     public static final String TURBOISM_CUBISM_MODEL_WRITE = "turboism.cubism.model.write";
     public static final String TURBOISM_CUBISM_EDIT = "turboism.cubism.edit";
 
-    public static final String TURBOISM_CUBISM_MODEL_OBSERVE =
-        "turboism.cubism.model.observe";
-    public static final String TURBOISM_CUBISM_MODEL_INTERCEPT =
-        "turboism.cubism.model.intercept";
-    public static final String TURBOISM_CUBISM_BACKUP_OBSERVE =
-        "turboism.cubism.backup.observe";
-    public static final String TURBOISM_CUBISM_SELECTION_OBSERVE =
-        "turboism.cubism.selection.observe";
-    public static final String TURBOISM_UI_SCENE_TABLE_OBSERVE =
-        "turboism.ui.scene-table.observe";
-    public static final String TURBOISM_CUBISM_LOG_OBSERVE =
-        "turboism.cubism.log.observe";
-    public static final String TURBOISM_PERFORMANCE_SAMPLE_OBSERVE =
-        "turboism.performance.sample.observe";
-    public static final String TURBOISM_ACTION_INVOCATION_OBSERVE =
-        "turboism.action.invocation.observe";
-    public static final String TURBOISM_PLUGIN_LIFECYCLE_OBSERVE =
-        "turboism.plugin.lifecycle.observe";
+    public static final String TURBOISM_CUBISM_MODEL_OBSERVE = "turboism.cubism.model.observe";
+    public static final String TURBOISM_CUBISM_MODEL_INTERCEPT = "turboism.cubism.model.intercept";
+    public static final String TURBOISM_CUBISM_BACKUP_OBSERVE = "turboism.cubism.backup.observe";
+    public static final String TURBOISM_CUBISM_SELECTION_OBSERVE = "turboism.cubism.selection.observe";
+    public static final String TURBOISM_UI_SCENE_TABLE_OBSERVE = "turboism.ui.scene-table.observe";
+    public static final String TURBOISM_CUBISM_LOG_OBSERVE = "turboism.cubism.log.observe";
+    public static final String TURBOISM_PERFORMANCE_SAMPLE_OBSERVE = "turboism.performance.sample.observe";
+    public static final String TURBOISM_ACTION_INVOCATION_OBSERVE = "turboism.action.invocation.observe";
+    public static final String TURBOISM_PLUGIN_LIFECYCLE_OBSERVE = "turboism.plugin.lifecycle.observe";
     public static final String TURBOISM_CUBISM_RECENT_FILE_READ = "turboism.cubism.recent-file.read";
     public static final String TURBOISM_UI_RECENT_PREVIEW_CONTRIBUTE = "turboism.ui.recent-preview.contribute";
     public static final String TURBOISM_EVENT_PUBLISH = "turboism.event.publish";
     public static final String TURBOISM_EVENT_SUBSCRIBE = "turboism.event.subscribe";
     public static final String TURBOISM_FILE_READ = "turboism.file.read";
     public static final String TURBOISM_FILE_WRITE = "turboism.file.write";
-    public static final String TURBOISM_PERFORMANCE_STATS_READ =
-        "turboism.performance.stats.read";
+    public static final String TURBOISM_PERFORMANCE_STATS_READ = "turboism.performance.stats.read";
     public static final String TURBOISM_HOST_UNSAFE = "turboism.host.unsafe";
     public static final String TURBOISM_NETWORK = "turboism.network.fetch";
     public static final String TURBOISM_PROCESS = "turboism.process.run";

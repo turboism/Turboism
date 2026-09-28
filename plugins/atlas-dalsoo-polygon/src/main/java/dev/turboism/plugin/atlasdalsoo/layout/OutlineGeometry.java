@@ -1,5 +1,6 @@
 package dev.turboism.plugin.atlasdalsoo.layout;
 
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline;
 import java.awt.Shape;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
@@ -7,8 +8,6 @@ import java.awt.geom.Path2D;
 import java.awt.geom.PathIterator;
 import java.util.ArrayList;
 import java.util.List;
-
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline;
 
 /**
  * Outline normalization for the polygon backend.
@@ -22,12 +21,10 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline;
  */
 public final class OutlineGeometry {
 
-    private OutlineGeometry() {
-    }
+    private OutlineGeometry() {}
 
     /** Flattened ring decomposition of one or more shapes. */
-    public record Rings(List<double[][]> outerRings, List<double[][]> holeRings,
-        boolean hasHoles) {
+    public record Rings(List<double[][]> outerRings, List<double[][]> holeRings, boolean hasHoles) {
         /** This decomposition as an outline; hole rings are filled by construction. */
         public TextureAtlasOutline toOutline() {
             return new TextureAtlasOutline(outerRings);
@@ -42,8 +39,7 @@ public final class OutlineGeometry {
      * signed area) from hole rings (negative). Rings with fewer than three unique
      * vertices or near-zero area are discarded.</p>
      */
-    public static Rings decompose(final List<? extends Shape> shapes,
-        final double flatness) {
+    public static Rings decompose(final List<? extends Shape> shapes, final double flatness) {
         if (shapes == null || shapes.isEmpty()) {
             return new Rings(List.of(), List.of(), false);
         }
@@ -153,7 +149,9 @@ public final class OutlineGeometry {
                     }
                     current = null;
                 }
-                default -> { /* flatness eliminates curves */ }
+                default -> {
+                    /* flatness eliminates curves */
+                }
             }
             it.next();
         }
@@ -201,8 +199,7 @@ public final class OutlineGeometry {
     }
 
     /** Inserts {@code other} into {@code ring} via a bridge between vertex {@code a} and {@code b}. */
-    private static double[][] bridge(final double[][] ring, final int a,
-        final double[][] other, final int b) {
+    private static double[][] bridge(final double[][] ring, final int a, final double[][] other, final int b) {
         final ArrayList<double[]> out = new ArrayList<>(ring.length + other.length + 2);
         for (int i = 0; i <= a; i++) {
             out.add(ring[i]);
@@ -235,13 +232,12 @@ public final class OutlineGeometry {
         path.closePath();
         final Area dilated = new Area(path);
         final Shape stroke = new java.awt.BasicStroke(
-            (float) (distance * 2), java.awt.BasicStroke.CAP_BUTT,
-            java.awt.BasicStroke.JOIN_MITER, 4f).createStrokedShape(path);
+                        (float) (distance * 2), java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 4f)
+                .createStrokedShape(path);
         dilated.add(new Area(stroke));
         // small flatness keeps the flattened ring within ~0.25px of the true
         // dilation; callers absorb this via DalsooPolygonPlanner's EDGE_SLACK
-        final Rings rings = decomposeArea(dilated,
-            Math.min(0.25, Math.max(0.05, distance * 0.05)));
+        final Rings rings = decomposeArea(dilated, Math.min(0.25, Math.max(0.05, distance * 0.05)));
         if (rings.outerRings().isEmpty()) {
             return ring;
         }
@@ -276,8 +272,8 @@ public final class OutlineGeometry {
         return out;
     }
 
-    private static void rdp(final double[][] ring, final int from, final int to,
-        final double epsilon, final boolean[] keep) {
+    private static void rdp(
+            final double[][] ring, final int from, final int to, final double epsilon, final boolean[] keep) {
         if (to <= from + 1) {
             return;
         }
@@ -299,8 +295,7 @@ public final class OutlineGeometry {
         }
     }
 
-    private static double pointLineDistance(final double[] a, final double[] b,
-        final double[] p) {
+    private static double pointLineDistance(final double[] a, final double[] b, final double[] p) {
         final double dx = b[0] - a[0];
         final double dy = b[1] - a[1];
         final double len = Math.hypot(dx, dy);
@@ -318,8 +313,7 @@ public final class OutlineGeometry {
             final double[] a = ring[i];
             final double[] b = ring[(i + 1) % n];
             final double[] c = ring[(i + 2) % n];
-            final double cross = (b[0] - a[0]) * (c[1] - b[1])
-                - (b[1] - a[1]) * (c[0] - b[0]);
+            final double cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
             if (Math.abs(cross) < 1e-9) {
                 continue;
             }
@@ -349,10 +343,8 @@ public final class OutlineGeometry {
             maxY = Math.max(maxY, p[1]);
         }
         for (final double[] p : ring) {
-            final boolean onX = Math.abs(p[0] - minX) <= tolerancePx
-                || Math.abs(p[0] - maxX) <= tolerancePx;
-            final boolean onY = Math.abs(p[1] - minY) <= tolerancePx
-                || Math.abs(p[1] - maxY) <= tolerancePx;
+            final boolean onX = Math.abs(p[0] - minX) <= tolerancePx || Math.abs(p[0] - maxX) <= tolerancePx;
+            final boolean onY = Math.abs(p[1] - minY) <= tolerancePx || Math.abs(p[1] - maxY) <= tolerancePx;
             if (!onX || !onY) {
                 return false;
             }
@@ -375,8 +367,7 @@ public final class OutlineGeometry {
         for (int i = 0; i < ring.length; i++) {
             boolean dup = false;
             for (int j = 0; j < i; j++) {
-                if (Math.abs(ring[i][0] - ring[j][0]) < 1e-6
-                    && Math.abs(ring[i][1] - ring[j][1]) < 1e-6) {
+                if (Math.abs(ring[i][0] - ring[j][0]) < 1e-6 && Math.abs(ring[i][1] - ring[j][1]) < 1e-6) {
                     dup = true;
                     break;
                 }
@@ -401,17 +392,13 @@ public final class OutlineGeometry {
         final double[][] out = new double[ring.length][];
         for (int i = 0; i < ring.length; i++) {
             final double x = ring[i][0], y = ring[i][1];
-            out[i] = new double[] {
-                m[0] * x + m[2] * y + m[4],
-                m[1] * x + m[3] * y + m[5]
-            };
+            out[i] = new double[] {m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]};
         }
         return out;
     }
 
     /** Converts a placement transform {@code T(x,y)·R(deg)·S(s)} into matrix form. */
-    public static double[] placementMatrix(final double x, final double y,
-        final double angleDeg, final double scale) {
+    public static double[] placementMatrix(final double x, final double y, final double angleDeg, final double scale) {
         final AffineTransform at = new AffineTransform();
         at.translate(x, y);
         at.rotate(Math.toRadians(angleDeg));

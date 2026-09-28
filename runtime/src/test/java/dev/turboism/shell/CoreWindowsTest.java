@@ -1,31 +1,34 @@
 package dev.turboism.shell;
 
-import dev.turboism.internal.core.CubismJvmSettingsService;
-import dev.turboism.internal.core.CorePluginManagement;
-import dev.turboism.sdk.i18n.PluginLocalization;
-import dev.turboism.sdk.runtime.RuntimeLogReader;
-import dev.turboism.sdk.runtime.RuntimeSettings;
-import dev.turboism.sdk.runtime.RuntimeSettingsService;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
-import javax.swing.JCheckBox;
-import java.awt.GraphicsEnvironment;
-
-import java.util.Locale;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.internal.core.CorePluginManagement;
+import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.internal.core.CubismJvmSettingsService.CubismJvm;
+import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.runtime.RuntimeLogReader;
+import dev.turboism.sdk.runtime.RuntimeSettings;
+import dev.turboism.sdk.runtime.RuntimeSettingsService;
+import java.awt.GraphicsEnvironment;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import javax.swing.JCheckBox;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 class CoreWindowsTest {
 
     private static final PluginLocalization I18N = new PluginLocalization() {
-        @Override public Locale locale() { return Locale.ENGLISH; }
-        @Override public String text(final String key) {
+        @Override
+        public Locale locale() {
+            return Locale.ENGLISH;
+        }
+
+        @Override
+        public String text(final String key) {
             return switch (key) {
                 case "about.eula" -> "EULA";
                 case "about.github" -> "GitHub";
@@ -35,54 +38,69 @@ class CoreWindowsTest {
                 default -> key;
             };
         }
-        @Override public String format(final String key, final Object... arguments) {
+
+        @Override
+        public String format(final String key, final Object... arguments) {
             return "Version " + arguments[0];
         }
-        @Override public boolean contains(final String key) { return true; }
+
+        @Override
+        public boolean contains(final String key) {
+            return true;
+        }
     };
 
     @Test
     void textIconCheckboxDefaultsAndRoundTripsWithoutChangingOtherSettings() {
-        final RuntimeSettings initial = new RuntimeSettings(
-            true, "DEBUG", 256, true, false, true, true, "ja", false
-        );
+        final RuntimeSettings initial = new RuntimeSettings(true, "DEBUG", 256, true, false, true, true, "ja", false);
         final RuntimeSettings[] saved = {initial};
         final RuntimeSettingsService service = new RuntimeSettingsService() {
-            @Override public RuntimeSettings read() { return saved[0]; }
-            @Override public RuntimeSettings save(final RuntimeSettings value) {
+            @Override
+            public RuntimeSettings read() {
+                return saved[0];
+            }
+
+            @Override
+            public RuntimeSettings save(final RuntimeSettings value) {
                 return saved[0] = value;
             }
-            @Override public RuntimeSettingsService.DockCleanupResult cleanEmptyDocks() {
+
+            @Override
+            public RuntimeSettingsService.DockCleanupResult cleanEmptyDocks() {
                 return new RuntimeSettingsService.DockCleanupResult("done");
             }
         };
-        final CoreWindows windows = new CoreWindows(
-            I18N, service, java.util.List::of, plugins(), RuntimeLogReader.unavailable()
-        );
+        final CoreWindows windows =
+                new CoreWindows(I18N, service, java.util.List::of, plugins(), RuntimeLogReader.unavailable());
         try {
             final JCheckBox checkbox = windows.createUseTextIconCheckBox(saved[0]);
             assertFalse(checkbox.isSelected());
             checkbox.setSelected(true);
             saved[0] = service.save(CoreWindows.settingsFromControls(
-                saved[0].safeMode(), saved[0].logLevel(), saved[0].maxLogStorageMiB(),
-                saved[0].skipStartupUpdateCheck(), saved[0].skipStartupSplash(),
-                saved[0].skipStartupInformation(), saved[0].separateExportSaveDirectory(),
-                saved[0].locale(), checkbox.isSelected()
-            ));
-            assertEquals(
-                new RuntimeSettings(true, "DEBUG", 256, true, false, true, true, "ja", true),
-                saved[0]
-            );
+                    saved[0].safeMode(),
+                    saved[0].logLevel(),
+                    saved[0].maxLogStorageMiB(),
+                    saved[0].skipStartupUpdateCheck(),
+                    saved[0].skipStartupSplash(),
+                    saved[0].skipStartupInformation(),
+                    saved[0].separateExportSaveDirectory(),
+                    saved[0].locale(),
+                    checkbox.isSelected()));
+            assertEquals(new RuntimeSettings(true, "DEBUG", 256, true, false, true, true, "ja", true), saved[0]);
 
             final JCheckBox reopened = windows.createUseTextIconCheckBox(saved[0]);
             assertTrue(reopened.isSelected());
             reopened.setSelected(false);
             saved[0] = service.save(CoreWindows.settingsFromControls(
-                saved[0].safeMode(), saved[0].logLevel(), saved[0].maxLogStorageMiB(),
-                saved[0].skipStartupUpdateCheck(), saved[0].skipStartupSplash(),
-                saved[0].skipStartupInformation(), saved[0].separateExportSaveDirectory(),
-                saved[0].locale(), reopened.isSelected()
-            ));
+                    saved[0].safeMode(),
+                    saved[0].logLevel(),
+                    saved[0].maxLogStorageMiB(),
+                    saved[0].skipStartupUpdateCheck(),
+                    saved[0].skipStartupSplash(),
+                    saved[0].skipStartupInformation(),
+                    saved[0].separateExportSaveDirectory(),
+                    saved[0].locale(),
+                    reopened.isSelected()));
             assertEquals(initial, saved[0]);
         } finally {
             windows.close();
@@ -102,10 +120,7 @@ class CoreWindowsTest {
 
     @Test
     void cubismJvmContributionTargetsPerformanceAndKeepsGraalVmFirst() {
-        final var contribution = CubismJvmSettingsContribution.create(
-            I18N,
-            cubismJvm(CubismJvm.GRAALVM, true)
-        );
+        final var contribution = CubismJvmSettingsContribution.create(I18N, cubismJvm(CubismJvm.GRAALVM, true));
         final var choice = (dev.turboism.sdk.ui.settings.SettingsControl.Choice) contribution.control();
 
         assertEquals("performance", contribution.tab().id());
@@ -117,13 +132,29 @@ class CoreWindowsTest {
     void customGraalVmPathContributionPrecedesTheJvmChoiceAndPersistsThePath() {
         final String[] saved = {"C:\\GraalVM"};
         final CubismJvmSettingsService service = new CubismJvmSettingsService() {
-            @Override public CubismJvm read() { return CubismJvm.BUNDLED; }
-            @Override public CubismJvm save(final CubismJvm next) { return next; }
-            @Override public String graalVmPath() { return saved[0]; }
-            @Override public String saveGraalVmPath(final String value) { return saved[0] = value; }
-            @Override public boolean graalVmPathCompatible(final String value) {
-                return value == null || value.isBlank()
-                    || value.endsWith("\\bin") || value.endsWith("java.exe");
+            @Override
+            public CubismJvm read() {
+                return CubismJvm.BUNDLED;
+            }
+
+            @Override
+            public CubismJvm save(final CubismJvm next) {
+                return next;
+            }
+
+            @Override
+            public String graalVmPath() {
+                return saved[0];
+            }
+
+            @Override
+            public String saveGraalVmPath(final String value) {
+                return saved[0] = value;
+            }
+
+            @Override
+            public boolean graalVmPathCompatible(final String value) {
+                return value == null || value.isBlank() || value.endsWith("\\bin") || value.endsWith("java.exe");
             }
         };
 
@@ -134,7 +165,9 @@ class CoreWindowsTest {
         assertEquals(90, contribution.index().orElseThrow());
         assertEquals("C:\\GraalVM", text.binding().read());
         assertTrue(text.validator().validate(saved[0], "").accepted());
-        assertFalse(text.validator().validate(saved[0], "C:\\ordinary\\java.exe.bak").accepted());
+        assertFalse(text.validator()
+                .validate(saved[0], "C:\\ordinary\\java.exe.bak")
+                .accepted());
         assertTrue(text.validator().validate(saved[0], "C:\\GraalVM\\bin").accepted());
         text.binding().write("C:\\GraalVM\\bin");
         assertEquals("C:\\GraalVM\\bin", saved[0]);
@@ -143,27 +176,27 @@ class CoreWindowsTest {
     @Test
     void unavailableGraalVmInitialValueFallsBackToBundled() {
         assertEquals(
-            CubismJvm.BUNDLED,
-            CubismJvmSettingsContribution.acceptedInitial(
-                cubismJvm(CubismJvm.GRAALVM, false)
-            )
-        );
+                CubismJvm.BUNDLED, CubismJvmSettingsContribution.acceptedInitial(cubismJvm(CubismJvm.GRAALVM, false)));
         assertEquals(
-            CubismJvm.GRAALVM,
-            CubismJvmSettingsContribution.acceptedInitial(
-                cubismJvm(CubismJvm.GRAALVM, true)
-            )
-        );
+                CubismJvm.GRAALVM, CubismJvmSettingsContribution.acceptedInitial(cubismJvm(CubismJvm.GRAALVM, true)));
     }
 
-    private static CubismJvmSettingsService cubismJvm(
-        final CubismJvm value,
-        final boolean available
-    ) {
+    private static CubismJvmSettingsService cubismJvm(final CubismJvm value, final boolean available) {
         return new CubismJvmSettingsService() {
-            @Override public CubismJvm read() { return value; }
-            @Override public CubismJvm save(final CubismJvm next) { return next; }
-            @Override public boolean graalVmAvailable() { return available; }
+            @Override
+            public CubismJvm read() {
+                return value;
+            }
+
+            @Override
+            public CubismJvm save(final CubismJvm next) {
+                return next;
+            }
+
+            @Override
+            public boolean graalVmAvailable() {
+                return available;
+            }
         };
     }
 
@@ -171,26 +204,47 @@ class CoreWindowsTest {
     void missingGraalVmOffersManagedInstallAndSelectsItOnlyAfterSuccess() throws Exception {
         final CubismJvm[] saved = {CubismJvm.BUNDLED};
         final CubismJvmSettingsService service = new CubismJvmSettingsService() {
-            @Override public CubismJvm read() { return saved[0]; }
-            @Override public CubismJvm save(final CubismJvm next) { return saved[0] = next; }
-            @Override public boolean graalVmAvailable() { return false; }
-            @Override public ManagedRuntimeOperation installManagedRuntime() {
+            @Override
+            public CubismJvm read() {
+                return saved[0];
+            }
+
+            @Override
+            public CubismJvm save(final CubismJvm next) {
+                return saved[0] = next;
+            }
+
+            @Override
+            public boolean graalVmAvailable() {
+                return false;
+            }
+
+            @Override
+            public ManagedRuntimeOperation installManagedRuntime() {
                 final ManagedRuntimeStatus ready = new ManagedRuntimeStatus(
-                    ManagedRuntimeState.READY,
-                    MANAGED_GRAAL_VERSION,
-                    MANAGED_JAVA_VERSION,
-                    Optional.of(java.nio.file.Path.of("managed/bin/java.exe")),
-                    1L,
-                    1L,
-                    "",
-                    "ready"
-                );
+                        ManagedRuntimeState.READY,
+                        MANAGED_GRAAL_VERSION,
+                        MANAGED_JAVA_VERSION,
+                        Optional.of(java.nio.file.Path.of("managed/bin/java.exe")),
+                        1L,
+                        1L,
+                        "",
+                        "ready");
                 return new ManagedRuntimeOperation() {
-                    @Override public ManagedRuntimeStatus status() { return ready; }
-                    @Override public java.util.concurrent.CompletionStage<ManagedRuntimeStatus> completion() {
+                    @Override
+                    public ManagedRuntimeStatus status() {
+                        return ready;
+                    }
+
+                    @Override
+                    public java.util.concurrent.CompletionStage<ManagedRuntimeStatus> completion() {
                         return CompletableFuture.completedFuture(ready);
                     }
-                    @Override public boolean cancel() { return false; }
+
+                    @Override
+                    public boolean cancel() {
+                        return false;
+                    }
                 };
             }
         };
@@ -203,70 +257,78 @@ class CoreWindowsTest {
         assertTrue(decision.link().isPresent());
         assertEquals(CubismJvm.BUNDLED, saved[0]);
 
-        final var result = decision.action().orElseThrow().action().start().completion()
-            .toCompletableFuture().get();
+        final var result = decision.action()
+                .orElseThrow()
+                .action()
+                .start()
+                .completion()
+                .toCompletableFuture()
+                .get();
         assertTrue(result.succeeded());
         assertEquals(CubismJvm.GRAALVM, saved[0]);
     }
 
     @Test
     void graalVmDownloadUriUsesTheOfficialDownloadPage() {
-        assertEquals(
-            "https://www.graalvm.org/downloads/",
-            CubismJvmSettingsService.GRAALVM_DOWNLOAD_URI.toString()
-        );
+        assertEquals("https://www.graalvm.org/downloads/", CubismJvmSettingsService.GRAALVM_DOWNLOAD_URI.toString());
     }
 
     @Test
     void pluginCatalogRefreshRunsOffTheEdt() throws Exception {
-        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(),
-            "plugins dialog requires a visible AWT display");
-        final java.util.concurrent.CountDownLatch catalogCalled =
-            new java.util.concurrent.CountDownLatch(1);
+        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(), "plugins dialog requires a visible AWT display");
+        final java.util.concurrent.CountDownLatch catalogCalled = new java.util.concurrent.CountDownLatch(1);
         final java.util.concurrent.atomic.AtomicReference<Thread> catalogThread =
-            new java.util.concurrent.atomic.AtomicReference<>();
+                new java.util.concurrent.atomic.AtomicReference<>();
         final CorePluginManagement plugins = new CorePluginManagement() {
-            @Override public java.util.List<PluginInfo> plugins() {
+            @Override
+            public java.util.List<PluginInfo> plugins() {
                 catalogThread.set(Thread.currentThread());
                 catalogCalled.countDown();
                 return java.util.List.of();
             }
-            @Override public OperationResult install() {
+
+            @Override
+            public OperationResult install() {
                 return OperationResult.rejected("unavailable");
             }
-            @Override public OperationResult uninstall(final String id) {
+
+            @Override
+            public OperationResult uninstall(final String id) {
                 return OperationResult.rejected("unavailable");
             }
-            @Override public OperationResult setEnabled(final String id, final boolean enabled) {
+
+            @Override
+            public OperationResult setEnabled(final String id, final boolean enabled) {
                 return OperationResult.rejected("unavailable");
             }
         };
         final CoreWindows windows = new CoreWindows(
-            I18N,
-            new RuntimeSettingsService() {
-                @Override public RuntimeSettings read() {
-                    return new RuntimeSettings(
-                        true, "DEBUG", 256, true, false, true, true, "ja", true
-                    );
-                }
-                @Override public RuntimeSettings save(final RuntimeSettings value) {
-                    return value;
-                }
-                @Override public RuntimeSettingsService.DockCleanupResult cleanEmptyDocks() {
-                    return new RuntimeSettingsService.DockCleanupResult("done");
-                }
-            },
-            java.util.List::of,
-            plugins,
-            RuntimeLogReader.unavailable()
-        );
+                I18N,
+                new RuntimeSettingsService() {
+                    @Override
+                    public RuntimeSettings read() {
+                        return new RuntimeSettings(true, "DEBUG", 256, true, false, true, true, "ja", true);
+                    }
+
+                    @Override
+                    public RuntimeSettings save(final RuntimeSettings value) {
+                        return value;
+                    }
+
+                    @Override
+                    public RuntimeSettingsService.DockCleanupResult cleanEmptyDocks() {
+                        return new RuntimeSettingsService.DockCleanupResult("done");
+                    }
+                },
+                java.util.List::of,
+                plugins,
+                RuntimeLogReader.unavailable());
         try {
             windows.showPlugins();
             assertTrue(catalogCalled.await(5, java.util.concurrent.TimeUnit.SECONDS));
             assertFalse(
-                catalogThread.get().getName().contains("AWT-EventQueue"),
-                "plugins() enumerates plugin JARs and must not run on the EDT"
-            );
+                    catalogThread.get().getName().contains("AWT-EventQueue"),
+                    "plugins() enumerates plugin JARs and must not run on the EDT");
         } finally {
             windows.close();
         }
@@ -276,27 +338,25 @@ class CoreWindowsTest {
     void pluginDetailsOpenOnlyForALeftButtonDoubleClick() {
         final javax.swing.JButton source = new javax.swing.JButton();
         assertTrue(CoreWindows.pluginDetailsDoubleClick(new java.awt.event.MouseEvent(
-            source,
-            java.awt.event.MouseEvent.MOUSE_CLICKED,
-            0L,
-            0,
-            1,
-            1,
-            2,
-            false,
-            java.awt.event.MouseEvent.BUTTON1
-        )));
+                source,
+                java.awt.event.MouseEvent.MOUSE_CLICKED,
+                0L,
+                0,
+                1,
+                1,
+                2,
+                false,
+                java.awt.event.MouseEvent.BUTTON1)));
         assertFalse(CoreWindows.pluginDetailsDoubleClick(new java.awt.event.MouseEvent(
-            source,
-            java.awt.event.MouseEvent.MOUSE_CLICKED,
-            0L,
-            0,
-            1,
-            1,
-            2,
-            false,
-            java.awt.event.MouseEvent.BUTTON3
-        )));
+                source,
+                java.awt.event.MouseEvent.MOUSE_CLICKED,
+                0L,
+                0,
+                1,
+                1,
+                2,
+                false,
+                java.awt.event.MouseEvent.BUTTON3)));
     }
 
     @Test
@@ -339,12 +399,23 @@ class CoreWindowsTest {
 
     private static CorePluginManagement plugins() {
         return new CorePluginManagement() {
-            @Override public java.util.List<PluginInfo> plugins() { return java.util.List.of(); }
-            @Override public OperationResult install() { return OperationResult.rejected("unavailable"); }
-            @Override public OperationResult uninstall(final String id) {
+            @Override
+            public java.util.List<PluginInfo> plugins() {
+                return java.util.List.of();
+            }
+
+            @Override
+            public OperationResult install() {
                 return OperationResult.rejected("unavailable");
             }
-            @Override public OperationResult setEnabled(final String id, final boolean enabled) {
+
+            @Override
+            public OperationResult uninstall(final String id) {
+                return OperationResult.rejected("unavailable");
+            }
+
+            @Override
+            public OperationResult setEnabled(final String id, final boolean enabled) {
                 return OperationResult.rejected("unavailable");
             }
         };

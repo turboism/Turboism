@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.event;
 
-
 /** Best-known source of a semantic Cubism operation. */
 public enum CubismOperationOrigin {
     /** No reliable source attribution is available. */

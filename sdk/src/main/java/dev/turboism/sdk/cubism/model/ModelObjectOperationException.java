@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 import java.util.Objects;
 
 /** Stable failure classification for model-object automation. */
@@ -24,30 +23,20 @@ public final class ModelObjectOperationException extends RuntimeException {
         this(code, message, null, java.util.Optional.empty());
     }
 
-    public ModelObjectOperationException(
-        final Code code,
-        final String message,
-        final Throwable cause
-    ) {
+    public ModelObjectOperationException(final Code code, final String message, final Throwable cause) {
         this(code, message, cause, java.util.Optional.empty());
     }
 
     public ModelObjectOperationException(
-        final Code code,
-        final String message,
-        final Throwable cause,
-        final java.util.Optional<ModelObjectReference> committedReference
-    ) {
+            final Code code,
+            final String message,
+            final Throwable cause,
+            final java.util.Optional<ModelObjectReference> committedReference) {
         super(Objects.requireNonNull(message, "message"), cause);
         this.code = Objects.requireNonNull(code, "code");
-        this.committedReference = Objects.requireNonNull(
-            committedReference,
-            "committedReference"
-        );
+        this.committedReference = Objects.requireNonNull(committedReference, "committedReference");
         if (code != Code.COMMITTED && this.committedReference.isPresent()) {
-            throw new IllegalArgumentException(
-                "committedReference is only valid for COMMITTED failures"
-            );
+            throw new IllegalArgumentException("committedReference is only valid for COMMITTED failures");
         }
     }
 

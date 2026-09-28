@@ -7,18 +7,16 @@ import java.util.function.Consumer;
 /** Process-private sink for sanitized Recent Preview host diagnostics. */
 public final class RecentPreviewDiagnostics {
 
-    private static final AtomicReference<Consumer<String>> SINK =
-        new AtomicReference<>(ignored -> { });
+    private static final AtomicReference<Consumer<String>> SINK = new AtomicReference<>(ignored -> {});
 
-    private RecentPreviewDiagnostics() {
-    }
+    private RecentPreviewDiagnostics() {}
 
     static void install(final Consumer<String> sink) {
         SINK.set(Objects.requireNonNull(sink, "sink"));
     }
 
     static void uninstall() {
-        SINK.set(ignored -> { });
+        SINK.set(ignored -> {});
     }
 
     /** Emits one runtime-authored, path-free Recent Preview diagnostic to the active preview log. */

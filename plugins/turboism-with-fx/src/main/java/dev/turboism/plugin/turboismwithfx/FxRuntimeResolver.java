@@ -1,7 +1,6 @@
 package dev.turboism.plugin.turboismwithfx;
 
 import dev.turboism.sdk.plugin.PluginPaths;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -45,38 +44,34 @@ final class FxRuntimeResolver {
         final Path executable;
         try {
             final Path managedRoot = confinedManagedRoot();
-            executable = managedRoot.resolve(
-                FxRuntimeManifest.VERSION + "/" + platform.id() + "/" + platform.executableName()
-            ).normalize();
+            executable = managedRoot
+                    .resolve(FxRuntimeManifest.VERSION + "/" + platform.id() + "/" + platform.executableName())
+                    .normalize();
             if (!executable.startsWith(managedRoot)
-                || !hasOrdinaryManagedAncestors(managedRoot, executable.getParent())) {
+                    || !hasOrdinaryManagedAncestors(managedRoot, executable.getParent())) {
                 return new Resolution.Unavailable(Problem.RUNTIME_INVALID, platform.id());
             }
             if (!Files.isRegularFile(executable, LinkOption.NOFOLLOW_LINKS)
-                || Files.isSymbolicLink(executable)
-                || Files.size(executable) != entry.executableSize()) {
+                    || Files.isSymbolicLink(executable)
+                    || Files.size(executable) != entry.executableSize()) {
                 return new Resolution.Unavailable(Problem.RUNTIME_MISSING, platform.id());
             }
             if (!entry.executableSha256().equals(sha256(executable))) {
                 return new Resolution.Unavailable(Problem.RUNTIME_INVALID, platform.id());
             }
             if (!hasOrdinaryManagedAncestors(managedRoot, executable.getParent())
-                || !Files.isRegularFile(executable, LinkOption.NOFOLLOW_LINKS)
-                || Files.isSymbolicLink(executable)) {
+                    || !Files.isRegularFile(executable, LinkOption.NOFOLLOW_LINKS)
+                    || Files.isSymbolicLink(executable)) {
                 return new Resolution.Unavailable(Problem.RUNTIME_INVALID, platform.id());
             }
             if (!ownerExecutable(executable)) {
                 return new Resolution.Unavailable(Problem.RUNTIME_INVALID, platform.id());
             }
             return new Resolution.Available(
-                executable.toString(),
-                Source.MANAGED,
-                platform.id(),
-                new FxLaunchConfiguration.ManagedRuntimeIdentity(
-                    entry.executableSize(),
-                    entry.executableSha256()
-                )
-            );
+                    executable.toString(),
+                    Source.MANAGED,
+                    platform.id(),
+                    new FxLaunchConfiguration.ManagedRuntimeIdentity(entry.executableSize(), entry.executableSha256()));
         } catch (IOException | RuntimeException failure) {
             return new Resolution.Unavailable(Problem.RUNTIME_INVALID, platform.id());
         }
@@ -94,8 +89,7 @@ final class FxRuntimeResolver {
         }
         final Path normalized = executable.normalize();
         try {
-            if (!Files.isRegularFile(normalized, LinkOption.NOFOLLOW_LINKS)
-                || Files.isSymbolicLink(normalized)) {
+            if (!Files.isRegularFile(normalized, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(normalized)) {
                 return new Resolution.Unavailable(Problem.RUNTIME_INVALID, null);
             }
             return new Resolution.Available(normalized.toString(), Source.CUSTOM, null, null);
@@ -118,13 +112,9 @@ final class FxRuntimeResolver {
         return grandparent.resolve("runtimes/fx").toAbsolutePath().normalize();
     }
 
-    private static boolean hasOrdinaryManagedAncestors(
-        final Path managedRoot,
-        final Path parent
-    ) {
+    private static boolean hasOrdinaryManagedAncestors(final Path managedRoot, final Path parent) {
         final Path home = managedRoot.getParent().getParent();
-        if (home == null || Files.isSymbolicLink(home)
-            || !Files.isDirectory(home, LinkOption.NOFOLLOW_LINKS)) {
+        if (home == null || Files.isSymbolicLink(home) || !Files.isDirectory(home, LinkOption.NOFOLLOW_LINKS)) {
             return false;
         }
         Path current = home;
@@ -133,8 +123,7 @@ final class FxRuntimeResolver {
             if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
                 return true;
             }
-            if (Files.isSymbolicLink(current)
-                || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.isSymbolicLink(current) || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
                 return false;
             }
         }
@@ -144,7 +133,7 @@ final class FxRuntimeResolver {
     private static boolean ownerExecutable(final Path executable) throws IOException {
         try {
             return Files.getPosixFilePermissions(executable, LinkOption.NOFOLLOW_LINKS)
-                .contains(java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE);
+                    .contains(java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE);
         } catch (UnsupportedOperationException ignored) {
             // Windows and non-POSIX filesystems use their native executable semantics.
             return true;
@@ -182,11 +171,11 @@ final class FxRuntimeResolver {
 
     sealed interface Resolution permits Resolution.Available, Resolution.Unavailable {
         record Available(
-            String executable,
-            Source source,
-            String platformId,
-            FxLaunchConfiguration.ManagedRuntimeIdentity managedRuntime
-        ) implements Resolution {
+                String executable,
+                Source source,
+                String platformId,
+                FxLaunchConfiguration.ManagedRuntimeIdentity managedRuntime)
+                implements Resolution {
             public Available {
                 executable = Objects.requireNonNull(executable, "executable");
                 source = Objects.requireNonNull(source, "source");

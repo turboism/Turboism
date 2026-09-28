@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.textureatlas;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -49,7 +48,7 @@ public final class TextureAtlasLayoutCoordinator implements AutoCloseable {
         if (closed || provider == null) return Optional.empty();
         try {
             return Objects.requireNonNull(provider.current(), "provider.current()")
-                .map(state -> new Snapshot(generation, state));
+                    .map(state -> new Snapshot(generation, state));
         } catch (Error error) {
             deactivateAfterProviderFailure();
             throw error;
@@ -59,13 +58,14 @@ public final class TextureAtlasLayoutCoordinator implements AutoCloseable {
     }
 
     synchronized TextureAtlasLayoutApplyResult apply(
-        final long expectedGeneration,
-        final TextureAtlasAuthoringState expected,
-        final TextureAtlasLayoutPlan plan
-    ) {
+            final long expectedGeneration,
+            final TextureAtlasAuthoringState expected,
+            final TextureAtlasLayoutPlan plan) {
         if (closed) return failed(TextureAtlasLayoutFailureCode.RUNTIME_CLOSED, "Texture atlas runtime is closed.");
         if (provider == null) {
-            return failed(TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE, "Texture atlas layout capability is unavailable.");
+            return failed(
+                    TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE,
+                    "Texture atlas layout capability is unavailable.");
         }
         if (generation != expectedGeneration) {
             return failed(TextureAtlasLayoutFailureCode.TARGET_STALE, "The texture atlas target is stale.");
@@ -86,17 +86,17 @@ public final class TextureAtlasLayoutCoordinator implements AutoCloseable {
             return switch (Objects.requireNonNull(provider.apply(current.orElseThrow(), plan), "provider.apply()")) {
                 case APPLIED -> TextureAtlasLayoutApplyResult.applied();
                 case NO_CHANGE -> TextureAtlasLayoutApplyResult.noChange();
-                case REJECTED -> failed(
-                    TextureAtlasLayoutFailureCode.PROVIDER_REJECTED,
-                    "Texture atlas provider rejected the validated plan."
-                );
+                case REJECTED ->
+                    failed(
+                            TextureAtlasLayoutFailureCode.PROVIDER_REJECTED,
+                            "Texture atlas provider rejected the validated plan.");
             };
         } catch (Error error) {
             deactivateAfterProviderFailure();
             throw error;
         } catch (RuntimeException exception) {
             return failed(TextureAtlasLayoutFailureCode.PROVIDER_FAILED, "Texture atlas provider failed safely.");
-    }
+        }
     }
 
     synchronized long generation() {
@@ -108,9 +108,7 @@ public final class TextureAtlasLayoutCoordinator implements AutoCloseable {
     }
 
     private boolean samePlanningState(
-        final TextureAtlasAuthoringState expected,
-        final TextureAtlasAuthoringState current
-    ) {
+            final TextureAtlasAuthoringState expected, final TextureAtlasAuthoringState current) {
         return expected.equals(current);
     }
 
@@ -132,9 +130,7 @@ public final class TextureAtlasLayoutCoordinator implements AutoCloseable {
     }
 
     private static TextureAtlasLayoutApplyResult failed(
-        final TextureAtlasLayoutFailureCode code,
-        final String message
-    ) {
+            final TextureAtlasLayoutFailureCode code, final String message) {
         return TextureAtlasLayoutApplyResult.failed(code, message);
     }
 

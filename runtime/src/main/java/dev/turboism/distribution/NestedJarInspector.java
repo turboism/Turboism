@@ -11,8 +11,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 final class NestedJarInspector {
-    private static final Limits DEFAULT_LIMITS = new Limits(
-        32L * 1024 * 1024, 64L * 1024 * 1024, 256, 200.0);
+    private static final Limits DEFAULT_LIMITS = new Limits(32L * 1024 * 1024, 64L * 1024 * 1024, 256, 200.0);
     private final Limits limits;
 
     NestedJarInspector() {
@@ -34,14 +33,13 @@ final class NestedJarInspector {
         }
     }
 
-    private Observed stream(String role, byte[] bytes, String path)
-        throws DistributionValidationException {
+    private Observed stream(String role, byte[] bytes, String path) throws DistributionValidationException {
         List<String> names = new ArrayList<>();
         Set<String> foldedNames = new HashSet<>();
         boolean required = false;
         long total = 0;
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
-            for (ZipEntry entry; (entry = zip.getNextEntry()) != null;) {
+            for (ZipEntry entry; (entry = zip.getNextEntry()) != null; ) {
                 String name = entry.getName();
                 validateName(name, foldedNames, path);
                 names.add(name);
@@ -60,11 +58,10 @@ final class NestedJarInspector {
         return new Observed(List.copyOf(names), required);
     }
 
-    private long consume(ZipInputStream zip, String path)
-        throws IOException, DistributionValidationException {
+    private long consume(ZipInputStream zip, String path) throws IOException, DistributionValidationException {
         byte[] buffer = new byte[8192];
         long size = 0;
-        for (int read; (read = zip.read(buffer)) >= 0;) {
+        for (int read; (read = zip.read(buffer)) >= 0; ) {
             size += read;
             if (size > limits.entryMax()) {
                 fail("NESTED_ENTRY_TOO_LARGE", "Nested entry exceeds limit", path);
@@ -73,8 +70,7 @@ final class NestedJarInspector {
         return size;
     }
 
-    private long total(long previous, long actual, String path)
-        throws DistributionValidationException {
+    private long total(long previous, long actual, String path) throws DistributionValidationException {
         if (actual > limits.totalMax() - previous) {
             fail("NESTED_TOTAL_TOO_LARGE", "Nested expanded total exceeds limit", path);
         }
@@ -87,8 +83,7 @@ final class NestedJarInspector {
         }
     }
 
-    private void ratio(ZipEntry entry, long actual, String path)
-        throws DistributionValidationException {
+    private void ratio(ZipEntry entry, long actual, String path) throws DistributionValidationException {
         long compressed = entry.getCompressedSize();
         boolean excessive = actual > 0 && compressed == 0;
         excessive |= compressed > 0 && (double) actual / compressed > limits.ratioMax();
@@ -98,7 +93,7 @@ final class NestedJarInspector {
     }
 
     private static void validateName(String name, Set<String> names, String path)
-        throws DistributionValidationException {
+            throws DistributionValidationException {
         ArchivePolicy.safeRelative(name, "NESTED_PATH_UNSAFE", path);
         String folded = name.toLowerCase(Locale.ROOT);
         if (!names.add(folded)) fail("NESTED_PATH_COLLISION", "Nested path collision", path);
@@ -110,15 +105,14 @@ final class NestedJarInspector {
     private static boolean requiredClass(String role, String name) {
         String lower = name.toLowerCase(Locale.ROOT);
         if (!lower.endsWith(".class")) return false;
-        return role.equals("runtime") ? lower.startsWith("dev/turboism/")
-            && !lower.startsWith("dev/turboism/sdk/") : lower.startsWith("dev/turboism/sdk/");
+        return role.equals("runtime")
+                ? lower.startsWith("dev/turboism/") && !lower.startsWith("dev/turboism/sdk/")
+                : lower.startsWith("dev/turboism/sdk/");
     }
 
-    private static void contamination(String role, String name, String path)
-        throws DistributionValidationException {
+    private static void contamination(String role, String name, String path) throws DistributionValidationException {
         if (forbidden(role, name)) {
-            fail("FRAMEWORK_CONTENT_CONTAMINATION",
-                "Forbidden framework artifact content: " + name, path);
+            fail("FRAMEWORK_CONTENT_CONTAMINATION", "Forbidden framework artifact content: " + name, path);
         }
     }
 
@@ -127,23 +121,24 @@ final class NestedJarInspector {
         if (binary(lower)) return true;
         String file = lower.substring(lower.lastIndexOf('/') + 1);
         boolean test = file.matches(".*(?:test|tests|testcase)(?:\\$.*)?\\.class");
-        if (lower.equals("meta-inf/turboism/plugin.json") || lower.contains("/test/") || test
-            || lower.contains("live2d") || lower.contains("cubism")) return true;
+        if (lower.equals("meta-inf/turboism/plugin.json")
+                || lower.contains("/test/")
+                || test
+                || lower.contains("live2d")
+                || lower.contains("cubism")) return true;
         if (lower.startsWith("dev/turboism/plugin/")) return true;
         if (role.equals("runtime")) return lower.startsWith("dev/turboism/sdk/");
         return lower.startsWith("dev/turboism/core/")
-            || lower.startsWith("dev/turboism/adapter/")
-            || lower.startsWith("dev/turboism/hook/")
-            || lower.startsWith("dev/turboism/mapping/");
+                || lower.startsWith("dev/turboism/adapter/")
+                || lower.startsWith("dev/turboism/hook/")
+                || lower.startsWith("dev/turboism/mapping/");
     }
 
     private static boolean binary(String name) {
-        return name.endsWith(".jar") || name.endsWith(".dll")
-            || name.endsWith(".so") || name.endsWith(".dylib");
+        return name.endsWith(".jar") || name.endsWith(".dll") || name.endsWith(".so") || name.endsWith(".dylib");
     }
 
-    private static void fail(String code, String message, String path)
-        throws DistributionValidationException {
+    private static void fail(String code, String message, String path) throws DistributionValidationException {
         throw ArchivePolicy.problem(code, message, path);
     }
 

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.schema.AbstractJsonValidator;
 import dev.turboism.core.schema.SchemaValidationError;
 import dev.turboism.core.version.VersionRange;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -34,7 +33,11 @@ public final class DependencyValidator extends AbstractJsonValidator {
         if (node.has("id") && !node.get("id").isNull()) {
             String id = node.get("id").asText("");
             if (!id.matches("^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$")) {
-                errors.add(error("DEPENDENCY_BAD_ID", "Dependency id must be a valid reverse-domain string: " + id, "id", source));
+                errors.add(error(
+                        "DEPENDENCY_BAD_ID",
+                        "Dependency id must be a valid reverse-domain string: " + id,
+                        "id",
+                        source));
             }
         }
 
@@ -46,11 +49,16 @@ public final class DependencyValidator extends AbstractJsonValidator {
             }
         }
 
-        if (node.has("type") && !node.get("type").isNull() && !Set.of("required", "optional").contains(node.get("type").asText(""))) {
+        if (node.has("type")
+                && !node.get("type").isNull()
+                && !Set.of("required", "optional").contains(node.get("type").asText(""))) {
             errors.add(error("DEPENDENCY_BAD_TYPE", "type must be required or optional", "type", source));
         }
 
-        if (node.has("ordering") && !node.get("ordering").isNull() && !Set.of("none", "before", "after").contains(node.get("ordering").asText(""))) {
+        if (node.has("ordering")
+                && !node.get("ordering").isNull()
+                && !Set.of("none", "before", "after")
+                        .contains(node.get("ordering").asText(""))) {
             errors.add(error("DEPENDENCY_BAD_ORDERING", "ordering must be none, before, or after", "ordering", source));
         }
 

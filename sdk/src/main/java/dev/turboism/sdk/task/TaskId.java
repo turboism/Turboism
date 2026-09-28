@@ -13,10 +13,6 @@ public record TaskId(String value) {
      * @throws IllegalArgumentException if {@code value} is blank or too long
      */
     public TaskId {
-        value = TaskContracts.requireText(
-            value,
-            "value",
-            TaskContracts.MAX_TASK_ID_LENGTH
-        );
+        value = TaskContracts.requireText(value, "value", TaskContracts.MAX_TASK_ID_LENGTH);
     }
 }

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-
 /**
  * Permission-checked loader for plugin-owned Cubism Core models built from MOC bytes.
  *

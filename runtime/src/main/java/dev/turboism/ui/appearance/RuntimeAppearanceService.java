@@ -7,7 +7,6 @@ import dev.turboism.sdk.appearance.AppearanceRestoreResult;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.appearance.AppearanceStatus;
 import dev.turboism.sdk.permission.PermissionIds;
-
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -21,11 +20,10 @@ public final class RuntimeAppearanceService implements AppearanceService {
     private final AppearanceCoordinator coordinator;
 
     public RuntimeAppearanceService(
-        final String pluginId,
-        final long pluginGeneration,
-        final PermissionChecker permissionChecker,
-        final AppearanceCoordinator coordinator
-    ) {
+            final String pluginId,
+            final long pluginGeneration,
+            final PermissionChecker permissionChecker,
+            final AppearanceCoordinator coordinator) {
         Objects.requireNonNull(pluginId, "pluginId");
         if (pluginId.isBlank()) {
             throw new IllegalArgumentException("pluginId must not be blank");
@@ -46,23 +44,13 @@ public final class RuntimeAppearanceService implements AppearanceService {
 
     @Override
     public CompletionStage<AppearanceApplyResult> apply(final AppearanceRequest request) {
-        permissionChecker.check(
-            PermissionIds.TURBOISM_UI_APPEARANCE_MODIFY,
-            "ui.appearance.apply"
-        );
-        return CompletableFuture.completedFuture(
-            coordinator.apply(pluginId, pluginGeneration, request)
-        );
+        permissionChecker.check(PermissionIds.TURBOISM_UI_APPEARANCE_MODIFY, "ui.appearance.apply");
+        return CompletableFuture.completedFuture(coordinator.apply(pluginId, pluginGeneration, request));
     }
 
     @Override
     public CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance() {
-        permissionChecker.check(
-            PermissionIds.TURBOISM_UI_APPEARANCE_MODIFY,
-            "ui.appearance.restore"
-        );
-        return CompletableFuture.completedFuture(
-            coordinator.restore(pluginId, pluginGeneration)
-        );
+        permissionChecker.check(PermissionIds.TURBOISM_UI_APPEARANCE_MODIFY, "ui.appearance.restore");
+        return CompletableFuture.completedFuture(coordinator.restore(pluginId, pluginGeneration));
     }
 }

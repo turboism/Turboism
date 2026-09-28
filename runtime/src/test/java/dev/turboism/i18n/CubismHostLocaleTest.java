@@ -1,11 +1,10 @@
 package dev.turboism.i18n;
 
-import java.util.Locale;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Locale;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Locks the host-language source: Cubism applies {@code File → Environment

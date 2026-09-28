@@ -1,22 +1,20 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;
 import dev.turboism.sdk.cubism.ProjectFileOperationResult;
-import dev.turboism.sdk.cubism.ProjectFileOperationType;
+import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.cubism.hook.AnimationFileHooks;
 import dev.turboism.sdk.cubism.hook.ModelFileHooks;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
@@ -30,10 +28,10 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     private final Object registrationLock = new Object();
     private volatile RuntimeEventBroker eventBroker;
     private final CopyOnWriteArrayList<Consumer<ProjectFileOperationResult>> completionListeners =
-        new CopyOnWriteArrayList<>();
+            new CopyOnWriteArrayList<>();
 
     public ProjectFileLifecycleCoordinator() {
-        this(new PluginWorkExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()));
+        this(new PluginWorkExecutorRegistry(1, 64, ignored -> {}, Clock.systemUTC()));
     }
 
     public ProjectFileLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
@@ -46,8 +44,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         synchronized (registrationLock) {
             if (eventBroker != null && eventBroker != value) {
                 throw new IllegalStateException(
-                    "Project-file lifecycle already belongs to another Runtime event broker."
-                );
+                        "Project-file lifecycle already belongs to another Runtime event broker.");
             }
             eventBroker = value;
         }
@@ -64,7 +61,11 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(value.descriptor().id()));
+            plugins.removeIf(registration -> registration
+                    .plugin()
+                    .descriptor()
+                    .id()
+                    .equals(value.descriptor().id()));
             callbacks.shutdown(value.descriptor().id());
             plugins.add(new Registration(token, value));
         }
@@ -72,10 +73,8 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
 
     void register(final Object token, final PluginHooks plugin) {
         synchronized (registrationLock) {
-            plugins.add(new Registration(
-                Objects.requireNonNull(token, "token"),
-                Objects.requireNonNull(plugin, "plugin")
-            ));
+            plugins.add(
+                    new Registration(Objects.requireNonNull(token, "token"), Objects.requireNonNull(plugin, "plugin")));
         }
     }
 
@@ -94,7 +93,8 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     public void unregister(final String pluginId) {
         final String id = Objects.requireNonNull(pluginId, "pluginId");
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(id));
+            plugins.removeIf(
+                    registration -> registration.plugin().descriptor().id().equals(id));
             callbacks.shutdown(id);
         }
     }
@@ -103,13 +103,12 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         final String id = Objects.requireNonNull(pluginId, "pluginId");
         final Object generation = Objects.requireNonNull(token, "token");
         synchronized (registrationLock) {
-            final boolean removed = plugins.removeIf(registration ->
-                registration.token() == generation
-                    && registration.plugin().descriptor().id().equals(id)
-            );
-            if (removed && plugins.stream().noneMatch(registration ->
-                registration.plugin().descriptor().id().equals(id)
-            )) {
+            final boolean removed = plugins.removeIf(registration -> registration.token() == generation
+                    && registration.plugin().descriptor().id().equals(id));
+            if (removed
+                    && plugins.stream()
+                            .noneMatch(registration ->
+                                    registration.plugin().descriptor().id().equals(id))) {
                 callbacks.shutdown(id);
             }
         }
@@ -140,26 +139,24 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
 
     /** Publishes a successful on phase when applicable, followed by after in all cases. */
     public void complete(
-        final Invocation invocation,
-        final ProjectContentSnapshot content,
-        final boolean succeeded,
-        final Throwable failure
-    ) {
+            final Invocation invocation,
+            final ProjectContentSnapshot content,
+            final boolean succeeded,
+            final Throwable failure) {
         final Invocation current = Objects.requireNonNull(invocation, "invocation");
         final ProjectContentSnapshot immutableContent = content;
         final ProjectFileOperationResult result = failure != null
-            ? ProjectFileOperationResult.failed(current.operation(), immutableContent, failure)
-            : succeeded
-                ? ProjectFileOperationResult.succeeded(
-                    current.operation(),
-                    Objects.requireNonNull(immutableContent, "content")
-                )
-                : ProjectFileOperationResult.rejected(current.operation(), immutableContent);
+                ? ProjectFileOperationResult.failed(current.operation(), immutableContent, failure)
+                : succeeded
+                        ? ProjectFileOperationResult.succeeded(
+                                current.operation(), Objects.requireNonNull(immutableContent, "content"))
+                        : ProjectFileOperationResult.rejected(current.operation(), immutableContent);
         final boolean completedSuccessfully = result.succeeded();
         for (Consumer<ProjectFileOperationResult> listener : completionListeners) {
             try {
                 listener.accept(result);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Runtime cleanup listeners fail open and must not block plugin callbacks.
             }
         }
@@ -167,9 +164,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         if (broker != null) {
             if (completedSuccessfully) {
                 broker.publishRuntime(new ProjectFileLifecycleEvent.On(
-                    current.operation(),
-                    Objects.requireNonNull(immutableContent, "content")
-                ));
+                        current.operation(), Objects.requireNonNull(immutableContent, "content")));
             }
             broker.publishRuntime(new ProjectFileLifecycleEvent.After(result));
         }
@@ -214,10 +209,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     }
 
     private static void invokeBeforeModel(
-        final PluginHooks plugin,
-        final ModelFileHooks hook,
-        final ProjectFileOperation operation
-    ) {
+            final PluginHooks plugin, final ModelFileHooks hook, final ProjectFileOperation operation) {
         try {
             switch (operation.operation()) {
                 case CREATE -> hook.beforeCreateModel(operation);
@@ -226,15 +218,13 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.beforeCloseModel(operation);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "before" + phaseName(operation) + "Model", failure);
         }
     }
 
     private static void invokeBeforeAnimation(
-        final PluginHooks plugin,
-        final AnimationFileHooks hook,
-        final ProjectFileOperation operation
-    ) {
+            final PluginHooks plugin, final AnimationFileHooks hook, final ProjectFileOperation operation) {
         try {
             switch (operation.operation()) {
                 case CREATE -> hook.beforeCreateAnimation(operation);
@@ -243,16 +233,16 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.beforeCloseAnimation(operation);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "before" + phaseName(operation) + "Animation", failure);
         }
     }
 
     private static void invokeOnModel(
-        final PluginHooks plugin,
-        final ModelFileHooks hook,
-        final ProjectFileOperation operation,
-        final ProjectContentSnapshot content
-    ) {
+            final PluginHooks plugin,
+            final ModelFileHooks hook,
+            final ProjectFileOperation operation,
+            final ProjectContentSnapshot content) {
         try {
             switch (operation.operation()) {
                 case CREATE -> hook.onModelCreated(content);
@@ -261,16 +251,16 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.onModelClosed(content);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "onModel" + pastParticiple(operation), failure);
         }
     }
 
     private static void invokeOnAnimation(
-        final PluginHooks plugin,
-        final AnimationFileHooks hook,
-        final ProjectFileOperation operation,
-        final ProjectContentSnapshot content
-    ) {
+            final PluginHooks plugin,
+            final AnimationFileHooks hook,
+            final ProjectFileOperation operation,
+            final ProjectContentSnapshot content) {
         try {
             switch (operation.operation()) {
                 case CREATE -> hook.onAnimationCreated(content);
@@ -279,16 +269,16 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.onAnimationClosed(content);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "onAnimation" + pastParticiple(operation), failure);
         }
     }
 
     private static void invokeAfterModel(
-        final PluginHooks plugin,
-        final ModelFileHooks hook,
-        final ProjectFileOperation operation,
-        final ProjectFileOperationResult result
-    ) {
+            final PluginHooks plugin,
+            final ModelFileHooks hook,
+            final ProjectFileOperation operation,
+            final ProjectFileOperationResult result) {
         try {
             switch (operation.operation()) {
                 case CREATE -> hook.afterCreateModel(result);
@@ -297,16 +287,16 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.afterCloseModel(result);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "after" + phaseName(operation) + "Model", failure);
         }
     }
 
     private static void invokeAfterAnimation(
-        final PluginHooks plugin,
-        final AnimationFileHooks hook,
-        final ProjectFileOperation operation,
-        final ProjectFileOperationResult result
-    ) {
+            final PluginHooks plugin,
+            final AnimationFileHooks hook,
+            final ProjectFileOperation operation,
+            final ProjectFileOperationResult result) {
         try {
             switch (operation.operation()) {
                 case CREATE -> hook.afterCreateAnimation(result);
@@ -315,6 +305,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.afterCloseAnimation(result);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "after" + phaseName(operation) + "Animation", failure);
         }
     }
@@ -324,11 +315,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
             if (!plugins.contains(registration)) {
                 return;
             }
-            callbacks.submit(
-                registration.plugin().descriptor().id(),
-                OPERATION_PREFIX + "lifecycle",
-                callback
-            );
+            callbacks.submit(registration.plugin().descriptor().id(), OPERATION_PREFIX + "lifecycle", callback);
         }
     }
 
@@ -346,19 +333,16 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         };
     }
 
-    private static void logFailure(
-        final PluginHooks plugin,
-        final String phase,
-        final Throwable failure
-    ) {
+    private static void logFailure(final PluginHooks plugin, final String phase, final Throwable failure) {
         try {
             plugin.logger().error("Cubism project-file hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Hook and diagnostic failures must not escape into Cubism.
         }
     }
 
-    private record Registration(Object token, PluginHooks plugin) { }
+    private record Registration(Object token, PluginHooks plugin) {}
 
     /**
      * Correlation token linking a {@code begin} call to its {@code complete}, so the completion phase
@@ -383,12 +367,11 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
      * @param observeAllowed whether this plugin receives project-file callbacks at all
      */
     public record PluginHooks(
-        PluginDescriptor descriptor,
-        List<? extends ModelFileHooks> modelHooks,
-        List<? extends AnimationFileHooks> animationHooks,
-        PluginLogger logger,
-        boolean observeAllowed
-    ) {
+            PluginDescriptor descriptor,
+            List<? extends ModelFileHooks> modelHooks,
+            List<? extends AnimationFileHooks> animationHooks,
+            PluginLogger logger,
+            boolean observeAllowed) {
         public PluginHooks {
             descriptor = Objects.requireNonNull(descriptor, "descriptor");
             modelHooks = List.copyOf(Objects.requireNonNull(modelHooks, "modelHooks"));

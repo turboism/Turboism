@@ -4,21 +4,13 @@ import dev.turboism.plugin.psdclipmaskimport.PsdClipMaskPlan;
 import dev.turboism.plugin.psdclipmaskimport.PsdClipMaskPlanner;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
+import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot.PsdLayerSnapshot;
-import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.plugin.PluginContext;
-
-import javax.swing.AbstractButton;
-
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JMenuBar;
-import javax.swing.JMenuItem;
-import javax.swing.SwingUtilities;
 import java.awt.Robot;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
@@ -39,6 +31,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import javax.swing.AbstractButton;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.SwingUtilities;
 
 /**
  * Manual-test-only SDK plugin for exact-host PSD clip-mask authoring
@@ -102,7 +100,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         } finally {
             if (Boolean.getBoolean("turboism.validation.exitOnComplete")) {
                 finishAutomatedValidation(mode, startedNanos);
-        }
+            }
         }
     }
 
@@ -114,12 +112,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         final Path artifact = artifactPath(name);
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString(
-                artifact,
-                content,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING
-            );
+            Files.writeString(artifact, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception failure) {
             context.logger().error(name + " artifact could not be written", failure);
         }
@@ -132,35 +125,49 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
             final List<PsdClipMaskDocumentSnapshot> documents = onHostThread(model::psdDocuments);
             if (documents.isEmpty()) {
                 report.append("status=FAIL\nreason=no-psd-documents\n")
-                    .append("assertion=").append("psd-document-read").append('\n')
-                    .append("expected=").append("at least one PSD document").append('\n')
-                    .append("actual=").append("0 documents").append('\n')
-                    .append("statusLine=").append("FAIL").append('\n');
+                        .append("assertion=")
+                        .append("psd-document-read")
+                        .append('\n')
+                        .append("expected=")
+                        .append("at least one PSD document")
+                        .append('\n')
+                        .append("actual=")
+                        .append("0 documents")
+                        .append('\n')
+                        .append("statusLine=")
+                        .append("FAIL")
+                        .append('\n');
                 writeArtifact(READ_ARTIFACT, report.toString());
                 return;
             }
             final PsdClipMaskPlan plan = plan(model);
             appendIdentity(report, model);
             appendPlanSummary(report, plan);
-            report.append("psdDocumentCount=").append(documents.size()).append('\n')
-                .append("layerCount=").append(documents.stream()
-                    .mapToInt(document -> layerCount(document.layers())).sum()).append('\n');
+            report.append("psdDocumentCount=")
+                    .append(documents.size())
+                    .append('\n')
+                    .append("layerCount=")
+                    .append(documents.stream()
+                            .mapToInt(document -> layerCount(document.layers()))
+                            .sum())
+                    .append('\n');
             appendAssertion(
-                report,
-                "psd-document-read",
-                "at least one PSD document with a layer tree",
-                documents.size() + " document(s), " + documents.stream()
-                    .mapToInt(document -> layerCount(document.layers())).sum() + " layer(s)",
-                true
-            );
+                    report,
+                    "psd-document-read",
+                    "at least one PSD document with a layer tree",
+                    documents.size() + " document(s), "
+                            + documents.stream()
+                                    .mapToInt(document -> layerCount(document.layers()))
+                                    .sum() + " layer(s)",
+                    true);
             appendAssertion(
-                report,
-                "plan-consistent",
-                "plan computed twice from the same host state is identical",
-                plan.assignments().size() + " assignment(s), " + plan.conflicts().size()
-                    + " conflict(s), " + plan.skips().size() + " skip(s)",
-                true
-            );
+                    report,
+                    "plan-consistent",
+                    "plan computed twice from the same host state is identical",
+                    plan.assignments().size() + " assignment(s), "
+                            + plan.conflicts().size() + " conflict(s), "
+                            + plan.skips().size() + " skip(s)",
+                    true);
             report.append("status=PASS\n");
             writeArtifact(READ_ARTIFACT, report.toString());
         } catch (Exception failure) {
@@ -190,7 +197,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                 // conditional batch derived from the read state so the host write seam
                 // (expected-state verification, one edit, Undo/Redo) is still exercised.
                 report.append("relationshipSource=synthetic-fallback\n")
-                    .append("reason=fixture-has-no-clipping-relationships\n");
+                        .append("reason=fixture-has-no-clipping-relationships\n");
                 replacements = syntheticReplacements(model);
                 synthetic = true;
             } else {
@@ -202,28 +209,26 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
             // Preview phase must not write: the state re-read stays identical.
             final Map<ArtMeshId, MaskState> beforeCommit = maskStates(model);
             appendAssertion(
-                report,
-                "preview-no-write",
-                "planning changes no clip-mask state",
-                stateSignature(beforeCommit),
-                true
-            );
+                    report,
+                    "preview-no-write",
+                    "planning changes no clip-mask state",
+                    stateSignature(beforeCommit),
+                    true);
             onHostThread(() -> {
                 model.replaceArtMeshClipMasks(replacements);
                 return null;
             });
             final Map<ArtMeshId, MaskState> afterCommit = maskStates(model);
             final boolean commitPassed = synthetic
-                ? syntheticExpected(beforeCommit).equals(afterCommit)
-                : targets(plan).stream()
-                    .allMatch(target -> plannedState(plan, target).equals(afterCommit.get(target)));
+                    ? syntheticExpected(beforeCommit).equals(afterCommit)
+                    : targets(plan).stream()
+                            .allMatch(target -> plannedState(plan, target).equals(afterCommit.get(target)));
             appendAssertion(
-                report,
-                "batch-write",
-                "every planned target reaches the planned ordered masks with inverted=false",
-                commitPassed ? stateSignature(afterCommit) : "targets " + targets(plan) + " mismatch",
-                commitPassed
-            );
+                    report,
+                    "batch-write",
+                    "every planned target reaches the planned ordered masks with inverted=false",
+                    commitPassed ? stateSignature(afterCommit) : "targets " + targets(plan) + " mismatch",
+                    commitPassed);
 
             // Fail closed: one wrong expected state must abort with zero changes.
             final List<ClipMaskReplacement> wrong = wrongExpectedBatch(replacements);
@@ -239,63 +244,63 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
             final Map<ArtMeshId, MaskState> afterMismatch = maskStates(model);
             final boolean failClosed = mismatch != null && afterCommit.equals(afterMismatch);
             appendAssertion(
-                report,
-                "expected-state-mismatch",
-                "wrong expected state throws before any write and state is unchanged",
-                mismatch == null ? "no exception" : mismatch.getClass().getSimpleName()
-                    + (failClosed ? " with unchanged state" : " but state changed"),
-                failClosed
-            );
+                    report,
+                    "expected-state-mismatch",
+                    "wrong expected state throws before any write and state is unchanged",
+                    mismatch == null
+                            ? "no exception"
+                            : mismatch.getClass().getSimpleName()
+                                    + (failClosed ? " with unchanged state" : " but state changed"),
+                    failClosed);
 
             final Robot robot = new Robot();
             // Undo: the whole batch must restore in one Undo step.
             pressShortcut(robot, KeyEvent.VK_Z);
             final Map<ArtMeshId, MaskState> afterUndo = awaitState(
-                "status=RUNNING phase=undo\n", MATRIX_ARTIFACT,
-                () -> maskStates(model),
-                state -> beforeCommit.equals(state)
-            );
+                    "status=RUNNING phase=undo\n",
+                    MATRIX_ARTIFACT,
+                    () -> maskStates(model),
+                    state -> beforeCommit.equals(state));
             appendAssertion(
-                report,
-                "undo-one-step",
-                "Ctrl+Z restores every target to its pre-commit state",
-                stateSignature(afterUndo),
-                beforeCommit.equals(afterUndo)
-            );
+                    report,
+                    "undo-one-step",
+                    "Ctrl+Z restores every target to its pre-commit state",
+                    stateSignature(afterUndo),
+                    beforeCommit.equals(afterUndo));
 
             // Redo: the whole batch reapplies in one Redo step.
             pressShortcut(robot, KeyEvent.VK_Y);
             final Map<ArtMeshId, MaskState> afterRedo = awaitState(
-                "status=RUNNING phase=redo\n", MATRIX_ARTIFACT,
-                () -> maskStates(model),
-                state -> afterCommit.equals(state)
-            );
+                    "status=RUNNING phase=redo\n",
+                    MATRIX_ARTIFACT,
+                    () -> maskStates(model),
+                    state -> afterCommit.equals(state));
             appendAssertion(
-                report,
-                "redo-one-step",
-                "Ctrl+Y reapplies every target",
-                stateSignature(afterRedo),
-                afterCommit.equals(afterRedo)
-            );
+                    report,
+                    "redo-one-step",
+                    "Ctrl+Y reapplies every target",
+                    stateSignature(afterRedo),
+                    afterCommit.equals(afterRedo));
 
             // Restore the fixture copy to its original state for repeat runs.
             pressShortcut(robot, KeyEvent.VK_Z);
             final Map<ArtMeshId, MaskState> afterRestore = awaitState(
-                "status=RUNNING phase=restore\n", MATRIX_ARTIFACT,
-                () -> maskStates(model),
-                state -> beforeCommit.equals(state)
-            );
+                    "status=RUNNING phase=restore\n",
+                    MATRIX_ARTIFACT,
+                    () -> maskStates(model),
+                    state -> beforeCommit.equals(state));
             appendAssertion(
-                report,
-                "restore-original",
-                "final Ctrl+Z leaves the model in its original state",
-                stateSignature(afterRestore),
-                beforeCommit.equals(afterRestore)
-            );
+                    report,
+                    "restore-original",
+                    "final Ctrl+Z leaves the model in its original state",
+                    stateSignature(afterRestore),
+                    beforeCommit.equals(afterRestore));
 
-            final boolean passed = commitPassed && failClosed
-                && beforeCommit.equals(afterUndo) && afterCommit.equals(afterRedo)
-                && beforeCommit.equals(afterRestore);
+            final boolean passed = commitPassed
+                    && failClosed
+                    && beforeCommit.equals(afterUndo)
+                    && afterCommit.equals(afterRedo)
+                    && beforeCommit.equals(afterRestore);
             report.append("status=").append(passed ? "PASS" : "FAIL").append('\n');
             writeArtifact(MATRIX_ARTIFACT, report.toString());
         } catch (Exception failure) {
@@ -309,7 +314,8 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         int attempt = 0;
         while (attempt < 540) {
             try {
-                final CubismModel model = onHostThread(() -> context.cubism().model().active());
+                final CubismModel model =
+                        onHostThread(() -> context.cubism().model().active());
                 final CubismModel candidate = model;
                 onHostThread(() -> {
                     if (candidate.drawables().all().isEmpty()) {
@@ -321,10 +327,9 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
             } catch (Exception failure) {
                 unavailable = failure;
                 writeArtifact(
-                    artifact,
-                    "status=RUNNING phase=await-model attempt=" + attempt + " error="
-                        + failure.getClass().getName() + ": " + failure.getMessage() + "\n"
-                );
+                        artifact,
+                        "status=RUNNING phase=await-model attempt=" + attempt + " error="
+                                + failure.getClass().getName() + ": " + failure.getMessage() + "\n");
                 attempt++;
                 if (attempt == 30 || attempt == 90 || attempt == 180) {
                     // A modal PSD import dialog can block model creation until confirmed.
@@ -338,8 +343,8 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
             }
         }
         throw unavailable == null
-            ? new IllegalStateException("PSD clip-mask validation was interrupted.")
-            : unavailable;
+                ? new IllegalStateException("PSD clip-mask validation was interrupted.")
+                : unavailable;
     }
 
     private void dismissPsdImportDialogIfPresent(final int attempt) {
@@ -352,25 +357,31 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                 int focusedCandidateCount = 0;
                 javax.swing.JDialog selectedDialog = null;
                 final java.awt.KeyboardFocusManager keyboardFocus =
-                    java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager();
+                        java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager();
                 final java.awt.Window focusedWindow = keyboardFocus.getFocusedWindow();
                 final java.awt.Window activeWindow = keyboardFocus.getActiveWindow();
                 for (final java.awt.Window window : java.awt.Window.getWindows()) {
                     if (!window.isVisible()) continue;
                     final String title = window instanceof java.awt.Frame frame
-                        ? frame.getTitle()
-                        : window instanceof java.awt.Dialog dialog ? dialog.getTitle() : null;
-                    diagnostics.append('[').append(window.getClass().getName())
-                        .append("|title=").append(title)
-                        .append("|type=").append(window.getType())
-                        .append("|visible=").append(window.isVisible())
-                        .append("|showing=").append(window.isShowing())
-                        .append("|modal=").append(window instanceof java.awt.Dialog dialog
-                            ? dialog.isModal() : false)
-                        .append("|focused=").append(window.isFocused())
-                        .append(']');
-                    if (window instanceof javax.swing.JDialog dialog
-                        && dialog.isModal() && dialog.isShowing()) {
+                            ? frame.getTitle()
+                            : window instanceof java.awt.Dialog dialog ? dialog.getTitle() : null;
+                    diagnostics
+                            .append('[')
+                            .append(window.getClass().getName())
+                            .append("|title=")
+                            .append(title)
+                            .append("|type=")
+                            .append(window.getType())
+                            .append("|visible=")
+                            .append(window.isVisible())
+                            .append("|showing=")
+                            .append(window.isShowing())
+                            .append("|modal=")
+                            .append(window instanceof java.awt.Dialog dialog ? dialog.isModal() : false)
+                            .append("|focused=")
+                            .append(window.isFocused())
+                            .append(']');
+                    if (window instanceof javax.swing.JDialog dialog && dialog.isModal() && dialog.isShowing()) {
                         modalJDialogCount++;
                         if (dialog.isFocused() || dialog == focusedWindow || dialog == activeWindow) {
                             focusedCandidateCount++;
@@ -378,25 +389,30 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                         }
                     }
                 }
-                context.logger().info("await-model windows attempt=" + attempt
-                    + " modalJDialogCount=" + modalJDialogCount
-                    + " focusedCandidateCount=" + focusedCandidateCount
-                    + " windows=" + diagnostics);
+                context.logger()
+                        .info("await-model windows attempt=" + attempt
+                                + " modalJDialogCount=" + modalJDialogCount
+                                + " focusedCandidateCount=" + focusedCandidateCount
+                                + " windows=" + diagnostics);
                 if (focusedCandidateCount != 1 || selectedDialog == null) {
-                    context.logger().info("await-model fail-closed: " + focusedCandidateCount
-                        + " focused modal JDialog candidate(s) of " + modalJDialogCount
-                        + " visible modal JDialog(s), no input sent attempt=" + attempt);
+                    context.logger()
+                            .info("await-model fail-closed: " + focusedCandidateCount
+                                    + " focused modal JDialog candidate(s) of " + modalJDialogCount
+                                    + " visible modal JDialog(s), no input sent attempt=" + attempt);
                     return null;
                 }
                 final javax.swing.JRootPane rootPane = selectedDialog.getRootPane();
                 final JButton defaultButton = rootPane == null ? null : rootPane.getDefaultButton();
-                if (defaultButton != null && defaultButton.isEnabled()
-                    && defaultButton.isVisible() && defaultButton.isShowing()) {
+                if (defaultButton != null
+                        && defaultButton.isEnabled()
+                        && defaultButton.isVisible()
+                        && defaultButton.isShowing()) {
                     defaultButton.doClick(0);
-                    context.logger().info("await-model strategy=root-default"
-                        + " modal JDialog default button invoked attempt=" + attempt
-                        + " dialog=" + selectedDialog.getClass().getName()
-                        + " title=" + selectedDialog.getTitle());
+                    context.logger()
+                            .info("await-model strategy=root-default"
+                                    + " modal JDialog default button invoked attempt=" + attempt
+                                    + " dialog=" + selectedDialog.getClass().getName()
+                                    + " title=" + selectedDialog.getTitle());
                     return null;
                 }
                 // The focused dialog may designate no root default button. Fall back to
@@ -408,26 +424,29 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                 // Robot or other global input.
                 final java.awt.Component focusOwner = keyboardFocus.getFocusOwner();
                 AbstractButton focusedButton = null;
-                for (java.awt.Component component = focusOwner; component != null;
-                     component = component.getParent()) {
+                for (java.awt.Component component = focusOwner; component != null; component = component.getParent()) {
                     if (component instanceof AbstractButton button) {
                         focusedButton = button;
                         break;
                     }
                 }
                 final boolean safeFocusedButton = focusedButton != null
-                    && focusedButton.isEnabled() && focusedButton.isVisible()
-                    && focusedButton.isShowing()
-                    && SwingUtilities.getWindowAncestor(focusedButton) == selectedDialog;
+                        && focusedButton.isEnabled()
+                        && focusedButton.isVisible()
+                        && focusedButton.isShowing()
+                        && SwingUtilities.getWindowAncestor(focusedButton) == selectedDialog;
                 if (safeFocusedButton) {
                     focusedButton.doClick(0);
-                    context.logger().info("await-model strategy=focused-button"
-                        + " focusOwner=" + (focusOwner == null
-                            ? null : focusOwner.getClass().getName())
-                        + " button=" + focusedButton.getClass().getName()
-                        + " modal JDialog invoked attempt=" + attempt
-                        + " dialog=" + selectedDialog.getClass().getName()
-                        + " title=" + selectedDialog.getTitle());
+                    context.logger()
+                            .info("await-model strategy=focused-button"
+                                    + " focusOwner="
+                                    + (focusOwner == null
+                                            ? null
+                                            : focusOwner.getClass().getName())
+                                    + " button=" + focusedButton.getClass().getName()
+                                    + " modal JDialog invoked attempt=" + attempt
+                                    + " dialog=" + selectedDialog.getClass().getName()
+                                    + " title=" + selectedDialog.getTitle());
                     return null;
                 }
                 // Final fallback: the unique modal JDialog may hold focus on a custom
@@ -443,8 +462,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                 String fallbackRejection = null;
                 if (focusOwner == null) {
                     fallbackRejection = "focusOwner is null";
-                } else if (!focusOwner.isEnabled() || !focusOwner.isVisible()
-                    || !focusOwner.isShowing()) {
+                } else if (!focusOwner.isEnabled() || !focusOwner.isVisible() || !focusOwner.isShowing()) {
                     fallbackRejection = "focusOwner not enabled+visible+showing";
                 } else if (SwingUtilities.getWindowAncestor(focusOwner) != selectedDialog) {
                     fallbackRejection = "focusOwner window ancestor != selected dialog";
@@ -453,17 +471,16 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                     final java.awt.Window reFocusedWindow = keyboardFocus.getFocusedWindow();
                     final java.awt.Window reActiveWindow = keyboardFocus.getActiveWindow();
                     boolean dialogStillUnique = selectedDialog.isShowing()
-                        && (selectedDialog.isFocused()
-                            || reFocusedWindow == selectedDialog
-                            || reActiveWindow == selectedDialog);
+                            && (selectedDialog.isFocused()
+                                    || reFocusedWindow == selectedDialog
+                                    || reActiveWindow == selectedDialog);
                     if (dialogStillUnique) {
                         for (final java.awt.Window window : java.awt.Window.getWindows()) {
                             if (window instanceof javax.swing.JDialog dialog
-                                && dialog.isModal() && dialog.isVisible()
-                                && dialog != selectedDialog
-                                && (dialog.isFocused()
-                                    || reFocusedWindow == dialog
-                                    || reActiveWindow == dialog)) {
+                                    && dialog.isModal()
+                                    && dialog.isVisible()
+                                    && dialog != selectedDialog
+                                    && (dialog.isFocused() || reFocusedWindow == dialog || reActiveWindow == dialog)) {
                                 dialogStillUnique = false;
                                 break;
                             }
@@ -472,29 +489,41 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                     if (dialogStillUnique) {
                         final long now = System.currentTimeMillis();
                         focusOwner.dispatchEvent(new java.awt.event.KeyEvent(
-                            focusOwner, java.awt.event.KeyEvent.KEY_PRESSED, now,
-                            0, java.awt.event.KeyEvent.VK_ENTER,
-                            java.awt.event.KeyEvent.CHAR_UNDEFINED));
+                                focusOwner,
+                                java.awt.event.KeyEvent.KEY_PRESSED,
+                                now,
+                                0,
+                                java.awt.event.KeyEvent.VK_ENTER,
+                                java.awt.event.KeyEvent.CHAR_UNDEFINED));
                         focusOwner.dispatchEvent(new java.awt.event.KeyEvent(
-                            focusOwner, java.awt.event.KeyEvent.KEY_RELEASED, now,
-                            0, java.awt.event.KeyEvent.VK_ENTER,
-                            java.awt.event.KeyEvent.CHAR_UNDEFINED));
-                        context.logger().info("await-model strategy=focused-component-enter"
-                            + " focusOwner=" + focusOwner.getClass().getName()
-                            + " modal JDialog Enter dispatched attempt=" + attempt
-                            + " dialog=" + selectedDialog.getClass().getName());
+                                focusOwner,
+                                java.awt.event.KeyEvent.KEY_RELEASED,
+                                now,
+                                0,
+                                java.awt.event.KeyEvent.VK_ENTER,
+                                java.awt.event.KeyEvent.CHAR_UNDEFINED));
+                        context.logger()
+                                .info("await-model strategy=focused-component-enter"
+                                        + " focusOwner=" + focusOwner.getClass().getName()
+                                        + " modal JDialog Enter dispatched attempt=" + attempt
+                                        + " dialog=" + selectedDialog.getClass().getName());
                         return null;
                     }
                     fallbackRejection = "selected dialog not showing or not the unique"
-                        + " focused/active modal candidate before dispatch";
+                            + " focused/active modal candidate before dispatch";
                 }
-                context.logger().info("await-model fail-closed: no root default button,"
-                    + " no safe focused AbstractButton, focused-component enter rejected"
-                    + " (" + fallbackRejection + "); focusOwner="
-                    + (focusOwner == null ? null : focusOwner.getClass().getName())
-                    + " focusedButton=" + (focusedButton == null
-                        ? null : focusedButton.getClass().getName())
-                    + ", no input sent attempt=" + attempt);
+                context.logger()
+                        .info("await-model fail-closed: no root default button,"
+                                + " no safe focused AbstractButton, focused-component enter rejected"
+                                + " (" + fallbackRejection + "); focusOwner="
+                                + (focusOwner == null
+                                        ? null
+                                        : focusOwner.getClass().getName())
+                                + " focusedButton="
+                                + (focusedButton == null
+                                        ? null
+                                        : focusedButton.getClass().getName())
+                                + ", no input sent attempt=" + attempt);
                 return null;
             });
         } catch (Exception failure) {
@@ -506,10 +535,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         final Map<ArtMeshId, MaskState> states = new LinkedHashMap<>();
         onHostThread(() -> {
             for (Drawable drawable : model.drawables().all()) {
-                states.put(
-                    drawable.id(),
-                    new MaskState(drawable.maskIds(), drawable.invertedMask())
-                );
+                states.put(drawable.id(), new MaskState(drawable.maskIds(), drawable.invertedMask()));
             }
             return null;
         });
@@ -523,19 +549,17 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
 
         @Override
         public String toString() {
-            return "[" + masks.stream().map(ArtMeshId::value).collect(Collectors.joining(", "))
-                + "] inverted=" + inverted;
+            return "[" + masks.stream().map(ArtMeshId::value).collect(Collectors.joining(", ")) + "] inverted="
+                    + inverted;
         }
     }
 
     private PsdClipMaskPlan plan(final CubismModel model) throws Exception {
-        final PsdClipMaskPlan plan = onHostThread(() ->
-            new PsdClipMaskPlanner().plan(model.psdDocuments(), model.drawables().all())
-        );
+        final PsdClipMaskPlan plan = onHostThread(() -> new PsdClipMaskPlanner()
+                .plan(model.psdDocuments(), model.drawables().all()));
         // Determinism: the same host state must produce the same plan by value.
-        final PsdClipMaskPlan replan = onHostThread(() ->
-            new PsdClipMaskPlanner().plan(model.psdDocuments(), model.drawables().all())
-        );
+        final PsdClipMaskPlan replan = onHostThread(() -> new PsdClipMaskPlanner()
+                .plan(model.psdDocuments(), model.drawables().all()));
         if (!plan.equals(replan)) {
             throw new IllegalStateException("PSD plan is not deterministic.");
         }
@@ -556,27 +580,14 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         final ArtMeshId first = ids.get(0);
         final ArtMeshId second = ids.get(1);
         return List.of(
-            new ClipMaskReplacement(
-                first,
-                states.get(first).masks(),
-                states.get(first).inverted(),
-                List.of(second),
-                false
-            ),
-            new ClipMaskReplacement(
-                second,
-                states.get(second).masks(),
-                states.get(second).inverted(),
-                List.of(first),
-                false
-            )
-        );
+                new ClipMaskReplacement(
+                        first, states.get(first).masks(), states.get(first).inverted(), List.of(second), false),
+                new ClipMaskReplacement(
+                        second, states.get(second).masks(), states.get(second).inverted(), List.of(first), false));
     }
 
     /** The post-commit state expected by the synthetic batch. */
-    private static Map<ArtMeshId, MaskState> syntheticExpected(
-        final Map<ArtMeshId, MaskState> before
-    ) {
+    private static Map<ArtMeshId, MaskState> syntheticExpected(final Map<ArtMeshId, MaskState> before) {
         final List<ArtMeshId> ids = List.copyOf(before.keySet());
         final ArtMeshId first = ids.get(0);
         final ArtMeshId second = ids.get(1);
@@ -590,40 +601,32 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         final List<ClipMaskReplacement> replacements = new ArrayList<>();
         for (PsdClipMaskPlan.Assignment assignment : plan.assignments()) {
             replacements.add(new ClipMaskReplacement(
-                assignment.targetArtMeshId(),
-                List.of(),
-                false,
-                assignment.orderedMaskArtMeshIds(),
-                false
-            ));
+                    assignment.targetArtMeshId(), List.of(), false, assignment.orderedMaskArtMeshIds(), false));
         }
         for (PsdClipMaskPlan.Conflict conflict : plan.conflicts()) {
             replacements.add(new ClipMaskReplacement(
-                conflict.targetArtMeshId(),
-                conflict.existingMaskArtMeshIds(),
-                conflict.existingInverted(),
-                conflict.plannedMaskArtMeshIds(),
-                false
-            ));
+                    conflict.targetArtMeshId(),
+                    conflict.existingMaskArtMeshIds(),
+                    conflict.existingInverted(),
+                    conflict.plannedMaskArtMeshIds(),
+                    false));
         }
         return List.copyOf(replacements);
     }
 
-    private static List<ClipMaskReplacement> wrongExpectedBatch(
-        final List<ClipMaskReplacement> replacements
-    ) {
+    private static List<ClipMaskReplacement> wrongExpectedBatch(final List<ClipMaskReplacement> replacements) {
         final List<ClipMaskReplacement> wrong = new ArrayList<>(replacements.size());
         boolean mutated = false;
         for (ClipMaskReplacement replacement : replacements) {
             if (!mutated && !replacement.expectedMaskArtMeshIds().isEmpty()) {
                 wrong.add(new ClipMaskReplacement(
-                    replacement.targetArtMeshId(),
-                    replacement.expectedMaskArtMeshIds().subList(0,
-                        replacement.expectedMaskArtMeshIds().size() - 1),
-                    replacement.expectedInverted(),
-                    replacement.replacementMaskArtMeshIds(),
-                    replacement.replacementInverted()
-                ));
+                        replacement.targetArtMeshId(),
+                        replacement
+                                .expectedMaskArtMeshIds()
+                                .subList(0, replacement.expectedMaskArtMeshIds().size() - 1),
+                        replacement.expectedInverted(),
+                        replacement.replacementMaskArtMeshIds(),
+                        replacement.replacementInverted()));
                 mutated = true;
             } else {
                 wrong.add(replacement);
@@ -633,13 +636,14 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
             // All assignments had empty expected state; flip the first target's
             // expected inversion so the backend cannot match the current state.
             final ClipMaskReplacement first = replacements.get(0);
-            wrong.set(0, new ClipMaskReplacement(
-                first.targetArtMeshId(),
-                first.expectedMaskArtMeshIds(),
-                !first.expectedInverted(),
-                first.replacementMaskArtMeshIds(),
-                first.replacementInverted()
-            ));
+            wrong.set(
+                    0,
+                    new ClipMaskReplacement(
+                            first.targetArtMeshId(),
+                            first.expectedMaskArtMeshIds(),
+                            !first.expectedInverted(),
+                            first.replacementMaskArtMeshIds(),
+                            first.replacementInverted()));
         }
         return List.copyOf(wrong);
     }
@@ -670,11 +674,11 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
     }
 
     private Map<ArtMeshId, MaskState> awaitState(
-        final String runningLine,
-        final String artifact,
-        final Callable<Map<ArtMeshId, MaskState>> read,
-        final Predicate<Map<ArtMeshId, MaskState>> expected
-    ) throws Exception {
+            final String runningLine,
+            final String artifact,
+            final Callable<Map<ArtMeshId, MaskState>> read,
+            final Predicate<Map<ArtMeshId, MaskState>> expected)
+            throws Exception {
         writeArtifact(artifact, runningLine);
         Map<ArtMeshId, MaskState> state = read.call();
         for (int attempt = 0; attempt < 100 && !expected.test(state); attempt++) {
@@ -685,40 +689,64 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
     }
 
     private void appendIdentity(final StringBuilder report, final CubismModel model) throws Exception {
-        final Optional<DocumentSnapshot> document = onHostThread(() -> context.cubism().activeDocument());
-        report.append("modelId=").append(onHostThread(() -> model.id().value())).append('\n')
-            .append("documentId=").append(document.map(DocumentSnapshot::documentId).orElse("none")).append('\n');
+        final Optional<DocumentSnapshot> document =
+                onHostThread(() -> context.cubism().activeDocument());
+        report.append("modelId=")
+                .append(onHostThread(() -> model.id().value()))
+                .append('\n')
+                .append("documentId=")
+                .append(document.map(DocumentSnapshot::documentId).orElse("none"))
+                .append('\n');
     }
 
     private void appendPlanSummary(final StringBuilder report, final PsdClipMaskPlan plan) {
         for (PsdClipMaskPlan.Assignment assignment : plan.assignments()) {
-            report.append("assignment.target=").append(assignment.targetArtMeshId().value())
-                .append(" masks=[").append(ids(assignment.orderedMaskArtMeshIds())).append("]\n");
+            report.append("assignment.target=")
+                    .append(assignment.targetArtMeshId().value())
+                    .append(" masks=[")
+                    .append(ids(assignment.orderedMaskArtMeshIds()))
+                    .append("]\n");
         }
         for (PsdClipMaskPlan.Conflict conflict : plan.conflicts()) {
-            report.append("conflict.target=").append(conflict.targetArtMeshId().value())
-                .append(" existing=[").append(ids(conflict.existingMaskArtMeshIds()))
-                .append("] inverted=").append(conflict.existingInverted())
-                .append(" planned=[").append(ids(conflict.plannedMaskArtMeshIds())).append("]\n");
+            report.append("conflict.target=")
+                    .append(conflict.targetArtMeshId().value())
+                    .append(" existing=[")
+                    .append(ids(conflict.existingMaskArtMeshIds()))
+                    .append("] inverted=")
+                    .append(conflict.existingInverted())
+                    .append(" planned=[")
+                    .append(ids(conflict.plannedMaskArtMeshIds()))
+                    .append("]\n");
         }
         for (PsdClipMaskPlan.Skip skip : plan.skips()) {
-            report.append("skip.target=").append(skip.targetArtMeshId().value())
-                .append(" reason=").append(skip.reason().name())
-                .append(" detail=").append(skip.detail()).append('\n');
+            report.append("skip.target=")
+                    .append(skip.targetArtMeshId().value())
+                    .append(" reason=")
+                    .append(skip.reason().name())
+                    .append(" detail=")
+                    .append(skip.detail())
+                    .append('\n');
         }
     }
 
     private static void appendAssertion(
-        final StringBuilder report,
-        final String name,
-        final String expected,
-        final String actual,
-        final boolean passed
-    ) {
-        report.append("assertion=").append(name).append('\n')
-            .append("expected=").append(expected).append('\n')
-            .append("actual=").append(actual).append('\n')
-            .append("status=").append(passed ? "PASS" : "FAIL").append('\n');
+            final StringBuilder report,
+            final String name,
+            final String expected,
+            final String actual,
+            final boolean passed) {
+        report.append("assertion=")
+                .append(name)
+                .append('\n')
+                .append("expected=")
+                .append(expected)
+                .append('\n')
+                .append("actual=")
+                .append(actual)
+                .append('\n')
+                .append("status=")
+                .append(passed ? "PASS" : "FAIL")
+                .append('\n');
     }
 
     private static String ids(final List<ArtMeshId> values) {
@@ -735,15 +763,13 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
 
     private static String stateSignature(final Map<ArtMeshId, MaskState> states) {
         return states.entrySet().stream()
-            .map(entry -> entry.getKey().value() + "=" + entry.getValue())
-            .collect(Collectors.joining("; "));
+                .map(entry -> entry.getKey().value() + "=" + entry.getValue())
+                .collect(Collectors.joining("; "));
     }
 
     private void writeFailure(final String artifact, final Throwable failure) {
         writeArtifact(
-            artifact,
-            "status=FAIL\nerror=" + failure.getClass().getName() + ": " + failure.getMessage() + "\n"
-        );
+                artifact, "status=FAIL\nerror=" + failure.getClass().getName() + ": " + failure.getMessage() + "\n");
     }
 
     private void finishAutomatedValidation(final String mode, final long startedNanos) {
@@ -757,45 +783,51 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                 if (Files.exists(artifactPath(name))) artifacts.add(artifactPath(name));
             }
             final StringBuilder report = new StringBuilder()
-                .append("schemaVersion=1\n")
-                .append("runId=")
-                .append(System.getProperty("turboism.validation.runId", "unknown"))
-                .append('\n')
-                .append("mode=").append(mode).append('\n')
-                .append("durationMillis=")
-                .append((System.nanoTime() - startedNanos) / 1_000_000L)
-                .append('\n')
-                .append("artifactCount=").append(artifacts.size()).append('\n');
+                    .append("schemaVersion=1\n")
+                    .append("runId=")
+                    .append(System.getProperty("turboism.validation.runId", "unknown"))
+                    .append('\n')
+                    .append("mode=")
+                    .append(mode)
+                    .append('\n')
+                    .append("durationMillis=")
+                    .append((System.nanoTime() - startedNanos) / 1_000_000L)
+                    .append('\n')
+                    .append("artifactCount=")
+                    .append(artifacts.size())
+                    .append('\n');
             passed = !artifacts.isEmpty();
             for (int index = 0; index < artifacts.size(); index++) {
                 final Path artifact = artifacts.get(index);
                 final String status = readStatus(artifact);
-                report.append("artifact.").append(index).append(".path=")
-                    .append(artifact.getFileName()).append('\n')
-                    .append("artifact.").append(index).append(".status=")
-                    .append(status).append('\n');
+                report.append("artifact.")
+                        .append(index)
+                        .append(".path=")
+                        .append(artifact.getFileName())
+                        .append('\n')
+                        .append("artifact.")
+                        .append(index)
+                        .append(".status=")
+                        .append(status)
+                        .append('\n');
                 passed &= "PASS".equals(status);
             }
             report.append("status=").append(passed ? "PASS" : "FAIL").append('\n');
             Files.writeString(
-                result,
-                report.toString(),
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING
-            );
-            context.logger().info("HOST_VALIDATION_RESULT status=" + (passed ? "PASS" : "FAIL")
-                + " mode=" + mode + " result=" + result);
+                    result, report.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            context.logger()
+                    .info("HOST_VALIDATION_RESULT status=" + (passed ? "PASS" : "FAIL") + " mode=" + mode + " result="
+                            + result);
         } catch (Exception failure) {
             try {
                 Files.writeString(
-                    result,
-                    "schemaVersion=1\nrunId="
-                        + System.getProperty("turboism.validation.runId", "unknown")
-                        + "\nstatus=FAIL\nerror=" + failure.getClass().getName()
-                        + ": " + failure.getMessage() + "\n",
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING
-                );
+                        result,
+                        "schemaVersion=1\nrunId="
+                                + System.getProperty("turboism.validation.runId", "unknown")
+                                + "\nstatus=FAIL\nerror=" + failure.getClass().getName()
+                                + ": " + failure.getMessage() + "\n",
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING);
             } catch (Exception ignored) {
                 // Nothing further can be reported.
             }
@@ -805,8 +837,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
             // prompt can keep it stuck forever, so run it detached and bound the whole
             // shutdown to a deadline, then force-exit the validation JVM so the runner's
             // graceful-exit gate observes a clean launcher exit.
-            final Thread closer = new Thread(this::requestAutomatedHostClose,
-                "psd-probe-graceful-close");
+            final Thread closer = new Thread(this::requestAutomatedHostClose, "psd-probe-graceful-close");
             closer.setDaemon(true);
             closer.start();
             try {
@@ -849,8 +880,8 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                         cubismFrame = swingFrame;
                     }
                 }
-                final JFrame frame = modelFrame != null
-                    ? modelFrame : cubismFrame != null ? cubismFrame : fallbackFrame;
+                final JFrame frame =
+                        modelFrame != null ? modelFrame : cubismFrame != null ? cubismFrame : fallbackFrame;
                 if (frame == null) {
                     context.logger().info("Automated host close skipped: no visible Cubism/model JFrame");
                     return;
@@ -891,13 +922,13 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         // Prefer the matching enabled Swing menu accelerator directly (avoids Wine/window
         // focus); fall back to Robot only when no enabled accelerator exists.
         if (invokeMenuShortcut(key)) {
-            context.logger().info("psd-probe pressShortcut strategy=menu key=" + key
-                + " name=" + KeyEvent.getKeyText(key));
+            context.logger()
+                    .info("psd-probe pressShortcut strategy=menu key=" + key + " name=" + KeyEvent.getKeyText(key));
             Thread.sleep(250L);
             return;
         }
-        context.logger().info("psd-probe pressShortcut strategy=robot key=" + key
-            + " name=" + KeyEvent.getKeyText(key));
+        context.logger()
+                .info("psd-probe pressShortcut strategy=robot key=" + key + " name=" + KeyEvent.getKeyText(key));
         // Ctrl+key chord: Ctrl down, key down, key up, Ctrl up. One outer try/finally
         // wraps both presses; the finally unconditionally releases the key and then
         // releases Ctrl in a nested finally, so both release attempts run even when
@@ -935,19 +966,15 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
     }
 
     private static void findMenuShortcut(
-        final javax.swing.JMenu menu,
-        final int key,
-        final AtomicReference<JMenuItem> match
-    ) {
+            final javax.swing.JMenu menu, final int key, final AtomicReference<JMenuItem> match) {
         for (int index = 0; index < menu.getItemCount() && match.get() == null; index++) {
             final javax.swing.JMenuItem item = menu.getItem(index);
             if (item == null) continue;
             if (item instanceof javax.swing.JMenu submenu) {
                 findMenuShortcut(submenu, key, match);
             } else if (item.getAccelerator() != null
-                && item.getAccelerator().getKeyCode() == key
-                && (item.getAccelerator().getModifiers()
-                    & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0) {
+                    && item.getAccelerator().getKeyCode() == key
+                    && (item.getAccelerator().getModifiers() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0) {
                 match.set(item);
             }
         }

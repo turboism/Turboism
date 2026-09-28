@@ -2,7 +2,6 @@ package dev.turboism.plugin.recentpreview;
 
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -64,9 +63,8 @@ final class RecentPreviewPoller {
         final Optional<Instant> modified = current.lastModified();
         final long modifiedMillis = modified.map(Instant::toEpochMilli).orElse(UNKNOWN_MODIFIED);
         final boolean documentChanged = currentId == null || !currentId.equals(current.id());
-        final boolean saved = !documentChanged
-            && modifiedMillis != UNKNOWN_MODIFIED
-            && modifiedMillis != currentModified;
+        final boolean saved =
+                !documentChanged && modifiedMillis != UNKNOWN_MODIFIED && modifiedMillis != currentModified;
         if (!documentChanged && !saved) {
             return Optional.empty();
         }
@@ -78,8 +76,7 @@ final class RecentPreviewPoller {
         }
         final long now = clock.nowMillis();
         final long last = lastEmittedAt.getOrDefault(current.id(), Long.MIN_VALUE);
-        if (last != Long.MIN_VALUE
-            && now - last < MIN_CAPTURE_INTERVAL.toMillis()) {
+        if (last != Long.MIN_VALUE && now - last < MIN_CAPTURE_INTERVAL.toMillis()) {
             return Optional.empty();
         }
         currentId = current.id();

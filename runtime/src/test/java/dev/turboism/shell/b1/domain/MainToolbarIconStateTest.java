@@ -21,11 +21,14 @@ final class MainToolbarIconStateTest {
         assertEquals("main-toolbar.home.aria-label", normal.ariaLabelKey());
         assertEquals("main-toolbar.home.tooltip", normal.tooltipKey());
         assertFalse(normal.resourcePath().startsWith("/"));
-        try (InputStream input = MainToolbarIconStateTest.class.getClassLoader().getResourceAsStream(normal.resourcePath())) {
+        try (InputStream input =
+                MainToolbarIconStateTest.class.getClassLoader().getResourceAsStream(normal.resourcePath())) {
             final byte[] bytes = java.util.Objects.requireNonNull(input).readAllBytes();
             assertEquals(192, bytes.length);
-            assertEquals("c2f841d2ac6cda6b60c47d71592c62a41142127936cf8a402bb4a4a8617e8b3e",
-                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+            assertEquals(
+                    "c2f841d2ac6cda6b60c47d71592c62a41142127936cf8a402bb4a4a8617e8b3e",
+                    HexFormat.of()
+                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
             assertTrue(new String(bytes, java.nio.charset.StandardCharsets.UTF_8).contains("currentColor"));
         }
     }

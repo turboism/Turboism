@@ -1,12 +1,12 @@
 package dev.turboism.preview;
 
-import dev.turboism.core.lifecycle.PluginLifecycleState;
-import dev.turboism.core.runtime.UncheckedThrowableException;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
-
+import dev.turboism.core.lifecycle.PluginLifecycleState;
+import dev.turboism.core.runtime.UncheckedThrowableException;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,10 +25,8 @@ import java.util.List;
 final class PreviewPluginShutdown {
 
     /** Failure codes that mean the close can make progress once outstanding work settles. */
-    private static final java.util.Set<String> RETRYABLE_CODES = java.util.Set.of(
-        "PLUGIN_BACKUP_QUIESCENCE_FAILED",
-        "PLUGIN_SDK_DRAIN_FAILED"
-    );
+    private static final java.util.Set<String> RETRYABLE_CODES =
+            java.util.Set.of("PLUGIN_BACKUP_QUIESCENCE_FAILED", "PLUGIN_SDK_DRAIN_FAILED");
 
     private final PreviewLog log;
     private final LocalPluginRuntime.PluginCloseHook closeHook;
@@ -43,33 +41,25 @@ final class PreviewPluginShutdown {
     private final PluginLifecycleEvents lifecycleEvents;
 
     PreviewPluginShutdown(
-        final PreviewLog log,
-        final LocalPluginRuntime.PluginCloseHook closeHook,
-        final ParameterHookRegistry parameterHookRegistry,
-        final PartHookRegistry partHookRegistry,
-        final EditorObjectHookRegistry editorObjectHookRegistry,
-        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry,
-        final PluginLifecycleLane lane,
-        final PluginLifecyclePolicy policy,
-        final RetainedPluginGenerations retention,
-        final PluginLifecycleEvents lifecycleEvents
-    ) {
+            final PreviewLog log,
+            final LocalPluginRuntime.PluginCloseHook closeHook,
+            final ParameterHookRegistry parameterHookRegistry,
+            final PartHookRegistry partHookRegistry,
+            final EditorObjectHookRegistry editorObjectHookRegistry,
+            final ProjectLifecycleHookRegistry projectLifecycleHookRegistry,
+            final PluginLifecycleLane lane,
+            final PluginLifecyclePolicy policy,
+            final RetainedPluginGenerations retention,
+            final PluginLifecycleEvents lifecycleEvents) {
         this.log = log;
         this.closeHook = closeHook;
         this.stages = new PreviewPluginShutdownStages(log);
-        this.parameterHookRegistry = java.util.Objects.requireNonNull(
-            parameterHookRegistry,
-            "parameterHookRegistry"
-        );
+        this.parameterHookRegistry = java.util.Objects.requireNonNull(parameterHookRegistry, "parameterHookRegistry");
         this.partHookRegistry = java.util.Objects.requireNonNull(partHookRegistry, "partHookRegistry");
-        this.editorObjectHookRegistry = java.util.Objects.requireNonNull(
-            editorObjectHookRegistry,
-            "editorObjectHookRegistry"
-        );
-        this.projectLifecycleHookRegistry = java.util.Objects.requireNonNull(
-            projectLifecycleHookRegistry,
-            "projectLifecycleHookRegistry"
-        );
+        this.editorObjectHookRegistry =
+                java.util.Objects.requireNonNull(editorObjectHookRegistry, "editorObjectHookRegistry");
+        this.projectLifecycleHookRegistry =
+                java.util.Objects.requireNonNull(projectLifecycleHookRegistry, "projectLifecycleHookRegistry");
         this.lane = java.util.Objects.requireNonNull(lane, "lane");
         this.policy = java.util.Objects.requireNonNull(policy, "policy");
         this.retention = java.util.Objects.requireNonNull(retention, "retention");
@@ -87,9 +77,7 @@ final class PreviewPluginShutdown {
         parameterHookRegistry.unregister(key);
     }
 
-    List<LocalPluginRuntime.LoadedPluginSummary> closeAll(
-        final List<LocalPluginRuntime.LoadedPlugin> loaded
-    ) {
+    List<LocalPluginRuntime.LoadedPluginSummary> closeAll(final List<LocalPluginRuntime.LoadedPlugin> loaded) {
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries = new ArrayList<>();
         for (int index = loaded.size() - 1; index >= 0; index--) {
             closeOne(loaded.get(index), summaries);
@@ -104,9 +92,7 @@ final class PreviewPluginShutdown {
      *
      * @return the close summary; the caller owns removing the plugin from live visibility
      */
-    LocalPluginRuntime.LoadedPluginSummary unloadOne(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin
-    ) {
+    LocalPluginRuntime.LoadedPluginSummary unloadOne(final LocalPluginRuntime.LoadedPlugin loadedPlugin) {
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries = new ArrayList<>(1);
         closeOne(loadedPlugin, summaries);
         return summaries.get(0);
@@ -130,6 +116,7 @@ final class PreviewPluginShutdown {
         try {
             loadedPlugin.eventOwner().beginClosing();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             log.error(id, "Plugin event owner fencing failed safely", failure);
         }
         // Capture the executor set while admission is fenced: at this point the registry entry
@@ -138,6 +125,7 @@ final class PreviewPluginShutdown {
         try {
             loadedPlugin.eventOwner().claimExecutors();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             log.error(id, "Plugin executor claim failed safely", failure);
         }
         final PluginGenerationGuard guard = loadedPlugin.guard();
@@ -151,9 +139,8 @@ final class PreviewPluginShutdown {
     }
 
     private void closeOne(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final List<LocalPluginRuntime.LoadedPluginSummary> summaries) {
         final String id = safePluginId(loadedPlugin);
         // Full non-blocking fence at close admission — before any wait and before the task is
         // even submitted: event admission ends, the guarded context denies new non-terminal
@@ -161,25 +148,24 @@ final class PreviewPluginShutdown {
         // still works through terminal operations (close/cancel/dispose/release) and
         // diagnostics; destructive stages only run after admitted calls drain.
         fenceFully(loadedPlugin);
-        final PreviewPluginShutdownStages.CloseProgress progress =
-            new PreviewPluginShutdownStages.CloseProgress();
+        final PreviewPluginShutdownStages.CloseProgress progress = new PreviewPluginShutdownStages.CloseProgress();
         final PluginLifecycleLease lease = new PluginLifecycleLease(id);
-        final PluginLifecycleLane.Invocation<CloseOutcome> invocation =
-            lane.submit(id, "close", () -> {
-                try {
-                    return closeLoadedPlugin(loadedPlugin, progress);
-                } catch (Exception exception) {
-                    throw exception;
-                } catch (Throwable failure) {
-                    // closeHook.run declares Throwable; Errors pass through, the rest wrap.
-                    if (failure instanceof Error error) {
-                        throw error;
-                    }
-                    throw new UncheckedThrowableException(failure);
+        final PluginLifecycleLane.Invocation<CloseOutcome> invocation = lane.submit(id, "close", () -> {
+            try {
+                return closeLoadedPlugin(loadedPlugin, progress);
+            } catch (Exception exception) {
+                throw exception;
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                // closeHook.run declares Throwable; Errors pass through, the rest wrap.
+                if (failure instanceof Error error) {
+                    throw error;
                 }
-            });
+                throw new UncheckedThrowableException(failure);
+            }
+        });
         final PluginLifecycleLane.AwaitResult<CloseOutcome> result =
-            lane.await(invocation, policy.closeTimeout(), lease);
+                lane.await(invocation, policy.closeTimeout(), lease);
         switch (result.outcome) {
             case SUCCEEDED -> {
                 summaries.add(result.value.summary());
@@ -233,9 +219,9 @@ final class PreviewPluginShutdown {
      * ordered disable/shutdown/scope/classloader stages.
      */
     private CloseOutcome closeLoadedPlugin(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final PreviewPluginShutdownStages.CloseProgress progress
-    ) throws Throwable {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final PreviewPluginShutdownStages.CloseProgress progress)
+            throws Throwable {
         final String id = loadedPlugin.runtime().id();
         // Teardown is deliberately outside the EventBus lifecycle: once closing begins,
         // disable()/shutdown() cannot publish or add subscribers. This cancels queued
@@ -244,34 +230,31 @@ final class PreviewPluginShutdown {
         // (beginClosing already ran on the caller thread; repeating it is idempotent and keeps
         // this method self-sufficient for retention re-drives.)
         loadedPlugin.eventOwner().beginClosing();
-        final boolean eventQuiesced = loadedPlugin.eventOwner().awaitQuiescence(
-            policy.eventQuiescenceTimeout()
-        );
+        final boolean eventQuiesced = loadedPlugin.eventOwner().awaitQuiescence(policy.eventQuiescenceTimeout());
         projectLifecycleHookRegistry.unregister(loadedPlugin.eventOwner().key());
         editorObjectHookRegistry.unregister(loadedPlugin.eventOwner().key());
         partHookRegistry.unregister(loadedPlugin.eventOwner().key());
         parameterHookRegistry.unregister(loadedPlugin.eventOwner().key());
         closeHook.run(id, "close");
-        final PreviewPluginShutdownResult result = stages.close(
-            loadedPlugin, id, eventQuiesced, progress
-        );
+        final PreviewPluginShutdownResult result = stages.close(loadedPlugin, id, eventQuiesced, progress);
         final boolean retryableCleanup = !eventQuiesced
-            || result.failures().stream().anyMatch(failure -> RETRYABLE_CODES.contains(
-                failure.code()
-            ));
+                || result.failures().stream().anyMatch(failure -> RETRYABLE_CODES.contains(failure.code()));
         log.info(id, "Plugin unloaded with state " + loadedPlugin.runtime().state());
         if (eventQuiesced) {
             loadedPlugin.eventOwner().close();
         }
         return new CloseOutcome(
-            PreviewPluginSummaryFactory.create(
-                loadedPlugin, result.disableState(), result.shutdownState(), result.unloadState(),
-                result.scopeCleanupState(), result.classloaderCleanupState(), result.failures()
-            ),
-            retryableCleanup,
-            unloadSucceeded(result),
-            disposalProven(result)
-        );
+                PreviewPluginSummaryFactory.create(
+                        loadedPlugin,
+                        result.disableState(),
+                        result.shutdownState(),
+                        result.unloadState(),
+                        result.scopeCleanupState(),
+                        result.classloaderCleanupState(),
+                        result.failures()),
+                retryableCleanup,
+                unloadSucceeded(result),
+                disposalProven(result));
     }
 
     /**
@@ -281,11 +264,11 @@ final class PreviewPluginShutdown {
      */
     private static boolean unloadSucceeded(final PreviewPluginShutdownResult result) {
         return "SUCCEEDED".equals(result.unloadState())
-            && !"FAILED".equals(result.disableState())
-            && !"FAILED".equals(result.shutdownState())
-            && !"FAILED".equals(result.scopeCleanupState())
-            && !"FAILED".equals(result.classloaderCleanupState())
-            && result.failures().isEmpty();
+                && !"FAILED".equals(result.disableState())
+                && !"FAILED".equals(result.shutdownState())
+                && !"FAILED".equals(result.scopeCleanupState())
+                && !"FAILED".equals(result.classloaderCleanupState())
+                && result.failures().isEmpty();
     }
 
     /**
@@ -294,8 +277,7 @@ final class PreviewPluginShutdown {
      * generation's cleanup unproven and it must not be released from retention.
      */
     private static boolean disposalProven(final PreviewPluginShutdownResult result) {
-        return "SUCCEEDED".equals(result.scopeCleanupState())
-            && "SUCCEEDED".equals(result.classloaderCleanupState());
+        return "SUCCEEDED".equals(result.scopeCleanupState()) && "SUCCEEDED".equals(result.classloaderCleanupState());
     }
 
     /**
@@ -305,23 +287,21 @@ final class PreviewPluginShutdown {
      * its own thread.
      */
     private void retainClose(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final java.util.concurrent.CompletableFuture<Void> workerDone,
-        final PreviewPluginShutdownStages.CloseProgress progress,
-        final boolean emitVerdictOnReclaim
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final java.util.concurrent.CompletableFuture<Void> workerDone,
+            final PreviewPluginShutdownStages.CloseProgress progress,
+            final boolean emitVerdictOnReclaim) {
         final String id = safePluginId(loadedPlugin);
         retention.retain(new RetainedPluginGenerations.RetainedGeneration(
-            id,
-            workerDone,
-            loadedPlugin.eventOwner(),
-            loadedPlugin.guard(),
-            // A close retained before all stages ran is not inert: the pending re-drive
-            // still executes disable()/shutdown()/scope teardown, so the shell drain
-            // barrier must hold until CloseProgress proves no stage is left.
-            progress::noPendingStages,
-            () -> reclaimClose(loadedPlugin, id, progress, emitVerdictOnReclaim)
-        ));
+                id,
+                workerDone,
+                loadedPlugin.eventOwner(),
+                loadedPlugin.guard(),
+                // A close retained before all stages ran is not inert: the pending re-drive
+                // still executes disable()/shutdown()/scope teardown, so the shell drain
+                // barrier must hold until CloseProgress proves no stage is left.
+                progress::noPendingStages,
+                () -> reclaimClose(loadedPlugin, id, progress, emitVerdictOnReclaim)));
         log.warn(id, "Plugin close deferred: generation retained until lifecycle work quiesces");
     }
 
@@ -337,11 +317,10 @@ final class PreviewPluginShutdown {
      *     never gets a contradicting second verdict
      */
     private boolean reclaimClose(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final String id,
-        final PreviewPluginShutdownStages.CloseProgress progress,
-        final boolean emitVerdictOnReclaim
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final String id,
+            final PreviewPluginShutdownStages.CloseProgress progress,
+            final boolean emitVerdictOnReclaim) {
         if (progress.permanentDisposalFailure) {
             // Terminal verdict already published and disposal never proven: keep the
             // generation's references retained without re-running stages or re-logging.
@@ -362,9 +341,8 @@ final class PreviewPluginShutdown {
         }
         // Quiescence-type failures are retryable; every other failure shape is terminal.
         // The terminal verdict is published at most once across re-drives.
-        final boolean terminal = result.failures().stream().noneMatch(failure ->
-            RETRYABLE_CODES.contains(failure.code())
-        );
+        final boolean terminal =
+                result.failures().stream().noneMatch(failure -> RETRYABLE_CODES.contains(failure.code()));
         if (terminal && emitVerdictOnReclaim && !progress.unloadVerdictPublished) {
             progress.unloadVerdictPublished = true;
             lifecycleEvents.unloadFailed(id, generation(loadedPlugin));
@@ -382,10 +360,9 @@ final class PreviewPluginShutdown {
     }
 
     private void finalizeEventOwnerAfterFailure(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final java.util.concurrent.CompletableFuture<Void> workerDone,
-        final PreviewPluginShutdownStages.CloseProgress progress
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final java.util.concurrent.CompletableFuture<Void> workerDone,
+            final PreviewPluginShutdownStages.CloseProgress progress) {
         // The FAILED verdict is already published, but a stage that threw may never
         // have reached scope/classloader disposal — closing the event owner alone
         // must not release the generation's references. The retained re-drive runs
@@ -396,6 +373,7 @@ final class PreviewPluginShutdown {
                 loadedPlugin.eventOwner().close();
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // The retained re-drive below owns the remaining cleanup either way.
         }
         progress.unloadVerdictPublished = true;
@@ -406,9 +384,7 @@ final class PreviewPluginShutdown {
         return loadedPlugin.eventOwner().key().generation();
     }
 
-    private LocalPluginRuntime.LoadedPluginSummary fallbackSummary(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin
-    ) {
+    private LocalPluginRuntime.LoadedPluginSummary fallbackSummary(final LocalPluginRuntime.LoadedPlugin loadedPlugin) {
         try {
             projectLifecycleHookRegistry.unregister(loadedPlugin.eventOwner().key());
             editorObjectHookRegistry.unregister(loadedPlugin.eventOwner().key());
@@ -417,38 +393,44 @@ final class PreviewPluginShutdown {
             closeHook.run(safePluginId(loadedPlugin), "fallback-summary");
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // The final summary must remain available when its fallback hook fails.
         }
         return fallbackSummaryWithoutRuntimeMutation(loadedPlugin);
     }
 
-    private LocalPluginRuntime.LoadedPluginSummary timeoutSummary(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin
-    ) {
+    private LocalPluginRuntime.LoadedPluginSummary timeoutSummary(final LocalPluginRuntime.LoadedPlugin loadedPlugin) {
         try {
             closeHook.run(safePluginId(loadedPlugin), "timeout-summary");
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // The final summary must remain available when its fallback hook fails.
         }
         return PreviewPluginSummaryFactory.create(
-            loadedPlugin, "NOT_STARTED", "NOT_STARTED", "NOT_STARTED", "NOT_STARTED",
-            "NOT_STARTED", List.of(new LocalPluginRuntime.PluginSummaryFailure(
-                "PLUGIN_CLOSE_TIMEOUT", "close",
-                "Plugin close exceeded its deadline; generation retained for deferred cleanup."
-            ))
-        );
+                loadedPlugin,
+                "NOT_STARTED",
+                "NOT_STARTED",
+                "NOT_STARTED",
+                "NOT_STARTED",
+                "NOT_STARTED",
+                List.of(new LocalPluginRuntime.PluginSummaryFailure(
+                        "PLUGIN_CLOSE_TIMEOUT",
+                        "close",
+                        "Plugin close exceeded its deadline; generation retained for deferred cleanup.")));
     }
 
     private static LocalPluginRuntime.LoadedPluginSummary fallbackSummaryWithoutRuntimeMutation(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin) {
         return PreviewPluginSummaryFactory.create(
-            loadedPlugin, "NOT_STARTED", "NOT_STARTED", "NOT_STARTED", "NOT_STARTED",
-            "NOT_STARTED", List.of(new LocalPluginRuntime.PluginSummaryFailure(
-                "PLUGIN_CLOSE_STAGE_FAILED", "close", "Plugin close stage failed safely."
-            ))
-        );
+                loadedPlugin,
+                "NOT_STARTED",
+                "NOT_STARTED",
+                "NOT_STARTED",
+                "NOT_STARTED",
+                "NOT_STARTED",
+                List.of(new LocalPluginRuntime.PluginSummaryFailure(
+                        "PLUGIN_CLOSE_STAGE_FAILED", "close", "Plugin close stage failed safely.")));
     }
 
     void tryLogStableFailure(final String component, final String code) {
@@ -456,31 +438,27 @@ final class PreviewPluginShutdown {
             closeHook.run(component, "fallback-log");
             logStableFailure(component, code);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // A failed fallback logger must not prevent the remaining shutdown.
         }
     }
 
     private void logStableFailure(final String component, final String code) {
-        log.error(
-            component,
-            "Runtime shutdown stage failed safely: " + code,
-            new IllegalStateException(code)
-        );
+        log.error(component, "Runtime shutdown stage failed safely: " + code, new IllegalStateException(code));
     }
 
     private static String safePluginId(final LocalPluginRuntime.LoadedPlugin loadedPlugin) {
         try {
             return loadedPlugin.runtime().id();
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return "plugin";
         }
     }
 
     private record CloseOutcome(
-        LocalPluginRuntime.LoadedPluginSummary summary,
-        boolean retain,
-        boolean unloadSucceeded,
-        boolean disposalProven
-    ) {
-    }
+            LocalPluginRuntime.LoadedPluginSummary summary,
+            boolean retain,
+            boolean unloadSucceeded,
+            boolean disposalProven) {}
 }

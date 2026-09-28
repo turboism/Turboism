@@ -1,7 +1,6 @@
 package dev.turboism.ui.appearance.control;
 
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
-
 import java.util.Objects;
 import java.util.function.LongSupplier;
 
@@ -16,37 +15,26 @@ public final class RuntimeModelAppearanceComposition {
     private final boolean available;
 
     public RuntimeModelAppearanceComposition(
-        final PaletteAppearanceCoordinator coordinator,
-        final LongSupplier modelGeneration,
-        final LongSupplier hostGeneration,
-        final LongSupplier providerGeneration,
-        final NativeLabelColorAuthoring nativeLabelColorAuthoring
-    ) {
-        this(
-            coordinator,
-            modelGeneration,
-            hostGeneration,
-            providerGeneration,
-            nativeLabelColorAuthoring,
-            true
-        );
+            final PaletteAppearanceCoordinator coordinator,
+            final LongSupplier modelGeneration,
+            final LongSupplier hostGeneration,
+            final LongSupplier providerGeneration,
+            final NativeLabelColorAuthoring nativeLabelColorAuthoring) {
+        this(coordinator, modelGeneration, hostGeneration, providerGeneration, nativeLabelColorAuthoring, true);
     }
 
     private RuntimeModelAppearanceComposition(
-        final PaletteAppearanceCoordinator coordinator,
-        final LongSupplier modelGeneration,
-        final LongSupplier hostGeneration,
-        final LongSupplier providerGeneration,
-        final NativeLabelColorAuthoring nativeLabelColorAuthoring,
-        final boolean available
-    ) {
+            final PaletteAppearanceCoordinator coordinator,
+            final LongSupplier modelGeneration,
+            final LongSupplier hostGeneration,
+            final LongSupplier providerGeneration,
+            final NativeLabelColorAuthoring nativeLabelColorAuthoring,
+            final boolean available) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.modelGeneration = Objects.requireNonNull(modelGeneration, "modelGeneration");
         this.hostGeneration = Objects.requireNonNull(hostGeneration, "hostGeneration");
         this.providerGeneration = Objects.requireNonNull(providerGeneration, "providerGeneration");
-        this.nativeLabelColorAuthoring = Objects.requireNonNull(
-            nativeLabelColorAuthoring, "nativeLabelColorAuthoring"
-        );
+        this.nativeLabelColorAuthoring = Objects.requireNonNull(nativeLabelColorAuthoring, "nativeLabelColorAuthoring");
         this.available = available;
     }
 
@@ -58,13 +46,12 @@ public final class RuntimeModelAppearanceComposition {
      */
     public static RuntimeModelAppearanceComposition unavailable() {
         return new RuntimeModelAppearanceComposition(
-            new PaletteAppearanceCoordinator(),
-            () -> 0L,
-            () -> 0L,
-            () -> 0L,
-            NativeLabelColorAuthoring.unavailable(),
-            false
-        );
+                new PaletteAppearanceCoordinator(),
+                () -> 0L,
+                () -> 0L,
+                () -> 0L,
+                NativeLabelColorAuthoring.unavailable(),
+                false);
     }
 
     /**

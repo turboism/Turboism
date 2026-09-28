@@ -6,15 +6,14 @@ import java.util.Objects;
 
 /** One selectable fx-native or Turboism-adapted provider profile. */
 record FxProviderProfile(
-    String id,
-    String name,
-    Kind kind,
-    String nativeProvider,
-    String endpoint,
-    String apiKeyEnvironment,
-    String defaultModel,
-    List<String> manualModels
-) {
+        String id,
+        String name,
+        Kind kind,
+        String nativeProvider,
+        String endpoint,
+        String apiKeyEnvironment,
+        String defaultModel,
+        List<String> manualModels) {
     static final String UNCONFIGURED_ID = "unconfigured";
     static final String VERCEL_ID = "fx-native-vercel";
     static final String CODEX_ID = "fx-native-codex";
@@ -30,8 +29,11 @@ record FxProviderProfile(
         defaultModel = Objects.requireNonNullElse(defaultModel, "").strip();
         manualModels = normalizedModels(manualModels);
         if (kind == Kind.NONE) {
-            if (!nativeProvider.isEmpty() || !endpoint.isEmpty() || !apiKeyEnvironment.isEmpty()
-                || !defaultModel.isEmpty() || !manualModels.isEmpty()) {
+            if (!nativeProvider.isEmpty()
+                    || !endpoint.isEmpty()
+                    || !apiKeyEnvironment.isEmpty()
+                    || !defaultModel.isEmpty()
+                    || !manualModels.isEmpty()) {
                 throw new IllegalArgumentException("unconfigured provider profile is invalid");
             }
         } else if (kind == Kind.FX_NATIVE) {
@@ -39,13 +41,7 @@ record FxProviderProfile(
                 throw new IllegalArgumentException("fx-native provider profile is invalid");
             }
         } else {
-            new FxCustomEndpointSettings(
-                true,
-                endpoint,
-                defaultModel,
-                apiKeyEnvironment,
-                ""
-            );
+            new FxCustomEndpointSettings(true, endpoint, defaultModel, apiKeyEnvironment, "");
             if (!nativeProvider.isEmpty()) {
                 throw new IllegalArgumentException("custom provider profile is invalid");
             }
@@ -54,65 +50,21 @@ record FxProviderProfile(
 
     static List<FxProviderProfile> builtIns() {
         return List.of(
-            new FxProviderProfile(
-                UNCONFIGURED_ID,
-                "No provider selected",
-                Kind.NONE,
-                "",
-                "",
-                "",
-                "",
-                List.of()
-            ),
-            new FxProviderProfile(
-                VERCEL_ID,
-                "Vercel AI Gateway",
-                Kind.FX_NATIVE,
-                "gateway",
-                "",
-                "",
-                "",
-                List.of()
-            ),
-            new FxProviderProfile(
-                CODEX_ID,
-                "Codex",
-                Kind.FX_NATIVE,
-                "codex",
-                "",
-                "",
-                "",
-                List.of()
-            ),
-            new FxProviderProfile(
-                GROK_ID,
-                "Grok",
-                Kind.FX_NATIVE,
-                "grok",
-                "",
-                "",
-                "",
-                List.of()
-            )
-        );
+                new FxProviderProfile(UNCONFIGURED_ID, "No provider selected", Kind.NONE, "", "", "", "", List.of()),
+                new FxProviderProfile(VERCEL_ID, "Vercel AI Gateway", Kind.FX_NATIVE, "gateway", "", "", "", List.of()),
+                new FxProviderProfile(CODEX_ID, "Codex", Kind.FX_NATIVE, "codex", "", "", "", List.of()),
+                new FxProviderProfile(GROK_ID, "Grok", Kind.FX_NATIVE, "grok", "", "", "", List.of()));
     }
 
     boolean builtIn() {
-        return UNCONFIGURED_ID.equals(id) || VERCEL_ID.equals(id)
-            || CODEX_ID.equals(id) || GROK_ID.equals(id);
+        return UNCONFIGURED_ID.equals(id) || VERCEL_ID.equals(id) || CODEX_ID.equals(id) || GROK_ID.equals(id);
     }
 
     FxCustomEndpointSettings customEndpoint(final String sessionApiKey) {
         if (kind != Kind.OPENAI_COMPATIBLE) {
             return new FxCustomEndpointSettings(false, "", "", "", "");
         }
-        return new FxCustomEndpointSettings(
-            true,
-            endpoint,
-            defaultModel,
-            apiKeyEnvironment,
-            sessionApiKey
-        );
+        return new FxCustomEndpointSettings(true, endpoint, defaultModel, apiKeyEnvironment, sessionApiKey);
     }
 
     List<String> models(final List<String> discovered) {
@@ -140,14 +92,14 @@ record FxProviderProfile(
 
     private static String text(final String value, final String name, final int maximum) {
         final String text = Objects.requireNonNull(value, name).strip();
-        if (text.isEmpty() || text.length() > maximum
-            || text.chars().anyMatch(Character::isISOControl)) {
+        if (text.isEmpty() || text.length() > maximum || text.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException(name + " is invalid");
         }
         return text;
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return name;
     }
 }

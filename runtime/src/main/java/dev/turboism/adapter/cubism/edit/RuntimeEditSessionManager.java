@@ -12,7 +12,6 @@ import dev.turboism.sdk.cubism.edit.EditSessionState;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.DocumentId;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -69,11 +68,10 @@ public final class RuntimeEditSessionManager {
      * @param recoverySelector chooses the cancellation recovery strategy per session
      */
     public RuntimeEditSessionManager(
-        final EditorEditSessionHost host,
-        final AtomicBoolean editScopeGate,
-        final EditSessionUiLockFactory uiLockFactory,
-        final EditSessionRecovery.Selector recoverySelector
-    ) {
+            final EditorEditSessionHost host,
+            final AtomicBoolean editScopeGate,
+            final EditSessionUiLockFactory uiLockFactory,
+            final EditSessionRecovery.Selector recoverySelector) {
         this.host = Objects.requireNonNull(host, "host");
         this.editScopeGate = Objects.requireNonNull(editScopeGate, "editScopeGate");
         this.uiLockFactory = Objects.requireNonNull(uiLockFactory, "uiLockFactory");
@@ -86,16 +84,12 @@ public final class RuntimeEditSessionManager {
      * the capability row binds — as it does on every supported host — compensating recovery
      * otherwise.
      */
-    public RuntimeEditSessionManager(
-        final EditorEditSessionHost host,
-        final AtomicBoolean editScopeGate
-    ) {
+    public RuntimeEditSessionManager(final EditorEditSessionHost host, final AtomicBoolean editScopeGate) {
         this(
-            host,
-            editScopeGate,
-            new SwingEditSessionUiLockFactory(),
-            EditSessionRecoveries.PREFER_REVERT_WHEN_VERIFIED
-        );
+                host,
+                editScopeGate,
+                new SwingEditSessionUiLockFactory(),
+                EditSessionRecoveries.PREFER_REVERT_WHEN_VERIFIED);
     }
 
     /**
@@ -123,10 +117,10 @@ public final class RuntimeEditSessionManager {
      *     transaction is live, the binding is stale or not admitted, or the UI lock cannot engage
      */
     public EditSession open(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final DocumentId document,
-        final EditSessionOptions options
-    ) throws EditSessionException {
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final DocumentId document,
+            final EditSessionOptions options)
+            throws EditSessionException {
         Objects.requireNonNull(binding, "binding");
         Objects.requireNonNull(document, "document");
         Objects.requireNonNull(options, "options");
@@ -139,7 +133,7 @@ public final class RuntimeEditSessionManager {
      * UI lock, and delivers the undo-cancel listener event for non-plugin sources.
      */
     EditSessionCloseResult cancel(final RuntimeEditSession session, final CancelSource source)
-        throws EditSessionException {
+            throws EditSessionException {
         Objects.requireNonNull(session, "session");
         Objects.requireNonNull(source, "source");
         return host.dispatch("edit-session.cancel", () -> {
@@ -155,24 +149,20 @@ public final class RuntimeEditSessionManager {
             EditSessionCloseResult result;
             try {
                 final EditSessionRecovery recovery = Objects.requireNonNull(
-                    recoverySelector.select(host, session.binding()),
-                    "recovery selector result"
-                );
-                recovery.recover(host, new EditSessionRecoveryRequest(
-                    session.binding(),
-                    session.editToken(),
-                    session.historyBefore(),
-                    message -> {
-                        try {
-                            session.uiLock().log(message);
-                        } catch (RuntimeException ignored) {
-                            // diagnostics must never mask the recovery outcome
-                        }
-                    }));
+                        recoverySelector.select(host, session.binding()), "recovery selector result");
+                recovery.recover(
+                        host,
+                        new EditSessionRecoveryRequest(
+                                session.binding(), session.editToken(), session.historyBefore(), message -> {
+                                    try {
+                                        session.uiLock().log(message);
+                                    } catch (RuntimeException ignored) {
+                                        // diagnostics must never mask the recovery outcome
+                                    }
+                                }));
                 result = EditSessionCloseResult.cancelled(source);
             } catch (EditSessionException | RuntimeException failure) {
-                result = EditSessionCloseResult.failed(
-                    host.diagnosticId(CODE_CANCEL_FAILED, failure));
+                result = EditSessionCloseResult.failed(host.diagnosticId(CODE_CANCEL_FAILED, failure));
             }
             disengage(session);
             notifyUndoCancelled(session, source);
@@ -205,39 +195,33 @@ public final class RuntimeEditSessionManager {
                 final Object currentGroup = host.currentEditGroup(session.binding());
                 if (currentGroup != session.editToken()) {
                     try {
-                        session.uiLock().log(
-                            "edit-session close: the session undo group was displaced by a "
-                                + "host-side edit; reconciling to the pre-session state");
+                        session.uiLock()
+                                .log("edit-session close: the session undo group was displaced by a "
+                                        + "host-side edit; reconciling to the pre-session state");
                     } catch (RuntimeException ignored) {
                         // diagnostics must never mask the close outcome
                     }
                     try {
                         EditSessionRecoveries.reconcileToStart(
-                            host,
-                            new EditSessionRecoveryRequest(
-                                session.binding(),
-                                session.editToken(),
-                                session.historyBefore(),
-                                message -> {
-                                    try {
-                                        session.uiLock().log(message);
-                                    } catch (RuntimeException ignored) {
-                                        // diagnostics are advisory
-                                    }
-                                }));
+                                host,
+                                new EditSessionRecoveryRequest(
+                                        session.binding(), session.editToken(), session.historyBefore(), message -> {
+                                            try {
+                                                session.uiLock().log(message);
+                                            } catch (RuntimeException ignored) {
+                                                // diagnostics are advisory
+                                            }
+                                        }));
                     } catch (EditSessionException | RuntimeException reconcileFailure) {
                         disengage(session);
                         editScopeGate.set(false);
-                        return EditSessionCloseResult.failed(
-                            host.diagnosticId(CODE_CLOSE_FAILED, reconcileFailure));
+                        return EditSessionCloseResult.failed(host.diagnosticId(CODE_CLOSE_FAILED, reconcileFailure));
                     }
                     disengage(session);
                     editScopeGate.set(false);
-                    return EditSessionCloseResult.failed(
-                        host.diagnosticId(
+                    return EditSessionCloseResult.failed(host.diagnosticId(
                             CODE_CLOSE_FAILED,
-                            new IllegalStateException(
-                                "Editor edit session group was displaced by a host-side edit")));
+                            new IllegalStateException("Editor edit session group was displaced by a host-side edit")));
                 }
                 host.endEdit(session.binding(), session.editToken(), false);
             } catch (RuntimeException failure) {
@@ -248,8 +232,7 @@ public final class RuntimeEditSessionManager {
                 }
                 disengage(session);
                 editScopeGate.set(false);
-                return EditSessionCloseResult.failed(
-                    host.diagnosticId(CODE_CLOSE_FAILED, failure));
+                return EditSessionCloseResult.failed(host.diagnosticId(CODE_CLOSE_FAILED, failure));
             }
             try {
                 host.refreshAfterSession(session.binding());
@@ -267,8 +250,7 @@ public final class RuntimeEditSessionManager {
      * disable / project close cleanup path. No-op when no session is active or the active
      * session is owned by another plugin.
      */
-    public void forceCancelFor(final String pluginId, final CancelSource source)
-        throws EditSessionException {
+    public void forceCancelFor(final String pluginId, final CancelSource source) throws EditSessionException {
         final String owner = Objects.requireNonNull(pluginId, "pluginId");
         Objects.requireNonNull(source, "source");
         host.dispatch("edit-session.force-cancel", () -> {
@@ -284,8 +266,7 @@ public final class RuntimeEditSessionManager {
      * Forcibly cancels one specific session — used by staleness detection inside the operation
      * gate so a switched/closed document tears the session down instead of admitting work.
      */
-    void forceCancel(final RuntimeEditSession session, final CancelSource source)
-        throws EditSessionException {
+    void forceCancel(final RuntimeEditSession session, final CancelSource source) throws EditSessionException {
         host.dispatch("edit-session.force-cancel", () -> {
             synchronized (lock) {
                 if (session.state() != EditSessionState.OPEN || active != session) {
@@ -305,8 +286,7 @@ public final class RuntimeEditSessionManager {
         }
     }
 
-    void log(final RuntimeEditSession session, final String message)
-        throws EditSessionException {
+    void log(final RuntimeEditSession session, final String message) throws EditSessionException {
         host.dispatch("edit-session.log", () -> {
             requireActive(session);
             session.uiLock().log(message);
@@ -314,8 +294,7 @@ public final class RuntimeEditSessionManager {
         });
     }
 
-    void progress(final RuntimeEditSession session, final double value)
-        throws EditSessionException {
+    void progress(final RuntimeEditSession session, final double value) throws EditSessionException {
         host.dispatch("edit-session.progress", () -> {
             requireActive(session);
             session.uiLock().progress(value);
@@ -324,47 +303,37 @@ public final class RuntimeEditSessionManager {
     }
 
     private RuntimeEditSession openOnHostThread(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final DocumentId document,
-        final EditSessionOptions options
-    ) throws EditSessionException {
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final DocumentId document,
+            final EditSessionOptions options)
+            throws EditSessionException {
         final AtomicReference<RuntimeEditSession> pending = new AtomicReference<>();
         synchronized (lock) {
             // One atomic admission covers both exclusion directions: a held gate means either an
             // active session or a live authoring transaction root.
             if (!editScopeGate.compareAndSet(false, true)) {
                 throw new EditUnavailableException(
-                    CODE_CONFLICT,
-                    "Another editing scope (edit session or authoring transaction) is active"
-                );
+                        CODE_CONFLICT, "Another editing scope (edit session or authoring transaction) is active");
             }
             try {
                 if (!host.isCurrent(binding)) {
                     throw new EditUnavailableException(
-                        CODE_ADMISSION,
-                        "The requested document is not the active modeling document"
-                    );
+                            CODE_ADMISSION, "The requested document is not the active modeling document");
                 }
                 if (!host.admits(binding)) {
                     throw new EditUnavailableException(
-                        CODE_ADMISSION,
-                        "The connected Cubism editor does not admit external edit sessions"
-                    );
+                            CODE_ADMISSION, "The connected Cubism editor does not admit external edit sessions");
                 }
                 final HistorySnapshot before = host.history(binding);
                 if (before.availability() != HistorySnapshot.Availability.AVAILABLE) {
                     throw new EditUnavailableException(
-                        CODE_ADMISSION,
-                        "The native Undo history is unavailable; the session cannot be admitted"
-                    );
+                            CODE_ADMISSION, "The native Undo history is unavailable; the session cannot be admitted");
                 }
                 final Object editToken = host.beginEdit(binding, SESSION_LABEL);
                 final EditSessionUiLock uiLock;
                 try {
                     uiLock = Objects.requireNonNull(
-                        uiLockFactory.create(new EditSessionUiLockContext(
-                            host.mainWindow(binding),
-                            () -> {
+                            uiLockFactory.create(new EditSessionUiLockContext(host.mainWindow(binding), () -> {
                                 final RuntimeEditSession session = pending.get();
                                 if (session != null) {
                                     try {
@@ -373,10 +342,8 @@ public final class RuntimeEditSessionManager {
                                         // the session is already in a terminal state
                                     }
                                 }
-                            }
-                        )),
-                        "ui lock"
-                    );
+                            })),
+                            "ui lock");
                     try {
                         uiLock.engage(options.silent());
                     } catch (RuntimeException engageFailure) {
@@ -397,14 +364,11 @@ public final class RuntimeEditSessionManager {
                         failure.addSuppressed(abortFailure);
                     }
                     throw new EditUnavailableException(
-                        CODE_UI_LOCK,
-                        "The edit session UI lock could not engage: " + failure.getMessage()
-                    );
+                            CODE_UI_LOCK, "The edit session UI lock could not engage: " + failure.getMessage());
                 }
                 final RuntimeEditSession session;
                 try {
-                    session = new RuntimeEditSession(
-                        this, binding, editToken, document, options, uiLock, before);
+                    session = new RuntimeEditSession(this, binding, editToken, document, options, uiLock, before);
                 } catch (RuntimeException | Error failure) {
                     // The session never reaches `active`, so no close path will ever
                     // disengage the engaged lock — release it and abort the native edit
@@ -435,8 +399,7 @@ public final class RuntimeEditSessionManager {
         synchronized (lock) {
             if (session.state() == EditSessionState.CANCELLED) {
                 throw new EditCancelledException(
-                    Objects.requireNonNullElse(session.cancelledBy().orElse(null),
-                        CancelSource.HOST));
+                        Objects.requireNonNullElse(session.cancelledBy().orElse(null), CancelSource.HOST));
             }
             if (session.state() != EditSessionState.OPEN || active != session) {
                 throw new EditUnavailableException("EditSession operation");
@@ -446,8 +409,7 @@ public final class RuntimeEditSessionManager {
 
     private EditSessionException sessionUnavailable(final RuntimeEditSession session) {
         if (session.state() == EditSessionState.CANCELLED) {
-            return new EditCancelledException(
-                session.cancelledBy().orElse(CancelSource.HOST));
+            return new EditCancelledException(session.cancelledBy().orElse(CancelSource.HOST));
         }
         return new EditUnavailableException("EditSession operation");
     }

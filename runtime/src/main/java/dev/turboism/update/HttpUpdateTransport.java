@@ -1,5 +1,6 @@
 package dev.turboism.update;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,11 +13,11 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -24,9 +25,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /** Fixed-origin HTTPS transport for the small stable-channel discovery response. */
 public final class HttpUpdateTransport implements UpdateTransport {
-    public static final URI ENDPOINT = URI.create(
-        "https://api.turboism.dev/v1/releases/stable.json"
-    );
+    public static final URI ENDPOINT = URI.create("https://api.turboism.dev/v1/releases/stable.json");
     public static final Duration REQUEST_DEADLINE = Duration.ofSeconds(15);
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
     private static final AtomicLong REQUEST_IDS = new AtomicLong();
@@ -69,10 +68,7 @@ public final class HttpUpdateTransport implements UpdateTransport {
         private final Optional<String> etag;
         private final long deadlineNanos;
         private final Object resourceLock = new Object();
-        private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(
-            2,
-            requestThreadFactory()
-        );
+        private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(2, requestThreadFactory());
         private final RequestFuture result = new RequestFuture(this);
         private final AtomicBoolean cancelled = new AtomicBoolean();
         private final AtomicBoolean finished = new AtomicBoolean();
@@ -89,11 +85,7 @@ public final class HttpUpdateTransport implements UpdateTransport {
 
         private CompletionStage<Response> start() {
             try {
-                registerDeadline(executor.schedule(
-                    this::timeout,
-                    remainingNanos(),
-                    TimeUnit.NANOSECONDS
-                ));
+                registerDeadline(executor.schedule(this::timeout, remainingNanos(), TimeUnit.NANOSECONDS));
                 registerTask(executor.submit(this::run));
             } catch (RejectedExecutionException failure) {
                 result.completeExceptionally(failure);
@@ -111,6 +103,7 @@ public final class HttpUpdateTransport implements UpdateTransport {
                     result.completeExceptionally(new IllegalStateException("update request failed", failure));
                 }
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (!cancelled.get() && !result.isDone()) result.completeExceptionally(failure);
             } finally {
                 finish();
@@ -131,7 +124,7 @@ public final class HttpUpdateTransport implements UpdateTransport {
             opened.setRequestMethod("GET");
             opened.setRequestProperty("Accept", "application/json");
             etag.filter(value -> !value.isBlank())
-                .ifPresent(value -> opened.setRequestProperty("If-None-Match", value));
+                    .ifPresent(value -> opened.setRequestProperty("If-None-Match", value));
 
             final int statusCode = opened.getResponseCode();
             checkDeadline();
@@ -139,15 +132,10 @@ public final class HttpUpdateTransport implements UpdateTransport {
             if (contentLength > UpdateDiscoveryParser.MAX_BYTES) {
                 throw new IOException("discovery metadata exceeds the 256 KiB limit");
             }
-            final InputStream responseBody = statusCode >= 400
-                ? opened.getErrorStream()
-                : opened.getInputStream();
+            final InputStream responseBody = statusCode >= 400 ? opened.getErrorStream() : opened.getInputStream();
             registerBody(responseBody);
             return new Response(
-                statusCode,
-                readBounded(responseBody),
-                Optional.ofNullable(opened.getHeaderField("ETag"))
-            );
+                    statusCode, readBounded(responseBody), Optional.ofNullable(opened.getHeaderField("ETag")));
         }
 
         private byte[] readBounded(final InputStream input) throws IOException {

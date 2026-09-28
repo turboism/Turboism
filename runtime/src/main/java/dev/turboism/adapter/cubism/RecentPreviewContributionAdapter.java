@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 
 /** Adapter seam for the host-owned Recent Files hover popup bridge. */
@@ -36,8 +35,7 @@ public interface RecentPreviewContributionAdapter {
             }
 
             @Override
-            public void refresh() {
-            }
+            public void refresh() {}
         });
     }
 

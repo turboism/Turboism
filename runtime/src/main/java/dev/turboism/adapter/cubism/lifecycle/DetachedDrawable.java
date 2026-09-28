@@ -6,18 +6,31 @@ import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.IntSequence;
-
 import java.util.Objects;
 
 /** Immutable, host-detached Drawable projection for event delivery. */
 final class DetachedDrawable implements Drawable {
     private static final IntSequence EMPTY_INTS = new IntSequence() {
-        @Override public int size() { return 0; }
-        @Override public int get(final int index) { throw new IndexOutOfBoundsException(index); }
+        @Override
+        public int size() {
+            return 0;
+        }
+
+        @Override
+        public int get(final int index) {
+            throw new IndexOutOfBoundsException(index);
+        }
     };
     private static final FloatSequence EMPTY_FLOATS = new FloatSequence() {
-        @Override public int size() { return 0; }
-        @Override public float get(final int index) { throw new IndexOutOfBoundsException(index); }
+        @Override
+        public int size() {
+            return 0;
+        }
+
+        @Override
+        public float get(final int index) {
+            throw new IndexOutOfBoundsException(index);
+        }
     };
 
     private final ArtMeshId id;
@@ -52,28 +65,97 @@ final class DetachedDrawable implements Drawable {
         return new DetachedDrawable(Objects.requireNonNull(drawable, "drawable"), opacity);
     }
 
-    @Override public ArtMeshId id() { return id; }
-    @Override public byte constantFlag() { return constantFlag.get(); }
-    @Override public byte dynamicFlag() { return dynamicFlag.get(); }
-    @Override public BlendMode blendMode() { return blendMode.get(); }
-    @Override public int textureIndex() { return textureIndex.get(); }
-    @Override public int drawOrder() { return drawOrder; }
-    @Override public int renderOrder() { return renderOrder.get(); }
-    @Override public float getOpacity() { return opacity; }
-    @Override public IntSequence masks() { return EMPTY_INTS; }
-    @Override public FloatSequence vertexPositions() { return EMPTY_FLOATS; }
-    @Override public FloatSequence vertexUvs() { return EMPTY_FLOATS; }
-    @Override public IntSequence indices() { return EMPTY_INTS; }
-    @Override public Color multiplyColor() { return multiplyColor.get(); }
-    @Override public Color screenColor() { return screenColor.get(); }
-    @Override public int parentPartIndex() { return parentPartIndex; }
-    @Override public int parentDeformerIndex() { return parentDeformerIndex; }
-    @Override public IntSequence parameters() { return EMPTY_INTS; }
-    @Override public void setOpacity(final float opacity) { throw detached(); }
+    @Override
+    public ArtMeshId id() {
+        return id;
+    }
+
+    @Override
+    public byte constantFlag() {
+        return constantFlag.get();
+    }
+
+    @Override
+    public byte dynamicFlag() {
+        return dynamicFlag.get();
+    }
+
+    @Override
+    public BlendMode blendMode() {
+        return blendMode.get();
+    }
+
+    @Override
+    public int textureIndex() {
+        return textureIndex.get();
+    }
+
+    @Override
+    public int drawOrder() {
+        return drawOrder;
+    }
+
+    @Override
+    public int renderOrder() {
+        return renderOrder.get();
+    }
+
+    @Override
+    public float getOpacity() {
+        return opacity;
+    }
+
+    @Override
+    public IntSequence masks() {
+        return EMPTY_INTS;
+    }
+
+    @Override
+    public FloatSequence vertexPositions() {
+        return EMPTY_FLOATS;
+    }
+
+    @Override
+    public FloatSequence vertexUvs() {
+        return EMPTY_FLOATS;
+    }
+
+    @Override
+    public IntSequence indices() {
+        return EMPTY_INTS;
+    }
+
+    @Override
+    public Color multiplyColor() {
+        return multiplyColor.get();
+    }
+
+    @Override
+    public Color screenColor() {
+        return screenColor.get();
+    }
+
+    @Override
+    public int parentPartIndex() {
+        return parentPartIndex;
+    }
+
+    @Override
+    public int parentDeformerIndex() {
+        return parentDeformerIndex;
+    }
+
+    @Override
+    public IntSequence parameters() {
+        return EMPTY_INTS;
+    }
+
+    @Override
+    public void setOpacity(final float opacity) {
+        throw detached();
+    }
 
     private static UnsupportedOperationException detached() {
-        return new UnsupportedOperationException(
-            "Event Drawable snapshots are read-only and host-detached."
-        );
+        return new UnsupportedOperationException("Event Drawable snapshots are read-only and host-detached.");
     }
 }

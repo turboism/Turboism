@@ -180,6 +180,12 @@ Priority families:
 
 Each workflow must prove user-visible behavior, not merely plugin loading or fake-provider compatibility.
 
+A restored workflow graduates out of the migration wave when its user-visible
+behavior is proven on a verified host; at that point its `b1/` tree must move to
+stable plugin-owned packages rather than remain as permanent structure. Track E
+is complete only when no `b1/` package remains under `plugins/*/src` or
+`runtime/src`.
+
 ## Track F — Hook and render ingress
 
 Hooks are implemented only for behavior that cannot be supported by explicit reads, refresh, bounded polling, Editor providers or existing callbacks.

@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.performance;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -63,23 +62,23 @@ public final class PerformanceProbeRollbackWriter {
      * @throws IOException when the manifest exceeds 256 KiB, or it cannot be written or moved into place
      */
     public void write(
-        final Path output,
-        final String cubismVersion,
-        final String artifactSha256,
-        final String runId,
-        final String variant,
-        final String scenario,
-        final String agentSha256,
-        final String fixtureSha256,
-        final List<PerformanceProbeMethodTransformer.Target> targets,
-        final Map<String, OwnerEvidence> owners,
-        final Map<PerformanceProbeMethodTransformer.Target, Integer> selectorMatches,
-        final Map<String, Integer> restorationMatches
-    ) throws IOException {
+            final Path output,
+            final String cubismVersion,
+            final String artifactSha256,
+            final String runId,
+            final String variant,
+            final String scenario,
+            final String agentSha256,
+            final String fixtureSha256,
+            final List<PerformanceProbeMethodTransformer.Target> targets,
+            final Map<String, OwnerEvidence> owners,
+            final Map<PerformanceProbeMethodTransformer.Target, Integer> selectorMatches,
+            final Map<String, Integer> restorationMatches)
+            throws IOException {
         final List<String> expectedOwners = targets.stream()
-            .map(target -> target.ownerInternalName().replace('/', '.'))
-            .distinct()
-            .toList();
+                .map(target -> target.ownerInternalName().replace('/', '.'))
+                .distinct()
+                .toList();
         validateOwners(expectedOwners, owners);
         validateSelectorMatches(targets, selectorMatches);
         validateRestorationMatches(expectedOwners, restorationMatches);
@@ -133,13 +132,10 @@ public final class PerformanceProbeRollbackWriter {
         }
     }
 
-    private static void validateOwners(
-        final List<String> expectedOwners,
-        final Map<String, OwnerEvidence> owners
-    ) {
+    private static void validateOwners(final List<String> expectedOwners, final Map<String, OwnerEvidence> owners) {
         if (owners.size() != expectedOwners.size() || !owners.keySet().containsAll(expectedOwners)) {
             throw new IllegalArgumentException(
-                "rollback owners must cover exactly the target owners: " + expectedOwners);
+                    "rollback owners must cover exactly the target owners: " + expectedOwners);
         }
         for (String owner : expectedOwners) {
             final OwnerEvidence evidence = owners.get(owner);
@@ -148,21 +144,19 @@ public final class PerformanceProbeRollbackWriter {
             requireSha256(evidence.instrumentedSha256(), "instrumentedSha256 for " + owner);
             requireSha256(evidence.afterSha256(), "afterSha256 for " + owner);
             if (evidence.instrumentedSha256().equals(evidence.beforeSha256())) {
-                throw new IllegalArgumentException(
-                    "rollback instrumented bytes equal the baseline for " + owner);
+                throw new IllegalArgumentException("rollback instrumented bytes equal the baseline for " + owner);
             }
             if (!evidence.afterSha256().equals(evidence.beforeSha256())) {
-                throw new IllegalArgumentException(
-                    "rollback restoration mismatch for " + owner);
+                throw new IllegalArgumentException("rollback restoration mismatch for " + owner);
             }
         }
     }
 
     private static void validateSelectorMatches(
-        final List<PerformanceProbeMethodTransformer.Target> targets,
-        final Map<PerformanceProbeMethodTransformer.Target, Integer> selectorMatches
-    ) {
-        if (selectorMatches.size() != targets.size() || !selectorMatches.keySet().containsAll(targets)) {
+            final List<PerformanceProbeMethodTransformer.Target> targets,
+            final Map<PerformanceProbeMethodTransformer.Target, Integer> selectorMatches) {
+        if (selectorMatches.size() != targets.size()
+                || !selectorMatches.keySet().containsAll(targets)) {
             throw new IllegalArgumentException("rollback selector matches must cover exactly the target selectors");
         }
         for (Integer count : selectorMatches.values()) {
@@ -173,13 +167,11 @@ public final class PerformanceProbeRollbackWriter {
     }
 
     private static void validateRestorationMatches(
-        final List<String> expectedOwners,
-        final Map<String, Integer> restorationMatches
-    ) {
+            final List<String> expectedOwners, final Map<String, Integer> restorationMatches) {
         if (restorationMatches.size() != expectedOwners.size()
-            || !restorationMatches.keySet().containsAll(expectedOwners)) {
+                || !restorationMatches.keySet().containsAll(expectedOwners)) {
             throw new IllegalArgumentException(
-                "rollback restoration observations must cover exactly the target owners");
+                    "rollback restoration observations must cover exactly the target owners");
         }
         for (Integer count : restorationMatches.values()) {
             if (count == null || count != 1) {
@@ -211,5 +203,5 @@ public final class PerformanceProbeRollbackWriter {
      * @param instrumentedSha256 digest of the bytes the transformer produced; must differ from the baseline
      * @param afterSha256        digest of the bytes observed after rollback; must equal the baseline
      */
-    public record OwnerEvidence(String beforeSha256, String instrumentedSha256, String afterSha256) { }
+    public record OwnerEvidence(String beforeSha256, String instrumentedSha256, String afterSha256) {}
 }

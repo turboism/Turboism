@@ -1,16 +1,15 @@
 package dev.turboism.mapping.verification;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class WorkspaceControlVerificationRecordTest {
     private static final Path ROOT = locateRepositoryRoot();
@@ -23,20 +22,19 @@ class WorkspaceControlVerificationRecordTest {
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 
-    private static void verify(
-        final String file,
-        final String version,
-        final HostArtifactDigest artifact
-    ) throws Exception {
+    private static void verify(final String file, final String version, final HostArtifactDigest artifact)
+            throws Exception {
         final Path path = ROOT.resolve("compatibility/cubism/verification").resolve(file);
         final JsonNode root = new ObjectMapper().readTree(Files.readString(path));
         assertEquals(version, root.path("cubismVersion").asText());
         assertEquals(artifact.size(), root.path("artifact").path("size").asLong());
         assertEquals(artifact.sha256(), root.path("artifact").path("sha256").asText());
         final Set<String> aliases = new HashSet<>();
-        root.path("selectors").forEach(selector -> aliases.add(selector.path("alias").asText()));
+        root.path("selectors")
+                .forEach(selector -> aliases.add(selector.path("alias").asText()));
         assertEquals(WorkspaceControlVerificationManifest.REQUIRED_ALIASES, aliases);
-        assertEquals("cubism.workspace.control", root.path("capabilityIds").get(0).asText());
+        assertEquals(
+                "cubism.workspace.control", root.path("capabilityIds").get(0).asText());
     }
 
     private static Path locateRepositoryRoot() {

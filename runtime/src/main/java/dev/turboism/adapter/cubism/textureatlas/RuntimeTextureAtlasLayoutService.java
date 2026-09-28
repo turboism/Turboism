@@ -11,18 +11,17 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.permission.CubismPermissionException;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.IntStream;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 /** Per-plugin permission checked texture-atlas layout service. */
-public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayoutService,
-    dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService {
+public final class RuntimeTextureAtlasLayoutService
+        implements TextureAtlasLayoutService, dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService {
 
     public static final String READ_PERMISSION = "turboism.cubism.model.read";
     public static final String WRITE_PERMISSION = "turboism.cubism.model.write";
@@ -34,17 +33,14 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
     private final Object ownerToken = new Object();
 
     public RuntimeTextureAtlasLayoutService(
-        final TextureAtlasLayoutCoordinator coordinator,
-        final CubismPermissionGate permissionGate
-    ) {
+            final TextureAtlasLayoutCoordinator coordinator, final CubismPermissionGate permissionGate) {
         this(coordinator, permissionGate, new TextureAtlasNativeInvocationCoordinator());
     }
 
     public RuntimeTextureAtlasLayoutService(
-        final TextureAtlasLayoutCoordinator coordinator,
-        final CubismPermissionGate permissionGate,
-        final TextureAtlasNativeInvocationCoordinator nativeInvocations
-    ) {
+            final TextureAtlasLayoutCoordinator coordinator,
+            final CubismPermissionGate permissionGate,
+            final TextureAtlasNativeInvocationCoordinator nativeInvocations) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
         this.nativeInvocations = Objects.requireNonNull(nativeInvocations, "nativeInvocations");
@@ -54,35 +50,35 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
     public Optional<TextureAtlasLayoutSnapshot> current() {
         permissionGate.require(READ_PERMISSION, "textureAtlasLayouts.current", CAPABILITY);
         final Optional<TextureAtlasNativeInvocationCoordinator.Invocation> nativeInvocation =
-            nativeInvocations.current();
+                nativeInvocations.current();
         if (nativeInvocation.isPresent()) {
             final TextureAtlasNativeInvocationCoordinator.Invocation invocation = nativeInvocation.orElseThrow();
             final TextureAtlasAuthoringState state = invocation.session().state();
             return Optional.of(new TextureAtlasLayoutSnapshot(
-                new NativeTarget(ownerToken, invocation),
-                state.documentId(), state.modelId(), state.atlasId(),
-                state.constraints(), state.items(), state.currentPlan()
-            ));
+                    new NativeTarget(ownerToken, invocation),
+                    state.documentId(),
+                    state.modelId(),
+                    state.atlasId(),
+                    state.constraints(),
+                    state.items(),
+                    state.currentPlan()));
         }
         return coordinator.current().map(snapshot -> {
             final TextureAtlasAuthoringState state = snapshot.state();
             return new TextureAtlasLayoutSnapshot(
-                new RuntimeTarget(ownerToken, snapshot.generation(), state),
-                state.documentId(),
-                state.modelId(),
-                state.atlasId(),
-                state.constraints(),
-                state.items(),
-                state.currentPlan()
-            );
+                    new RuntimeTarget(ownerToken, snapshot.generation(), state),
+                    state.documentId(),
+                    state.modelId(),
+                    state.atlasId(),
+                    state.constraints(),
+                    state.items(),
+                    state.currentPlan());
         });
     }
 
     @Override
     public TextureAtlasLayoutApplyResult apply(
-        final TextureAtlasLayoutTarget target,
-        final TextureAtlasLayoutPlan plan
-    ) {
+            final TextureAtlasLayoutTarget target, final TextureAtlasLayoutPlan plan) {
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(plan, "plan");
         try {
@@ -93,8 +89,8 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
         if (target instanceof NativeTarget nativeTarget) {
             final Optional<TextureAtlasNativeInvocationCoordinator.Invocation> current = nativeInvocations.current();
             if (!nativeTarget.ownedBy(ownerToken)
-                || current.isEmpty()
-                || current.orElseThrow() != nativeTarget.invocation()) {
+                    || current.isEmpty()
+                    || current.orElseThrow() != nativeTarget.invocation()) {
                 return failed(TextureAtlasLayoutFailureCode.TARGET_STALE, "The texture atlas target is stale.");
             }
             final TextureAtlasNativeInvocationCoordinator.Invocation invocation = current.orElseThrow();
@@ -103,14 +99,17 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
             if (issue.isPresent()) {
                 return failed(TextureAtlasLayoutFailureCode.PLAN_INVALID, issue.orElseThrow());
             }
-            final TextureAtlasLayoutProvider.ApplyOutcome outcome = invocation.session().apply(plan);
+            final TextureAtlasLayoutProvider.ApplyOutcome outcome =
+                    invocation.session().apply(plan);
             if (outcome == TextureAtlasLayoutProvider.ApplyOutcome.REJECTED) {
-                return failed(TextureAtlasLayoutFailureCode.PROVIDER_REJECTED, "Native texture atlas invocation rejected the validated plan.");
+                return failed(
+                        TextureAtlasLayoutFailureCode.PROVIDER_REJECTED,
+                        "Native texture atlas invocation rejected the validated plan.");
             }
             invocation.handled(true);
             return outcome == TextureAtlasLayoutProvider.ApplyOutcome.NO_CHANGE
-                ? TextureAtlasLayoutApplyResult.noChange()
-                : TextureAtlasLayoutApplyResult.applied();
+                    ? TextureAtlasLayoutApplyResult.noChange()
+                    : TextureAtlasLayoutApplyResult.applied();
         }
         if (!(target instanceof RuntimeTarget runtimeTarget) || !runtimeTarget.ownedBy(ownerToken)) {
             return failed(TextureAtlasLayoutFailureCode.TARGET_STALE, "The texture atlas target is stale.");
@@ -124,90 +123,87 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
 
     @Override
     public Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot> currentPolygon() {
-        permissionGate.require(READ_PERMISSION, "textureAtlasPolygonLayouts.currentPolygon",
-            CAPABILITY);
+        permissionGate.require(READ_PERMISSION, "textureAtlasPolygonLayouts.currentPolygon", CAPABILITY);
         final Optional<TextureAtlasNativeInvocationCoordinator.Invocation> nativeInvocation =
-            nativeInvocations.current();
+                nativeInvocations.current();
         if (nativeInvocation.isEmpty()) {
             // polygon layouts are only exposed inside a native auto-layout
             // invocation, where the verified session supplies real contours
             return Optional.empty();
         }
-        final TextureAtlasNativeInvocationCoordinator.Invocation invocation =
-            nativeInvocation.orElseThrow();
+        final TextureAtlasNativeInvocationCoordinator.Invocation invocation = nativeInvocation.orElseThrow();
         final var state = invocation.session().polygonState();
-        return Optional.of(
-            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot(
-                new NativeTarget(ownerToken, invocation), "native-invocation",
-                "native-model", "native-atlas", state.constraints(),
-                state.items(), state.currentPlan()));
+        return Optional.of(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot(
+                new NativeTarget(ownerToken, invocation),
+                "native-invocation",
+                "native-model",
+                "native-atlas",
+                state.constraints(),
+                state.items(),
+                state.currentPlan()));
     }
 
     @Override
     public TextureAtlasLayoutApplyResult apply(
-        final TextureAtlasLayoutTarget target,
-        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan plan
-    ) {
+            final TextureAtlasLayoutTarget target,
+            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan plan) {
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(plan, "plan");
         try {
-            permissionGate.require(WRITE_PERMISSION, "textureAtlasPolygonLayouts.apply",
-                CAPABILITY);
+            permissionGate.require(WRITE_PERMISSION, "textureAtlasPolygonLayouts.apply", CAPABILITY);
         } catch (CubismPermissionException exception) {
-            return failed(TextureAtlasLayoutFailureCode.PERMISSION_DENIED,
-                "Texture atlas write permission is denied.");
+            return failed(TextureAtlasLayoutFailureCode.PERMISSION_DENIED, "Texture atlas write permission is denied.");
         }
         if (!(target instanceof NativeTarget nativeTarget)) {
-            return failed(TextureAtlasLayoutFailureCode.TARGET_STALE,
-                "Polygon layouts only apply to a native automatic-layout target.");
+            return failed(
+                    TextureAtlasLayoutFailureCode.TARGET_STALE,
+                    "Polygon layouts only apply to a native automatic-layout target.");
         }
-        final Optional<TextureAtlasNativeInvocationCoordinator.Invocation> current =
-            nativeInvocations.current();
-        if (!nativeTarget.ownedBy(ownerToken) || current.isEmpty()
-            || current.orElseThrow() != nativeTarget.invocation()) {
-            return failed(TextureAtlasLayoutFailureCode.TARGET_STALE,
-                "The texture atlas target is stale.");
+        final Optional<TextureAtlasNativeInvocationCoordinator.Invocation> current = nativeInvocations.current();
+        if (!nativeTarget.ownedBy(ownerToken)
+                || current.isEmpty()
+                || current.orElseThrow() != nativeTarget.invocation()) {
+            return failed(TextureAtlasLayoutFailureCode.TARGET_STALE, "The texture atlas target is stale.");
         }
         final TextureAtlasNativeInvocationCoordinator.Invocation invocation = current.orElseThrow();
         final var state = invocation.session().polygonState();
-        final var violations = TextureAtlasPolygonPlanValidator.validate(state.items(),
-            state.constraints(), plan);
+        final var violations = TextureAtlasPolygonPlanValidator.validate(state.items(), state.constraints(), plan);
         if (!violations.isEmpty()) {
-            return failed(TextureAtlasLayoutFailureCode.PLAN_INVALID,
-                violations.get(0).code() + ": " + violations.get(0).message());
+            return failed(
+                    TextureAtlasLayoutFailureCode.PLAN_INVALID,
+                    violations.get(0).code() + ": " + violations.get(0).message());
         }
         final TextureAtlasLayoutProvider.ApplyOutcome outcome =
-            invocation.session().applyPolygon(plan);
+                invocation.session().applyPolygon(plan);
         if (outcome == TextureAtlasLayoutProvider.ApplyOutcome.REJECTED) {
-            return failed(TextureAtlasLayoutFailureCode.PROVIDER_REJECTED,
-                "Native texture atlas invocation rejected the validated polygon plan.");
+            return failed(
+                    TextureAtlasLayoutFailureCode.PROVIDER_REJECTED,
+                    "Native texture atlas invocation rejected the validated polygon plan.");
         }
         invocation.handled(true);
         return outcome == TextureAtlasLayoutProvider.ApplyOutcome.NO_CHANGE
-            ? TextureAtlasLayoutApplyResult.noChange()
-            : TextureAtlasLayoutApplyResult.applied();
+                ? TextureAtlasLayoutApplyResult.noChange()
+                : TextureAtlasLayoutApplyResult.applied();
     }
 
     private Optional<String> validate(
-        final TextureAtlasAuthoringState state,
-        final TextureAtlasLayoutPlan plan,
-        final boolean completeAtlas
-    ) {
+            final TextureAtlasAuthoringState state, final TextureAtlasLayoutPlan plan, final boolean completeAtlas) {
         final TextureAtlasLayoutConstraints constraints = state.constraints();
         if (completeAtlas && plan.scale() != 1D) {
             return Optional.of("Complete-atlas authoring does not support scaled plans.");
         }
         if (!completeAtlas) {
             final double requested = constraints.singlePageOptions() == null
-                ? 1D : constraints.singlePageOptions().requestedScale();
+                    ? 1D
+                    : constraints.singlePageOptions().requestedScale();
             if ((requested == 0D && plan.scale() > 1D)
-                || (requested > 0D && Math.abs(plan.scale() - requested) > 1e-12 * requested)) {
+                    || (requested > 0D && Math.abs(plan.scale() - requested) > 1e-12 * requested)) {
                 return Optional.of("The plan does not respect the requested native scale.");
             }
         }
         if (plan.pageWidth() != constraints.pageWidth()
-            || plan.pageHeight() != constraints.pageHeight()
-            || plan.pageCount() > constraints.maxPages()) {
+                || plan.pageHeight() != constraints.pageHeight()
+                || plan.pageCount() > constraints.maxPages()) {
             return Optional.of("The plan does not match the issued atlas page constraints.");
         }
         final Set<Integer> representedPages = new HashSet<>();
@@ -215,10 +211,10 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
             representedPages.add(placement.pageIndex());
         }
         final Set<Integer> expectedPages = plan.placements().isEmpty()
-            ? Set.of(0)
-            : IntStream.range(0, plan.pageCount()).boxed().collect(java.util.stream.Collectors.toUnmodifiableSet());
+                ? Set.of(0)
+                : IntStream.range(0, plan.pageCount()).boxed().collect(java.util.stream.Collectors.toUnmodifiableSet());
         if ((plan.placements().isEmpty() && plan.pageCount() != 1)
-            || (!plan.placements().isEmpty() && !representedPages.equals(expectedPages))) {
+                || (!plan.placements().isEmpty() && !representedPages.equals(expectedPages))) {
             return Optional.of("The plan must represent every declared atlas page exactly.");
         }
         final Map<String, TextureAtlasLayoutItem> items = new HashMap<>();
@@ -232,13 +228,14 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
             final double width = Math.ceil((placement.rotated() ? item.height() : item.width()) * plan.scale());
             final double height = Math.ceil((placement.rotated() ? item.width() : item.height()) * plan.scale());
             if ((placement.rotated() && !rotationAllowed)
-                || placement.width() != width || placement.height() != height) {
+                    || placement.width() != width
+                    || placement.height() != height) {
                 return Optional.of("The plan's rotation or scaled dimensions do not match the issued input.");
             }
             if (placement.x() < constraints.edgeMargin()
-                || placement.y() < constraints.edgeMargin()
-                || (long) placement.x() + placement.width() + constraints.edgeMargin() > plan.pageWidth()
-                || (long) placement.y() + placement.height() + constraints.edgeMargin() > plan.pageHeight()) {
+                    || placement.y() < constraints.edgeMargin()
+                    || (long) placement.x() + placement.width() + constraints.edgeMargin() > plan.pageWidth()
+                    || (long) placement.y() + placement.height() + constraints.edgeMargin() > plan.pageHeight()) {
                 return Optional.of("The plan violates the atlas edge margin.");
             }
         }
@@ -257,45 +254,40 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
         return Optional.empty();
     }
 
-    private boolean tooClose(
-        final TextureAtlasPlacement left,
-        final TextureAtlasPlacement right,
-        final int padding
-    ) {
+    private boolean tooClose(final TextureAtlasPlacement left, final TextureAtlasPlacement right, final int padding) {
         if (left.pageIndex() != right.pageIndex()) return false;
         return (long) left.x() < (long) right.x() + right.width() + padding
-            && (long) left.x() + left.width() + padding > right.x()
-            && (long) left.y() < (long) right.y() + right.height() + padding
-            && (long) left.y() + left.height() + padding > right.y();
+                && (long) left.x() + left.width() + padding > right.x()
+                && (long) left.y() < (long) right.y() + right.height() + padding
+                && (long) left.y() + left.height() + padding > right.y();
     }
 
     private static TextureAtlasLayoutApplyResult failed(
-        final TextureAtlasLayoutFailureCode code,
-        final String message
-    ) {
+            final TextureAtlasLayoutFailureCode code, final String message) {
         return TextureAtlasLayoutApplyResult.failed(code, message);
     }
 
-    private record NativeTarget(
-        Object ownerToken,
-        TextureAtlasNativeInvocationCoordinator.Invocation invocation
-    ) implements TextureAtlasLayoutTarget {
+    private record NativeTarget(Object ownerToken, TextureAtlasNativeInvocationCoordinator.Invocation invocation)
+            implements TextureAtlasLayoutTarget {
         private NativeTarget {
             ownerToken = Objects.requireNonNull(ownerToken, "ownerToken");
             invocation = Objects.requireNonNull(invocation, "invocation");
         }
-        boolean ownedBy(final Object candidate) { return ownerToken == candidate; }
+
+        boolean ownedBy(final Object candidate) {
+            return ownerToken == candidate;
+        }
     }
 
-    private record RuntimeTarget(
-        Object ownerToken,
-        long generation,
-        TextureAtlasAuthoringState state
-    ) implements TextureAtlasLayoutTarget {
+    private record RuntimeTarget(Object ownerToken, long generation, TextureAtlasAuthoringState state)
+            implements TextureAtlasLayoutTarget {
         private RuntimeTarget {
             ownerToken = Objects.requireNonNull(ownerToken, "ownerToken");
             state = Objects.requireNonNull(state, "state");
         }
-        boolean ownedBy(final Object candidate) { return ownerToken == candidate; }
+
+        boolean ownedBy(final Object candidate) {
+            return ownerToken == candidate;
+        }
     }
 }

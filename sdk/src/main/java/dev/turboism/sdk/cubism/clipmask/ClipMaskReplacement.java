@@ -1,27 +1,22 @@
 package dev.turboism.sdk.cubism.clipmask;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
 /** One conditional ArtMesh clip-mask replacement in an all-or-nothing batch. */
 public record ClipMaskReplacement(
-    ArtMeshId targetArtMeshId,
-    List<ArtMeshId> expectedMaskArtMeshIds,
-    boolean expectedInverted,
-    List<ArtMeshId> replacementMaskArtMeshIds,
-    boolean replacementInverted
-) {
+        ArtMeshId targetArtMeshId,
+        List<ArtMeshId> expectedMaskArtMeshIds,
+        boolean expectedInverted,
+        List<ArtMeshId> replacementMaskArtMeshIds,
+        boolean replacementInverted) {
     public ClipMaskReplacement {
         targetArtMeshId = Objects.requireNonNull(targetArtMeshId, "targetArtMeshId");
-        expectedMaskArtMeshIds = List.copyOf(
-            Objects.requireNonNull(expectedMaskArtMeshIds, "expectedMaskArtMeshIds")
-        );
-        replacementMaskArtMeshIds = List.copyOf(
-            Objects.requireNonNull(replacementMaskArtMeshIds, "replacementMaskArtMeshIds")
-        );
+        expectedMaskArtMeshIds = List.copyOf(Objects.requireNonNull(expectedMaskArtMeshIds, "expectedMaskArtMeshIds"));
+        replacementMaskArtMeshIds =
+                List.copyOf(Objects.requireNonNull(replacementMaskArtMeshIds, "replacementMaskArtMeshIds"));
         if (replacementMaskArtMeshIds.isEmpty()) {
             throw new IllegalArgumentException("replacementMaskArtMeshIds must not be empty");
         }
@@ -30,10 +25,7 @@ public record ClipMaskReplacement(
     }
 
     private static void rejectInvalid(
-        final ArtMeshId targetArtMeshId,
-        final List<ArtMeshId> maskArtMeshIds,
-        final String fieldName
-    ) {
+            final ArtMeshId targetArtMeshId, final List<ArtMeshId> maskArtMeshIds, final String fieldName) {
         final HashSet<ArtMeshId> unique = new HashSet<>();
         for (ArtMeshId maskArtMeshId : maskArtMeshIds) {
             Objects.requireNonNull(maskArtMeshId, fieldName + " element");

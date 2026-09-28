@@ -3,13 +3,12 @@ package dev.turboism.core.action;
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.PluginTask;
-import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -35,21 +34,19 @@ public final class RuntimeActionRegistry implements ActionRegistry {
     private final ConcurrentHashMap<String, RegisteredAction> actions = new ConcurrentHashMap<>();
 
     public RuntimeActionRegistry(
-        RuntimeScheduler scheduler,
-        Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
-        String ownerPluginId,
-        PermissionChecker permissionChecker
-    ) {
+            RuntimeScheduler scheduler,
+            Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
+            String ownerPluginId,
+            PermissionChecker permissionChecker) {
         this(scheduler, diagnosticSink, ownerPluginId, permissionChecker, null);
     }
 
     public RuntimeActionRegistry(
-        RuntimeScheduler scheduler,
-        Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
-        String ownerPluginId,
-        PermissionChecker permissionChecker,
-        RuntimeEventBroker eventBroker
-    ) {
+            RuntimeScheduler scheduler,
+            Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
+            String ownerPluginId,
+            PermissionChecker permissionChecker,
+            RuntimeEventBroker eventBroker) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.ownerPluginId = Objects.requireNonNull(ownerPluginId, "ownerPluginId");
@@ -92,38 +89,33 @@ public final class RuntimeActionRegistry implements ActionRegistry {
         }
 
         PluginTask task = new PluginTask("action.handle", ownerPluginId, "action:" + key, "none");
-        final boolean accepted = scheduler.dispatch(
-            task,
-            () -> registered.action().handler().accept(context)
-        );
+        final boolean accepted =
+                scheduler.dispatch(task, () -> registered.action().handler().accept(context));
         final RuntimeEventBroker broker = eventBroker;
         if (accepted && broker != null) {
             broker.publishRuntime(new ActionInvocationEvent(
-                ownerPluginId,
-                key,
-                context.uiEvent(),
-                context.contextMenuSelection().isPresent(),
-                context.panelTabSelection().isPresent()
-            ));
+                    ownerPluginId,
+                    key,
+                    context.uiEvent(),
+                    context.contextMenuSelection().isPresent(),
+                    context.panelTabSelection().isPresent()));
         }
     }
 
     private void emitDuplicate(String id) {
         diagnosticSink.accept(new StartupReport.DiagnosticProblem(
-            "ACTION_DUPLICATE_ID",
-            "Action ID '%s' was re-registered; previous registration has been replaced.".formatted(id),
-            "action://" + id,
-            StartupReport.Severity.WARNING
-        ));
+                "ACTION_DUPLICATE_ID",
+                "Action ID '%s' was re-registered; previous registration has been replaced.".formatted(id),
+                "action://" + id,
+                StartupReport.Severity.WARNING));
     }
 
     private void emitNotFound(String id) {
         diagnosticSink.accept(new StartupReport.DiagnosticProblem(
-            "ACTION_NOT_FOUND",
-            "No action registered for ID '%s'.".formatted(id),
-            "action://" + id,
-            StartupReport.Severity.WARNING
-        ));
+                "ACTION_NOT_FOUND",
+                "No action registered for ID '%s'.".formatted(id),
+                "action://" + id,
+                StartupReport.Severity.WARNING));
     }
 
     private static String requireText(String value, String name) {

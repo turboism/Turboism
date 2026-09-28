@@ -4,7 +4,10 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
 import dev.turboism.ui.host.EdtDispatch;
-
+import java.awt.Component;
+import java.net.URL;
+import java.util.Objects;
+import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -12,10 +15,6 @@ import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
-import java.awt.Component;
-import java.net.URL;
-import java.util.Objects;
-import java.util.function.Consumer;
 
 /**
  * Exact-version vertical tool-strip operations restricted to verified aliases.
@@ -27,24 +26,16 @@ import java.util.function.Consumer;
  */
 public final class VerifiedVerticalToolbarHostOperations implements VerticalToolbarHostOperations {
 
-    private static final String APP_INSTANCE =
-        "cubism.ui-main-toolbar.app-controller.instance";
-    private static final String APP_MAIN_FRAME =
-        "cubism.ui-main-toolbar.app-controller.main-frame";
-    private static final String MAIN_FRAME_VIEW =
-        "cubism.ui-main-toolbar.main-frame.view";
-    private static final String MAIN_CONTAINER =
-        "cubism.ui-main-toolbar.main-frame-view.main-container";
-    private static final String WIDGET_JCOMPONENT =
-        "cubism.ui-main-toolbar.widget.jcomponent";
+    private static final String APP_INSTANCE = "cubism.ui-main-toolbar.app-controller.instance";
+    private static final String APP_MAIN_FRAME = "cubism.ui-main-toolbar.app-controller.main-frame";
+    private static final String MAIN_FRAME_VIEW = "cubism.ui-main-toolbar.main-frame.view";
+    private static final String MAIN_CONTAINER = "cubism.ui-main-toolbar.main-frame-view.main-container";
+    private static final String WIDGET_JCOMPONENT = "cubism.ui-main-toolbar.widget.jcomponent";
     private static final String WIDGET_SET_NAME = "cubism.ui-main-toolbar.widget.set-name";
     private static final String WIDGET_SET_TOOLTIP = "cubism.ui-main-toolbar.widget.set-tooltip";
-    private static final String WIDGET_SET_PREF_WIDTH =
-        "cubism.ui-main-toolbar.widget.set-pref-width";
-    private static final String WIDGET_SET_PREF_HEIGHT =
-        "cubism.ui-main-toolbar.widget.set-pref-height";
-    private static final String ICON_BUTTON_CREATE =
-        "cubism.ui-main-toolbar.icon-button.create";
+    private static final String WIDGET_SET_PREF_WIDTH = "cubism.ui-main-toolbar.widget.set-pref-width";
+    private static final String WIDGET_SET_PREF_HEIGHT = "cubism.ui-main-toolbar.widget.set-pref-height";
+    private static final String ICON_BUTTON_CREATE = "cubism.ui-main-toolbar.icon-button.create";
 
     private static final String GL_CANVAS_TYPE = "com.jogamp.opengl.awt.GLJPanel";
     private static final int STRIP_WIDTH = 32;
@@ -55,27 +46,19 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
     private final EditorUiPluginResourceRegistry resources;
 
     public VerifiedVerticalToolbarHostOperations(
-        final VerifiedMemberResolver resolver,
-        final EditorUiPluginResourceRegistry resources
-    ) {
+            final VerifiedMemberResolver resolver, final EditorUiPluginResourceRegistry resources) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.resources = Objects.requireNonNull(resources, "resources");
     }
 
     @Override
-    public Registration attach(
-        final VerticalToolbarContributionDescriptor descriptor,
-        final Consumer<String> click
-    ) {
+    public Registration attach(final VerticalToolbarContributionDescriptor descriptor, final Consumer<String> click) {
         Objects.requireNonNull(descriptor, "descriptor");
         Objects.requireNonNull(click, "click");
         return onEdt(() -> install(descriptor, click));
     }
 
-    private Registration install(
-        final VerticalToolbarContributionDescriptor descriptor,
-        final Consumer<String> click
-    ) {
+    private Registration install(final VerticalToolbarContributionDescriptor descriptor, final Consumer<String> click) {
         final Object mainContainer = mainContainer();
         final JComponent root = jComponent(mainContainer);
         final JComponent canvasContainer = canvasContainer(root);
@@ -83,8 +66,7 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
             throw new IllegalStateException("Cubism modeling canvas container is unavailable");
         }
         final JComponent host = canvasContainer;
-        final boolean left = descriptor.contribution().side()
-            == VerticalToolbarContribution.VerticalSide.LEFT;
+        final boolean left = descriptor.contribution().side() == VerticalToolbarContribution.VerticalSide.LEFT;
         final boolean right = !left;
 
         final String stripId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
@@ -98,13 +80,9 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
         strip.setPreferredSize(new java.awt.Dimension(STRIP_WIDTH, 200));
         strip.setMaximumSize(new java.awt.Dimension(STRIP_WIDTH, Integer.MAX_VALUE));
 
-        for (final VerticalToolbarContribution.ToolButton button : descriptor.contribution().buttons()) {
-            final Object nativeButton = nativeButton(
-                descriptor.pluginId(),
-                button,
-                stripId + "." + button.id(),
-                click
-            );
+        for (final VerticalToolbarContribution.ToolButton button :
+                descriptor.contribution().buttons()) {
+            final Object nativeButton = nativeButton(descriptor.pluginId(), button, stripId + "." + button.id(), click);
             strip.add(jComponent(nativeButton));
             strip.add(right ? Box.createVerticalStrut(4) : Box.createHorizontalStrut(4));
         }
@@ -154,7 +132,6 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
         return null;
     }
 
-
     private static boolean containsGlCanvas(final JComponent component) {
         for (final Component child : component.getComponents()) {
             if (child.getClass().getName().equals(GL_CANVAS_TYPE)) {
@@ -191,24 +168,16 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
 
     /** Builds a native Cubism CIconButton (host hover/pressed visuals) and wires the click. */
     private Object nativeButton(
-        final String pluginId,
-        final VerticalToolbarContribution.ToolButton button,
-        final String nativeId,
-        final Consumer<String> click
-    ) {
-        final Object callback = resolver.createFunctionalConstructorArgumentProxy(
-            ICON_BUTTON_CREATE,
-            1,
-            ignored -> {
-                click.accept(button.actionId());
-                return kotlinUnit();
-            }
-        );
-        final Object nativeButton = resolver.construct(
-            ICON_BUTTON_CREATE,
-            icon(pluginId, button.iconResourcePath()),
-            callback
-        );
+            final String pluginId,
+            final VerticalToolbarContribution.ToolButton button,
+            final String nativeId,
+            final Consumer<String> click) {
+        final Object callback = resolver.createFunctionalConstructorArgumentProxy(ICON_BUTTON_CREATE, 1, ignored -> {
+            click.accept(button.actionId());
+            return kotlinUnit();
+        });
+        final Object nativeButton =
+                resolver.construct(ICON_BUTTON_CREATE, icon(pluginId, button.iconResourcePath()), callback);
         resolver.invoke(WIDGET_SET_NAME, nativeButton, nativeId);
         resolver.invoke(WIDGET_SET_TOOLTIP, nativeButton, button.tooltipKey());
         resolver.invoke(WIDGET_SET_PREF_WIDTH, nativeButton, BUTTON_SIZE);
@@ -228,9 +197,7 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
     private Icon icon(final String pluginId, final String resourcePath) {
         final URL url = resources.resource(pluginId, resourcePath).orElse(null);
         if (url == null) {
-            throw new IllegalStateException(
-                "vertical-toolbar icon is unavailable: " + pluginId + ":" + resourcePath
-            );
+            throw new IllegalStateException("vertical-toolbar icon is unavailable: " + pluginId + ":" + resourcePath);
         }
         return new ImageIcon(url);
     }

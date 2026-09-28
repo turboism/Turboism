@@ -19,11 +19,10 @@ final class InspectorIdRules {
 
     static boolean isValidCubismId(final String id) {
         return id.length() < 64
-            && AVAILABLE_CHARS.matcher(id).matches()
-            && !DEPRECATED_CHARS.matcher(id).find()
-            && !(id.charAt(0) >= '0' && id.charAt(0) <= '9');
+                && AVAILABLE_CHARS.matcher(id).matches()
+                && !DEPRECATED_CHARS.matcher(id).find()
+                && !(id.charAt(0) >= '0' && id.charAt(0) <= '9');
     }
 
-    private InspectorIdRules() {
-    }
+    private InspectorIdRules() {}
 }

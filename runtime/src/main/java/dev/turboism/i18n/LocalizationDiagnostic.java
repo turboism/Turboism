@@ -3,13 +3,7 @@ package dev.turboism.i18n;
 import java.util.Objects;
 
 /** Sanitized runtime-owned localization diagnostic. */
-public record LocalizationDiagnostic(
-    String code,
-    String pluginId,
-    String key,
-    String locale,
-    String message
-) {
+public record LocalizationDiagnostic(String code, String pluginId, String key, String locale, String message) {
     public LocalizationDiagnostic {
         code = requireText(code, "code");
         pluginId = requireText(pluginId, "pluginId");

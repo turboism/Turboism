@@ -1,12 +1,11 @@
 package dev.turboism.ui.appearance;
 
+import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.appearance.AppearanceRequest;
 import dev.turboism.sdk.appearance.AppearanceRestoreResult;
 import dev.turboism.sdk.appearance.AppearanceStatus;
-import dev.turboism.core.event.RuntimeEventBroker;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -76,32 +75,20 @@ public final class AppearanceCoordinator implements AutoCloseable {
      * @throws IllegalArgumentException when {@code pluginId} is blank or the generation is negative
      */
     public AppearanceApplyResult apply(
-        final String pluginId,
-        final long pluginGeneration,
-        final AppearanceRequest request
-    ) {
+            final String pluginId, final long pluginGeneration, final AppearanceRequest request) {
         final Owner requester = new Owner(pluginId, pluginGeneration);
         Objects.requireNonNull(request, "request");
         synchronized (monitor) {
             requireOpen();
             if (!provider.isAvailable()) {
                 status = provider.readStatus();
-                return applyResult(
-                    AppearanceApplyResult.Outcome.UNAVAILABLE,
-                    "appearance.provider.unavailable"
-                );
+                return applyResult(AppearanceApplyResult.Outcome.UNAVAILABLE, "appearance.provider.unavailable");
             }
             if (request.expectedRevision() != status.revision()) {
-                return applyResult(
-                    AppearanceApplyResult.Outcome.REJECTED,
-                    "appearance.revision.conflict"
-                );
+                return applyResult(AppearanceApplyResult.Outcome.REJECTED, "appearance.revision.conflict");
             }
             if (activeOwner != null && !activeOwner.equals(requester)) {
-                return applyResult(
-                    AppearanceApplyResult.Outcome.REJECTED,
-                    "appearance.owner.conflict"
-                );
+                return applyResult(AppearanceApplyResult.Outcome.REJECTED, "appearance.owner.conflict");
             }
             final AppearanceStatus previous = status;
             if (activeOwner == null) {
@@ -110,7 +97,9 @@ public final class AppearanceCoordinator implements AutoCloseable {
             }
             try {
                 final AppearanceHostProvider.ApplyOutcome outcome = provider.apply(request);
-                status = appliedStatus(request, previous.revision() + (outcome == AppearanceHostProvider.ApplyOutcome.APPLIED ? 1 : 0));
+                status = appliedStatus(
+                        request,
+                        previous.revision() + (outcome == AppearanceHostProvider.ApplyOutcome.APPLIED ? 1 : 0));
                 if (outcome == AppearanceHostProvider.ApplyOutcome.APPLIED) {
                     publish(new AppearanceChangedEvent(previous, status, pluginId));
                     return applyResult(AppearanceApplyResult.Outcome.APPLIED, null);
@@ -140,10 +129,7 @@ public final class AppearanceCoordinator implements AutoCloseable {
      * @throws NullPointerException when {@code pluginId} is {@code null}
      * @throws IllegalArgumentException when {@code pluginId} is blank or the generation is negative
      */
-    public AppearanceRestoreResult restore(
-        final String pluginId,
-        final long pluginGeneration
-    ) {
+    public AppearanceRestoreResult restore(final String pluginId, final long pluginGeneration) {
         final Owner requester = new Owner(pluginId, pluginGeneration);
         synchronized (monitor) {
             if (closed) {
@@ -153,10 +139,7 @@ public final class AppearanceCoordinator implements AutoCloseable {
                 return restoreResult(AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE, null);
             }
             if (!provider.isAvailable() || restorePoint == null) {
-                return restoreResult(
-                    AppearanceRestoreResult.Outcome.UNAVAILABLE,
-                    "appearance.provider.unavailable"
-                );
+                return restoreResult(AppearanceRestoreResult.Outcome.UNAVAILABLE, "appearance.provider.unavailable");
             }
             final AppearanceStatus previous = status;
             try {
@@ -169,10 +152,7 @@ public final class AppearanceCoordinator implements AutoCloseable {
                 }
                 return restoreResult(AppearanceRestoreResult.Outcome.RESTORED, null);
             } catch (RuntimeException restoreFailure) {
-                return restoreResult(
-                    AppearanceRestoreResult.Outcome.FAILED_RESTORE,
-                    "appearance.restore.failed"
-                );
+                return restoreResult(AppearanceRestoreResult.Outcome.FAILED_RESTORE, "appearance.restore.failed");
             }
         }
     }
@@ -198,25 +178,16 @@ public final class AppearanceCoordinator implements AutoCloseable {
     }
 
     private AppearanceApplyResult restoreAfterFailedApply(
-        final AppearanceStatus previous,
-        final String pluginId,
-        final RuntimeException applyFailure
-    ) {
+            final AppearanceStatus previous, final String pluginId, final RuntimeException applyFailure) {
         try {
             provider.restore(restorePoint);
             status = provider.readStatus();
             activeOwner = null;
             restorePoint = null;
-            return applyResult(
-                AppearanceApplyResult.Outcome.FAILED_RESTORED,
-                "appearance.apply.failed-restored"
-            );
+            return applyResult(AppearanceApplyResult.Outcome.FAILED_RESTORED, "appearance.apply.failed-restored");
         } catch (RuntimeException restoreFailure) {
             applyFailure.addSuppressed(restoreFailure);
-            return applyResult(
-                AppearanceApplyResult.Outcome.FAILED_RESTORE,
-                "appearance.apply.restore-failed"
-            );
+            return applyResult(AppearanceApplyResult.Outcome.FAILED_RESTORE, "appearance.apply.restore-failed");
         }
     }
 
@@ -227,40 +198,23 @@ public final class AppearanceCoordinator implements AutoCloseable {
         }
     }
 
-    private AppearanceStatus appliedStatus(
-        final AppearanceRequest request,
-        final long revision
-    ) {
+    private AppearanceStatus appliedStatus(final AppearanceRequest request, final long revision) {
         return new AppearanceStatus(
-            AppearanceStatus.Availability.AVAILABLE,
-            AppearanceStatus.Source.PLUGIN_OVERLAY,
-            Optional.of(request.appearanceId()),
-            request.base(),
-            revision,
-            Optional.empty()
-        );
+                AppearanceStatus.Availability.AVAILABLE,
+                AppearanceStatus.Source.PLUGIN_OVERLAY,
+                Optional.of(request.appearanceId()),
+                request.base(),
+                revision,
+                Optional.empty());
     }
 
-    private AppearanceApplyResult applyResult(
-        final AppearanceApplyResult.Outcome outcome,
-        final String diagnosticId
-    ) {
-        return new AppearanceApplyResult(
-            outcome,
-            status,
-            Optional.ofNullable(diagnosticId)
-        );
+    private AppearanceApplyResult applyResult(final AppearanceApplyResult.Outcome outcome, final String diagnosticId) {
+        return new AppearanceApplyResult(outcome, status, Optional.ofNullable(diagnosticId));
     }
 
     private AppearanceRestoreResult restoreResult(
-        final AppearanceRestoreResult.Outcome outcome,
-        final String diagnosticId
-    ) {
-        return new AppearanceRestoreResult(
-            outcome,
-            status,
-            Optional.ofNullable(diagnosticId)
-        );
+            final AppearanceRestoreResult.Outcome outcome, final String diagnosticId) {
+        return new AppearanceRestoreResult(outcome, status, Optional.ofNullable(diagnosticId));
     }
 
     private void requireOpen() {

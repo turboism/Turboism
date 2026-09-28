@@ -8,22 +8,17 @@ import java.util.Objects;
 
 /** Saved provider profiles plus process-local API keys for custom profiles. */
 record FxProviderConfiguration(
-    String activeProfileId,
-    List<FxProviderProfile> customProfiles,
-    Map<String, String> sessionApiKeys
-) {
+        String activeProfileId, List<FxProviderProfile> customProfiles, Map<String, String> sessionApiKeys) {
     FxProviderConfiguration {
-        activeProfileId = Objects.requireNonNullElse(
-            activeProfileId,
-            FxProviderProfile.UNCONFIGURED_ID
-        ).strip();
+        activeProfileId = Objects.requireNonNullElse(activeProfileId, FxProviderProfile.UNCONFIGURED_ID)
+                .strip();
         if (activeProfileId.isEmpty()) activeProfileId = FxProviderProfile.UNCONFIGURED_ID;
         customProfiles = List.copyOf(Objects.requireNonNull(customProfiles, "customProfiles"));
         final LinkedHashMap<String, FxProviderProfile> unique = new LinkedHashMap<>();
         for (FxProviderProfile profile : customProfiles) {
             if (profile.kind() != FxProviderProfile.Kind.OPENAI_COMPATIBLE
-                || profile.builtIn()
-                || unique.putIfAbsent(profile.id(), profile) != null) {
+                    || profile.builtIn()
+                    || unique.putIfAbsent(profile.id(), profile) != null) {
                 throw new IllegalArgumentException("custom provider profiles are invalid");
             }
         }
@@ -54,9 +49,9 @@ record FxProviderConfiguration(
 
     FxProviderProfile activeProfile() {
         return profiles().stream()
-            .filter(profile -> profile.id().equals(activeProfileId))
-            .findFirst()
-            .orElseThrow();
+                .filter(profile -> profile.id().equals(activeProfileId))
+                .findFirst()
+                .orElseThrow();
     }
 
     FxCustomEndpointSettings customEndpoint() {

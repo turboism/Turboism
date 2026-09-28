@@ -3,15 +3,14 @@ package dev.turboism.adapter.cubism.integration;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
-
-import javax.swing.JCheckBox;
-import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.event.ItemEvent;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import javax.swing.JCheckBox;
+import javax.swing.SwingUtilities;
 
 /**
  * Injects the 「编辑」 edit checkbox into the host's native external-application integration
@@ -54,8 +53,7 @@ import java.util.Set;
 public final class NativeEditToggleInjector {
 
     /** Kill switch; any value other than {@code "false"} leaves injection eligible. */
-    public static final String ENABLED_PROPERTY =
-        "dev.turboism.integration.edit-toggle.enabled";
+    public static final String ENABLED_PROPERTY = "dev.turboism.integration.edit-toggle.enabled";
 
     /**
      * Label shown by the injected checkbox — the 5.4 row's edit toggle text. Phase-2
@@ -69,22 +67,18 @@ public final class NativeEditToggleInjector {
     /** Client-property marker on the injected checkbox; diagnostics and tests. */
     public static final String MARKER_KEY = "dev.turboism.editToggle";
 
-    private static final String ADAPTER_SLICE_ID =
-        EditorIntegrationSettingsDialogSelectorContract.ADAPTER_SLICE_ID;
+    private static final String ADAPTER_SLICE_ID = EditorIntegrationSettingsDialogSelectorContract.ADAPTER_SLICE_ID;
     private static final String CAPABILITY_ID =
-        EditorIntegrationSettingsDialogSelectorContract.EDIT_TOGGLE_CAPABILITY_ID;
+            EditorIntegrationSettingsDialogSelectorContract.EDIT_TOGGLE_CAPABILITY_ID;
     private static final Set<String> REQUIRED_ALIASES =
-        EditorIntegrationSettingsDialogSelectorContract.REQUIRED_ALIASES;
+            EditorIntegrationSettingsDialogSelectorContract.REQUIRED_ALIASES;
 
     private final VerifiedMemberResolver resolver;
     private final EditToggleState state;
     // EDT-confined: every touch point below asserts the event dispatch thread.
     private JCheckBox injected;
 
-    private NativeEditToggleInjector(
-        final VerifiedMemberResolver resolver,
-        final EditToggleState state
-    ) {
+    private NativeEditToggleInjector(final VerifiedMemberResolver resolver, final EditToggleState state) {
         this.resolver = resolver;
         this.state = state;
     }
@@ -103,49 +97,39 @@ public final class NativeEditToggleInjector {
      * @return the admitted injector, or empty when the feature is not authorized
      */
     public static Optional<NativeEditToggleInjector> fromVerifiedResolver(
-        final VerifiedMemberResolver resolver,
-        final EditToggleState state
-    ) {
+            final VerifiedMemberResolver resolver, final EditToggleState state) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(state, "state");
         if (!verified.isAdmittedCubismVersion("5.2.03")
-            && !verified.isAdmittedCubismVersion("5.3.02")
-            && !verified.isAdmittedCubismVersion("5.3.03")) {
+                && !verified.isAdmittedCubismVersion("5.3.02")
+                && !verified.isAdmittedCubismVersion("5.3.03")) {
             return Optional.empty();
         }
         if (!verified.authorizesFeature(ADAPTER_SLICE_ID, CAPABILITY_ID, REQUIRED_ALIASES)) {
             return Optional.empty();
         }
         if (!isStaticField(verified, EditorIntegrationSettingsDialogSelectorContract.REMOTE_CHECKBOX_ALIAS)
-            || !isInstanceMethod(verified, EditorIntegrationSettingsDialogSelectorContract.JCHECKBOX_ALIAS)) {
+                || !isInstanceMethod(verified, EditorIntegrationSettingsDialogSelectorContract.JCHECKBOX_ALIAS)) {
             return Optional.empty();
         }
         return Optional.of(new NativeEditToggleInjector(verified, state));
     }
 
     /** {@return an injector carrying its own fail-closed toggle state} */
-    public static Optional<NativeEditToggleInjector> fromVerifiedResolver(
-        final VerifiedMemberResolver resolver
-    ) {
+    public static Optional<NativeEditToggleInjector> fromVerifiedResolver(final VerifiedMemberResolver resolver) {
         return fromVerifiedResolver(resolver, new EditToggleState());
     }
 
-    private static boolean isStaticField(
-        final VerifiedMemberResolver resolver,
-        final String alias
-    ) {
+    private static boolean isStaticField(final VerifiedMemberResolver resolver, final String alias) {
         final StaticSelector selector = resolver.verifiedSelector(alias);
         return selector.kind() == StaticSelector.Kind.FIELD
-            && (selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) != 0;
+                && (selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) != 0;
     }
 
-    private static boolean isInstanceMethod(
-        final VerifiedMemberResolver resolver,
-        final String alias
-    ) {
+    private static boolean isInstanceMethod(final VerifiedMemberResolver resolver, final String alias) {
         final StaticSelector selector = resolver.verifiedSelector(alias);
         return selector.kind() == StaticSelector.Kind.METHOD
-            && (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) != 0;
+                && (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) != 0;
     }
 
     /** {@return the toggle state this injector drives} */
@@ -196,8 +180,7 @@ public final class NativeEditToggleInjector {
         edit.putClientProperty(MARKER_KEY, Boolean.TRUE);
         edit.setFont(remote.getFont());
         edit.setFocusable(remote.isFocusable());
-        edit.addItemListener(event ->
-            state.setEnabled(event.getStateChange() == ItemEvent.SELECTED));
+        edit.addItemListener(event -> state.setEnabled(event.getStateChange() == ItemEvent.SELECTED));
         row.add(edit);
         row.revalidate();
         row.repaint();
@@ -250,14 +233,13 @@ public final class NativeEditToggleInjector {
 
     private Component remoteJCheckBox() {
         try {
-            final Object remoteCheckbox = resolver.readStaticField(
-                EditorIntegrationSettingsDialogSelectorContract.REMOTE_CHECKBOX_ALIAS);
+            final Object remoteCheckbox =
+                    resolver.readStaticField(EditorIntegrationSettingsDialogSelectorContract.REMOTE_CHECKBOX_ALIAS);
             if (remoteCheckbox == null) {
                 return null;
             }
-            final Object component = resolver.invoke(
-                EditorIntegrationSettingsDialogSelectorContract.JCHECKBOX_ALIAS,
-                remoteCheckbox);
+            final Object component =
+                    resolver.invoke(EditorIntegrationSettingsDialogSelectorContract.JCHECKBOX_ALIAS, remoteCheckbox);
             return component instanceof Component ? (Component) component : null;
         } catch (RuntimeException failure) {
             return null;
@@ -266,8 +248,7 @@ public final class NativeEditToggleInjector {
 
     private static void requireEdt() {
         if (!SwingUtilities.isEventDispatchThread()) {
-            throw new IllegalStateException(
-                "native dialog injection must run on the EDT");
+            throw new IllegalStateException("native dialog injection must run on the EDT");
         }
     }
 }

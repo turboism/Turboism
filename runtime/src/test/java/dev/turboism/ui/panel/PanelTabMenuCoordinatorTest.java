@@ -1,13 +1,12 @@
 package dev.turboism.ui.panel;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 class PanelTabMenuCoordinatorTest {
 
@@ -36,18 +35,17 @@ class PanelTabMenuCoordinatorTest {
 
     private static ContextMenuRegistry.ContextMenuContribution contribution(final String id) {
         return new ContextMenuRegistry.ContextMenuContribution(
-            id,
-            "action." + id,
-            id,
-            null,
-            "panel.docked",
-            ContextMenuRegistry.Location.WORKSPACE_OBJECT,
-            java.util.Set.of(),
-            100,
-            ContextMenuRegistry.Target.PANEL_TAB,
-            ContextMenuRegistry.Operation.TOGGLE_PANEL_FLOATING,
-            ContextMenuRegistry.ContextMenuEntry.item(id, id, "action." + id),
-            ContextMenuRegistry.Placement.last()
-        );
+                id,
+                "action." + id,
+                id,
+                null,
+                "panel.docked",
+                ContextMenuRegistry.Location.WORKSPACE_OBJECT,
+                java.util.Set.of(),
+                100,
+                ContextMenuRegistry.Target.PANEL_TAB,
+                ContextMenuRegistry.Operation.TOGGLE_PANEL_FLOATING,
+                ContextMenuRegistry.ContextMenuEntry.item(id, id, "action." + id),
+                ContextMenuRegistry.Placement.last());
     }
 }

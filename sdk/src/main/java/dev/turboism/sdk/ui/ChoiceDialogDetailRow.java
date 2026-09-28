@@ -1,14 +1,9 @@
 package dev.turboism.sdk.ui;
 
-
 import java.util.Objects;
 
 /** One structured label/value row rendered in a runtime choice-dialog detail panel. */
-public record ChoiceDialogDetailRow(
-    String label,
-    String value,
-    String url
-) {
+public record ChoiceDialogDetailRow(String label, String value, String url) {
     public ChoiceDialogDetailRow {
         Objects.requireNonNull(label, "label");
         if (label.isBlank() || label.length() > 128) {

@@ -89,3 +89,12 @@ def encode_float32_bits(bits: int) -> str:
 
 def encode_float64_bits(bits: int) -> str:
     return f"double:0x{bits & 0xFFFFFFFFFFFFFFFF:016X}"
+
+
+INCUBATING_DESCRIPTOR = "Ldev/turboism/sdk/Incubating;"
+
+
+def is_incubating(attributes: "Attributes") -> bool:
+    """Reports whether the declaration carries the @Incubating marker annotation."""
+    annotations = list(attributes.visible_annotations) + list(attributes.invisible_annotations)
+    return any(item.descriptor == INCUBATING_DESCRIPTOR for item in annotations)

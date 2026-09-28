@@ -1,10 +1,9 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.selector.EditorModelInstanceReadSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorModelInstanceReadSelectorContract;
 import dev.turboism.sdk.cubism.model.InstanceRenderType;
 import dev.turboism.sdk.cubism.model.ModelInstance;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -32,9 +31,7 @@ final class EditorModelInstanceAccess {
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
 
     EditorModelInstanceAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard
-    ) {
+            final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard modelGuard) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
     }
@@ -55,11 +52,7 @@ final class EditorModelInstanceAccess {
         return result;
     }
 
-    Optional<ModelInstance> currentModelInstance(
-        final String identity,
-        final Object source,
-        final Object model
-    ) {
+    Optional<ModelInstance> currentModelInstance(final String identity, final Object source, final Object model) {
         requireAuthorization();
         modelGuard.requireCurrent(identity, model);
         final Object rawCurrent = resolver.invoke(CURRENT_INSTANCE_ALIAS, source);
@@ -113,8 +106,7 @@ final class EditorModelInstanceAccess {
         if (sameInstance(rawType, "cubism.editor-model.render-type.art-path-illegal")) {
             return InstanceRenderType.ART_PATH_ILLEGAL;
         }
-        if (supportsOnionSkin()
-            && sameInstance(rawType, "cubism.editor-model.render-type.onion-skin-for-modeling")) {
+        if (supportsOnionSkin() && sameInstance(rawType, "cubism.editor-model.render-type.onion-skin-for-modeling")) {
             return InstanceRenderType.ONION_SKIN_FOR_MODELING;
         }
         throw unavailable("Editor model-instance render type is invalid.");
@@ -126,13 +118,11 @@ final class EditorModelInstanceAccess {
 
     private void requireAuthorization() {
         if (!resolver.authorizesFeature(
-            EditorModelInstanceReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorModelInstanceReadSelectorContract.CAPABILITY_ID,
-            requiredAliases()
-        )) {
+                EditorModelInstanceReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorModelInstanceReadSelectorContract.CAPABILITY_ID,
+                requiredAliases())) {
             throw new UnsupportedOperationException(
-                "Model-instance access is unavailable without exact verified host evidence."
-            );
+                    "Model-instance access is unavailable without exact verified host evidence.");
         }
     }
 
@@ -140,18 +130,14 @@ final class EditorModelInstanceAccess {
         if (supportsOnionSkin()) {
             return EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES;
         }
-        final HashSet<String> aliases = new HashSet<>(
-            EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES
-        );
+        final HashSet<String> aliases = new HashSet<>(EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES);
         aliases.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         return Set.copyOf(aliases);
     }
 
     private boolean supportsOnionSkin() {
         return resolver.isAdmittedCubismVersion(EditorModelInstanceReadSelectorContract.CUBISM_VERSION)
-            || resolver.isAdmittedCubismVersion(
-                EditorModelInstanceReadSelectorContract.CUBISM_5_3_03_VERSION
-            );
+                || resolver.isAdmittedCubismVersion(EditorModelInstanceReadSelectorContract.CUBISM_5_3_03_VERSION);
     }
 
     private static IllegalStateException unavailable(final String message) {
@@ -159,6 +145,9 @@ final class EditorModelInstanceAccess {
     }
 
     private record EditorModelInstance(InstanceRenderType renderType) implements ModelInstance {
-        @Override public InstanceRenderType renderType() { return renderType; }
+        @Override
+        public InstanceRenderType renderType() {
+            return renderType;
+        }
     }
 }

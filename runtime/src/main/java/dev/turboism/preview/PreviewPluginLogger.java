@@ -1,7 +1,6 @@
 package dev.turboism.preview;
 
 import dev.turboism.sdk.plugin.PluginLogger;
-
 import java.util.Objects;
 
 final class PreviewPluginLogger implements PluginLogger {

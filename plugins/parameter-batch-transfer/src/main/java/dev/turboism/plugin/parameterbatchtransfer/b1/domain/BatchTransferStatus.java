@@ -1,6 +1,5 @@
 package dev.turboism.plugin.parameterbatchtransfer.b1.domain;
 
-
 /** User-facing outcome of one batch-transfer apply pass. */
 public enum BatchTransferStatus {
     /** Every non-trivial row transferred. */

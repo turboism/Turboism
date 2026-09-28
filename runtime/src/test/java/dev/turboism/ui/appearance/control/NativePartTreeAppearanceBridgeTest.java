@@ -1,14 +1,13 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.sdk.ui.appearance.UiColor;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import javax.swing.JLabel;
+import dev.turboism.sdk.ui.appearance.UiColor;
 import java.awt.Color;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import javax.swing.JLabel;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class NativePartTreeAppearanceBridgeTest {
     @AfterEach
@@ -31,8 +30,7 @@ class NativePartTreeAppearanceBridgeTest {
         render(() -> NativePartTreeAppearanceBridge.afterRender(label, new Node(new PartSource("PartA", List.of()))));
         assertEquals(new Color(0x11, 0x22, 0x33), label.getForeground());
         render(() -> NativePartTreeAppearanceBridge.afterRender(
-            label, new Node(new PartSource("FolderA", List.of("child")))
-        ));
+                label, new Node(new PartSource("FolderA", List.of("child")))));
         assertEquals(new Color(0x44, 0x55, 0x66), label.getForeground());
         render(() -> NativePartTreeAppearanceBridge.afterRender(label, new Node(new OtherSource())));
         assertEquals(Color.BLACK, label.getForeground());
@@ -43,10 +41,22 @@ class NativePartTreeAppearanceBridgeTest {
         final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
         final PaletteAppearanceCoordinator.Scope scope = scope(7);
         coordinator.reconcile(scope);
-        coordinator.register("plugin", 1, scope, PaletteAppearanceCoordinator.Palette.DEFORMER_PART,
-            "WarpA", PaletteAppearanceCoordinator.Property.TEXT_COLOR, color(0x336699));
-        coordinator.register("plugin", 1, scope, PaletteAppearanceCoordinator.Palette.DEFORMER_PART,
-            "ArtMeshA", PaletteAppearanceCoordinator.Property.BACKGROUND_COLOR, color(0x99CC22));
+        coordinator.register(
+                "plugin",
+                1,
+                scope,
+                PaletteAppearanceCoordinator.Palette.DEFORMER_PART,
+                "WarpA",
+                PaletteAppearanceCoordinator.Property.TEXT_COLOR,
+                color(0x336699));
+        coordinator.register(
+                "plugin",
+                1,
+                scope,
+                PaletteAppearanceCoordinator.Palette.DEFORMER_PART,
+                "ArtMeshA",
+                PaletteAppearanceCoordinator.Property.BACKGROUND_COLOR,
+                color(0x99CC22));
         final PartTreeControlAppearanceProvider provider = new PartTreeControlAppearanceProvider(coordinator);
         NativePartTreeAppearanceBridge.install(7, selectors(), provider);
         final JLabel label = new JLabel();
@@ -60,24 +70,22 @@ class NativePartTreeAppearanceBridgeTest {
     }
 
     private static void register(
-        final PaletteAppearanceCoordinator coordinator,
-        final PaletteAppearanceCoordinator.Scope scope,
-        final String id,
-        final int rgb
-    ) {
+            final PaletteAppearanceCoordinator coordinator,
+            final PaletteAppearanceCoordinator.Scope scope,
+            final String id,
+            final int rgb) {
         coordinator.register(
-            "plugin", 1, scope, PaletteAppearanceCoordinator.Palette.PART, id,
-            PaletteAppearanceCoordinator.Property.TEXT_COLOR, color(rgb)
-        );
+                "plugin",
+                1,
+                scope,
+                PaletteAppearanceCoordinator.Palette.PART,
+                id,
+                PaletteAppearanceCoordinator.Property.TEXT_COLOR,
+                color(rgb));
     }
 
     private static UiColor color(final int rgb) {
-        return new UiColor(
-            ((rgb >> 16) & 0xFF) / 255.0F,
-            ((rgb >> 8) & 0xFF) / 255.0F,
-            (rgb & 0xFF) / 255.0F,
-            1.0F
-        );
+        return new UiColor(((rgb >> 16) & 0xFF) / 255.0F, ((rgb >> 8) & 0xFF) / 255.0F, (rgb & 0xFF) / 255.0F, 1.0F);
     }
 
     private static PaletteAppearanceCoordinator.Scope scope(final long hostGeneration) {
@@ -86,13 +94,15 @@ class NativePartTreeAppearanceBridgeTest {
 
     private static NativePartTreeAppearanceBridge.Selectors selectors() {
         return new NativePartTreeAppearanceBridge.Selectors(
-            Node.class.getName().replace('.', '/'), "source",
-            PartSource.class.getName().replace('.', '/'),
-            DeformerSource.class.getName().replace('.', '/'),
-            ArtMeshSource.class.getName().replace('.', '/'),
-            "getId", "getIdString", "getChildren",
-            Node.class.getClassLoader()
-        );
+                Node.class.getName().replace('.', '/'),
+                "source",
+                PartSource.class.getName().replace('.', '/'),
+                DeformerSource.class.getName().replace('.', '/'),
+                ArtMeshSource.class.getName().replace('.', '/'),
+                "getId",
+                "getIdString",
+                "getChildren",
+                Node.class.getClassLoader());
     }
 
     private static void render(final Runnable action) throws Exception {
@@ -101,32 +111,71 @@ class NativePartTreeAppearanceBridgeTest {
 
     static final class Node {
         private final Object source;
-        Node(final Object source) { this.source = source; }
-        public Object source() { return source; }
+
+        Node(final Object source) {
+            this.source = source;
+        }
+
+        public Object source() {
+            return source;
+        }
     }
 
     public static final class DeformerSource {
         private final Object id;
-        DeformerSource(final String id) { this.id = new Id(id); }
-        public Object getId() { return id; }
-        public List<?> getChildren() { return List.of(); }
+
+        DeformerSource(final String id) {
+            this.id = new Id(id);
+        }
+
+        public Object getId() {
+            return id;
+        }
+
+        public List<?> getChildren() {
+            return List.of();
+        }
     }
 
     public static final class ArtMeshSource {
         private final Object id;
-        ArtMeshSource(final String id) { this.id = new Id(id); }
-        public Object getId() { return id; }
-        public List<?> getChildren() { return List.of(); }
+
+        ArtMeshSource(final String id) {
+            this.id = new Id(id);
+        }
+
+        public Object getId() {
+            return id;
+        }
+
+        public List<?> getChildren() {
+            return List.of();
+        }
     }
 
     static final class PartSource {
         private final Object id;
         private final List<?> children;
-        PartSource(final String id, final List<?> children) { this.id = new Id(id); this.children = children; }
-        public Object getId() { return id; }
-        public List<?> getChildren() { return children; }
+
+        PartSource(final String id, final List<?> children) {
+            this.id = new Id(id);
+            this.children = children;
+        }
+
+        public Object getId() {
+            return id;
+        }
+
+        public List<?> getChildren() {
+            return children;
+        }
     }
 
-    static final class OtherSource { }
-    record Id(String value) { public String getIdString() { return value; } }
+    static final class OtherSource {}
+
+    record Id(String value) {
+        public String getIdString() {
+            return value;
+        }
+    }
 }

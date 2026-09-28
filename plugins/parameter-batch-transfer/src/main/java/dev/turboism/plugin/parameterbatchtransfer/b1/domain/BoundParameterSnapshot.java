@@ -5,7 +5,6 @@ import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterBinding;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
 import dev.turboism.sdk.cubism.model.ParameterType;
-
 import java.util.Objects;
 
 /**
@@ -18,15 +17,14 @@ import java.util.Objects;
  * rows through the keyform batch transfer.</p>
  */
 public record BoundParameterSnapshot(
-    ParameterId parameterId,
-    String name,
-    String label,
-    String markers,
-    boolean morph,
-    boolean combined,
-    ParameterBindingFamily family,
-    ParameterBinding binding
-) {
+        ParameterId parameterId,
+        String name,
+        String label,
+        String markers,
+        boolean morph,
+        boolean combined,
+        ParameterBindingFamily family,
+        ParameterBinding binding) {
     public BoundParameterSnapshot {
         parameterId = Objects.requireNonNull(parameterId, "parameterId");
         if (label == null || label.isBlank()) {
@@ -39,20 +37,19 @@ public record BoundParameterSnapshot(
     public static BoundParameterSnapshot of(final Parameter parameter, final ParameterBinding binding) {
         if (parameter == null) {
             return new BoundParameterSnapshot(
-                binding == null ? null : binding.parameterId(),
-                null,
-                binding == null ? "" : binding.parameterId().value(),
-                "",
-                false,
-                false,
-                binding == null ? null : binding.family(),
-                binding
-            );
+                    binding == null ? null : binding.parameterId(),
+                    null,
+                    binding == null ? "" : binding.parameterId().value(),
+                    "",
+                    false,
+                    false,
+                    binding == null ? null : binding.family(),
+                    binding);
         }
         final String name = parameter.name().orElse(null);
         final String label = name != null && !name.isBlank()
-            ? name + "(" + parameter.id().value() + ")"
-            : parameter.id().value();
+                ? name + "(" + parameter.id().value() + ")"
+                : parameter.id().value();
         final StringBuilder markers = new StringBuilder();
         if (parameter.type() == ParameterType.BLEND_SHAPE) {
             markers.append('M');
@@ -61,14 +58,13 @@ public record BoundParameterSnapshot(
             markers.append('C');
         }
         return new BoundParameterSnapshot(
-            parameter.id(),
-            name,
-            label,
-            markers.toString(),
-            parameter.type() == ParameterType.BLEND_SHAPE,
-            parameter.combined().orElse(false),
-            binding == null ? null : binding.family(),
-            binding
-        );
+                parameter.id(),
+                name,
+                label,
+                markers.toString(),
+                parameter.type() == ParameterType.BLEND_SHAPE,
+                parameter.combined().orElse(false),
+                binding == null ? null : binding.family(),
+                binding);
     }
 }

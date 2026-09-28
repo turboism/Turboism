@@ -22,17 +22,16 @@ package dev.turboism.plugin.uitheme.b1.domain;
  *                a claim only - {@link BuiltinThemeCatalog} decides what is actually reviewed
  */
 public record ThemePackageMetadata(
-    String id,
-    String name,
-    String description,
-    String author,
-    String url,
-    String version,
-    String parentId,
-    ThemeBase base,
-    ThemeIcons icons,
-    Boolean builtIn
-) {
+        String id,
+        String name,
+        String description,
+        String author,
+        String url,
+        String version,
+        String parentId,
+        ThemeBase base,
+        ThemeIcons icons,
+        Boolean builtIn) {
     public ThemePackageMetadata {
         description = description == null ? "" : description;
         author = author == null ? "" : author;

@@ -2,11 +2,6 @@ package dev.turboism.ui.resource;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
-
-import javax.imageio.ImageIO;
-import javax.imageio.stream.MemoryCacheImageInputStream;
-import javax.swing.Icon;
-import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
@@ -27,6 +22,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import javax.imageio.ImageIO;
+import javax.imageio.stream.MemoryCacheImageInputStream;
+import javax.swing.Icon;
+import javax.swing.SwingUtilities;
 
 /**
  * Runtime-owned, bounded native PNG cache. No Cubism resource bytes escape to plugins.
@@ -45,9 +44,7 @@ public final class CubismNativeIconResolver implements AutoCloseable {
 
     // Prepared-cache seam stays package-private; production callers must use the attested factory.
     CubismNativeIconResolver(
-        final Map<NativeIconVariant, BufferedImage> prepared,
-        final UiIconAvailability unavailable
-    ) {
+            final Map<NativeIconVariant, BufferedImage> prepared, final UiIconAvailability unavailable) {
         this.unavailable = Objects.requireNonNull(unavailable, "unavailable");
         if (unavailable == UiIconAvailability.AVAILABLE || prepared.size() > 80) {
             throw new IllegalArgumentException("invalid native icon cache");
@@ -69,23 +66,23 @@ public final class CubismNativeIconResolver implements AutoCloseable {
      * class or invoking its methods. The alias must belong to the supplied verified access plan.
      * Never accepts a plugin path, context classloader or claimed version as the public trust root.
      */
-    public static CubismNativeIconResolver preload(
-        final VerifiedMemberResolver resolver,
-        final String anchorAlias
-    ) {
+    public static CubismNativeIconResolver preload(final VerifiedMemberResolver resolver, final String anchorAlias) {
         requireOffEdt();
         Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(anchorAlias, "anchorAlias");
         if (CubismNativeIconCatalog.artifact(resolver.cubismVersion()).isEmpty()) return unverified();
         try {
-            final String ownerName = resolver.verifiedSelector(anchorAlias).ownerInternalName().replace('/', '.');
+            final String ownerName =
+                    resolver.verifiedSelector(anchorAlias).ownerInternalName().replace('/', '.');
             final ClassLoader loader = resolver.hostClassLoader();
             final Class<?> owner = Class.forName(ownerName, false, loader);
             if (owner.getClassLoader() != loader) return unverified();
             final var source = owner.getProtectionDomain().getCodeSource();
-            if (source == null || source.getLocation() == null
-                || !"file".equals(source.getLocation().getProtocol())) return unverified();
-            return preloadArtifact(resolver.cubismVersion(), Path.of(source.getLocation().toURI()));
+            if (source == null
+                    || source.getLocation() == null
+                    || !"file".equals(source.getLocation().getProtocol())) return unverified();
+            return preloadArtifact(
+                    resolver.cubismVersion(), Path.of(source.getLocation().toURI()));
         } catch (ClassNotFoundException | java.net.URISyntaxException | RuntimeException | LinkageError failure) {
             return unverified();
         }
@@ -99,14 +96,15 @@ public final class CubismNativeIconResolver implements AutoCloseable {
         if (expected.isEmpty()) return unverified();
         try {
             if (!Files.isRegularFile(artifact, LinkOption.NOFOLLOW_LINKS)
-                || Files.size(artifact) != expected.get().size()
-                || expected.get().size() > MAX_ARTIFACT_BYTES) return unverified();
+                    || Files.size(artifact) != expected.get().size()
+                    || expected.get().size() > MAX_ARTIFACT_BYTES) return unverified();
             final byte[] snapshot;
             try (var stream = Files.newInputStream(artifact)) {
                 snapshot = stream.readNBytes((int) expected.get().size() + 1);
             }
             // Decode precisely these measured bytes, never reopen the path after validation.
-            if (snapshot.length != expected.get().size() || !sha256(snapshot).equals(expected.get().sha256())) {
+            if (snapshot.length != expected.get().size()
+                    || !sha256(snapshot).equals(expected.get().sha256())) {
                 return unverified();
             }
             return decodeArchive(snapshot);
@@ -121,7 +119,7 @@ public final class CubismNativeIconResolver implements AutoCloseable {
         final Map<NativeIconVariant, BufferedImage> prepared = new HashMap<>();
         final Set<String> seen = new HashSet<>();
         try (var zip = new ZipInputStream(new ByteArrayInputStream(snapshot))) {
-            for (ZipEntry entry; (entry = zip.getNextEntry()) != null;) {
+            for (ZipEntry entry; (entry = zip.getNextEntry()) != null; ) {
                 final NativeIconVariant key = allowed.get(entry.getName());
                 if (key == null) continue;
                 if (!seen.add(entry.getName())) {
@@ -132,7 +130,9 @@ public final class CubismNativeIconResolver implements AutoCloseable {
                 if (entry.isDirectory() || entry.getSize() > MAX_PNG_BYTES) continue;
                 try {
                     final byte[] bytes = zip.readNBytes(MAX_PNG_BYTES + 1);
-                    prepared.put(key, decodePng(bytes, CubismNativeIconCatalog.resources().get(key), key.physicalSize()));
+                    prepared.put(
+                            key,
+                            decodePng(bytes, CubismNativeIconCatalog.resources().get(key), key.physicalSize()));
                 } catch (IOException | RuntimeException invalidResource) {
                     // One bad/missing variant cannot disable the other admitted variants.
                 }
@@ -145,14 +145,19 @@ public final class CubismNativeIconResolver implements AutoCloseable {
     }
 
     static BufferedImage decodePng(final byte[] bytes, final String expectedHash, final int physicalSize)
-        throws IOException {
-        if (bytes.length < 33 || bytes.length > MAX_PNG_BYTES
-            || physicalSize < 16 || physicalSize > 32 || physicalSize % 4 != 0
-            || !sha256(bytes).equals(expectedHash)) throw new IOException("invalid native PNG identity or budget");
+            throws IOException {
+        if (bytes.length < 33
+                || bytes.length > MAX_PNG_BYTES
+                || physicalSize < 16
+                || physicalSize > 32
+                || physicalSize % 4 != 0
+                || !sha256(bytes).equals(expectedHash)) throw new IOException("invalid native PNG identity or budget");
         final ByteBuffer header = ByteBuffer.wrap(bytes);
-        if (header.getLong(0) != 0x89504e470d0a1a0aL || header.getInt(8) != 13
-            || header.getInt(12) != 0x49484452 || header.getInt(16) != physicalSize
-            || header.getInt(20) != physicalSize) throw new IOException("invalid native PNG header");
+        if (header.getLong(0) != 0x89504e470d0a1a0aL
+                || header.getInt(8) != 13
+                || header.getInt(12) != 0x49484452
+                || header.getInt(16) != physicalSize
+                || header.getInt(20) != physicalSize) throw new IOException("invalid native PNG header");
         // Explicit memory stream avoids ImageIO's optional process-global disk cache.
         try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
             final var readers = ImageIO.getImageReaders(input);
@@ -217,10 +222,23 @@ public final class CubismNativeIconResolver implements AutoCloseable {
 
     private final class CachedIcon implements Icon {
         private final NativeIconVariant key;
-        private CachedIcon(final NativeIconVariant key) { this.key = key; }
-        @Override public int getIconWidth() { return 16; }
-        @Override public int getIconHeight() { return 16; }
-        @Override public void paintIcon(final Component component, final Graphics graphics, final int x, final int y) {
+
+        private CachedIcon(final NativeIconVariant key) {
+            this.key = key;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return 16;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return 16;
+        }
+
+        @Override
+        public void paintIcon(final Component component, final Graphics graphics, final int x, final int y) {
             synchronized (CubismNativeIconResolver.this) {
                 final BufferedImage image = images.get(key);
                 if (!closed && image != null) graphics.drawImage(image, x, y, 16, 16, null);

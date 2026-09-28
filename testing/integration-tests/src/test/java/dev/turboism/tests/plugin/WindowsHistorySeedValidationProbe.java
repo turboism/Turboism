@@ -7,37 +7,36 @@ import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
-import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
+import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
+import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.ModelObjectDescriptor;
 import dev.turboism.sdk.cubism.model.ModelObjectKind;
 import dev.turboism.sdk.cubism.model.ModelObjectReference;
-import dev.turboism.sdk.cubism.id.DeformerId;
-import dev.turboism.sdk.cubism.model.Deformer;
+import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
-import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.plugin.PluginContext;
-
-import javax.swing.SwingUtilities;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.Optional;
-import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.SwingUtilities;
 
 /** Manual-test-only SDK writer that creates and restores Parameter and native Artmesh Undo items. */
 public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
@@ -49,27 +48,26 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
     private static final int MAX_PAIRED_SAMPLES = 21;
     private static final String INTERNAL_ROOT_PART = "__RootPart__";
     private static final List<String> REQUIRED_PAIRED_PHASES = List.of(
-        "baseline",
-        "write-1",
-        "write-2",
-        "third-write",
-        "group",
-        "undo",
-        "redo",
-        "restored",
-        "artmesh-baseline",
-        "artmesh-write-1",
-        "artmesh-write-2",
-        "artmesh-third-write",
-        "artmesh-undo",
-        "artmesh-redo",
-        "relation-baseline",
-        "relation-write-1",
-        "relation-write-2",
-        "relation-undo",
-        "relation-redo",
-        "relation-mcp-write"
-    );
+            "baseline",
+            "write-1",
+            "write-2",
+            "third-write",
+            "group",
+            "undo",
+            "redo",
+            "restored",
+            "artmesh-baseline",
+            "artmesh-write-1",
+            "artmesh-write-2",
+            "artmesh-third-write",
+            "artmesh-undo",
+            "artmesh-redo",
+            "relation-baseline",
+            "relation-write-1",
+            "relation-write-2",
+            "relation-undo",
+            "relation-redo",
+            "relation-mcp-write");
 
     private PluginContext context;
     private Thread worker;
@@ -119,110 +117,117 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             Thread.sleep(5_000L);
             final HistorySnapshot navigationHistory = context.cubism().history().snapshot();
 
-            final HistoryMoveResult attempted = context.cubism().history().moveTo(
-                navigationHistory.generation(),
-                navigationHistory.revision(),
-                1
-            );
+            final HistoryMoveResult attempted =
+                    context.cubism().history().moveTo(navigationHistory.generation(), navigationHistory.revision(), 1);
             final float afterAttempt = onEdt(parameter::getValue);
             evidence.check(
-                "move-restores-first-value",
-                attempted.outcome() == HistoryMoveResult.Outcome.MOVED && same(afterAttempt, first),
-                "outcome=MOVED,value=" + first,
-                "outcome=" + attempted.outcome().name() + ",value=" + afterAttempt
-            );
+                    "move-restores-first-value",
+                    attempted.outcome() == HistoryMoveResult.Outcome.MOVED && same(afterAttempt, first),
+                    "outcome=MOVED,value=" + first,
+                    "outcome=" + attempted.outcome().name() + ",value=" + afterAttempt);
             evidence.check(
-                "move-keeps-history-available",
-                attempted.snapshot().availability() == HistorySnapshot.Availability.AVAILABLE,
-                HistorySnapshot.Availability.AVAILABLE.name(),
-                attempted.snapshot().availability().name()
-            );
+                    "move-keeps-history-available",
+                    attempted.snapshot().availability() == HistorySnapshot.Availability.AVAILABLE,
+                    HistorySnapshot.Availability.AVAILABLE.name(),
+                    attempted.snapshot().availability().name());
             capturePaired(evidence, "undo");
 
             final HistorySnapshot movedSnapshot = attempted.snapshot();
-            final HistoryMoveResult returnedToTip = context.cubism().history().moveTo(
-                movedSnapshot.generation(),
-                movedSnapshot.revision(),
-                movedSnapshot.entries().size()
-            );
+            final HistoryMoveResult returnedToTip = context.cubism()
+                    .history()
+                    .moveTo(
+                            movedSnapshot.generation(),
+                            movedSnapshot.revision(),
+                            movedSnapshot.entries().size());
             final float afterReturn = onEdt(parameter::getValue);
             evidence.check(
-                "move-returns-to-tip",
-                returnedToTip.outcome() == HistoryMoveResult.Outcome.MOVED && same(afterReturn, third),
-                "outcome=MOVED,value=" + third,
-                "outcome=" + returnedToTip.outcome().name() + ",value=" + afterReturn
-            );
+                    "move-returns-to-tip",
+                    returnedToTip.outcome() == HistoryMoveResult.Outcome.MOVED && same(afterReturn, third),
+                    "outcome=MOVED,value=" + third,
+                    "outcome=" + returnedToTip.outcome().name() + ",value=" + afterReturn);
             capturePaired(evidence, "redo");
 
-            final AuthoringTransactionResult<Void> grouped = onEdt(() ->
-                context.cubism().authoringTransactions().execute(
-                    AuthoringTransactionOptions.of("Semantic history grouped parameter edit"),
-                    () -> {
+            final AuthoringTransactionResult<Void> grouped = onEdt(() -> context.cubism()
+                    .authoringTransactions()
+                    .execute(AuthoringTransactionOptions.of("Semantic history grouped parameter edit"), () -> {
                         parameter.setValue(first);
                         parameter.setValue(second);
                         return null;
-                    }
-                )
-            );
+                    }));
             final HistorySnapshot groupedHistory = context.cubism().history().snapshot();
             capturePaired(evidence, "group");
             final String groupedEntryId = grouped.receipt()
-                .flatMap(receipt -> receipt.historyEntryId())
-                .orElse("");
+                    .flatMap(receipt -> receipt.historyEntryId())
+                    .orElse("");
             final Optional<HistoryEntry> groupedEntry = groupedHistory.entries().stream()
-                .filter(entry -> entry.entryId().map(value -> value.value().equals(groupedEntryId)).orElse(false))
-                .findFirst();
+                    .filter(entry -> entry.entryId()
+                            .map(value -> value.value().equals(groupedEntryId))
+                            .orElse(false))
+                    .findFirst();
 
             evidence.check(
-                "grouped-transaction-committed",
-                grouped.outcome() == AuthoringTransactionOutcome.COMMITTED,
-                AuthoringTransactionOutcome.COMMITTED.name(),
-                grouped.outcome().name() + ",diagnostic=" + grouped.diagnosticId().orElse("")
-            );
+                    "grouped-transaction-committed",
+                    grouped.outcome() == AuthoringTransactionOutcome.COMMITTED,
+                    AuthoringTransactionOutcome.COMMITTED.name(),
+                    grouped.outcome().name() + ",diagnostic="
+                            + grouped.diagnosticId().orElse(""));
             evidence.check(
-                "grouped-entry-correlated-by-stable-id",
-                !groupedEntryId.isBlank() && groupedEntry.isPresent(),
-                "non-empty receipt historyEntryId present in fresh snapshot",
-                groupedEntryId.isBlank() ? "missing receipt historyEntryId" : "entryPresent=" + groupedEntry.isPresent()
-            );
+                    "grouped-entry-correlated-by-stable-id",
+                    !groupedEntryId.isBlank() && groupedEntry.isPresent(),
+                    "non-empty receipt historyEntryId present in fresh snapshot",
+                    groupedEntryId.isBlank()
+                            ? "missing receipt historyEntryId"
+                            : "entryPresent=" + groupedEntry.isPresent());
             if (groupedEntry.isPresent()) {
                 final HistoryEntry entry = groupedEntry.orElseThrow();
                 evidence.entry("grouped-entry", entry);
                 evidence.check(
-                    "grouped-entry-structure",
-                    entry.transactionId().isPresent()
-                        && entry.detail().group().isPresent()
-                        && entry.detail().group().orElseThrow().children().size() == 2
-                        && entry.detail().origin().kind()
-                            == dev.turboism.sdk.cubism.history.HistoryOrigin.Kind.TURBOISM,
-                    "transactionId,group with 2 children,origin=TURBOISM",
-                    "transactionId=" + entry.transactionId().isPresent()
-                        + ",group=" + entry.detail().group().isPresent()
-                        + ",children=" + entry.detail().group().map(value -> value.children().size()).orElse(0)
-                        + ",origin=" + entry.detail().origin().kind().name()
-                );
+                        "grouped-entry-structure",
+                        entry.transactionId().isPresent()
+                                && entry.detail().group().isPresent()
+                                && entry.detail()
+                                                .group()
+                                                .orElseThrow()
+                                                .children()
+                                                .size()
+                                        == 2
+                                && entry.detail().origin().kind()
+                                        == dev.turboism.sdk.cubism.history.HistoryOrigin.Kind.TURBOISM,
+                        "transactionId,group with 2 children,origin=TURBOISM",
+                        "transactionId=" + entry.transactionId().isPresent()
+                                + ",group=" + entry.detail().group().isPresent()
+                                + ",children="
+                                + entry.detail()
+                                        .group()
+                                        .map(value -> value.children().size())
+                                        .orElse(0)
+                                + ",origin=" + entry.detail().origin().kind().name());
                 entry.detail().group().ifPresent(group -> {
                     for (int index = 0; index < group.children().size(); index++) {
-                        evidence.detail("grouped-child-" + index, group.children().get(index));
+                        evidence.detail(
+                                "grouped-child-" + index, group.children().get(index));
                     }
                 });
             }
 
-            onEdt(() -> { parameter.setValue(before); return null; });
+            onEdt(() -> {
+                parameter.setValue(before);
+                return null;
+            });
             final float restored = awaitValue(parameter, before);
-            evidence.check("fixture-value-restored", same(restored, before), Float.toString(before), Float.toString(restored));
+            evidence.check(
+                    "fixture-value-restored", same(restored, before), Float.toString(before), Float.toString(restored));
             Thread.sleep(5_000L);
 
             evidence.check(
-                "seed-history-shape",
-                history.availability() == HistorySnapshot.Availability.AVAILABLE
-                    && history.position() == 3
-                    && history.entries().size() == 3,
-                "availability=AVAILABLE,position=3,entries=3",
-                "availability=" + history.availability().name()
-                    + ",position=" + history.position()
-                    + ",entries=" + history.entries().size()
-            );
+                    "seed-history-shape",
+                    history.availability() == HistorySnapshot.Availability.AVAILABLE
+                            && history.position() == 3
+                            && history.entries().size() == 3,
+                    "availability=AVAILABLE,position=3,entries=3",
+                    "availability=" + history.availability().name()
+                            + ",position=" + history.position()
+                            + ",entries=" + history.entries().size());
             for (int index = 0; index < history.entries().size(); index++) {
                 final HistoryEntry entry = history.entries().get(index);
                 evidence.entry("seed-entry-" + index, entry);
@@ -233,10 +238,13 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             evidence.summary();
         } catch (Exception exception) {
             try {
-                append(artifact,
-                    "{\"type\":\"error\",\"class\":\"" + json(exception.getClass().getName())
-                        + "\",\"message\":\"" + json(exception.getMessage()) + "\"}\n"
-                        + "{\"type\":\"summary\",\"status\":\"FAIL\"}\n", true);
+                append(
+                        artifact,
+                        "{\"type\":\"error\",\"class\":\""
+                                + json(exception.getClass().getName())
+                                + "\",\"message\":\"" + json(exception.getMessage()) + "\"}\n"
+                                + "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
+                        true);
             } catch (Exception ignored) {
                 context.logger().error("History seed evidence could not be written", exception);
             }
@@ -245,9 +253,8 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
     private void capturePaired(final Evidence evidence, final String phase) {
         try {
-            final WindowsHistoryManagerValidationProbe.Snapshot snapshot = onEdt(
-                () -> WindowsHistoryManagerValidationProbe.sample(context)
-            );
+            final WindowsHistoryManagerValidationProbe.Snapshot snapshot =
+                    onEdt(() -> WindowsHistoryManagerValidationProbe.sample(context));
             evidence.pairedSample(phase, snapshot);
         } catch (Exception exception) {
             evidence.pairedFailure(phase, exception);
@@ -255,51 +262,49 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
     }
 
     private static void assertParameterSemanticDetail(
-        final Evidence evidence,
-        final String checkPrefix,
-        final HistoryEntry entry,
-        final String parameterId
-    ) {
+            final Evidence evidence, final String checkPrefix, final HistoryEntry entry, final String parameterId) {
         final Optional<HistoryAction> action = entry.action();
         final boolean valid = entry.entryId().isPresent()
-            && entry.detailLevel() == HistoryAction.DetailLevel.FULL
-            && action.isPresent()
-            && action.orElseThrow().kind() == HistoryAction.Kind.SET_PARAMETER_VALUE
-            && action.orElseThrow().targetType().equals("PARAMETER")
-            && action.orElseThrow().targetId().equals(parameterId)
-            && action.orElseThrow().property().equals("value")
-            && action.orElseThrow().before().isPresent()
-            && action.orElseThrow().after().isPresent()
-            && entry.detail().origin().kind()
-                == dev.turboism.sdk.cubism.history.HistoryOrigin.Kind.TURBOISM
-            && entry.detail().targets().size() == 1
-            && entry.detail().targets().get(0).type().equals("PARAMETER")
-            && entry.detail().targets().get(0).id().filter(parameterId::equals).isPresent()
-            && entry.detail().changes().size() == 1
-            && semanticParameterChange(entry.detail().changes().get(0));
+                && entry.detailLevel() == HistoryAction.DetailLevel.FULL
+                && action.isPresent()
+                && action.orElseThrow().kind() == HistoryAction.Kind.SET_PARAMETER_VALUE
+                && action.orElseThrow().targetType().equals("PARAMETER")
+                && action.orElseThrow().targetId().equals(parameterId)
+                && action.orElseThrow().property().equals("value")
+                && action.orElseThrow().before().isPresent()
+                && action.orElseThrow().after().isPresent()
+                && entry.detail().origin().kind() == dev.turboism.sdk.cubism.history.HistoryOrigin.Kind.TURBOISM
+                && entry.detail().targets().size() == 1
+                && entry.detail().targets().get(0).type().equals("PARAMETER")
+                && entry.detail()
+                        .targets()
+                        .get(0)
+                        .id()
+                        .filter(parameterId::equals)
+                        .isPresent()
+                && entry.detail().changes().size() == 1
+                && semanticParameterChange(entry.detail().changes().get(0));
         evidence.check(
-            checkPrefix + "-semantic-detail",
-            valid,
-            "stableId,FULL,SET_PARAMETER_VALUE,PARAMETER:" + parameterId
-                + ",property=value,before+after,context=OBJECT,origin=TURBOISM",
-            "stableId=" + entry.entryId().isPresent()
-                + ",level=" + entry.detailLevel().name()
-                + ",action=" + action.map(value -> value.kind().name()).orElse("missing")
-                + ",targets=" + entry.detail().targets().size()
-                + ",changes=" + entry.detail().changes().size()
-                + ",origin=" + entry.detail().origin().kind().name()
-        );
+                checkPrefix + "-semantic-detail",
+                valid,
+                "stableId,FULL,SET_PARAMETER_VALUE,PARAMETER:" + parameterId
+                        + ",property=value,before+after,context=OBJECT,origin=TURBOISM",
+                "stableId=" + entry.entryId().isPresent()
+                        + ",level=" + entry.detailLevel().name()
+                        + ",action=" + action.map(value -> value.kind().name()).orElse("missing")
+                        + ",targets=" + entry.detail().targets().size()
+                        + ",changes=" + entry.detail().changes().size()
+                        + ",origin=" + entry.detail().origin().kind().name());
     }
 
     private static boolean semanticParameterChange(final HistoryChange change) {
         return change.operation() == HistoryChange.Operation.SET
-            && change.property().filter("value"::equals).isPresent()
-            && change.before().isPresent()
-            && change.after().isPresent()
-            && change.context().kind()
-                == dev.turboism.sdk.cubism.history.HistoryEditContext.Kind.OBJECT
-            && change.context().formId().isEmpty()
-            && change.context().coordinates().isEmpty();
+                && change.property().filter("value"::equals).isPresent()
+                && change.before().isPresent()
+                && change.after().isPresent()
+                && change.context().kind() == dev.turboism.sdk.cubism.history.HistoryEditContext.Kind.OBJECT
+                && change.context().formId().isEmpty()
+                && change.context().coordinates().isEmpty();
     }
 
     private void validateArtMeshCapturedSemantic(final Evidence evidence) throws Exception {
@@ -313,111 +318,149 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
         HistorySnapshot projected = baseline;
         try {
-            onEdt(() -> { drawable.setMultiplyColor(first); return null; });
+            onEdt(() -> {
+                drawable.setMultiplyColor(first);
+                return null;
+            });
             final Optional<HistorySnapshot> firstAdvance = awaitHistoryAdvance(baseline, 50);
-            final HistorySnapshot knownFirst = firstAdvance.orElseGet(() -> context.cubism().history().snapshot());
+            final HistorySnapshot knownFirst =
+                    firstAdvance.orElseGet(() -> context.cubism().history().snapshot());
             capturePaired(evidence, "artmesh-write-1");
 
-            onEdt(() -> { drawable.setMultiplyColor(second); return null; });
+            onEdt(() -> {
+                drawable.setMultiplyColor(second);
+                return null;
+            });
             projected = awaitHistoryAdvance(knownFirst, 100)
-                .orElseThrow(() -> new IllegalStateException(
-                    "Timed out waiting for known Artmesh color transition"
-                ));
+                    .orElseThrow(
+                            () -> new IllegalStateException("Timed out waiting for known Artmesh color transition"));
             capturePaired(evidence, "artmesh-write-2");
             final HistoryEntry entry = projected.entries().get(projected.position() - 1);
             evidence.entry("artmesh-captured-entry", entry);
             evidence.nestedDetails("artmesh-captured-child", entry.detail());
-            final Optional<HistoryEntryDetail> semanticDetail = semanticDetail(
-                entry.detail(),
-                "multiplyColor"
-            );
+            final Optional<HistoryEntryDetail> semanticDetail = semanticDetail(entry.detail(), "multiplyColor");
             semanticDetail.ifPresent(detail -> evidence.detail("artmesh-captured-semantic", detail));
-            final Optional<HistoryChange> semanticChange = semanticDetail.flatMap(detail ->
-                detail.changes().stream()
-                    .filter(change -> change.property().filter("multiplyColor"::equals).isPresent())
-                    .findFirst()
-            );
-            final boolean contextComplete = semanticChange.map(change -> switch (change.context().kind()) {
-                case DEFAULT_FORM -> change.context().formId().isPresent()
-                    && change.context().coordinates().isEmpty();
-                case KEYFORM -> change.context().formId().isPresent()
-                    && !change.context().coordinates().isEmpty();
-                default -> false;
-            }).orElse(false);
+            final Optional<HistoryChange> semanticChange = semanticDetail.flatMap(detail -> detail.changes().stream()
+                    .filter(change ->
+                            change.property().filter("multiplyColor"::equals).isPresent())
+                    .findFirst());
+            final boolean contextComplete = semanticChange
+                    .map(change -> switch (change.context().kind()) {
+                        case DEFAULT_FORM ->
+                            change.context().formId().isPresent()
+                                    && change.context().coordinates().isEmpty();
+                        case KEYFORM ->
+                            change.context().formId().isPresent()
+                                    && !change.context().coordinates().isEmpty();
+                        default -> false;
+                    })
+                    .orElse(false);
             final boolean valid = entry.entryId().isPresent()
-                && entry.action().isEmpty()
-                && semanticDetail.filter(detail ->
-                    detail.detailLevel() == HistoryAction.DetailLevel.FULL
-                        && detail.origin().kind()
-                            == dev.turboism.sdk.cubism.history.HistoryOrigin.Kind.TURBOISM
-                        && detail.targets().size() == 1
-                        && detail.targets().get(0).type().equals("ART_MESH")
-                        && detail.targets().get(0).id().filter(drawableId::equals).isPresent()
-                        && detail.changes().size() == 1
-                ).isPresent()
-                && semanticChange.filter(change ->
-                    change.operation() == HistoryChange.Operation.SET
-                        && change.before().filter(rgb(first)::equals).isPresent()
-                        && change.after().filter(rgb(second)::equals).isPresent()
-                ).isPresent()
-                && contextComplete;
+                    && entry.action().isEmpty()
+                    && semanticDetail
+                            .filter(detail -> detail.detailLevel() == HistoryAction.DetailLevel.FULL
+                                    && detail.origin().kind()
+                                            == dev.turboism.sdk.cubism.history.HistoryOrigin.Kind.TURBOISM
+                                    && detail.targets().size() == 1
+                                    && detail.targets().get(0).type().equals("ART_MESH")
+                                    && detail.targets()
+                                            .get(0)
+                                            .id()
+                                            .filter(drawableId::equals)
+                                            .isPresent()
+                                    && detail.changes().size() == 1)
+                            .isPresent()
+                    && semanticChange
+                            .filter(change -> change.operation() == HistoryChange.Operation.SET
+                                    && change.before()
+                                            .filter(rgb(first)::equals)
+                                            .isPresent()
+                                    && change.after()
+                                            .filter(rgb(second)::equals)
+                                            .isPresent())
+                            .isPresent()
+                    && contextComplete;
             evidence.check(
-                "artmesh-sdk-captured-semantic-detail",
-                valid,
-                "stableId,direct-or-nested FULL,ART_MESH:" + drawableId
-                    + ",property=multiplyColor,before=" + rgb(first)
-                    + ",after=" + rgb(second)
-                    + ",context=DEFAULT_FORM|KEYFORM,origin=TURBOISM,legacyAction=empty",
-                "stableId=" + entry.entryId().isPresent()
-                    + ",topLevel=" + entry.detailLevel().name()
-                    + ",semanticLevel=" + semanticDetail.map(value -> value.detailLevel().name()).orElse("missing")
-                    + ",action=" + entry.action().isPresent()
-                    + ",targets=" + semanticDetail.map(value -> value.targets().size()).orElse(0)
-                    + ",changes=" + semanticDetail.map(value -> value.changes().size()).orElse(0)
-                    + ",origin=" + semanticDetail.map(value -> value.origin().kind().name()).orElse("missing")
-                    + ",before=" + semanticChange.flatMap(HistoryChange::before).orElse("missing")
-                    + ",after=" + semanticChange.flatMap(HistoryChange::after).orElse("missing")
-                    + ",context=" + semanticChange.map(change -> change.context().kind().name()).orElse("missing")
-            );
+                    "artmesh-sdk-captured-semantic-detail",
+                    valid,
+                    "stableId,direct-or-nested FULL,ART_MESH:" + drawableId
+                            + ",property=multiplyColor,before=" + rgb(first)
+                            + ",after=" + rgb(second)
+                            + ",context=DEFAULT_FORM|KEYFORM,origin=TURBOISM,legacyAction=empty",
+                    "stableId=" + entry.entryId().isPresent()
+                            + ",topLevel=" + entry.detailLevel().name()
+                            + ",semanticLevel="
+                            + semanticDetail
+                                    .map(value -> value.detailLevel().name())
+                                    .orElse("missing")
+                            + ",action=" + entry.action().isPresent()
+                            + ",targets="
+                            + semanticDetail
+                                    .map(value -> value.targets().size())
+                                    .orElse(0)
+                            + ",changes="
+                            + semanticDetail
+                                    .map(value -> value.changes().size())
+                                    .orElse(0)
+                            + ",origin="
+                            + semanticDetail
+                                    .map(value -> value.origin().kind().name())
+                                    .orElse("missing")
+                            + ",before="
+                            + semanticChange.flatMap(HistoryChange::before).orElse("missing")
+                            + ",after="
+                            + semanticChange.flatMap(HistoryChange::after).orElse("missing")
+                            + ",context="
+                            + semanticChange
+                                    .map(change -> change.context().kind().name())
+                                    .orElse("missing"));
             final HistoryEntry firstEntry = knownFirst.entries().get(knownFirst.position() - 1);
-            onEdt(() -> { drawable.setMultiplyColor(new Color(0.2F, 0.4F, 0.6F, 1.0F)); return null; });
+            onEdt(() -> {
+                drawable.setMultiplyColor(new Color(0.2F, 0.4F, 0.6F, 1.0F));
+                return null;
+            });
             final HistorySnapshot third = awaitHistoryAdvance(projected, 100).orElseThrow();
             capturePaired(evidence, "artmesh-third-write");
-            evidence.check("artmesh-capture-stable-after-third-write",
-                sameSemanticEntry(firstEntry, third) && sameSemanticEntry(entry, third),
-                "both earlier entries retain exact frozen detail", "first=" + sameSemanticEntry(firstEntry, third)
-                    + ",second=" + sameSemanticEntry(entry, third));
+            evidence.check(
+                    "artmesh-capture-stable-after-third-write",
+                    sameSemanticEntry(firstEntry, third) && sameSemanticEntry(entry, third),
+                    "both earlier entries retain exact frozen detail",
+                    "first=" + sameSemanticEntry(firstEntry, third) + ",second=" + sameSemanticEntry(entry, third));
             final HistoryMoveResult back = onEdt(() -> {
                 final HistorySnapshot fresh = context.cubism().history().snapshot();
                 return context.cubism().history().moveTo(fresh.generation(), fresh.revision(), knownFirst.position());
             });
-            evidence.check("artmesh-capture-stable-after-undo",
-                back.outcome() == HistoryMoveResult.Outcome.MOVED && sameSemanticEntry(entry, back.snapshot())
-                    && sameSemanticEntry(firstEntry, back.snapshot()), "MOVED with frozen details", back.outcome().name());
+            evidence.check(
+                    "artmesh-capture-stable-after-undo",
+                    back.outcome() == HistoryMoveResult.Outcome.MOVED
+                            && sameSemanticEntry(entry, back.snapshot())
+                            && sameSemanticEntry(firstEntry, back.snapshot()),
+                    "MOVED with frozen details",
+                    back.outcome().name());
             capturePaired(evidence, "artmesh-undo");
             final HistoryMoveResult redo = onEdt(() -> {
                 final HistorySnapshot fresh = context.cubism().history().snapshot();
                 return context.cubism().history().moveTo(fresh.generation(), fresh.revision(), third.position());
             });
-            evidence.check("artmesh-capture-stable-after-redo",
-                redo.outcome() == HistoryMoveResult.Outcome.MOVED && sameSemanticEntry(entry, redo.snapshot())
-                    && sameSemanticEntry(firstEntry, redo.snapshot()), "MOVED with frozen details", redo.outcome().name());
+            evidence.check(
+                    "artmesh-capture-stable-after-redo",
+                    redo.outcome() == HistoryMoveResult.Outcome.MOVED
+                            && sameSemanticEntry(entry, redo.snapshot())
+                            && sameSemanticEntry(firstEntry, redo.snapshot()),
+                    "MOVED with frozen details",
+                    redo.outcome().name());
             capturePaired(evidence, "artmesh-redo");
         } finally {
             final HistorySnapshot current = context.cubism().history().snapshot();
-            final HistoryMoveResult restored = context.cubism().history().moveTo(
-                current.generation(),
-                current.revision(),
-                baseline.position()
-            );
+            final HistoryMoveResult restored =
+                    context.cubism().history().moveTo(current.generation(), current.revision(), baseline.position());
             evidence.check(
-                "artmesh-multiply-color-restored",
-                restored.outcome() == HistoryMoveResult.Outcome.MOVED
-                    && restored.snapshot().position() == baseline.position(),
-                "outcome=MOVED,position=" + baseline.position(),
-                "outcome=" + restored.outcome().name()
-                    + ",position=" + restored.snapshot().position()
-            );
+                    "artmesh-multiply-color-restored",
+                    restored.outcome() == HistoryMoveResult.Outcome.MOVED
+                            && restored.snapshot().position() == baseline.position(),
+                    "outcome=MOVED,position=" + baseline.position(),
+                    "outcome=" + restored.outcome().name() + ",position="
+                            + restored.snapshot().position());
             capturePaired(evidence, "restored");
             Thread.sleep(2_000L);
         }
@@ -446,27 +489,26 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         final String childId = onEdt(() -> drawable.id().value());
         final List<Part> parts = onEdt(() -> model.parts().all());
         final List<Deformer> deformers = onEdt(() -> model.deformers().all());
-        final List<String> partIds = onEdt(() -> parts.stream().map(part -> part.id().value()).toList());
-        final List<String> deformerIds = onEdt(() -> deformers.stream()
-            .map(deformer -> deformer.id().value()).toList());
+        final List<String> partIds =
+                onEdt(() -> parts.stream().map(part -> part.id().value()).toList());
+        final List<String> deformerIds = onEdt(
+                () -> deformers.stream().map(deformer -> deformer.id().value()).toList());
         final NativeParent original = observeNativeParent(drawable);
         evidence.event(
-            "relation-inventory",
-            "child=" + childId + ";parts=" + partIds + ";deformers=" + deformerIds
-                + ";original=" + original.text()
-        );
+                "relation-inventory",
+                "child=" + childId + ";parts=" + partIds + ";deformers=" + deformerIds + ";original="
+                        + original.text());
 
         final List<String> candidates = partIds.stream()
-            .filter(id -> !id.equals(original.partId().orElse(null)))
-            .filter(id -> !INTERNAL_ROOT_PART.equals(id))
-            .toList();
+                .filter(id -> !id.equals(original.partId().orElse(null)))
+                .filter(id -> !INTERNAL_ROOT_PART.equals(id))
+                .toList();
         final Optional<String> membershipTarget = candidates.stream().findFirst();
         evidence.check(
-            "relation-part-membership-target",
-            membershipTarget.isPresent(),
-            "a real Part exists that is not the current direct parent",
-            "parts=" + partIds + ",currentPart=" + original.partId().orElse("ROOT")
-        );
+                "relation-part-membership-target",
+                membershipTarget.isPresent(),
+                "a real Part exists that is not the current direct parent",
+                "parts=" + partIds + ",currentPart=" + original.partId().orElse("ROOT"));
         if (membershipTarget.isEmpty()) {
             return;
         }
@@ -476,121 +518,111 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         final HistorySnapshot baseline = context.cubism().history().snapshot();
         capturePaired(evidence, "relation-baseline");
         final NativeParent beforeMembership = observeNativeParent(drawable);
-        onEdt(() -> { drawable.setParent(membershipParent, -1); return null; });
+        onEdt(() -> {
+            drawable.setParent(membershipParent, -1);
+            return null;
+        });
         final HistorySnapshot membershipHistory = awaitHistoryAdvance(baseline, 100)
-            .orElseThrow(() -> new IllegalStateException(
-                "Timed out waiting for Part membership relation capture"
-            ));
+                .orElseThrow(() -> new IllegalStateException("Timed out waiting for Part membership relation capture"));
         capturePaired(evidence, "relation-write-1");
-        final HistoryEntry membershipEntry = membershipHistory.entries()
-            .get(membershipHistory.position() - 1);
+        final HistoryEntry membershipEntry = membershipHistory.entries().get(membershipHistory.position() - 1);
         evidence.entry("relation-membership-entry", membershipEntry);
         evidence.nestedDetails("relation-membership-child", membershipEntry.detail());
         validateCapturedRelation(
-            evidence,
-            "relation-part-membership-captured",
-            membershipEntry,
-            childId,
-            "PART_MEMBERSHIP",
-            beforeMembership,
-            "PART",
-            membershipId
-        );
+                evidence,
+                "relation-part-membership-captured",
+                membershipEntry,
+                childId,
+                "PART_MEMBERSHIP",
+                beforeMembership,
+                "PART",
+                membershipId);
         final NativeParent afterMembership = observeNativeParent(drawable);
         evidence.check(
-            "relation-part-membership-native-applied",
-            afterMembership.partId().filter(membershipId::equals).isPresent(),
-            "native parentPartId=" + membershipId,
-            afterMembership.text()
-        );
+                "relation-part-membership-native-applied",
+                afterMembership.partId().filter(membershipId::equals).isPresent(),
+                "native parentPartId=" + membershipId,
+                afterMembership.text());
 
-        final Optional<String> secondTarget = candidates.stream()
-            .filter(id -> !id.equals(membershipId))
-            .findFirst();
+        final Optional<String> secondTarget =
+                candidates.stream().filter(id -> !id.equals(membershipId)).findFirst();
         evidence.check(
-            "relation-second-direct-target",
-            secondTarget.isPresent(),
-            "a second Part exists that is not the current or first target parent",
-            "parts=" + partIds + ";first=" + membershipId
-        );
+                "relation-second-direct-target",
+                secondTarget.isPresent(),
+                "a second Part exists that is not the current or first target parent",
+                "parts=" + partIds + ";first=" + membershipId);
         if (secondTarget.isEmpty()) {
             return;
         }
         final String secondId = secondTarget.orElseThrow();
         final Part secondParent = onEdt(() -> model.parts().find(new PartId(secondId)));
         final NativeParent beforeSecond = observeNativeParent(drawable);
-        onEdt(() -> { drawable.setParent(secondParent, -1); return null; });
+        onEdt(() -> {
+            drawable.setParent(secondParent, -1);
+            return null;
+        });
         final HistorySnapshot secondHistory = awaitHistoryAdvance(membershipHistory, 100)
-            .orElseThrow(() -> new IllegalStateException(
-                "Timed out waiting for the second direct relation capture"
-            ));
+                .orElseThrow(
+                        () -> new IllegalStateException("Timed out waiting for the second direct relation capture"));
         capturePaired(evidence, "relation-write-2");
         final HistoryEntry secondEntry = secondHistory.entries().get(secondHistory.position() - 1);
         evidence.entry("relation-second-entry", secondEntry);
         evidence.nestedDetails("relation-second-child", secondEntry.detail());
         validateCapturedRelation(
-            evidence,
-            "relation-second-captured",
-            secondEntry,
-            childId,
-            "PART_MEMBERSHIP",
-            beforeSecond,
-            "PART",
-            secondId
-        );
+                evidence,
+                "relation-second-captured",
+                secondEntry,
+                childId,
+                "PART_MEMBERSHIP",
+                beforeSecond,
+                "PART",
+                secondId);
         evidence.check(
-            "relation-first-entry-frozen",
-            sameSemanticEntry(membershipEntry, secondHistory),
-            "the first relation entry keeps its exact captured detail",
-            "frozen=" + sameSemanticEntry(membershipEntry, secondHistory)
-        );
+                "relation-first-entry-frozen",
+                sameSemanticEntry(membershipEntry, secondHistory),
+                "the first relation entry keeps its exact captured detail",
+                "frozen=" + sameSemanticEntry(membershipEntry, secondHistory));
         final NativeParent afterSecond = observeNativeParent(drawable);
 
         final HistoryMoveResult undone = onEdt(() -> context.cubism().history().undo(1));
         evidence.check(
-            "relation-undo-moved",
-            undone.outcome() == HistoryMoveResult.Outcome.MOVED,
-            HistoryMoveResult.Outcome.MOVED.name(),
-            undone.outcome().name()
-        );
+                "relation-undo-moved",
+                undone.outcome() == HistoryMoveResult.Outcome.MOVED,
+                HistoryMoveResult.Outcome.MOVED.name(),
+                undone.outcome().name());
         // Native Undo is applied outside the calling thread, so the parent is awaited rather than
         // sampled once.
         final NativeParent afterUndo = awaitNativeParent(drawable, beforeSecond);
         // Diagnostic: distinguish a stale handle from a native Undo that did not revert the
         // relation. A fresh model access must agree with the cached handle.
         evidence.observation(
-            "relation-undo-parent-reread",
-            "the cached handle agrees with a fresh model access",
-            "cached=" + afterUndo.text() + ";fresh=" + rereadParentViaFreshAccess(childId)
-        );
+                "relation-undo-parent-reread",
+                "the cached handle agrees with a fresh model access",
+                "cached=" + afterUndo.text() + ";fresh=" + rereadParentViaFreshAccess(childId));
         capturePaired(evidence, "relation-undo");
         evidence.check(
-            "relation-undo-restores-first-parent",
-            afterUndo.equals(beforeSecond),
-            beforeSecond.text(),
-            afterUndo.text()
-        );
+                "relation-undo-restores-first-parent",
+                afterUndo.equals(beforeSecond),
+                beforeSecond.text(),
+                afterUndo.text());
 
         final HistoryMoveResult redone = onEdt(() -> context.cubism().history().redo(1));
         evidence.check(
-            "relation-redo-moved",
-            redone.outcome() == HistoryMoveResult.Outcome.MOVED,
-            HistoryMoveResult.Outcome.MOVED.name(),
-            redone.outcome().name()
-        );
+                "relation-redo-moved",
+                redone.outcome() == HistoryMoveResult.Outcome.MOVED,
+                HistoryMoveResult.Outcome.MOVED.name(),
+                redone.outcome().name());
         final NativeParent afterRedo = awaitNativeParent(drawable, afterSecond);
         evidence.observation(
-            "relation-redo-parent-reread",
-            "the cached handle agrees with a fresh model access",
-            "cached=" + afterRedo.text() + ";fresh=" + rereadParentViaFreshAccess(childId)
-        );
+                "relation-redo-parent-reread",
+                "the cached handle agrees with a fresh model access",
+                "cached=" + afterRedo.text() + ";fresh=" + rereadParentViaFreshAccess(childId));
         capturePaired(evidence, "relation-redo");
         evidence.check(
-            "relation-redo-reapplies-second-parent",
-            afterRedo.equals(afterSecond),
-            afterSecond.text(),
-            afterRedo.text()
-        );
+                "relation-redo-reapplies-second-parent",
+                afterRedo.equals(afterSecond),
+                afterSecond.text(),
+                afterRedo.text());
         validateDeformerRootCapture(evidence, model, drawable, deformers);
         validateModelObjectServiceIngress(evidence, model, drawable, original);
         restoreOriginalParent(evidence, model, drawable, original);
@@ -601,29 +633,24 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
      * direct Deformer parent must be captured exactly, applied natively, and restored by Undo.
      */
     private void validateDeformerRootCapture(
-        final Evidence evidence,
-        final CubismModel model,
-        final Drawable drawable,
-        final List<Deformer> deformers
-    ) throws Exception {
-        final List<String> deformerIds = onEdt(() -> deformers.stream()
-            .map(deformer -> deformer.id().value()).toList());
+            final Evidence evidence, final CubismModel model, final Drawable drawable, final List<Deformer> deformers)
+            throws Exception {
+        final List<String> deformerIds = onEdt(
+                () -> deformers.stream().map(deformer -> deformer.id().value()).toList());
         evidence.check(
-            "relation-deformer-root-target",
-            !deformers.isEmpty(),
-            "a Deformer exists that can become the direct parent",
-            "deformers=" + deformerIds
-        );
+                "relation-deformer-root-target",
+                !deformers.isEmpty(),
+                "a Deformer exists that can become the direct parent",
+                "deformers=" + deformerIds);
         if (deformers.isEmpty()) {
             return;
         }
         final NativeParent beforeWrite = observeNativeParent(drawable);
         evidence.check(
-            "relation-deformer-root-start",
-            beforeWrite.deformerId().isEmpty(),
-            "the Artmesh starts without a direct Deformer parent",
-            beforeWrite.text()
-        );
+                "relation-deformer-root-start",
+                beforeWrite.deformerId().isEmpty(),
+                "the Artmesh starts without a direct Deformer parent",
+                beforeWrite.text());
         if (beforeWrite.deformerId().isPresent()) {
             return;
         }
@@ -631,84 +658,83 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         // Classify through the exact SDK collections: an instance check on the evaluated object
         // does not identify the host relation type.
         final List<String> warpIds = onEdt(() -> model.warpDeformers().all().stream()
-            .map(candidate -> candidate.id().value()).toList());
+                .map(candidate -> candidate.id().value())
+                .toList());
         final List<String> rotationIds = onEdt(() -> model.rotationDeformers().all().stream()
-            .map(candidate -> candidate.id().value()).toList());
+                .map(candidate -> candidate.id().value())
+                .toList());
         final String expectedType = warpIds.contains(deformerId)
-            ? "WARP_DEFORMER"
-            : rotationIds.contains(deformerId) ? "ROTATION_DEFORMER" : "DEFORMER";
+                ? "WARP_DEFORMER"
+                : rotationIds.contains(deformerId) ? "ROTATION_DEFORMER" : "DEFORMER";
         final HistorySnapshot before = context.cubism().history().snapshot();
         onEdt(() -> {
             drawable.setTargetDeformer(Optional.of(new DeformerId(deformerId)));
             return null;
         });
-        final HistorySnapshot after = awaitHistoryAdvance(before, 100).orElse(context.cubism().history().snapshot());
+        final HistorySnapshot after = awaitHistoryAdvance(before, 100)
+                .orElse(context.cubism().history().snapshot());
         final HistoryEntryDetail detail = currentEntry(after);
         final Optional<HistoryRelationChange> relation = detail == null
-            ? Optional.empty()
-            : detail.changes().stream()
-                .map(HistoryChange::relation)
-                .flatMap(Optional::stream)
-                .findFirst();
+                ? Optional.empty()
+                : detail.changes().stream()
+                        .map(HistoryChange::relation)
+                        .flatMap(Optional::stream)
+                        .findFirst();
         evidence.check(
-            "relation-deformer-root-captured",
-            relation.isPresent()
-                && relation.orElseThrow().kind() == HistoryRelationChange.Kind.DEFORMER_PARENT,
-            "one captured DEFORMER_PARENT relation",
-            "deformer=" + deformerId + "," + describeCurrentEntry(after)
-        );
+                "relation-deformer-root-captured",
+                relation.isPresent() && relation.orElseThrow().kind() == HistoryRelationChange.Kind.DEFORMER_PARENT,
+                "one captured DEFORMER_PARENT relation",
+                "deformer=" + deformerId + "," + describeCurrentEntry(after));
         evidence.check(
-            "relation-deformer-root-before",
-            relation.isPresent()
-                && relation.orElseThrow().before().state() == HistoryRelationChange.State.ROOT
-                && relation.orElseThrow().before().target().isEmpty(),
-            "before=ROOT with no target",
-            relation.map(value -> describeEndpoint(value.before())).orElse("no relation")
-        );
+                "relation-deformer-root-before",
+                relation.isPresent()
+                        && relation.orElseThrow().before().state() == HistoryRelationChange.State.ROOT
+                        && relation.orElseThrow().before().target().isEmpty(),
+                "before=ROOT with no target",
+                relation.map(value -> describeEndpoint(value.before())).orElse("no relation"));
         evidence.check(
-            "relation-deformer-root-after",
-            relation.isPresent()
-                && relation.orElseThrow().after().state() == HistoryRelationChange.State.TARGET
-                && relation.orElseThrow().after().target().map(target ->
-                    expectedType.equals(target.type())
-                        && target.id().filter(deformerId::equals).isPresent()
-                ).orElse(false),
-            "after=" + expectedType + ":" + deformerId,
-            relation.map(value -> describeEndpoint(value.after())).orElse("no relation")
-        );
+                "relation-deformer-root-after",
+                relation.isPresent()
+                        && relation.orElseThrow().after().state() == HistoryRelationChange.State.TARGET
+                        && relation.orElseThrow()
+                                .after()
+                                .target()
+                                .map(target -> expectedType.equals(target.type())
+                                        && target.id()
+                                                .filter(deformerId::equals)
+                                                .isPresent())
+                                .orElse(false),
+                "after=" + expectedType + ":" + deformerId,
+                relation.map(value -> describeEndpoint(value.after())).orElse("no relation"));
         evidence.check(
-            "relation-deformer-root-detail",
-            detail != null
-                && detail.detailLevel() == HistoryAction.DetailLevel.FULL
-                && detail.origin().kind() == HistoryOrigin.Kind.TURBOISM,
-            "level=FULL,origin=TURBOISM",
-            "level=" + (detail == null ? "none" : detail.detailLevel().name())
-                + ",origin=" + (detail == null ? "none" : detail.origin().kind().name())
-        );
+                "relation-deformer-root-detail",
+                detail != null
+                        && detail.detailLevel() == HistoryAction.DetailLevel.FULL
+                        && detail.origin().kind() == HistoryOrigin.Kind.TURBOISM,
+                "level=FULL,origin=TURBOISM",
+                "level=" + (detail == null ? "none" : detail.detailLevel().name()) + ",origin="
+                        + (detail == null ? "none" : detail.origin().kind().name()));
         final NativeParent applied = observeNativeParent(drawable);
         evidence.check(
-            "relation-deformer-root-native-applied",
-            applied.deformerId().filter(deformerId::equals).isPresent(),
-            beforeWrite.text() + " -> deformer=" + deformerId,
-            applied.text()
-        );
+                "relation-deformer-root-native-applied",
+                applied.deformerId().filter(deformerId::equals).isPresent(),
+                beforeWrite.text() + " -> deformer=" + deformerId,
+                applied.text());
 
         final HistoryMoveResult undone = onEdt(() -> context.cubism().history().undo(1));
         final NativeParent restored = awaitNativeParent(drawable, beforeWrite);
         evidence.check(
-            "relation-deformer-root-undo-restores",
-            undone.outcome() == HistoryMoveResult.Outcome.MOVED && restored.equals(beforeWrite),
-            beforeWrite.text(),
-            undone.outcome().name() + "," + restored.text()
-        );
+                "relation-deformer-root-undo-restores",
+                undone.outcome() == HistoryMoveResult.Outcome.MOVED && restored.equals(beforeWrite),
+                beforeWrite.text(),
+                undone.outcome().name() + "," + restored.text());
         final HistoryMoveResult redone = onEdt(() -> context.cubism().history().redo(1));
         final NativeParent reapplied = awaitNativeParent(drawable, applied);
         evidence.check(
-            "relation-deformer-root-redo-reapplies",
-            redone.outcome() == HistoryMoveResult.Outcome.MOVED && reapplied.equals(applied),
-            applied.text(),
-            redone.outcome().name() + "," + reapplied.text()
-        );
+                "relation-deformer-root-redo-reapplies",
+                redone.outcome() == HistoryMoveResult.Outcome.MOVED && reapplied.equals(applied),
+                applied.text(),
+                redone.outcome().name() + "," + reapplied.text());
         if (deformerIds.size() < 2) {
             return;
         }
@@ -720,30 +746,29 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             drawable.setTargetDeformer(Optional.of(new DeformerId(secondDeformer)));
             return null;
         });
-        final HistorySnapshot afterSecond =
-            awaitHistoryAdvance(beforeSecond, 100).orElse(context.cubism().history().snapshot());
+        final HistorySnapshot afterSecond = awaitHistoryAdvance(beforeSecond, 100)
+                .orElse(context.cubism().history().snapshot());
         evidence.observation(
-            "relation-deformer-second-write",
-            "target-to-target Deformer reparent is captured",
-            "to=" + secondDeformer + "," + describeCurrentEntry(afterSecond)
-                + ",native=" + observeNativeParent(drawable).text()
-        );
-        final HistoryMoveResult secondUndone = onEdt(() -> context.cubism().history().undo(1));
+                "relation-deformer-second-write",
+                "target-to-target Deformer reparent is captured",
+                "to=" + secondDeformer + "," + describeCurrentEntry(afterSecond) + ",native="
+                        + observeNativeParent(drawable).text());
+        final HistoryMoveResult secondUndone =
+                onEdt(() -> context.cubism().history().undo(1));
         Thread.sleep(1_500L);
         evidence.observation(
-            "relation-deformer-undo-restores",
-            "native Undo restores the previous Deformer parent",
-            "outcome=" + secondUndone.outcome().name()
-                + ",native=" + observeNativeParent(drawable).text()
-        );
-        final HistoryMoveResult secondRedone = onEdt(() -> context.cubism().history().redo(1));
+                "relation-deformer-undo-restores",
+                "native Undo restores the previous Deformer parent",
+                "outcome=" + secondUndone.outcome().name() + ",native="
+                        + observeNativeParent(drawable).text());
+        final HistoryMoveResult secondRedone =
+                onEdt(() -> context.cubism().history().redo(1));
         Thread.sleep(1_500L);
         evidence.observation(
-            "relation-deformer-redo-reapplies",
-            "native Redo reapplies the second Deformer parent",
-            "outcome=" + secondRedone.outcome().name()
-                + ",native=" + observeNativeParent(drawable).text()
-        );
+                "relation-deformer-redo-reapplies",
+                "native Redo reapplies the second Deformer parent",
+                "outcome=" + secondRedone.outcome().name() + ",native="
+                        + observeNativeParent(drawable).text());
     }
 
     private HistoryEntryDetail currentEntry(final HistorySnapshot snapshot) {
@@ -759,10 +784,10 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             return "no observable entry";
         }
         return "level=" + detail.detailLevel().name()
-            + ",origin=" + detail.origin().kind().name()
-            + ",changes=" + detail.changes().size()
-            + ",relation=" + detail.changes().stream()
-                .anyMatch(change -> change.relation().isPresent());
+                + ",origin=" + detail.origin().kind().name()
+                + ",changes=" + detail.changes().size()
+                + ",relation="
+                + detail.changes().stream().anyMatch(change -> change.relation().isPresent());
     }
 
     /**
@@ -773,26 +798,22 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
      * captured relation row as the direct SDK call and must apply and restore natively.</p>
      */
     private void validateModelObjectServiceIngress(
-        final Evidence evidence,
-        final CubismModel model,
-        final Drawable drawable,
-        final NativeParent original
-    ) throws Exception {
+            final Evidence evidence, final CubismModel model, final Drawable drawable, final NativeParent original)
+            throws Exception {
         evidence.event("phase", "relation-mcp-ingress");
         final String childId = onEdt(() -> drawable.id().value());
-        final List<String> partIds = onEdt(() -> model.parts().all().stream()
-            .map(part -> part.id().value()).toList());
+        final List<String> partIds = onEdt(() ->
+                model.parts().all().stream().map(part -> part.id().value()).toList());
         final NativeParent before = observeNativeParent(drawable);
         final Optional<String> target = partIds.stream()
-            .filter(id -> !id.equals(before.partId().orElse(null)))
-            .filter(id -> !INTERNAL_ROOT_PART.equals(id))
-            .findFirst();
+                .filter(id -> !id.equals(before.partId().orElse(null)))
+                .filter(id -> !INTERNAL_ROOT_PART.equals(id))
+                .findFirst();
         evidence.check(
-            "relation-mcp-ingress-target",
-            target.isPresent(),
-            "a Part exists that is not the current direct parent",
-            "parts=" + partIds + ",currentPart=" + before.partId().orElse("ROOT")
-        );
+                "relation-mcp-ingress-target",
+                target.isPresent(),
+                "a Part exists that is not the current direct parent",
+                "parts=" + partIds + ",currentPart=" + before.partId().orElse("ROOT"));
         if (target.isEmpty()) {
             return;
         }
@@ -804,25 +825,24 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         final AtomicReference<RuntimeException> failure = new AtomicReference<>();
         onEdt(() -> {
             try {
-                returned.set(context.modelObjects().reparent(
-                    new ModelObjectReference(ModelObjectKind.ART_MESH, childId),
-                    new ModelObjectReference(ModelObjectKind.PART, partId),
-                    -1
-                ));
+                returned.set(context.modelObjects()
+                        .reparent(
+                                new ModelObjectReference(ModelObjectKind.ART_MESH, childId),
+                                new ModelObjectReference(ModelObjectKind.PART, partId),
+                                -1));
             } catch (RuntimeException exception) {
                 failure.set(exception);
             }
             return null;
         });
         evidence.check(
-            "relation-mcp-ingress-accepted",
-            failure.get() == null && returned.get() != null,
-            "the model-object service accepts the reparent",
-            failure.get() == null
-                ? "descriptor=" + describeDescriptor(returned.get())
-                : "failed: " + failure.get().getClass().getSimpleName()
-                    + ":" + failure.get().getMessage()
-        );
+                "relation-mcp-ingress-accepted",
+                failure.get() == null && returned.get() != null,
+                "the model-object service accepts the reparent",
+                failure.get() == null
+                        ? "descriptor=" + describeDescriptor(returned.get())
+                        : "failed: " + failure.get().getClass().getSimpleName() + ":"
+                                + failure.get().getMessage());
         if (failure.get() != null || returned.get() == null) {
             return;
         }
@@ -831,84 +851,78 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         // of encoding that projection as a requirement, and record the Part effect separately.
         final String liveParent = onEdt(() -> {
             final Optional<Drawable> current = model.drawables().all().stream()
-                .filter(candidate -> candidate.id().value().equals(childId))
-                .findFirst();
-            return current
-                .flatMap(candidate -> candidate.parentDeformerId()
-                    .map(id -> "DEFORMER:" + id.value())
-                    .or(() -> candidate.parentPartId().map(id -> "PART:" + id.value())))
-                .orElse("none");
+                    .filter(candidate -> candidate.id().value().equals(childId))
+                    .findFirst();
+            return current.flatMap(candidate -> candidate
+                            .parentDeformerId()
+                            .map(id -> "DEFORMER:" + id.value())
+                            .or(() -> candidate.parentPartId().map(id -> "PART:" + id.value())))
+                    .orElse("none");
         });
-        final String descriptorParent = returned.get().parent()
-            .map(parent -> (parent.kind() == ModelObjectKind.ART_MESH ? "ART_MESH:" : parent.kind() + ":")
-                + parent.id())
-            .orElse("none");
+        final String descriptorParent = returned.get()
+                .parent()
+                .map(parent ->
+                        (parent.kind() == ModelObjectKind.ART_MESH ? "ART_MESH:" : parent.kind() + ":") + parent.id())
+                .orElse("none");
         evidence.check(
-            "relation-mcp-ingress-descriptor",
-            returned.get().reference().kind() == ModelObjectKind.ART_MESH
-                && returned.get().reference().id().equals(childId)
-                && descriptorParentMatches(descriptorParent, liveParent),
-            "descriptor matches the live parent readback for " + childId,
-            describeDescriptor(returned.get()) + ",live=" + liveParent
-        );
+                "relation-mcp-ingress-descriptor",
+                returned.get().reference().kind() == ModelObjectKind.ART_MESH
+                        && returned.get().reference().id().equals(childId)
+                        && descriptorParentMatches(descriptorParent, liveParent),
+                "descriptor matches the live parent readback for " + childId,
+                describeDescriptor(returned.get()) + ",live=" + liveParent);
         evidence.observation(
-            "relation-mcp-ingress-descriptor-part-slot",
-            "documented projection: one parent slot, Deformer first",
-            "requested part=" + partId + ",descriptor=" + describeDescriptor(returned.get())
-                + "; the Part membership change is carried by the captured relation row"
-        );
+                "relation-mcp-ingress-descriptor-part-slot",
+                "documented projection: one parent slot, Deformer first",
+                "requested part=" + partId + ",descriptor=" + describeDescriptor(returned.get())
+                        + "; the Part membership change is carried by the captured relation row");
 
         final HistorySnapshot after = awaitHistoryAdvance(baseline, 100)
-            .orElse(context.cubism().history().snapshot());
+                .orElse(context.cubism().history().snapshot());
         capturePaired(evidence, "relation-mcp-write");
         final HistoryEntryDetail detail = currentEntry(after);
         final Optional<HistoryRelationChange> relation = detail == null
-            ? Optional.empty()
-            : detail.changes().stream()
-                .map(HistoryChange::relation)
-                .flatMap(Optional::stream)
-                .findFirst();
+                ? Optional.empty()
+                : detail.changes().stream()
+                        .map(HistoryChange::relation)
+                        .flatMap(Optional::stream)
+                        .findFirst();
         evidence.check(
-            "relation-mcp-ingress-captured",
-            relation.isPresent()
-                && relation.orElseThrow().kind() == HistoryRelationChange.Kind.PART_MEMBERSHIP
-                && detail.detailLevel() == HistoryAction.DetailLevel.FULL
-                && detail.origin().kind() == HistoryOrigin.Kind.TURBOISM,
-            "one captured PART_MEMBERSHIP relation at level=FULL,origin=TURBOISM",
-            "child=" + childId + "," + describeCurrentEntry(after)
-        );
+                "relation-mcp-ingress-captured",
+                relation.isPresent()
+                        && relation.orElseThrow().kind() == HistoryRelationChange.Kind.PART_MEMBERSHIP
+                        && detail.detailLevel() == HistoryAction.DetailLevel.FULL
+                        && detail.origin().kind() == HistoryOrigin.Kind.TURBOISM,
+                "one captured PART_MEMBERSHIP relation at level=FULL,origin=TURBOISM",
+                "child=" + childId + "," + describeCurrentEntry(after));
         evidence.check(
-            "relation-mcp-ingress-endpoints",
-            relation.isPresent()
-                && relation.orElseThrow().after().target().map(candidate ->
-                    "PART".equals(candidate.type())
-                        && candidate.id().filter(partId::equals).isPresent()
-                ).orElse(false)
-                && relation.orElseThrow().before().state() == HistoryRelationChange.State.TARGET,
-            "before=" + (before.partId().map(id -> "PART:" + id).orElse("ROOT"))
-                + ",after=PART:" + partId,
-            relation.map(value -> describeEndpoint(value.before())
-                + "->" + describeEndpoint(value.after())).orElse("no relation")
-        );
-        final NativeParent applied = awaitNativeParent(
-            drawable,
-            new NativeParent(Optional.of(partId), before.deformerId())
-        );
+                "relation-mcp-ingress-endpoints",
+                relation.isPresent()
+                        && relation.orElseThrow()
+                                .after()
+                                .target()
+                                .map(candidate -> "PART".equals(candidate.type())
+                                        && candidate.id().filter(partId::equals).isPresent())
+                                .orElse(false)
+                        && relation.orElseThrow().before().state() == HistoryRelationChange.State.TARGET,
+                "before=" + (before.partId().map(id -> "PART:" + id).orElse("ROOT")) + ",after=PART:" + partId,
+                relation.map(value -> describeEndpoint(value.before()) + "->" + describeEndpoint(value.after()))
+                        .orElse("no relation"));
+        final NativeParent applied =
+                awaitNativeParent(drawable, new NativeParent(Optional.of(partId), before.deformerId()));
         evidence.check(
-            "relation-mcp-ingress-native-applied",
-            applied.partId().filter(partId::equals).isPresent(),
-            "part=" + partId,
-            applied.text()
-        );
+                "relation-mcp-ingress-native-applied",
+                applied.partId().filter(partId::equals).isPresent(),
+                "part=" + partId,
+                applied.text());
 
         final HistoryMoveResult undone = onEdt(() -> context.cubism().history().undo(1));
         final NativeParent restored = awaitNativeParent(drawable, before);
         evidence.check(
-            "relation-mcp-ingress-undo-restores",
-            undone.outcome() == HistoryMoveResult.Outcome.MOVED && restored.equals(before),
-            before.text(),
-            undone.outcome().name() + "," + restored.text()
-        );
+                "relation-mcp-ingress-undo-restores",
+                undone.outcome() == HistoryMoveResult.Outcome.MOVED && restored.equals(before),
+                before.text(),
+                undone.outcome().name() + "," + restored.text());
         // Return to the tip: the later fixture restore must only append, otherwise the next phase
         // samples a forked sequence whose entry identities no longer match.
         onEdt(() -> context.cubism().history().redo(1));
@@ -921,25 +935,28 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             return true;
         }
         return liveParent.startsWith("DEFORMER:")
-            && descriptorParent.endsWith(":" + liveParent.substring("DEFORMER:".length()));
+                && descriptorParent.endsWith(":" + liveParent.substring("DEFORMER:".length()));
     }
 
     private static String describeDescriptor(final ModelObjectDescriptor descriptor) {
         return descriptor.reference().kind() + ":" + descriptor.reference().id()
-            + ",parent=" + descriptor.parent().map(parent -> parent.kind() + ":" + parent.id())
-                .orElse("none");
+                + ",parent="
+                + descriptor
+                        .parent()
+                        .map(parent -> parent.kind() + ":" + parent.id())
+                        .orElse("none");
     }
 
     private void restoreOriginalParent(
-        final Evidence evidence,
-        final CubismModel model,
-        final Drawable drawable,
-        final NativeParent original
-    ) throws Exception {
+            final Evidence evidence, final CubismModel model, final Drawable drawable, final NativeParent original)
+            throws Exception {
         if (original.partId().isPresent()) {
             final String partId = original.partId().orElseThrow();
             final Part part = onEdt(() -> model.parts().find(new PartId(partId)));
-            onEdt(() -> { drawable.setParent(part, -1); return null; });
+            onEdt(() -> {
+                drawable.setParent(part, -1);
+                return null;
+            });
         }
         if (original.deformerId().isPresent()) {
             final String deformerId = original.deformerId().orElseThrow();
@@ -948,85 +965,83 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                 return null;
             });
         } else {
-            onEdt(() -> { drawable.setTargetDeformer(Optional.empty()); return null; });
+            onEdt(() -> {
+                drawable.setTargetDeformer(Optional.empty());
+                return null;
+            });
         }
         final NativeParent restored = observeNativeParent(drawable);
         evidence.check(
-            "relation-fixture-parent-restored",
-            restored.partId().equals(original.partId())
-                && restored.deformerId().equals(original.deformerId()),
-            original.text(),
-            restored.text()
-        );
+                "relation-fixture-parent-restored",
+                restored.partId().equals(original.partId())
+                        && restored.deformerId().equals(original.deformerId()),
+                original.text(),
+                restored.text());
         Thread.sleep(2_000L);
     }
 
     /** Records one relation check against the observed native direct parent before the write. */
     private void validateCapturedRelation(
-        final Evidence evidence,
-        final String checkName,
-        final HistoryEntry entry,
-        final String childId,
-        final String expectedKind,
-        final NativeParent before,
-        final String expectedAfterType,
-        final String expectedAfterId
-    ) throws Exception {
+            final Evidence evidence,
+            final String checkName,
+            final HistoryEntry entry,
+            final String childId,
+            final String expectedKind,
+            final NativeParent before,
+            final String expectedAfterType,
+            final String expectedAfterId)
+            throws Exception {
         final HistoryEntryDetail detail = entry.detail();
         evidence.detail(checkName + "-semantic", detail);
         final Optional<HistoryChange> relationChange = detail.changes().stream()
-            .filter(change -> change.relation().isPresent())
-            .findFirst();
-        final HistoryRelationChange relation = relationChange
-            .flatMap(HistoryChange::relation)
-            .orElse(null);
-        final HistoryTarget afterTarget = relation == null
-            ? null
-            : relation.after().target().orElse(null);
+                .filter(change -> change.relation().isPresent())
+                .findFirst();
+        final HistoryRelationChange relation =
+                relationChange.flatMap(HistoryChange::relation).orElse(null);
+        final HistoryTarget afterTarget =
+                relation == null ? null : relation.after().target().orElse(null);
         final boolean targetsMatch = detail.targets().size() == 1
-            && detail.targets().get(0).type().equals("ART_MESH")
-            && detail.targets().get(0).id().filter(childId::equals).isPresent();
+                && detail.targets().get(0).type().equals("ART_MESH")
+                && detail.targets().get(0).id().filter(childId::equals).isPresent();
         final boolean beforeMatches = relation != null && endpointMatches(relation.before(), before);
         final boolean afterMatches = relation != null
-            && relation.after().state() == HistoryRelationChange.State.TARGET
-            && afterTarget != null
-            && afterTarget.type().equals(expectedAfterType)
-            && afterTarget.id().filter(expectedAfterId::equals).isPresent()
-            && afterTarget.displayName().isPresent();
+                && relation.after().state() == HistoryRelationChange.State.TARGET
+                && afterTarget != null
+                && afterTarget.type().equals(expectedAfterType)
+                && afterTarget.id().filter(expectedAfterId::equals).isPresent()
+                && afterTarget.displayName().isPresent();
         final boolean valid = entry.entryId().isPresent()
-            && entry.action().isEmpty()
-            && detail.detailLevel() == HistoryAction.DetailLevel.FULL
-            && detail.origin().kind() == dev.turboism.sdk.cubism.history.HistoryOrigin.Kind.TURBOISM
-            && targetsMatch
-            && detail.changes().size() == 1
-            && relation != null
-            && relation.kind().name().equals(expectedKind)
-            && relationChange.map(change -> change.operation() == HistoryChange.Operation.SET).orElse(false)
-            && beforeMatches
-            && afterMatches;
+                && entry.action().isEmpty()
+                && detail.detailLevel() == HistoryAction.DetailLevel.FULL
+                && detail.origin().kind() == dev.turboism.sdk.cubism.history.HistoryOrigin.Kind.TURBOISM
+                && targetsMatch
+                && detail.changes().size() == 1
+                && relation != null
+                && relation.kind().name().equals(expectedKind)
+                && relationChange
+                        .map(change -> change.operation() == HistoryChange.Operation.SET)
+                        .orElse(false)
+                && beforeMatches
+                && afterMatches;
         evidence.check(
-            checkName,
-            valid,
-            "entryId,noLegacyAction,FULL,TURBOISM,ART_MESH:" + childId + ",1 change,SET,kind="
-                + expectedKind + ",before=" + before.text() + ",after=" + expectedAfterType
-                + ":" + expectedAfterId + " with captured name",
-            "entryId=" + entry.entryId().isPresent()
-                + ",action=" + entry.action().isPresent()
-                + ",level=" + detail.detailLevel().name()
-                + ",origin=" + detail.origin().kind().name()
-                + ",targets=" + detail.targets().size()
-                + ",changes=" + detail.changes().size()
-                + ",kind=" + (relation == null ? "" : relation.kind().name())
-                + ",before=" + describeEndpoint(relation == null ? null : relation.before())
-                + ",after=" + describeEndpoint(relation == null ? null : relation.after())
-        );
+                checkName,
+                valid,
+                "entryId,noLegacyAction,FULL,TURBOISM,ART_MESH:" + childId + ",1 change,SET,kind="
+                        + expectedKind + ",before=" + before.text() + ",after=" + expectedAfterType
+                        + ":" + expectedAfterId + " with captured name",
+                "entryId=" + entry.entryId().isPresent()
+                        + ",action=" + entry.action().isPresent()
+                        + ",level=" + detail.detailLevel().name()
+                        + ",origin=" + detail.origin().kind().name()
+                        + ",targets=" + detail.targets().size()
+                        + ",changes=" + detail.changes().size()
+                        + ",kind=" + (relation == null ? "" : relation.kind().name())
+                        + ",before=" + describeEndpoint(relation == null ? null : relation.before())
+                        + ",after=" + describeEndpoint(relation == null ? null : relation.after()));
     }
 
     /** Matches one captured endpoint against the native direct parent observed before the write. */
-    static boolean endpointMatches(
-        final HistoryRelationChange.Endpoint endpoint,
-        final NativeParent observed
-    ) {
+    static boolean endpointMatches(final HistoryRelationChange.Endpoint endpoint, final NativeParent observed) {
         if (endpoint.state() == HistoryRelationChange.State.ROOT) {
             return observed.partId().isEmpty() && observed.deformerId().isEmpty();
         }
@@ -1038,10 +1053,14 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             return false;
         }
         if (target.type().equals("PART")) {
-            return observed.partId().filter(id -> target.id().filter(id::equals).isPresent()).isPresent();
+            return observed.partId()
+                    .filter(id -> target.id().filter(id::equals).isPresent())
+                    .isPresent();
         }
         return target.type().endsWith("DEFORMER")
-            && observed.deformerId().filter(id -> target.id().filter(id::equals).isPresent()).isPresent();
+                && observed.deformerId()
+                        .filter(id -> target.id().filter(id::equals).isPresent())
+                        .isPresent();
     }
 
     static String describeEndpoint(final HistoryRelationChange.Endpoint endpoint) {
@@ -1060,21 +1079,22 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         return onEdt(() -> {
             final CubismModel fresh = context.cubism().model().active();
             return fresh.drawables().all().stream()
-                .filter(candidate -> candidate.id().value().equals(childId))
-                .findFirst()
-                .map(candidate -> candidate.parentPartId().map(PartId::value).orElse("ROOT"))
-                .orElse("ABSENT");
+                    .filter(candidate -> candidate.id().value().equals(childId))
+                    .findFirst()
+                    .map(candidate ->
+                            candidate.parentPartId().map(PartId::value).orElse("ROOT"))
+                    .orElse("ABSENT");
         });
     }
 
     /** Waits for the native direct parent to reach the expected state after an Undo/Redo move. */
-    private NativeParent awaitNativeParent(
-        final Drawable drawable,
-        final NativeParent expected
-    ) throws Exception {
+    private NativeParent awaitNativeParent(final Drawable drawable, final NativeParent expected) throws Exception {
         NativeParent observed = observeNativeParent(drawable);
-        for (int attempt = 0; attempt < 50 && !observed.equals(expected)
-            && !Thread.currentThread().isInterrupted(); attempt++) {
+        for (int attempt = 0;
+                attempt < 50
+                        && !observed.equals(expected)
+                        && !Thread.currentThread().isInterrupted();
+                attempt++) {
             Thread.sleep(100L);
             observed = observeNativeParent(drawable);
         }
@@ -1083,9 +1103,8 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
     private NativeParent observeNativeParent(final Drawable drawable) throws Exception {
         return onEdt(() -> new NativeParent(
-            drawable.parentPartId().map(PartId::value),
-            drawable.parentDeformerId().map(DeformerId::value)
-        ));
+                drawable.parentPartId().map(PartId::value),
+                drawable.parentDeformerId().map(DeformerId::value)));
     }
 
     static String deformerType(final Deformer deformer) {
@@ -1099,24 +1118,22 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
     }
 
     static boolean sameSemanticEntry(final HistoryEntry expected, final HistorySnapshot actual) {
-        return expected.entryId().isPresent() && actual.entries().stream()
-            .filter(entry -> entry.entryId().equals(expected.entryId()))
-            .anyMatch(entry -> entry.detail().equals(expected.detail()));
+        return expected.entryId().isPresent()
+                && actual.entries().stream()
+                        .filter(entry -> entry.entryId().equals(expected.entryId()))
+                        .anyMatch(entry -> entry.detail().equals(expected.detail()));
     }
 
-    private static Optional<HistoryEntryDetail> semanticDetail(
-        final HistoryEntryDetail detail,
-        final String property
-    ) {
+    private static Optional<HistoryEntryDetail> semanticDetail(final HistoryEntryDetail detail, final String property) {
         if (detail.changes().stream()
-            .anyMatch(change -> change.property().filter(property::equals).isPresent())) {
+                .anyMatch(change -> change.property().filter(property::equals).isPresent())) {
             return Optional.of(detail);
         }
         return detail.group().stream()
-            .flatMap(group -> group.children().stream())
-            .map(child -> semanticDetail(child, property))
-            .flatMap(Optional::stream)
-            .findFirst();
+                .flatMap(group -> group.children().stream())
+                .map(child -> semanticDetail(child, property))
+                .flatMap(Optional::stream)
+                .findFirst();
     }
 
     private Drawable awaitDrawable() throws Exception {
@@ -1128,8 +1145,8 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
             try {
                 return onEdt(() -> model.drawables().all().stream()
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("No writable Artmesh is available")));
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("No writable Artmesh is available")));
             } catch (Exception exception) {
                 unavailable = exception;
                 Thread.sleep(500L);
@@ -1138,18 +1155,15 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         throw unavailable == null ? new IllegalStateException("Artmesh validation was interrupted") : unavailable;
     }
 
-
-    private Optional<HistorySnapshot> awaitHistoryAdvance(
-        final HistorySnapshot baseline,
-        final int attempts
-    ) throws Exception {
+    private Optional<HistorySnapshot> awaitHistoryAdvance(final HistorySnapshot baseline, final int attempts)
+            throws Exception {
         HistorySnapshot actual = baseline;
         for (int attempt = 0; attempt < attempts; attempt++) {
             actual = context.cubism().history().snapshot();
             if (actual.availability() == HistorySnapshot.Availability.AVAILABLE
-                && actual.position() > baseline.position()
-                && actual.position() <= actual.entries().size()
-                && actual.revision() != baseline.revision()) {
+                    && actual.position() > baseline.position()
+                    && actual.position() <= actual.entries().size()
+                    && actual.revision() != baseline.revision()) {
                 return Optional.of(actual);
             }
             Thread.sleep(100L);
@@ -1167,12 +1181,11 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
     static String rgb(final Color color) {
         return String.format(
-            java.util.Locale.ROOT,
-            "#%02x%02x%02x",
-            colorChannel(color.red()),
-            colorChannel(color.green()),
-            colorChannel(color.blue())
-        );
+                java.util.Locale.ROOT,
+                "#%02x%02x%02x",
+                colorChannel(color.red()),
+                colorChannel(color.green()),
+                colorChannel(color.blue()));
     }
 
     private static int colorChannel(final float value) {
@@ -1182,15 +1195,14 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         return Math.round(value * 255.0F);
     }
 
-
     private Parameter awaitParameter() throws Exception {
         Exception unavailable = null;
         for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
             try {
                 return onEdt(() -> context.cubism().model().active().parameters().all().stream()
-                    .filter(parameter -> parameter.getMaximumValue() > parameter.getMinimumValue())
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("No writable Parameter is available")));
+                        .filter(parameter -> parameter.getMaximumValue() > parameter.getMinimumValue())
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("No writable Parameter is available")));
             } catch (Exception exception) {
                 unavailable = exception;
                 Thread.sleep(500L);
@@ -1200,16 +1212,23 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
     }
 
     private void writeValue(
-        final Parameter parameter,
-        final Evidence evidence,
-        final String phase,
-        final String pairedPhase,
-        final String id,
-        final float value
-    ) throws Exception {
-        onEdt(() -> { parameter.setValue(value); return null; });
+            final Parameter parameter,
+            final Evidence evidence,
+            final String phase,
+            final String pairedPhase,
+            final String id,
+            final float value)
+            throws Exception {
+        onEdt(() -> {
+            parameter.setValue(value);
+            return null;
+        });
         final float actual = awaitValue(parameter, value);
-        evidence.check(phase, same(value, actual), "parameter=" + id + ",value=" + value, "parameter=" + id + ",value=" + actual);
+        evidence.check(
+                phase,
+                same(value, actual),
+                "parameter=" + id + ",value=" + value,
+                "parameter=" + id + ",value=" + actual);
         Thread.sleep(750L);
         capturePaired(evidence, pairedPhase);
     }
@@ -1288,17 +1307,12 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         final long existing = Files.exists(artifact) ? Files.size(artifact) : 0L;
         final long reserve = terminal ? 0L : TERMINAL_RESERVE_BYTES;
         if (bytes.length > MAX_EVIDENCE_BYTES
-            || existing > MAX_EVIDENCE_BYTES - reserve
-            || existing + bytes.length > MAX_EVIDENCE_BYTES - reserve) {
+                || existing > MAX_EVIDENCE_BYTES - reserve
+                || existing + bytes.length > MAX_EVIDENCE_BYTES - reserve) {
             throw new IllegalStateException("History seed evidence budget exhausted");
         }
         Files.writeString(
-            artifact,
-            value,
-            StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.APPEND
-        );
+                artifact, value, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     }
 
     static final class Evidence {
@@ -1311,24 +1325,20 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         }
 
         void event(final String name, final String value) throws Exception {
-            append(artifact,
-                "{\"type\":\"event\",\"name\":\"" + json(name)
-                    + "\",\"value\":\"" + json(value) + "\"}\n");
+            append(
+                    artifact,
+                    "{\"type\":\"event\",\"name\":\"" + json(name) + "\",\"value\":\"" + json(value) + "\"}\n");
         }
 
-        void check(
-            final String name,
-            final boolean status,
-            final String expected,
-            final String actual
-        ) {
+        void check(final String name, final boolean status, final String expected, final String actual) {
             passed &= status;
             try {
-                append(artifact,
-                    "{\"type\":\"check\",\"name\":\"" + json(name)
-                        + "\",\"status\":\"" + (status ? "PASS" : "FAIL")
-                        + "\",\"expected\":\"" + json(expected)
-                        + "\",\"actual\":\"" + json(actual) + "\"}\n");
+                append(
+                        artifact,
+                        "{\"type\":\"check\",\"name\":\"" + json(name)
+                                + "\",\"status\":\"" + (status ? "PASS" : "FAIL")
+                                + "\",\"expected\":\"" + json(expected)
+                                + "\",\"actual\":\"" + json(actual) + "\"}\n");
             } catch (Exception exception) {
                 throw new IllegalStateException("Could not write evidence check", exception);
             }
@@ -1340,24 +1350,22 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
          */
         void observation(final String name, final String expected, final String actual) {
             try {
-                append(artifact,
-                    "{\"type\":\"observation\",\"name\":\"" + json(name)
-                        + "\",\"expected\":\"" + json(expected)
-                        + "\",\"actual\":\"" + json(actual) + "\"}\n");
+                append(
+                        artifact,
+                        "{\"type\":\"observation\",\"name\":\"" + json(name)
+                                + "\",\"expected\":\"" + json(expected)
+                                + "\",\"actual\":\"" + json(actual) + "\"}\n");
             } catch (Exception exception) {
                 throw new IllegalStateException("Could not write evidence observation", exception);
             }
         }
 
-        void pairedSample(
-            final String phase,
-            final WindowsHistoryManagerValidationProbe.Snapshot snapshot
-        ) {
+        void pairedSample(final String phase, final WindowsHistoryManagerValidationProbe.Snapshot snapshot) {
             final List<String> errors = new ArrayList<>();
             final boolean acceptedPhase = phase != null
-                && !phase.isBlank()
-                && !pairedSamples.containsKey(phase)
-                && pairedSamples.size() < MAX_PAIRED_SAMPLES;
+                    && !phase.isBlank()
+                    && !pairedSamples.containsKey(phase)
+                    && pairedSamples.size() < MAX_PAIRED_SAMPLES;
             if (phase == null || phase.isBlank()) errors.add("paired-phase-missing");
             if (pairedSamples.containsKey(phase)) errors.add("paired-phase-duplicate");
             if (pairedSamples.size() >= MAX_PAIRED_SAMPLES && !pairedSamples.containsKey(phase)) {
@@ -1384,13 +1392,22 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         void pairedFailure(final String phase, final Exception exception) {
             passed = false;
             try {
-                append(artifact,
-                    "{\"type\":\"paired-snapshot-failure\",\"phase\":\"" + json(phase)
-                        + "\",\"errorType\":\"" + json(exception.getClass().getName())
-                        + "\",\"message\":\"" + json(exception.getMessage())
-                        + "\",\"cause\":\"" + json(String.valueOf(exception.getCause()))
-                        + "\",\"causeType\":\"" + json(exception.getCause() == null
-                            ? "none" : exception.getCause().getClass().getName()) + "\"}\n");
+                append(
+                        artifact,
+                        "{\"type\":\"paired-snapshot-failure\",\"phase\":\"" + json(phase)
+                                + "\",\"errorType\":\""
+                                + json(exception.getClass().getName())
+                                + "\",\"message\":\"" + json(exception.getMessage())
+                                + "\",\"cause\":\"" + json(String.valueOf(exception.getCause()))
+                                + "\",\"causeType\":\""
+                                + json(
+                                        exception.getCause() == null
+                                                ? "none"
+                                                : exception
+                                                        .getCause()
+                                                        .getClass()
+                                                        .getName())
+                                + "\"}\n");
             } catch (Exception writeFailure) {
                 throw new IllegalStateException("Could not write paired history failure", writeFailure);
             }
@@ -1404,9 +1421,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             return last;
         }
 
-        private static List<String> validateSnapshot(
-            final WindowsHistoryManagerValidationProbe.Snapshot snapshot
-        ) {
+        private static List<String> validateSnapshot(final WindowsHistoryManagerValidationProbe.Snapshot snapshot) {
             final List<String> errors = new ArrayList<>();
             if (!snapshot.edt()) errors.add("paired-snapshot-not-edt");
             if (absent(snapshot.documentIdentity())) errors.add("native-document-identity-missing");
@@ -1433,12 +1448,17 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                         errors.add("sdk-position-invalid");
                     }
                     for (int index = 0; index < sdk.entries().size(); index++) {
-                        final WindowsHistoryManagerValidationProbe.SdkEntry entry = sdk.entries().get(index);
+                        final WindowsHistoryManagerValidationProbe.SdkEntry entry =
+                                sdk.entries().get(index);
                         if (entry == null || entry.index() != index) errors.add("sdk-sequence-index-mismatch");
-                        if (entry == null || entry.entryId() == null || entry.entryId().isBlank()) {
+                        if (entry == null
+                                || entry.entryId() == null
+                                || entry.entryId().isBlank()) {
                             errors.add("sdk-entry-identity-missing");
                         }
-                        if (entry != null && (entry.detailJson() == null || entry.detailJson().isBlank())) {
+                        if (entry != null
+                                && (entry.detailJson() == null
+                                        || entry.detailJson().isBlank())) {
                             errors.add("sdk-detail-missing");
                         }
                     }
@@ -1450,16 +1470,19 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             validateNativeManager(snapshot.current(), errors, "CURRENT", false);
             validateNativeManager(snapshot.main(), errors, "MAIN", false);
             validateNativeManager(snapshot.linked(), errors, "LINKED", false);
-            if (sdk != null && document != null
-                && (document.position() != sdk.position()
-                    || document.totalEntries() != sdk.totalEntries())) {
+            if (sdk != null
+                    && document != null
+                    && (document.position() != sdk.position() || document.totalEntries() != sdk.totalEntries())) {
                 errors.add("native-sdk-sequence-mismatch");
             }
             if (sdk != null && document != null && sdk.entries() != null && document.entries() != null) {
-                final int overlap = Math.min(sdk.entries().size(), document.entries().size());
+                final int overlap =
+                        Math.min(sdk.entries().size(), document.entries().size());
                 for (int index = 0; index < overlap; index++) {
-                    final WindowsHistoryManagerValidationProbe.SdkEntry sdkEntry = sdk.entries().get(index);
-                    final WindowsHistoryManagerValidationProbe.Entry nativeEntry = document.entries().get(index);
+                    final WindowsHistoryManagerValidationProbe.SdkEntry sdkEntry =
+                            sdk.entries().get(index);
+                    final WindowsHistoryManagerValidationProbe.Entry nativeEntry =
+                            document.entries().get(index);
                     if (sdkEntry == null || nativeEntry == null || !same(sdkEntry.label(), nativeEntry.label())) {
                         errors.add("native-sdk-entry-sequence-mismatch");
                     }
@@ -1469,15 +1492,12 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         }
 
         private static void validateNativeManager(
-            final WindowsHistoryManagerValidationProbe.ManagerSnapshot manager,
-            final List<String> errors,
-            final String expectedName,
-            final boolean required
-        ) {
+                final WindowsHistoryManagerValidationProbe.ManagerSnapshot manager,
+                final List<String> errors,
+                final String expectedName,
+                final boolean required) {
             if (manager == null) {
-                errors.add(expectedName + (required
-                    ? "-native-manager-missing"
-                    : "-native-manager-snapshot-missing"));
+                errors.add(expectedName + (required ? "-native-manager-missing" : "-native-manager-snapshot-missing"));
                 return;
             }
             if (!expectedName.equals(manager.name())) {
@@ -1497,7 +1517,8 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                 errors.add(expectedName + "-native-sequence-truncated");
             }
             for (int index = 0; index < manager.entries().size(); index++) {
-                final WindowsHistoryManagerValidationProbe.Entry entry = manager.entries().get(index);
+                final WindowsHistoryManagerValidationProbe.Entry entry =
+                        manager.entries().get(index);
                 if (entry == null || entry.index() != index) {
                     errors.add(expectedName + "-native-sequence-index-mismatch");
                 }
@@ -1510,25 +1531,22 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         }
 
         private static boolean isAbsentOptionalManager(
-            final WindowsHistoryManagerValidationProbe.ManagerSnapshot manager,
-            final String expectedName
-        ) {
+                final WindowsHistoryManagerValidationProbe.ManagerSnapshot manager, final String expectedName) {
             return ("CURRENT".equals(expectedName) || "MAIN".equals(expectedName) || "LINKED".equals(expectedName))
-                && expectedName.equals(manager.name())
-                && "null".equals(manager.identity())
-                && manager.position() == -1
-                && !manager.canUndo()
-                && !manager.canRedo()
-                && manager.totalEntries() == 0
-                && manager.entries() != null
-                && manager.entries().isEmpty();
+                    && expectedName.equals(manager.name())
+                    && "null".equals(manager.identity())
+                    && manager.position() == -1
+                    && !manager.canUndo()
+                    && !manager.canRedo()
+                    && manager.totalEntries() == 0
+                    && manager.entries() != null
+                    && manager.entries().isEmpty();
         }
 
         private static void validateNativeDetail(
-            final WindowsHistoryManagerValidationProbe.NativeDetail detail,
-            final String managerName,
-            final List<String> errors
-        ) {
+                final WindowsHistoryManagerValidationProbe.NativeDetail detail,
+                final String managerName,
+                final List<String> errors) {
             if (detail == null) {
                 errors.add(managerName + "-native-detail-missing");
                 return;
@@ -1548,20 +1566,20 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         }
 
         private static List<String> validateContinuity(
-            final WindowsHistoryManagerValidationProbe.Snapshot previous,
-            final WindowsHistoryManagerValidationProbe.Snapshot current
-        ) {
+                final WindowsHistoryManagerValidationProbe.Snapshot previous,
+                final WindowsHistoryManagerValidationProbe.Snapshot current) {
             final List<String> errors = new ArrayList<>();
             if (!same(previous.hostLoader(), current.hostLoader())) errors.add("host-classloader-identity-mismatch");
             if (!same(previous.documentIdentity(), current.documentIdentity())) {
                 errors.add("native-document-identity-mismatch");
             }
             if (!same(previous.currentModeClass(), current.currentModeClass())
-                || !same(previous.currentModeIdentity(), current.currentModeIdentity())) {
+                    || !same(previous.currentModeIdentity(), current.currentModeIdentity())) {
                 errors.add("native-mode-identity-mismatch");
             }
-            if (previous.document() != null && current.document() != null
-                && !same(previous.document().identity(), current.document().identity())) {
+            if (previous.document() != null
+                    && current.document() != null
+                    && !same(previous.document().identity(), current.document().identity())) {
                 errors.add("native-manager-identity-mismatch");
             }
             final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot left = previous.sdkHistory();
@@ -1572,7 +1590,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             }
             if (left.generation() != right.generation()) errors.add("sdk-generation-mismatch");
             if (!same(left.documentBindingId(), right.documentBindingId())
-                || !same(left.managerBindingId(), right.managerBindingId())) {
+                    || !same(left.managerBindingId(), right.managerBindingId())) {
                 errors.add("sdk-binding-identity-mismatch");
             }
             if (left.entries() == null || right.entries() == null) {
@@ -1582,12 +1600,17 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             if (right.totalEntries() < left.totalEntries()) errors.add("sdk-sequence-shortened");
             final int overlap = Math.min(left.entries().size(), right.entries().size());
             for (int index = 0; index < overlap; index++) {
-                final WindowsHistoryManagerValidationProbe.SdkEntry previousEntry = left.entries().get(index);
-                final WindowsHistoryManagerValidationProbe.SdkEntry currentEntry = right.entries().get(index);
+                final WindowsHistoryManagerValidationProbe.SdkEntry previousEntry =
+                        left.entries().get(index);
+                final WindowsHistoryManagerValidationProbe.SdkEntry currentEntry =
+                        right.entries().get(index);
                 final String previousId = previousEntry == null ? null : previousEntry.entryId();
                 final String currentId = currentEntry == null ? null : currentEntry.entryId();
-                if (previousId == null || previousId.isBlank() || currentId == null || currentId.isBlank()
-                    || !previousId.equals(currentId)) {
+                if (previousId == null
+                        || previousId.isBlank()
+                        || currentId == null
+                        || currentId.isBlank()
+                        || !previousId.equals(currentId)) {
                     errors.add("sdk-sequence-identity-mismatch");
                 }
             }
@@ -1603,16 +1626,13 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         }
 
         private static String pairedValidationJson(
-            final String phase,
-            final boolean status,
-            final List<String> errors
-        ) {
+                final String phase, final boolean status, final List<String> errors) {
             final StringBuilder result = new StringBuilder("{\"type\":\"paired-validation\",\"phase\":\"")
-                .append(json(phase))
-                .append("\",\"status\":\"")
-                .append(status ? "PASS" : "FAIL")
-                .append("\",\"nativePairing\":\"ordinal-label-supporting-only\"")
-                .append(",\"nativeStableIdMatch\":false,\"errors\":[");
+                    .append(json(phase))
+                    .append("\",\"status\":\"")
+                    .append(status ? "PASS" : "FAIL")
+                    .append("\",\"nativePairing\":\"ordinal-label-supporting-only\"")
+                    .append(",\"nativeStableIdMatch\":false,\"errors\":[");
             for (int index = 0; index < errors.size(); index++) {
                 if (index > 0) result.append(',');
                 result.append('\"').append(json(errors.get(index))).append('\"');
@@ -1629,46 +1649,59 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             for (int index = 0; index < detail.targets().size(); index++) {
                 if (index > 0) targets.append(',');
                 final var target = detail.targets().get(index);
-                targets.append("{\"type\":\"").append(json(target.type()))
-                    .append("\",\"id\":\"").append(json(target.id().orElse("")))
-                    .append("\",\"displayName\":\"").append(json(target.displayName().orElse("")))
-                    .append("\"}");
+                targets.append("{\"type\":\"")
+                        .append(json(target.type()))
+                        .append("\",\"id\":\"")
+                        .append(json(target.id().orElse("")))
+                        .append("\",\"displayName\":\"")
+                        .append(json(target.displayName().orElse("")))
+                        .append("\"}");
             }
             targets.append(']');
             final StringBuilder changes = new StringBuilder("[");
             for (int index = 0; index < detail.changes().size(); index++) {
                 if (index > 0) changes.append(',');
                 final HistoryChange change = detail.changes().get(index);
-                changes.append("{\"operation\":\"").append(change.operation().name())
-                    .append("\",\"property\":\"").append(json(change.property().orElse("")))
-                    .append("\",\"before\":\"").append(json(change.before().orElse("")))
-                    .append("\",\"after\":\"").append(json(change.after().orElse("")))
-                    .append("\",\"context\":{\"kind\":\"").append(change.context().kind().name())
-                    .append("\",\"formId\":\"").append(json(change.context().formId().orElse("")))
-                    .append("\",\"coordinates\":[");
+                changes.append("{\"operation\":\"")
+                        .append(change.operation().name())
+                        .append("\",\"property\":\"")
+                        .append(json(change.property().orElse("")))
+                        .append("\",\"before\":\"")
+                        .append(json(change.before().orElse("")))
+                        .append("\",\"after\":\"")
+                        .append(json(change.after().orElse("")))
+                        .append("\",\"context\":{\"kind\":\"")
+                        .append(change.context().kind().name())
+                        .append("\",\"formId\":\"")
+                        .append(json(change.context().formId().orElse("")))
+                        .append("\",\"coordinates\":[");
                 for (int coordinateIndex = 0;
-                     coordinateIndex < change.context().coordinates().size();
-                     coordinateIndex++) {
+                        coordinateIndex < change.context().coordinates().size();
+                        coordinateIndex++) {
                     if (coordinateIndex > 0) changes.append(',');
                     final var coordinate = change.context().coordinates().get(coordinateIndex);
                     changes.append("{\"parameterType\":\"")
-                        .append(json(coordinate.parameter().type()))
-                        .append("\",\"parameterId\":\"")
-                        .append(json(coordinate.parameter().id().orElse("")))
-                        .append("\",\"parameterName\":\"")
-                        .append(json(coordinate.parameter().displayName().orElse("")))
-                        .append("\",\"value\":\"").append(json(coordinate.value())).append("\"}");
+                            .append(json(coordinate.parameter().type()))
+                            .append("\",\"parameterId\":\"")
+                            .append(json(coordinate.parameter().id().orElse("")))
+                            .append("\",\"parameterName\":\"")
+                            .append(json(coordinate.parameter().displayName().orElse("")))
+                            .append("\",\"value\":\"")
+                            .append(json(coordinate.value()))
+                            .append("\"}");
                 }
                 changes.append("]}}");
             }
             changes.append(']');
             try {
-                append(artifact,
-                    "{\"type\":\"semantic-detail\",\"name\":\"" + json(name)
-                        + "\",\"level\":\"" + detail.detailLevel().name()
-                        + "\",\"origin\":\"" + detail.origin().kind().name()
-                        + "\",\"degradationCode\":\"" + json(detail.degradationCode().orElse(""))
-                        + "\",\"targets\":" + targets + ",\"changes\":" + changes + "}\n");
+                append(
+                        artifact,
+                        "{\"type\":\"semantic-detail\",\"name\":\"" + json(name)
+                                + "\",\"level\":\"" + detail.detailLevel().name()
+                                + "\",\"origin\":\"" + detail.origin().kind().name()
+                                + "\",\"degradationCode\":\""
+                                + json(detail.degradationCode().orElse(""))
+                                + "\",\"targets\":" + targets + ",\"changes\":" + changes + "}\n");
             } catch (Exception exception) {
                 throw new IllegalStateException("Could not write semantic detail evidence", exception);
             }
@@ -1687,19 +1720,18 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
         void summary() throws Exception {
             final List<String> missing = REQUIRED_PAIRED_PHASES.stream()
-                .filter(phase -> !pairedSamples.containsKey(phase))
-                .toList();
+                    .filter(phase -> !pairedSamples.containsKey(phase))
+                    .toList();
             if (!missing.isEmpty()) {
                 passed = false;
                 append(artifact, pairedValidationJson("summary", false, missing));
             }
             append(
-                artifact,
-                passed
-                    ? "{\"type\":\"summary\",\"status\":\"PASS\"}\n"
-                    : "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
-                true
-            );
+                    artifact,
+                    passed
+                            ? "{\"type\":\"summary\",\"status\":\"PASS\"}\n"
+                            : "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
+                    true);
         }
     }
 }

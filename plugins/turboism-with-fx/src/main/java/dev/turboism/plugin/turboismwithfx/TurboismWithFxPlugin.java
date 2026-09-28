@@ -7,11 +7,10 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-
-import javax.swing.SwingUtilities;
 import java.awt.GraphicsEnvironment;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
+import javax.swing.SwingUtilities;
 
 /**
  * Official automation plugin that controls Turboism's managed fx runtime through ACP v1.
@@ -48,14 +47,11 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
 
     /** Creates the production plugin entrypoint. */
     public TurboismWithFxPlugin() {
-        this(() -> { });
+        this(() -> {});
     }
 
     TurboismWithFxPlugin(final Runnable beforeWindowConstruction) {
-        this.beforeWindowConstruction = Objects.requireNonNull(
-            beforeWindowConstruction,
-            "beforeWindowConstruction"
-        );
+        this.beforeWindowConstruction = Objects.requireNonNull(beforeWindowConstruction, "beforeWindowConstruction");
     }
 
     @Override
@@ -82,43 +78,41 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
         FxPluginSettings enabledSettings = null;
         try {
             enabledSettings = new FxPluginSettings(
-                context.config(),
-                context.logger(),
-                FxSecretStore.create(context.paths(), context.logger())
-            );
+                    context.config(), context.logger(), FxSecretStore.create(context.paths(), context.logger()));
             agentAction = action(OPEN_ACTION_ID, "action.open-agent", this::openAgentWindow);
-            settingsAction = action(
-                SETTINGS_ACTION_ID,
-                "action.open-settings",
-                this::openSettingsWindow
-            );
+            settingsAction = action(SETTINGS_ACTION_ID, "action.open-settings", this::openSettingsWindow);
             settingsMenu = context.menus().contribute(new MenuRegistry.MenuContribution() {
-                @Override public String menuPath() {
+                @Override
+                public String menuPath() {
                     return "Turboism/" + localization.text("menu.fx-settings");
                 }
-                @Override public String actionId() { return SETTINGS_ACTION_ID; }
-                @Override public int order() { return SETTINGS_MENU_ORDER; }
+
+                @Override
+                public String actionId() {
+                    return SETTINGS_ACTION_ID;
+                }
+
+                @Override
+                public int order() {
+                    return SETTINGS_MENU_ORDER;
+                }
             });
-            toolbar = context.mainToolbar().contributeButton(
-                new MainToolbarRegistry.MainToolbarButtonContribution(
-                    TOOLBAR_CONTRIBUTION_ID,
-                    OPEN_ACTION_ID,
-                    "toolbar.fx.label",
-                    "toolbar.fx.tooltip",
-                    new MainToolbarRegistry.IconVariants(
-                        TOOLBAR_ICON,
-                        java.util.Optional.of(TOOLBAR_HOVER_ICON),
-                        java.util.Optional.empty(),
-                        java.util.Optional.empty(),
-                        java.util.Optional.empty(),
-                        java.util.Optional.empty()
-                    ),
-                    MainToolbarRegistry.Placement.after(
-                        MainToolbarRegistry.Anchor.HOST_HOME_ENTRY
-                    ),
-                    TOOLBAR_ORDER
-                )
-            );
+            toolbar = context.services()
+                    .require(MainToolbarRegistry.class)
+                    .contributeButton(new MainToolbarRegistry.MainToolbarButtonContribution(
+                            TOOLBAR_CONTRIBUTION_ID,
+                            OPEN_ACTION_ID,
+                            "toolbar.fx.label",
+                            "toolbar.fx.tooltip",
+                            new MainToolbarRegistry.IconVariants(
+                                    TOOLBAR_ICON,
+                                    java.util.Optional.of(TOOLBAR_HOVER_ICON),
+                                    java.util.Optional.empty(),
+                                    java.util.Optional.empty(),
+                                    java.util.Optional.empty(),
+                                    java.util.Optional.empty()),
+                            MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                            TOOLBAR_ORDER));
             settings = enabledSettings;
             agentActionRegistration = agentAction;
             settingsActionRegistration = settingsAction;
@@ -172,15 +166,20 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
         }
     }
 
-    private Registration action(
-        final String id,
-        final String labelKey,
-        final Runnable handler
-    ) {
+    private Registration action(final String id, final String labelKey, final Runnable handler) {
         return context.actions().register(id, new ActionRegistry.Action() {
-            @Override public String id() { return id; }
-            @Override public String label() { return localization.text(labelKey); }
-            @Override public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String label() {
+                return localization.text(labelKey);
+            }
+
+            @Override
+            public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
                 return ignored -> handler.run();
             }
         });
@@ -216,50 +215,40 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
             if (window == null) {
                 final FxPluginSettings currentSettings = settings;
                 final TurboismWithFxWindow created = new TurboismWithFxWindow(
-                    localization,
-                    currentSettings.executable(),
-                    currentSettings.compatibilityMode(),
-                    currentSettings.initialPrompt(),
-                    currentSettings.providerConfiguration()
-                );
-                final TurboismWithFxController next = new TurboismWithFxController(
-                    context,
-                    currentSettings,
-                    created
-                );
+                        localization,
+                        currentSettings.executable(),
+                        currentSettings.compatibilityMode(),
+                        currentSettings.initialPrompt(),
+                        currentSettings.providerConfiguration());
+                final TurboismWithFxController next = new TurboismWithFxController(context, currentSettings, created);
                 created.bind(
-                    () -> next.connect(
-                        created.executable(),
-                        created.compatibilityMode(),
-                        created.initialPrompt(),
-                        created.providerConfiguration()
-                    ),
-                    next::sendPrompt,
-                    next::cancel,
-                    next::setConfigOption,
-                    next::newSession,
-                    next::selectSession,
-                    next::refreshSessions,
-                    () -> next.repairManagedRuntime(created.executable()),
-                    action -> next.openInteractiveFx(created.executable(), action),
-                    next::discoverProviderModels,
-                    () -> next.saveSettings(
-                        created.executable(),
-                        created.compatibilityMode(),
-                        created.initialPrompt(),
-                        created.providerConfiguration()
-                    )
-                );
+                        () -> next.connect(
+                                created.executable(),
+                                created.compatibilityMode(),
+                                created.initialPrompt(),
+                                created.providerConfiguration()),
+                        next::sendPrompt,
+                        next::cancel,
+                        next::setConfigOption,
+                        next::newSession,
+                        next::selectSession,
+                        next::refreshSessions,
+                        () -> next.repairManagedRuntime(created.executable()),
+                        action -> next.openInteractiveFx(created.executable(), action),
+                        next::discoverProviderModels,
+                        () -> next.saveSettings(
+                                created.executable(),
+                                created.compatibilityMode(),
+                                created.initialPrompt(),
+                                created.providerConfiguration()));
                 window = created;
                 controller = next;
             }
             toShow = window;
-            if (toShow != null && controller != null
-                && shouldAutoConnect(
-                    target == WindowTarget.AGENT,
-                    toShow.compatibilityMode()
-                )
-                && toShow.claimAutoConnect()) {
+            if (toShow != null
+                    && controller != null
+                    && shouldAutoConnect(target == WindowTarget.AGENT, toShow.compatibilityMode())
+                    && toShow.claimAutoConnect()) {
                 autoConnect = controller;
                 autoExecutable = toShow.executable();
                 autoCompatibility = toShow.compatibilityMode();
@@ -277,21 +266,18 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
         final String connectionInitialPrompt = autoInitialPrompt;
         final FxProviderConfiguration connectionProviders = autoProviderConfiguration;
         presentAgentWindow(
-            connection == null ? null : () -> connection.connect(
-                connectionExecutable,
-                connectionCompatibility,
-                connectionInitialPrompt,
-                connectionProviders
-            ),
-            toShow::showAgentAndFront
-        );
+                connection == null
+                        ? null
+                        : () -> connection.connect(
+                                connectionExecutable,
+                                connectionCompatibility,
+                                connectionInitialPrompt,
+                                connectionProviders),
+                toShow::showAgentAndFront);
     }
 
     /** Starts first-open background work before the Agent frame claims foreground focus. */
-    static void presentAgentWindow(
-        final Runnable autoConnect,
-        final Runnable showAndFocus
-    ) {
+    static void presentAgentWindow(final Runnable autoConnect, final Runnable showAndFocus) {
         if (autoConnect != null) autoConnect.run();
         Objects.requireNonNull(showAndFocus, "showAndFocus").run();
     }
@@ -312,10 +298,7 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
         return shouldAutoConnect(true, compatibilityMode);
     }
 
-    static boolean shouldAutoConnect(
-        final boolean agentWindow,
-        final boolean compatibilityMode
-    ) {
+    static boolean shouldAutoConnect(final boolean agentWindow, final boolean compatibilityMode) {
         return agentWindow;
     }
 

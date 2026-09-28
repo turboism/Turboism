@@ -11,11 +11,7 @@ package dev.turboism.sdk.theme;
  * @param dark {@code true} when the theme is a dark variant, which UI code uses to choose contrasting
  *             assets such as icon tints
  */
-public record ThemeStatusSnapshot(
-    String themeId,
-    String displayName,
-    boolean dark
-) {
+public record ThemeStatusSnapshot(String themeId, String displayName, boolean dark) {
     public ThemeStatusSnapshot {
         if (themeId == null || themeId.isBlank()) {
             throw new IllegalArgumentException("themeId must not be null or blank");

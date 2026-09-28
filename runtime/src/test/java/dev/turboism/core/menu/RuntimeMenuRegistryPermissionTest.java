@@ -1,23 +1,22 @@
 package dev.turboism.core.menu;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class RuntimeMenuRegistryPermissionTest {
 
@@ -36,31 +35,27 @@ class RuntimeMenuRegistryPermissionTest {
     @Test
     void contributeWithoutPermissionThrowsCubismPermissionException() {
         // Given
-        RuntimeMenuRegistry registry = new RuntimeMenuRegistry(
-            scheduler(),
-            PLUGIN_ID,
-            (permissionId, operation) -> { throw new CubismPermissionException(operation + " denied"); }
-        );
+        RuntimeMenuRegistry registry = new RuntimeMenuRegistry(scheduler(), PLUGIN_ID, (permissionId, operation) -> {
+            throw new CubismPermissionException(operation + " denied");
+        });
 
         // When / Then
         CubismPermissionException exception = assertThrows(
-            CubismPermissionException.class,
-            () -> registry.contribute(new TestContribution("Probe", "probe.action", 100))
-        );
+                CubismPermissionException.class,
+                () -> registry.contribute(new TestContribution("Probe", "probe.action", 100)));
         assertEquals("menu.contribute denied", exception.getMessage());
     }
 
     private RuntimeScheduler scheduler() {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-            SidecarDispatcher.noop(),
-            events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
+                SidecarDispatcher.noop(),
+                events::add);
         return scheduler;
     }
 
-    private record TestContribution(String menuPath, String actionId, int order) implements MenuRegistry.MenuContribution {
-    }
+    private record TestContribution(String menuPath, String actionId, int order)
+            implements MenuRegistry.MenuContribution {}
 }

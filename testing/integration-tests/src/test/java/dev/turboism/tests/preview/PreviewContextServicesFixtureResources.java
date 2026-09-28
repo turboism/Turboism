@@ -3,7 +3,6 @@ package dev.turboism.tests.preview;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -13,15 +12,13 @@ import java.util.Map;
 /** Reads fixture source resources and creates its fixed plugin descriptor. */
 final class PreviewContextServicesFixtureResources {
 
-    private static final String ENTRYPOINT =
-        "dev.example.previewcontextservices.PreviewContextServicesPlugin";
+    private static final String ENTRYPOINT = "dev.example.previewcontextservices.PreviewContextServicesPlugin";
 
-    private PreviewContextServicesFixtureResources() {
-    }
+    private PreviewContextServicesFixtureResources() {}
 
     static String source(final String markerDirectoryProperty) throws IOException {
         return read("PreviewContextServicesPlugin.java")
-            .replace("__MARKER_DIRECTORY_PROPERTY__", markerDirectoryProperty);
+                .replace("__MARKER_DIRECTORY_PROPERTY__", markerDirectoryProperty);
     }
 
     static byte[] descriptor() throws IOException {
@@ -39,9 +36,10 @@ final class PreviewContextServicesFixtureResources {
         descriptor.put("license", "Test License");
         descriptor.put("website", "https://turboism.dev/tests");
         descriptor.putArray("resources");
-        descriptor.putObject("i18n")
-            .put("baseName", "META-INF/turboism/i18n/messages")
-            .putArray("locales");
+        descriptor
+                .putObject("i18n")
+                .put("baseName", "META-INF/turboism/i18n/messages")
+                .putArray("locales");
         descriptor.putArray("dependencies");
         permissions(descriptor.putArray("permissions"));
         descriptor.putArray("capabilities");
@@ -78,12 +76,18 @@ final class PreviewContextServicesFixtureResources {
     }
 
     private static void permissions(final ArrayNode permissions) {
-        for (String id : new String[]{
-            "turboism.file.read", "turboism.file.write", "turboism.config.plugin.read",
-            "turboism.config.plugin.write", "turboism.ui.file-chooser.request"
+        for (String id : new String[] {
+            "turboism.file.read",
+            "turboism.file.write",
+            "turboism.config.plugin.read",
+            "turboism.config.plugin.write",
+            "turboism.ui.file-chooser.request"
         }) {
-            permissions.addObject().put("id", id).put("scope", "application")
-                .put("reason", "Characterizes preview context service access.");
+            permissions
+                    .addObject()
+                    .put("id", id)
+                    .put("scope", "application")
+                    .put("reason", "Characterizes preview context service access.");
         }
     }
 

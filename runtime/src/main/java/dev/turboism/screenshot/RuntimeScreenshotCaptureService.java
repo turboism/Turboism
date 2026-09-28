@@ -5,7 +5,6 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
-
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 
@@ -16,9 +15,7 @@ public final class RuntimeScreenshotCaptureService implements ScreenshotCaptureS
     private final PermissionChecker permissionChecker;
 
     public RuntimeScreenshotCaptureService(
-        final ScreenshotCaptureAdapter adapter,
-        final PermissionChecker permissionChecker
-    ) {
+            final ScreenshotCaptureAdapter adapter, final PermissionChecker permissionChecker) {
         this.adapter = Objects.requireNonNull(adapter, "adapter");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
     }

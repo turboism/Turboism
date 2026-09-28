@@ -1,7 +1,6 @@
 package dev.turboism.sdk.runtime;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -36,7 +35,12 @@ public interface CubismLogService {
 
     /** Severity levels reported by the Cubism log stream. */
     enum LogLevel {
-        TRACE, DEBUG, INFO, WARN, ERROR, FATAL
+        TRACE,
+        DEBUG,
+        INFO,
+        WARN,
+        ERROR,
+        FATAL
     }
 
     /** One Cubism log entry. */
@@ -68,17 +72,18 @@ public interface CubismLogService {
          * @return true when the entry's level is visible and the keyword (if any) occurs in its message
          */
         public boolean matches(final LogEntry entry) {
-            final boolean levelVisible = switch (entry.level()) {
-                case INFO, DEBUG, TRACE -> showInfo;
-                case WARN -> showWarn;
-                case ERROR, FATAL -> showError;
-            };
+            final boolean levelVisible =
+                    switch (entry.level()) {
+                        case INFO, DEBUG, TRACE -> showInfo;
+                        case WARN -> showWarn;
+                        case ERROR, FATAL -> showError;
+                    };
             if (!levelVisible) {
                 return false;
             }
             final String normalized = keyword.trim().toLowerCase(java.util.Locale.ROOT);
             return normalized.isEmpty()
-                || entry.message().toLowerCase(java.util.Locale.ROOT).contains(normalized);
+                    || entry.message().toLowerCase(java.util.Locale.ROOT).contains(normalized);
         }
     }
 
@@ -96,20 +101,24 @@ public interface CubismLogService {
 
         private LogFilter filter = LogFilter.all();
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration subscribe(final Consumer<LogEntry> listener) {
+        @Override
+        public Registration subscribe(final Consumer<LogEntry> listener) {
             Objects.requireNonNull(listener, "listener");
-            return () -> { };
+            return () -> {};
         }
 
-        @Override public void setFilter(final LogFilter filter) {
+        @Override
+        public void setFilter(final LogFilter filter) {
             this.filter = Objects.requireNonNull(filter, "filter");
         }
 
-        @Override public LogFilter filter() {
+        @Override
+        public LogFilter filter() {
             return filter;
         }
     }

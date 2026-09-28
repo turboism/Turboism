@@ -4,7 +4,6 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.CanvasHintPosition;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -42,7 +41,7 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
      * the native behaviour for that argument.
      */
     private static final String SHOW_HINT_WITH_ACTION_ALIAS =
-        "cubism.ui-canvas-hint.view-context.show-hint-with-action";
+            "cubism.ui-canvas-hint.view-context.show-hint-with-action";
 
     private static final int HINT_ACTION_PARAMETER_INDEX = 3;
 
@@ -57,23 +56,16 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
 
     @Override
     public Object contentRoot() {
-        final Object appController = resolver.invokeStatic(
-            "cubism.ui-status-bar.app-controller.instance"
-        );
+        final Object appController = resolver.invokeStatic("cubism.ui-status-bar.app-controller.instance");
         if (appController == null) {
             return null;
         }
-        final Object mainFrameController = resolver.invoke(
-            "cubism.ui-status-bar.app-controller.main-frame",
-            appController
-        );
+        final Object mainFrameController =
+                resolver.invoke("cubism.ui-status-bar.app-controller.main-frame", appController);
         if (mainFrameController == null) {
             return null;
         }
-        final Object frame = resolver.invoke(
-            "cubism.ui-status-bar.main-frame-controller.frame",
-            mainFrameController
-        );
+        final Object frame = resolver.invoke("cubism.ui-status-bar.main-frame-controller.frame", mainFrameController);
         if (frame == null) {
             return null;
         }
@@ -87,10 +79,8 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
         if (appController == null) {
             throw new IllegalStateException("CX canvas-hint app controller is not ready");
         }
-        final Object viewContext = resolver.invoke(
-            "cubism.ui-canvas-hint.app-controller.current-view-context",
-            appController
-        );
+        final Object viewContext =
+                resolver.invoke("cubism.ui-canvas-hint.app-controller.current-view-context", appController);
         if (viewContext == null) {
             throw new IllegalStateException("CX canvas-hint view context is not ready");
         }
@@ -98,13 +88,7 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
             throw new IllegalStateException("CX canvas-hint view context type is invalid");
         }
         showHint(viewContext, notification);
-        return () -> resolver.invoke(
-            SHOW_HINT_ALIAS,
-            viewContext,
-            "",
-            0.0f,
-            notification.id()
-        );
+        return () -> resolver.invoke(SHOW_HINT_ALIAS, viewContext, "", 0.0f, notification.id());
     }
 
     /**
@@ -117,13 +101,7 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
         final boolean clickable = notification.onClick().isPresent();
         final boolean positioned = notification.position().isPresent();
         if (!clickable && !positioned) {
-            resolver.invoke(
-                SHOW_HINT_ALIAS,
-                viewContext,
-                notification.message(),
-                durationSeconds,
-                notification.id()
-            );
+            resolver.invoke(SHOW_HINT_ALIAS, viewContext, notification.message(), durationSeconds, notification.id());
             return;
         }
         // A null action is a supported argument: the native button checks for it before
@@ -131,28 +109,24 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
         final Object nativeAction = clickable ? nativeAction(notification) : null;
         final Object nativePosition = positioned ? nativePosition(notification) : null;
         resolver.invoke(
-            SHOW_HINT_WITH_ACTION_ALIAS,
-            viewContext,
-            notification.message(),
-            durationSeconds,
-            notification.id(),
-            nativeAction,
-            nativePosition
-        );
+                SHOW_HINT_WITH_ACTION_ALIAS,
+                viewContext,
+                notification.message(),
+                durationSeconds,
+                notification.id(),
+                nativeAction,
+                nativePosition);
     }
 
     private Object nativeAction(final CanvasHintNotification notification) {
         final Runnable action = notification.onClick().orElseThrow();
         return resolver.createFunctionalArgumentProxy(
-            SHOW_HINT_WITH_ACTION_ALIAS,
-            HINT_ACTION_PARAMETER_INDEX,
-            ignored -> {
-                action.run();
-                // The native click handler discards this result; the host never
-                // inspects the Unit instance, so null cannot reach Kotlin as a value.
-                return null;
-            }
-        );
+                SHOW_HINT_WITH_ACTION_ALIAS, HINT_ACTION_PARAMETER_INDEX, ignored -> {
+                    action.run();
+                    // The native click handler discards this result; the host never
+                    // inspects the Unit instance, so null cannot reach Kotlin as a value.
+                    return null;
+                });
     }
 
     private Object nativePosition(final CanvasHintNotification notification) {
@@ -161,9 +135,7 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
     }
 
     private static float nativeDurationSeconds(final float durationSeconds) {
-        return Float.isInfinite(durationSeconds)
-            ? NATIVE_UNTIL_DISMISSED_SECONDS
-            : durationSeconds;
+        return Float.isInfinite(durationSeconds) ? NATIVE_UNTIL_DISMISSED_SECONDS : durationSeconds;
     }
 
     @Override
@@ -173,9 +145,7 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
         }
         final Object children = resolver.invoke("cubism.ui-status-bar.container.children", container);
         if (!(children instanceof List<?> list)) {
-            throw new IllegalStateException(
-                "CX status-region container children are not a List; failing closed"
-            );
+            throw new IllegalStateException("CX status-region container children are not a List; failing closed");
         }
         return list;
     }
@@ -209,12 +179,13 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
     @Override
     public void setSeverityAppearance(final Object widget, final String severity) {
         Objects.requireNonNull(severity, "severity");
-        final String prefix = switch (severity) {
-            case "INFO" -> PREFIX_INFO;
-            case "WARNING" -> PREFIX_WARNING;
-            case "ERROR" -> PREFIX_ERROR;
-            default -> throw new IllegalArgumentException("unsupported status severity: " + severity);
-        };
+        final String prefix =
+                switch (severity) {
+                    case "INFO" -> PREFIX_INFO;
+                    case "WARNING" -> PREFIX_WARNING;
+                    case "ERROR" -> PREFIX_ERROR;
+                    default -> throw new IllegalArgumentException("unsupported status severity: " + severity);
+                };
         // Operations always set the raw message immediately before appearance.
         // Preserve it byte-for-byte even when the message itself starts with a marker.
         final Object current = resolver.invoke("cubism.ui-status-bar.label.text", widget);

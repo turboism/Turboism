@@ -1,8 +1,8 @@
 package dev.turboism.ui.context;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
-
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -16,8 +16,7 @@ public final class NativeObjectContextMenuBridge {
     private static final String PROPERTY_PREFIX = "turboism.object-context-menu.";
     private static final AtomicReference<Handler> HANDLER = new AtomicReference<>();
 
-    private NativeObjectContextMenuBridge() {
-    }
+    private NativeObjectContextMenuBridge() {}
 
     /**
      * Installs the single process-wide handler and publishes one native callback per menu
@@ -83,11 +82,7 @@ public final class NativeObjectContextMenuBridge {
      * @return the augmented menu, or {@code menu} unchanged whenever augmentation is unavailable
      *         or fails
      */
-    public static Object augment(
-        final Object menu,
-        final String locationName,
-        final Object source
-    ) {
+    public static Object augment(final Object menu, final String locationName, final Object source) {
         final Handler handler = HANDLER.get();
         if (handler == null || menu == null || locationName == null || source == null) {
             return menu;
@@ -97,11 +92,9 @@ public final class NativeObjectContextMenuBridge {
             final Object result = handler.augment(menu, location, source);
             return result == null ? menu : result;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "context-menu",
-                "Object context-menu augmentation failed safely",
-                failure
-            );
+                    "context-menu", "Object context-menu augmentation failed safely", failure);
             return menu;
         }
     }
@@ -118,8 +111,6 @@ public final class NativeObjectContextMenuBridge {
         if (source instanceof java.util.Collection<?> values) target.addAll(values);
         else if (source != null) target.add(source);
     }
-
-
 
     /** Callback invoked while the host builds an object context menu. */
     @FunctionalInterface

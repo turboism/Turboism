@@ -25,15 +25,14 @@ final class McpRegisteredTool {
     private final Handler publicHandler;
 
     private McpRegisteredTool(
-        final Map<String, Object> publicDefinition,
-        final McpOperationEffect effect,
-        final McpExecutionAffinity affinity,
-        final boolean transactionEligible,
-        final McpVersionSupport versionSupport,
-        final boolean exactOutputSchema,
-        final Handler rawHandler,
-        final Handler publicHandler
-    ) {
+            final Map<String, Object> publicDefinition,
+            final McpOperationEffect effect,
+            final McpExecutionAffinity affinity,
+            final boolean transactionEligible,
+            final McpVersionSupport versionSupport,
+            final boolean exactOutputSchema,
+            final Handler rawHandler,
+            final Handler publicHandler) {
         this.publicDefinition = immutableDefinition(publicDefinition);
         this.name = requiredText(this.publicDefinition, "name");
         this.effect = Objects.requireNonNull(effect, "effect");
@@ -47,33 +46,30 @@ final class McpRegisteredTool {
     }
 
     static McpRegisteredTool typed(
-        final Map<String, Object> publicDefinition,
-        final McpOperationEffect effect,
-        final McpExecutionAffinity affinity,
-        final boolean transactionEligible,
-        final McpExecutionBridge execution,
-        final Handler rawHandler
-    ) {
+            final Map<String, Object> publicDefinition,
+            final McpOperationEffect effect,
+            final McpExecutionAffinity affinity,
+            final boolean transactionEligible,
+            final McpExecutionBridge execution,
+            final Handler rawHandler) {
         return typed(
-            publicDefinition,
-            effect,
-            affinity,
-            transactionEligible,
-            McpVersionSupport.unscoped(),
-            execution,
-            rawHandler
-        );
+                publicDefinition,
+                effect,
+                affinity,
+                transactionEligible,
+                McpVersionSupport.unscoped(),
+                execution,
+                rawHandler);
     }
 
     static McpRegisteredTool typed(
-        final Map<String, Object> publicDefinition,
-        final McpOperationEffect effect,
-        final McpExecutionAffinity affinity,
-        final boolean transactionEligible,
-        final McpVersionSupport versionSupport,
-        final McpExecutionBridge execution,
-        final Handler rawHandler
-    ) {
+            final Map<String, Object> publicDefinition,
+            final McpOperationEffect effect,
+            final McpExecutionAffinity affinity,
+            final boolean transactionEligible,
+            final McpVersionSupport versionSupport,
+            final McpExecutionBridge execution,
+            final Handler rawHandler) {
         final Map<String, Object> definition = immutableDefinition(publicDefinition);
         requiredText(definition, "name");
         requiredText(definition, "title");
@@ -85,58 +81,48 @@ final class McpRegisteredTool {
         final Handler standalone = arguments -> switch (Objects.requireNonNull(affinity, "affinity")) {
             case DIRECT -> checkedExecution.direct(() -> checkedRaw.call(arguments));
             case UI_THREAD -> checkedExecution.ui(() -> checkedRaw.call(arguments));
-            case COMPLETION_STAGE -> checkedExecution.stage(
-                () -> CompletableFuture.completedFuture(checkedRaw.call(arguments))
-            );
+            case COMPLETION_STAGE ->
+                checkedExecution.stage(() -> CompletableFuture.completedFuture(checkedRaw.call(arguments)));
         };
         return new McpRegisteredTool(
-            definition,
-            effect,
-            affinity,
-            transactionEligible,
-            Objects.requireNonNull(versionSupport, "versionSupport"),
-            isExactSchema(definition.get("outputSchema"), 0),
-            checkedRaw,
-            standalone
-        );
+                definition,
+                effect,
+                affinity,
+                transactionEligible,
+                Objects.requireNonNull(versionSupport, "versionSupport"),
+                isExactSchema(definition.get("outputSchema"), 0),
+                checkedRaw,
+                standalone);
     }
 
-    static McpRegisteredTool legacy(
-        final Map<String, Object> publicDefinition,
-        final Handler handler
-    ) {
+    static McpRegisteredTool legacy(final Map<String, Object> publicDefinition, final Handler handler) {
         final Map<String, Object> definition = immutableDefinition(publicDefinition);
         final Handler checked = Objects.requireNonNull(handler, "handler");
         return new McpRegisteredTool(
-            definition,
-            inferLegacyEffect(definition),
-            McpExecutionAffinity.DIRECT,
-            false,
-            McpVersionSupport.unscoped(),
-            false,
-            checked,
-            checked
-        );
+                definition,
+                inferLegacyEffect(definition),
+                McpExecutionAffinity.DIRECT,
+                false,
+                McpVersionSupport.unscoped(),
+                false,
+                checked,
+                checked);
     }
 
     McpRegisteredTool withPublicHandler(final Handler handler) {
         return withHandlers(Objects.requireNonNull(handler, "handler"), rawHandler);
     }
 
-    McpRegisteredTool withHandlers(
-        final Handler standaloneHandler,
-        final Handler inProcessHandler
-    ) {
+    McpRegisteredTool withHandlers(final Handler standaloneHandler, final Handler inProcessHandler) {
         return new McpRegisteredTool(
-            publicDefinition,
-            effect,
-            affinity,
-            transactionEligible,
-            versionSupport,
-            exactOutputSchema,
-            Objects.requireNonNull(inProcessHandler, "inProcessHandler"),
-            Objects.requireNonNull(standaloneHandler, "standaloneHandler")
-        );
+                publicDefinition,
+                effect,
+                affinity,
+                transactionEligible,
+                versionSupport,
+                exactOutputSchema,
+                Objects.requireNonNull(inProcessHandler, "inProcessHandler"),
+                Objects.requireNonNull(standaloneHandler, "standaloneHandler"));
     }
 
     String name() {
@@ -176,30 +162,23 @@ final class McpRegisteredTool {
     }
 
     private void validateRegistration() {
-        if (transactionEligible
-            && effect != McpOperationEffect.READ
-            && effect != McpOperationEffect.UNDOABLE_WRITE) {
-            throw new IllegalArgumentException(
-                "Transaction-eligible MCP tool must be READ or UNDOABLE_WRITE: " + name
-            );
+        if (transactionEligible && effect != McpOperationEffect.READ && effect != McpOperationEffect.UNDOABLE_WRITE) {
+            throw new IllegalArgumentException("Transaction-eligible MCP tool must be READ or UNDOABLE_WRITE: " + name);
         }
         if (transactionEligible && !exactOutputSchema) {
             throw new IllegalArgumentException(
-                "Transaction-eligible MCP tool requires an exact output schema: " + name
-            );
+                    "Transaction-eligible MCP tool requires an exact output schema: " + name);
         }
         if (transactionEligible && affinity == McpExecutionAffinity.COMPLETION_STAGE) {
             throw new IllegalArgumentException(
-                "Completion-stage MCP tool cannot run inside a synchronous authoring transaction: " + name
-            );
+                    "Completion-stage MCP tool cannot run inside a synchronous authoring transaction: " + name);
         }
     }
 
     private static McpOperationEffect inferLegacyEffect(final Map<String, Object> definition) {
         final String name = requiredText(definition, "name");
         final Object annotationsValue = definition.get("annotations");
-        if (annotationsValue instanceof Map<?, ?> annotations
-            && Boolean.TRUE.equals(annotations.get("readOnlyHint"))) {
+        if (annotationsValue instanceof Map<?, ?> annotations && Boolean.TRUE.equals(annotations.get("readOnlyHint"))) {
             return McpOperationEffect.READ;
         }
         if (name.startsWith("turboism.history.")) {
@@ -214,7 +193,7 @@ final class McpRegisteredTool {
         final Object oneOf = schema.get("oneOf");
         if (oneOf instanceof java.util.List<?> alternatives) {
             return !alternatives.isEmpty()
-                && alternatives.stream().allMatch(alternative -> isExactSchema(alternative, depth + 1));
+                    && alternatives.stream().allMatch(alternative -> isExactSchema(alternative, depth + 1));
         }
 
         final Object type = schema.get("type");
@@ -264,10 +243,7 @@ final class McpRegisteredTool {
         return text;
     }
 
-    private static Map<?, ?> requiredSchema(
-        final Map<String, Object> definition,
-        final String field
-    ) {
+    private static Map<?, ?> requiredSchema(final Map<String, Object> definition, final String field) {
         final Object value = definition.get(field);
         if (!(value instanceof Map<?, ?> schema)) {
             throw new IllegalArgumentException("MCP tool definition requires object " + field);

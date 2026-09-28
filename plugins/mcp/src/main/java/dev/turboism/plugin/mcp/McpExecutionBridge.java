@@ -2,7 +2,6 @@ package dev.turboism.plugin.mcp;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
-
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -42,8 +41,7 @@ final class McpExecutionBridge {
 
     <T> T ui(final Supplier<T> invocation) {
         McpRequestRegistry.throwIfCancelled();
-        final McpRequestRegistry.Cancellation cancellation =
-            McpRequestRegistry.currentCancellation();
+        final McpRequestRegistry.Cancellation cancellation = McpRequestRegistry.currentCancellation();
         final CompletableFuture<T> result = new CompletableFuture<>();
         final AtomicInteger state = new AtomicInteger();
         final Registration cancellationRegistration = McpRequestRegistry.onCancellation(() -> {
@@ -68,12 +66,9 @@ final class McpExecutionBridge {
     <T> T stage(final Supplier<? extends CompletionStage<T>> invocation) {
         McpRequestRegistry.throwIfCancelled();
         final CompletableFuture<T> result = Objects.requireNonNull(
-            Objects.requireNonNull(invocation, "invocation").get(),
-            "stage"
-        ).toCompletableFuture();
-        final Registration cancellationRegistration = McpRequestRegistry.onCancellation(
-            () -> result.cancel(true)
-        );
+                        Objects.requireNonNull(invocation, "invocation").get(), "stage")
+                .toCompletableFuture();
+        final Registration cancellationRegistration = McpRequestRegistry.onCancellation(() -> result.cancel(true));
         try {
             return await(result);
         } finally {
@@ -137,12 +132,11 @@ final class McpExecutionBridge {
         return new ExecutionFailure("MCP operation failed", cause);
     }
 
-    private static <T> void complete(
-        final CompletableFuture<T> result,
-        final Supplier<T> invocation
-    ) {
+    private static <T> void complete(final CompletableFuture<T> result, final Supplier<T> invocation) {
         try {
             result.complete(invocation.get());
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             result.completeExceptionally(failure);
         }

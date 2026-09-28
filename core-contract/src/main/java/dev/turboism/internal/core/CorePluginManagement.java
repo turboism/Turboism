@@ -22,9 +22,9 @@ public interface CorePluginManagement extends AutoCloseable {
      */
     default Optional<PluginDetails> details(final String pluginId) {
         return plugins().stream()
-            .filter(plugin -> plugin.id().equals(pluginId))
-            .findFirst()
-            .map(PluginDetails::summary);
+                .filter(plugin -> plugin.id().equals(pluginId))
+                .findFirst()
+                .map(PluginDetails::summary);
     }
     /**
      * Runs the interactive package-pick-and-stage flow on the calling thread.
@@ -64,7 +64,9 @@ public interface CorePluginManagement extends AutoCloseable {
      *         launch, not immediately
      */
     OperationResult setEnabled(String pluginId, boolean enabled);
-    @Override default void close() { }
+
+    @Override
+    default void close() {}
 
     /**
      * One plugin catalog row.
@@ -84,13 +86,17 @@ public interface CorePluginManagement extends AutoCloseable {
      * @param authors descriptor authors, defensively copied
      */
     record PluginInfo(
-        String id, String name, String version, String description,
-        String effectiveState, String desiredState, boolean core,
-        Optional<String> pendingOperation,
-        String category,
-        List<String> tags,
-        List<Author> authors
-    ) {
+            String id,
+            String name,
+            String version,
+            String description,
+            String effectiveState,
+            String desiredState,
+            boolean core,
+            Optional<String> pendingOperation,
+            String category,
+            List<String> tags,
+            List<Author> authors) {
         public PluginInfo {
             if (id == null || id.isBlank()) throw new IllegalArgumentException("id must not be blank");
             if (name == null || name.isBlank()) throw new IllegalArgumentException("name must not be blank");
@@ -105,21 +111,28 @@ public interface CorePluginManagement extends AutoCloseable {
         }
 
         public PluginInfo(
-            final String id,
-            final String name,
-            final String version,
-            final String description,
-            final String effectiveState,
-            final String desiredState,
-            final boolean core,
-            final Optional<String> pendingOperation,
-            final String category,
-            final List<String> tags
-        ) {
+                final String id,
+                final String name,
+                final String version,
+                final String description,
+                final String effectiveState,
+                final String desiredState,
+                final boolean core,
+                final Optional<String> pendingOperation,
+                final String category,
+                final List<String> tags) {
             this(
-                id, name, version, description, effectiveState, desiredState, core,
-                pendingOperation, category, tags, List.of()
-            );
+                    id,
+                    name,
+                    version,
+                    description,
+                    effectiveState,
+                    desiredState,
+                    core,
+                    pendingOperation,
+                    category,
+                    tags,
+                    List.of());
         }
     }
 
@@ -129,24 +142,23 @@ public interface CorePluginManagement extends AutoCloseable {
      * component is required and a null value is rejected.
      */
     record PluginDetails(
-        PluginInfo plugin,
-        String turboismApi,
-        List<Author> authors,
-        String license,
-        Optional<String> website,
-        List<Dependency> dependencies,
-        List<Permission> permissions,
-        List<String> capabilities,
-        boolean requiresCubism,
-        String ui,
-        List<String> entrypoints,
-        List<String> resources,
-        String i18nBaseName,
-        List<String> locales,
-        List<EventExport> eventExports,
-        List<EventImport> eventImports,
-        Optional<String> readme
-    ) {
+            PluginInfo plugin,
+            String turboismApi,
+            List<Author> authors,
+            String license,
+            Optional<String> website,
+            List<Dependency> dependencies,
+            List<Permission> permissions,
+            List<String> capabilities,
+            boolean requiresCubism,
+            String ui,
+            List<String> entrypoints,
+            List<String> resources,
+            String i18nBaseName,
+            List<String> locales,
+            List<EventExport> eventExports,
+            List<EventImport> eventImports,
+            Optional<String> readme) {
         public PluginDetails {
             if (plugin == null) throw new IllegalArgumentException("plugin must not be null");
             turboismApi = textOr(turboismApi, "");
@@ -174,9 +186,23 @@ public interface CorePluginManagement extends AutoCloseable {
          */
         public static PluginDetails summary(final PluginInfo plugin) {
             return new PluginDetails(
-                plugin, "", List.of(), "", Optional.empty(), List.of(), List.of(), List.of(),
-                false, "none", List.of(), List.of(), "", List.of(), List.of(), List.of(), Optional.empty()
-            );
+                    plugin,
+                    "",
+                    List.of(),
+                    "",
+                    Optional.empty(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    false,
+                    "none",
+                    List.of(),
+                    List.of(),
+                    "",
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    Optional.empty());
         }
 
         private static String textOr(final String value, final String fallback) {
@@ -193,9 +219,7 @@ public interface CorePluginManagement extends AutoCloseable {
     }
 
     /** One declared plugin dependency: target {@code id}, {@code type}, {@code version} range, {@code ordering} hint, and optional {@code reason}. */
-    record Dependency(
-        String id, String type, String version, String ordering, Optional<String> reason
-    ) {
+    record Dependency(String id, String type, String version, String ordering, Optional<String> reason) {
         public Dependency {
             if (id == null || id.isBlank()) throw new IllegalArgumentException("id must not be blank");
             type = type == null ? "" : type;
@@ -229,13 +253,12 @@ public interface CorePluginManagement extends AutoCloseable {
      * export; {@code required} marks subscriptions the plugin cannot run without.
      */
     record EventImport(
-        String providerId,
-        String eventId,
-        String contractVersion,
-        String eventType,
-        String abiSha256,
-        boolean required
-    ) {
+            String providerId,
+            String eventId,
+            String contractVersion,
+            String eventType,
+            String abiSha256,
+            boolean required) {
         public EventImport {
             if (providerId == null || providerId.isBlank()) {
                 throw new IllegalArgumentException("providerId must not be blank");

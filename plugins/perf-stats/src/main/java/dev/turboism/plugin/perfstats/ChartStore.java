@@ -1,7 +1,6 @@
 package dev.turboism.plugin.perfstats;
 
 import dev.turboism.sdk.performance.PerformanceSnapshot;
-
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,9 +44,8 @@ final class ChartStore {
             append(KEY_NONHEAP, bytesToMebibytes(snapshot.jvmNonHeapBytes()));
             append(KEY_FRAMES, (double) snapshot.renderedFrames());
             final long pauseMillis = snapshot.gcPauseMillis();
-            final double gcPauseWindowMillis = lastGcPauseMillis < 0L
-                ? 0.0
-                : Math.max(0.0, (double) (pauseMillis - lastGcPauseMillis));
+            final double gcPauseWindowMillis =
+                    lastGcPauseMillis < 0L ? 0.0 : Math.max(0.0, (double) (pauseMillis - lastGcPauseMillis));
             lastGcPauseMillis = pauseMillis;
             append(KEY_GC, gcPauseWindowMillis);
         }

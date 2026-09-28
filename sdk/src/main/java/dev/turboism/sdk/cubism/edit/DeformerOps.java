@@ -2,8 +2,8 @@ package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.DeformerId;
-import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
+import dev.turboism.sdk.cubism.model.PartId;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -55,8 +55,7 @@ public interface DeformerOps {
         }
 
         @Override
-        public boolean addRotationDeformer(final AddRotationDeformer request)
-                throws EditSessionException {
+        public boolean addRotationDeformer(final AddRotationDeformer request) throws EditSessionException {
             Objects.requireNonNull(request, "request");
             throw new EditUnavailableException("DeformerOps.addRotationDeformer");
         }
@@ -68,8 +67,7 @@ public interface DeformerOps {
         }
 
         @Override
-        public boolean editRotationDeformer(final EditRotationDeformer request)
-                throws EditSessionException {
+        public boolean editRotationDeformer(final EditRotationDeformer request) throws EditSessionException {
             Objects.requireNonNull(request, "request");
             throw new EditUnavailableException("DeformerOps.editRotationDeformer");
         }
@@ -151,9 +149,17 @@ public interface DeformerOps {
                 final Optional<PartId> parentId,
                 final List<ModelObjectId> targetObjectIds) {
             this(
-                name, id, parentId, targetObjectIds, EditDeformerAttachMode.AS_PARENT,
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-                Optional.empty(), Optional.empty());
+                    name,
+                    id,
+                    parentId,
+                    targetObjectIds,
+                    EditDeformerAttachMode.AS_PARENT,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
         }
     }
 

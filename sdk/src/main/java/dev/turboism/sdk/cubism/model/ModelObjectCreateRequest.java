@@ -1,15 +1,14 @@
 package dev.turboism.sdk.cubism.model;
 
-
 import java.util.Objects;
 import java.util.Optional;
 
 /** Typed creation requests for model objects. */
-public sealed interface ModelObjectCreateRequest permits
-    ModelObjectCreateRequest.Part,
-    ModelObjectCreateRequest.ArtMesh,
-    ModelObjectCreateRequest.WarpDeformer,
-    ModelObjectCreateRequest.RotationDeformer {
+public sealed interface ModelObjectCreateRequest
+        permits ModelObjectCreateRequest.Part,
+                ModelObjectCreateRequest.ArtMesh,
+                ModelObjectCreateRequest.WarpDeformer,
+                ModelObjectCreateRequest.RotationDeformer {
 
     /** Returns the kind of model object this request creates. */
     ModelObjectKind kind();
@@ -21,73 +20,65 @@ public sealed interface ModelObjectCreateRequest permits
     Optional<ModelObjectReference> parent();
 
     /** Creates a Part; a {@code parent}, when present, must itself be a Part. */
-    record Part(String name, Optional<ModelObjectReference> parent)
-        implements ModelObjectCreateRequest {
+    record Part(String name, Optional<ModelObjectReference> parent) implements ModelObjectCreateRequest {
         public Part {
             name = ModelObjectDescriptor.normalizeName(name);
             parent = checkedParent(parent, true);
         }
 
-        @Override public ModelObjectKind kind() {
+        @Override
+        public ModelObjectKind kind() {
             return ModelObjectKind.PART;
         }
     }
 
     /** Creates an ArtMesh with explicit geometry under a Part or Deformer parent. */
-    record ArtMesh(
-        String name,
-        Optional<ModelObjectReference> parent,
-        ArtMeshGeometry geometry
-    ) implements ModelObjectCreateRequest {
+    record ArtMesh(String name, Optional<ModelObjectReference> parent, ArtMeshGeometry geometry)
+            implements ModelObjectCreateRequest {
         public ArtMesh {
             name = ModelObjectDescriptor.normalizeName(name);
             parent = checkedParent(parent, false);
             geometry = Objects.requireNonNull(geometry, "geometry");
         }
 
-        @Override public ModelObjectKind kind() {
+        @Override
+        public ModelObjectKind kind() {
             return ModelObjectKind.ART_MESH;
         }
     }
 
     /** Creates a Warp Deformer with the given grid under a Part or Deformer parent. */
-    record WarpDeformer(
-        String name,
-        Optional<ModelObjectReference> parent,
-        WarpGrid grid
-    ) implements ModelObjectCreateRequest {
+    record WarpDeformer(String name, Optional<ModelObjectReference> parent, WarpGrid grid)
+            implements ModelObjectCreateRequest {
         public WarpDeformer {
             name = ModelObjectDescriptor.normalizeName(name);
             parent = checkedParent(parent, false);
             grid = Objects.requireNonNull(grid, "grid");
         }
 
-        @Override public ModelObjectKind kind() {
+        @Override
+        public ModelObjectKind kind() {
             return ModelObjectKind.WARP_DEFORMER;
         }
     }
 
     /** Creates a Rotation Deformer with the given keyform under a Part or Deformer parent. */
-    record RotationDeformer(
-        String name,
-        Optional<ModelObjectReference> parent,
-        RotationDeformerForm form
-    ) implements ModelObjectCreateRequest {
+    record RotationDeformer(String name, Optional<ModelObjectReference> parent, RotationDeformerForm form)
+            implements ModelObjectCreateRequest {
         public RotationDeformer {
             name = ModelObjectDescriptor.normalizeName(name);
             parent = checkedParent(parent, false);
             form = Objects.requireNonNull(form, "form");
         }
 
-        @Override public ModelObjectKind kind() {
+        @Override
+        public ModelObjectKind kind() {
             return ModelObjectKind.ROTATION_DEFORMER;
         }
     }
 
     private static Optional<ModelObjectReference> checkedParent(
-        final Optional<ModelObjectReference> value,
-        final boolean partOnly
-    ) {
+            final Optional<ModelObjectReference> value, final boolean partOnly) {
         final Optional<ModelObjectReference> parent = Objects.requireNonNull(value, "parent");
         if (parent.isEmpty()) {
             return parent;

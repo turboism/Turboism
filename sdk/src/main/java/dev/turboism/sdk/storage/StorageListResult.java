@@ -12,18 +12,12 @@ import java.util.Optional;
  * @param truncated whether the requested entry ceiling was reached and
  *     further children exist; always {@code false} on failure
  */
-public record StorageListResult(
-    List<StorageEntry> entries,
-    Optional<StorageError> error,
-    boolean truncated
-) {
+public record StorageListResult(List<StorageEntry> entries, Optional<StorageError> error, boolean truncated) {
     public StorageListResult {
         entries = StorageContracts.copy(entries, "entries");
         error = StorageContracts.requireOptional(error, "error");
         if (error.isPresent() && (!entries.isEmpty() || truncated)) {
-            throw new IllegalArgumentException(
-                "failed storage list must contain no entries and must not be truncated"
-            );
+            throw new IllegalArgumentException("failed storage list must contain no entries and must not be truncated");
         }
     }
 }

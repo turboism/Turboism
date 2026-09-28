@@ -1,11 +1,10 @@
 package dev.turboism.ui.panel;
 
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JPanel;
-import java.util.Locale;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.Locale;
+import javax.swing.JPanel;
+import org.junit.jupiter.api.Test;
 
 /**
  * Runtime-owned panel controls must not fall back to English for the supported

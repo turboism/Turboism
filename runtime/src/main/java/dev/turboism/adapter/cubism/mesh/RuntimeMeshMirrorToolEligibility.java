@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.mesh;
 import dev.turboism.sdk.cubism.mesh.MeshEditTool;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -31,10 +30,8 @@ public final class RuntimeMeshMirrorToolEligibility implements MeshMirrorToolEli
                 synchronized (registrations) {
                     if (closed) return;
                     closed = true;
-                    contribution.forEach(tool -> registrations.computeIfPresent(
-                        tool,
-                        (ignored, count) -> count == 1 ? null : count - 1
-                    ));
+                    contribution.forEach(tool ->
+                            registrations.computeIfPresent(tool, (ignored, count) -> count == 1 ? null : count - 1));
                 }
             }
         };

@@ -1,14 +1,13 @@
 package dev.turboism.core.plugin;
 
-import dev.turboism.sdk.plugin.PluginDescriptor;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.plugin.PluginDescriptor;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
 
 /** Focused regression: BCP-47 locale IDs map to Java resource-bundle file names. */
 class PluginJarContractTest {
@@ -22,29 +21,98 @@ class PluginJarContractTest {
 
     private static PluginDescriptor descriptorWithIdAndLocales(final String id, final List<String> locales) {
         return new PluginDescriptor() {
-            @Override public String id() { return id; }
-            @Override public String name() { return "Test I18n"; }
-            @Override public String version() { return "0.1.0"; }
-            @Override public String description() { return "Test i18n plugin"; }
-            @Override public List<String> entrypoints() { return List.of("dev.turboism.plugin.TestI18nPlugin"); }
-            @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
-            @Override public List<Author> authors() { return List.of(); }
-            @Override public String license() { return "Project License"; }
-            @Override public Optional<String> website() { return Optional.empty(); }
-            @Override public List<String> resources() { return List.of("META-INF/turboism/i18n/"); }
-            @Override public I18n i18n() {
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String name() {
+                return "Test I18n";
+            }
+
+            @Override
+            public String version() {
+                return "0.1.0";
+            }
+
+            @Override
+            public String description() {
+                return "Test i18n plugin";
+            }
+
+            @Override
+            public List<String> entrypoints() {
+                return List.of("dev.turboism.plugin.TestI18nPlugin");
+            }
+
+            @Override
+            public String turboismApi() {
+                return "[0.1.0,0.2.0)";
+            }
+
+            @Override
+            public List<Author> authors() {
+                return List.of();
+            }
+
+            @Override
+            public String license() {
+                return "Project License";
+            }
+
+            @Override
+            public Optional<String> website() {
+                return Optional.empty();
+            }
+
+            @Override
+            public List<String> resources() {
+                return List.of("META-INF/turboism/i18n/");
+            }
+
+            @Override
+            public I18n i18n() {
                 return new I18n() {
-                    @Override public String baseName() { return BASE_NAME; }
-                    @Override public List<String> locales() { return locales; }
+                    @Override
+                    public String baseName() {
+                        return BASE_NAME;
+                    }
+
+                    @Override
+                    public List<String> locales() {
+                        return locales;
+                    }
                 };
             }
-            @Override public List<DependencyRef> dependencies() { return List.of(); }
-            @Override public List<PermissionRef> permissions() { return List.of(); }
-            @Override public List<String> capabilities() { return List.of(); }
-            @Override public Environment environment() {
+
+            @Override
+            public List<DependencyRef> dependencies() {
+                return List.of();
+            }
+
+            @Override
+            public List<PermissionRef> permissions() {
+                return List.of();
+            }
+
+            @Override
+            public List<String> capabilities() {
+                return List.of();
+            }
+
+            @Override
+            public Environment environment() {
                 return new Environment() {
-                    @Override public boolean requiresCubism() { return false; }
-                    @Override public String ui() { return "swing"; }
+                    @Override
+                    public boolean requiresCubism() {
+                        return false;
+                    }
+
+                    @Override
+                    public String ui() {
+                        return "swing";
+                    }
                 };
             }
         };
@@ -55,12 +123,11 @@ class PluginJarContractTest {
         // Given a descriptor declaring base, en, and script locales
         PluginDescriptor descriptor = descriptorWithLocales(List.of("base", "en", "zh-Hans", "zh-Hant"));
         List<String> content = List.of(
-            ENTRYPOINT_CLASS,
-            BASE_NAME + ".properties",
-            BASE_NAME + "_en.properties",
-            BASE_NAME + "_zh_Hans.properties",
-            BASE_NAME + "_zh_Hant.properties"
-        );
+                ENTRYPOINT_CLASS,
+                BASE_NAME + ".properties",
+                BASE_NAME + "_en.properties",
+                BASE_NAME + "_zh_Hans.properties",
+                BASE_NAME + "_zh_Hant.properties");
         // When the JAR holds the Java resource-bundle file names
         // Then the contract accepts the exact runtime catalog paths
         PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar");
@@ -71,16 +138,14 @@ class PluginJarContractTest {
         // Given a descriptor declaring zh-Hans
         PluginDescriptor descriptor = descriptorWithLocales(List.of("base", "en", "zh-Hans"));
         List<String> content = List.of(
-            ENTRYPOINT_CLASS,
-            BASE_NAME + ".properties",
-            BASE_NAME + "_en.properties",
-            BASE_NAME + "_zh-Hans.properties"
-        );
+                ENTRYPOINT_CLASS,
+                BASE_NAME + ".properties",
+                BASE_NAME + "_en.properties",
+                BASE_NAME + "_zh-Hans.properties");
         // When the JAR only holds the hyphen-spelled resource
         PluginJarContract.PluginJarContractException exception = assertThrows(
-            PluginJarContract.PluginJarContractException.class,
-            () -> PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar")
-        );
+                PluginJarContract.PluginJarContractException.class,
+                () -> PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar"));
         // Then the required underscore catalog is missing
         assertEquals("PLUGIN_I18N_CATALOG_MISSING", exception.code());
         assertTrue(exception.path().endsWith(BASE_NAME + "_zh_Hans.properties"));
@@ -91,16 +156,14 @@ class PluginJarContractTest {
         // Given a descriptor that does not declare zh-Hans
         PluginDescriptor descriptor = descriptorWithLocales(List.of("base", "en"));
         List<String> content = List.of(
-            ENTRYPOINT_CLASS,
-            BASE_NAME + ".properties",
-            BASE_NAME + "_en.properties",
-            BASE_NAME + "_zh-Hans.properties"
-        );
+                ENTRYPOINT_CLASS,
+                BASE_NAME + ".properties",
+                BASE_NAME + "_en.properties",
+                BASE_NAME + "_zh-Hans.properties");
         // When the JAR carries an extra hyphen-spelled catalog
         PluginJarContract.PluginJarContractException exception = assertThrows(
-            PluginJarContract.PluginJarContractException.class,
-            () -> PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar")
-        );
+                PluginJarContract.PluginJarContractException.class,
+                () -> PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar"));
         // Then the hyphen spelling is rejected as undeclared rather than admitted
         assertEquals("PLUGIN_I18N_CATALOG_UNDECLARED", exception.code());
         assertTrue(exception.path().endsWith(BASE_NAME + "_zh-Hans.properties"));
@@ -111,11 +174,10 @@ class PluginJarContractTest {
         // Given a descriptor in the current official form: locales omit base
         PluginDescriptor descriptor = descriptorWithLocales(List.of("en", "zh-Hans"));
         List<String> content = List.of(
-            ENTRYPOINT_CLASS,
-            BASE_NAME + ".properties",
-            BASE_NAME + "_en.properties",
-            BASE_NAME + "_zh_Hans.properties"
-        );
+                ENTRYPOINT_CLASS,
+                BASE_NAME + ".properties",
+                BASE_NAME + "_en.properties",
+                BASE_NAME + "_zh_Hans.properties");
         // Then the implicit base catalog plus normalized localized catalogs validate
         PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar");
     }
@@ -124,15 +186,11 @@ class PluginJarContractTest {
     void missingImplicitBaseFailsClosedWithExactBasePath() {
         // Given a descriptor without base and a JAR missing the base catalog
         PluginDescriptor descriptor = descriptorWithLocales(List.of("en"));
-        List<String> content = List.of(
-            ENTRYPOINT_CLASS,
-            BASE_NAME + "_en.properties"
-        );
+        List<String> content = List.of(ENTRYPOINT_CLASS, BASE_NAME + "_en.properties");
         // When validated
         PluginJarContract.PluginJarContractException exception = assertThrows(
-            PluginJarContract.PluginJarContractException.class,
-            () -> PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar")
-        );
+                PluginJarContract.PluginJarContractException.class,
+                () -> PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar"));
         // Then the implicit base is required with its exact path
         assertEquals("PLUGIN_I18N_CATALOG_MISSING", exception.code());
         assertEquals("plugins/test-i18n.jar!/" + BASE_NAME + ".properties", exception.path());
@@ -143,16 +201,14 @@ class PluginJarContractTest {
         // Given a descriptor declaring only en
         PluginDescriptor descriptor = descriptorWithLocales(List.of("en"));
         List<String> content = List.of(
-            ENTRYPOINT_CLASS,
-            BASE_NAME + ".properties",
-            BASE_NAME + "_en.properties",
-            BASE_NAME + "_ja.properties"
-        );
+                ENTRYPOINT_CLASS,
+                BASE_NAME + ".properties",
+                BASE_NAME + "_en.properties",
+                BASE_NAME + "_ja.properties");
         // When the JAR carries an undeclared localized catalog
         PluginJarContract.PluginJarContractException exception = assertThrows(
-            PluginJarContract.PluginJarContractException.class,
-            () -> PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar")
-        );
+                PluginJarContract.PluginJarContractException.class,
+                () -> PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar"));
         // Then it is rejected as undeclared
         assertEquals("PLUGIN_I18N_CATALOG_UNDECLARED", exception.code());
         assertTrue(exception.path().endsWith(BASE_NAME + "_ja.properties"));
@@ -162,11 +218,7 @@ class PluginJarContractTest {
     void legacyExplicitBaseDedupesNaturally() throws Exception {
         // Given a legacy descriptor that explicitly declares base
         PluginDescriptor descriptor = descriptorWithLocales(List.of("base", "en"));
-        List<String> content = List.of(
-            ENTRYPOINT_CLASS,
-            BASE_NAME + ".properties",
-            BASE_NAME + "_en.properties"
-        );
+        List<String> content = List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties", BASE_NAME + "_en.properties");
         // Then the single base resource satisfies both the implicit and explicit forms
         PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar");
     }
@@ -178,17 +230,11 @@ class PluginJarContractTest {
         final PluginDescriptor descriptor = new PublicEventDescriptor(base, eventType);
 
         final PluginJarContract.PluginJarContractException exception = assertThrows(
-            PluginJarContract.PluginJarContractException.class,
-            () -> PluginJarContract.validate(
-                descriptor,
-                List.of(
-                    ENTRYPOINT_CLASS,
-                    BASE_NAME + ".properties",
-                    eventType.replace('.', '/') + ".class"
-                ),
-                "plugins/public-event.jar"
-            )
-        );
+                PluginJarContract.PluginJarContractException.class,
+                () -> PluginJarContract.validate(
+                        descriptor,
+                        List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties", eventType.replace('.', '/') + ".class"),
+                        "plugins/public-event.jar"));
 
         assertEquals("PLUGIN_PUBLIC_EVENT_API_EMBEDDED", exception.code());
     }
@@ -199,50 +245,121 @@ class PluginJarContractTest {
         // and a JAR whose content would otherwise satisfy the full contract
         List<String> content = List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties");
         for (String retiredId : List.of(
-            "dev.turboism.plugin.logfilter",
-            "dev.turboism.plugin.clipmask",
-            "dev.turboism.plugin.perfopt",
-            "dev.turboism.plugin.renderopt",
-            // superseded by dev.turboism.plugin.webdav in the webdav-backup rename
-            "dev.turboism.plugin.backup")) {
+                "dev.turboism.plugin.logfilter",
+                "dev.turboism.plugin.clipmask",
+                "dev.turboism.plugin.perfopt",
+                "dev.turboism.plugin.renderopt",
+                // superseded by dev.turboism.plugin.webdav in the webdav-backup rename
+                "dev.turboism.plugin.backup")) {
             PluginDescriptor descriptor = descriptorWithIdAndLocales(retiredId, List.of("base"));
             // When validated under a renamed filename alike
             PluginJarContract.PluginJarContractException exception = assertThrows(
-                PluginJarContract.PluginJarContractException.class,
-                () -> PluginJarContract.validate(
-                    descriptor, content, "plugins/renamed-archive.jar")
-            );
+                    PluginJarContract.PluginJarContractException.class,
+                    () -> PluginJarContract.validate(descriptor, content, "plugins/renamed-archive.jar"));
             // Then the retired id is rejected with the typed diagnostic, filename-independent
             assertEquals("PLUGIN_RETIRED_ID", exception.code());
             assertTrue(exception.path().contains(retiredId));
         }
     }
 
-    private record PublicEventDescriptor(
-        PluginDescriptor delegate,
-        String eventType
-    ) implements PluginDescriptor {
-        @Override public String id() { return delegate.id(); }
-        @Override public String name() { return delegate.name(); }
-        @Override public String version() { return delegate.version(); }
-        @Override public String description() { return delegate.description(); }
-        @Override public List<String> entrypoints() { return delegate.entrypoints(); }
-        @Override public String turboismApi() { return delegate.turboismApi(); }
-        @Override public List<Author> authors() { return delegate.authors(); }
-        @Override public String license() { return delegate.license(); }
-        @Override public Optional<String> website() { return delegate.website(); }
-        @Override public List<String> resources() { return delegate.resources(); }
-        @Override public I18n i18n() { return delegate.i18n(); }
-        @Override public List<DependencyRef> dependencies() { return delegate.dependencies(); }
-        @Override public List<PermissionRef> permissions() { return delegate.permissions(); }
-        @Override public List<String> capabilities() { return delegate.capabilities(); }
-        @Override public Environment environment() { return delegate.environment(); }
-        @Override public List<EventExport> eventExports() {
+    private record PublicEventDescriptor(PluginDescriptor delegate, String eventType) implements PluginDescriptor {
+        @Override
+        public String id() {
+            return delegate.id();
+        }
+
+        @Override
+        public String name() {
+            return delegate.name();
+        }
+
+        @Override
+        public String version() {
+            return delegate.version();
+        }
+
+        @Override
+        public String description() {
+            return delegate.description();
+        }
+
+        @Override
+        public List<String> entrypoints() {
+            return delegate.entrypoints();
+        }
+
+        @Override
+        public String turboismApi() {
+            return delegate.turboismApi();
+        }
+
+        @Override
+        public List<Author> authors() {
+            return delegate.authors();
+        }
+
+        @Override
+        public String license() {
+            return delegate.license();
+        }
+
+        @Override
+        public Optional<String> website() {
+            return delegate.website();
+        }
+
+        @Override
+        public List<String> resources() {
+            return delegate.resources();
+        }
+
+        @Override
+        public I18n i18n() {
+            return delegate.i18n();
+        }
+
+        @Override
+        public List<DependencyRef> dependencies() {
+            return delegate.dependencies();
+        }
+
+        @Override
+        public List<PermissionRef> permissions() {
+            return delegate.permissions();
+        }
+
+        @Override
+        public List<String> capabilities() {
+            return delegate.capabilities();
+        }
+
+        @Override
+        public Environment environment() {
+            return delegate.environment();
+        }
+
+        @Override
+        public List<EventExport> eventExports() {
             return List.of(new EventExport() {
-                @Override public String id() { return "provider.ready"; }
-                @Override public String contractVersion() { return "1.0.0"; }
-                @Override public String eventType() { return PublicEventDescriptor.this.eventType; }
-                @Override public String abiSha256() { return "a".repeat(64); }
+                @Override
+                public String id() {
+                    return "provider.ready";
+                }
+
+                @Override
+                public String contractVersion() {
+                    return "1.0.0";
+                }
+
+                @Override
+                public String eventType() {
+                    return PublicEventDescriptor.this.eventType;
+                }
+
+                @Override
+                public String abiSha256() {
+                    return "a".repeat(64);
+                }
             });
         }
     }
@@ -250,30 +367,25 @@ class PluginJarContractTest {
     @Test
     void retainedSuccessorIdsRemainAdmitted() throws Exception {
         // Given the retained clipmask-viewer successor id (not retired)
-        PluginDescriptor descriptor = descriptorWithIdAndLocales(
-            "dev.turboism.plugin.clipmask-viewer", List.of("base"));
+        PluginDescriptor descriptor =
+                descriptorWithIdAndLocales("dev.turboism.plugin.clipmask-viewer", List.of("base"));
         // Then a valid JAR carrying it still validates
         PluginJarContract.validate(
-            descriptor, List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties"),
-            "plugins/clipmask-viewer.jar");
+                descriptor, List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties"), "plugins/clipmask-viewer.jar");
     }
 
-    private static final String CONTRACT_ARTIFACT =
-        "META-INF/turboism/contracts/acme-events-1.0.0.jar";
+    private static final String CONTRACT_ARTIFACT = "META-INF/turboism/contracts/acme-events-1.0.0.jar";
 
     @Test
     void declaredContractArtifactMustBeEmbedded() {
-        final PluginDescriptor descriptor = new EventContractDescriptor(
-            descriptorWithLocales(List.of("base")), CONTRACT_ARTIFACT
-        );
+        final PluginDescriptor descriptor =
+                new EventContractDescriptor(descriptorWithLocales(List.of("base")), CONTRACT_ARTIFACT);
         final PluginJarContract.PluginJarContractException exception = assertThrows(
-            PluginJarContract.PluginJarContractException.class,
-            () -> PluginJarContract.validate(
-                descriptor,
-                List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties"),
-                "plugins/contract-plugin.jar"
-            )
-        );
+                PluginJarContract.PluginJarContractException.class,
+                () -> PluginJarContract.validate(
+                        descriptor,
+                        List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties"),
+                        "plugins/contract-plugin.jar"));
         assertEquals("PLUGIN_CONTRACT_ARTIFACT_MISSING", exception.code());
         assertTrue(exception.path().endsWith(CONTRACT_ARTIFACT));
     }
@@ -282,62 +394,123 @@ class PluginJarContractTest {
     void undeclaredContractArtifactIsRejected() {
         final PluginDescriptor descriptor = descriptorWithLocales(List.of("base"));
         final PluginJarContract.PluginJarContractException exception = assertThrows(
-            PluginJarContract.PluginJarContractException.class,
-            () -> PluginJarContract.validate(
-                descriptor,
-                List.of(
-                    ENTRYPOINT_CLASS,
-                    BASE_NAME + ".properties",
-                    CONTRACT_ARTIFACT
-                ),
-                "plugins/smuggled-contract.jar"
-            )
-        );
+                PluginJarContract.PluginJarContractException.class,
+                () -> PluginJarContract.validate(
+                        descriptor,
+                        List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties", CONTRACT_ARTIFACT),
+                        "plugins/smuggled-contract.jar"));
         assertEquals("PLUGIN_CONTRACT_ARTIFACT_UNDECLARED", exception.code());
         assertTrue(exception.path().endsWith(CONTRACT_ARTIFACT));
     }
 
     @Test
     void declaredAndEmbeddedContractArtifactIsAccepted() throws Exception {
-        final PluginDescriptor descriptor = new EventContractDescriptor(
-            descriptorWithLocales(List.of("base")), CONTRACT_ARTIFACT
-        );
+        final PluginDescriptor descriptor =
+                new EventContractDescriptor(descriptorWithLocales(List.of("base")), CONTRACT_ARTIFACT);
         PluginJarContract.validate(
-            descriptor,
-            List.of(
-                ENTRYPOINT_CLASS,
-                BASE_NAME + ".properties",
-                CONTRACT_ARTIFACT
-            ),
-            "plugins/contract-plugin.jar"
-        );
+                descriptor,
+                List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties", CONTRACT_ARTIFACT),
+                "plugins/contract-plugin.jar");
     }
 
-    private record EventContractDescriptor(
-        PluginDescriptor delegate,
-        String artifactPath
-    ) implements PluginDescriptor {
-        @Override public String id() { return delegate.id(); }
-        @Override public String name() { return delegate.name(); }
-        @Override public String version() { return delegate.version(); }
-        @Override public String description() { return delegate.description(); }
-        @Override public List<String> entrypoints() { return delegate.entrypoints(); }
-        @Override public String turboismApi() { return delegate.turboismApi(); }
-        @Override public List<Author> authors() { return delegate.authors(); }
-        @Override public String license() { return delegate.license(); }
-        @Override public Optional<String> website() { return delegate.website(); }
-        @Override public List<String> resources() { return delegate.resources(); }
-        @Override public I18n i18n() { return delegate.i18n(); }
-        @Override public List<DependencyRef> dependencies() { return delegate.dependencies(); }
-        @Override public List<PermissionRef> permissions() { return delegate.permissions(); }
-        @Override public List<String> capabilities() { return delegate.capabilities(); }
-        @Override public Environment environment() { return delegate.environment(); }
-        @Override public List<EventContract> eventContracts() {
+    private record EventContractDescriptor(PluginDescriptor delegate, String artifactPath) implements PluginDescriptor {
+        @Override
+        public String id() {
+            return delegate.id();
+        }
+
+        @Override
+        public String name() {
+            return delegate.name();
+        }
+
+        @Override
+        public String version() {
+            return delegate.version();
+        }
+
+        @Override
+        public String description() {
+            return delegate.description();
+        }
+
+        @Override
+        public List<String> entrypoints() {
+            return delegate.entrypoints();
+        }
+
+        @Override
+        public String turboismApi() {
+            return delegate.turboismApi();
+        }
+
+        @Override
+        public List<Author> authors() {
+            return delegate.authors();
+        }
+
+        @Override
+        public String license() {
+            return delegate.license();
+        }
+
+        @Override
+        public Optional<String> website() {
+            return delegate.website();
+        }
+
+        @Override
+        public List<String> resources() {
+            return delegate.resources();
+        }
+
+        @Override
+        public I18n i18n() {
+            return delegate.i18n();
+        }
+
+        @Override
+        public List<DependencyRef> dependencies() {
+            return delegate.dependencies();
+        }
+
+        @Override
+        public List<PermissionRef> permissions() {
+            return delegate.permissions();
+        }
+
+        @Override
+        public List<String> capabilities() {
+            return delegate.capabilities();
+        }
+
+        @Override
+        public Environment environment() {
+            return delegate.environment();
+        }
+
+        @Override
+        public List<EventContract> eventContracts() {
             return List.of(new EventContract() {
-                @Override public String id() { return "acme.events"; }
-                @Override public String version() { return "1.0.0"; }
-                @Override public String artifact() { return artifactPath; }
-                @Override public String sha256() { return "b".repeat(64); }
+                @Override
+                public String id() {
+                    return "acme.events";
+                }
+
+                @Override
+                public String version() {
+                    return "1.0.0";
+                }
+
+                @Override
+                public String artifact() {
+                    return artifactPath;
+                }
+
+                @Override
+                public String sha256() {
+                    return "b".repeat(64);
+                }
             });
         }
     }

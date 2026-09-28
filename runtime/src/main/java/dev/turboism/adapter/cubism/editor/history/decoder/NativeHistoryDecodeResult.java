@@ -1,16 +1,11 @@
 package dev.turboism.adapter.cubism.editor.history.decoder;
 
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
-
 import java.util.Objects;
 import java.util.Optional;
 
 /** Internal result of one optional native history decoder attempt. */
-public record NativeHistoryDecodeResult(
-    Outcome outcome,
-    Optional<HistoryEntryDetail> detail,
-    String diagnosticId
-) {
+public record NativeHistoryDecodeResult(Outcome outcome, Optional<HistoryEntryDetail> detail, String diagnosticId) {
 
     public NativeHistoryDecodeResult {
         outcome = Objects.requireNonNull(outcome, "outcome");
@@ -25,11 +20,7 @@ public record NativeHistoryDecodeResult(
     }
 
     static NativeHistoryDecodeResult decoded(final HistoryEntryDetail detail) {
-        return new NativeHistoryDecodeResult(
-            Outcome.DECODED,
-            Optional.of(detail),
-            "history.detail.native-decoded"
-        );
+        return new NativeHistoryDecodeResult(Outcome.DECODED, Optional.of(detail), "history.detail.native-decoded");
     }
 
     static NativeHistoryDecodeResult unsupported(final String diagnosticId) {

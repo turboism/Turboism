@@ -3,9 +3,9 @@ package dev.turboism.graal;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.io.BoundedLineReader;
 import dev.turboism.sdk.script.ScriptExecutionId;
-
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -50,41 +50,41 @@ public final class GraalHostManager implements AutoCloseable {
     private final Object writeLock = new Object();
     private final Map<String, PendingExecution> pending = new ConcurrentHashMap<>();
     private final ThreadPoolExecutor submissions = new ThreadPoolExecutor(
-        1, 1, 0L, TimeUnit.MILLISECONDS,
-        new ArrayBlockingQueue<>(SUBMISSION_QUEUE_CAPACITY),
-        daemonThreadFactory("turboism-graal-host-submit"),
-        new ThreadPoolExecutor.AbortPolicy()
-    );
+            1,
+            1,
+            0L,
+            TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<>(SUBMISSION_QUEUE_CAPACITY),
+            daemonThreadFactory("turboism-graal-host-submit"),
+            new ThreadPoolExecutor.AbortPolicy());
     private final ThreadPoolExecutor hostCalls = new ThreadPoolExecutor(
-        HOST_CALL_THREADS, HOST_CALL_THREADS, 0L, TimeUnit.MILLISECONDS,
-        new ArrayBlockingQueue<>(HOST_CALL_QUEUE_CAPACITY),
-        daemonThreadFactory("turboism-graal-host-call"),
-        new ThreadPoolExecutor.AbortPolicy()
-    );
+            HOST_CALL_THREADS,
+            HOST_CALL_THREADS,
+            0L,
+            TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<>(HOST_CALL_QUEUE_CAPACITY),
+            daemonThreadFactory("turboism-graal-host-call"),
+            new ThreadPoolExecutor.AbortPolicy());
     private final ThreadPoolExecutor hostResponses = new ThreadPoolExecutor(
-        1, 1, 0L, TimeUnit.MILLISECONDS,
-        new ArrayBlockingQueue<>(HOST_RESPONSE_QUEUE_CAPACITY),
-        daemonThreadFactory("turboism-graal-host-response"),
-        new ThreadPoolExecutor.AbortPolicy()
-    );
+            1,
+            1,
+            0L,
+            TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<>(HOST_RESPONSE_QUEUE_CAPACITY),
+            daemonThreadFactory("turboism-graal-host-response"),
+            new ThreadPoolExecutor.AbortPolicy());
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private volatile HostGeneration host;
     private long nextGeneration;
     private long nextStartupAttemptNanos;
 
-    public GraalHostManager(
-        final GraalHostConfiguration configuration,
-        final Consumer<String> diagnostics
-    ) {
+    public GraalHostManager(final GraalHostConfiguration configuration, final Consumer<String> diagnostics) {
         this(configuration, diagnostics, new ObjectMapper());
     }
 
     GraalHostManager(
-        final GraalHostConfiguration configuration,
-        final Consumer<String> diagnostics,
-        final ObjectMapper mapper
-    ) {
+            final GraalHostConfiguration configuration, final Consumer<String> diagnostics, final ObjectMapper mapper) {
         this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
         this.mapper = Objects.requireNonNull(mapper, "mapper");
@@ -105,80 +105,74 @@ public final class GraalHostManager implements AutoCloseable {
      * @return a cancellable execution handle
      */
     public Execution submit(
-        final String scriptId,
-        final String source,
-        final Map<String, String> arguments,
-        final HostCallHandler handler
-    ) {
+            final String scriptId,
+            final String source,
+            final Map<String, String> arguments,
+            final HostCallHandler handler) {
         final String submittedScriptId = Objects.requireNonNull(scriptId, "scriptId");
         final String submittedSource = Objects.requireNonNull(source, "source");
-        final Map<String, String> submittedArguments = Map.copyOf(
-            Objects.requireNonNull(arguments, "arguments")
-        );
+        final Map<String, String> submittedArguments = Map.copyOf(Objects.requireNonNull(arguments, "arguments"));
         final ScriptExecutionId id = new ScriptExecutionId(UUID.randomUUID().toString());
-        final PendingExecution execution = new PendingExecution(
-            id, Objects.requireNonNull(handler, "handler")
-        );
+        final PendingExecution execution = new PendingExecution(id, Objects.requireNonNull(handler, "handler"));
         if (!configured()) {
             execution.completeUnclaimed(TransportResult.rejected(
-                "GRAAL_HOST_NOT_CONFIGURED",
-                "Graal host is not configured. Set TURBOISM_GRAALVM_HOME or turboism.graal.java."
-            ));
+                    "GRAAL_HOST_NOT_CONFIGURED",
+                    "Graal host is not configured. Set TURBOISM_GRAALVM_HOME or turboism.graal.java."));
             return new Execution(execution);
         }
-        final Submission submission = new Submission(
-            this, execution, submittedScriptId, submittedSource, submittedArguments
-        );
+        final Submission submission =
+                new Submission(this, execution, submittedScriptId, submittedSource, submittedArguments);
         execution.attachSubmission(submission);
         pending.put(id.value(), execution);
         try {
             submissions.execute(submission);
         } catch (RejectedExecutionException rejected) {
             submission.discard();
-            settle(execution, null, closed.get()
-                ? runtimeClosedResult()
-                : TransportResult.rejected(
-                    "GRAAL_HOST_SUBMISSION_QUEUE_FULL",
-                    "Graal host submission queue is full."
-                ));
+            settle(
+                    execution,
+                    null,
+                    closed.get()
+                            ? runtimeClosedResult()
+                            : TransportResult.rejected(
+                                    "GRAAL_HOST_SUBMISSION_QUEUE_FULL", "Graal host submission queue is full."));
         }
         return new Execution(execution);
     }
 
     private void runSubmission(final Submission submission, final SubmissionPayload payload) {
         try {
-            submitStarted(
-                submission.execution(), payload.scriptId(), payload.source(), payload.arguments()
-            );
+            submitStarted(submission.execution(), payload.scriptId(), payload.source(), payload.arguments());
         } catch (Throwable failure) {
-            safeDiagnostic("GRAAL_HOST_SUBMISSION_FAILED: "
-                + safeMessage(failure, "submission task failed"));
-            settle(submission.execution(), null, TransportResult.failed(
-                "GRAAL_HOST_SUBMISSION_FAILED",
-                safeMessage(failure, "Failed to submit script to the Graal host."),
-                ""
-            ));
+            FatalErrors.rethrowIfFatal(failure);
+            safeDiagnostic("GRAAL_HOST_SUBMISSION_FAILED: " + safeMessage(failure, "submission task failed"));
+            settle(
+                    submission.execution(),
+                    null,
+                    TransportResult.failed(
+                            "GRAAL_HOST_SUBMISSION_FAILED",
+                            safeMessage(failure, "Failed to submit script to the Graal host."),
+                            ""));
         }
     }
 
     private void submitStarted(
-        final PendingExecution execution,
-        final String scriptId,
-        final String source,
-        final Map<String, String> arguments
-    ) {
+            final PendingExecution execution,
+            final String scriptId,
+            final String source,
+            final Map<String, String> arguments) {
         if (execution.isTerminal()) {
             pending.remove(execution.id().value(), execution);
             return;
         }
         final HostGeneration owner = ensureStarted();
         if (owner == null) {
-            settle(execution, null, closed.get()
-                ? runtimeClosedResult()
-                : TransportResult.rejected(
-                    "GRAAL_HOST_UNAVAILABLE",
-                    "Configured Graal host could not become ready."
-                ));
+            settle(
+                    execution,
+                    null,
+                    closed.get()
+                            ? runtimeClosedResult()
+                            : TransportResult.rejected(
+                                    "GRAAL_HOST_UNAVAILABLE", "Configured Graal host could not become ready."));
             return;
         }
         final ObjectNode run = mapper.createObjectNode();
@@ -211,9 +205,7 @@ public final class GraalHostManager implements AutoCloseable {
                 if (!current.ready().isDone()) {
                     backOffStartupLocked();
                 }
-                retired = detachGenerationLocked(
-                    current, "process stopped before accepting the script"
-                );
+                retired = detachGenerationLocked(current, "process stopped before accepting the script");
             }
             final HostGeneration live = host;
             if (live != null && live.process().isAlive() && live.ready().isDone()) {
@@ -235,8 +227,7 @@ public final class GraalHostManager implements AutoCloseable {
                             startup = candidate.ready();
                         } catch (IOException failure) {
                             backOffStartupLocked();
-                            launchFailure = "GRAAL_HOST_START_FAILED: "
-                                + safeMessage(failure, "process launch failed");
+                            launchFailure = "GRAAL_HOST_START_FAILED: " + safeMessage(failure, "process launch failed");
                         }
                     }
                 } else {
@@ -259,9 +250,7 @@ public final class GraalHostManager implements AutoCloseable {
             return null;
         }
         try {
-            final ReadyState state = startup.get(
-                configuration.startupTimeoutMillis(), TimeUnit.MILLISECONDS
-            );
+            final ReadyState state = startup.get(configuration.startupTimeoutMillis(), TimeUnit.MILLISECONDS);
             if (!state.available()) {
                 safeDiagnostic("GRAAL_HOST_UNAVAILABLE: " + state.detail());
                 invalidateGeneration(candidate, new IOException(state.detail()), true);
@@ -278,8 +267,7 @@ public final class GraalHostManager implements AutoCloseable {
             if (failure instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            safeDiagnostic("GRAAL_HOST_START_FAILED: "
-                + safeMessage(failure, "startup failed"));
+            safeDiagnostic("GRAAL_HOST_START_FAILED: " + safeMessage(failure, "startup failed"));
             invalidateGeneration(candidate, failure, true);
             return null;
         }
@@ -287,38 +275,25 @@ public final class GraalHostManager implements AutoCloseable {
 
     private HostGeneration startProcessLocked() throws IOException {
         final ProcessBuilder builder = new ProcessBuilder(
-            configuration.javaBinary(),
-            "-cp",
-            configuration.classpath(),
-            configuration.mainClass()
-        );
+                configuration.javaBinary(), "-cp", configuration.classpath(), configuration.mainClass());
         builder.environment().remove("JAVA_TOOL_OPTIONS");
         builder.environment().remove("_JAVA_OPTIONS");
         builder.environment().remove("JDK_JAVA_OPTIONS");
         final Process launched = builder.start();
         final HostGeneration generation = new HostGeneration(
-            ++nextGeneration,
-            launched,
-            new BufferedWriter(new OutputStreamWriter(
-                launched.getOutputStream(), StandardCharsets.UTF_8
-            )),
-            new CompletableFuture<>()
-        );
+                ++nextGeneration,
+                launched,
+                new BufferedWriter(new OutputStreamWriter(launched.getOutputStream(), StandardCharsets.UTF_8)),
+                new CompletableFuture<>());
         host = generation;
         final BoundedLineReader launchedReader = new BoundedLineReader(
-            new InputStreamReader(launched.getInputStream(), StandardCharsets.UTF_8),
-            MAX_MESSAGE_CHARS
-        );
-        final Thread readerThread = new Thread(
-            () -> readLoop(generation, launchedReader),
-            "turboism-graal-host-reader-" + generation.id()
-        );
+                new InputStreamReader(launched.getInputStream(), StandardCharsets.UTF_8), MAX_MESSAGE_CHARS);
+        final Thread readerThread =
+                new Thread(() -> readLoop(generation, launchedReader), "turboism-graal-host-reader-" + generation.id());
         readerThread.setDaemon(true);
         readerThread.start();
-        final Thread errorThread = new Thread(
-            () -> drainErrors(generation),
-            "turboism-graal-host-stderr-" + generation.id()
-        );
+        final Thread errorThread =
+                new Thread(() -> drainErrors(generation), "turboism-graal-host-stderr-" + generation.id());
         errorThread.setDaemon(true);
         errorThread.start();
         return generation;
@@ -334,14 +309,14 @@ public final class GraalHostManager implements AutoCloseable {
             }
             processExited(owner, null);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             processExited(owner, failure);
         }
     }
 
     private void drainErrors(final HostGeneration owner) {
         try (BoundedLineReader error = new BoundedLineReader(
-            new InputStreamReader(owner.process().getErrorStream(), StandardCharsets.UTF_8), 1024
-        )) {
+                new InputStreamReader(owner.process().getErrorStream(), StandardCharsets.UTF_8), 1024)) {
             int emitted = 0;
             BoundedLineReader.Line line;
             while ((line = error.readLineTruncated()) != null) {
@@ -372,11 +347,9 @@ public final class GraalHostManager implements AutoCloseable {
             case "HOST_CALL" -> handleHostCall(owner, message);
             case "COMPLETE" -> handleComplete(owner, message);
             case "FAILED" -> handleFailure(owner, message);
-            case "PONG" -> { }
-            case "PROTOCOL_ERROR" -> safeDiagnostic(
-                "GRAAL_HOST_PROTOCOL_ERROR: " + text(message, "code")
-                    + ": " + text(message, "message")
-            );
+            case "PONG" -> {}
+            case "PROTOCOL_ERROR" ->
+                safeDiagnostic("GRAAL_HOST_PROTOCOL_ERROR: " + text(message, "code") + ": " + text(message, "message"));
             default -> throw new IOException("Unknown Graal host message: " + type);
         }
     }
@@ -388,18 +361,18 @@ public final class GraalHostManager implements AutoCloseable {
         }
         final int protocol = message.path("protocolVersion").asInt(-1);
         if (protocol != PROTOCOL_VERSION) {
-            owner.ready().complete(ReadyState.unavailable(
-                "protocol mismatch: expected " + PROTOCOL_VERSION + " but got " + protocol
-            ));
+            owner.ready()
+                    .complete(ReadyState.unavailable(
+                            "protocol mismatch: expected " + PROTOCOL_VERSION + " but got " + protocol));
             return;
         }
         final boolean graalAvailable = message.path("graalAvailable").asBoolean(false);
         final String detail = text(message, "detail");
-        owner.ready().complete(graalAvailable
-            ? new ReadyState(true, detail)
-            : ReadyState.unavailable(
-                detail.isBlank() ? "Polyglot runtime unavailable" : detail
-            ));
+        owner.ready()
+                .complete(
+                        graalAvailable
+                                ? new ReadyState(true, detail)
+                                : ReadyState.unavailable(detail.isBlank() ? "Polyglot runtime unavailable" : detail));
     }
 
     private void handleHostCall(final HostGeneration owner, final JsonNode message) {
@@ -413,28 +386,19 @@ public final class GraalHostManager implements AutoCloseable {
             return;
         }
         try {
-            hostCalls.execute(() -> executeHostCall(
-                owner, execution, callId, operation, payload
-            ));
+            hostCalls.execute(() -> executeHostCall(owner, execution, callId, operation, payload));
         } catch (RejectedExecutionException rejected) {
             safeDiagnostic("GRAAL_HOST_CALL_QUEUE_FULL: host call was rejected");
-            enqueueHostError(
-                owner,
-                execution,
-                callId,
-                "SCRIPT_HOST_CALL_QUEUE_FULL",
-                "Graal host call queue is full."
-            );
+            enqueueHostError(owner, execution, callId, "SCRIPT_HOST_CALL_QUEUE_FULL", "Graal host call queue is full.");
         }
     }
 
     private void executeHostCall(
-        final HostGeneration owner,
-        final PendingExecution execution,
-        final String callId,
-        final String operation,
-        final String payload
-    ) {
+            final HostGeneration owner,
+            final PendingExecution execution,
+            final String callId,
+            final String operation,
+            final String payload) {
         if (!execution.mayRunHostCall(owner)) {
             return;
         }
@@ -447,31 +411,29 @@ public final class GraalHostManager implements AutoCloseable {
             try {
                 sendHostResponseIfActive(owner, execution, response);
             } catch (MessageTooLargeException oversized) {
-                settle(execution, owner, TransportResult.rejected(
-                    "SCRIPT_MESSAGE_TOO_LARGE",
-                    "Script execution exceeded the Graal host protocol size limit."
-                ));
+                settle(
+                        execution,
+                        owner,
+                        TransportResult.rejected(
+                                "SCRIPT_MESSAGE_TOO_LARGE",
+                                "Script execution exceeded the Graal host protocol size limit."));
             }
         } catch (HostCallException failure) {
             sendHostErrorIfActive(
-                owner, execution, callId, failure.code(),
-                safeMessage(failure, "Host call rejected.")
-            );
+                    owner, execution, callId, failure.code(), safeMessage(failure, "Host call rejected."));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             sendHostErrorIfActive(
-                owner, execution, callId, "SCRIPT_HOST_CALL_FAILED",
-                safeMessage(failure, "Host call failed.")
-            );
+                    owner, execution, callId, "SCRIPT_HOST_CALL_FAILED", safeMessage(failure, "Host call failed."));
         }
     }
 
     private void sendHostErrorIfActive(
-        final HostGeneration owner,
-        final PendingExecution execution,
-        final String callId,
-        final String code,
-        final String message
-    ) {
+            final HostGeneration owner,
+            final PendingExecution execution,
+            final String callId,
+            final String code,
+            final String message) {
         final ObjectNode response = hostError(callId, code, message);
         try {
             sendHostResponseIfActive(owner, execution, response);
@@ -481,16 +443,13 @@ public final class GraalHostManager implements AutoCloseable {
     }
 
     private void enqueueHostError(
-        final HostGeneration owner,
-        final PendingExecution execution,
-        final String callId,
-        final String code,
-        final String message
-    ) {
+            final HostGeneration owner,
+            final PendingExecution execution,
+            final String callId,
+            final String code,
+            final String message) {
         try {
-            hostResponses.execute(() -> sendHostErrorIfActive(
-                owner, execution, callId, code, message
-            ));
+            hostResponses.execute(() -> sendHostErrorIfActive(owner, execution, callId, code, message));
         } catch (RejectedExecutionException rejected) {
             safeDiagnostic("GRAAL_HOST_RESPONSE_QUEUE_FULL: host response was dropped");
             invalidateGeneration(owner, rejected, false);
@@ -498,10 +457,7 @@ public final class GraalHostManager implements AutoCloseable {
     }
 
     private void sendHostResponseIfActive(
-        final HostGeneration owner,
-        final PendingExecution execution,
-        final JsonNode response
-    ) throws IOException {
+            final HostGeneration owner, final PendingExecution execution, final JsonNode response) throws IOException {
         synchronized (writeLock) {
             synchronized (execution) {
                 if (execution.maySendHostCallResponse(owner)) {
@@ -511,20 +467,12 @@ public final class GraalHostManager implements AutoCloseable {
         }
     }
 
-    private ObjectNode hostError(
-        final String callId,
-        final String code,
-        final String message
-    ) {
+    private ObjectNode hostError(final String callId, final String code, final String message) {
         final ObjectNode response = mapper.createObjectNode();
         response.put("type", "HOST_ERROR");
         response.put("callId", truncate(Objects.requireNonNullElse(callId, ""), 256));
-        response.put("code", truncate(
-            Objects.requireNonNullElse(code, "SCRIPT_HOST_CALL_FAILED"), 256
-        ));
-        response.put("message", truncate(
-            Objects.requireNonNullElse(message, "Host call failed."), 1024
-        ));
+        response.put("code", truncate(Objects.requireNonNullElse(code, "SCRIPT_HOST_CALL_FAILED"), 256));
+        response.put("message", truncate(Objects.requireNonNullElse(message, "Host call failed."), 1024));
         return response;
     }
 
@@ -542,25 +490,24 @@ public final class GraalHostManager implements AutoCloseable {
         if (execution == null) {
             return;
         }
-        final Status status = switch (text(message, "status")) {
-            case "CANCELLED" -> Status.CANCELLED;
-            case "TIMED_OUT" -> Status.TIMED_OUT;
-            case "REJECTED" -> Status.REJECTED;
-            default -> Status.FAILED;
-        };
-        settle(execution, owner, new TransportResult(
-            status,
-            defaultCode(text(message, "code"), status),
-            text(message, "message"),
-            text(message, "output")
-        ));
+        final Status status =
+                switch (text(message, "status")) {
+                    case "CANCELLED" -> Status.CANCELLED;
+                    case "TIMED_OUT" -> Status.TIMED_OUT;
+                    case "REJECTED" -> Status.REJECTED;
+                    default -> Status.FAILED;
+                };
+        settle(
+                execution,
+                owner,
+                new TransportResult(
+                        status,
+                        defaultCode(text(message, "code"), status),
+                        text(message, "message"),
+                        text(message, "output")));
     }
 
-    private void dispatchRun(
-        final HostGeneration owner,
-        final PendingExecution execution,
-        final ObjectNode run
-    ) {
+    private void dispatchRun(final HostGeneration owner, final PendingExecution execution, final ObjectNode run) {
         try {
             synchronized (writeLock) {
                 if (!execution.beginRun(owner)) {
@@ -571,16 +518,20 @@ public final class GraalHostManager implements AutoCloseable {
                 execution.markRunSent();
             }
         } catch (MessageTooLargeException oversized) {
-            settle(execution, owner, TransportResult.rejected(
-                "SCRIPT_MESSAGE_TOO_LARGE",
-                "Script execution exceeded the Graal host protocol size limit."
-            ));
+            settle(
+                    execution,
+                    owner,
+                    TransportResult.rejected(
+                            "SCRIPT_MESSAGE_TOO_LARGE",
+                            "Script execution exceeded the Graal host protocol size limit."));
         } catch (IOException failure) {
-            settle(execution, owner, TransportResult.failed(
-                "GRAAL_HOST_WRITE_FAILED",
-                safeMessage(failure, "Failed to send script to Graal host."),
-                ""
-            ));
+            settle(
+                    execution,
+                    owner,
+                    TransportResult.failed(
+                            "GRAAL_HOST_WRITE_FAILED",
+                            safeMessage(failure, "Failed to send script to Graal host."),
+                            ""));
             invalidateGeneration(owner, failure, false);
         }
     }
@@ -608,20 +559,21 @@ public final class GraalHostManager implements AutoCloseable {
             discardSubmission(claim.submission());
             pending.remove(execution.id().value(), execution);
             execution.completeClaimed(new TransportResult(
-                Status.CANCELLED,
-                "SCRIPT_CANCELLED",
-                "Script execution was cancelled before reaching the Graal host.",
-                ""
-            ));
+                    Status.CANCELLED,
+                    "SCRIPT_CANCELLED",
+                    "Script execution was cancelled before reaching the Graal host.",
+                    ""));
             return true;
         }
         if (sendFailure != null) {
-            settle(execution, claim.owner(), new TransportResult(
-                Status.CANCELLED,
-                "SCRIPT_CANCELLED",
-                "Script execution was cancelled while the Graal host was unavailable.",
-                ""
-            ));
+            settle(
+                    execution,
+                    claim.owner(),
+                    new TransportResult(
+                            Status.CANCELLED,
+                            "SCRIPT_CANCELLED",
+                            "Script execution was cancelled while the Graal host was unavailable.",
+                            ""));
             invalidateGeneration(claim.owner(), sendFailure, false);
         }
         return true;
@@ -660,19 +612,15 @@ public final class GraalHostManager implements AutoCloseable {
             detached = detachGenerationLocked(owner, "process exited before READY");
         }
         if (!closed.get()) {
-            safeDiagnostic("GRAAL_HOST_EXITED: " + (failure == null
-                ? "process ended"
-                : safeMessage(failure, "protocol reader failed")));
+            safeDiagnostic("GRAAL_HOST_EXITED: "
+                    + (failure == null ? "process ended" : safeMessage(failure, "protocol reader failed")));
         }
         failPendingAfterProcessLoss(detached);
     }
 
     // Owner identity is the generation-currency check: only the live generation detaches.
     private void invalidateGeneration(
-        final HostGeneration owner,
-        final Throwable reason,
-        final boolean backOffStartup
-    ) {
+            final HostGeneration owner, final Throwable reason, final boolean backOffStartup) {
         HostGeneration detached = null;
         synchronized (lifecycleLock) {
             if (isLiveGeneration(owner)) {
@@ -683,17 +631,13 @@ public final class GraalHostManager implements AutoCloseable {
             }
         }
         if (detached != null) {
-            safeDiagnostic("GRAAL_HOST_INVALIDATED: "
-                + safeMessage(reason, "transport failure"));
+            safeDiagnostic("GRAAL_HOST_INVALIDATED: " + safeMessage(reason, "transport failure"));
             failPendingAfterProcessLoss(detached);
         }
     }
 
     // Owner identity is the generation-currency check: only the live generation detaches.
-    private HostGeneration detachGenerationLocked(
-        final HostGeneration owner,
-        final String unavailableDetail
-    ) {
+    private HostGeneration detachGenerationLocked(final HostGeneration owner, final String unavailableDetail) {
         if (!isLiveGeneration(owner)) {
             return null;
         }
@@ -708,8 +652,8 @@ public final class GraalHostManager implements AutoCloseable {
     private static void destroyProcessTree(final Process process) {
         final ProcessHandle root = process.toHandle();
         root.descendants()
-            .sorted((left, right) -> Long.compare(right.pid(), left.pid()))
-            .forEach(GraalHostManager::destroyForcibly);
+                .sorted((left, right) -> Long.compare(right.pid(), left.pid()))
+                .forEach(GraalHostManager::destroyForcibly);
         destroyForcibly(root);
     }
 
@@ -720,8 +664,7 @@ public final class GraalHostManager implements AutoCloseable {
     }
 
     private void backOffStartupLocked() {
-        nextStartupAttemptNanos = System.nanoTime()
-            + TimeUnit.MILLISECONDS.toNanos(STARTUP_RETRY_BACKOFF_MILLIS);
+        nextStartupAttemptNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(STARTUP_RETRY_BACKOFF_MILLIS);
     }
 
     private void failPendingAfterProcessLoss(final HostGeneration owner) {
@@ -729,21 +672,16 @@ public final class GraalHostManager implements AutoCloseable {
             return;
         }
         pending.forEach((id, execution) -> settle(
-            execution,
-            owner,
-            closed.get() ? runtimeClosedResult() : TransportResult.failed(
-                "GRAAL_HOST_CRASHED",
-                "Graal host process exited while the script was running.",
-                ""
-            )
-        ));
+                execution,
+                owner,
+                closed.get()
+                        ? runtimeClosedResult()
+                        : TransportResult.failed(
+                                "GRAAL_HOST_CRASHED", "Graal host process exited while the script was running.", "")));
     }
 
     private boolean settle(
-        final PendingExecution execution,
-        final HostGeneration expectedOwner,
-        final TransportResult result
-    ) {
+            final PendingExecution execution, final HostGeneration expectedOwner, final TransportResult result) {
         final TerminalClaim claim;
         claim = execution.claimTerminal(expectedOwner);
         if (!claim.claimed()) {
@@ -766,6 +704,7 @@ public final class GraalHostManager implements AutoCloseable {
         try {
             diagnostics.accept(message);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics are observational and cannot own transport lifecycle progress.
         }
     }
@@ -775,9 +714,7 @@ public final class GraalHostManager implements AutoCloseable {
         if (!closed.compareAndSet(false, true)) {
             return;
         }
-        pending.forEach((id, execution) -> settle(
-            execution, null, runtimeClosedResult()
-        ));
+        pending.forEach((id, execution) -> settle(execution, null, runtimeClosedResult()));
         final List<Runnable> queuedSubmissions = submissions.shutdownNow();
         for (Runnable queued : queuedSubmissions) {
             if (queued instanceof Submission submission) {
@@ -785,9 +722,7 @@ public final class GraalHostManager implements AutoCloseable {
                 settle(submission.execution(), null, runtimeClosedResult());
             }
         }
-        pending.forEach((id, execution) -> settle(
-            execution, null, runtimeClosedResult()
-        ));
+        pending.forEach((id, execution) -> settle(execution, null, runtimeClosedResult()));
         hostCalls.shutdownNow();
         hostResponses.shutdownNow();
         synchronized (lifecycleLock) {
@@ -799,20 +734,13 @@ public final class GraalHostManager implements AutoCloseable {
     }
 
     private static TransportResult runtimeClosedResult() {
-        return new TransportResult(
-            Status.CANCELLED,
-            "SCRIPT_RUNTIME_CLOSED",
-            "Script runtime was closed.",
-            ""
-        );
+        return new TransportResult(Status.CANCELLED, "SCRIPT_RUNTIME_CLOSED", "Script runtime was closed.", "");
     }
 
     private static java.util.concurrent.ThreadFactory daemonThreadFactory(final String prefix) {
         final AtomicInteger nextThread = new AtomicInteger();
         return runnable -> {
-            final Thread thread = new Thread(
-                runnable, prefix + "-" + nextThread.incrementAndGet()
-            );
+            final Thread thread = new Thread(runnable, prefix + "-" + nextThread.incrementAndGet());
             thread.setDaemon(true);
             return thread;
         };
@@ -836,12 +764,13 @@ public final class GraalHostManager implements AutoCloseable {
     }
 
     private static String safeMessage(final Throwable failure, final String fallback) {
-        if (failure == null || failure.getMessage() == null || failure.getMessage().isBlank()) {
+        if (failure == null
+                || failure.getMessage() == null
+                || failure.getMessage().isBlank()) {
             return fallback;
         }
         return truncate(
-            failure.getMessage().replace('\r', ' ').replace('\n', ' ').trim(), 1024
-        );
+                failure.getMessage().replace('\r', ' ').replace('\n', ' ').trim(), 1024);
     }
 
     private static String truncate(final String value, final int max) {
@@ -953,19 +882,9 @@ public final class GraalHostManager implements AutoCloseable {
     }
 
     private record HostGeneration(
-        long id,
-        Process process,
-        BufferedWriter writer,
-        CompletableFuture<ReadyState> ready
-    ) {
-    }
+            long id, Process process, BufferedWriter writer, CompletableFuture<ReadyState> ready) {}
 
-    private record SubmissionPayload(
-        String scriptId,
-        String source,
-        Map<String, String> arguments
-    ) {
-    }
+    private record SubmissionPayload(String scriptId, String source, Map<String, String> arguments) {}
 
     private record TerminalClaim(boolean claimed, Submission submission) {
         static TerminalClaim rejected() {
@@ -973,12 +892,7 @@ public final class GraalHostManager implements AutoCloseable {
         }
     }
 
-    private record CancellationClaim(
-        boolean claimed,
-        boolean beforeRun,
-        HostGeneration owner,
-        Submission submission
-    ) {
+    private record CancellationClaim(boolean claimed, boolean beforeRun, HostGeneration owner, Submission submission) {
         static CancellationClaim rejected() {
             return new CancellationClaim(false, false, null, null);
         }
@@ -998,12 +912,11 @@ public final class GraalHostManager implements AutoCloseable {
         private Map<String, String> arguments;
 
         private Submission(
-            final GraalHostManager manager,
-            final PendingExecution execution,
-            final String scriptId,
-            final String source,
-            final Map<String, String> arguments
-        ) {
+                final GraalHostManager manager,
+                final PendingExecution execution,
+                final String scriptId,
+                final String source,
+                final Map<String, String> arguments) {
             this.manager = manager;
             this.execution = execution;
             this.scriptId = scriptId;
@@ -1036,9 +949,7 @@ public final class GraalHostManager implements AutoCloseable {
             if (source == null || arguments == null) {
                 return null;
             }
-            final SubmissionPayload payload = new SubmissionPayload(
-                scriptId, source, arguments
-            );
+            final SubmissionPayload payload = new SubmissionPayload(scriptId, source, arguments);
             source = null;
             arguments = null;
             return payload;
@@ -1108,9 +1019,7 @@ public final class GraalHostManager implements AutoCloseable {
 
         // Owner identity is the generation-currency check: stale generations must not act.
         synchronized boolean admitHostCall(final HostGeneration expectedOwner) {
-            return state == State.RUNNING
-                && ownsGeneration(expectedOwner)
-                && !cancelRequested;
+            return state == State.RUNNING && ownsGeneration(expectedOwner) && !cancelRequested;
         }
 
         synchronized boolean mayRunHostCall(final HostGeneration expectedOwner) {

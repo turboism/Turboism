@@ -1,19 +1,18 @@
 package dev.turboism.adapter.cubism.mesh;
 
-import org.junit.jupiter.api.Test;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.HashSet;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
  * Behaviour tests for the triangulation hash fix.
@@ -28,20 +27,17 @@ final class MeshTriangulationHashTransformerTest {
     void patchesTheReviewedShapeAndKeepsHashesPermutationInvariant() throws Exception {
         final byte[] fixture = fixtureClassBytes();
         final String digest = MeshTriangulationHashTransformer.sha256(fixture);
-        final MeshTriangulationHashTransformer transformer =
-            new MeshTriangulationHashTransformer(digest);
+        final MeshTriangulationHashTransformer transformer = new MeshTriangulationHashTransformer(digest);
 
-        final byte[] patched = transformer.transform(
-            null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, fixture);
+        final byte[] patched =
+                transformer.transform(null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, fixture);
 
         assertNotNull(patched, "the reviewed shape must be patched");
         assertEquals(MeshTriangulationHashTransformer.Outcome.PATCHED, transformer.outcome());
 
         final Loader loader = new Loader(patched);
-        final Class<?> point = Class.forName(
-            "com.live2d.graphics3d.editableMesh.triangulation.TriPoint", true, loader);
-        final Class<?> triple = Class.forName(
-            "com.live2d.graphics3d.editableMesh.triangulation.l", true, loader);
+        final Class<?> point = Class.forName("com.live2d.graphics3d.editableMesh.triangulation.TriPoint", true, loader);
+        final Class<?> triple = Class.forName("com.live2d.graphics3d.editableMesh.triangulation.l", true, loader);
 
         // The constant hash collapsed every instance into one value; the fix must not.
         final Set<Integer> hashes = new HashSet<>();
@@ -52,8 +48,7 @@ final class MeshTriangulationHashTransformerTest {
 
         // The host's equals accepts all six corner orders, so the hash must ignore the order too:
         // the same three points arranged differently must hash identically.
-        final Constructor<?> pointConstructor =
-            point.getConstructor(float.class, float.class, int.class);
+        final Constructor<?> pointConstructor = point.getConstructor(float.class, float.class, int.class);
         final Object first = pointConstructor.newInstance(1.0f, 2.0f, 1);
         final Object second = pointConstructor.newInstance(3.0f, 4.0f, 2);
         final Object third = pointConstructor.newInstance(5.0f, 6.0f, 3);
@@ -70,20 +65,18 @@ final class MeshTriangulationHashTransformerTest {
         final MeshTriangulationHashTransformer transformer = new MeshTriangulationHashTransformer();
         final byte[] fixture = fixtureClassBytes();
 
-        assertNull(transformer.transform(null,
-            MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, fixture));
-        assertEquals(MeshTriangulationHashTransformer.Outcome.HASH_MISMATCH,
-            transformer.outcome());
+        assertNull(transformer.transform(
+                null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, fixture));
+        assertEquals(MeshTriangulationHashTransformer.Outcome.HASH_MISMATCH, transformer.outcome());
     }
 
     @Test
     void ignoresEveryOtherClassAndNullBytes() {
         final MeshTriangulationHashTransformer transformer = new MeshTriangulationHashTransformer();
 
-        assertNull(transformer.transform(null, "com/example/Other", null, null,
-            fixtureClassBytes()));
-        assertNull(transformer.transform(null,
-            MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, null));
+        assertNull(transformer.transform(null, "com/example/Other", null, null, fixtureClassBytes()));
+        assertNull(
+                transformer.transform(null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, null));
         assertEquals(MeshTriangulationHashTransformer.Outcome.NONE, transformer.outcome());
     }
 
@@ -92,14 +85,14 @@ final class MeshTriangulationHashTransformerTest {
         // Same pinned digest, but the class no longer has the reviewed constant-return body.
         final byte[] unexpected = new ClassWriter(0).toByteArray();
         final MeshTriangulationHashTransformer transformer =
-            new MeshTriangulationHashTransformer(
-                MeshTriangulationHashTransformer.sha256(unexpected));
+                new MeshTriangulationHashTransformer(MeshTriangulationHashTransformer.sha256(unexpected));
 
-        assertNull(transformer.transform(null,
-            MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, unexpected));
-        assertTrue(transformer.outcome() == MeshTriangulationHashTransformer.Outcome.SHAPE_REJECTED
-                || transformer.outcome() == MeshTriangulationHashTransformer.Outcome.HASH_MISMATCH,
-            "an unexpected shape must be reported, never silently patched");
+        assertNull(transformer.transform(
+                null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, unexpected));
+        assertTrue(
+                transformer.outcome() == MeshTriangulationHashTransformer.Outcome.SHAPE_REJECTED
+                        || transformer.outcome() == MeshTriangulationHashTransformer.Outcome.HASH_MISMATCH,
+                "an unexpected shape must be reported, never silently patched");
     }
 
     private static int hashOf(final Object instance) throws Exception {
@@ -107,10 +100,9 @@ final class MeshTriangulationHashTransformerTest {
         return (int) hashCode.invoke(instance);
     }
 
-    private static Object newTriple(final Class<?> triple, final Class<?> point, final int seed,
-                                    final float base) throws Exception {
-        final Constructor<?> pointConstructor =
-            point.getConstructor(float.class, float.class, int.class);
+    private static Object newTriple(final Class<?> triple, final Class<?> point, final int seed, final float base)
+            throws Exception {
+        final Constructor<?> pointConstructor = point.getConstructor(float.class, float.class, int.class);
         final Object first = pointConstructor.newInstance(base, base * 3.0f, seed);
         final Object second = pointConstructor.newInstance(base + 1.0f, base * 3.0f + 1.0f, seed + 1);
         final Object third = pointConstructor.newInstance(base + 2.0f, base * 3.0f + 2.0f, seed + 2);
@@ -140,22 +132,19 @@ final class MeshTriangulationHashTransformerTest {
 
     /** The reviewed class name and shape, with the defective constant hash. */
     private static byte[] fixtureClassBytes() {
-        final String internal =
-            "com/live2d/graphics3d/editableMesh/triangulation/l";
+        final String internal = "com/live2d/graphics3d/editableMesh/triangulation/l";
         final String point = "com/live2d/graphics3d/editableMesh/triangulation/TriPoint";
         final ClassWriter writer = new ClassWriter(0);
-        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, internal, null,
-            "java/lang/Object", null);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, internal, null, "java/lang/Object", null);
         for (final String field : new String[] {"a", "b", "c"}) {
-            writer.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, field, "L" + point + ";",
-                null, null).visitEnd();
+            writer.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, field, "L" + point + ";", null, null)
+                    .visitEnd();
         }
-        final MethodVisitor constructor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>",
-            "(L" + point + ";L" + point + ";L" + point + ";)V", null, null);
+        final MethodVisitor constructor = writer.visitMethod(
+                Opcodes.ACC_PUBLIC, "<init>", "(L" + point + ";L" + point + ";L" + point + ";)V", null, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
-        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V",
-            false);
+        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitVarInsn(Opcodes.ALOAD, 1);
         constructor.visitFieldInsn(Opcodes.PUTFIELD, internal, "a", "L" + point + ";");
@@ -168,8 +157,7 @@ final class MeshTriangulationHashTransformerTest {
         constructor.visitInsn(Opcodes.RETURN);
         constructor.visitMaxs(2, 4);
         constructor.visitEnd();
-        final MethodVisitor hashCode = writer.visitMethod(Opcodes.ACC_PUBLIC, "hashCode", "()I",
-            null, null);
+        final MethodVisitor hashCode = writer.visitMethod(Opcodes.ACC_PUBLIC, "hashCode", "()I", null, null);
         hashCode.visitCode();
         hashCode.visitInsn(Opcodes.ICONST_0);
         hashCode.visitInsn(Opcodes.IRETURN);
@@ -181,23 +169,19 @@ final class MeshTriangulationHashTransformerTest {
 
     /** The point type the fixture references: equals on coordinates, hash mixed with the index. */
     private static byte[] pointBytes() {
-        final String internal =
-            "com/live2d/graphics3d/editableMesh/triangulation/TriPoint";
+        final String internal = "com/live2d/graphics3d/editableMesh/triangulation/TriPoint";
         final ClassWriter writer = new ClassWriter(0);
-        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, internal, null,
-            "java/lang/Object", null);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, internal, null, "java/lang/Object", null);
         writer.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "x", "F", null, null)
-            .visitEnd();
+                .visitEnd();
         writer.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "y", "F", null, null)
-            .visitEnd();
+                .visitEnd();
         writer.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "index", "I", null, null)
-            .visitEnd();
-        final MethodVisitor constructor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>",
-            "(FFI)V", null, null);
+                .visitEnd();
+        final MethodVisitor constructor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "(FFI)V", null, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
-        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V",
-            false);
+        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitVarInsn(Opcodes.FLOAD, 1);
         constructor.visitFieldInsn(Opcodes.PUTFIELD, internal, "x", "F");
@@ -210,10 +194,10 @@ final class MeshTriangulationHashTransformerTest {
         constructor.visitInsn(Opcodes.RETURN);
         constructor.visitMaxs(2, 4);
         constructor.visitEnd();
-        for (final String[] accessor : new String[][] {{"getX", "F", "x"}, {"getY", "F", "y"},
-            {"getIndex", "I", "index"}}) {
-            final MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC, accessor[0],
-                "()" + accessor[1], null, null);
+        for (final String[] accessor :
+                new String[][] {{"getX", "F", "x"}, {"getY", "F", "y"}, {"getIndex", "I", "index"}}) {
+            final MethodVisitor method =
+                    writer.visitMethod(Opcodes.ACC_PUBLIC, accessor[0], "()" + accessor[1], null, null);
             method.visitCode();
             method.visitVarInsn(Opcodes.ALOAD, 0);
             method.visitFieldInsn(Opcodes.GETFIELD, internal, accessor[2], accessor[1]);
@@ -221,8 +205,7 @@ final class MeshTriangulationHashTransformerTest {
             method.visitMaxs(1, 1);
             method.visitEnd();
         }
-        final MethodVisitor hashCode = writer.visitMethod(Opcodes.ACC_PUBLIC, "hashCode", "()I",
-            null, null);
+        final MethodVisitor hashCode = writer.visitMethod(Opcodes.ACC_PUBLIC, "hashCode", "()I", null, null);
         hashCode.visitCode();
         hashCode.visitVarInsn(Opcodes.ALOAD, 0);
         hashCode.visitFieldInsn(Opcodes.GETFIELD, internal, "index", "I");
@@ -230,8 +213,7 @@ final class MeshTriangulationHashTransformerTest {
         hashCode.visitInsn(Opcodes.IMUL);
         hashCode.visitVarInsn(Opcodes.ALOAD, 0);
         hashCode.visitFieldInsn(Opcodes.GETFIELD, internal, "x", "F");
-        hashCode.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Float", "hashCode", "(F)I",
-            false);
+        hashCode.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Float", "hashCode", "(F)I", false);
         hashCode.visitInsn(Opcodes.IADD);
         hashCode.visitInsn(Opcodes.IRETURN);
         hashCode.visitMaxs(2, 1);

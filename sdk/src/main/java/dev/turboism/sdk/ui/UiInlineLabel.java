@@ -1,7 +1,6 @@
 package dev.turboism.sdk.ui;
 
 import dev.turboism.sdk.ui.resource.UiIconRef;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -42,13 +41,10 @@ public final class UiInlineLabel {
         final StringBuilder fallback = new StringBuilder();
         for (Run run : snapshot) {
             Objects.requireNonNull(run, "run");
-            final String text = run instanceof TextRun textRun
-                ? textRun.text()
-                : ((IconRun) run).fallbackText();
+            final String text = run instanceof TextRun textRun ? textRun.text() : ((IconRun) run).fallbackText();
             if (fallback.length() > MAX_TOTAL_TEXT_LENGTH - text.length()) {
                 throw new IllegalArgumentException(
-                    "concatenated label text exceeds " + MAX_TOTAL_TEXT_LENGTH + " characters"
-                );
+                        "concatenated label text exceeds " + MAX_TOTAL_TEXT_LENGTH + " characters");
             }
             fallback.append(text);
         }
@@ -137,16 +133,14 @@ public final class UiInlineLabel {
     }
 
     /** One literal text or typed icon run. */
-    public sealed interface Run permits TextRun, IconRun { }
+    public sealed interface Run permits TextRun, IconRun {}
 
     /** A literal text run; its contents are never treated as markup. */
     public record TextRun(String text) implements Run {
         public TextRun {
             Objects.requireNonNull(text, "text");
             if (text.length() > MAX_RUN_TEXT_LENGTH) {
-                throw new IllegalArgumentException(
-                    "text exceeds " + MAX_RUN_TEXT_LENGTH + " characters"
-                );
+                throw new IllegalArgumentException("text exceeds " + MAX_RUN_TEXT_LENGTH + " characters");
             }
         }
     }
@@ -157,11 +151,8 @@ public final class UiInlineLabel {
             Objects.requireNonNull(icon, "icon");
             Objects.requireNonNull(fallbackText, "fallbackText");
             if (fallbackText.isBlank() || fallbackText.length() > MAX_RUN_TEXT_LENGTH) {
-                throw new IllegalArgumentException(
-                    "fallbackText must be bounded non-blank text"
-                );
+                throw new IllegalArgumentException("fallbackText must be bounded non-blank text");
             }
         }
-
     }
 }

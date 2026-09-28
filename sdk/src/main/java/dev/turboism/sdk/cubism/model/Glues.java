@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;

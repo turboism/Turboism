@@ -17,10 +17,7 @@ import java.util.concurrent.CompletionStage;
  * @param completion completes with the terminal result; never fails exceptionally
  */
 public record PluginWorkSubmission(
-    boolean accepted,
-    PluginWorkStatus rejectionStatus,
-    CompletionStage<PluginWorkResult> completion
-) {
+        boolean accepted, PluginWorkStatus rejectionStatus, CompletionStage<PluginWorkResult> completion) {
     public PluginWorkSubmission {
         rejectionStatus = Objects.requireNonNull(rejectionStatus, "rejectionStatus");
         completion = Objects.requireNonNull(completion, "completion");

@@ -2,7 +2,6 @@ package dev.turboism.ui.action;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.action.UiActionEvent;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -28,11 +27,7 @@ public interface EditorUiActionRouter {
      * @param actionId the action id within that plugin
      * @param event the UI event that produced the callback
      */
-    default void invoke(
-        final String pluginId,
-        final String actionId,
-        final Optional<UiActionEvent> event
-    ) {
+    default void invoke(final String pluginId, final String actionId, final Optional<UiActionEvent> event) {
         invoke(pluginId, actionId);
     }
 
@@ -47,11 +42,7 @@ public interface EditorUiActionRouter {
      * @param context the action context to deliver
      * @throws NullPointerException if {@code context} is null
      */
-    default void invoke(
-        final String pluginId,
-        final String actionId,
-        final ActionRegistry.ActionContext context
-    ) {
+    default void invoke(final String pluginId, final String actionId, final ActionRegistry.ActionContext context) {
         Objects.requireNonNull(context, "context");
         invoke(pluginId, actionId);
     }
@@ -60,7 +51,7 @@ public interface EditorUiActionRouter {
      * @return a router that silently drops every invocation
      */
     static EditorUiActionRouter unavailable() {
-        return (pluginId, actionId) -> { };
+        return (pluginId, actionId) -> {};
     }
 
     /**

@@ -1,9 +1,9 @@
 package dev.turboism.core.runtime;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import dev.turboism.sdk.plugin.WorkBudget;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class WorkBudgetPolicyTest {
 
@@ -42,13 +42,11 @@ class WorkBudgetPolicyTest {
     @Test
     void parameterCsvActionsAreHeavy() {
         assertEquals(
-            WorkBudget.HEAVY,
-            policy.classify(new PluginTask("action.handle", "demo.plugin", "action:parameter.csv.import", "none"))
-        );
+                WorkBudget.HEAVY,
+                policy.classify(new PluginTask("action.handle", "demo.plugin", "action:parameter.csv.import", "none")));
         assertEquals(
-            WorkBudget.HEAVY,
-            policy.classify(new PluginTask("action.handle", "demo.plugin", "action:parameter.csv.export", "none"))
-        );
+                WorkBudget.HEAVY,
+                policy.classify(new PluginTask("action.handle", "demo.plugin", "action:parameter.csv.export", "none")));
     }
 
     @Test
@@ -60,11 +58,10 @@ class WorkBudgetPolicyTest {
     @Test
     void overlayButtonClickIsLightweight() {
         PluginTask task = new PluginTask(
-            "ui.overlay-button.click",
-            "demo.plugin",
-            "bounding-box-overlay:mirror",
-            "cubism.editor-ui.bounding-box-overlay-button"
-        );
+                "ui.overlay-button.click",
+                "demo.plugin",
+                "bounding-box-overlay:mirror",
+                "cubism.editor-ui.bounding-box-overlay-button");
         assertEquals(WorkBudget.LIGHTWEIGHT, policy.classify(task));
     }
 
@@ -125,12 +122,10 @@ class WorkBudgetPolicyTest {
     @Test
     void pluginLongTasksAreHeavy() {
         assertEquals(
-            WorkBudget.HEAVY,
-            policy.classify(new PluginTask("plugin.long.normal", "demo.plugin", "long work", "none"))
-        );
+                WorkBudget.HEAVY,
+                policy.classify(new PluginTask("plugin.long.normal", "demo.plugin", "long work", "none")));
         assertEquals(
-            WorkBudget.HEAVY,
-            policy.classify(new PluginTask("plugin.long.low", "demo.plugin", "long work", "none"))
-        );
+                WorkBudget.HEAVY,
+                policy.classify(new PluginTask("plugin.long.low", "demo.plugin", "long work", "none")));
     }
 }

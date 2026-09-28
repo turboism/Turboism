@@ -1,7 +1,6 @@
 package dev.turboism.core.event;
 
 import dev.turboism.sdk.plugin.PluginDescriptor;
-
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -16,10 +15,8 @@ final class ContractClosurePolicy {
     private ContractClosurePolicy() {}
 
     /** Packages a contract artifact must never define classes in. */
-    static final List<String> FORBIDDEN_CLASS_PREFIXES = List.of(
-        "java.", "javax.", "jdk.", "sun.", "com.sun.", "com.live2d.",
-        "dev.turboism."
-    );
+    static final List<String> FORBIDDEN_CLASS_PREFIXES =
+            List.of("java.", "javax.", "jdk.", "sun.", "com.sun.", "com.live2d.", "dev.turboism.");
 
     /** Binary-name prefix of the shared SDK surface contract types may reference. */
     static final String SDK_PACKAGE_PREFIX = "dev.turboism.sdk.";

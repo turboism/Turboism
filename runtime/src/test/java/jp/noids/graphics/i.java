@@ -39,7 +39,15 @@ public class i {
         c.put(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
     }
 
-    public static void a(Graphics g) { ((Graphics2D) g).setRenderingHints(a); }
-    public static void b(Graphics g) { ((Graphics2D) g).setRenderingHints(b); }
-    public static void c(Graphics g) { ((Graphics2D) g).setRenderingHints(c); }
+    public static void a(Graphics g) {
+        ((Graphics2D) g).setRenderingHints(a);
+    }
+
+    public static void b(Graphics g) {
+        ((Graphics2D) g).setRenderingHints(b);
+    }
+
+    public static void c(Graphics g) {
+        ((Graphics2D) g).setRenderingHints(c);
+    }
 }

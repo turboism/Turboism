@@ -13,8 +13,7 @@ import java.util.List;
 public final class CArrayList implements Iterable<Object> {
     private final List<Object> elements = new ArrayList<>();
 
-    public CArrayList() {
-    }
+    public CArrayList() {}
 
     public CArrayList(final Collection<?> elements) {
         this.elements.addAll(elements);
@@ -23,7 +22,6 @@ public final class CArrayList implements Iterable<Object> {
     public void add(final Object element) {
         elements.add(element);
     }
-
 
     /** Host class {@code LayerSet} calls this member during class initialization. */
     /** Host class {@code LayerSet} calls this member during class initialization; index &lt; 0 appends. */
@@ -34,6 +32,7 @@ public final class CArrayList implements Iterable<Object> {
             elements.add(index, element);
         }
     }
+
     public int size() {
         return elements.size();
     }

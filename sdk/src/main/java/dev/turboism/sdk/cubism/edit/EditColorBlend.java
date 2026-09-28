@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+
 /**
  * Color-blend modes understood by the editor, matching the official enumeration.
  *

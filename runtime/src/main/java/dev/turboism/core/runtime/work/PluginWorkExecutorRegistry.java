@@ -1,7 +1,7 @@
 package dev.turboism.core.runtime.work;
 
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.PluginTask;
 import java.time.Clock;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,27 +26,21 @@ public final class PluginWorkExecutorRegistry {
     private final ConcurrentMap<String, PluginExecutorSet> executors = new ConcurrentHashMap<>();
 
     public PluginWorkExecutorRegistry(
-        int workerCount,
-        int queueCapacity,
-        Consumer<PluginWorkBudgetEvent> diagnosticSink,
-        Clock clock
-    ) {
+            int workerCount, int queueCapacity, Consumer<PluginWorkBudgetEvent> diagnosticSink, Clock clock) {
         this(500L, workerCount, queueCapacity, diagnosticSink, clock);
     }
 
     public PluginWorkExecutorRegistry(
-        long timeoutMillis,
-        int workerCount,
-        int queueCapacity,
-        Consumer<PluginWorkBudgetEvent> diagnosticSink,
-        Clock clock
-    ) {
+            long timeoutMillis,
+            int workerCount,
+            int queueCapacity,
+            Consumer<PluginWorkBudgetEvent> diagnosticSink,
+            Clock clock) {
         this.configuration = PluginWorkExecutorConfiguration.of(
-            timeoutMillis,
-            requirePositive(workerCount, "workerCount"),
-            requirePositive(queueCapacity, "queueCapacity"),
-            50.0f
-        );
+                timeoutMillis,
+                requirePositive(workerCount, "workerCount"),
+                requirePositive(queueCapacity, "queueCapacity"),
+                50.0f);
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -125,11 +119,7 @@ public final class PluginWorkExecutorRegistry {
      * @param work the body to run
      * @return the admission decision plus a stage completing with the work's terminal result
      */
-    public PluginWorkSubmission submitCompletion(
-        String pluginId,
-        PluginTask task,
-        Runnable work
-    ) {
+    public PluginWorkSubmission submitCompletion(String pluginId, PluginTask task, Runnable work) {
         return get(pluginId).submitCompletion(task, work);
     }
 
@@ -165,12 +155,7 @@ public final class PluginWorkExecutorRegistry {
     }
 
     private PluginExecutorSet createSet(String pluginId) {
-        return new PluginExecutorSet(
-            pluginId,
-            configuration,
-            diagnosticSink,
-            clock
-        );
+        return new PluginExecutorSet(pluginId, configuration, diagnosticSink, clock);
     }
 
     private static int requirePositive(int value, String name) {

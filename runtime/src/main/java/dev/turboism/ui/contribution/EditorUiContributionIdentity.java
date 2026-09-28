@@ -1,15 +1,11 @@
 package dev.turboism.ui.contribution;
 
 import dev.turboism.ui.host.EditorUiFamily;
-
 import java.util.Objects;
 
 /** Stable runtime identity for one plugin-owned Editor UI contribution. */
-public record EditorUiContributionIdentity(
-    String pluginId,
-    EditorUiFamily family,
-    String contributionId
-) implements Comparable<EditorUiContributionIdentity> {
+public record EditorUiContributionIdentity(String pluginId, EditorUiFamily family, String contributionId)
+        implements Comparable<EditorUiContributionIdentity> {
     public EditorUiContributionIdentity {
         pluginId = requireText(pluginId, "pluginId");
         family = Objects.requireNonNull(family, "family");

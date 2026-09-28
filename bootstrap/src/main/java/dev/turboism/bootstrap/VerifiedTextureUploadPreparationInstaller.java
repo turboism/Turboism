@@ -26,32 +26,38 @@ final class VerifiedTextureUploadPreparationInstaller implements AutoCloseable {
     private boolean installed;
     private boolean restored;
 
-    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-        ReviewedHostContract.candidates(
+    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES = ReviewedHostContract.candidates(
             TextureUploadPreparationTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
     static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvmFeature) {
-        return requested && jvmFeature == 17 && config.hookEnabled(HOOK_ID)
-            && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        return requested
+                && jvmFeature == 17
+                && config.hookEnabled(HOOK_ID)
+                && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
-    VerifiedTextureUploadPreparationInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader) throws Exception {
+    VerifiedTextureUploadPreparationInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)
+            throws Exception {
         if (Runtime.version().feature() != 17) {
             throw new IllegalArgumentException("texture preparation requires JVM 17");
         }
         final var contract = ReviewedHostContract.requireBound(
-            ReviewedHostContract.resolve(artifact, CANDIDATES), "texture preparation");
+                ReviewedHostContract.resolve(artifact, CANDIDATES), "texture preparation");
         Path jogl = artifact.toAbsolutePath().normalize().getParent().resolve("jogl/jogl-all.jar");
-        if (!JOGL_SHA256.equals(sha256(jogl))) throw new IllegalArgumentException("texture preparation requires reviewed JOGL artifact");
+        if (!JOGL_SHA256.equals(sha256(jogl)))
+            throw new IllegalArgumentException("texture preparation requires reviewed JOGL artifact");
         this.instrumentation = instrumentation;
         target = Class.forName(TextureUploadPreparationTransformer.TARGET.replace('/', '.'), false, loader);
         Class<?> profile = Class.forName("com.jogamp.opengl.GLProfile", false, loader);
-        if (target.getClassLoader() != loader || profile.getClassLoader() != loader
-            || !source(target).equals(artifact.toAbsolutePath().normalize()) || !source(profile).equals(jogl)) {
+        if (target.getClassLoader() != loader
+                || profile.getClassLoader() != loader
+                || !source(target).equals(artifact.toAbsolutePath().normalize())
+                || !source(profile).equals(jogl)) {
             throw new IllegalArgumentException("texture factory/profile loader or code source mismatch");
         }
         try (JarFile jar = new JarFile(artifact.toFile());
-             var input = jar.getInputStream(jar.getJarEntry(TextureUploadPreparationTransformer.TARGET + ".class"))) {
+                var input =
+                        jar.getInputStream(jar.getJarEntry(TextureUploadPreparationTransformer.TARGET + ".class"))) {
             transformer = new TextureUploadPreparationTransformer(loader, artifact, input.readAllBytes());
         }
         bridge = new TextureUploadPreparationBridge(profile);
@@ -60,48 +66,80 @@ final class VerifiedTextureUploadPreparationInstaller implements AutoCloseable {
 
     synchronized void install() throws Exception {
         if (installed) return;
-        if (!instrumentation.isRetransformClassesSupported() || !instrumentation.isModifiableClass(target)) throw new IllegalStateException("texture factory cannot be transformed");
+        if (!instrumentation.isRetransformClassesSupported() || !instrumentation.isModifiableClass(target))
+            throw new IllegalStateException("texture factory cannot be transformed");
         bridge.install();
         try {
-            instrumentation.addTransformer(transformer, true); installed = true;
+            instrumentation.addTransformer(transformer, true);
+            installed = true;
             instrumentation.retransformClasses(target);
-            if (transformer.matches() != 1 || transformer.failure() != null) throw new IllegalStateException("texture factory not admitted: " + transformer.failure());
+            if (transformer.matches() != 1 || transformer.failure() != null)
+                throw new IllegalStateException("texture factory not admitted: " + transformer.failure());
         } catch (Exception | Error failure) {
-            try { close(); } catch (Exception | Error cleanup) { failure.addSuppressed(cleanup); }
-            bridge.close(); throw failure;
+            try {
+                close();
+            } catch (Exception | Error cleanup) {
+                failure.addSuppressed(cleanup);
+            }
+            bridge.close();
+            throw failure;
         }
     }
 
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         bridge.close();
         if (!installed) return;
         instrumentation.removeTransformer(transformer);
         AtomicReference<String> observed = new AtomicReference<>();
         ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override public byte[] transform(Module module, ClassLoader loader, String name, Class<?> redefined,
-                                              ProtectionDomain domain, byte[] bytes) {
-                if (redefined == target) try { observed.set(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))); }
-                catch (Exception failure) { observed.set("unavailable"); }
+            @Override
+            public byte[] transform(
+                    Module module,
+                    ClassLoader loader,
+                    String name,
+                    Class<?> redefined,
+                    ProtectionDomain domain,
+                    byte[] bytes) {
+                if (redefined == target)
+                    try {
+                        observed.set(HexFormat.of()
+                                .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+                    } catch (Exception failure) {
+                        observed.set("unavailable");
+                    }
                 return null;
             }
         };
         instrumentation.addTransformer(observer, true);
         try {
             instrumentation.retransformClasses(target);
-            restored = transformer.beforeSha256() != null && transformer.beforeSha256().equals(observed.get());
+            restored = transformer.beforeSha256() != null
+                    && transformer.beforeSha256().equals(observed.get());
             if (!restored) throw new IllegalStateException("native texture factory restoration not proven");
             installed = false;
         } catch (java.lang.instrument.UnmodifiableClassException failure) {
             throw new IllegalStateException("native texture factory restoration failed", failure);
-        } finally { instrumentation.removeTransformer(observer); }
+        } finally {
+            instrumentation.removeTransformer(observer);
+        }
     }
 
-    boolean restored() { return restored; }
-    private static Path source(Class<?> type) throws Exception { return Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI()).toAbsolutePath().normalize(); }
+    boolean restored() {
+        return restored;
+    }
+
+    private static Path source(Class<?> type) throws Exception {
+        return Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI())
+                .toAbsolutePath()
+                .normalize();
+    }
+
     private static String sha256(Path path) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         try (var input = Files.newInputStream(path)) {
-            byte[] buffer = new byte[65536]; int count;
+            byte[] buffer = new byte[65536];
+            int count;
             while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count);
         }
         return HexFormat.of().formatHex(digest.digest());

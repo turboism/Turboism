@@ -51,12 +51,11 @@ public final class CompatibilityResolution {
     private final String detail;
 
     private CompatibilityResolution(
-        final Mode mode,
-        final HostIdentityProbe identityProbe,
-        final Map<String, SliceResolution> slices,
-        final boolean runtimeAdmitted,
-        final String detail
-    ) {
+            final Mode mode,
+            final HostIdentityProbe identityProbe,
+            final Map<String, SliceResolution> slices,
+            final boolean runtimeAdmitted,
+            final String detail) {
         this.mode = Objects.requireNonNull(mode, "mode");
         this.identityProbe = Objects.requireNonNull(identityProbe, "identityProbe");
         this.slices = Map.copyOf(Objects.requireNonNull(slices, "slices"));
@@ -74,13 +73,7 @@ public final class CompatibilityResolution {
      * @return a resolution admitting nothing
      */
     public static CompatibilityResolution rejected(final HostIdentityProbe identityProbe) {
-        return new CompatibilityResolution(
-            Mode.REJECTED,
-            identityProbe,
-            Map.of(),
-            false,
-            identityProbe.detail()
-        );
+        return new CompatibilityResolution(Mode.REJECTED, identityProbe, Map.of(), false, identityProbe.detail());
     }
 
     /**
@@ -94,12 +87,11 @@ public final class CompatibilityResolution {
      * @return the resolution
      */
     public static CompatibilityResolution of(
-        final Mode mode,
-        final HostIdentityProbe identityProbe,
-        final Map<String, SliceResolution> slices,
-        final boolean runtimeAdmitted,
-        final String detail
-    ) {
+            final Mode mode,
+            final HostIdentityProbe identityProbe,
+            final Map<String, SliceResolution> slices,
+            final boolean runtimeAdmitted,
+            final String detail) {
         return new CompatibilityResolution(mode, identityProbe, slices, runtimeAdmitted, detail);
     }
 
@@ -130,10 +122,8 @@ public final class CompatibilityResolution {
      */
     public String declaredVersion() {
         return identity()
-            .map(CubismHostIdentity::version)
-            .orElseThrow(() -> new IllegalStateException(
-                "resolution carries no declared host identity"
-            ));
+                .map(CubismHostIdentity::version)
+                .orElseThrow(() -> new IllegalStateException("resolution carries no declared host identity"));
     }
 
     /**
@@ -194,12 +184,13 @@ public final class CompatibilityResolution {
         }
         final String declared = declaredVersion();
         if (!ReviewedHostArtifacts.admitsFullRuntime(declared)
-            || !ReviewedCubismReleases.isReviewed(declared, identity().orElseThrow().build())) {
+                || !ReviewedCubismReleases.isReviewed(
+                        declared, identity().orElseThrow().build())) {
             return false;
         }
         return slices.values().stream()
-            .filter(SliceResolution::admitted)
-            .allMatch(slice -> slice.contract().orElseThrow().declaredGenerationBound());
+                .filter(SliceResolution::admitted)
+                .allMatch(slice -> slice.contract().orElseThrow().declaredGenerationBound());
     }
 
     /**
@@ -228,9 +219,9 @@ public final class CompatibilityResolution {
     public SliceResolution slice(final String sliceId) {
         final SliceResolution resolution = slices.get(sliceId);
         return resolution == null
-            ? new SliceResolution(
-                sliceId, SliceStatus.NO_CANDIDATE, Optional.empty(), List.of(), "no catalog slice")
-            : resolution;
+                ? new SliceResolution(
+                        sliceId, SliceStatus.NO_CANDIDATE, Optional.empty(), List.of(), "no catalog slice")
+                : resolution;
     }
 
     /**
@@ -244,12 +235,11 @@ public final class CompatibilityResolution {
      * @param detail bounded human-readable detail
      */
     public record SliceResolution(
-        String sliceId,
-        SliceStatus status,
-        Optional<SliceContract> contract,
-        List<String> matchedCandidates,
-        String detail
-    ) {
+            String sliceId,
+            SliceStatus status,
+            Optional<SliceContract> contract,
+            List<String> matchedCandidates,
+            String detail) {
         public SliceResolution {
             Objects.requireNonNull(sliceId, "sliceId");
             status = Objects.requireNonNull(status, "status");

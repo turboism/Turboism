@@ -1,11 +1,12 @@
 """Raw canonical SDK API record generation."""
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 from sdk_api_baseline_common import (
     BaselineError, EXCEPTED_API_TOKEN_PACKAGES, EXCEPTED_API_TOKENS,
-    FORBIDDEN_API_TOKENS, HEADER, encode_list,
+    FORBIDDEN_API_TOKENS, HEADER, encode_list, is_incubating,
 )
 from sdk_api_baseline_model import ParsedClass
 from sdk_api_baseline_parse import api_classes, load_parsed_classes
@@ -41,14 +42,48 @@ def _record_owner(record: str) -> str:
     return ""
 
 
+def _stable_class(parsed_class: ParsedClass) -> ParsedClass:
+    """Returns the class with its @Incubating members stripped for baseline purposes.
+
+    Incubating API is excluded from the exact-API compatibility contract: an incubating
+    member may change or disappear in any release, so recording it would either pin an
+    unstable contract or flag its normal evolution as a compatibility break.
+    """
+    info = parsed_class.info
+    fields = [field for field in info.fields if not is_incubating(field.attributes)]
+    methods = [method for method in info.methods if not is_incubating(method.attributes)]
+    attributes = info.attributes
+    components = [component for component in attributes.record_components if not is_incubating(component.attributes)]
+    if len(fields) == len(info.fields) and len(methods) == len(info.methods) and len(components) == len(attributes.record_components):
+        return parsed_class
+    return dataclasses.replace(
+        parsed_class,
+        info=dataclasses.replace(
+            info,
+            fields=fields,
+            methods=methods,
+            attributes=dataclasses.replace(attributes, record_components=components),
+        ),
+    )
+
+
 def canonical_records(input_path: Path, package_prefix: str | None) -> tuple[list[str], str, int]:
     parsed, artifact_sha, artifact_size = load_parsed_classes(input_path, package_prefix)
     exported = api_classes(parsed)
-    if not exported:
+    incubating_names = {item.info.name for item in exported if is_incubating(item.info.attributes)}
+
+    def incubated(name: str) -> bool:
+        # Nested classes do not inherit annotations: a class nested inside an
+        # incubating owner (A$B, A$B$C, ...) is excluded with its owner.
+        segments = name.split("$")
+        return any("$".join(segments[:index]) in incubating_names for index in range(1, len(segments) + 1))
+
+    stable = [item for item in exported if not is_incubating(item.info.attributes) and not incubated(item.info.name)]
+    if not stable:
         raise BaselineError("input contains no public/protected API classes")
-    records = _package_records(parsed, exported)
-    for parsed_class in sorted(exported, key=lambda item: item.info.name):
-        records.extend(_class_records(parsed_class))
+    records = _package_records(parsed, stable)
+    for parsed_class in sorted(stable, key=lambda item: item.info.name):
+        records.extend(_class_records(_stable_class(parsed_class)))
     for record in records:
         check_forbidden(record)
     return sorted(records), artifact_sha, artifact_size

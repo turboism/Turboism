@@ -39,11 +39,15 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.render.input-path-elision";
 
     /** Exact production admission: reviewed digest + JVM17 + hook policy. */
-    static boolean admitted(final HostArtifactDigest digest, final RuntimeStartupConfig config,
-                            final boolean requested, final Runtime.Version jvm) {
-        return requested && jvm.feature() >= 17
-            && InputPathElisionTarget.of(digest).isPresent()
-            && config.hookEnabled(HOOK_ID);
+    static boolean admitted(
+            final HostArtifactDigest digest,
+            final RuntimeStartupConfig config,
+            final boolean requested,
+            final Runtime.Version jvm) {
+        return requested
+                && jvm.feature() >= 17
+                && InputPathElisionTarget.of(digest).isPresent()
+                && config.hookEnabled(HOOK_ID);
     }
 
     private final Instrumentation instrumentation;
@@ -53,12 +57,10 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
     private final InputPathElisionBridge bridge;
     private boolean installed, restored, registered;
 
-    VerifiedInputPathElisionInstaller(final Instrumentation instrumentation,
-                                      final Path artifact, final ClassLoader loader)
-            throws Exception {
+    VerifiedInputPathElisionInstaller(
+            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
         target = InputPathElisionTarget.of(HostArtifactDigest.from(artifact))
-            .orElseThrow(() -> new IllegalArgumentException(
-                "input path elision unsupported host artifact"));
+                .orElseThrow(() -> new IllegalArgumentException("input path elision unsupported host artifact"));
         if (Runtime.version().feature() < 17) {
             throw new IllegalArgumentException("input path elision requires JVM17+");
         }
@@ -70,56 +72,75 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
             entry = Class.forName(InputPathElisionTarget.OWNER.replace('/', '.'), false, loader);
             attest(entry, loader, artifact);
             transformer = new InputPathElisionTransformer(loader, artifact, reference(jar, entry));
-            verify(jar, loader, artifact, InputPathElisionTarget.OWNER,
-                InputPathElisionTarget.COMPONENT_METHOD, InputPathElisionTarget.COMPONENT_DESCRIPTOR);
-            verify(jar, loader, artifact, InputPathElisionTarget.CURSOR_OWNER,
-                InputPathElisionTarget.CURSOR_ACCESSOR, InputPathElisionTarget.CURSOR_ACCESSOR_DESCRIPTOR);
+            verify(
+                    jar,
+                    loader,
+                    artifact,
+                    InputPathElisionTarget.OWNER,
+                    InputPathElisionTarget.COMPONENT_METHOD,
+                    InputPathElisionTarget.COMPONENT_DESCRIPTOR);
+            verify(
+                    jar,
+                    loader,
+                    artifact,
+                    InputPathElisionTarget.CURSOR_OWNER,
+                    InputPathElisionTarget.CURSOR_ACCESSOR,
+                    InputPathElisionTarget.CURSOR_ACCESSOR_DESCRIPTOR);
         }
         bridge = new InputPathElisionBridge(loader);
     }
 
-    private static void attest(final Class<?> type, final ClassLoader loader,
-                               final Path artifact) throws Exception {
+    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {
         if (type.getClassLoader() != loader
-            || !Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI())
-                .toAbsolutePath().normalize().equals(artifact.toAbsolutePath().normalize())) {
+                || !Path.of(type.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI())
+                        .toAbsolutePath()
+                        .normalize()
+                        .equals(artifact.toAbsolutePath().normalize())) {
             throw new IllegalArgumentException(
-                "input path elision dependency loader/source mismatch: " + type.getName());
+                    "input path elision dependency loader/source mismatch: " + type.getName());
         }
     }
 
-    private void verify(final JarFile jar, final ClassLoader loader, final Path artifact,
-                        final String owner, final String method, final String descriptor)
+    private void verify(
+            final JarFile jar,
+            final ClassLoader loader,
+            final Path artifact,
+            final String owner,
+            final String method,
+            final String descriptor)
             throws Exception {
         final Class<?> type = Class.forName(owner.replace('/', '.'), false, loader);
         attest(type, loader, artifact);
         final byte[] actual = capture(type);
-        final List<String> expected =
-            ReviewedMethodShape.read(reference(jar, type), owner, method, descriptor);
-        if (expected == null
-            || !expected.equals(ReviewedMethodShape.read(actual, owner, method, descriptor))) {
-            throw new IllegalStateException(
-                "input path elision dependency body mismatch: " + owner + "." + method);
+        final List<String> expected = ReviewedMethodShape.read(reference(jar, type), owner, method, descriptor);
+        if (expected == null || !expected.equals(ReviewedMethodShape.read(actual, owner, method, descriptor))) {
+            throw new IllegalStateException("input path elision dependency body mismatch: " + owner + "." + method);
         }
     }
 
     private static byte[] reference(final JarFile jar, final Class<?> type) throws Exception {
-        try (var input = jar.getInputStream(
-                jar.getJarEntry(type.getName().replace('.', '/') + ".class"))) {
+        try (var input = jar.getInputStream(jar.getJarEntry(type.getName().replace('.', '/') + ".class"))) {
             return input.readAllBytes();
         }
     }
 
     private byte[] capture(final Class<?> type) throws Exception {
         if (!instrumentation.isModifiableClass(type)) {
-            throw new IllegalStateException(
-                "input path elision class unmodifiable: " + type.getName());
+            throw new IllegalStateException("input path elision class unmodifiable: " + type.getName());
         }
         final AtomicReference<byte[]> result = new AtomicReference<>();
         final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override public byte[] transform(final Module module, final ClassLoader loader,
-                                              final String name, final Class<?> redefined,
-                                              final ProtectionDomain domain, final byte[] bytes) {
+            @Override
+            public byte[] transform(
+                    final Module module,
+                    final ClassLoader loader,
+                    final String name,
+                    final Class<?> redefined,
+                    final ProtectionDomain domain,
+                    final byte[] bytes) {
                 if (redefined == type) result.set(bytes.clone());
                 return null;
             }
@@ -131,8 +152,7 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
             instrumentation.removeTransformer(observer);
         }
         if (result.get() == null) {
-            throw new IllegalStateException(
-                "input path elision dependency inspection absent: " + type.getName());
+            throw new IllegalStateException("input path elision dependency inspection absent: " + type.getName());
         }
         return result.get();
     }
@@ -144,18 +164,16 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
     synchronized void install(final boolean production) throws Exception {
         if (installed) return;
         if (!instrumentation.isModifiableClass(entry)) {
-            throw new IllegalStateException("input path elision entry unmodifiable: "
-                + entry.getName());
+            throw new IllegalStateException("input path elision entry unmodifiable: " + entry.getName());
         }
         bridge.install(production);
         try {
             instrumentation.addTransformer(transformer, true);
             registered = true;
             instrumentation.retransformClasses(entry);
-            if (transformer.matches() != 1 || transformer.sites() != 2
-                || transformer.failure() != null) {
-                throw new IllegalStateException("input path elision entry not admitted: "
-                    + entry.getName() + " " + transformer.failure());
+            if (transformer.matches() != 1 || transformer.sites() != 2 || transformer.failure() != null) {
+                throw new IllegalStateException(
+                        "input path elision entry not admitted: " + entry.getName() + " " + transformer.failure());
             }
             installed = true;
         } catch (Exception | Error failure) {
@@ -173,12 +191,13 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
         return transformer.sites();
     }
 
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         final Map<String, Long> stats = bridge.snapshot();
         bridge.close();
         if (restored || (!installed && !registered && transformer.beforeSha256() == null)) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-                "TURBOISM_INPUT_PATH closed" + report(stats) + " installed=false");
+            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                    "bootstrap", "TURBOISM_INPUT_PATH closed" + report(stats) + " installed=false");
             return;
         }
         if (registered) {
@@ -190,38 +209,36 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
             if (transformer.beforeSha256() == null) {
                 restored = true;
                 installed = false;
-                dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-                    "TURBOISM_INPUT_PATH closed" + report(stats) + " restored=true");
+                dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                        "bootstrap", "TURBOISM_INPUT_PATH closed" + report(stats) + " restored=true");
                 return;
             }
             final byte[] original = capture(entry);
-            final String hash = HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256").digest(original));
+            final String hash = HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(original));
             if (!hash.equals(transformer.beforeSha256())) {
-                throw new IllegalStateException(
-                    "input path elision restoration not proven: " + entry.getName());
+                throw new IllegalStateException("input path elision restoration not proven: " + entry.getName());
             }
             restored = true;
             installed = false;
         } catch (Exception failure) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-                "TURBOISM_INPUT_PATH closed" + report(stats)
-                    + " restored=false reason=" + failure);
+            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                    "bootstrap", "TURBOISM_INPUT_PATH closed" + report(stats) + " restored=false reason=" + failure);
             throw new IllegalStateException("input path elision restoration failed", failure);
         }
-        dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-            "TURBOISM_INPUT_PATH closed" + report(stats) + " restored=true");
+        dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                "bootstrap", "TURBOISM_INPUT_PATH closed" + report(stats) + " restored=true");
     }
 
     /** Per-site counters for the close marker; gauges stay absolute. */
     private static String report(final Map<String, Long> stats) {
         return " focusCalls=" + stats.get("focusCalls")
-            + " focusElided=" + stats.get("focusElided")
-            + " focusPassed=" + stats.get("focusPassed")
-            + " cursorCalls=" + stats.get("cursorCalls")
-            + " cursorElided=" + stats.get("cursorElided")
-            + " cursorPassed=" + stats.get("cursorPassed")
-            + " observerFailures=" + stats.get("observerFailures");
+                + " focusElided=" + stats.get("focusElided")
+                + " focusPassed=" + stats.get("focusPassed")
+                + " cursorCalls=" + stats.get("cursorCalls")
+                + " cursorElided=" + stats.get("cursorElided")
+                + " cursorPassed=" + stats.get("cursorPassed")
+                + " observerFailures=" + stats.get("observerFailures");
     }
 
     boolean restored() {

@@ -9,23 +9,23 @@ final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContrib
         super("TURBOISM_MODEL_UPDATE_SKIP");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!ModelUpdateSkipBridge.flagEnabled()) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedModelUpdateSkipInstaller.admitted(
-            host.artifact(),
-            NativeOptimizationPolicy.load(environment.options().home()),
-            true,
-            Runtime.version().feature()
-        )) {
+                host.artifact(),
+                NativeOptimizationPolicy.load(environment.options().home()),
+                true,
+                Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
         final VerifiedModelUpdateSkipInstaller installer = new VerifiedModelUpdateSkipInstaller(
-            environment.instrumentation(), host.artifact(), host.classLoader());
+                environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
         return installer;
     }

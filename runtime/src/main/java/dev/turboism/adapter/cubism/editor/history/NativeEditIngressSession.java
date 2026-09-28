@@ -1,8 +1,8 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
-
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -79,19 +79,17 @@ public final class NativeEditIngressSession implements AutoCloseable {
      *                    run the work inline, because the caller is the host listener loop
      */
     public NativeEditIngressSession(
-        final NativeEditIngress.Publisher publisher,
-        final NativeEditBeginBridge.BeforeSink beforeSink,
-        final Consumer<Runnable> eventThread
-    ) {
+            final NativeEditIngress.Publisher publisher,
+            final NativeEditBeginBridge.BeforeSink beforeSink,
+            final Consumer<Runnable> eventThread) {
         this(publisher, beforeSink, eventThread, DEFAULT_RETRY);
     }
 
     NativeEditIngressSession(
-        final NativeEditIngress.Publisher publisher,
-        final NativeEditBeginBridge.BeforeSink beforeSink,
-        final Consumer<Runnable> eventThread,
-        final RetryPolicy retry
-    ) {
+            final NativeEditIngress.Publisher publisher,
+            final NativeEditBeginBridge.BeforeSink beforeSink,
+            final Consumer<Runnable> eventThread,
+            final RetryPolicy retry) {
         this.publisher = Objects.requireNonNull(publisher, "publisher");
         this.beforeSink = Objects.requireNonNull(beforeSink, "beforeSink");
         this.eventThread = Objects.requireNonNull(eventThread, "eventThread");
@@ -207,28 +205,21 @@ public final class NativeEditIngressSession implements AutoCloseable {
         synchronized (bindLock) {
             if (!isCurrentLocked(request)) return false;
             pending = null;
-            if (ingress != null
-                && this.manager == resolved
-                && this.generation == request.generation()) {
+            if (ingress != null && this.manager == resolved && this.generation == request.generation()) {
                 obsoleteRetry = finishRetryLocked(request);
             } else {
                 closeLocked();
-                final NativeEditIngress candidate = new NativeEditIngress(
-                    request.resolver(),
-                    resolved,
-                    publisher,
-                    this::requestDrain
-                );
+                final NativeEditIngress candidate =
+                        new NativeEditIngress(request.resolver(), resolved, publisher, this::requestDrain);
                 try {
                     candidate.attach();
                 } catch (RuntimeException refused) {
                     attachFailureCount++;
                     candidate.close();
                     RuntimeDiagnostics.warn(
-                        COMPONENT,
-                        "Native edit ingress listener was refused on "
-                            + resolved.getClass().getName() + ": " + describe(refused)
-                    );
+                            COMPONENT,
+                            "Native edit ingress listener was refused on "
+                                    + resolved.getClass().getName() + ": " + describe(refused));
                     return false;
                 }
                 ingress = candidate;
@@ -241,10 +232,9 @@ public final class NativeEditIngressSession implements AutoCloseable {
                 this.generation = request.generation();
                 bindCount++;
                 RuntimeDiagnostics.info(
-                    COMPONENT,
-                    "Native edit ingress listening on " + resolved.getClass().getName()
-                        + " for editor-UI generation " + request.generation()
-                );
+                        COMPONENT,
+                        "Native edit ingress listening on "
+                                + resolved.getClass().getName() + " for editor-UI generation " + request.generation());
                 obsoleteRetry = finishRetryLocked(request);
             }
         }
@@ -378,10 +368,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
      * so a later connection never races an older attempt onto the ingress.</p>
      */
     @SuppressWarnings("ReferenceEquality")
-    private void scheduleRetry(
-        final BindingRequest request,
-        final RuntimeException cause
-    ) {
+    private void scheduleRetry(final BindingRequest request, final RuntimeException cause) {
         final Thread obsoleteRetry;
         final Thread thread;
         synchronized (bindLock) {
@@ -390,10 +377,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
             if (retryTask != null && retryTask.request() == request) return;
             obsoleteRetry = retryTask == null ? null : retryTask.thread();
             retryTask = null;
-            thread = new Thread(
-                () -> retryUntilBound(request),
-                "turboism-native-edit-ingress-bind"
-            );
+            thread = new Thread(() -> retryUntilBound(request), "turboism-native-edit-ingress-bind");
             thread.setDaemon(true);
             retryTask = new RetryTask(request, thread);
         }
@@ -401,10 +385,9 @@ public final class NativeEditIngressSession implements AutoCloseable {
         try {
             thread.start();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             synchronized (bindLock) {
-                if (retryTask != null
-                    && retryTask.request() == request
-                    && retryTask.thread() == thread) {
+                if (retryTask != null && retryTask.request() == request && retryTask.thread() == thread) {
                     retryTask = null;
                     if (pending != null && pending.request() == request) pending = null;
                 }
@@ -422,10 +405,9 @@ public final class NativeEditIngressSession implements AutoCloseable {
                 if (!isCurrent(request)) return;
                 if (attemptBind(request)) {
                     RuntimeDiagnostics.info(
-                        COMPONENT,
-                        "Native edit ingress attached on deferred attempt " + attempt
-                            + " once the Editor document was ready"
-                    );
+                            COMPONENT,
+                            "Native edit ingress attached on deferred attempt " + attempt
+                                    + " once the Editor document was ready");
                     return;
                 }
                 final Pending current = pending;
@@ -433,17 +415,16 @@ public final class NativeEditIngressSession implements AutoCloseable {
                 lastFailure = current.cause();
             }
             RuntimeDiagnostics.warn(
-                COMPONENT,
-                "Native edit ingress stayed inactive after " + retry.maxAttempts()
-                    + " deferred attempts: " + describe(lastFailure)
-            );
+                    COMPONENT,
+                    "Native edit ingress stayed inactive after " + retry.maxAttempts() + " deferred attempts: "
+                            + describe(lastFailure));
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         } finally {
             synchronized (bindLock) {
                 if (retryTask != null
-                    && retryTask.request() == request
-                    && retryTask.thread() == Thread.currentThread()) {
+                        && retryTask.request() == request
+                        && retryTask.thread() == Thread.currentThread()) {
                     retryTask = null;
                     if (pending != null && pending.request() == request) pending = null;
                 }
@@ -498,19 +479,13 @@ public final class NativeEditIngressSession implements AutoCloseable {
     }
 
     /** One binding request whose native document could not be resolved yet. */
-    private record Pending(BindingRequest request, RuntimeException cause) {
-    }
+    private record Pending(BindingRequest request, RuntimeException cause) {}
 
     /** One retry worker owned by one binding request. */
-    private record RetryTask(BindingRequest request, Thread thread) {
-    }
+    private record RetryTask(BindingRequest request, Thread thread) {}
 
     /** One generation-aware request; identity is the stale-work fence. */
-    private record BindingRequest(
-        long generation,
-        VerifiedMemberResolver resolver
-    ) {
-    }
+    private record BindingRequest(long generation, VerifiedMemberResolver resolver) {}
 
     private void closeLocked() {
         NativeEditBeginBridge.unbind();

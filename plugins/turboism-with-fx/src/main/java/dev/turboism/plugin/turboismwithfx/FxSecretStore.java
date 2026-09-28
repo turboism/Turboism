@@ -3,7 +3,6 @@ package dev.turboism.plugin.turboismwithfx;
 import dev.turboism.protocol.json.StrictJson;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -31,15 +30,13 @@ final class FxSecretStore {
     private static final int MAX_PROTECTED_BYTES = 16 * 1024;
     private static final int MAX_AUTH_FILE_BYTES = 64 * 1024;
     private static final Duration PROCESS_TIMEOUT = Duration.ofSeconds(20);
-    private static final String PROTECT_SCRIPT =
-        "$ErrorActionPreference='Stop';"
+    private static final String PROTECT_SCRIPT = "$ErrorActionPreference='Stop';"
             + "$p=[Console]::In.ReadToEnd();"
             + "$b=[Text.Encoding]::UTF8.GetBytes($p);"
             + "$e=[Security.Cryptography.ProtectedData]::Protect($b,$null,"
             + "[Security.Cryptography.DataProtectionScope]::CurrentUser);"
             + "[Console]::Out.Write([Convert]::ToBase64String($e))";
-    private static final String UNPROTECT_SCRIPT =
-        "$ErrorActionPreference='Stop';"
+    private static final String UNPROTECT_SCRIPT = "$ErrorActionPreference='Stop';"
             + "$p=[Console]::In.ReadToEnd();"
             + "$b=[Convert]::FromBase64String($p);"
             + "$e=[Security.Cryptography.ProtectedData]::Unprotect($b,$null,"
@@ -53,11 +50,7 @@ final class FxSecretStore {
     private final AtomicBoolean fallbackReported = new AtomicBoolean();
 
     private FxSecretStore(
-        final Path protectedRoot,
-        final Path authFile,
-        final Protector protector,
-        final PluginLogger logger
-    ) {
+            final Path protectedRoot, final Path authFile, final Protector protector, final PluginLogger logger) {
         this.protectedRoot = protectedRoot;
         this.authFile = authFile;
         this.protector = protector;
@@ -68,32 +61,18 @@ final class FxSecretStore {
         Objects.requireNonNull(paths, "paths");
         final PluginLogger checkedLogger = Objects.requireNonNull(logger, "logger");
         final Path config = paths.configDir();
-        final Protector protector = System.getProperty("os.name", "").startsWith("Windows")
-            ? new WindowsDpapiProtector()
-            : null;
+        final Protector protector =
+                System.getProperty("os.name", "").startsWith("Windows") ? new WindowsDpapiProtector() : null;
         return new FxSecretStore(
-            config.resolve("provider-credentials"),
-            config.resolve("auth.json"),
-            protector,
-            checkedLogger
-        );
+                config.resolve("provider-credentials"), config.resolve("auth.json"), protector, checkedLogger);
     }
 
     static FxSecretStore unavailable() {
         return new FxSecretStore(null, null, null, null);
     }
 
-    FxSecretStore(
-        final Path root,
-        final Protector protector,
-        final PluginLogger logger
-    ) {
-        this(
-            Objects.requireNonNull(root, "root").resolve("protected"),
-            root.resolve("auth.json"),
-            protector,
-            logger
-        );
+    FxSecretStore(final Path root, final Protector protector, final PluginLogger logger) {
+        this(Objects.requireNonNull(root, "root").resolve("protected"), root.resolve("auth.json"), protector, logger);
     }
 
     boolean persistent() {
@@ -151,8 +130,7 @@ final class FxSecretStore {
         writePlain(plain);
     }
 
-    private void writeProtected(final String profileId, final byte[] protectedValue)
-        throws IOException {
+    private void writeProtected(final String profileId, final byte[] protectedValue) throws IOException {
         if (protectedValue.length == 0 || protectedValue.length > MAX_PROTECTED_BYTES) {
             throw new IOException("protected provider credential is invalid");
         }
@@ -175,8 +153,7 @@ final class FxSecretStore {
         }
         if (!(parsed instanceof Map<?, ?> raw)) throw new IOException("auth.json is invalid");
         for (Map.Entry<?, ?> entry : raw.entrySet()) {
-            if (!(entry.getKey() instanceof String id)
-                || !(entry.getValue() instanceof String secret)) {
+            if (!(entry.getKey() instanceof String id) || !(entry.getValue() instanceof String secret)) {
                 throw new IOException("auth.json is invalid");
             }
             checkedProfileId(id);
@@ -198,23 +175,12 @@ final class FxSecretStore {
     }
 
     private static void writeAtomic(final Path target, final byte[] bytes) throws IOException {
-        final Path temporary = Files.createTempFile(
-            target.getParent(), target.getFileName().toString(), ".tmp"
-        );
+        final Path temporary =
+                Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
         try {
-            Files.write(
-                temporary,
-                bytes,
-                StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.WRITE
-            );
+            Files.write(temporary, bytes, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
             try {
-                Files.move(
-                    temporary,
-                    target,
-                    StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING
-                );
+                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
                 Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
             }
@@ -250,9 +216,8 @@ final class FxSecretStore {
 
     private static String digest(final String value) {
         try {
-            return HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))
-            );
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException failure) {
             throw new IllegalStateException("SHA-256 is unavailable", failure);
         }
@@ -260,31 +225,27 @@ final class FxSecretStore {
 
     interface Protector {
         byte[] protect(byte[] plain) throws IOException;
+
         byte[] unprotect(byte[] protectedValue) throws IOException;
     }
 
     private static final class WindowsDpapiProtector implements Protector {
-        @Override public byte[] protect(final byte[] plain) throws IOException {
+        @Override
+        public byte[] protect(final byte[] plain) throws IOException {
             return powershell(PROTECT_SCRIPT, plain, MAX_PROTECTED_BYTES);
         }
 
-        @Override public byte[] unprotect(final byte[] protectedValue) throws IOException {
+        @Override
+        public byte[] unprotect(final byte[] protectedValue) throws IOException {
             return powershell(UNPROTECT_SCRIPT, protectedValue, MAX_SECRET_BYTES);
         }
 
-        private static byte[] powershell(
-            final String script,
-            final byte[] input,
-            final int maximumOutput
-        ) throws IOException {
+        private static byte[] powershell(final String script, final byte[] input, final int maximumOutput)
+                throws IOException {
             final Process process = new ProcessBuilder(
-                "powershell.exe",
-                "-NoLogo",
-                "-NoProfile",
-                "-NonInteractive",
-                "-Command",
-                script
-            ).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+                            "powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start();
             try (OutputStream output = process.getOutputStream()) {
                 output.write(input);
             }

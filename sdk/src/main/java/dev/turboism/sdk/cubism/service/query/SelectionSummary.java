@@ -26,14 +26,13 @@ import java.util.Optional;
  * @param selectedModelObjectIds selected model objects irrespective of kind; unmodifiable
  */
 public record SelectionSummary(
-    Optional<ProjectId> activeProjectId,
-    Optional<DocumentId> activeDocumentId,
-    Optional<ModelObjectId> activeModelId,
-    List<ParameterId> selectedParameterIds,
-    List<ArtMeshId> selectedArtMeshIds,
-    List<DeformerId> selectedDeformerIds,
-    List<ModelObjectId> selectedModelObjectIds
-) {
+        Optional<ProjectId> activeProjectId,
+        Optional<DocumentId> activeDocumentId,
+        Optional<ModelObjectId> activeModelId,
+        List<ParameterId> selectedParameterIds,
+        List<ArtMeshId> selectedArtMeshIds,
+        List<DeformerId> selectedDeformerIds,
+        List<ModelObjectId> selectedModelObjectIds) {
     public SelectionSummary {
         activeProjectId = Objects.requireNonNull(activeProjectId, "activeProjectId");
         activeDocumentId = Objects.requireNonNull(activeDocumentId, "activeDocumentId");
@@ -50,13 +49,6 @@ public record SelectionSummary(
      */
     public static SelectionSummary empty() {
         return new SelectionSummary(
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of()
-        );
+                Optional.empty(), Optional.empty(), Optional.empty(), List.of(), List.of(), List.of(), List.of());
     }
 }

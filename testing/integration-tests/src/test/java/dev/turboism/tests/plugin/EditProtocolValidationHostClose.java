@@ -2,8 +2,7 @@ package dev.turboism.tests.plugin;
 
 /** Test-only bridge so the edit-protocol probe reuses the bounded, task-owned native UI close path. */
 public final class EditProtocolValidationHostClose {
-    private EditProtocolValidationHostClose() {
-    }
+    private EditProtocolValidationHostClose() {}
 
     /**
      * Requests normal close after the caller has persisted a terminal result for this run.
@@ -19,15 +18,14 @@ public final class EditProtocolValidationHostClose {
      * @throws Exception if the normal close cannot be proven safe
      */
     public static String request(
-        final boolean automate,
-        final boolean running,
-        final boolean terminalWritten,
-        final String runId,
-        final String hostVersion
-    ) throws Exception {
-        final var result = WindowsHistoryNativeUiHostClose.closeIfEligible(
-            automate, running, terminalWritten, runId, hostVersion
-        );
+            final boolean automate,
+            final boolean running,
+            final boolean terminalWritten,
+            final String runId,
+            final String hostVersion)
+            throws Exception {
+        final var result =
+                WindowsHistoryNativeUiHostClose.closeIfEligible(automate, running, terminalWritten, runId, hostVersion);
         return result.status().name() + ":" + result.reason();
     }
 }

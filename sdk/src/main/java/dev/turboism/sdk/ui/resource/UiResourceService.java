@@ -27,8 +27,7 @@ public interface UiResourceService {
 final class UnavailableUiResourceService implements UiResourceService {
     static final UiResourceService INSTANCE = new UnavailableUiResourceService();
 
-    private UnavailableUiResourceService() {
-    }
+    private UnavailableUiResourceService() {}
 
     @Override
     public UiIconAvailability availability(final UiIconRef reference) {

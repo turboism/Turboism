@@ -25,8 +25,7 @@ public interface WarpAltMirrorParticipation {
      * 2 = horizontal grid axis. While armed, every committed Warp control-point
      * drag is mirrored across the armed axis.
      */
-    default void setArmedAxis(final int axis) {
-    }
+    default void setArmedAxis(final int axis) {}
 
     /**
      * @return whether the reviewed native drag-tick hook is installed and bound in
@@ -57,25 +56,28 @@ public interface WarpAltMirrorParticipation {
     enum Unavailable implements WarpAltMirrorParticipation {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration participate() {
+        @Override
+        public Registration participate() {
             throw unavailableFailure();
         }
 
-        @Override public void setArmedAxis(final int axis) {
+        @Override
+        public void setArmedAxis(final int axis) {
             throw unavailableFailure();
         }
 
-        @Override public boolean nativeMirrorActive() {
+        @Override
+        public boolean nativeMirrorActive() {
             throw unavailableFailure();
         }
 
         private static UnsupportedOperationException unavailableFailure() {
-            return new UnsupportedOperationException(
-                "warpAltMirrorParticipation service is not available");
+            return new UnsupportedOperationException("warpAltMirrorParticipation service is not available");
         }
     }
 }

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.appearance;
 
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -20,11 +19,7 @@ import java.util.Optional;
  * @param status the appearance state observed after the attempt
  * @param diagnosticId host diagnostic reference for a non-clean outcome, never blank when present
  */
-public record AppearanceApplyResult(
-    Outcome outcome,
-    AppearanceStatus status,
-    Optional<String> diagnosticId
-) {
+public record AppearanceApplyResult(Outcome outcome, AppearanceStatus status, Optional<String> diagnosticId) {
     public AppearanceApplyResult {
         outcome = Objects.requireNonNull(outcome, "outcome");
         status = Objects.requireNonNull(status, "status");

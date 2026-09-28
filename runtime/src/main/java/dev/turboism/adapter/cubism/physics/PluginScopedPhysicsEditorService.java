@@ -4,7 +4,6 @@ import dev.turboism.sdk.cubism.physics.PhysicsEditorContribution;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
@@ -28,10 +27,7 @@ public final class PluginScopedPhysicsEditorService implements PhysicsEditorServ
      * @param scopeActive liveness of the owning plugin scope
      */
     public PluginScopedPhysicsEditorService(
-        final PhysicsEditorService delegate,
-        final DisposableScope scope,
-        final BooleanSupplier scopeActive
-    ) {
+            final PhysicsEditorService delegate, final DisposableScope scope, final BooleanSupplier scopeActive) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.scope = Objects.requireNonNull(scope, "scope");
         this.scopeActive = Objects.requireNonNull(scopeActive, "scopeActive");
@@ -42,8 +38,7 @@ public final class PluginScopedPhysicsEditorService implements PhysicsEditorServ
         Objects.requireNonNull(contribution, "contribution");
         if (!scopeActive.getAsBoolean()) {
             throw new IllegalStateException(
-                "Cubism physics editor service reference is stale because the owning plugin is disabled."
-            );
+                    "Cubism physics editor service reference is stale because the owning plugin is disabled.");
         }
         final Registration inner = delegate.contribute(contribution);
         // DisposableScope.close() and the returned Registration handle do not share once

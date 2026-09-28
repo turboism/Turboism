@@ -8,49 +8,33 @@ import java.util.regex.Pattern;
 
 /** Exact reviewed Editor-version and per-operation availability metadata for one MCP tool. */
 record McpVersionSupport(
-    String providerCapabilityId,
-    List<String> supportedVersions,
-    List<OperationSupport> operations
-) {
+        String providerCapabilityId, List<String> supportedVersions, List<OperationSupport> operations) {
 
     private static final Pattern EXACT_VERSION = Pattern.compile("^[0-9]+\\.[0-9]+\\.[0-9]+$");
-    private static final McpVersionSupport UNSCOPED = new McpVersionSupport(
-        "",
-        List.of(),
-        List.of()
-    );
+    private static final McpVersionSupport UNSCOPED = new McpVersionSupport("", List.of(), List.of());
 
     McpVersionSupport {
-        providerCapabilityId = Objects.requireNonNull(
-            providerCapabilityId,
-            "providerCapabilityId"
-        ).strip();
+        providerCapabilityId = Objects.requireNonNull(providerCapabilityId, "providerCapabilityId")
+                .strip();
         supportedVersions = exactVersions(supportedVersions, "supportedVersions");
         operations = List.copyOf(Objects.requireNonNull(operations, "operations"));
         if (providerCapabilityId.isEmpty()) {
             if (!supportedVersions.isEmpty() || !operations.isEmpty()) {
                 throw new IllegalArgumentException(
-                    "unscoped MCP version support cannot declare versions or operations"
-                );
+                        "unscoped MCP version support cannot declare versions or operations");
             }
         } else if (supportedVersions.isEmpty()) {
-            throw new IllegalArgumentException(
-                "scoped MCP version support requires exact versions"
-            );
+            throw new IllegalArgumentException("scoped MCP version support requires exact versions");
         }
         final HashSet<String> operationNames = new HashSet<>();
         for (OperationSupport operation : operations) {
             final OperationSupport checked = Objects.requireNonNull(operation, "operation");
             if (!operationNames.add(checked.operation())) {
-                throw new IllegalArgumentException(
-                    "duplicate MCP operation availability: " + checked.operation()
-                );
+                throw new IllegalArgumentException("duplicate MCP operation availability: " + checked.operation());
             }
             if (!supportedVersions.containsAll(checked.supportedVersions())) {
                 throw new IllegalArgumentException(
-                    "operation versions must be a subset of the tool provider versions: "
-                        + checked.operation()
-                );
+                        "operation versions must be a subset of the tool provider versions: " + checked.operation());
             }
         }
     }
@@ -59,18 +43,14 @@ record McpVersionSupport(
         return UNSCOPED;
     }
 
-    static McpVersionSupport exact(
-        final String providerCapabilityId,
-        final List<String> supportedVersions
-    ) {
+    static McpVersionSupport exact(final String providerCapabilityId, final List<String> supportedVersions) {
         return exact(providerCapabilityId, supportedVersions, List.of());
     }
 
     static McpVersionSupport exact(
-        final String providerCapabilityId,
-        final List<String> supportedVersions,
-        final List<OperationSupport> operations
-    ) {
+            final String providerCapabilityId,
+            final List<String> supportedVersions,
+            final List<OperationSupport> operations) {
         return new McpVersionSupport(providerCapabilityId, supportedVersions, operations);
     }
 
@@ -92,14 +72,13 @@ record McpVersionSupport(
     }
 
     record OperationSupport(
-        String operation,
-        Availability availability,
-        McpOperationEffect effect,
-        boolean transactionEligible,
-        UndoVerification undoVerification,
-        List<String> supportedVersions,
-        String reason
-    ) {
+            String operation,
+            Availability availability,
+            McpOperationEffect effect,
+            boolean transactionEligible,
+            UndoVerification undoVerification,
+            List<String> supportedVersions,
+            String reason) {
         OperationSupport {
             operation = requireText(operation, "operation");
             availability = Objects.requireNonNull(availability, "availability");
@@ -109,88 +88,67 @@ record McpVersionSupport(
             reason = requireText(reason, "reason");
             if (availability == Availability.AVAILABLE && supportedVersions.isEmpty()) {
                 throw new IllegalArgumentException(
-                    "available MCP operation requires exact supported versions: " + operation
-                );
+                        "available MCP operation requires exact supported versions: " + operation);
             }
             if (availability != Availability.AVAILABLE && !supportedVersions.isEmpty()) {
                 throw new IllegalArgumentException(
-                    "unavailable or excluded MCP operation cannot advertise supported versions: "
-                        + operation
-                );
+                        "unavailable or excluded MCP operation cannot advertise supported versions: " + operation);
             }
             if (transactionEligible
-                && (availability != Availability.AVAILABLE
-                    || (effect != McpOperationEffect.READ
-                        && effect != McpOperationEffect.UNDOABLE_WRITE))) {
+                    && (availability != Availability.AVAILABLE
+                            || (effect != McpOperationEffect.READ && effect != McpOperationEffect.UNDOABLE_WRITE))) {
                 throw new IllegalArgumentException(
-                    "transaction-eligible operation must be an available read or undoable write: "
-                        + operation
-                );
+                        "transaction-eligible operation must be an available read or undoable write: " + operation);
             }
             if (availability == Availability.AVAILABLE
-                && effect == McpOperationEffect.UNDOABLE_WRITE
-                && undoVerification != UndoVerification.RUNTIME_VERIFIED
-                && undoVerification != UndoVerification.EXACT_HOST_VERIFIED) {
+                    && effect == McpOperationEffect.UNDOABLE_WRITE
+                    && undoVerification != UndoVerification.RUNTIME_VERIFIED
+                    && undoVerification != UndoVerification.EXACT_HOST_VERIFIED) {
                 throw new IllegalArgumentException(
-                    "available undoable write requires runtime or exact-host verification: "
-                        + operation
-                );
+                        "available undoable write requires runtime or exact-host verification: " + operation);
             }
         }
 
         static OperationSupport available(
-            final String operation,
-            final McpOperationEffect effect,
-            final boolean transactionEligible,
-            final UndoVerification undoVerification,
-            final List<String> supportedVersions,
-            final String reason
-        ) {
+                final String operation,
+                final McpOperationEffect effect,
+                final boolean transactionEligible,
+                final UndoVerification undoVerification,
+                final List<String> supportedVersions,
+                final String reason) {
             return new OperationSupport(
-                operation,
-                Availability.AVAILABLE,
-                effect,
-                transactionEligible,
-                undoVerification,
-                supportedVersions,
-                reason
-            );
+                    operation,
+                    Availability.AVAILABLE,
+                    effect,
+                    transactionEligible,
+                    undoVerification,
+                    supportedVersions,
+                    reason);
         }
 
         static OperationSupport unavailable(
-            final String operation,
-            final McpOperationEffect effect,
-            final String reason
-        ) {
+                final String operation, final McpOperationEffect effect, final String reason) {
             return new OperationSupport(
-                operation,
-                Availability.RUNTIME_UNAVAILABLE,
-                effect,
-                false,
-                UndoVerification.UNVERIFIED,
-                List.of(),
-                reason
-            );
+                    operation,
+                    Availability.RUNTIME_UNAVAILABLE,
+                    effect,
+                    false,
+                    UndoVerification.UNVERIFIED,
+                    List.of(),
+                    reason);
         }
     }
 
-    private static List<String> exactVersions(
-        final List<String> values,
-        final String field
-    ) {
+    private static List<String> exactVersions(final List<String> values, final String field) {
         final List<String> versions = List.copyOf(Objects.requireNonNull(values, field));
         final Set<String> seen = new HashSet<>();
         for (String version : versions) {
             final String checked = Objects.requireNonNull(version, "supportedVersion");
             if (!EXACT_VERSION.matcher(checked).matches()) {
-                throw new IllegalArgumentException(
-                    "MCP provider version must be exact: " + checked
-                );
+                throw new IllegalArgumentException("MCP provider version must be exact: " + checked);
             }
             if (!seen.add(checked)) {
-                throw new IllegalArgumentException(
-                    "duplicate MCP provider version: " + checked
-                );
+                throw new IllegalArgumentException("duplicate MCP provider version: " + checked);
             }
         }
         return versions;

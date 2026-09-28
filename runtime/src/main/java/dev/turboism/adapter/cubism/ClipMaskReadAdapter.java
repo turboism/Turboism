@@ -4,7 +4,6 @@ import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.HostUiVersionCheck;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -44,7 +43,9 @@ public interface ClipMaskReadAdapter {
          * Returns the reviewed mapping generation used by these operations. An
          * unbound implementation defaults to its declared host version.
          */
-        default String contractVersion() { return hostVersion(); }
+        default String contractVersion() {
+            return hostVersion();
+        }
 
         /**
          * @return {@code true} when this host exposes the clip-mask read surface
@@ -66,10 +67,7 @@ public interface ClipMaskReadAdapter {
      * @param diagnostic why no value could be supplied, empty when the read succeeded; never null
      * @param <T> the observed value type
      */
-    record AdapterResult<T>(
-        Optional<T> value,
-        Optional<SafeModeDiagnostic> diagnostic
-    ) {
+    record AdapterResult<T>(Optional<T> value, Optional<SafeModeDiagnostic> diagnostic) {
         public AdapterResult {
             value = Objects.requireNonNull(value, "value");
             diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
@@ -162,8 +160,8 @@ public interface ClipMaskReadAdapter {
 
         private AdapterResult<List<ClipMaskSnapshot>> callIfSupported(final HostOperations operations) {
             try {
-                final Optional<SafeModeDiagnostic> versionDiagnostic =
-                    HostUiVersionCheck.diagnosticFor(CAPABILITY_ID, operations.hostVersion(), operations.contractVersion());
+                final Optional<SafeModeDiagnostic> versionDiagnostic = HostUiVersionCheck.diagnosticFor(
+                        CAPABILITY_ID, operations.hostVersion(), operations.contractVersion());
                 if (versionDiagnostic.isPresent()) {
                     return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
                 }
@@ -175,9 +173,7 @@ public interface ClipMaskReadAdapter {
                 return AdapterResult.unavailable(exception.diagnostic());
             } catch (RuntimeException exception) {
                 return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
-                    CAPABILITY_ID,
-                    "Host clip-mask adapter call failed safely."
-                ));
+                        CAPABILITY_ID, "Host clip-mask adapter call failed safely."));
             }
         }
 

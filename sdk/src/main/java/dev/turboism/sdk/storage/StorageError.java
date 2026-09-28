@@ -11,11 +11,7 @@ import java.util.Objects;
  *     programmatic matching
  * @param path the path the operation was attempting when it failed
  */
-public record StorageError(
-    StorageErrorCode code,
-    String message,
-    StoragePath path
-) {
+public record StorageError(StorageErrorCode code, String message, StoragePath path) {
     public StorageError {
         code = Objects.requireNonNull(code, "code");
         message = StorageContracts.requireText(message, "message");

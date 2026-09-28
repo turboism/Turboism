@@ -14,8 +14,7 @@ import com.fasterxml.jackson.databind.JsonNode;
  */
 final class EditApiResponses {
 
-    private EditApiResponses() {
-    }
+    private EditApiResponses() {}
 
     /**
      * Builds a {@code Type="Error"} envelope with the official error body
@@ -29,20 +28,18 @@ final class EditApiResponses {
      * @return the serialized frame
      */
     static String error(
-        final String version,
-        final JsonNode requestId,
-        final String method,
-        final EditApiErrorCode code,
-        final long timestamp
-    ) {
+            final String version,
+            final JsonNode requestId,
+            final String method,
+            final EditApiErrorCode code,
+            final long timestamp) {
         return envelope(
-            version,
-            requestId,
-            "Error",
-            method,
-            "{ \"ErrorType\" : \"" + escape(code.wireName()) + "\"}",
-            timestamp
-        );
+                version,
+                requestId,
+                "Error",
+                method,
+                "{ \"ErrorType\" : \"" + escape(code.wireName()) + "\"}",
+                timestamp);
     }
 
     /**
@@ -56,12 +53,11 @@ final class EditApiResponses {
      * @return the serialized frame
      */
     static String response(
-        final String version,
-        final JsonNode requestId,
-        final String method,
-        final String dataJson,
-        final long timestamp
-    ) {
+            final String version,
+            final JsonNode requestId,
+            final String method,
+            final String dataJson,
+            final long timestamp) {
         return envelope(version, requestId, "Response", method, dataJson, timestamp);
     }
 
@@ -69,23 +65,17 @@ final class EditApiResponses {
      * Builds a {@code Type="Event"} push frame (e.g. the {@code NotifyUndoCancel} broadcast).
      * Events are unsolicited and carry no {@code RequestId}.
      */
-    static String event(
-        final String version,
-        final String method,
-        final String dataJson,
-        final long timestamp
-    ) {
+    static String event(final String version, final String method, final String dataJson, final long timestamp) {
         return envelope(version, null, "Event", method, dataJson, timestamp);
     }
 
     private static String envelope(
-        final String version,
-        final JsonNode requestId,
-        final String type,
-        final String method,
-        final String dataJson,
-        final long timestamp
-    ) {
+            final String version,
+            final JsonNode requestId,
+            final String type,
+            final String method,
+            final String dataJson,
+            final long timestamp) {
         final StringBuilder out = new StringBuilder(160);
         out.append('{');
         if (version != null) {

@@ -1,18 +1,17 @@
 package dev.turboism.shell;
 
-import dev.turboism.internal.core.MeshTriangulationSettingsService;
-import dev.turboism.sdk.i18n.PluginLocalization;
-import dev.turboism.sdk.ui.settings.SettingsControl;
-import org.junit.jupiter.api.Test;
-
-import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.internal.core.MeshTriangulationSettingsService;
+import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.ui.settings.SettingsControl;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.junit.jupiter.api.Test;
 
 /** Contract tests for the mesh triangulation preference and its Performance-tab toggle. */
 class MeshTriangulationSettingsContributionTest {
@@ -25,8 +24,9 @@ class MeshTriangulationSettingsContributionTest {
 
     @Test
     void unavailableServiceRefusesToPersistInsteadOfReportingSuccess() {
-        assertThrows(IllegalStateException.class,
-            () -> MeshTriangulationSettingsService.unavailable().save(false));
+        assertThrows(
+                IllegalStateException.class,
+                () -> MeshTriangulationSettingsService.unavailable().save(false));
     }
 
     @Test
@@ -45,21 +45,19 @@ class MeshTriangulationSettingsContributionTest {
             }
         };
 
-        final var contribution = MeshTriangulationSettingsContribution.create(
-            localization(), settings);
+        final var contribution = MeshTriangulationSettingsContribution.create(localization(), settings);
 
         assertEquals("mesh-triangulation-hash", contribution.id());
         assertEquals("performance", contribution.tab().id());
-        assertTrue(contribution.control() instanceof SettingsControl.Toggle,
-            "the preference must render as an independent checkbox");
+        assertTrue(
+                contribution.control() instanceof SettingsControl.Toggle,
+                "the preference must render as an independent checkbox");
 
         final SettingsControl.Toggle toggle = (SettingsControl.Toggle) contribution.control();
-        assertTrue(Boolean.TRUE.equals(toggle.binding().read()),
-            "the toggle reflects the persisted preference");
+        assertTrue(Boolean.TRUE.equals(toggle.binding().read()), "the toggle reflects the persisted preference");
         toggle.binding().write(false);
         assertFalse(stored.get(), "writing the toggle persists the preference");
-        assertFalse(Boolean.TRUE.equals(toggle.binding().read()),
-            "the toggle reads back the persisted value");
+        assertFalse(Boolean.TRUE.equals(toggle.binding().read()), "the toggle reads back the persisted value");
     }
 
     @Test
@@ -69,12 +67,10 @@ class MeshTriangulationSettingsContributionTest {
             "messages.properties", "messages_en.properties", "messages_ja.properties",
             "messages_ko.properties", "messages_zh_Hans.properties", "messages_zh_Hant.properties",
         }) {
-            final var path = java.nio.file.Path.of(
-                "src/main/resources/META-INF/turboism/i18n", bundle);
+            final var path = java.nio.file.Path.of("src/main/resources/META-INF/turboism/i18n", bundle);
             assertTrue(java.nio.file.Files.exists(path), "missing bundle: " + bundle);
             try {
-                assertTrue(java.nio.file.Files.readString(path).contains(key),
-                    bundle + " must define " + key);
+                assertTrue(java.nio.file.Files.readString(path).contains(key), bundle + " must define " + key);
             } catch (java.io.IOException failure) {
                 throw new AssertionError("cannot read " + bundle, failure);
             }
@@ -83,10 +79,10 @@ class MeshTriangulationSettingsContributionTest {
 
     private static PluginLocalization localization() {
         final Map<String, String> texts = Map.of(
-            "settings.tab.performance", "Performance",
-            MeshTriangulationSettingsContribution.LABEL_KEY,
-            "Fix mesh triangulation hash degeneracy"
-        );
+                "settings.tab.performance",
+                "Performance",
+                MeshTriangulationSettingsContribution.LABEL_KEY,
+                "Fix mesh triangulation hash degeneracy");
         return new PluginLocalization() {
             @Override
             public String text(final String key) {

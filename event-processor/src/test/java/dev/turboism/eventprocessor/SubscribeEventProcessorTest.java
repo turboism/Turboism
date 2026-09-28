@@ -1,22 +1,21 @@
 package dev.turboism.eventprocessor;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class SubscribeEventProcessorTest {
     @Test
@@ -32,15 +31,12 @@ class SubscribeEventProcessorTest {
             """);
 
         assertTrue(result.succeeded());
-        assertTrue(Files.isRegularFile(result.classes().resolve(
-            "META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog"
-        )));
-        assertTrue(Files.isRegularFile(result.generated().resolve(
-            "fixture/Subscriber__TurboismSubscriberCatalog.java"
-        )));
-        final String generated = Files.readString(result.generated().resolve(
-            "fixture/Subscriber__TurboismSubscriberCatalog.java"
-        ));
+        assertTrue(Files.isRegularFile(
+                result.classes().resolve("META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog")));
+        assertTrue(
+                Files.isRegularFile(result.generated().resolve("fixture/Subscriber__TurboismSubscriberCatalog.java")));
+        final String generated =
+                Files.readString(result.generated().resolve("fixture/Subscriber__TurboismSubscriberCatalog.java"));
         assertTrue(generated.contains("target::on"));
     }
 
@@ -63,9 +59,8 @@ class SubscribeEventProcessorTest {
             """);
 
         assertTrue(result.succeeded());
-        final String generated = Files.readString(result.generated().resolve(
-            "fixture/Subscriber__TurboismSubscriberCatalog.java"
-        ));
+        final String generated =
+                Files.readString(result.generated().resolve("fixture/Subscriber__TurboismSubscriberCatalog.java"));
         assertTrue(generated.contains("target::zeta"));
         assertTrue(generated.contains("target::alpha"));
         assertTrue(generated.indexOf("target::zeta") < generated.indexOf("target::alpha"));
@@ -76,7 +71,7 @@ class SubscribeEventProcessorTest {
     @Test
     void writesServiceProvidersInDeterministicOrder() throws Exception {
         final Compilation result = compile(Map.of(
-            "fixture/ZSubscriber.java", """
+                "fixture/ZSubscriber.java", """
                 package fixture;
                 import dev.turboism.sdk.event.SubscribeEvent;
                 import dev.turboism.sdk.event.TurboismEvent;
@@ -85,31 +80,27 @@ class SubscribeEventProcessorTest {
                     public record TestEvent(String value) implements TurboismEvent { }
                 }
                 """,
-            "fixture/ASubscriber.java", """
+                "fixture/ASubscriber.java", """
                 package fixture;
                 import dev.turboism.sdk.event.SubscribeEvent;
                 public final class ASubscriber {
                     @SubscribeEvent public void on(ZSubscriber.TestEvent event) { }
                 }
-                """
-        ));
+                """));
 
         assertTrue(result.succeeded());
         assertEquals(
-            List.of(
-                "fixture.ASubscriber__TurboismSubscriberCatalog",
-                "fixture.ZSubscriber__TurboismSubscriberCatalog"
-            ),
-            Files.readAllLines(result.classes().resolve(
-                "META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog"
-            ))
-        );
+                List.of(
+                        "fixture.ASubscriber__TurboismSubscriberCatalog",
+                        "fixture.ZSubscriber__TurboismSubscriberCatalog"),
+                Files.readAllLines(result.classes()
+                        .resolve("META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog")));
     }
 
     @Test
     void distinguishesNestedAndUnderscoredEntrypointCatalogNames() throws Exception {
         final Compilation result = compile(Map.of(
-            "fixture/A_B.java", """
+                "fixture/A_B.java", """
                 package fixture;
                 import dev.turboism.sdk.event.SubscribeEvent;
                 import dev.turboism.sdk.event.TurboismEvent;
@@ -118,7 +109,7 @@ class SubscribeEventProcessorTest {
                     public record TestEvent(String value) implements TurboismEvent { }
                 }
                 """,
-            "fixture/A.java", """
+                "fixture/A.java", """
                 package fixture;
                 import dev.turboism.sdk.event.SubscribeEvent;
                 public final class A {
@@ -126,19 +117,16 @@ class SubscribeEventProcessorTest {
                         @SubscribeEvent public void on(A_B.TestEvent event) { }
                     }
                 }
-                """
-        ));
+                """));
 
         assertTrue(result.succeeded());
-        assertTrue(Files.isRegularFile(result.generated().resolve(
-            "fixture/A__B__TurboismSubscriberCatalog.java"
-        )));
-        assertTrue(Files.isRegularFile(result.generated().resolve(
-            "fixture/A_N_B__TurboismSubscriberCatalog.java"
-        )));
-        assertEquals(2, Files.readAllLines(result.classes().resolve(
-            "META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog"
-        )).size());
+        assertTrue(Files.isRegularFile(result.generated().resolve("fixture/A__B__TurboismSubscriberCatalog.java")));
+        assertTrue(Files.isRegularFile(result.generated().resolve("fixture/A_N_B__TurboismSubscriberCatalog.java")));
+        assertEquals(
+                2,
+                Files.readAllLines(result.classes()
+                                .resolve("META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog"))
+                        .size());
     }
 
     @Test
@@ -154,9 +142,9 @@ class SubscribeEventProcessorTest {
             """);
 
         assertFalse(result.succeeded());
-        assertTrue(result.diagnostics().getDiagnostics().stream().anyMatch(diagnostic ->
-            diagnostic.getMessage(java.util.Locale.ROOT).contains("reifiable")
-        ));
+        assertTrue(result.diagnostics().getDiagnostics().stream()
+                .anyMatch(diagnostic ->
+                        diagnostic.getMessage(java.util.Locale.ROOT).contains("reifiable")));
     }
 
     @Test
@@ -170,9 +158,9 @@ class SubscribeEventProcessorTest {
             """);
 
         assertFalse(result.succeeded());
-        assertTrue(result.diagnostics().getDiagnostics().stream().anyMatch(diagnostic ->
-            diagnostic.getMessage(java.util.Locale.ROOT).contains("subscriber")
-        ));
+        assertTrue(result.diagnostics().getDiagnostics().stream()
+                .anyMatch(diagnostic ->
+                        diagnostic.getMessage(java.util.Locale.ROOT).contains("subscriber")));
     }
 
     @Test
@@ -188,10 +176,10 @@ class SubscribeEventProcessorTest {
             """);
 
         assertFalse(result.succeeded());
-        assertTrue(result.diagnostics().getDiagnostics().stream().anyMatch(diagnostic ->
-            diagnostic.getMessage(java.util.Locale.ROOT)
-                .contains("subscriber owner must be a public concrete class")
-        ));
+        assertTrue(result.diagnostics().getDiagnostics().stream()
+                .anyMatch(diagnostic -> diagnostic
+                        .getMessage(java.util.Locale.ROOT)
+                        .contains("subscriber owner must be a public concrete class")));
     }
 
     @Test
@@ -207,10 +195,10 @@ class SubscribeEventProcessorTest {
             """);
 
         assertFalse(result.succeeded());
-        assertTrue(result.diagnostics().getDiagnostics().stream().anyMatch(diagnostic ->
-            diagnostic.getMessage(java.util.Locale.ROOT)
-                .contains("subscriber owner must be a public concrete class")
-        ));
+        assertTrue(result.diagnostics().getDiagnostics().stream()
+                .anyMatch(diagnostic -> diagnostic
+                        .getMessage(java.util.Locale.ROOT)
+                        .contains("subscriber owner must be a public concrete class")));
     }
 
     private static Compilation compile(final String source) throws Exception {
@@ -236,31 +224,22 @@ class SubscribeEventProcessorTest {
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         final DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         try (StandardJavaFileManager files = compiler.getStandardFileManager(
-            diagnostics,
-            java.util.Locale.ROOT,
-            java.nio.charset.StandardCharsets.UTF_8
-        )) {
+                diagnostics, java.util.Locale.ROOT, java.nio.charset.StandardCharsets.UTF_8)) {
             files.setLocationFromPaths(StandardLocation.CLASS_OUTPUT, List.of(classes));
             files.setLocationFromPaths(StandardLocation.SOURCE_OUTPUT, List.of(generated));
-            final Iterable<? extends JavaFileObject> units = files.getJavaFileObjectsFromPaths(
-                sourceFiles
-            );
+            final Iterable<? extends JavaFileObject> units = files.getJavaFileObjectsFromPaths(sourceFiles);
             final boolean succeeded = compiler.getTask(
-                null,
-                files,
-                diagnostics,
-                List.of("--release", "17", "-classpath", System.getProperty("java.class.path")),
-                null,
-                units
-            ).call();
+                            null,
+                            files,
+                            diagnostics,
+                            List.of("--release", "17", "-classpath", System.getProperty("java.class.path")),
+                            null,
+                            units)
+                    .call();
             return new Compilation(succeeded, classes, generated, diagnostics);
         }
     }
 
     private record Compilation(
-        boolean succeeded,
-        Path classes,
-        Path generated,
-        DiagnosticCollector<JavaFileObject> diagnostics
-    ) { }
+            boolean succeeded, Path classes, Path generated, DiagnosticCollector<JavaFileObject> diagnostics) {}
 }

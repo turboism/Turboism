@@ -1,10 +1,10 @@
 package dev.turboism.plugin.uitheme.b1.domain;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
@@ -36,21 +36,29 @@ public final class ThemePackageCodec {
     public static final String GENERATOR_METADATA = "generator-metadata.properties";
     public static final String README = "README.md";
     public static final String LICENSE = "LICENSE";
-    private static final List<String> ENTRY_ORDER = List.of(
-        THEME_PROPERTIES, COLORS_PROPERTIES, GENERATOR_METADATA, README, LICENSE
-    );
+    private static final List<String> ENTRY_ORDER =
+            List.of(THEME_PROPERTIES, COLORS_PROPERTIES, GENERATOR_METADATA, README, LICENSE);
     private static final Set<String> THEME_KEYS = Set.of(
-        "id", "name", "description", "icons", "author", "url", "version", "extends", "base", "built-in",
-        "theme.id", "theme.name", "theme.description"
-    );
+            "id",
+            "name",
+            "description",
+            "icons",
+            "author",
+            "url",
+            "version",
+            "extends",
+            "base",
+            "built-in",
+            "theme.id",
+            "theme.name",
+            "theme.description");
     private static final int MAX_ENTRIES = 5;
     private static final int MAX_TOTAL_BYTES = 1_048_576;
     private static final int MAX_PROPERTIES_BYTES = 262_144;
     private static final int MAX_TEXT_BYTES = 524_288;
     private static final int MAX_KEYS = 512;
 
-    private ThemePackageCodec() {
-    }
+    private ThemePackageCodec() {}
 
     /**
      * Decodes package entries into theme data, or reports every reason it could not.
@@ -109,8 +117,8 @@ public final class ThemePackageCodec {
         final Map<String, String> theme = loadProperties(entries.get(THEME_PROPERTIES), true, issues);
         final Map<String, String> colors = loadProperties(entries.get(COLORS_PROPERTIES), false, issues);
         final Map<String, String> generator = entries.containsKey(GENERATOR_METADATA)
-            ? loadProperties(entries.get(GENERATOR_METADATA), false, issues)
-            : Map.of();
+                ? loadProperties(entries.get(GENERATOR_METADATA), false, issues)
+                : Map.of();
         if (!issues.isEmpty()) {
             return invalid(issues);
         }
@@ -135,22 +143,22 @@ public final class ThemePackageCodec {
             return invalid(issues);
         }
         final ThemePackageMetadata metadata = new ThemePackageMetadata(
-            id,
-            name,
-            description,
-            firstNonEmpty(theme.get("author")),
-            firstNonEmpty(theme.get("url")),
-            firstNonEmpty(theme.get("version")),
-            emptyToNull(firstNonEmpty(theme.get("extends"))),
-            parseBase(theme.get("base")),
-            parseIcons(theme.get("icons")),
-            BuiltinThemeCatalog.isReviewedBuiltin(id)
-        );
+                id,
+                name,
+                description,
+                firstNonEmpty(theme.get("author")),
+                firstNonEmpty(theme.get("url")),
+                firstNonEmpty(theme.get("version")),
+                emptyToNull(firstNonEmpty(theme.get("extends"))),
+                parseBase(theme.get("base")),
+                parseIcons(theme.get("icons")),
+                BuiltinThemeCatalog.isReviewedBuiltin(id));
         final String readme = entries.containsKey(README) ? decodeText(entries.get(README), issues) : null;
         final String license = entries.containsKey(LICENSE) ? decodeText(entries.get(LICENSE), issues) : null;
         return issues.isEmpty()
-            ? new DecodeResult(Optional.of(new ThemePackageData(metadata, colors, generator, readme, license)), List.of())
-            : invalid(issues);
+                ? new DecodeResult(
+                        Optional.of(new ThemePackageData(metadata, colors, generator, readme, license)), List.of())
+                : invalid(issues);
     }
 
     /**
@@ -185,7 +193,8 @@ public final class ThemePackageCodec {
         result.put(THEME_PROPERTIES, storeProperties(theme, "Turboism theme metadata"));
         result.put(COLORS_PROPERTIES, storeProperties(data.colors(), "Turboism theme colors"));
         if (!data.generatorMetadata().isEmpty()) {
-            result.put(GENERATOR_METADATA, storeProperties(data.generatorMetadata(), "Turboism theme generator metadata"));
+            result.put(
+                    GENERATOR_METADATA, storeProperties(data.generatorMetadata(), "Turboism theme generator metadata"));
         }
         if (data.readme() != null) {
             result.put(README, data.readme().getBytes(StandardCharsets.UTF_8));
@@ -233,12 +242,11 @@ public final class ThemePackageCodec {
      * @throws NullPointerException if any argument other than {@code saveAsId} is null
      */
     public static ConflictResult resolveConflict(
-        final ThemePackageData data,
-        final Set<String> existingIds,
-        final Set<String> builtInIds,
-        final ConflictOutcome outcome,
-        final String saveAsId
-    ) {
+            final ThemePackageData data,
+            final Set<String> existingIds,
+            final Set<String> builtInIds,
+            final ConflictOutcome outcome,
+            final String saveAsId) {
         Objects.requireNonNull(data, "data");
         Objects.requireNonNull(existingIds, "existingIds");
         Objects.requireNonNull(builtInIds, "builtInIds");
@@ -259,21 +267,24 @@ public final class ThemePackageCodec {
             return conflict(IssueCode.SAVE_AS_ID_CONFLICT, saveAsId);
         }
         final ThemePackageMetadata original = data.metadata();
-        return new ConflictResult(Optional.of(new ThemePackageData(
-            new ThemePackageMetadata(
-                saveAsId,
-                original.name(),
-                original.description(),
-                original.author(),
-                original.url(),
-                original.version(),
-                original.parentId(),
-                original.base(),
-                original.icons(),
-                false
-            ),
-            data.colors(), data.generatorMetadata(), data.readme(), data.license()
-        )), List.of());
+        return new ConflictResult(
+                Optional.of(new ThemePackageData(
+                        new ThemePackageMetadata(
+                                saveAsId,
+                                original.name(),
+                                original.description(),
+                                original.author(),
+                                original.url(),
+                                original.version(),
+                                original.parentId(),
+                                original.base(),
+                                original.icons(),
+                                false),
+                        data.colors(),
+                        data.generatorMetadata(),
+                        data.readme(),
+                        data.license())),
+                List.of());
     }
 
     private static String detectRoot(final List<ThemePackageEntry> entries, final List<Issue> issues) {
@@ -305,15 +316,12 @@ public final class ThemePackageCodec {
         }
         final String prefix = root + "/";
         return name.startsWith(prefix) && name.indexOf('/', prefix.length()) < 0
-            ? name.substring(prefix.length())
-            : null;
+                ? name.substring(prefix.length())
+                : null;
     }
 
     private static Map<String, String> loadProperties(
-        final ThemePackageEntry entry,
-        final boolean rejectDuplicateKeys,
-        final List<Issue> issues
-    ) {
+            final ThemePackageEntry entry, final boolean rejectDuplicateKeys, final List<Issue> issues) {
         final String text = decodeText(entry, issues);
         final Map<String, String> duplicateProbe = new LinkedHashMap<>();
         for (String rawLine : text.replace("\r\n", "\n").replace('\r', '\n').split("\n", -1)) {
@@ -331,8 +339,7 @@ public final class ThemePackageCodec {
         }
         final Properties properties = new Properties();
         try (InputStreamReader reader = new InputStreamReader(
-            new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8
-        )) {
+                new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8)) {
             properties.load(reader);
         } catch (IOException impossible) {
             throw new IllegalStateException(impossible);
@@ -340,7 +347,8 @@ public final class ThemePackageCodec {
         if (properties.size() > MAX_KEYS) {
             issues.add(new Issue(IssueCode.KEY_LIMIT, entry.name()));
         }
-        final List<String> keys = properties.stringPropertyNames().stream().sorted().toList();
+        final List<String> keys =
+                properties.stringPropertyNames().stream().sorted().toList();
         final LinkedHashMap<String, String> result = new LinkedHashMap<>();
         for (String key : keys) {
             final String value = properties.getProperty(key);
@@ -375,10 +383,12 @@ public final class ThemePackageCodec {
             bytes = java.util.Arrays.copyOfRange(bytes, 3, bytes.length);
         }
         try {
-            final String text = StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes)).toString();
+            final String text = StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
             for (int index = 0; index < text.length(); index++) {
                 final char value = text.charAt(index);
                 if (value == 0 || (Character.isISOControl(value) && value != '\n' && value != '\r' && value != '\t')) {
@@ -405,8 +415,9 @@ public final class ThemePackageCodec {
             throw new IllegalStateException(impossible);
         }
         final String withoutTimestamp = new String(output.toByteArray(), StandardCharsets.UTF_8)
-            .lines().filter(line -> !line.matches("^#[A-Z][a-z]{2} .*$"))
-            .reduce("", (left, right) -> left + right + "\n");
+                .lines()
+                .filter(line -> !line.matches("^#[A-Z][a-z]{2} .*$"))
+                .reduce("", (left, right) -> left + right + "\n");
         return withoutTimestamp.getBytes(StandardCharsets.UTF_8);
     }
 
@@ -428,7 +439,8 @@ public final class ThemePackageCodec {
 
     private static ThemeIcons parseIcons(final String value) {
         return "dark".equals(value == null ? "" : value.trim().toLowerCase(java.util.Locale.ROOT))
-            ? ThemeIcons.DARK : ThemeIcons.LIGHT;
+                ? ThemeIcons.DARK
+                : ThemeIcons.LIGHT;
     }
 
     private static String firstNonEmpty(final String... values) {

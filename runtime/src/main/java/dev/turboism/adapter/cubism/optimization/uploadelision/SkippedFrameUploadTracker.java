@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.uploadelision;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -45,7 +46,10 @@ final class SkippedFrameUploadTracker {
     static final long DEFAULT_SNAPSHOT_BUDGET = 64L * 1024 * 1024;
 
     /** Wrapper kind for per-side accounting. */
-    enum Kind { FLOAT, INDEX }
+    enum Kind {
+        FLOAT,
+        INDEX
+    }
 
     /** Baseline matching strategy, selected once at install time. */
     enum Compare {
@@ -72,7 +76,13 @@ final class SkippedFrameUploadTracker {
     }
 
     /** Clear provenance, recorded per kind for the close marker. */
-    enum ClearKind { CONTEXT, NON_SKIPPED, LIFECYCLE, EXCEPTION, THREAD }
+    enum ClearKind {
+        CONTEXT,
+        NON_SKIPPED,
+        LIFECYCLE,
+        EXCEPTION,
+        THREAD
+    }
 
     private final Compare compare;
     private final long maxSnapshotBytes;
@@ -81,16 +91,24 @@ final class SkippedFrameUploadTracker {
     private java.lang.ref.WeakReference<Object> currentGl = new java.lang.ref.WeakReference<>(null);
     private Thread observedThread;
     private boolean clearedForRun = true;
-    private long calls, elided, passed, clears, contextClears, nonSkippedClears,
-        lifecycleClears, exceptionClears, threadClears, observerFailures,
-        occupied, snapshotBudgetSkips;
+    private long calls,
+            elided,
+            passed,
+            clears,
+            contextClears,
+            nonSkippedClears,
+            lifecycleClears,
+            exceptionClears,
+            threadClears,
+            observerFailures,
+            occupied,
+            snapshotBudgetSkips;
     private long peakOccupied, failedInserts, grows;
     private final long[] kindCalls = new long[Kind.values().length];
     private final long[] kindElided = new long[Kind.values().length];
     private final long[] kindPassed = new long[Kind.values().length];
     private final long[] passReasons = new long[PassReason.values().length];
-    private long compares, compareNanos, contentElided, snapshotBytes,
-        snapshotBytesPeak;
+    private long compares, compareNanos, contentElided, snapshotBytes, snapshotBytesPeak;
 
     private static final class Entry {
         Object gl, buffer, snapshot;
@@ -124,9 +142,16 @@ final class SkippedFrameUploadTracker {
      * repeat under this experiment's rules; every other outcome records the
      * executed upload as the new baseline and returns {@code false}.
      */
-    boolean consider(final Object gl, final int name, final long size, final Object buffer,
-                     final int position, final int limit,
-                     final boolean skipped, final boolean armed, final Kind kind) {
+    boolean consider(
+            final Object gl,
+            final int name,
+            final long size,
+            final Object buffer,
+            final int position,
+            final int limit,
+            final boolean skipped,
+            final boolean armed,
+            final Kind kind) {
         calls++;
         if (kind != null) kindCalls[kind.ordinal()]++;
         try {
@@ -164,8 +189,7 @@ final class SkippedFrameUploadTracker {
                 }
             }
             final Entry entry = entries[slot];
-            final boolean matched = entry.occupied && entry.gl == gl
-                && entry.name == name;
+            final boolean matched = entry.occupied && entry.gl == gl && entry.name == name;
             final PassReason reason;
             final boolean elide;
             if (!skipped || !armed) {
@@ -215,8 +239,13 @@ final class SkippedFrameUploadTracker {
             passReasons[reason.ordinal()]++;
             return false;
         } catch (Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             observerFailures++;
-            try { clearAll(ClearKind.EXCEPTION); } catch (Throwable ignored) { }
+            try {
+                clearAll(ClearKind.EXCEPTION);
+            } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
+            }
             return false;
         }
     }
@@ -229,7 +258,11 @@ final class SkippedFrameUploadTracker {
     /** Observer-side bookkeeping failure: count it and clear, never elide. */
     void observerFailed() {
         observerFailures++;
-        try { clearAll(ClearKind.EXCEPTION); } catch (Throwable ignored) { }
+        try {
+            clearAll(ClearKind.EXCEPTION);
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
+        }
     }
 
     /**
@@ -242,8 +275,14 @@ final class SkippedFrameUploadTracker {
         return compare == Compare.CONTENT ? null : buffer;
     }
 
-    private void record(final Entry entry, final Object gl, final int name, final long size,
-                        final Object buffer, final int position, final int limit) {
+    private void record(
+            final Entry entry,
+            final Object gl,
+            final int name,
+            final long size,
+            final Object buffer,
+            final int position,
+            final int limit) {
         entry.gl = gl;
         entry.name = name;
         entry.size = size;
@@ -296,8 +335,7 @@ final class SkippedFrameUploadTracker {
      */
     private static boolean floatsBitwiseEqual(final FloatBuffer a, final FloatBuffer b) {
         for (int i = 0; i < a.remaining(); i++) {
-            if (Float.floatToRawIntBits(a.get(a.position() + i))
-                != Float.floatToRawIntBits(b.get(b.position() + i))) {
+            if (Float.floatToRawIntBits(a.get(a.position() + i)) != Float.floatToRawIntBits(b.get(b.position() + i))) {
                 return false;
             }
         }
@@ -308,7 +346,7 @@ final class SkippedFrameUploadTracker {
     private static boolean doublesBitwiseEqual(final DoubleBuffer a, final DoubleBuffer b) {
         for (int i = 0; i < a.remaining(); i++) {
             if (Double.doubleToRawLongBits(a.get(a.position() + i))
-                != Double.doubleToRawLongBits(b.get(b.position() + i))) {
+                    != Double.doubleToRawLongBits(b.get(b.position() + i))) {
                 return false;
             }
         }
@@ -375,8 +413,7 @@ final class SkippedFrameUploadTracker {
             final Entry[] bigger = newTable(Math.min(entries.length * 2, MAX_SLOTS));
             for (final Entry entry : entries) {
                 if (!entry.occupied) continue;
-                int slot = mix(System.identityHashCode(entry.gl) ^ entry.name)
-                    & (bigger.length - 1);
+                int slot = mix(System.identityHashCode(entry.gl) ^ entry.name) & (bigger.length - 1);
                 while (bigger[slot].occupied) slot = (slot + 1) & (bigger.length - 1);
                 final Entry moved = bigger[slot];
                 moved.gl = entry.gl;

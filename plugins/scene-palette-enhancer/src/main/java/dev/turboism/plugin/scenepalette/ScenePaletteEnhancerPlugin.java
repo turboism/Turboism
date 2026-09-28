@@ -5,8 +5,8 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
+import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
-
 import java.util.Objects;
 
 /** Scene palette sorting and manual-order workflow. */
@@ -37,7 +37,7 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
                 context.logger().info("Scene manual order storage is unavailable; persistence is disabled.");
             }
         }
-        sorter = new SceneTableSorter(context.sceneTable(), store, context.logger());
+        sorter = new SceneTableSorter(context.services().require(SceneTableService.class), store, context.logger());
     }
 
     /** Forwards a scene-table header click to the active palette sorter. */

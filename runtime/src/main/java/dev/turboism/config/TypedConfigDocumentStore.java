@@ -3,14 +3,12 @@ package dev.turboism.config;
 import dev.turboism.home.AnchoredDirectoryTree;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
-
 import java.io.IOException;
-import java.nio.channels.FileChannel;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -23,6 +21,7 @@ import java.nio.file.attribute.AclEntryType;
 import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -63,42 +62,35 @@ final class TypedConfigDocumentStore {
         }
         tightenTree(path);
         final byte[] bytes = Files.readAllBytes(path);
-        if (bytes.length >= 3 && bytes[0] == (byte) 0xEF
-            && bytes[1] == (byte) 0xBB && bytes[2] == (byte) 0xBF) {
+        if (bytes.length >= 3 && bytes[0] == (byte) 0xEF && bytes[1] == (byte) 0xBB && bytes[2] == (byte) 0xBF) {
             throw new IOException("typed config document must not contain a BOM");
         }
         try {
-            final String text = StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes))
-                .toString();
+            final String text = StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
             return Optional.of(parse(text));
         } catch (CharacterCodingException exception) {
             throw new IOException("typed config document is not valid UTF-8", exception);
         }
     }
 
-    void writeAtomic(
-        final String relativePath,
-        final StoredDocument document
-    ) throws IOException {
+    void writeAtomic(final String relativePath, final StoredDocument document) throws IOException {
         final Path target = resolve(relativePath, true);
         final byte[] bytes = encode(document).getBytes(StandardCharsets.UTF_8);
         if (bytes.length > MAX_DOCUMENT_BYTES) {
             throw new IOException("typed config document exceeds size limit");
         }
-        final Path temporary = target.resolveSibling(
-            "." + target.getFileName() + ".turboism-config-" + UUID.randomUUID() + ".tmp"
-        );
+        final Path temporary =
+                target.resolveSibling("." + target.getFileName() + ".turboism-config-" + UUID.randomUUID() + ".tmp");
         try {
             // Secure the empty temporary path (owner-only) before any document
             // bytes are written to it; the file is only then opened for writing.
             createSecuredTemporary(temporary);
-            try (FileChannel channel = FileChannel.open(
-                temporary,
-                StandardOpenOption.WRITE
-            )) {
+            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE)) {
                 final ByteBuffer buffer = ByteBuffer.wrap(bytes);
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
@@ -106,12 +98,7 @@ final class TypedConfigDocumentStore {
                 channel.force(true);
             }
             verifyParent(target);
-            Files.move(
-                temporary,
-                target,
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING
-            );
+            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             tightenTree(target);
         } catch (AtomicMoveNotSupportedException exception) {
             throw new IOException("typed config atomic replacement unavailable", exception);
@@ -120,10 +107,7 @@ final class TypedConfigDocumentStore {
         }
     }
 
-    private Path resolve(
-        final String relativePath,
-        final boolean createParents
-    ) throws IOException {
+    private Path resolve(final String relativePath, final boolean createParents) throws IOException {
         final StoragePath validated;
         try {
             validated = new StoragePath(StorageRoot.DATA, relativePath);
@@ -153,11 +137,8 @@ final class TypedConfigDocumentStore {
                 enforceOwnerOnly(current, true);
                 verifyExisting(current, rootReal);
             } else if (!last) {
-                return current.resolve(String.join("/", java.util.Arrays.copyOfRange(
-                    segments,
-                    index + 1,
-                    segments.length
-                )));
+                return current.resolve(
+                        String.join("/", java.util.Arrays.copyOfRange(segments, index + 1, segments.length)));
             }
         }
         verifyParent(current);
@@ -178,16 +159,14 @@ final class TypedConfigDocumentStore {
 
     private void verifyParent(final Path target) throws IOException {
         final Path parent = target.getParent();
-        if (parent == null || Files.isSymbolicLink(parent)
-            || !parent.toRealPath().startsWith(root.toRealPath())) {
+        if (parent == null
+                || Files.isSymbolicLink(parent)
+                || !parent.toRealPath().startsWith(root.toRealPath())) {
             throw new IOException("typed config path escapes its root");
         }
     }
 
-    private static void verifyExisting(
-        final Path path,
-        final Path rootReal
-    ) throws IOException {
+    private static void verifyExisting(final Path path, final Path rootReal) throws IOException {
         if (Files.isSymbolicLink(path) || !path.toRealPath().startsWith(rootReal)) {
             throw new IOException("typed config path traverses a link");
         }
@@ -235,11 +214,8 @@ final class TypedConfigDocumentStore {
         try {
             Files.createFile(temporary);
             created = true;
-            final AclFileAttributeView acl = Files.getFileAttributeView(
-                temporary,
-                AclFileAttributeView.class,
-                LinkOption.NOFOLLOW_LINKS
-            );
+            final AclFileAttributeView acl =
+                    Files.getFileAttributeView(temporary, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
             if (acl == null) {
                 throw new IOException("typed config ACL view is unavailable");
             }
@@ -252,10 +228,7 @@ final class TypedConfigDocumentStore {
                     // Best-effort cleanup of an empty temporary path.
                 }
             }
-            throw new IOException(
-                "typed config cannot create an owner-only temporary file",
-                failure
-            );
+            throw new IOException("typed config cannot create an owner-only temporary file", failure);
         }
     }
 
@@ -265,42 +238,27 @@ final class TypedConfigDocumentStore {
      * inherited ACEs with one owner-only entry. A file system exposing neither
      * model fails closed for persistence rather than pretending to be secure.
      */
-    private static void enforceOwnerOnly(final Path path, final boolean directory)
-        throws IOException {
+    private static void enforceOwnerOnly(final Path path, final boolean directory) throws IOException {
         try {
-            final PosixFileAttributeView posix = Files.getFileAttributeView(
-                path,
-                PosixFileAttributeView.class,
-                LinkOption.NOFOLLOW_LINKS
-            );
+            final PosixFileAttributeView posix =
+                    Files.getFileAttributeView(path, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
             if (posix != null) {
                 posix.setPermissions(directory ? DIR_OWNER_ONLY : FILE_OWNER_ONLY);
                 return;
             }
-            final AclFileAttributeView acl = Files.getFileAttributeView(
-                path,
-                AclFileAttributeView.class,
-                LinkOption.NOFOLLOW_LINKS
-            );
+            final AclFileAttributeView acl =
+                    Files.getFileAttributeView(path, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
             if (acl != null) {
                 acl.setAcl(List.of(ownerOnlyEntry(acl.getOwner(), directory)));
                 return;
             }
         } catch (UnsupportedOperationException unsupported) {
-            throw new IOException(
-                "typed config owner-only permissions unavailable: " + path,
-                unsupported
-            );
+            throw new IOException("typed config owner-only permissions unavailable: " + path, unsupported);
         }
-        throw new IOException(
-            "typed config cannot enforce owner-only permissions on this file system: " + path
-        );
+        throw new IOException("typed config cannot enforce owner-only permissions on this file system: " + path);
     }
 
-    static AclEntry ownerOnlyEntry(
-        final java.nio.file.attribute.UserPrincipal owner,
-        final boolean directory
-    ) {
+    static AclEntry ownerOnlyEntry(final java.nio.file.attribute.UserPrincipal owner, final boolean directory) {
         final Set<AclEntryPermission> permissions = EnumSet.noneOf(AclEntryPermission.class);
         permissions.add(AclEntryPermission.READ_DATA);
         permissions.add(AclEntryPermission.WRITE_DATA);
@@ -315,16 +273,14 @@ final class TypedConfigDocumentStore {
             permissions.add(AclEntryPermission.DELETE_CHILD);
         }
         return AclEntry.newBuilder()
-            .setType(AclEntryType.ALLOW)
-            .setPrincipal(owner)
-            .setPermissions(permissions)
-            .build();
+                .setType(AclEntryType.ALLOW)
+                .setPrincipal(owner)
+                .setPermissions(permissions)
+                .build();
     }
 
-    private static final Set<PosixFilePermission> FILE_OWNER_ONLY =
-        PosixFilePermissions.fromString("rw-------");
-    private static final Set<PosixFilePermission> DIR_OWNER_ONLY =
-        PosixFilePermissions.fromString("rwx------");
+    private static final Set<PosixFilePermission> FILE_OWNER_ONLY = PosixFilePermissions.fromString("rw-------");
+    private static final Set<PosixFilePermission> DIR_OWNER_ONLY = PosixFilePermissions.fromString("rwx------");
 
     private static String encode(final StoredDocument document) {
         final List<String> keys = new ArrayList<>(document.encodedValues().keySet());
@@ -337,19 +293,17 @@ final class TypedConfigDocumentStore {
         final Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
         for (String key : keys) {
             output.append(encoder.encodeToString(key.getBytes(StandardCharsets.UTF_8)))
-                .append(':')
-                .append(encoder.encodeToString(
-                    document.encodedValues().get(key).getBytes(StandardCharsets.UTF_8)
-                ))
-                .append('\n');
+                    .append(':')
+                    .append(encoder.encodeToString(
+                            document.encodedValues().get(key).getBytes(StandardCharsets.UTF_8)))
+                    .append('\n');
         }
         return output.toString();
     }
 
     private static StoredDocument parse(final String text) throws IOException {
         final String[] lines = text.split("\\n", -1);
-        if (lines.length < 5 || !lines[0].equals(HEADER)
-            || !lines[lines.length - 1].isEmpty()) {
+        if (lines.length < 5 || !lines[0].equals(HEADER) || !lines[lines.length - 1].isEmpty()) {
             throw new IOException("typed config document header is invalid");
         }
         final int version = parseInt(lines[1], "schemaVersion=");
@@ -367,12 +321,8 @@ final class TypedConfigDocumentStore {
                 throw new IOException("typed config entry is invalid");
             }
             try {
-                final String key = decodeUtf8(
-                    decoder.decode(line.substring(0, separator))
-                );
-                final String value = decodeUtf8(
-                    decoder.decode(line.substring(separator + 1))
-                );
+                final String key = decodeUtf8(decoder.decode(line.substring(0, separator)));
+                final String value = decodeUtf8(decoder.decode(line.substring(separator + 1)));
                 if (key.isBlank() || values.putIfAbsent(key, value) != null) {
                     throw new IOException("typed config entry key is invalid");
                 }
@@ -389,11 +339,12 @@ final class TypedConfigDocumentStore {
 
     private static String decodeUtf8(final byte[] bytes) throws IOException {
         try {
-            return StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes))
-                .toString();
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
         } catch (CharacterCodingException exception) {
             throw new IOException("typed config entry is not valid UTF-8", exception);
         }
@@ -422,11 +373,7 @@ final class TypedConfigDocumentStore {
         }
     }
 
-    record StoredDocument(
-        int schemaVersion,
-        long revision,
-        Map<String, String> encodedValues
-    ) {
+    record StoredDocument(int schemaVersion, long revision, Map<String, String> encodedValues) {
         StoredDocument {
             if (schemaVersion < 1 || revision < 0) {
                 throw new IllegalArgumentException("typed config document metadata is invalid");

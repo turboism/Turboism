@@ -1,10 +1,17 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.cubism.event.CubismOperation;
+import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
-import dev.turboism.sdk.cubism.event.CubismOperation;
-import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
@@ -21,22 +28,14 @@ import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import org.junit.jupiter.api.Test;
-
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import java.time.Clock;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class EditorObjectLifecycleCoordinatorContractTest {
 
@@ -45,33 +44,51 @@ class EditorObjectLifecycleCoordinatorContractTest {
         final List<String> events = new ArrayList<>();
         final DrawableLifecycleCoordinator coordinator = new DrawableLifecycleCoordinator();
         coordinator.register(drawablePlugin("plugin-a", List.of(new DrawableHooks() {
-            @Override public boolean beforeSetDrawableVisible(Drawable value, boolean visible) {
-                events.add("before-visible:" + visible); return !visible;
+            @Override
+            public boolean beforeSetDrawableVisible(Drawable value, boolean visible) {
+                events.add("before-visible:" + visible);
+                return !visible;
             }
-            @Override public void onDrawableVisibilityChanged(Drawable value, boolean oldValue, boolean newValue) {
+
+            @Override
+            public void onDrawableVisibilityChanged(Drawable value, boolean oldValue, boolean newValue) {
                 events.add("on-visible:" + oldValue + "->" + newValue);
             }
-            @Override public void afterSetDrawableVisible(Drawable value, boolean visible) {
+
+            @Override
+            public void afterSetDrawableVisible(Drawable value, boolean visible) {
                 events.add("after-visible:" + visible);
             }
-            @Override public boolean beforeSetDrawableLocked(Drawable value, boolean locked) {
-                events.add("before-locked:" + locked); return true;
+
+            @Override
+            public boolean beforeSetDrawableLocked(Drawable value, boolean locked) {
+                events.add("before-locked:" + locked);
+                return true;
             }
-            @Override public void onDrawableLockChanged(Drawable value, boolean oldValue, boolean newValue) {
+
+            @Override
+            public void onDrawableLockChanged(Drawable value, boolean oldValue, boolean newValue) {
                 events.add("on-locked:" + oldValue + "->" + newValue);
             }
-            @Override public void afterSetDrawableLocked(Drawable value, boolean locked) {
+
+            @Override
+            public void afterSetDrawableLocked(Drawable value, boolean locked) {
                 events.add("after-locked:" + locked);
             }
-            @Override public ArtMeshGeometry beforeReplaceDrawableGeometry(
-                Drawable value, ArtMeshGeometry geometry
-            ) {
-                events.add("before-geometry"); return geometry.withVertexPosition(0, 2, 3);
+
+            @Override
+            public ArtMeshGeometry beforeReplaceDrawableGeometry(Drawable value, ArtMeshGeometry geometry) {
+                events.add("before-geometry");
+                return geometry.withVertexPosition(0, 2, 3);
             }
-            @Override public void onDrawableGeometryChanged(
-                Drawable value, ArtMeshGeometry oldValue, ArtMeshGeometry newValue
-            ) { events.add("on-geometry"); }
-            @Override public void afterReplaceDrawableGeometry(Drawable value, ArtMeshGeometry geometry) {
+
+            @Override
+            public void onDrawableGeometryChanged(Drawable value, ArtMeshGeometry oldValue, ArtMeshGeometry newValue) {
+                events.add("on-geometry");
+            }
+
+            @Override
+            public void afterReplaceDrawableGeometry(Drawable value, ArtMeshGeometry geometry) {
                 events.add("after-geometry");
             }
         })));
@@ -88,11 +105,18 @@ class EditorObjectLifecycleCoordinatorContractTest {
         assertFalse(drawable.visible());
         assertTrue(drawable.locked());
         assertEquals(new Point2(2, 3), drawable.geometry().positions().get(0));
-        assertEquals(List.of(
-            "before-visible:true", "on-visible:true->false", "after-visible:false",
-            "before-locked:false", "on-locked:false->true", "after-locked:true",
-            "before-geometry", "on-geometry", "after-geometry"
-        ), events);
+        assertEquals(
+                List.of(
+                        "before-visible:true",
+                        "on-visible:true->false",
+                        "after-visible:false",
+                        "before-locked:false",
+                        "on-locked:false->true",
+                        "after-locked:true",
+                        "before-geometry",
+                        "on-geometry",
+                        "after-geometry"),
+                events);
     }
 
     @Test
@@ -100,54 +124,88 @@ class EditorObjectLifecycleCoordinatorContractTest {
         final List<String> events = new ArrayList<>();
         final DeformerLifecycleCoordinator coordinator = new DeformerLifecycleCoordinator();
         coordinator.register(deformerPlugin("plugin-a", List.of(new DeformerHooks() {
-            @Override public float beforeSetDeformerOpacity(Deformer value, float opacity) {
-                events.add("before-opacity"); return 0.4F;
+            @Override
+            public float beforeSetDeformerOpacity(Deformer value, float opacity) {
+                events.add("before-opacity");
+                return 0.4F;
             }
-            @Override public void onDeformerOpacityChanged(Deformer value, float oldValue, float newValue) {
+
+            @Override
+            public void onDeformerOpacityChanged(Deformer value, float oldValue, float newValue) {
                 events.add("on-opacity");
             }
-            @Override public void afterSetDeformerOpacity(Deformer value, float opacity) {
+
+            @Override
+            public void afterSetDeformerOpacity(Deformer value, float opacity) {
                 events.add("after-opacity");
             }
-            @Override public boolean beforeSetDeformerVisible(Deformer value, boolean visible) {
-                events.add("before-visible"); return false;
+
+            @Override
+            public boolean beforeSetDeformerVisible(Deformer value, boolean visible) {
+                events.add("before-visible");
+                return false;
             }
-            @Override public void afterSetDeformerVisible(Deformer value, boolean visible) {
+
+            @Override
+            public void afterSetDeformerVisible(Deformer value, boolean visible) {
                 events.add("after-visible");
             }
-            @Override public boolean beforeSetDeformerLocked(Deformer value, boolean locked) {
-                events.add("before-locked"); return true;
+
+            @Override
+            public boolean beforeSetDeformerLocked(Deformer value, boolean locked) {
+                events.add("before-locked");
+                return true;
             }
-            @Override public void afterSetDeformerLocked(Deformer value, boolean locked) {
+
+            @Override
+            public void afterSetDeformerLocked(Deformer value, boolean locked) {
                 events.add("after-locked");
             }
-            @Override public WarpGrid beforeReplaceWarpDeformerGrid(WarpDeformer value, WarpGrid grid) {
-                events.add("before-grid"); return grid.withControlPoint(0, 3, 4);
+
+            @Override
+            public WarpGrid beforeReplaceWarpDeformerGrid(WarpDeformer value, WarpGrid grid) {
+                events.add("before-grid");
+                return grid.withControlPoint(0, 3, 4);
             }
-            @Override public void onWarpDeformerGridChanged(WarpDeformer value, WarpGrid oldValue, WarpGrid newValue) {
+
+            @Override
+            public void onWarpDeformerGridChanged(WarpDeformer value, WarpGrid oldValue, WarpGrid newValue) {
                 events.add("on-grid");
             }
-            @Override public void afterReplaceWarpDeformerGrid(WarpDeformer value, WarpGrid grid) {
+
+            @Override
+            public void afterReplaceWarpDeformerGrid(WarpDeformer value, WarpGrid grid) {
                 events.add("after-grid");
             }
-            @Override public float beforeSetRotationDeformerBaseAngle(RotationDeformer value, float angle) {
-                events.add("before-angle"); return 25.0F;
+
+            @Override
+            public float beforeSetRotationDeformerBaseAngle(RotationDeformer value, float angle) {
+                events.add("before-angle");
+                return 25.0F;
             }
-            @Override public void afterSetRotationDeformerBaseAngle(RotationDeformer value, float angle) {
+
+            @Override
+            public void afterSetRotationDeformerBaseAngle(RotationDeformer value, float angle) {
                 events.add("after-angle");
             }
-            @Override public RotationDeformerForm beforeReplaceRotationDeformerForm(
-                RotationDeformer value, RotationDeformerForm form
-            ) {
+
+            @Override
+            public RotationDeformerForm beforeReplaceRotationDeformerForm(
+                    RotationDeformer value, RotationDeformerForm form) {
                 events.add("before-form");
                 return new RotationDeformerForm(9, form.originX(), form.originY(), form.scale(), true, false);
             }
-            @Override public void onRotationDeformerFormChanged(
-                RotationDeformer value, RotationDeformerForm oldValue, RotationDeformerForm newValue
-            ) { events.add("on-form"); }
-            @Override public void afterReplaceRotationDeformerForm(
-                RotationDeformer value, RotationDeformerForm form
-            ) { events.add("after-form"); }
+
+            @Override
+            public void onRotationDeformerFormChanged(
+                    RotationDeformer value, RotationDeformerForm oldValue, RotationDeformerForm newValue) {
+                events.add("on-form");
+            }
+
+            @Override
+            public void afterReplaceRotationDeformerForm(RotationDeformer value, RotationDeformerForm form) {
+                events.add("after-form");
+            }
         })));
         final MutableWarp warp = new MutableWarp();
         final MutableRotation rotation = new MutableRotation();
@@ -172,14 +230,24 @@ class EditorObjectLifecycleCoordinatorContractTest {
         assertEquals(25.0F, rotation.baseAngle());
         assertEquals(9.0F, rotation.form().angle());
         assertTrue(rotation.form().reflectedX());
-        assertEquals(List.of(
-            "before-opacity", "on-opacity", "after-opacity",
-            "before-visible", "after-visible",
-            "before-locked", "after-locked",
-            "before-grid", "on-grid", "after-grid",
-            "before-angle", "after-angle",
-            "before-form", "on-form", "after-form"
-        ), events);
+        assertEquals(
+                List.of(
+                        "before-opacity",
+                        "on-opacity",
+                        "after-opacity",
+                        "before-visible",
+                        "after-visible",
+                        "before-locked",
+                        "after-locked",
+                        "before-grid",
+                        "on-grid",
+                        "after-grid",
+                        "before-angle",
+                        "after-angle",
+                        "before-form",
+                        "on-form",
+                        "after-form"),
+                events);
     }
 
     @Test
@@ -188,39 +256,56 @@ class EditorObjectLifecycleCoordinatorContractTest {
         final List<String> errors = new ArrayList<>();
         final DrawableLifecycleCoordinator coordinator = new DrawableLifecycleCoordinator();
         coordinator.register(new DrawableLifecycleCoordinator.PluginHooks(
-            descriptor("observer-only"), List.of(new DrawableHooks() {
-                @Override public float beforeSetDrawableOpacity(Drawable value, float opacity) {
-                    events.add("forbidden-before"); return 0.1F;
-                }
-                @Override public void afterSetDrawableOpacity(Drawable value, float opacity) {
-                    events.add("observer-after:" + opacity);
-                }
-            }), logger(errors), false, true
-        ));
+                descriptor("observer-only"),
+                List.of(new DrawableHooks() {
+                    @Override
+                    public float beforeSetDrawableOpacity(Drawable value, float opacity) {
+                        events.add("forbidden-before");
+                        return 0.1F;
+                    }
+
+                    @Override
+                    public void afterSetDrawableOpacity(Drawable value, float opacity) {
+                        events.add("observer-after:" + opacity);
+                    }
+                }),
+                logger(errors),
+                false,
+                true));
         coordinator.register(new DrawableLifecycleCoordinator.PluginHooks(
-            descriptor("interceptor"), List.of(new DrawableHooks() {
-                @Override public float beforeSetDrawableOpacity(Drawable value, float opacity) {
-                    events.add("before-throws"); throw new IllegalStateException("bad hook");
-                }
-            }, new DrawableHooks() {
-                @Override public float beforeSetDrawableOpacity(Drawable value, float opacity) {
-                    events.add("before-invalid"); return Float.NaN;
-                }
-            }, new DrawableHooks() {
-                @Override public float beforeSetDrawableOpacity(Drawable value, float opacity) {
-                    events.add("before-good:" + opacity); return opacity * 0.5F;
-                }
-            }), logger(errors), true, false
-        ));
+                descriptor("interceptor"),
+                List.of(
+                        new DrawableHooks() {
+                            @Override
+                            public float beforeSetDrawableOpacity(Drawable value, float opacity) {
+                                events.add("before-throws");
+                                throw new IllegalStateException("bad hook");
+                            }
+                        },
+                        new DrawableHooks() {
+                            @Override
+                            public float beforeSetDrawableOpacity(Drawable value, float opacity) {
+                                events.add("before-invalid");
+                                return Float.NaN;
+                            }
+                        },
+                        new DrawableHooks() {
+                            @Override
+                            public float beforeSetDrawableOpacity(Drawable value, float opacity) {
+                                events.add("before-good:" + opacity);
+                                return opacity * 0.5F;
+                            }
+                        }),
+                logger(errors),
+                true,
+                false));
         final MutableDrawable drawable = new MutableDrawable();
 
         coordinator.setOpacity(drawable, 0.8F, drawable::writeOpacity);
         coordinator.awaitIdle();
 
         assertEquals(0.4F, drawable.getOpacity());
-        assertEquals(List.of(
-            "before-throws", "before-invalid", "before-good:0.8", "observer-after:0.4"
-        ), events);
+        assertEquals(List.of("before-throws", "before-invalid", "before-good:0.8", "observer-after:0.4"), events);
         assertEquals(1, errors.size());
 
         events.clear();
@@ -237,25 +322,31 @@ class EditorObjectLifecycleCoordinatorContractTest {
         final List<String> events = new ArrayList<>();
         final DeformerLifecycleCoordinator deformer = new DeformerLifecycleCoordinator();
         deformer.register(deformerPlugin("plugin", List.of(new DeformerHooks() {
-            @Override public void onDeformerOpacityChanged(Deformer value, float oldValue, float newValue) {
+            @Override
+            public void onDeformerOpacityChanged(Deformer value, float oldValue, float newValue) {
                 events.add("on");
             }
-            @Override public void afterSetDeformerOpacity(Deformer value, float opacity) {
+
+            @Override
+            public void afterSetDeformerOpacity(Deformer value, float opacity) {
                 events.add("after");
             }
         })));
         final MutableWarp warp = new MutableWarp();
-        assertThrows(IllegalStateException.class, () -> deformer.setOpacity(
-            warp, 0.5F, ignored -> { throw new IllegalStateException("native"); }
-        ));
+        assertThrows(
+                IllegalStateException.class,
+                () -> deformer.setOpacity(warp, 0.5F, ignored -> {
+                    throw new IllegalStateException("native");
+                }));
         deformer.awaitIdle();
         assertEquals(List.of(), events);
 
         final DrawableLifecycleCoordinator drawable = new DrawableLifecycleCoordinator();
         drawable.register(drawablePlugin("plugin", List.of(new DrawableHooks() {
-            @Override public ArtMeshGeometry beforeReplaceDrawableGeometry(
-                Drawable value, ArtMeshGeometry geometry
-            ) { return null; }
+            @Override
+            public ArtMeshGeometry beforeReplaceDrawableGeometry(Drawable value, ArtMeshGeometry geometry) {
+                return null;
+            }
         })));
         final MutableDrawable mesh = new MutableDrawable();
         final ArtMeshGeometry requested = geometry(8);
@@ -263,30 +354,30 @@ class EditorObjectLifecycleCoordinatorContractTest {
         assertEquals(requested, mesh.geometry());
     }
 
-
     @Test
     void nullWarpAndRotationTransformsAreIgnoredAndLogged() {
         final List<String> errors = new ArrayList<>();
         final DeformerLifecycleCoordinator coordinator = new DeformerLifecycleCoordinator();
         coordinator.register(new DeformerLifecycleCoordinator.PluginHooks(
-            descriptor("invalid-plugin"),
-            List.of(new DeformerHooks() {
-                @Override public WarpGrid beforeReplaceWarpDeformerGrid(
-                    WarpDeformer value, WarpGrid grid
-                ) { return null; }
-                @Override public RotationDeformerForm beforeReplaceRotationDeformerForm(
-                    RotationDeformer value, RotationDeformerForm form
-                ) { return null; }
-            }),
-            logger(errors)
-        ));
+                descriptor("invalid-plugin"),
+                List.of(new DeformerHooks() {
+                    @Override
+                    public WarpGrid beforeReplaceWarpDeformerGrid(WarpDeformer value, WarpGrid grid) {
+                        return null;
+                    }
+
+                    @Override
+                    public RotationDeformerForm beforeReplaceRotationDeformerForm(
+                            RotationDeformer value, RotationDeformerForm form) {
+                        return null;
+                    }
+                }),
+                logger(errors)));
         final MutableWarp warp = new MutableWarp();
         final MutableRotation rotation = new MutableRotation();
-        final WarpGrid requestedGrid = new WarpGrid(1, 1, true, List.of(
-            new Point2(0, 0), new Point2(2, 0), new Point2(0, 2), new Point2(2, 2)
-        ));
-        final RotationDeformerForm requestedForm =
-            new RotationDeformerForm(2, 3, 4, 1.25F, true, false);
+        final WarpGrid requestedGrid = new WarpGrid(
+                1, 1, true, List.of(new Point2(0, 0), new Point2(2, 0), new Point2(0, 2), new Point2(2, 2)));
+        final RotationDeformerForm requestedForm = new RotationDeformerForm(2, 3, 4, 1.25F, true, false);
 
         coordinator.replaceGrid(warp, requestedGrid, warp::writeGrid);
         coordinator.replaceForm(rotation, requestedForm, rotation::writeForm);
@@ -296,13 +387,13 @@ class EditorObjectLifecycleCoordinatorContractTest {
         assertEquals(2, errors.size());
     }
 
-
     @Test
     void rejectsCrossOperationRecursionWithinEachObjectFamily() {
         final DrawableLifecycleCoordinator drawable = new DrawableLifecycleCoordinator();
         final MutableDrawable mesh = new MutableDrawable();
         drawable.register(drawablePlugin("plugin", List.of(new DrawableHooks() {
-            @Override public float beforeSetDrawableOpacity(Drawable value, float opacity) {
+            @Override
+            public float beforeSetDrawableOpacity(Drawable value, float opacity) {
                 drawable.setVisible(value, false, mesh::writeVisible);
                 return opacity;
             }
@@ -314,7 +405,8 @@ class EditorObjectLifecycleCoordinatorContractTest {
         final DeformerLifecycleCoordinator deformer = new DeformerLifecycleCoordinator();
         final MutableWarp warp = new MutableWarp();
         deformer.register(deformerPlugin("plugin", List.of(new DeformerHooks() {
-            @Override public float beforeSetDeformerOpacity(Deformer value, float opacity) {
+            @Override
+            public float beforeSetDeformerOpacity(Deformer value, float opacity) {
                 deformer.setLocked(value, true, warp::writeLocked);
                 return opacity;
             }
@@ -324,14 +416,14 @@ class EditorObjectLifecycleCoordinatorContractTest {
         assertFalse(warp.locked());
     }
 
-
     @Test
     void unregisterWaitsForAcceptedDrawableAndDeformerCallbacks() throws Exception {
         final DrawableLifecycleCoordinator drawable = new DrawableLifecycleCoordinator();
         final CountDownLatch drawableStarted = new CountDownLatch(1);
         final CountDownLatch releaseDrawable = new CountDownLatch(1);
         drawable.register(drawablePlugin("drawable-plugin", List.of(new DrawableHooks() {
-            @Override public void afterSetDrawableOpacity(Drawable value, float opacity) {
+            @Override
+            public void afterSetDrawableOpacity(Drawable value, float opacity) {
                 drawableStarted.countDown();
                 await(releaseDrawable);
             }
@@ -345,7 +437,8 @@ class EditorObjectLifecycleCoordinatorContractTest {
         final CountDownLatch deformerStarted = new CountDownLatch(1);
         final CountDownLatch releaseDeformer = new CountDownLatch(1);
         deformer.register(deformerPlugin("deformer-plugin", List.of(new DeformerHooks() {
-            @Override public void afterSetDeformerOpacity(Deformer value, float opacity) {
+            @Override
+            public void afterSetDeformerOpacity(Deformer value, float opacity) {
                 deformerStarted.countDown();
                 await(releaseDeformer);
             }
@@ -356,10 +449,8 @@ class EditorObjectLifecycleCoordinatorContractTest {
         assertUnregisterWaits(() -> deformer.unregister("deformer-plugin"), releaseDeformer);
     }
 
-    private static void assertUnregisterWaits(
-        final Runnable unregister,
-        final CountDownLatch releaseCallback
-    ) throws Exception {
+    private static void assertUnregisterWaits(final Runnable unregister, final CountDownLatch releaseCallback)
+            throws Exception {
         final CountDownLatch unregisterFinished = new CountDownLatch(1);
         final Thread thread = new Thread(() -> {
             unregister.run();
@@ -367,9 +458,8 @@ class EditorObjectLifecycleCoordinatorContractTest {
         });
         thread.start();
         assertFalse(
-            unregisterFinished.await(100, TimeUnit.MILLISECONDS),
-            "unregister must wait for accepted callbacks to quiesce"
-        );
+                unregisterFinished.await(100, TimeUnit.MILLISECONDS),
+                "unregister must wait for accepted callbacks to quiesce");
         releaseCallback.countDown();
         assertTrue(unregisterFinished.await(5, TimeUnit.SECONDS));
         thread.join(5_000L);
@@ -383,18 +473,17 @@ class EditorObjectLifecycleCoordinatorContractTest {
         }
     }
 
-
     @Test
     void editorObjectCallbackQueueSaturationDoesNotFailOrInlineNativeWrites() throws Exception {
         final List<PluginWorkBudgetEvent> diagnostics = new CopyOnWriteArrayList<>();
-        final PluginWorkExecutorRegistry executors = new PluginWorkExecutorRegistry(
-            1, 1, diagnostics::add, Clock.systemUTC()
-        );
+        final PluginWorkExecutorRegistry executors =
+                new PluginWorkExecutorRegistry(1, 1, diagnostics::add, Clock.systemUTC());
         final DrawableLifecycleCoordinator drawable = new DrawableLifecycleCoordinator(executors);
         final CountDownLatch started = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         drawable.register(drawablePlugin("plugin-a", List.of(new DrawableHooks() {
-            @Override public void afterSetDrawableOpacity(Drawable value, float opacity) {
+            @Override
+            public void afterSetDrawableOpacity(Drawable value, float opacity) {
                 started.countDown();
                 await(release);
             }
@@ -407,112 +496,101 @@ class EditorObjectLifecycleCoordinatorContractTest {
         drawable.setOpacity(mesh, 0.7F, mesh::writeOpacity);
 
         assertEquals(0.7F, mesh.getOpacity());
-        assertTrue(diagnostics.stream().anyMatch(event ->
-            event.phase() == PluginWorkBudgetEvent.Phase.REJECTED
-        ));
+        assertTrue(diagnostics.stream().anyMatch(event -> event.phase() == PluginWorkBudgetEvent.Phase.REJECTED));
         release.countDown();
         drawable.close();
     }
 
-
     @Test
     void semanticLifecycleCoversChangedUnchangedAndConfirmedOperations() {
         final List<String> events = new CopyOnWriteArrayList<>();
-        final SemanticOperationLifecycleCoordinator semantic =
-            new SemanticOperationLifecycleCoordinator();
+        final SemanticOperationLifecycleCoordinator semantic = new SemanticOperationLifecycleCoordinator();
         semantic.register(new SemanticOperationLifecycleCoordinator.PluginHooks(
-            descriptor("plugin-a"),
-            List.of(new SemanticOperationHooks() {
-                @Override public void beforeCubismOperation(
-                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                ) {
-                    events.add("before:" + event.sequence() + ":" + event.operation());
-                }
+                descriptor("plugin-a"),
+                List.of(new SemanticOperationHooks() {
+                    @Override
+                    public void beforeCubismOperation(final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                        events.add("before:" + event.sequence() + ":" + event.operation());
+                    }
 
-                @Override public void onCubismOperationConfirmed(
-                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                ) {
-                    events.add("on:" + event.sequence() + ":" + event.operation());
-                }
+                    @Override
+                    public void onCubismOperationConfirmed(
+                            final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                        events.add("on:" + event.sequence() + ":" + event.operation());
+                    }
 
-                @Override public void afterCubismOperation(
-                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                ) {
-                    events.add("after:" + event.sequence() + ":" + event.operation());
-                }
-            }),
-            logger(new ArrayList<>()),
-            true,
-            true
-        ));
+                    @Override
+                    public void afterCubismOperation(final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                        events.add("after:" + event.sequence() + ":" + event.operation());
+                    }
+                }),
+                logger(new ArrayList<>()),
+                true,
+                true));
         final int[] documentGeneration = {0};
 
         semantic.runComparing(
-            CubismOperation.OPEN_DOCUMENT,
-            CubismOperationOrigin.HOST_UI,
-            Optional.of("DocumentA"),
-            () -> documentGeneration[0],
-            () -> documentGeneration[0]++
-        );
+                CubismOperation.OPEN_DOCUMENT,
+                CubismOperationOrigin.HOST_UI,
+                Optional.of("DocumentA"),
+                () -> documentGeneration[0],
+                () -> documentGeneration[0]++);
         semantic.awaitIdle();
         semantic.runComparing(
-            CubismOperation.SAVE_DOCUMENT,
-            CubismOperationOrigin.TURBOISM_API,
-            Optional.of("DocumentA"),
-            () -> documentGeneration[0],
-            () -> { }
-        );
+                CubismOperation.SAVE_DOCUMENT,
+                CubismOperationOrigin.TURBOISM_API,
+                Optional.of("DocumentA"),
+                () -> documentGeneration[0],
+                () -> {});
         semantic.awaitIdle();
         semantic.runConfirmed(
-            CubismOperation.EXPORT_PROJECT,
-            CubismOperationOrigin.TURBOISM_API,
-            Optional.of("ProjectA"),
-            () -> { }
-        );
+                CubismOperation.EXPORT_PROJECT, CubismOperationOrigin.TURBOISM_API, Optional.of("ProjectA"), () -> {});
         semantic.awaitIdle();
 
-        assertEquals(List.of(
-            "before:1:OPEN_DOCUMENT",
-            "on:1:OPEN_DOCUMENT",
-            "after:1:OPEN_DOCUMENT",
-            "before:2:SAVE_DOCUMENT",
-            "after:2:SAVE_DOCUMENT",
-            "before:3:EXPORT_PROJECT",
-            "on:3:EXPORT_PROJECT",
-            "after:3:EXPORT_PROJECT"
-        ), events);
+        assertEquals(
+                List.of(
+                        "before:1:OPEN_DOCUMENT",
+                        "on:1:OPEN_DOCUMENT",
+                        "after:1:OPEN_DOCUMENT",
+                        "before:2:SAVE_DOCUMENT",
+                        "after:2:SAVE_DOCUMENT",
+                        "before:3:EXPORT_PROJECT",
+                        "on:3:EXPORT_PROJECT",
+                        "after:3:EXPORT_PROJECT"),
+                events);
     }
 
     @Test
     void semanticLifecycleCanConfirmRequestedStateWithoutReadingAStaleResult() {
         final List<String> events = new CopyOnWriteArrayList<>();
-        final SemanticOperationLifecycleCoordinator semantic =
-            new SemanticOperationLifecycleCoordinator();
+        final SemanticOperationLifecycleCoordinator semantic = new SemanticOperationLifecycleCoordinator();
         semantic.register(new SemanticOperationLifecycleCoordinator.PluginHooks(
-            descriptor("plugin-a"),
-            List.of(new SemanticOperationHooks() {
-                @Override public void onCubismOperationConfirmed(
-                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                ) { events.add("on"); }
-                @Override public void afterCubismOperation(
-                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                ) { events.add("after"); }
-            }),
-            logger(new ArrayList<>())
-        ));
+                descriptor("plugin-a"),
+                List.of(new SemanticOperationHooks() {
+                    @Override
+                    public void onCubismOperationConfirmed(
+                            final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                        events.add("on");
+                    }
+
+                    @Override
+                    public void afterCubismOperation(final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                        events.add("after");
+                    }
+                }),
+                logger(new ArrayList<>())));
         final int[] reads = {0};
 
         semantic.runComparingTo(
-            CubismOperation.UPDATE_PARAMETER_DEFINITION,
-            CubismOperationOrigin.TURBOISM_API,
-            Optional.of("ParamA"),
-            () -> {
-                if (++reads[0] > 1) throw new IllegalStateException("stale reference");
-                return "before";
-            },
-            "after",
-            () -> { }
-        );
+                CubismOperation.UPDATE_PARAMETER_DEFINITION,
+                CubismOperationOrigin.TURBOISM_API,
+                Optional.of("ParamA"),
+                () -> {
+                    if (++reads[0] > 1) throw new IllegalStateException("stale reference");
+                    return "before";
+                },
+                "after",
+                () -> {});
         semantic.awaitIdle();
 
         assertEquals(1, reads[0]);
@@ -523,43 +601,52 @@ class EditorObjectLifecycleCoordinatorContractTest {
     void semanticLifecycleIsolatesHookFailuresAndContinuesInOrder() {
         final List<String> events = new CopyOnWriteArrayList<>();
         final List<String> errors = new CopyOnWriteArrayList<>();
-        final SemanticOperationLifecycleCoordinator semantic =
-            new SemanticOperationLifecycleCoordinator();
+        final SemanticOperationLifecycleCoordinator semantic = new SemanticOperationLifecycleCoordinator();
         semantic.register(new SemanticOperationLifecycleCoordinator.PluginHooks(
-            descriptor("plugin-a"),
-            List.of(
-                new SemanticOperationHooks() {
-                    @Override public void beforeCubismOperation(
-                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                    ) { throw new IllegalStateException("before"); }
-                    @Override public void onCubismOperationConfirmed(
-                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                    ) { throw new IllegalStateException("on"); }
-                    @Override public void afterCubismOperation(
-                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                    ) { throw new IllegalStateException("after"); }
-                },
-                new SemanticOperationHooks() {
-                    @Override public void beforeCubismOperation(
-                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                    ) { events.add("before"); }
-                    @Override public void onCubismOperationConfirmed(
-                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                    ) { events.add("on"); }
-                    @Override public void afterCubismOperation(
-                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                    ) { events.add("after"); }
-                }
-            ),
-            logger(errors)
-        ));
+                descriptor("plugin-a"),
+                List.of(
+                        new SemanticOperationHooks() {
+                            @Override
+                            public void beforeCubismOperation(
+                                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                                throw new IllegalStateException("before");
+                            }
+
+                            @Override
+                            public void onCubismOperationConfirmed(
+                                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                                throw new IllegalStateException("on");
+                            }
+
+                            @Override
+                            public void afterCubismOperation(
+                                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                                throw new IllegalStateException("after");
+                            }
+                        },
+                        new SemanticOperationHooks() {
+                            @Override
+                            public void beforeCubismOperation(
+                                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                                events.add("before");
+                            }
+
+                            @Override
+                            public void onCubismOperationConfirmed(
+                                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                                events.add("on");
+                            }
+
+                            @Override
+                            public void afterCubismOperation(
+                                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                                events.add("after");
+                            }
+                        }),
+                logger(errors)));
 
         semantic.runConfirmed(
-            CubismOperation.SAVE_DOCUMENT,
-            CubismOperationOrigin.HOST_UI,
-            Optional.of("DocumentA"),
-            () -> { }
-        );
+                CubismOperation.SAVE_DOCUMENT, CubismOperationOrigin.HOST_UI, Optional.of("DocumentA"), () -> {});
         semantic.awaitIdle();
 
         assertEquals(List.of("before", "on", "after"), events);
@@ -569,102 +656,188 @@ class EditorObjectLifecycleCoordinatorContractTest {
     @Test
     void semanticLifecycleSuppressesCompletionOnFailureAndCleansUpOnUnregister() {
         final List<String> events = new CopyOnWriteArrayList<>();
-        final SemanticOperationLifecycleCoordinator semantic =
-            new SemanticOperationLifecycleCoordinator();
+        final SemanticOperationLifecycleCoordinator semantic = new SemanticOperationLifecycleCoordinator();
         semantic.register(new SemanticOperationLifecycleCoordinator.PluginHooks(
-            descriptor("plugin-a"),
-            List.of(new SemanticOperationHooks() {
-                @Override public void beforeCubismOperation(
-                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                ) { events.add("before"); }
-                @Override public void onCubismOperationConfirmed(
-                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                ) { events.add("on"); }
-                @Override public void afterCubismOperation(
-                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
-                ) { events.add("after"); }
-            }),
-            logger(new ArrayList<>()),
-            true,
-            true
-        ));
+                descriptor("plugin-a"),
+                List.of(new SemanticOperationHooks() {
+                    @Override
+                    public void beforeCubismOperation(final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                        events.add("before");
+                    }
 
-        assertThrows(IllegalStateException.class, () -> semantic.runConfirmed(
-            CubismOperation.SAVE_DOCUMENT,
-            CubismOperationOrigin.UNKNOWN,
-            Optional.of("DocumentA"),
-            () -> { throw new IllegalStateException("save failed"); }
-        ));
+                    @Override
+                    public void onCubismOperationConfirmed(
+                            final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                        events.add("on");
+                    }
+
+                    @Override
+                    public void afterCubismOperation(final dev.turboism.sdk.cubism.event.CubismOperationEvent event) {
+                        events.add("after");
+                    }
+                }),
+                logger(new ArrayList<>()),
+                true,
+                true));
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> semantic.runConfirmed(
+                        CubismOperation.SAVE_DOCUMENT, CubismOperationOrigin.UNKNOWN, Optional.of("DocumentA"), () -> {
+                            throw new IllegalStateException("save failed");
+                        }));
         semantic.awaitIdle();
         assertEquals(List.of("before"), events);
 
         semantic.unregister("plugin-a");
         semantic.runConfirmed(
-            CubismOperation.CLOSE_DOCUMENT,
-            CubismOperationOrigin.HOST_UI,
-            Optional.of("DocumentA"),
-            () -> { }
-        );
+                CubismOperation.CLOSE_DOCUMENT, CubismOperationOrigin.HOST_UI, Optional.of("DocumentA"), () -> {});
         semantic.awaitIdle();
         assertEquals(List.of("before"), events);
     }
 
     private static DrawableLifecycleCoordinator.PluginHooks drawablePlugin(
-        String id, List<? extends DrawableHooks> hooks
-    ) { return new DrawableLifecycleCoordinator.PluginHooks(descriptor(id), hooks, logger(new ArrayList<>())); }
+            String id, List<? extends DrawableHooks> hooks) {
+        return new DrawableLifecycleCoordinator.PluginHooks(descriptor(id), hooks, logger(new ArrayList<>()));
+    }
 
     private static DeformerLifecycleCoordinator.PluginHooks deformerPlugin(
-        String id, List<? extends DeformerHooks> hooks
-    ) { return new DeformerLifecycleCoordinator.PluginHooks(descriptor(id), hooks, logger(new ArrayList<>())); }
+            String id, List<? extends DeformerHooks> hooks) {
+        return new DeformerLifecycleCoordinator.PluginHooks(descriptor(id), hooks, logger(new ArrayList<>()));
+    }
 
     private static PluginDescriptor descriptor(final String id) {
         return new PluginDescriptor() {
-            @Override public String id() { return id; }
-            @Override public String name() { return id; }
-            @Override public String version() { return "1.0.0"; }
-            @Override public String description() { return "test"; }
-            @Override public List<String> entrypoints() { return List.of(); }
-            @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
-            @Override public List<Author> authors() { return List.of(); }
-            @Override public String license() { return "UNLICENSED"; }
-            @Override public Optional<String> website() { return Optional.empty(); }
-            @Override public List<String> resources() { return List.of(); }
-            @Override public I18n i18n() { return new I18n() {
-                @Override public String baseName() { return "messages"; }
-                @Override public List<String> locales() { return List.of(); }
-            }; }
-            @Override public List<DependencyRef> dependencies() { return List.of(); }
-            @Override public List<PermissionRef> permissions() { return List.of(); }
-            @Override public List<String> capabilities() { return List.of(); }
-            @Override public Environment environment() { return new Environment() {
-                @Override public boolean requiresCubism() { return false; }
-                @Override public String ui() { return "none"; }
-            }; }
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String name() {
+                return id;
+            }
+
+            @Override
+            public String version() {
+                return "1.0.0";
+            }
+
+            @Override
+            public String description() {
+                return "test";
+            }
+
+            @Override
+            public List<String> entrypoints() {
+                return List.of();
+            }
+
+            @Override
+            public String turboismApi() {
+                return "[0.1.0,0.2.0)";
+            }
+
+            @Override
+            public List<Author> authors() {
+                return List.of();
+            }
+
+            @Override
+            public String license() {
+                return "UNLICENSED";
+            }
+
+            @Override
+            public Optional<String> website() {
+                return Optional.empty();
+            }
+
+            @Override
+            public List<String> resources() {
+                return List.of();
+            }
+
+            @Override
+            public I18n i18n() {
+                return new I18n() {
+                    @Override
+                    public String baseName() {
+                        return "messages";
+                    }
+
+                    @Override
+                    public List<String> locales() {
+                        return List.of();
+                    }
+                };
+            }
+
+            @Override
+            public List<DependencyRef> dependencies() {
+                return List.of();
+            }
+
+            @Override
+            public List<PermissionRef> permissions() {
+                return List.of();
+            }
+
+            @Override
+            public List<String> capabilities() {
+                return List.of();
+            }
+
+            @Override
+            public Environment environment() {
+                return new Environment() {
+                    @Override
+                    public boolean requiresCubism() {
+                        return false;
+                    }
+
+                    @Override
+                    public String ui() {
+                        return "none";
+                    }
+                };
+            }
         };
     }
 
     private static PluginLogger logger(final List<String> errors) {
         return new PluginLogger() {
-            @Override public void debug(String message) { }
-            @Override public void info(String message) { }
-            @Override public void warn(String message) { }
-            @Override public void error(String message) { errors.add(message); }
-            @Override public void error(String message, Throwable throwable) { errors.add(message); }
+            @Override
+            public void debug(String message) {}
+
+            @Override
+            public void info(String message) {}
+
+            @Override
+            public void warn(String message) {}
+
+            @Override
+            public void error(String message) {
+                errors.add(message);
+            }
+
+            @Override
+            public void error(String message, Throwable throwable) {
+                errors.add(message);
+            }
         };
     }
 
     private static ArtMeshGeometry geometry(final float firstX) {
         return new ArtMeshGeometry(
-            List.of(new Point2(firstX, 0), new Point2(1, 0), new Point2(0, 1)),
-            List.of(new Point2(0, 0), new Point2(1, 0), new Point2(0, 1)),
-            List.of(0, 1, 2)
-        );
+                List.of(new Point2(firstX, 0), new Point2(1, 0), new Point2(0, 1)),
+                List.of(new Point2(0, 0), new Point2(1, 0), new Point2(0, 1)),
+                List.of(0, 1, 2));
     }
 
     private static WarpGrid grid() {
-        return new WarpGrid(1, 1, false, List.of(
-            new Point2(0, 0), new Point2(1, 0), new Point2(0, 1), new Point2(1, 1)
-        ));
+        return new WarpGrid(
+                1, 1, false, List.of(new Point2(0, 0), new Point2(1, 0), new Point2(0, 1), new Point2(1, 1)));
     }
 
     private static final class MutableDrawable implements Drawable {
@@ -672,78 +845,261 @@ class EditorObjectLifecycleCoordinatorContractTest {
         private boolean locked;
         private float opacity = 1.0F;
         private ArtMeshGeometry geometry = EditorObjectLifecycleCoordinatorContractTest.geometry(0);
-        private void writeVisible(boolean value) { visible = value; }
-        private void writeLocked(boolean value) { locked = value; }
-        private void writeOpacity(float value) { opacity = value; }
-        private void writeGeometry(ArtMeshGeometry value) { geometry = value; }
-        @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
-        @Override public boolean visible() { return visible; }
-        @Override public boolean locked() { return locked; }
-        @Override public float getOpacity() { return opacity; }
-        @Override public ArtMeshGeometry geometry() { return geometry; }
-        @Override public byte constantFlag() { return 0; }
-        @Override public byte dynamicFlag() { return 0; }
-        @Override public BlendMode blendMode() { return BlendMode.NORMAL; }
-        @Override public int textureIndex() { return 0; }
-        @Override public int drawOrder() { return 0; }
-        @Override public int renderOrder() { return 0; }
-        @Override public IntSequence masks() { return ints(); }
-        @Override public FloatSequence vertexPositions() { return floats(); }
-        @Override public FloatSequence vertexUvs() { return floats(); }
-        @Override public IntSequence indices() { return ints(); }
-        @Override public Color multiplyColor() { return new Color(1, 1, 1, 1); }
-        @Override public Color screenColor() { return new Color(0, 0, 0, 1); }
-        @Override public int parentPartIndex() { return -1; }
-        @Override public int parentDeformerIndex() { return -1; }
-        @Override public IntSequence parameters() { return ints(); }
+
+        private void writeVisible(boolean value) {
+            visible = value;
+        }
+
+        private void writeLocked(boolean value) {
+            locked = value;
+        }
+
+        private void writeOpacity(float value) {
+            opacity = value;
+        }
+
+        private void writeGeometry(ArtMeshGeometry value) {
+            geometry = value;
+        }
+
+        @Override
+        public ArtMeshId id() {
+            return new ArtMeshId("ArtMeshA");
+        }
+
+        @Override
+        public boolean visible() {
+            return visible;
+        }
+
+        @Override
+        public boolean locked() {
+            return locked;
+        }
+
+        @Override
+        public float getOpacity() {
+            return opacity;
+        }
+
+        @Override
+        public ArtMeshGeometry geometry() {
+            return geometry;
+        }
+
+        @Override
+        public byte constantFlag() {
+            return 0;
+        }
+
+        @Override
+        public byte dynamicFlag() {
+            return 0;
+        }
+
+        @Override
+        public BlendMode blendMode() {
+            return BlendMode.NORMAL;
+        }
+
+        @Override
+        public int textureIndex() {
+            return 0;
+        }
+
+        @Override
+        public int drawOrder() {
+            return 0;
+        }
+
+        @Override
+        public int renderOrder() {
+            return 0;
+        }
+
+        @Override
+        public IntSequence masks() {
+            return ints();
+        }
+
+        @Override
+        public FloatSequence vertexPositions() {
+            return floats();
+        }
+
+        @Override
+        public FloatSequence vertexUvs() {
+            return floats();
+        }
+
+        @Override
+        public IntSequence indices() {
+            return ints();
+        }
+
+        @Override
+        public Color multiplyColor() {
+            return new Color(1, 1, 1, 1);
+        }
+
+        @Override
+        public Color screenColor() {
+            return new Color(0, 0, 0, 1);
+        }
+
+        @Override
+        public int parentPartIndex() {
+            return -1;
+        }
+
+        @Override
+        public int parentDeformerIndex() {
+            return -1;
+        }
+
+        @Override
+        public IntSequence parameters() {
+            return ints();
+        }
     }
 
     private static class MutableWarp implements WarpDeformer {
         private boolean visible = true;
         private boolean locked;
         private float opacity = 1.0F;
-        private WarpGrid grid = new WarpGrid(1, 1, false, List.of(
-            new Point2(-1, 0), new Point2(1, 0), new Point2(0, 1), new Point2(1, 1)
-        ));
-        private void writeOpacity(float value) { opacity = value; }
-        private void writeVisible(boolean value) { visible = value; }
-        private void writeLocked(boolean value) { locked = value; }
-        private void writeGrid(WarpGrid value) { grid = value; }
-        @Override public DeformerId id() { return new DeformerId("WarpA"); }
-        @Override public boolean visible() { return visible; }
-        @Override public boolean locked() { return locked; }
-        @Override public float getOpacity() { return opacity; }
-        @Override public int parentDeformerIndex() { return -1; }
-        @Override public IntSequence parameters() { return ints(); }
-        @Override public WarpGrid grid() { return grid; }
-        @Override public void replaceGrid(WarpGrid value) { writeGrid(value); }
+        private WarpGrid grid = new WarpGrid(
+                1, 1, false, List.of(new Point2(-1, 0), new Point2(1, 0), new Point2(0, 1), new Point2(1, 1)));
+
+        private void writeOpacity(float value) {
+            opacity = value;
+        }
+
+        private void writeVisible(boolean value) {
+            visible = value;
+        }
+
+        private void writeLocked(boolean value) {
+            locked = value;
+        }
+
+        private void writeGrid(WarpGrid value) {
+            grid = value;
+        }
+
+        @Override
+        public DeformerId id() {
+            return new DeformerId("WarpA");
+        }
+
+        @Override
+        public boolean visible() {
+            return visible;
+        }
+
+        @Override
+        public boolean locked() {
+            return locked;
+        }
+
+        @Override
+        public float getOpacity() {
+            return opacity;
+        }
+
+        @Override
+        public int parentDeformerIndex() {
+            return -1;
+        }
+
+        @Override
+        public IntSequence parameters() {
+            return ints();
+        }
+
+        @Override
+        public WarpGrid grid() {
+            return grid;
+        }
+
+        @Override
+        public void replaceGrid(WarpGrid value) {
+            writeGrid(value);
+        }
     }
 
     private static final class MutableRotation implements RotationDeformer {
         private float angle;
         private RotationDeformerForm form = new RotationDeformerForm(0, 0, 0, 1, false, false);
-        private void writeBaseAngle(float value) { angle = value; }
-        private void writeForm(RotationDeformerForm value) { form = value; }
-        @Override public DeformerId id() { return new DeformerId("RotationA"); }
-        @Override public int parentDeformerIndex() { return -1; }
-        @Override public IntSequence parameters() { return ints(); }
-        @Override public float baseAngle() { return angle; }
-        @Override public void setBaseAngle(float value) { angle = value; }
-        @Override public RotationDeformerForm form() { return form; }
-        @Override public void replaceForm(RotationDeformerForm value) { form = value; }
+
+        private void writeBaseAngle(float value) {
+            angle = value;
+        }
+
+        private void writeForm(RotationDeformerForm value) {
+            form = value;
+        }
+
+        @Override
+        public DeformerId id() {
+            return new DeformerId("RotationA");
+        }
+
+        @Override
+        public int parentDeformerIndex() {
+            return -1;
+        }
+
+        @Override
+        public IntSequence parameters() {
+            return ints();
+        }
+
+        @Override
+        public float baseAngle() {
+            return angle;
+        }
+
+        @Override
+        public void setBaseAngle(float value) {
+            angle = value;
+        }
+
+        @Override
+        public RotationDeformerForm form() {
+            return form;
+        }
+
+        @Override
+        public void replaceForm(RotationDeformerForm value) {
+            form = value;
+        }
     }
 
     private static IntSequence ints() {
         return new IntSequence() {
-            @Override public int size() { return 0; }
-            @Override public int get(int index) { throw new IndexOutOfBoundsException(index); }
+            @Override
+            public int size() {
+                return 0;
+            }
+
+            @Override
+            public int get(int index) {
+                throw new IndexOutOfBoundsException(index);
+            }
         };
     }
 
     private static FloatSequence floats() {
         return new FloatSequence() {
-            @Override public int size() { return 0; }
-            @Override public float get(int index) { throw new IndexOutOfBoundsException(index); }
+            @Override
+            public int size() {
+                return 0;
+            }
+
+            @Override
+            public float get(int index) {
+                throw new IndexOutOfBoundsException(index);
+            }
         };
     }
 }

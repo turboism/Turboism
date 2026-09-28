@@ -21,10 +21,7 @@ import java.util.Optional;
  * lifecycle transform when that hook is installed); any drift fails closed.
  */
 public record DeferredGlErrorCheckTarget(
-        HostArtifactDigest digest,
-        String version,
-        String errorOwner,
-        String frameOwner) {
+        HostArtifactDigest digest, String version, String errorOwner, String frameOwner) {
 
     /** Obfuscated shader helper owning the per-draw error-check site (5.3.x). */
     public static final String ERROR_OWNER = "com/live2d/graphics3d/shader/A";
@@ -49,11 +46,11 @@ public record DeferredGlErrorCheckTarget(
     }
 
     private static final DeferredGlErrorCheckTarget CUBISM_5203 = new DeferredGlErrorCheckTarget(
-        ReviewedHostArtifacts.CUBISM_5_2_03, "5.2.03", ERROR_OWNER_5203, FRAME_OWNER);
-    private static final DeferredGlErrorCheckTarget CUBISM_5302 = new DeferredGlErrorCheckTarget(
-        ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02", ERROR_OWNER, FRAME_OWNER);
-    private static final DeferredGlErrorCheckTarget CUBISM_5303 = new DeferredGlErrorCheckTarget(
-        ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03", ERROR_OWNER, FRAME_OWNER);
+            ReviewedHostArtifacts.CUBISM_5_2_03, "5.2.03", ERROR_OWNER_5203, FRAME_OWNER);
+    private static final DeferredGlErrorCheckTarget CUBISM_5302 =
+            new DeferredGlErrorCheckTarget(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02", ERROR_OWNER, FRAME_OWNER);
+    private static final DeferredGlErrorCheckTarget CUBISM_5303 =
+            new DeferredGlErrorCheckTarget(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03", ERROR_OWNER, FRAME_OWNER);
 
     /** The reviewed target pair for a host artifact digest, or empty when unsupported. */
     public static Optional<DeferredGlErrorCheckTarget> of(final HostArtifactDigest digest) {

@@ -5,15 +5,14 @@ import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
 import dev.turboism.sdk.ui.resource.UiIconRef;
 import dev.turboism.sdk.ui.resource.UiResourceService;
-
-import javax.swing.Icon;
-import javax.swing.SwingUtilities;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
+import javax.swing.Icon;
+import javax.swing.SwingUtilities;
 
 /**
  * Runtime-owned UI resource service backed by one verified native-icon resolver.
@@ -32,9 +31,9 @@ public final class RuntimeUiResourceService implements AutoCloseable {
     public static final int DEFAULT_SCALE_PERCENT = 100;
 
     private static final Presentation DEFAULT_PRESENTATION =
-        new Presentation(NativeIconVariant.Theme.LIGHT, DEFAULT_SCALE_PERCENT);
+            new Presentation(NativeIconVariant.Theme.LIGHT, DEFAULT_SCALE_PERCENT);
     private static final RuntimeUiResourceService UNAVAILABLE =
-        new RuntimeUiResourceService(null, DEFAULT_PRESENTATION, null);
+            new RuntimeUiResourceService(null, DEFAULT_PRESENTATION, null);
 
     private CubismNativeIconResolver resolver;
     private Supplier<Presentation> presentationSource;
@@ -45,10 +44,9 @@ public final class RuntimeUiResourceService implements AutoCloseable {
     private boolean closed;
 
     private RuntimeUiResourceService(
-        final CubismNativeIconResolver resolver,
-        final Presentation presentation,
-        final Supplier<Presentation> presentationSource
-    ) {
+            final CubismNativeIconResolver resolver,
+            final Presentation presentation,
+            final Supplier<Presentation> presentationSource) {
         this.resolver = resolver;
         final Presentation selected = Objects.requireNonNull(presentation, "presentation");
         this.theme = selected.theme();
@@ -69,15 +67,8 @@ public final class RuntimeUiResourceService implements AutoCloseable {
      * not attest host theme/DPI parity or expand the reviewed variant catalog.</p>
      */
     public RuntimeUiResourceService(
-        final CubismNativeIconResolver resolver,
-        final NativeIconVariant.Theme theme,
-        final int scalePercent
-    ) {
-        this(
-            Objects.requireNonNull(resolver, "resolver"),
-            normalize(theme, scalePercent),
-            null
-        );
+            final CubismNativeIconResolver resolver, final NativeIconVariant.Theme theme, final int scalePercent) {
+        this(Objects.requireNonNull(resolver, "resolver"), normalize(theme, scalePercent), null);
     }
 
     /**
@@ -86,15 +77,13 @@ public final class RuntimeUiResourceService implements AutoCloseable {
      * off the EDT after a host theme/DPI change.
      */
     public RuntimeUiResourceService(
-        final CubismNativeIconResolver resolver,
-        final ThemeStatusAdapter themeStatus,
-        final IntSupplier scalePercent
-    ) {
+            final CubismNativeIconResolver resolver,
+            final ThemeStatusAdapter themeStatus,
+            final IntSupplier scalePercent) {
         this(
-            Objects.requireNonNull(resolver, "resolver"),
-            readPresentation(themeStatus, scalePercent),
-            () -> readPresentation(themeStatus, scalePercent)
-        );
+                Objects.requireNonNull(resolver, "resolver"),
+                readPresentation(themeStatus, scalePercent),
+                () -> readPresentation(themeStatus, scalePercent));
     }
 
     /**
@@ -103,19 +92,15 @@ public final class RuntimeUiResourceService implements AutoCloseable {
      * closing it releases the resolver's cached resources.
      */
     public static RuntimeUiResourceService connected(
-        final CubismNativeIconResolver resolver,
-        final ThemeStatusAdapter themeStatus,
-        final IntSupplier scalePercent
-    ) {
+            final CubismNativeIconResolver resolver,
+            final ThemeStatusAdapter themeStatus,
+            final IntSupplier scalePercent) {
         return new RuntimeUiResourceService(resolver, themeStatus, scalePercent);
     }
 
     /** Creates a connected owner from already sampled presentation state. */
     public static RuntimeUiResourceService connected(
-        final CubismNativeIconResolver resolver,
-        final NativeIconVariant.Theme theme,
-        final int scalePercent
-    ) {
+            final CubismNativeIconResolver resolver, final NativeIconVariant.Theme theme, final int scalePercent) {
         return new RuntimeUiResourceService(resolver, theme, scalePercent);
     }
 
@@ -176,18 +161,12 @@ public final class RuntimeUiResourceService implements AutoCloseable {
     }
 
     /** Updates presentation from an already sampled host theme without performing host IO. */
-    public void updatePresentationFromHost(
-        final ThemeStatusSnapshot snapshot,
-        final int scalePercent
-    ) {
+    public void updatePresentationFromHost(final ThemeStatusSnapshot snapshot, final int scalePercent) {
         updatePresentation(themeOf(snapshot), scalePercent);
     }
 
     /** Updates presentation from an already sampled Runtime theme without performing host IO. */
-    public synchronized void updatePresentation(
-        final NativeIconVariant.Theme theme,
-        final int scalePercent
-    ) {
+    public synchronized void updatePresentation(final NativeIconVariant.Theme theme, final int scalePercent) {
         if (closed) return;
         apply(normalize(theme, scalePercent));
     }
@@ -207,10 +186,7 @@ public final class RuntimeUiResourceService implements AutoCloseable {
         if (activeResolver != null) activeResolver.close();
     }
 
-    private UiIconAvailability availability(
-        final UiIconRef reference,
-        final boolean disabled
-    ) {
+    private UiIconAvailability availability(final UiIconRef reference, final boolean disabled) {
         final CubismNativeIconResolver activeResolver = resolver;
         if (closed || activeResolver == null) return UiIconAvailability.SERVICE_UNAVAILABLE;
         return activeResolver.availability(selection(reference, disabled));
@@ -219,9 +195,7 @@ public final class RuntimeUiResourceService implements AutoCloseable {
     private NativeIconVariant selection(final UiIconRef reference, final boolean disabled) {
         final LookupKey key = new LookupKey(reference, disabled);
         return selections.computeIfAbsent(
-            key,
-            ignored -> new NativeIconVariant(reference.icon(), theme, scalePercent, disabled)
-        );
+                key, ignored -> new NativeIconVariant(reference.icon(), theme, scalePercent, disabled));
     }
 
     private void apply(final Presentation presentation) {
@@ -230,18 +204,14 @@ public final class RuntimeUiResourceService implements AutoCloseable {
         selections.clear();
     }
 
-    private static Presentation readPresentation(
-        final ThemeStatusAdapter themeStatus,
-        final IntSupplier scalePercent
-    ) {
+    private static Presentation readPresentation(final ThemeStatusAdapter themeStatus, final IntSupplier scalePercent) {
         requireOffEdt();
         Objects.requireNonNull(themeStatus, "themeStatus");
         Objects.requireNonNull(scalePercent, "scalePercent");
 
         NativeIconVariant.Theme theme = NativeIconVariant.Theme.LIGHT;
         try {
-            final ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> result =
-                themeStatus.themeStatus();
+            final ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> result = themeStatus.themeStatus();
             if (result != null && result.isAvailable()) {
                 final Optional<ThemeStatusSnapshot> snapshot = result.value().orElse(Optional.empty());
                 if (snapshot.isPresent() && snapshot.orElseThrow().dark()) {
@@ -262,21 +232,16 @@ public final class RuntimeUiResourceService implements AutoCloseable {
     }
 
     private static NativeIconVariant.Theme themeOf(final ThemeStatusSnapshot snapshot) {
-        return snapshot != null && snapshot.dark()
-            ? NativeIconVariant.Theme.DARK
-            : NativeIconVariant.Theme.LIGHT;
+        return snapshot != null && snapshot.dark() ? NativeIconVariant.Theme.DARK : NativeIconVariant.Theme.LIGHT;
     }
 
-    private static Presentation normalize(
-        final NativeIconVariant.Theme theme,
-        final int scalePercent
-    ) {
-        final NativeIconVariant.Theme normalizedTheme =
-            theme == null ? NativeIconVariant.Theme.LIGHT : theme;
-        final int normalizedScale = switch (scalePercent) {
-            case 100, 125, 150, 175, 200 -> scalePercent;
-            default -> DEFAULT_SCALE_PERCENT;
-        };
+    private static Presentation normalize(final NativeIconVariant.Theme theme, final int scalePercent) {
+        final NativeIconVariant.Theme normalizedTheme = theme == null ? NativeIconVariant.Theme.LIGHT : theme;
+        final int normalizedScale =
+                switch (scalePercent) {
+                    case 100, 125, 150, 175, 200 -> scalePercent;
+                    default -> DEFAULT_SCALE_PERCENT;
+                };
         return new Presentation(normalizedTheme, normalizedScale);
     }
 
@@ -293,7 +258,7 @@ public final class RuntimeUiResourceService implements AutoCloseable {
         }
     }
 
-    private record Presentation(NativeIconVariant.Theme theme, int scalePercent) { }
+    private record Presentation(NativeIconVariant.Theme theme, int scalePercent) {}
 
-    private record LookupKey(UiIconRef reference, boolean disabled) { }
+    private record LookupKey(UiIconRef reference, boolean disabled) {}
 }

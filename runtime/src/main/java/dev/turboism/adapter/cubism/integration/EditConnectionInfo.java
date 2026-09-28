@@ -16,12 +16,7 @@ import java.util.Objects;
  * @param sessionKey the host-generated per-connection session key, never {@code null}
  * @param pluginName the registered plugin name when the record exposes it, never {@code null}
  */
-public record EditConnectionInfo(
-    boolean registered,
-    boolean authorized,
-    String sessionKey,
-    String pluginName
-) {
+public record EditConnectionInfo(boolean registered, boolean authorized, String sessionKey, String pluginName) {
     public EditConnectionInfo {
         sessionKey = Objects.requireNonNullElse(sessionKey, "");
         pluginName = Objects.requireNonNullElse(pluginName, "");

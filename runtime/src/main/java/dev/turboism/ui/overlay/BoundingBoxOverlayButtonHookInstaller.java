@@ -3,7 +3,6 @@ package dev.turboism.ui.overlay;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
@@ -38,49 +37,39 @@ public final class BoundingBoxOverlayButtonHookInstaller {
         if (!instrumentation.isRetransformClassesSupported()) {
             throw new IllegalStateException("class retransformation is unavailable");
         }
-        final StaticSelector updateSelector = resolver.verifiedSelector(
-            "cubism.ui-bounding-box-overlay.bounding-box.update"
-        );
-        final StaticSelector setupButtonSelector = resolver.verifiedSelector(
-            "cubism.ui-bounding-box-overlay.bounding-box.setup-button"
-        );
-        final StaticSelector vectorTimesSelector = resolver.verifiedSelector(
-            "cubism.ui-bounding-box-overlay.vector.times"
-        );
-        final StaticSelector vectorPlusSelector = resolver.verifiedSelector(
-            "cubism.ui-bounding-box-overlay.vector.plus"
-        );
+        final StaticSelector updateSelector =
+                resolver.verifiedSelector("cubism.ui-bounding-box-overlay.bounding-box.update");
+        final StaticSelector setupButtonSelector =
+                resolver.verifiedSelector("cubism.ui-bounding-box-overlay.bounding-box.setup-button");
+        final StaticSelector vectorTimesSelector =
+                resolver.verifiedSelector("cubism.ui-bounding-box-overlay.vector.times");
+        final StaticSelector vectorPlusSelector =
+                resolver.verifiedSelector("cubism.ui-bounding-box-overlay.vector.plus");
         final AtomicBoolean emittedForOwner = new AtomicBoolean();
-        final ClassFileTransformer transformer = new BoundingBoxOverlayButtonUpdateTransformer(
-            resolver.hostClassLoader(),
-            updateSelector,
-            setupButtonSelector,
-            vectorTimesSelector,
-            vectorPlusSelector
-        ) {
-            @Override
-            public byte[] transform(
-                final Module module,
-                final ClassLoader loader,
-                final String className,
-                final Class<?> classBeingRedefined,
-                final ProtectionDomain protectionDomain,
-                final byte[] classfileBuffer
-            ) {
-                final byte[] candidate = super.transform(
-                    module,
-                    loader,
-                    className,
-                    classBeingRedefined,
-                    protectionDomain,
-                    classfileBuffer
-                );
-                if (candidate != null && updateSelector.ownerInternalName().equals(className)) {
-                    emittedForOwner.set(true);
-                }
-                return candidate;
-            }
-        };
+        final ClassFileTransformer transformer =
+                new BoundingBoxOverlayButtonUpdateTransformer(
+                        resolver.hostClassLoader(),
+                        updateSelector,
+                        setupButtonSelector,
+                        vectorTimesSelector,
+                        vectorPlusSelector) {
+                    @Override
+                    public byte[] transform(
+                            final Module module,
+                            final ClassLoader loader,
+                            final String className,
+                            final Class<?> classBeingRedefined,
+                            final ProtectionDomain protectionDomain,
+                            final byte[] classfileBuffer) {
+                        final byte[] candidate = super.transform(
+                                module, loader, className, classBeingRedefined, protectionDomain, classfileBuffer);
+                        if (candidate != null
+                                && updateSelector.ownerInternalName().equals(className)) {
+                            emittedForOwner.set(true);
+                        }
+                        return candidate;
+                    }
+                };
         final Class<?> target = exactClass(resolver, updateSelector.ownerInternalName());
         instrumentation.addTransformer(transformer, true);
         try {
@@ -109,46 +98,34 @@ public final class BoundingBoxOverlayButtonHookInstaller {
      * a structured cleanup failure.
      */
     private void restoreOwner(
-        final VerifiedMemberResolver resolver,
-        final String ownerInternalName,
-        final AtomicBoolean emittedForOwner
-    ) {
+            final VerifiedMemberResolver resolver,
+            final String ownerInternalName,
+            final AtomicBoolean emittedForOwner) {
         if (!emittedForOwner.get()) {
             return;
         }
         final Class<?> owner = exactClass(resolver, ownerInternalName);
         if (owner == null) {
             throw new IllegalStateException(
-                "bounding-box overlay owner was transformed but can no longer be discovered; "
-                    + "exact original bytes cannot be proven restored"
-            );
+                    "bounding-box overlay owner was transformed but can no longer be discovered; "
+                            + "exact original bytes cannot be proven restored");
         }
         if (!instrumentation.isModifiableClass(owner)) {
-            throw new IllegalStateException(
-                "bounding-box overlay owner is not modifiable; transformed bytes cannot be "
-                    + "restored to the exact original"
-            );
+            throw new IllegalStateException("bounding-box overlay owner is not modifiable; transformed bytes cannot be "
+                    + "restored to the exact original");
         }
         try {
             instrumentation.retransformClasses(owner);
         } catch (Exception failure) {
             throw new IllegalStateException(
-                "bounding-box overlay hook cleanup failed to restore exact original bytes",
-                failure
-            );
+                    "bounding-box overlay hook cleanup failed to restore exact original bytes", failure);
         }
     }
 
-    private static Class<?> exactClass(
-        final VerifiedMemberResolver resolver,
-        final String ownerInternalName
-    ) {
+    private static Class<?> exactClass(final VerifiedMemberResolver resolver, final String ownerInternalName) {
         try {
-            final Class<?> target = Class.forName(
-                ownerInternalName.replace('/', '.'),
-                false,
-                resolver.hostClassLoader()
-            );
+            final Class<?> target =
+                    Class.forName(ownerInternalName.replace('/', '.'), false, resolver.hostClassLoader());
             if (target.getClassLoader() != resolver.hostClassLoader()) {
                 throw new IllegalStateException("bounding-box classloader identity is stale");
             }

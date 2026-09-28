@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.performance;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,23 +43,26 @@ public final class PerformanceProbeReportWriter {
      *     created, written, or moved into place
      */
     public void write(
-        final Path output,
-        final String cubismVersion,
-        final String artifactSha256,
-        final String agentSha256,
-        final String fixtureSha256,
-        final String scenario,
-        final long startedEpochMillis,
-        final long endedEpochMillis,
-        final PerformanceProbeRecorder.Snapshot snapshot
-    ) throws IOException {
+            final Path output,
+            final String cubismVersion,
+            final String artifactSha256,
+            final String agentSha256,
+            final String fixtureSha256,
+            final String scenario,
+            final long startedEpochMillis,
+            final long endedEpochMillis,
+            final PerformanceProbeRecorder.Snapshot snapshot)
+            throws IOException {
         final boolean images = "images".equals(scenario);
         if (!images && !"camera".equals(scenario) && !"edit".equals(scenario)) {
             throw new IllegalArgumentException("unsupported performance probe scenario");
         }
-        if (images && (!"5.3.02".equals(cubismVersion)
-            || artifactSha256 == null || !artifactSha256.matches("[0-9a-f]{64}"))) {
-            throw new IllegalArgumentException("image diagnostics require the 5.3.02 contract and actual artifact digest");
+        if (images
+                && (!"5.3.02".equals(cubismVersion)
+                        || artifactSha256 == null
+                        || !artifactSha256.matches("[0-9a-f]{64}"))) {
+            throw new IllegalArgumentException(
+                    "image diagnostics require the 5.3.02 contract and actual artifact digest");
         }
         final Map<String, Object> report = new LinkedHashMap<>();
         report.put("format", "turboism.cubism.performance-probe");
@@ -70,12 +72,17 @@ public final class PerformanceProbeReportWriter {
         report.put("agentSha256", agentSha256);
         report.put("fixtureSha256", fixtureSha256);
         report.put("scenario", scenario);
-        report.put("capture", Map.of(
-            "startEpochMs", startedEpochMillis,
-            "endEpochMs", endedEpochMillis,
-            "dropped", 0,
-            "failures", snapshot.failures()
-        ));
+        report.put(
+                "capture",
+                Map.of(
+                        "startEpochMs",
+                        startedEpochMillis,
+                        "endEpochMs",
+                        endedEpochMillis,
+                        "dropped",
+                        0,
+                        "failures",
+                        snapshot.failures()));
         final Map<String, Object> metrics = new LinkedHashMap<>();
         snapshot.metrics().forEach((metric, value) -> {
             if (!images && metric.id() > PerformanceProbeMetric.REINIT_MODEL_INSTANCE_EXE.id()) return;
@@ -86,23 +93,26 @@ public final class PerformanceProbeReportWriter {
             reading.put("maxNanos", value.maxNanos());
             if (images) {
                 final PerformanceProbeRecorder.LatencySnapshot latency = value.latency();
-                reading.put("latency", Map.of(
-                    "samples", latency.samples(),
-                    "p50UpperBoundNanos", latency.p50UpperBoundNanos(),
-                    "p95UpperBoundNanos", latency.p95UpperBoundNanos(),
-                    "p99UpperBoundNanos", latency.p99UpperBoundNanos()
-                ));
+                reading.put(
+                        "latency",
+                        Map.of(
+                                "samples", latency.samples(),
+                                "p50UpperBoundNanos", latency.p50UpperBoundNanos(),
+                                "p95UpperBoundNanos", latency.p95UpperBoundNanos(),
+                                "p99UpperBoundNanos", latency.p99UpperBoundNanos()));
             }
             metrics.put(metricName(metric), reading);
         });
         report.put("metrics", metrics);
-        if (images) report.put("measurement", Map.of(
-            "timing", "sampled-inclusive-method-wall-time",
-            "quantiles", "base2-bucket-upper-bound",
-            "counts", "method-entries-including-failures",
-            "gpuTime", "not-measured",
-            "uploadBytes", "not-measured"
-        ));
+        if (images)
+            report.put(
+                    "measurement",
+                    Map.of(
+                            "timing", "sampled-inclusive-method-wall-time",
+                            "quantiles", "base2-bucket-upper-bound",
+                            "counts", "method-entries-including-failures",
+                            "gpuTime", "not-measured",
+                            "uploadBytes", "not-measured"));
         report.put("writtenAt", Instant.now().toString());
 
         final byte[] bytes = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(report);
