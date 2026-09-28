@@ -84,6 +84,11 @@ abstract class EdgeOps {
     void endBatch() {
     }
 
+    /** Whether a batch-local index is currently live; always false for the reference. */
+    boolean batchIndexActive() {
+        return false;
+    }
+
     abstract int addEdgeIfNotExists(int i1, int i2, EdgeType type);
 
     /** Kotlin Intrinsics.checkNotNullParameter shape (stdlib 1.7.21 → NPE). */
