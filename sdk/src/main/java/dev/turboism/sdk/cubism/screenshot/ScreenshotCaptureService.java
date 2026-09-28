@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.screenshot;
 
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -38,15 +37,15 @@ public interface ScreenshotCaptureService {
     enum Unavailable implements ScreenshotCaptureService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
         @Override
         public CompletionStage<ScreenshotCaptureResult> capture(final ScreenshotCaptureRequest request) {
             return CompletableFuture.failedStage(
-                new UnsupportedOperationException("screenshot capture service is not available")
-            );
+                    new UnsupportedOperationException("screenshot capture service is not available"));
         }
     }
 }

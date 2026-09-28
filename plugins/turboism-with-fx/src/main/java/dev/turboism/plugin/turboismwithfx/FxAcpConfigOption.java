@@ -4,12 +4,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** Detached ACP select option supplied by fx rather than a Turboism-owned provider catalog. */
-record FxAcpConfigOption(
-    String id,
-    String name,
-    String currentValue,
-    List<Choice> choices
-) {
+record FxAcpConfigOption(String id, String name, String currentValue, List<Choice> choices) {
     FxAcpConfigOption {
         id = requireText(id, "id");
         name = requireText(name, "name");

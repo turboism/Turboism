@@ -7,7 +7,6 @@ import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureSnapshot;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.preview.LocalPluginRuntime;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -25,139 +24,130 @@ import java.util.Set;
 /** Converts neutral runtime evidence into the four closed preview report documents. */
 public final class PreviewReportSnapshotFactory {
 
-    private static final Set<String> VERIFIED_PROJECT_CAPABILITIES = Set.of(
-        "cubism.project.read",
-        "cubism.workspace.read"
-    );
+    private static final Set<String> VERIFIED_PROJECT_CAPABILITIES =
+            Set.of("cubism.project.read", "cubism.workspace.read");
     private static final String UNMAPPED_CAPABILITY_OPERATION = "unmapped.capability";
     private static final Map<String, List<CapabilityBinding>> CAPABILITY_BINDINGS = Map.ofEntries(
-        bindings(
-            "cubism.project.read",
-            binding("cubismRead.activeProject", "turboism.cubism.project.read"),
-            binding("cubism.activeProject", "turboism.cubism.project.read"),
-            binding("cubismRead.activeProjectContent", "turboism.cubism.project.read"),
-            binding("cubism.activeProjectContent", "turboism.cubism.project.read")
-        ),
-        binding("cubism.workspace.read", "cubismRead.workspace", "turboism.cubism.project.read"),
-        binding("cubism.mesh.read", "cubismRead.meshes", "turboism.cubism.model.read"),
-        binding("cubism.deformer.read", "cubismRead.deformers", "turboism.cubism.model.read"),
-        binding("cubism.psd.read", "cubismRead.psdDocuments", "turboism.cubism.model.read"),
-        binding("cubism.clipmask.read", "cubismRead.clipMasks", "turboism.cubism.model.read"),
-        binding("cubism.texture-atlas.read", "cubismRead.textureAtlases", "turboism.cubism.model.read"),
-        binding("cubism.render.status.read", "cubismRead.renderStatus", "turboism.cubism.model.read"),
-        binding("cubism.theme.status.read", "cubismRead.themeStatus", "turboism.cubism.project.read"),
-        bindings(
-            "cubism.selection.read",
-            binding("cubismRead.selection", "turboism.cubism.model.read"),
-            binding("selectionQuery.currentSelection", "turboism.cubism.model.read"),
-            binding("selectionQuery.selectedIds", "turboism.cubism.model.read"),
-            binding("selectionQuery.onSelectionChanged", "turboism.cubism.model.read")
-        ),
-        bindings(
-            "cubism.parameter.read",
-            binding("cubismRead.parameters", "turboism.cubism.model.read"),
-            binding("parameterQuery.findById", "turboism.cubism.parameter.read"),
-            binding("parameterQuery.listAll", "turboism.cubism.parameter.read"),
-            binding("parameterQuery.exists", "turboism.cubism.parameter.read")
-        ),
-        bindings(
-            "cubism.parameter.write",
-            binding("transaction.open", "turboism.cubism.model.write"),
-            binding("transaction.enqueue", "turboism.cubism.model.write"),
-            binding("transaction.commit", "turboism.cubism.model.write")
-        ),
-        bindings(
-            "cubism.model-tree.read",
-            binding("cubismRead.activeDocument", "turboism.cubism.model.read"),
-            binding("cubismRead.activeModel", "turboism.cubism.model.read"),
-            binding("cubismRead.activeAnimation", "turboism.cubism.model.read"),
-            binding("cubismRead.activeImageDocument", "turboism.cubism.model.read"),
-            binding("cubismRead.activeProjectContent", "turboism.cubism.model.read"),
-            binding("cubism.activeDocument", "turboism.cubism.model.read"),
-            binding("cubism.activeModel", "turboism.cubism.model.read"),
-            binding("cubism.activeAnimation", "turboism.cubism.model.read"),
-            binding("cubism.activeImageDocument", "turboism.cubism.model.read"),
-            binding("cubism.activeProjectContent", "turboism.cubism.model.read"),
-            binding("cubismRead.modelObjects", "turboism.cubism.model.read"),
-            binding("modelHierarchyQuery.currentHierarchy", "turboism.cubism.model.read"),
-            binding("modelHierarchyQuery.childrenOf", "turboism.cubism.model.read"),
-            binding("modelHierarchyQuery.findNode", "turboism.cubism.model.read")
-        ),
-        binding("ui.context-source.read", "ui.context-source.read", "turboism.ui.context-source.read"),
-        binding("ui.overlay.contribute", "ui.overlay.contribute", "turboism.ui.overlay.contribute"),
-        binding("ui.viewport.read", "ui.viewport.read", "turboism.ui.viewport.read"),
-        binding("cubism.recent-file.read", "recentFile.list", "turboism.cubism.recent-file.read"),
-        binding("cubism.screenshot.capture", "screenshot.capture", "turboism.ui.viewport.read"),
-        binding("ui.recent-preview.contribute", "recentPreview.contribute", "turboism.ui.recent-preview.contribute"),
-        binding("ui.dialog.contribute", "ui.dialog.contribute", "turboism.ui.dialog.contribute"),
-        binding("ui.embedded-panel.contribute", "ui.panel.contribute", "turboism.ui.panel.contribute"),
-        binding("ui.file-chooser.request", "ui.file-chooser.request", "turboism.ui.file-chooser.request"),
-        binding("ui.status.notify", "ui.status.notify", "turboism.ui.status.notify"),
-        binding("ui.canvas.hint", "ui.canvas.hint", "turboism.ui.canvas.hint"),
-        binding("ui.palette-toolbar.contribute", "ui.palette-toolbar.contribute", "turboism.ui.toolbar.palette.contribute"),
-        binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute"),
-        binding(
-            "cubism.mesh.mirror-axis-angle",
-            "cubism.mesh.mirror-axis-angle",
-            "turboism.cubism.model.write"
-        ),
-        binding(
-            "ui.mesh-edit.mirror-axis-angle",
-            "ui.mesh-edit.mirror-axis-angle.contribute",
-            "turboism.ui.panel.contribute"
-        ),
-        binding("ui.dialog.automate", "ui.dialog.automate.act", "turboism.ui.dialog.automate")
-    );
+            bindings(
+                    "cubism.project.read",
+                    binding("cubismRead.activeProject", "turboism.cubism.project.read"),
+                    binding("cubism.activeProject", "turboism.cubism.project.read"),
+                    binding("cubismRead.activeProjectContent", "turboism.cubism.project.read"),
+                    binding("cubism.activeProjectContent", "turboism.cubism.project.read")),
+            binding("cubism.workspace.read", "cubismRead.workspace", "turboism.cubism.project.read"),
+            binding("cubism.mesh.read", "cubismRead.meshes", "turboism.cubism.model.read"),
+            binding("cubism.deformer.read", "cubismRead.deformers", "turboism.cubism.model.read"),
+            binding("cubism.psd.read", "cubismRead.psdDocuments", "turboism.cubism.model.read"),
+            binding("cubism.clipmask.read", "cubismRead.clipMasks", "turboism.cubism.model.read"),
+            binding("cubism.texture-atlas.read", "cubismRead.textureAtlases", "turboism.cubism.model.read"),
+            binding("cubism.render.status.read", "cubismRead.renderStatus", "turboism.cubism.model.read"),
+            binding("cubism.theme.status.read", "cubismRead.themeStatus", "turboism.cubism.project.read"),
+            bindings(
+                    "cubism.selection.read",
+                    binding("cubismRead.selection", "turboism.cubism.model.read"),
+                    binding("selectionQuery.currentSelection", "turboism.cubism.model.read"),
+                    binding("selectionQuery.selectedIds", "turboism.cubism.model.read"),
+                    binding("selectionQuery.onSelectionChanged", "turboism.cubism.model.read")),
+            bindings(
+                    "cubism.parameter.read",
+                    binding("cubismRead.parameters", "turboism.cubism.model.read"),
+                    binding("parameterQuery.findById", "turboism.cubism.parameter.read"),
+                    binding("parameterQuery.listAll", "turboism.cubism.parameter.read"),
+                    binding("parameterQuery.exists", "turboism.cubism.parameter.read")),
+            bindings(
+                    "cubism.parameter.write",
+                    binding("transaction.open", "turboism.cubism.model.write"),
+                    binding("transaction.enqueue", "turboism.cubism.model.write"),
+                    binding("transaction.commit", "turboism.cubism.model.write")),
+            bindings(
+                    "cubism.model-tree.read",
+                    binding("cubismRead.activeDocument", "turboism.cubism.model.read"),
+                    binding("cubismRead.activeModel", "turboism.cubism.model.read"),
+                    binding("cubismRead.activeAnimation", "turboism.cubism.model.read"),
+                    binding("cubismRead.activeImageDocument", "turboism.cubism.model.read"),
+                    binding("cubismRead.activeProjectContent", "turboism.cubism.model.read"),
+                    binding("cubism.activeDocument", "turboism.cubism.model.read"),
+                    binding("cubism.activeModel", "turboism.cubism.model.read"),
+                    binding("cubism.activeAnimation", "turboism.cubism.model.read"),
+                    binding("cubism.activeImageDocument", "turboism.cubism.model.read"),
+                    binding("cubism.activeProjectContent", "turboism.cubism.model.read"),
+                    binding("cubismRead.modelObjects", "turboism.cubism.model.read"),
+                    binding("modelHierarchyQuery.currentHierarchy", "turboism.cubism.model.read"),
+                    binding("modelHierarchyQuery.childrenOf", "turboism.cubism.model.read"),
+                    binding("modelHierarchyQuery.findNode", "turboism.cubism.model.read")),
+            binding("ui.context-source.read", "ui.context-source.read", "turboism.ui.context-source.read"),
+            binding("ui.overlay.contribute", "ui.overlay.contribute", "turboism.ui.overlay.contribute"),
+            binding("ui.viewport.read", "ui.viewport.read", "turboism.ui.viewport.read"),
+            binding("cubism.recent-file.read", "recentFile.list", "turboism.cubism.recent-file.read"),
+            binding("cubism.screenshot.capture", "screenshot.capture", "turboism.ui.viewport.read"),
+            binding(
+                    "ui.recent-preview.contribute",
+                    "recentPreview.contribute",
+                    "turboism.ui.recent-preview.contribute"),
+            binding("ui.dialog.contribute", "ui.dialog.contribute", "turboism.ui.dialog.contribute"),
+            binding("ui.embedded-panel.contribute", "ui.panel.contribute", "turboism.ui.panel.contribute"),
+            binding("ui.file-chooser.request", "ui.file-chooser.request", "turboism.ui.file-chooser.request"),
+            binding("ui.status.notify", "ui.status.notify", "turboism.ui.status.notify"),
+            binding("ui.canvas.hint", "ui.canvas.hint", "turboism.ui.canvas.hint"),
+            binding(
+                    "ui.palette-toolbar.contribute",
+                    "ui.palette-toolbar.contribute",
+                    "turboism.ui.toolbar.palette.contribute"),
+            binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute"),
+            binding("cubism.mesh.mirror-axis-angle", "cubism.mesh.mirror-axis-angle", "turboism.cubism.model.write"),
+            binding(
+                    "ui.mesh-edit.mirror-axis-angle",
+                    "ui.mesh-edit.mirror-axis-angle.contribute",
+                    "turboism.ui.panel.contribute"),
+            binding("ui.dialog.automate", "ui.dialog.automate.act", "turboism.ui.dialog.automate"));
     private static final Set<String> KNOWN_UNMAPPED_CAPABILITIES = Set.of(
-        "cubism.model-tree.write",
-        "cubism.mesh.write",
-        "cubism.deformer.write",
-        "cubism.mirror.writeback",
-        "cubism.psd.binding.write",
-        "cubism.clipmask.write",
-        "cubism.canvas.write",
-        "cubism.bounding-box.action.write",
-        "event.project.lifecycle",
-        "event.selection.changed",
-        "event.texture-atlas.reinit",
-        "event.render.status.changed",
-        "hook-ingress.project.lifecycle",
-        "hook-ingress.selection.changed",
-        "hook-ingress.context-menu.opening",
-        "hook-ingress.texture-atlas.reinit",
-        "hook-ingress.viewport.overlay.lifecycle",
-        "hook-ingress.render.status",
-        "hook-ingress.model.tree.changed",
-        "hook-ingress.parameter.changed",
-        "plugin.localization",
-        "plugin.task.schedule",
-        "plugin.storage",
-        "plugin.config.typed",
-        "plugin.user-file",
-        "runtime.host-read.async",
-        "cubism.selection.write",
-        "cubism.geometry.read",
-        "cubism.parameter-binding.read",
-        "cubism.psd.layer-relationship.read",
-        "cubism.psd.binding-candidate.read",
-        "cubism.psd.layer-bounds.read",
-        "cubism.transaction.real-write-undo",
-        "cubism.recent-preview.manage",
-        "ui.file-chooser.history-policy",
-        "ui.host-settings.open",
-        "ui.theme.apply",
-        "cubism.theme.restore",
-        "cubism.render.modify",
-        "cubism.render.restore"
-    );
+            "cubism.model-tree.write",
+            "cubism.mesh.write",
+            "cubism.deformer.write",
+            "cubism.mirror.writeback",
+            "cubism.psd.binding.write",
+            "cubism.clipmask.write",
+            "cubism.canvas.write",
+            "cubism.bounding-box.action.write",
+            "event.project.lifecycle",
+            "event.selection.changed",
+            "event.texture-atlas.reinit",
+            "event.render.status.changed",
+            "hook-ingress.project.lifecycle",
+            "hook-ingress.selection.changed",
+            "hook-ingress.context-menu.opening",
+            "hook-ingress.texture-atlas.reinit",
+            "hook-ingress.viewport.overlay.lifecycle",
+            "hook-ingress.render.status",
+            "hook-ingress.model.tree.changed",
+            "hook-ingress.parameter.changed",
+            "plugin.localization",
+            "plugin.task.schedule",
+            "plugin.storage",
+            "plugin.config.typed",
+            "plugin.user-file",
+            "runtime.host-read.async",
+            "cubism.selection.write",
+            "cubism.geometry.read",
+            "cubism.parameter-binding.read",
+            "cubism.psd.layer-relationship.read",
+            "cubism.psd.binding-candidate.read",
+            "cubism.psd.layer-bounds.read",
+            "cubism.transaction.real-write-undo",
+            "cubism.recent-preview.manage",
+            "ui.file-chooser.history-policy",
+            "ui.host-settings.open",
+            "ui.theme.apply",
+            "cubism.theme.restore",
+            "cubism.render.modify",
+            "cubism.render.restore");
 
     static {
         final Set<String> overlappingPolicies = new java.util.HashSet<>(CAPABILITY_BINDINGS.keySet());
         overlappingPolicies.retainAll(KNOWN_UNMAPPED_CAPABILITIES);
         if (!overlappingPolicies.isEmpty()) {
             throw new IllegalStateException(
-                "Mapped and known-unmapped preview capability policies overlap: " + overlappingPolicies
-            );
+                    "Mapped and known-unmapped preview capability policies overlap: " + overlappingPolicies);
         }
     }
 
@@ -167,8 +157,7 @@ public final class PreviewReportSnapshotFactory {
         return Set.copyOf(capabilities);
     }
 
-    private PreviewReportSnapshotFactory() {
-    }
+    private PreviewReportSnapshotFactory() {}
 
     /**
      * Builds the four report documents with no runtime failures recorded, treating {@code stopped}
@@ -192,28 +181,26 @@ public final class PreviewReportSnapshotFactory {
      * @throws NullPointerException if {@code loadReport} or {@code summaries} is {@code null}
      */
     public static Map<PreviewReportType, ObjectNode> create(
-        final String runtimeId,
-        final Instant createdAt,
-        final Path home,
-        final HostSession.State hostState,
-        final Path hostArtifact,
-        final Path verificationRecord,
-        final LocalPluginRuntime.LoadReport loadReport,
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
-        final boolean stopped
-    ) {
+            final String runtimeId,
+            final Instant createdAt,
+            final Path home,
+            final HostSession.State hostState,
+            final Path hostArtifact,
+            final Path verificationRecord,
+            final LocalPluginRuntime.LoadReport loadReport,
+            final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
+            final boolean stopped) {
         return create(
-            runtimeId,
-            createdAt,
-            home,
-            hostState,
-            hostArtifact,
-            verificationRecord,
-            loadReport,
-            summaries,
-            RuntimeFailureSnapshot.empty(),
-            stopped
-        );
+                runtimeId,
+                createdAt,
+                home,
+                hostState,
+                hostArtifact,
+                verificationRecord,
+                loadReport,
+                summaries,
+                RuntimeFailureSnapshot.empty(),
+                stopped);
     }
 
     /**
@@ -240,30 +227,28 @@ public final class PreviewReportSnapshotFactory {
      *     {@code failureSnapshot} is {@code null}
      */
     public static Map<PreviewReportType, ObjectNode> create(
-        final String runtimeId,
-        final Instant createdAt,
-        final Path home,
-        final HostSession.State hostState,
-        final Path hostArtifact,
-        final Path verificationRecord,
-        final LocalPluginRuntime.LoadReport loadReport,
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
-        final RuntimeFailureSnapshot failureSnapshot,
-        final boolean stopped
-    ) {
+            final String runtimeId,
+            final Instant createdAt,
+            final Path home,
+            final HostSession.State hostState,
+            final Path hostArtifact,
+            final Path verificationRecord,
+            final LocalPluginRuntime.LoadReport loadReport,
+            final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
+            final RuntimeFailureSnapshot failureSnapshot,
+            final boolean stopped) {
         return create(
-            runtimeId,
-            createdAt,
-            home,
-            hostState,
-            hostArtifact,
-            verificationRecord,
-            loadReport,
-            summaries,
-            failureSnapshot,
-            stopped,
-            stopped
-        );
+                runtimeId,
+                createdAt,
+                home,
+                hostState,
+                hostArtifact,
+                verificationRecord,
+                loadReport,
+                summaries,
+                failureSnapshot,
+                stopped,
+                stopped);
     }
 
     /**
@@ -292,103 +277,80 @@ public final class PreviewReportSnapshotFactory {
      *     {@code failureSnapshot} is {@code null}
      */
     public static Map<PreviewReportType, ObjectNode> create(
-        final String runtimeId,
-        final Instant createdAt,
-        final Path home,
-        final HostSession.State hostState,
-        final Path hostArtifact,
-        final Path verificationRecord,
-        final LocalPluginRuntime.LoadReport loadReport,
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
-        final RuntimeFailureSnapshot failureSnapshot,
-        final boolean stopped,
-        final boolean shutdownAttempted
-    ) {
+            final String runtimeId,
+            final Instant createdAt,
+            final Path home,
+            final HostSession.State hostState,
+            final Path hostArtifact,
+            final Path verificationRecord,
+            final LocalPluginRuntime.LoadReport loadReport,
+            final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
+            final RuntimeFailureSnapshot failureSnapshot,
+            final boolean stopped,
+            final boolean shutdownAttempted) {
         Objects.requireNonNull(loadReport, "loadReport");
-        final RuntimeFailureSnapshot neutralFailures = Objects.requireNonNull(
-            failureSnapshot,
-            "failureSnapshot"
-        );
+        final RuntimeFailureSnapshot neutralFailures = Objects.requireNonNull(failureSnapshot, "failureSnapshot");
         final List<LocalPluginRuntime.LoadedPluginSummary> neutralSummaries =
-            List.copyOf(Objects.requireNonNull(summaries, "summaries"));
-        final EnumMap<PreviewReportType, ObjectNode> reports =
-            new EnumMap<>(PreviewReportType.class);
+                List.copyOf(Objects.requireNonNull(summaries, "summaries"));
+        final EnumMap<PreviewReportType, ObjectNode> reports = new EnumMap<>(PreviewReportType.class);
         reports.put(
-            PreviewReportType.PREVIEW_RUNTIME,
-            previewRuntime(
-                runtimeId,
-                createdAt,
-                hostState,
-                hostArtifact,
-                verificationRecord,
-                neutralSummaries,
-                neutralFailures,
-                stopped,
-                shutdownAttempted
-            )
-        );
+                PreviewReportType.PREVIEW_RUNTIME,
+                previewRuntime(
+                        runtimeId,
+                        createdAt,
+                        hostState,
+                        hostArtifact,
+                        verificationRecord,
+                        neutralSummaries,
+                        neutralFailures,
+                        stopped,
+                        shutdownAttempted));
         reports.put(
-            PreviewReportType.PLUGIN_LOAD,
-            pluginLoad(runtimeId, createdAt, home, loadReport, neutralSummaries)
-        );
+                PreviewReportType.PLUGIN_LOAD, pluginLoad(runtimeId, createdAt, home, loadReport, neutralSummaries));
         reports.put(
-            PreviewReportType.CAPABILITY,
-            capability(
-                runtimeId,
-                createdAt,
-                home,
-                hostState,
-                verificationRecord,
-                neutralSummaries,
-                stopped
-            )
-        );
-        reports.put(
-            PreviewReportType.I18N,
-            i18n(runtimeId, createdAt, neutralSummaries)
-        );
+                PreviewReportType.CAPABILITY,
+                capability(runtimeId, createdAt, home, hostState, verificationRecord, neutralSummaries, stopped));
+        reports.put(PreviewReportType.I18N, i18n(runtimeId, createdAt, neutralSummaries));
         return Map.copyOf(reports);
     }
 
     private static ObjectNode previewRuntime(
-        final String runtimeId,
-        final Instant createdAt,
-        final HostSession.State hostState,
-        final Path hostArtifact,
-        final Path verificationRecord,
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
-        final RuntimeFailureSnapshot failures,
-        final boolean stopped,
-        final boolean shutdownAttempted
-    ) {
-        final ObjectNode report = PreviewReportDocuments.emptyReport(
-            PreviewReportType.PREVIEW_RUNTIME,
-            runtimeId,
-            createdAt
-        );
+            final String runtimeId,
+            final Instant createdAt,
+            final HostSession.State hostState,
+            final Path hostArtifact,
+            final Path verificationRecord,
+            final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
+            final RuntimeFailureSnapshot failures,
+            final boolean stopped,
+            final boolean shutdownAttempted) {
+        final ObjectNode report =
+                PreviewReportDocuments.emptyReport(PreviewReportType.PREVIEW_RUNTIME, runtimeId, createdAt);
         final ObjectNode payload = (ObjectNode) report.get("payload");
         final ObjectNode host = (ObjectNode) payload.get("host");
         host.put("version", verifiedHostVersion(hostState, verificationRecord));
-        host.put("identityState", switch (hostState) {
-            case ACTIVE -> "MATCHED";
-            case FAILED -> "MISMATCHED";
-            case SAFE_MODE -> "UNKNOWN";
-            case CLOSED -> "NOT_APPLICABLE";
-        });
+        host.put(
+                "identityState",
+                switch (hostState) {
+                    case ACTIVE -> "MATCHED";
+                    case FAILED -> "MISMATCHED";
+                    case SAFE_MODE -> "UNKNOWN";
+                    case CLOSED -> "NOT_APPLICABLE";
+                });
         fileDigest(hostArtifact).ifPresent(digest -> {
             host.put("artifactSha256", digest.sha256());
             host.put("artifactSizeBytes", digest.size());
         });
-        payload.put("adapterState", switch (hostState) {
-            case ACTIVE -> stopped ? "SHUTDOWN" : "READY";
-            case FAILED -> "FAILED";
-            case SAFE_MODE -> "UNAVAILABLE";
-            case CLOSED -> "SHUTDOWN";
-        });
         payload.put(
-            "runtimeState",
-            stopped ? "STOPPED" : hostState == HostSession.State.FAILED ? "DEGRADED" : "RUNNING"
-        );
+                "adapterState",
+                switch (hostState) {
+                    case ACTIVE -> stopped ? "SHUTDOWN" : "READY";
+                    case FAILED -> "FAILED";
+                    case SAFE_MODE -> "UNAVAILABLE";
+                    case CLOSED -> "SHUTDOWN";
+                });
+        payload.put(
+                "runtimeState", stopped ? "STOPPED" : hostState == HostSession.State.FAILED ? "DEGRADED" : "RUNNING");
         writeFailures((ArrayNode) payload.get("taskFailures"), failures.taskFailures());
         writeFailures((ArrayNode) payload.get("storageFailures"), failures.storageFailures());
         writeFailures((ArrayNode) payload.get("configFailures"), failures.configFailures());
@@ -396,77 +358,86 @@ public final class PreviewReportSnapshotFactory {
 
         final long attempted = shutdownAttempted ? summaries.size() : 0;
         final long succeeded = shutdownAttempted
-            ? summaries.stream().filter(summary -> summary.unloadState().equals("SUCCEEDED")).count()
-            : 0;
+                ? summaries.stream()
+                        .filter(summary -> summary.unloadState().equals("SUCCEEDED"))
+                        .count()
+                : 0;
         final long failed = shutdownAttempted ? attempted - succeeded : 0;
-        payload.set(
-            "shutdownCounts",
-            PreviewReportDocuments.shutdownCounts(attempted, succeeded, failed, 0)
-        );
+        payload.set("shutdownCounts", PreviewReportDocuments.shutdownCounts(attempted, succeeded, failed, 0));
         final ObjectNode cleanup = PreviewReportDocuments.emptyCleanupCounts();
         if (stopped) {
-            cleanup.put("taskHandlesCanceled", summaries.stream().mapToLong(summary ->
-                summary.cleanupEvidence().taskHandlesCanceled()).sum());
-            cleanup.put("taskCompletionsSettled", summaries.stream().mapToLong(summary ->
-                summary.cleanupEvidence().taskCompletionsSettled()).sum());
-            cleanup.put("pluginContinuationsDrained", summaries.stream().mapToLong(summary ->
-                summary.cleanupEvidence().pluginContinuationsDrained()).sum());
-            cleanup.put("userFileHandlesRevoked", summaries.stream().mapToLong(summary ->
-                summary.cleanupEvidence().userFileHandlesRevoked()).sum());
-            cleanup.put("configSchemasUnregistered", summaries.stream().mapToLong(summary ->
-                summary.cleanupEvidence().configSchemasUnregistered()).sum());
-            cleanup.put("temporaryFilesDeleted", summaries.stream().mapToLong(summary ->
-                summary.cleanupEvidence().temporaryFilesDeleted()).sum());
             cleanup.put(
-                "scopesClosed",
-                summaries.stream().filter(summary ->
-                    summary.scopeCleanupState().equals("SUCCEEDED")
-                ).count()
-            );
+                    "taskHandlesCanceled",
+                    summaries.stream()
+                            .mapToLong(summary -> summary.cleanupEvidence().taskHandlesCanceled())
+                            .sum());
             cleanup.put(
-                "classloadersClosed",
-                summaries.stream().filter(summary ->
-                    summary.classloaderCleanupState().equals("SUCCEEDED")
-                ).count()
-            );
+                    "taskCompletionsSettled",
+                    summaries.stream()
+                            .mapToLong(summary -> summary.cleanupEvidence().taskCompletionsSettled())
+                            .sum());
             cleanup.put(
-                "failures",
-                summaries.stream().mapToLong(summary ->
-                    summary.cleanupEvidence().failures()
-                        + (summary.scopeCleanupState().equals("FAILED") ? 1 : 0)
-                        + (summary.classloaderCleanupState().equals("FAILED") ? 1 : 0)
-                ).sum()
-            );
+                    "pluginContinuationsDrained",
+                    summaries.stream()
+                            .mapToLong(summary -> summary.cleanupEvidence().pluginContinuationsDrained())
+                            .sum());
+            cleanup.put(
+                    "userFileHandlesRevoked",
+                    summaries.stream()
+                            .mapToLong(summary -> summary.cleanupEvidence().userFileHandlesRevoked())
+                            .sum());
+            cleanup.put(
+                    "configSchemasUnregistered",
+                    summaries.stream()
+                            .mapToLong(summary -> summary.cleanupEvidence().configSchemasUnregistered())
+                            .sum());
+            cleanup.put(
+                    "temporaryFilesDeleted",
+                    summaries.stream()
+                            .mapToLong(summary -> summary.cleanupEvidence().temporaryFilesDeleted())
+                            .sum());
+            cleanup.put(
+                    "scopesClosed",
+                    summaries.stream()
+                            .filter(summary -> summary.scopeCleanupState().equals("SUCCEEDED"))
+                            .count());
+            cleanup.put(
+                    "classloadersClosed",
+                    summaries.stream()
+                            .filter(summary -> summary.classloaderCleanupState().equals("SUCCEEDED"))
+                            .count());
+            cleanup.put(
+                    "failures",
+                    summaries.stream()
+                            .mapToLong(summary -> summary.cleanupEvidence().failures()
+                                    + (summary.scopeCleanupState().equals("FAILED") ? 1 : 0)
+                                    + (summary.classloaderCleanupState().equals("FAILED") ? 1 : 0))
+                            .sum());
         }
         payload.set("cleanupCounts", cleanup);
         return report;
     }
 
     private static ObjectNode pluginLoad(
-        final String runtimeId,
-        final Instant createdAt,
-        final Path home,
-        final LocalPluginRuntime.LoadReport loadReport,
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries
-    ) {
-        final ObjectNode report = PreviewReportDocuments.emptyReport(
-            PreviewReportType.PLUGIN_LOAD,
-            runtimeId,
-            createdAt
-        );
+            final String runtimeId,
+            final Instant createdAt,
+            final Path home,
+            final LocalPluginRuntime.LoadReport loadReport,
+            final List<LocalPluginRuntime.LoadedPluginSummary> summaries) {
+        final ObjectNode report =
+                PreviewReportDocuments.emptyReport(PreviewReportType.PLUGIN_LOAD, runtimeId, createdAt);
         final ArrayNode plugins = (ArrayNode) report.path("payload").path("plugins");
         for (LocalPluginRuntime.LoadedPluginSummary summary : summaries.stream()
-            .sorted(Comparator.comparing(LocalPluginRuntime.LoadedPluginSummary::id))
-            .toList()) {
+                .sorted(Comparator.comparing(LocalPluginRuntime.LoadedPluginSummary::id))
+                .toList()) {
             final ObjectNode entry = PreviewReportDocuments.pluginLoadEntry(
-                summary.id(),
-                relativeArtifact(home, summary.jar()),
-                fileDigest(summary.jar()).map(FileDigest::sha256).orElse(null),
-                "DISCOVERED",
-                "RESOLVED",
-                lifecycle(summary.state().name()),
-                false
-            );
+                    summary.id(),
+                    relativeArtifact(home, summary.jar()),
+                    fileDigest(summary.jar()).map(FileDigest::sha256).orElse(null),
+                    "DISCOVERED",
+                    "RESOLVED",
+                    lifecycle(summary.state().name()),
+                    false);
             entry.put("disableState", summary.disableState());
             entry.put("shutdownState", summary.shutdownState());
             entry.put("unloadState", summary.unloadState());
@@ -475,134 +446,114 @@ public final class PreviewReportSnapshotFactory {
             final ArrayNode failures = (ArrayNode) entry.get("failures");
             for (LocalPluginRuntime.PluginSummaryFailure failure : summary.failures()) {
                 failures.add(PreviewReportDocuments.failure(
-                    failure.code(),
-                    "ERROR",
-                    failure.phase(),
-                    summary.id(),
-                    null,
-                    null,
-                    failure.message(),
-                    null,
-                    1
-                ));
+                        failure.code(),
+                        "ERROR",
+                        failure.phase(),
+                        summary.id(),
+                        null,
+                        null,
+                        failure.message(),
+                        null,
+                        1));
             }
             plugins.add(entry);
         }
         for (LocalPluginRuntime.PluginFailure failure : loadReport.failures().stream()
-            .sorted(Comparator.comparing(LocalPluginRuntime.PluginFailure::pluginId)
-                .thenComparing(LocalPluginRuntime.PluginFailure::code))
-            .toList()) {
+                .sorted(Comparator.comparing(LocalPluginRuntime.PluginFailure::pluginId)
+                        .thenComparing(LocalPluginRuntime.PluginFailure::code))
+                .toList()) {
             plugins.add(failedPluginEntry(home, failure));
         }
         return report;
     }
 
-    private static ObjectNode failedPluginEntry(
-        final Path home,
-        final LocalPluginRuntime.PluginFailure failure
-    ) {
+    private static ObjectNode failedPluginEntry(final Path home, final LocalPluginRuntime.PluginFailure failure) {
         final boolean dependency = failure.code().contains("DEPENDENCY");
         final boolean badNeighbor = failure.code().equals("DUPLICATE_PLUGIN_ID");
         final boolean rejectedAtDiscovery = failure.code().equals("PLUGIN_RESERVED_ID");
         final boolean invalidDescriptor = failure.code().contains("DESCRIPTOR")
-            || failure.code().contains("JAR_READ")
-            || failure.code().equals("TURBOISM_API_INCOMPATIBLE");
-        final String lifecycle = dependency
-            ? "DEPENDENCY_FAILED"
-            : invalidDescriptor ? "INVALID_DESCRIPTOR" : lifecycle(failure.code());
-        final String relative = Files.isRegularFile(failure.jar())
-            ? relativeArtifact(home, failure.jar())
-            : null;
+                || failure.code().contains("JAR_READ")
+                || failure.code().equals("TURBOISM_API_INCOMPATIBLE");
+        final String lifecycle =
+                dependency ? "DEPENDENCY_FAILED" : invalidDescriptor ? "INVALID_DESCRIPTOR" : lifecycle(failure.code());
+        final String relative = Files.isRegularFile(failure.jar()) ? relativeArtifact(home, failure.jar()) : null;
         final ObjectNode entry = PreviewReportDocuments.pluginLoadEntry(
-            sanitizePluginId(failure.pluginId()),
-            relative,
-            relative == null
-                ? null
-                : fileDigest(failure.jar()).map(FileDigest::sha256).orElse(null),
-            rejectedAtDiscovery
-                ? "NOT_DISCOVERED"
-                : badNeighbor
-                    ? "BAD_NEIGHBOR"
-                    : invalidDescriptor ? "INVALID_DESCRIPTOR" : "DISCOVERED",
-            rejectedAtDiscovery || invalidDescriptor
-                ? "NOT_EVALUATED"
-                : dependency ? "FAILED" : "RESOLVED",
-            lifecycle,
-            badNeighbor
-        );
+                sanitizePluginId(failure.pluginId()),
+                relative,
+                relative == null
+                        ? null
+                        : fileDigest(failure.jar()).map(FileDigest::sha256).orElse(null),
+                rejectedAtDiscovery
+                        ? "NOT_DISCOVERED"
+                        : badNeighbor ? "BAD_NEIGHBOR" : invalidDescriptor ? "INVALID_DESCRIPTOR" : "DISCOVERED",
+                rejectedAtDiscovery || invalidDescriptor ? "NOT_EVALUATED" : dependency ? "FAILED" : "RESOLVED",
+                lifecycle,
+                badNeighbor);
         entry.put("disableState", "NOT_REQUIRED");
         entry.put("shutdownState", "NOT_REQUIRED");
         entry.put("unloadState", "NOT_REQUIRED");
         entry.put("scopeCleanupState", "NOT_REQUIRED");
         entry.put("classloaderCleanupState", "NOT_REQUIRED");
-        ((ArrayNode) entry.get("failures")).add(PreviewReportDocuments.failure(
-            stableCode(failure.code()),
-            "ERROR",
-            rejectedAtDiscovery ? "discovery" : dependency ? "dependency" : "load",
-            sanitizePluginId(failure.pluginId()),
-            null,
-            null,
-            stableFailureMessage(failure.code()),
-            relative,
-            1
-        ));
+        ((ArrayNode) entry.get("failures"))
+                .add(PreviewReportDocuments.failure(
+                        stableCode(failure.code()),
+                        "ERROR",
+                        rejectedAtDiscovery ? "discovery" : dependency ? "dependency" : "load",
+                        sanitizePluginId(failure.pluginId()),
+                        null,
+                        null,
+                        stableFailureMessage(failure.code()),
+                        relative,
+                        1));
         return entry;
     }
 
     private static ObjectNode capability(
-        final String runtimeId,
-        final Instant createdAt,
-        final Path home,
-        final HostSession.State hostState,
-        final Path verificationRecord,
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
-        final boolean stopped
-    ) {
-        final ObjectNode report = PreviewReportDocuments.emptyReport(
-            PreviewReportType.CAPABILITY,
-            runtimeId,
-            createdAt
-        );
+            final String runtimeId,
+            final Instant createdAt,
+            final Path home,
+            final HostSession.State hostState,
+            final Path verificationRecord,
+            final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
+            final boolean stopped) {
+        final ObjectNode report =
+                PreviewReportDocuments.emptyReport(PreviewReportType.CAPABILITY, runtimeId, createdAt);
         final ArrayNode entries = (ArrayNode) report.path("payload").path("capabilities");
         final String recordPath = relativeArtifact(home, verificationRecord);
-        final String recordDigest = fileDigest(verificationRecord)
-            .map(FileDigest::sha256)
-            .orElse(null);
+        final String recordDigest =
+                fileDigest(verificationRecord).map(FileDigest::sha256).orElse(null);
         for (LocalPluginRuntime.LoadedPluginSummary summary : summaries.stream()
-            .sorted(Comparator.comparing(LocalPluginRuntime.LoadedPluginSummary::id))
-            .toList()) {
+                .sorted(Comparator.comparing(LocalPluginRuntime.LoadedPluginSummary::id))
+                .toList()) {
             for (String capabilityId : summary.capabilities().stream().sorted().toList()) {
                 final List<CapabilityBinding> bindings = CAPABILITY_BINDINGS.get(capabilityId);
                 final boolean mapped = bindings != null;
                 final boolean knownUnmapped = KNOWN_UNMAPPED_CAPABILITIES.contains(capabilityId);
                 final boolean verifiedProject = VERIFIED_PROJECT_CAPABILITIES.contains(capabilityId);
                 final boolean runtimeAvailable = verifiedProject
-                    && hostState == HostSession.State.ACTIVE
-                    && !stopped
-                    && summary.state().name().equals("ENABLED");
-                final String availability = verifiedProject
-                    ? runtimeAvailable ? "AVAILABLE" : "UNAVAILABLE"
-                    : "UNKNOWN";
+                        && hostState == HostSession.State.ACTIVE
+                        && !stopped
+                        && summary.state().name().equals("ENABLED");
+                final String availability =
+                        verifiedProject ? runtimeAvailable ? "AVAILABLE" : "UNAVAILABLE" : "UNKNOWN";
                 if (mapped) {
                     for (CapabilityBinding binding : bindings) {
                         final String permissionId = permissionFor(summary.permissionIds(), binding);
                         final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
-                            summary.id(),
-                            capabilityId,
-                            binding.operationId(),
-                            permissionId,
-                            availability,
-                            permissionId == null ? "NOT_DECLARED" : "GRANTED",
-                            "NONE"
-                        );
+                                summary.id(),
+                                capabilityId,
+                                binding.operationId(),
+                                permissionId,
+                                availability,
+                                permissionId == null ? "NOT_DECLARED" : "GRANTED",
+                                "NONE");
                         addCapabilityEvidence(
-                            (ArrayNode) entry.get("evidence"),
-                            verifiedProject,
-                            runtimeAvailable,
-                            availability,
-                            recordPath,
-                            recordDigest
-                        );
+                                (ArrayNode) entry.get("evidence"),
+                                verifiedProject,
+                                runtimeAvailable,
+                                availability,
+                                recordPath,
+                                recordDigest);
                         entries.add(entry);
                     }
                 } else if (knownUnmapped) {
@@ -625,54 +576,31 @@ public final class PreviewReportSnapshotFactory {
 
     private static ObjectNode capabilityFallbackEntry(final String pluginId, final String capabilityId) {
         final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
-            pluginId,
-            capabilityId,
-            UNMAPPED_CAPABILITY_OPERATION,
-            null,
-            "UNKNOWN",
-            "UNKNOWN",
-            "NONE"
-        );
-        addCapabilityEvidence(
-            (ArrayNode) entry.get("evidence"),
-            false,
-            false,
-            "UNKNOWN",
-            null,
-            null
-        );
+                pluginId, capabilityId, UNMAPPED_CAPABILITY_OPERATION, null, "UNKNOWN", "UNKNOWN", "NONE");
+        addCapabilityEvidence((ArrayNode) entry.get("evidence"), false, false, "UNKNOWN", null, null);
         return entry;
     }
 
     private static ObjectNode i18n(
-        final String runtimeId,
-        final Instant createdAt,
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries
-    ) {
-        final ObjectNode report = PreviewReportDocuments.emptyReport(
-            PreviewReportType.I18N,
-            runtimeId,
-            createdAt
-        );
+            final String runtimeId,
+            final Instant createdAt,
+            final List<LocalPluginRuntime.LoadedPluginSummary> summaries) {
+        final ObjectNode report = PreviewReportDocuments.emptyReport(PreviewReportType.I18N, runtimeId, createdAt);
         final ArrayNode plugins = (ArrayNode) report.path("payload").path("plugins");
         for (LocalPluginRuntime.LoadedPluginSummary summary : summaries.stream()
-            .sorted(Comparator.comparing(LocalPluginRuntime.LoadedPluginSummary::id))
-            .toList()) {
+                .sorted(Comparator.comparing(LocalPluginRuntime.LoadedPluginSummary::id))
+                .toList()) {
             final RuntimePluginLocalization.ReportSnapshot snapshot = summary.localization();
             final ObjectNode entry = PreviewReportDocuments.i18nPluginEntry(
-                snapshot.pluginId(),
-                snapshot.localeSource(),
-                snapshot.requestedLocale(),
-                snapshot.normalizedLocale(),
-                snapshot.fallbackChain()
-            );
+                    snapshot.pluginId(),
+                    snapshot.localeSource(),
+                    snapshot.requestedLocale(),
+                    snapshot.normalizedLocale(),
+                    snapshot.fallbackChain());
             final ArrayNode catalogs = (ArrayNode) entry.get("catalogs");
             for (RuntimePluginLocalization.CatalogSnapshot catalog : snapshot.catalogs()) {
-                catalogs.add(PreviewReportDocuments.catalogEntry(
-                    catalog.locale(),
-                    catalog.state(),
-                    catalog.keyCount()
-                ));
+                catalogs.add(
+                        PreviewReportDocuments.catalogEntry(catalog.locale(), catalog.state(), catalog.keyCount()));
             }
             final ArrayNode missing = (ArrayNode) entry.get("missingKeys");
             for (RuntimePluginLocalization.MissingKeySnapshot value : snapshot.missingKeys()) {
@@ -684,8 +612,7 @@ public final class PreviewReportSnapshotFactory {
                 missing.add(item);
             }
             final ArrayNode malformed = (ArrayNode) entry.get("malformedPatterns");
-            for (RuntimePluginLocalization.MalformedPatternSnapshot value
-                : snapshot.malformedPatterns()) {
+            for (RuntimePluginLocalization.MalformedPatternSnapshot value : snapshot.malformedPatterns()) {
                 final ObjectNode item = PreviewReportDocuments.JSON.createObjectNode();
                 item.put("key", value.key());
                 item.put("locale", value.locale());
@@ -705,72 +632,57 @@ public final class PreviewReportSnapshotFactory {
     }
 
     private static void addCapabilityEvidence(
-        final ArrayNode evidence,
-        final boolean verifiedProject,
-        final boolean runtimeAvailable,
-        final String availability,
-        final String recordPath,
-        final String recordDigest
-    ) {
+            final ArrayNode evidence,
+            final boolean verifiedProject,
+            final boolean runtimeAvailable,
+            final String availability,
+            final String recordPath,
+            final String recordDigest) {
         if (verifiedProject && recordPath != null && recordDigest != null) {
             evidence.add(PreviewReportDocuments.evidence(
-                "STATIC_VERIFIED",
-                availability,
-                runtimeAvailable
-                    ? "Exact Cubism 5.3.02 static record applies to the connected runtime session."
-                    : "Exact Cubism 5.3.02 static record exists; runtime availability was not established.",
-                recordPath,
-                recordDigest
-            ));
+                    "STATIC_VERIFIED",
+                    availability,
+                    runtimeAvailable
+                            ? "Exact Cubism 5.3.02 static record applies to the connected runtime session."
+                            : "Exact Cubism 5.3.02 static record exists; runtime availability was not established.",
+                    recordPath,
+                    recordDigest));
             return;
         }
         evidence.add(PreviewReportDocuments.evidence(
-            "DECLARED",
-            "UNKNOWN",
-            "Capability is declared by the plugin descriptor; support is not elevated.",
-            null,
-            null
-        ));
+                "DECLARED",
+                "UNKNOWN",
+                "Capability is declared by the plugin descriptor; support is not elevated.",
+                null,
+                null));
     }
 
-    private static void writeFailures(
-        final ArrayNode target,
-        final List<RuntimeFailure> failures
-    ) {
+    private static void writeFailures(final ArrayNode target, final List<RuntimeFailure> failures) {
         for (RuntimeFailure failure : failures) {
             target.add(PreviewReportDocuments.failure(
-                failure.code(),
-                failure.severity(),
-                failure.phase(),
-                failure.pluginId(),
-                failure.operationId(),
-                failure.permissionId(),
-                failure.message(),
-                failure.relativePath(),
-                failure.count()
-            ));
+                    failure.code(),
+                    failure.severity(),
+                    failure.phase(),
+                    failure.pluginId(),
+                    failure.operationId(),
+                    failure.permissionId(),
+                    failure.message(),
+                    failure.relativePath(),
+                    failure.count()));
         }
     }
 
-    private static String permissionFor(
-        final List<String> permissionIds,
-        final CapabilityBinding binding
-    ) {
+    private static String permissionFor(final List<String> permissionIds, final CapabilityBinding binding) {
         return permissionIds.contains(binding.permissionId()) ? binding.permissionId() : null;
     }
 
     private static Map.Entry<String, List<CapabilityBinding>> binding(
-        final String capabilityId,
-        final String operationId,
-        final String permissionId
-    ) {
+            final String capabilityId, final String operationId, final String permissionId) {
         return bindings(capabilityId, binding(operationId, permissionId));
     }
 
     private static Map.Entry<String, List<CapabilityBinding>> bindings(
-        final String capabilityId,
-        final CapabilityBinding... bindings
-    ) {
+            final String capabilityId, final CapabilityBinding... bindings) {
         return Map.entry(capabilityId, List.of(bindings));
     }
 
@@ -786,8 +698,16 @@ public final class PreviewReportSnapshotFactory {
             case "ENABLE_FAILED" -> "ENABLE_FAILED";
             case "DISABLE_FAILED" -> "DISABLE_FAILED";
             case "SHUTDOWN_FAILED" -> "SHUTDOWN_FAILED";
-            case "DISCOVERED", "RESOLVED", "CLASSLOADER_CREATED", "CONSTRUCTED", "LOADED",
-                 "ENABLED", "DISABLED", "SHUTDOWN", "UNLOADED", "LOAD_FAILED" -> value;
+            case "DISCOVERED",
+                    "RESOLVED",
+                    "CLASSLOADER_CREATED",
+                    "CONSTRUCTED",
+                    "LOADED",
+                    "ENABLED",
+                    "DISABLED",
+                    "SHUTDOWN",
+                    "UNLOADED",
+                    "LOAD_FAILED" -> value;
             default -> "LOAD_FAILED";
         };
     }
@@ -801,9 +721,7 @@ public final class PreviewReportSnapshotFactory {
         if (!normalized.startsWith(normalizedHome)) {
             return null;
         }
-        final String relative = normalizedHome.relativize(normalized)
-            .toString()
-            .replace('\\', '/');
+        final String relative = normalizedHome.relativize(normalized).toString().replace('\\', '/');
         return PreviewReportValidator.isRelativePath(relative) ? relative : null;
     }
 
@@ -840,17 +758,14 @@ public final class PreviewReportSnapshotFactory {
      * carrying a reviewed version is reported; anything else (missing, unreadable, absent field,
      * unsupported value) fails closed to UNKNOWN without guessing.
      */
-    private static String verifiedHostVersion(
-        final HostSession.State hostState,
-        final Path verificationRecord
-    ) {
+    private static String verifiedHostVersion(final HostSession.State hostState, final Path verificationRecord) {
         if (hostState != HostSession.State.ACTIVE || verificationRecord == null) {
             return "UNKNOWN";
         }
         final String value;
         try {
             final com.fasterxml.jackson.databind.JsonNode record =
-                PreviewReportDocuments.JSON.readTree(verificationRecord.toFile());
+                    PreviewReportDocuments.JSON.readTree(verificationRecord.toFile());
             final com.fasterxml.jackson.databind.JsonNode version = record.path("cubismVersion");
             if (!version.isTextual() || version.textValue().isBlank()) {
                 return "UNKNOWN";
@@ -883,18 +798,14 @@ public final class PreviewReportSnapshotFactory {
                     digest.update(buffer, 0, read);
                 }
             }
-            return java.util.Optional.of(new FileDigest(
-                java.util.HexFormat.of().formatHex(digest.digest()),
-                Files.size(path)
-            ));
+            return java.util.Optional.of(
+                    new FileDigest(java.util.HexFormat.of().formatHex(digest.digest()), Files.size(path)));
         } catch (IOException | NoSuchAlgorithmException exception) {
             return java.util.Optional.empty();
         }
     }
 
-    private record CapabilityBinding(String operationId, String permissionId) {
-    }
+    private record CapabilityBinding(String operationId, String permissionId) {}
 
-    private record FileDigest(String sha256, long size) {
-    }
+    private record FileDigest(String sha256, long size) {}
 }

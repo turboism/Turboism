@@ -2,8 +2,8 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
-import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
@@ -12,7 +12,6 @@ import dev.turboism.sdk.cubism.model.ModelImageEntry;
 import dev.turboism.sdk.cubism.model.ModelImageGroup;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.RawTexture;
-
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -68,17 +67,14 @@ final class EditorTextureAccess {
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorTextureAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard
-    ) {
+            final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard modelGuard) {
         this(resolver, modelGuard, null);
     }
 
     EditorTextureAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard,
-        final EditorAuthoringTransactionCoordinator authoringCoordinator
-    ) {
+            final VerifiedMemberResolver resolver,
+            final EditorParameterCombinedAccess.ModelGuard modelGuard,
+            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.authoringCoordinator = authoringCoordinator;
@@ -92,47 +88,41 @@ final class EditorTextureAccess {
 
     private boolean readAuthorized() {
         return resolver.authorizesFeature(
-            EditorTextureSelectorContract.ADAPTER_SLICE_ID,
-            EditorTextureSelectorContract.READ_CAPABILITY_ID,
-            EditorTextureSelectorContract.READ_REQUIRED_ALIASES
-        );
+                EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+                EditorTextureSelectorContract.READ_CAPABILITY_ID,
+                EditorTextureSelectorContract.READ_REQUIRED_ALIASES);
     }
 
     private boolean writeAuthorized() {
         return resolver.authorizesFeature(
-            EditorTextureSelectorContract.ADAPTER_SLICE_ID,
-            EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
-            EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES
-        );
+                EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+                EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
+                EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
     }
 
     private void requireReadAuthorization() {
         if (!readAuthorized()) {
             throw new UnsupportedOperationException(
-                "Texture-library reading is unavailable without an admitted texture contract."
-            );
+                    "Texture-library reading is unavailable without an admitted texture contract.");
         }
     }
 
     private void requireWriteAuthorization() {
         if (!writeAuthorized()) {
             throw new UnsupportedOperationException(
-                "Texture-library writing is unavailable without its verified transaction contract."
-            );
+                    "Texture-library writing is unavailable without its verified transaction contract.");
         }
     }
 
     private void requireRawImageRemoval() {
         if (!resolver.authorizesFeature(
-            EditorTextureSelectorContract.ADAPTER_SLICE_ID,
-            EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
-            resolver.isAdmittedCubismVersion("5.2.03")
-                ? EditorTextureSelectorContract.REMOVE_RAW_IMAGE_5203_ALIASES
-                : EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
-        )) {
+                EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+                EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
+                resolver.isAdmittedCubismVersion("5.2.03")
+                        ? EditorTextureSelectorContract.REMOVE_RAW_IMAGE_5203_ALIASES
+                        : EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Raw image removal is unavailable without its verified non-dialog native Undo route."
-            );
+                    "Raw image removal is unavailable without its verified non-dialog native Undo route.");
         }
     }
 
@@ -195,49 +185,41 @@ final class EditorTextureAccess {
      * update instances/repaint → mark dirty → end. On any failure the partial
      * group is closed through the native Undo path so no partial state survives.
      */
-    private void envelope(
-        final String label,
-        final Object source,
-        final Operation operation
-    ) {
+    private void envelope(final String label, final Object source, final Operation operation) {
         EditorHostThread.requireHostThread("Cubism texture write");
         final Object app = resolver.invokeStatic(APP_INSTANCE);
         final Object document = resolver.invoke(CURRENT_DOCUMENT, app);
         final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
         if (ambientJoin.isPresent()) {
-            ambientJoin.orElseThrow().admit(
-                "cubism.texture.write",
-                "texture:" + label,
-                label,
-                (edit, transactionLabel) -> {
-                    // Construct-and-redo: the operation applies against the supplied edit and
-                    // returns the undoable; register it on the ambient root exactly as the
-                    // standalone envelope does.
-                    final Object undoable = operation.apply(edit);
-                    if (undoable != edit) registerAppliedUndo(edit, undoable);
-                    final Object listener = resolver.createFunctionalProxy(
-                        UNDO_LISTENER_CLASS,
-                        ignored -> {
-                            resolver.invoke(UPDATE_INSTANCES, source);
-                            refresh(app);
-                            return null;
-                        });
-                    resolver.invoke(UNDO_ADD_LISTENER, undoable, listener);
-                },
-                () -> { },
-                () -> true,
-                EnumSet.of(
-                    EditorRefreshRequirement.MODEL_INSTANCES,
-                    EditorRefreshRequirement.PART_PALETTE,
-                    EditorRefreshRequirement.CANVAS,
-                    EditorRefreshRequirement.MARK_DIRTY
-                )
-            );
+            ambientJoin
+                    .orElseThrow()
+                    .admit(
+                            "cubism.texture.write",
+                            "texture:" + label,
+                            label,
+                            (edit, transactionLabel) -> {
+                                // Construct-and-redo: the operation applies against the supplied edit and
+                                // returns the undoable; register it on the ambient root exactly as the
+                                // standalone envelope does.
+                                final Object undoable = operation.apply(edit);
+                                if (undoable != edit) registerAppliedUndo(edit, undoable);
+                                final Object listener = resolver.createFunctionalProxy(UNDO_LISTENER_CLASS, ignored -> {
+                                    resolver.invoke(UPDATE_INSTANCES, source);
+                                    refresh(app);
+                                    return null;
+                                });
+                                resolver.invoke(UNDO_ADD_LISTENER, undoable, listener);
+                            },
+                            () -> {},
+                            () -> true,
+                            EnumSet.of(
+                                    EditorRefreshRequirement.MODEL_INSTANCES,
+                                    EditorRefreshRequirement.PART_PALETTE,
+                                    EditorRefreshRequirement.CANVAS,
+                                    EditorRefreshRequirement.MARK_DIRTY));
             return;
         }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, label
-        );
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, label);
         final Object editMode = resolver.invoke(EDIT_MODE, document);
         final Object edit = resolver.invoke(BEGIN_EDIT, editMode, label);
         boolean completed = false;
@@ -246,14 +228,11 @@ final class EditorTextureAccess {
             // Prepared 5.2 edits already belong to the root. Other native factories forceRedo
             // before returning; compensate them if the root refuses registration.
             if (undoable != edit) registerAppliedUndo(edit, undoable);
-            final Object listener = resolver.createFunctionalProxy(
-                UNDO_LISTENER_CLASS,
-                ignored -> {
-                    resolver.invoke(UPDATE_INSTANCES, source);
-                    refresh(app);
-                    return null;
-                }
-            );
+            final Object listener = resolver.createFunctionalProxy(UNDO_LISTENER_CLASS, ignored -> {
+                resolver.invoke(UPDATE_INSTANCES, source);
+                refresh(app);
+                return null;
+            });
             resolver.invoke(UNDO_ADD_LISTENER, undoable, listener);
             resolver.invoke(UPDATE_INSTANCES, source);
             refresh(app);
@@ -329,7 +308,7 @@ final class EditorTextureAccess {
         for (Object wrapper : list(RAW_IMAGES, textureManager(source), "raw image")) {
             final Object image = resolver.invoke(WRAPPER_IMAGE, wrapper);
             if (guidValue(resolver.invoke("cubism.editor-model.layered-image.guid", image), "raw image")
-                .equals(id.value())) {
+                    .equals(id.value())) {
                 rawImage = image;
                 break;
             }
@@ -339,17 +318,18 @@ final class EditorTextureAccess {
         final java.util.Set<Object> observed = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         for (Object image : list(ALL_MODEL_IMAGES, textureManager(source), "model image")) {
             final Object environment = resolver.invoke("cubism.editor-model.model-image.input-filter-env", image);
-            final Object inputs = resolver.invoke("cubism.editor-model.model-image-filter-env.layer-input-data", environment);
+            final Object inputs =
+                    resolver.invoke("cubism.editor-model.model-image-filter-env.layer-input-data", environment);
             if (inputs == null) throw new IllegalStateException("Model image layer-input map is unavailable.");
             if (!observed.add(inputs)) continue;
             final Object layers = resolver.invoke("cubism.editor-model.layer-selector-map.get", inputs, guid);
             if (layers == null) continue;
             if (!(layers instanceof List<?>)) throw new IllegalStateException("Invalid raw-image layer inputs.");
-            undoables.add(resolver.construct("cubism.editor-model.texture-undo.layer-input.create",
-                inputs, guid, null, Boolean.FALSE));
+            undoables.add(resolver.construct(
+                    "cubism.editor-model.texture-undo.layer-input.create", inputs, guid, null, Boolean.FALSE));
         }
-        undoables.add(resolver.construct("cubism.editor-model.texture-undo.raw-image.create",
-            source, rawImage, -1, Boolean.FALSE));
+        undoables.add(resolver.construct(
+                "cubism.editor-model.texture-undo.raw-image.create", source, rawImage, -1, Boolean.FALSE));
         return List.copyOf(undoables);
     }
 
@@ -378,14 +358,13 @@ final class EditorTextureAccess {
                 if (!resolver.isInstance("cubism.editor-model.layered-image.class", image)) {
                     throw new IllegalStateException("Editor raw image collection contains an invalid value.");
                 }
-                final String id = guidValue(
-                    resolver.invoke("cubism.editor-model.layered-image.guid", image), "raw image");
+                final String id =
+                        guidValue(resolver.invoke("cubism.editor-model.layered-image.guid", image), "raw image");
                 values.add(new SimpleRawTexture(
-                    new RawImageId(id),
-                    name(image, "cubism.editor-model.layered-image.name", "raw image"),
-                    dimension(image, "cubism.editor-model.layered-image.width", "raw image"),
-                    dimension(image, "cubism.editor-model.layered-image.height", "raw image")
-                ));
+                        new RawImageId(id),
+                        name(image, "cubism.editor-model.layered-image.name", "raw image"),
+                        dimension(image, "cubism.editor-model.layered-image.width", "raw image"),
+                        dimension(image, "cubism.editor-model.layered-image.height", "raw image")));
             }
             return List.copyOf(values);
         }
@@ -398,24 +377,23 @@ final class EditorTextureAccess {
                 if (!resolver.isInstance("cubism.editor-model.model-image-group.class", group)) {
                     throw new IllegalStateException("Editor model image group collection contains an invalid value.");
                 }
-                final String groupName = name(
-                    group, "cubism.editor-model.model-image-group.group-name", "model image group");
+                final String groupName =
+                        name(group, "cubism.editor-model.model-image-group.group-name", "model image group");
                 final Object rawMemo = resolver.invoke("cubism.editor-model.model-image-group.memo", group);
                 final String memo = rawMemo instanceof String value ? value : "";
                 final List<ModelImageEntry> images = new ArrayList<>();
-                for (Object image : list(
-                    "cubism.editor-model.model-image-group.model-images", group, "model image group images")) {
+                for (Object image :
+                        list("cubism.editor-model.model-image-group.model-images", group, "model image group images")) {
                     if (!resolver.isInstance("cubism.editor-model.model-image.class", image)) {
                         throw new IllegalStateException("Editor model image collection contains an invalid value.");
                     }
-                    final String id = guidValue(
-                        resolver.invoke("cubism.editor-model.model-image.guid", image), "model image");
+                    final String id =
+                            guidValue(resolver.invoke("cubism.editor-model.model-image.guid", image), "model image");
                     images.add(new SimpleModelImageEntry(
-                        new ModelImageId(id),
-                        name(image, "cubism.editor-model.model-image.name", "model image"),
-                        dimension(image, "cubism.editor-model.model-image.width", "model image"),
-                        dimension(image, "cubism.editor-model.model-image.height", "model image")
-                    ));
+                            new ModelImageId(id),
+                            name(image, "cubism.editor-model.model-image.name", "model image"),
+                            dimension(image, "cubism.editor-model.model-image.width", "model image"),
+                            dimension(image, "cubism.editor-model.model-image.height", "model image")));
                 }
                 values.add(new SimpleModelImageGroup(groupName, memo, List.copyOf(images)));
             }
@@ -430,25 +408,18 @@ final class EditorTextureAccess {
                 if (!resolver.isInstance("cubism.editor-model.texture-atlas.class", atlas)) {
                     throw new IllegalStateException("Editor texture atlas collection contains an invalid value.");
                 }
-                final String id = guidValue(
-                    resolver.invoke("cubism.editor-model.texture-atlas.guid", atlas), "texture atlas");
-                final String atlasName = name(
-                    atlas, "cubism.editor-model.texture-atlas.name", "texture atlas");
+                final String id =
+                        guidValue(resolver.invoke("cubism.editor-model.texture-atlas.guid", atlas), "texture atlas");
+                final String atlasName = name(atlas, "cubism.editor-model.texture-atlas.name", "texture atlas");
                 final int width = dimension(atlas, "cubism.editor-model.texture-atlas.width", "texture atlas");
                 final int height = dimension(atlas, "cubism.editor-model.texture-atlas.height", "texture atlas");
-                final Object rawVersion = resolver.invoke(
-                    "cubism.editor-model.texture-atlas.atlas-version", atlas);
+                final Object rawVersion = resolver.invoke("cubism.editor-model.texture-atlas.atlas-version", atlas);
                 final int atlasVersion = rawVersion instanceof Integer value ? value : 0;
                 final int modelImageCount = list(
-                    "cubism.editor-model.texture-atlas.model-images", atlas, "texture atlas images").size();
+                                "cubism.editor-model.texture-atlas.model-images", atlas, "texture atlas images")
+                        .size();
                 values.add(new SimpleAtlasTexture(
-                    new TextureAtlasId(id),
-                    atlasName,
-                    width,
-                    height,
-                    atlasVersion,
-                    modelImageCount
-                ));
+                        new TextureAtlasId(id), atlasName, width, height, atlasVersion, modelImageCount));
             }
             return List.copyOf(values);
         }
@@ -467,9 +438,12 @@ final class EditorTextureAccess {
             if (value.strip().isEmpty()) throw new IllegalArgumentException("name must not be blank");
             modelGuard.requireCurrent(identity, model);
             final Object group = resolver.construct(GROUP_CREATE, value);
-            final int index = list(MODEL_IMAGE_GROUPS, textureManager(source), "model image group").size();
-            envelope("Turboism: Add Model Image Group", source,
-                edit -> resolver.invoke(ADD_MODEL_IMAGE_GROUP, handler(source), group, index));
+            final int index = list(MODEL_IMAGE_GROUPS, textureManager(source), "model image group")
+                    .size();
+            envelope(
+                    "Turboism: Add Model Image Group",
+                    source,
+                    edit -> resolver.invoke(ADD_MODEL_IMAGE_GROUP, handler(source), group, index));
         }
 
         @Override
@@ -485,22 +459,19 @@ final class EditorTextureAccess {
             Objects.requireNonNull(id, "id");
             modelGuard.requireCurrent(identity, model);
             final Object imageGuid = findModelImageGuid(source, id);
-            envelope("Turboism: Remove Model Image", source,
-                edit -> resolver.invoke(REMOVE_MODEL_IMAGE, handler(source), imageGuid));
+            envelope(
+                    "Turboism: Remove Model Image",
+                    source,
+                    edit -> resolver.invoke(REMOVE_MODEL_IMAGE, handler(source), imageGuid));
         }
 
         @Override
         public TextureAtlasId addTextureAtlas(final String name, final int widthPixels, final int heightPixels) {
-            return EditorHostThread.dispatch("Cubism texture write", () ->
-                addTextureAtlasOnEdt(name, widthPixels, heightPixels)
-            );
+            return EditorHostThread.dispatch(
+                    "Cubism texture write", () -> addTextureAtlasOnEdt(name, widthPixels, heightPixels));
         }
 
-        private TextureAtlasId addTextureAtlasOnEdt(
-            final String name,
-            final int widthPixels,
-            final int heightPixels
-        ) {
+        private TextureAtlasId addTextureAtlasOnEdt(final String name, final int widthPixels, final int heightPixels) {
             requireWriteAuthorization();
             final String value = Objects.requireNonNull(name, "name");
             if (value.strip().isEmpty()) throw new IllegalArgumentException("name must not be blank");
@@ -509,9 +480,12 @@ final class EditorTextureAccess {
             }
             modelGuard.requireCurrent(identity, model);
             final Object atlas = resolver.construct(ATLAS_CREATE, source, value, widthPixels, heightPixels);
-            final int index = list(TEXTURE_ATLASES, textureManager(source), "texture atlas").size();
-            envelope("Turboism: Add Texture Atlas", source,
-                edit -> resolver.invoke(ADD_TEXTURE_ATLAS, handler(source), atlas, index));
+            final int index = list(TEXTURE_ATLASES, textureManager(source), "texture atlas")
+                    .size();
+            envelope(
+                    "Turboism: Add Texture Atlas",
+                    source,
+                    edit -> resolver.invoke(ADD_TEXTURE_ATLAS, handler(source), atlas, index));
             final Object guid = resolver.invoke("cubism.editor-model.texture-atlas.guid", atlas);
             return new TextureAtlasId(guidValue(guid, "texture atlas"));
         }
@@ -529,8 +503,10 @@ final class EditorTextureAccess {
             Objects.requireNonNull(id, "id");
             modelGuard.requireCurrent(identity, model);
             final Object atlas = findTextureAtlas(source, id);
-            envelope("Turboism: Remove Texture Atlas", source,
-                edit -> resolver.invoke(REMOVE_TEXTURE_ATLAS, handler(source), atlas));
+            envelope(
+                    "Turboism: Remove Texture Atlas",
+                    source,
+                    edit -> resolver.invoke(REMOVE_TEXTURE_ATLAS, handler(source), atlas));
         }
 
         @Override
@@ -561,38 +537,23 @@ final class EditorTextureAccess {
                 });
             } else {
                 final Object guid = findRawImageGuid(source, id);
-                envelope("Turboism: Remove Raw Image", source,
-                    edit -> resolver.invoke(REMOVE_RAW_IMAGE, handler(source), guid, Boolean.FALSE));
+                envelope(
+                        "Turboism: Remove Raw Image",
+                        source,
+                        edit -> resolver.invoke(REMOVE_RAW_IMAGE, handler(source), guid, Boolean.FALSE));
             }
         }
     }
 
-    private record SimpleRawTexture(
-        RawImageId id,
-        String name,
-        int width,
-        int height
-    ) implements RawTexture { }
+    private record SimpleRawTexture(RawImageId id, String name, int width, int height) implements RawTexture {}
 
-    private record SimpleModelImageEntry(
-        ModelImageId id,
-        String name,
-        int width,
-        int height
-    ) implements ModelImageEntry { }
+    private record SimpleModelImageEntry(ModelImageId id, String name, int width, int height)
+            implements ModelImageEntry {}
 
-    private record SimpleModelImageGroup(
-        String groupName,
-        String memo,
-        List<ModelImageEntry> modelImages
-    ) implements ModelImageGroup { }
+    private record SimpleModelImageGroup(String groupName, String memo, List<ModelImageEntry> modelImages)
+            implements ModelImageGroup {}
 
     private record SimpleAtlasTexture(
-        TextureAtlasId id,
-        String name,
-        int width,
-        int height,
-        int atlasVersion,
-        int modelImageCount
-    ) implements AtlasTexture { }
+            TextureAtlasId id, String name, int width, int height, int atlasVersion, int modelImageCount)
+            implements AtlasTexture {}
 }

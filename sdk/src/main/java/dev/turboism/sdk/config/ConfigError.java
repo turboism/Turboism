@@ -12,11 +12,7 @@ import java.util.Objects;
  * @param message human-readable detail, never blank
  * @param key the config key the failure is attributed to, never blank
  */
-public record ConfigError(
-    ConfigErrorCode code,
-    String message,
-    String key
-) {
+public record ConfigError(ConfigErrorCode code, String message, String key) {
     public ConfigError {
         code = Objects.requireNonNull(code, "code");
         message = requireText(message, "message");

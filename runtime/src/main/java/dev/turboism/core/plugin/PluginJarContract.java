@@ -1,7 +1,6 @@
 package dev.turboism.core.plugin;
 
 import dev.turboism.sdk.plugin.PluginDescriptor;
-
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -25,14 +24,13 @@ public final class PluginJarContract {
      * stale file survives a failed deletion or a manual copy.</p>
      */
     public static final Set<String> RETIRED_PLUGIN_IDS = Set.of(
-        "dev.turboism.plugin.logfilter",
-        "dev.turboism.plugin.clipmask",
-        "dev.turboism.plugin.perfopt",
-        "dev.turboism.plugin.renderopt",
-        "dev.turboism.plugin.backup");
+            "dev.turboism.plugin.logfilter",
+            "dev.turboism.plugin.clipmask",
+            "dev.turboism.plugin.perfopt",
+            "dev.turboism.plugin.renderopt",
+            "dev.turboism.plugin.backup");
 
-    private PluginJarContract() {
-    }
+    private PluginJarContract() {}
 
     /**
      * Checks a plugin descriptor against the actual contents of its JAR.
@@ -49,10 +47,8 @@ public final class PluginJarContract {
      *         {@link PluginJarContractException#code()} and the offending path
      */
     public static void validate(
-        final PluginDescriptor descriptor,
-        final Collection<String> entryNames,
-        final String logicalPath
-    ) throws PluginJarContractException {
+            final PluginDescriptor descriptor, final Collection<String> entryNames, final String logicalPath)
+            throws PluginJarContractException {
         rejectRetiredId(descriptor, logicalPath);
         final Set<String> content = Set.copyOf(entryNames);
         validateEntrypoints(descriptor, content, logicalPath);
@@ -63,97 +59,68 @@ public final class PluginJarContract {
         rejectUndeclaredResources(descriptor, content, logicalPath);
     }
 
-    private static void rejectRetiredId(
-        final PluginDescriptor descriptor,
-        final String logicalPath
-    ) throws PluginJarContractException {
+    private static void rejectRetiredId(final PluginDescriptor descriptor, final String logicalPath)
+            throws PluginJarContractException {
         if (RETIRED_PLUGIN_IDS.contains(descriptor.id())) {
             throw problem(
-                "PLUGIN_RETIRED_ID",
-                logicalPath + " (plugin id " + descriptor.id() + " is retired and must not load)"
-            );
+                    "PLUGIN_RETIRED_ID",
+                    logicalPath + " (plugin id " + descriptor.id() + " is retired and must not load)");
         }
     }
 
     private static void validateEntrypoints(
-        final PluginDescriptor descriptor,
-        final Set<String> content,
-        final String logicalPath
-    ) throws PluginJarContractException {
+            final PluginDescriptor descriptor, final Set<String> content, final String logicalPath)
+            throws PluginJarContractException {
         for (String entrypoint : descriptor.entrypoints()) {
             final String classPath = entrypoint.replace('.', '/') + ".class";
-            require(
-                content.contains(classPath),
-                "PLUGIN_ENTRYPOINT_CLASS_MISSING",
-                logicalPath + "!/" + classPath
-            );
+            require(content.contains(classPath), "PLUGIN_ENTRYPOINT_CLASS_MISSING", logicalPath + "!/" + classPath);
         }
     }
 
     private static void validatePublicEventTypes(
-        final PluginDescriptor descriptor,
-        final Set<String> content,
-        final String logicalPath
-    ) throws PluginJarContractException {
+            final PluginDescriptor descriptor, final Set<String> content, final String logicalPath)
+            throws PluginJarContractException {
         final Set<String> contractTypes = new LinkedHashSet<>();
         descriptor.eventExports().forEach(exported -> contractTypes.add(exported.eventType()));
         descriptor.eventImports().forEach(imported -> contractTypes.add(imported.eventType()));
         for (String eventType : contractTypes) {
             final String classPath = eventType.replace('.', '/') + ".class";
-            require(
-                !content.contains(classPath),
-                "PLUGIN_PUBLIC_EVENT_API_EMBEDDED",
-                logicalPath + "!/" + classPath
-            );
+            require(!content.contains(classPath), "PLUGIN_PUBLIC_EVENT_API_EMBEDDED", logicalPath + "!/" + classPath);
         }
     }
 
     private static void validateEventContracts(
-        final PluginDescriptor descriptor,
-        final Set<String> content,
-        final String logicalPath
-    ) throws PluginJarContractException {
+            final PluginDescriptor descriptor, final Set<String> content, final String logicalPath)
+            throws PluginJarContractException {
         final Set<String> declared = new LinkedHashSet<>();
         for (PluginDescriptor.EventContract contract : descriptor.eventContracts()) {
             declared.add(contract.artifact());
             require(
-                content.contains(contract.artifact()),
-                "PLUGIN_CONTRACT_ARTIFACT_MISSING",
-                logicalPath + "!/" + contract.artifact()
-            );
+                    content.contains(contract.artifact()),
+                    "PLUGIN_CONTRACT_ARTIFACT_MISSING",
+                    logicalPath + "!/" + contract.artifact());
         }
         for (String path : content) {
             if (path.startsWith("META-INF/turboism/contracts/")
-                && !path.equals("META-INF/turboism/contracts/")
-                && !declared.contains(path)) {
-                throw problem(
-                    "PLUGIN_CONTRACT_ARTIFACT_UNDECLARED",
-                    logicalPath + "!/" + path
-                );
+                    && !path.equals("META-INF/turboism/contracts/")
+                    && !declared.contains(path)) {
+                throw problem("PLUGIN_CONTRACT_ARTIFACT_UNDECLARED", logicalPath + "!/" + path);
             }
         }
     }
 
     private static void validateResourceRoots(
-        final PluginDescriptor descriptor,
-        final Set<String> content,
-        final String logicalPath
-    ) throws PluginJarContractException {
+            final PluginDescriptor descriptor, final Set<String> content, final String logicalPath)
+            throws PluginJarContractException {
         for (String root : descriptor.resources()) {
             final boolean present = content.stream().anyMatch(path -> path.startsWith(root));
-            require(
-                present,
-                "PLUGIN_RESOURCE_ROOT_MISSING",
-                logicalPath + "!/" + root
-            );
+            require(present, "PLUGIN_RESOURCE_ROOT_MISSING", logicalPath + "!/" + root);
         }
     }
 
     private static void validateI18n(
-        final PluginDescriptor descriptor,
-        final Set<String> content,
-        final String logicalPath
-    ) throws PluginJarContractException {
+            final PluginDescriptor descriptor, final Set<String> content, final String logicalPath)
+            throws PluginJarContractException {
         // baseName() implicitly declares exactly one required base catalog;
         // a legacy explicit "base" locale maps to the same path and dedupes.
         final Set<String> expected = new LinkedHashSet<>();
@@ -162,72 +129,48 @@ public final class PluginJarContract {
             expected.add(catalogPath(descriptor.i18n().baseName(), locale));
         }
         for (String catalog : expected) {
-            require(
-                content.contains(catalog),
-                "PLUGIN_I18N_CATALOG_MISSING",
-                logicalPath + "!/" + catalog
-            );
+            require(content.contains(catalog), "PLUGIN_I18N_CATALOG_MISSING", logicalPath + "!/" + catalog);
         }
         final String prefix = descriptor.i18n().baseName() + "_";
         for (String path : content) {
             final boolean catalog = path.equals(descriptor.i18n().baseName() + ".properties")
-                || (path.startsWith(prefix) && path.endsWith(".properties"));
+                    || (path.startsWith(prefix) && path.endsWith(".properties"));
             if (catalog && !expected.contains(path)) {
-                throw problem(
-                    "PLUGIN_I18N_CATALOG_UNDECLARED",
-                    logicalPath + "!/" + path
-                );
+                throw problem("PLUGIN_I18N_CATALOG_UNDECLARED", logicalPath + "!/" + path);
             }
         }
     }
 
     private static void rejectUndeclaredResources(
-        final PluginDescriptor descriptor,
-        final Set<String> content,
-        final String logicalPath
-    ) throws PluginJarContractException {
+            final PluginDescriptor descriptor, final Set<String> content, final String logicalPath)
+            throws PluginJarContractException {
         for (String path : content) {
             if (path.equals(DESCRIPTOR)
-                || path.equalsIgnoreCase("META-INF/MANIFEST.MF")
-                || path.endsWith(".class")
-                || path.startsWith("META-INF/")) {
+                    || path.equalsIgnoreCase("META-INF/MANIFEST.MF")
+                    || path.endsWith(".class")
+                    || path.startsWith("META-INF/")) {
                 continue;
             }
-            final boolean declared = descriptor.resources().stream()
-                .anyMatch(path::startsWith);
-            require(
-                declared,
-                "PLUGIN_RESOURCE_UNDECLARED",
-                logicalPath + "!/" + path
-            );
+            final boolean declared = descriptor.resources().stream().anyMatch(path::startsWith);
+            require(declared, "PLUGIN_RESOURCE_UNDECLARED", logicalPath + "!/" + path);
         }
     }
 
     private static String catalogPath(final String baseName, final String locale) {
         return "base".equals(locale)
-            ? baseName + ".properties"
-            : baseName + "_" + locale.replace('-', '_') + ".properties";
+                ? baseName + ".properties"
+                : baseName + "_" + locale.replace('-', '_') + ".properties";
     }
 
-    private static void require(
-        final boolean valid,
-        final String code,
-        final String path
-    ) throws PluginJarContractException {
+    private static void require(final boolean valid, final String code, final String path)
+            throws PluginJarContractException {
         if (!valid) {
             throw problem(code, path);
         }
     }
 
-    private static PluginJarContractException problem(
-        final String code,
-        final String path
-    ) {
-        return new PluginJarContractException(
-            code,
-            "Plugin JAR content does not match plugin.json",
-            path
-        );
+    private static PluginJarContractException problem(final String code, final String path) {
+        return new PluginJarContractException(code, "Plugin JAR content does not match plugin.json", path);
     }
 
     /**
@@ -238,11 +181,7 @@ public final class PluginJarContract {
         private final String code;
         private final String path;
 
-        private PluginJarContractException(
-            final String code,
-            final String message,
-            final String path
-        ) {
+        private PluginJarContractException(final String code, final String message, final String path) {
             super(message);
             this.code = code;
             this.path = path;

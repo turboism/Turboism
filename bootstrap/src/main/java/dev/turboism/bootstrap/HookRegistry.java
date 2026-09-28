@@ -26,8 +26,7 @@ final class HookRegistry {
 
     private final List<Entry> entries = new CopyOnWriteArrayList<>();
 
-    HookRegistry() {
-    }
+    HookRegistry() {}
 
     /**
      * Enrolls an installed hook handle.
@@ -39,8 +38,7 @@ final class HookRegistry {
         if (handle == null) {
             return;
         }
-        entries.add(new Entry(
-            contributor.id(), handle, contributor.closesOnProcessExit(), contributor.phase()));
+        entries.add(new Entry(contributor.id(), handle, contributor.closesOnProcessExit(), contributor.phase()));
     }
 
     /**
@@ -64,11 +62,7 @@ final class HookRegistry {
      * @param warn receives one message per failed close
      * @param info receives the {@code cleanup=COMPLETE} protocol lines
      */
-    void closePhase(
-        final HookContributor.Phase phase,
-        final Consumer<String> warn,
-        final Consumer<String> info
-    ) {
+    void closePhase(final HookContributor.Phase phase, final Consumer<String> warn, final Consumer<String> info) {
         closeMatching(warn, info, false, "bootstrap-failure", entry -> entry.phase == phase);
     }
 
@@ -96,21 +90,19 @@ final class HookRegistry {
     }
 
     private void closeMatching(
-        final Consumer<String> warn,
-        final Consumer<String> info,
-        final boolean processExitOnly,
-        final String phase
-    ) {
+            final Consumer<String> warn,
+            final Consumer<String> info,
+            final boolean processExitOnly,
+            final String phase) {
         closeMatching(warn, info, processExitOnly, phase, entry -> true);
     }
 
     private void closeMatching(
-        final Consumer<String> warn,
-        final Consumer<String> info,
-        final boolean processExitOnly,
-        final String phase,
-        final java.util.function.Predicate<Entry> filter
-    ) {
+            final Consumer<String> warn,
+            final Consumer<String> info,
+            final boolean processExitOnly,
+            final String phase,
+            final java.util.function.Predicate<Entry> filter) {
         final List<Entry> snapshot = new ArrayList<>(entries);
         for (int index = snapshot.size() - 1; index >= 0; index--) {
             final Entry entry = snapshot.get(index);
@@ -130,9 +122,7 @@ final class HookRegistry {
                 }
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
-                warn.accept(
-                    "Turboism hook cleanup failed safely: " + entry.id + " phase=" + phase
-                );
+                warn.accept("Turboism hook cleanup failed safely: " + entry.id + " phase=" + phase);
             }
         }
     }
@@ -144,11 +134,10 @@ final class HookRegistry {
         private final HookContributor.Phase phase;
 
         private Entry(
-            final String id,
-            final AutoCloseable handle,
-            final boolean processExit,
-            final HookContributor.Phase phase
-        ) {
+                final String id,
+                final AutoCloseable handle,
+                final boolean processExit,
+                final HookContributor.Phase phase) {
             this.id = id;
             this.handle = handle;
             this.processExit = processExit;

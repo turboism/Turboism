@@ -18,13 +18,11 @@ public final class FakeToolbarVisibilityTracker {
         Objects.requireNonNull(contributionId, "contributionId");
         Objects.requireNonNull(toolbarKind, "toolbarKind");
         if (!"main".equals(toolbarKind) && !"palette".equals(toolbarKind)) {
-            throw new IllegalArgumentException(
-                "toolbarKind must be 'main' or 'palette': " + toolbarKind
-            );
+            throw new IllegalArgumentException("toolbarKind must be 'main' or 'palette': " + toolbarKind);
         }
         visibleByPlugin
-            .computeIfAbsent(pluginId, k -> Collections.synchronizedSet(new HashSet<>()))
-            .add(contributionId);
+                .computeIfAbsent(pluginId, k -> Collections.synchronizedSet(new HashSet<>()))
+                .add(contributionId);
     }
 
     public void markHidden(String pluginId, String contributionId) {

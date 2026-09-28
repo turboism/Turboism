@@ -1,12 +1,11 @@
 package dev.turboism.preview;
 
-import dev.turboism.core.dependency.DependencyResolver;
-import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
-
+import dev.turboism.core.dependency.DependencyResolver;
+import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -30,28 +29,33 @@ final class PreviewPluginLoadCoordinator {
     private final PreviewLog log;
 
     PreviewPluginLoadCoordinator(
-        final Path home,
-        final Path pluginDirectory,
-        final PreviewPluginContextFactory contextFactory,
-        final PreviewLog log,
-        final List<LocalPluginRuntime.LoadedPlugin> loaded,
-        final ParameterHookRegistry parameterHookRegistry,
-        final PartHookRegistry partHookRegistry,
-        final EditorObjectHookRegistry editorObjectHookRegistry,
-        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry,
-        final PluginLifecycleLane lifecycleLane,
-        final PluginLifecyclePolicy lifecyclePolicy,
-        final RetainedPluginGenerations retention,
-        final PreviewPluginShutdown shutdown
-    ) {
+            final Path home,
+            final Path pluginDirectory,
+            final PreviewPluginContextFactory contextFactory,
+            final PreviewLog log,
+            final List<LocalPluginRuntime.LoadedPlugin> loaded,
+            final ParameterHookRegistry parameterHookRegistry,
+            final PartHookRegistry partHookRegistry,
+            final EditorObjectHookRegistry editorObjectHookRegistry,
+            final ProjectLifecycleHookRegistry projectLifecycleHookRegistry,
+            final PluginLifecycleLane lifecycleLane,
+            final PluginLifecyclePolicy lifecyclePolicy,
+            final RetainedPluginGenerations retention,
+            final PreviewPluginShutdown shutdown) {
         this.pluginDirectory = pluginDirectory;
         this.home = home.toAbsolutePath().normalize();
         this.discovery = new PreviewPluginDiscovery(pluginDirectory, log);
         this.loader = new PreviewPluginLoader(
-            contextFactory, log, loaded, parameterHookRegistry, partHookRegistry,
-            editorObjectHookRegistry, projectLifecycleHookRegistry,
-            lifecycleLane, lifecyclePolicy, retention
-        );
+                contextFactory,
+                log,
+                loaded,
+                parameterHookRegistry,
+                partHookRegistry,
+                editorObjectHookRegistry,
+                projectLifecycleHookRegistry,
+                lifecycleLane,
+                lifecyclePolicy,
+                retention);
         this.shutdown = java.util.Objects.requireNonNull(shutdown, "shutdown");
         this.loaded = loaded;
         this.log = log;
@@ -63,14 +67,15 @@ final class PreviewPluginLoadCoordinator {
         final Set<String> configuredDisabled;
         try {
             configuredDisabled = new dev.turboism.config.RuntimeConfigRepository(
-                home, code -> log.warn("plugin-loader", code)
-            ).disabledPlugins();
+                            home, code -> log.warn("plugin-loader", code))
+                    .disabledPlugins();
         } catch (RuntimeException invalidConfig) {
             candidates.clear();
             failures.add(new LocalPluginRuntime.PluginFailure(
-                "<config>", home.resolve("config.json"), "RUNTIME_CONFIG_INVALID",
-                "Plugin discovery failed closed because canonical runtime config is invalid."
-            ));
+                    "<config>",
+                    home.resolve("config.json"),
+                    "RUNTIME_CONFIG_INVALID",
+                    "Plugin discovery failed closed because canonical runtime config is invalid."));
             return new LocalPluginRuntime.LoadReport(List.of(), List.copyOf(failures), List.of());
         }
         for (String disabledId : configuredDisabled) {
@@ -86,22 +91,19 @@ final class PreviewPluginLoadCoordinator {
     }
 
     private LocalPluginRuntime.LoadReport loadResolved(
-        final Map<String, PreviewPluginCandidate> candidates,
-        final List<LocalPluginRuntime.PluginFailure> failures
-    ) {
-        final DependencyResolver.ResolutionResult resolution = new DependencyResolver().resolve(
-            candidates.values().stream().map(PreviewPluginCandidate::descriptor).toList()
-        );
+            final Map<String, PreviewPluginCandidate> candidates,
+            final List<LocalPluginRuntime.PluginFailure> failures) {
+        final DependencyResolver.ResolutionResult resolution = new DependencyResolver()
+                .resolve(candidates.values().stream()
+                        .map(PreviewPluginCandidate::descriptor)
+                        .toList());
         final Set<String> disabled = new LinkedHashSet<>(resolution.disabledIds());
         recordDisabled(disabled, resolution.disabledReasons(), candidates, failures);
         final Map<String, List<String>> requiredDependents = requiredDependents(resolution);
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries = new ArrayList<>();
         final Set<String> runtimeFailed = new LinkedHashSet<>();
         for (DependencyResolver.ResolvedPlugin resolved : resolution.loadOrder()) {
-            loadResolvedPlugin(
-                resolved, candidates, disabled, requiredDependents,
-                runtimeFailed, failures, summaries
-            );
+            loadResolvedPlugin(resolved, candidates, disabled, requiredDependents, runtimeFailed, failures, summaries);
         }
         log.info("plugin-loader", "Plugin load complete: loaded=" + summaries.size() + ", failed=" + failures.size());
         // A bare count is not diagnosable. An exact-host run reported failed=1 with nothing
@@ -109,37 +111,31 @@ final class PreviewPluginLoadCoordinator {
         // hand; every failure now says which plugin, which code, and why.
         for (LocalPluginRuntime.PluginFailure failure : failures) {
             log.warn(
-                "plugin-loader",
-                "Plugin failed: id=" + failure.pluginId()
-                    + " code=" + failure.code()
-                    + " jar=" + failure.jar()
-                    + " reason=" + failure.message()
-            );
+                    "plugin-loader",
+                    "Plugin failed: id=" + failure.pluginId()
+                            + " code=" + failure.code()
+                            + " jar=" + failure.jar()
+                            + " reason=" + failure.message());
         }
         return new LocalPluginRuntime.LoadReport(
-            List.copyOf(summaries), List.copyOf(failures), List.copyOf(resolution.cycles())
-        );
+                List.copyOf(summaries), List.copyOf(failures), List.copyOf(resolution.cycles()));
     }
 
     private void recordDisabled(
-        final Set<String> disabled,
-        final Map<String, String> disabledReasons,
-        final Map<String, PreviewPluginCandidate> candidates,
-        final List<LocalPluginRuntime.PluginFailure> failures
-    ) {
+            final Set<String> disabled,
+            final Map<String, String> disabledReasons,
+            final Map<String, PreviewPluginCandidate> candidates,
+            final List<LocalPluginRuntime.PluginFailure> failures) {
         for (String disabledId : disabled) {
             final PreviewPluginCandidate candidate = candidates.get(disabledId);
-            final String reason = disabledReasons.getOrDefault(
-                disabledId, "required dependency missing, incompatible, or cyclic"
-            );
+            final String reason =
+                    disabledReasons.getOrDefault(disabledId, "required dependency missing, incompatible, or cyclic");
             failures.add(new LocalPluginRuntime.PluginFailure(
-                disabledId, candidate == null ? pluginDirectory : candidate.jar(),
-                "DEPENDENCY_FAILED", "Plugin disabled at dependency resolution: " + reason
-            ));
-            log.warn(
-                disabledId,
-                "Plugin lifecycle: load skipped at dependency resolution: " + reason
-            );
+                    disabledId,
+                    candidate == null ? pluginDirectory : candidate.jar(),
+                    "DEPENDENCY_FAILED",
+                    "Plugin disabled at dependency resolution: " + reason));
+            log.warn(disabledId, "Plugin lifecycle: load skipped at dependency resolution: " + reason);
         }
     }
 
@@ -149,15 +145,15 @@ final class PreviewPluginLoadCoordinator {
      * ordering: a {@code before} or {@code none} declarer can already be live when its target
      * fails, so runtime failures propagate along this map in both load directions.
      */
-    private static Map<String, List<String>> requiredDependents(
-        final DependencyResolver.ResolutionResult resolution
-    ) {
+    private static Map<String, List<String>> requiredDependents(final DependencyResolver.ResolutionResult resolution) {
         final Map<String, List<String>> dependents = new LinkedHashMap<>();
         for (DependencyResolver.ResolvedPlugin resolved : resolution.loadOrder()) {
-            for (PluginDescriptor.DependencyRef dependency : resolved.descriptor().dependencies()) {
+            for (PluginDescriptor.DependencyRef dependency :
+                    resolved.descriptor().dependencies()) {
                 if ("required".equals(dependency.type())) {
-                    dependents.computeIfAbsent(dependency.id(), key -> new ArrayList<>())
-                        .add(resolved.id());
+                    dependents
+                            .computeIfAbsent(dependency.id(), key -> new ArrayList<>())
+                            .add(resolved.id());
                 }
             }
         }
@@ -165,14 +161,13 @@ final class PreviewPluginLoadCoordinator {
     }
 
     private void loadResolvedPlugin(
-        final DependencyResolver.ResolvedPlugin resolved,
-        final Map<String, PreviewPluginCandidate> candidates,
-        final Set<String> disabled,
-        final Map<String, List<String>> requiredDependents,
-        final Set<String> runtimeFailed,
-        final List<LocalPluginRuntime.PluginFailure> failures,
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries
-    ) {
+            final DependencyResolver.ResolvedPlugin resolved,
+            final Map<String, PreviewPluginCandidate> candidates,
+            final Set<String> disabled,
+            final Map<String, List<String>> requiredDependents,
+            final Set<String> runtimeFailed,
+            final List<LocalPluginRuntime.PluginFailure> failures,
+            final List<LocalPluginRuntime.LoadedPluginSummary> summaries) {
         final PreviewPluginCandidate candidate = candidates.get(resolved.id());
         if (candidate == null || disabled.contains(resolved.id())) {
             return;
@@ -180,24 +175,20 @@ final class PreviewPluginLoadCoordinator {
         final List<String> failedDependencies = failedDependencies(candidate.descriptor(), runtimeFailed);
         if (!failedDependencies.isEmpty()) {
             failures.add(new LocalPluginRuntime.PluginFailure(
-                resolved.id(), candidate.jar(), "DEPENDENCY_LOAD_FAILED",
-                "Required dependency failed to load: " + String.join(", ", failedDependencies)
-            ));
+                    resolved.id(),
+                    candidate.jar(),
+                    "DEPENDENCY_LOAD_FAILED",
+                    "Required dependency failed to load: " + String.join(", ", failedDependencies)));
             log.warn(
-                resolved.id(),
-                "Plugin lifecycle: load skipped because required dependencies failed: "
-                    + String.join(", ", failedDependencies)
-            );
-            markRuntimeFailed(
-                resolved.id(), candidates, requiredDependents, runtimeFailed, failures, summaries
-            );
+                    resolved.id(),
+                    "Plugin lifecycle: load skipped because required dependencies failed: "
+                            + String.join(", ", failedDependencies));
+            markRuntimeFailed(resolved.id(), candidates, requiredDependents, runtimeFailed, failures, summaries);
             return;
         }
         final LocalPluginRuntime.LoadedPluginSummary summary = loader.load(candidate, failures);
         if (summary == null) {
-            markRuntimeFailed(
-                resolved.id(), candidates, requiredDependents, runtimeFailed, failures, summaries
-            );
+            markRuntimeFailed(resolved.id(), candidates, requiredDependents, runtimeFailed, failures, summaries);
         } else {
             summaries.add(summary);
         }
@@ -217,13 +208,12 @@ final class PreviewPluginLoadCoordinator {
      * from the references captured at fence time.</p>
      */
     private void markRuntimeFailed(
-        final String failedId,
-        final Map<String, PreviewPluginCandidate> candidates,
-        final Map<String, List<String>> requiredDependents,
-        final Set<String> runtimeFailed,
-        final List<LocalPluginRuntime.PluginFailure> failures,
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries
-    ) {
+            final String failedId,
+            final Map<String, PreviewPluginCandidate> candidates,
+            final Map<String, List<String>> requiredDependents,
+            final Set<String> runtimeFailed,
+            final List<LocalPluginRuntime.PluginFailure> failures,
+            final List<LocalPluginRuntime.LoadedPluginSummary> summaries) {
         if (!runtimeFailed.add(failedId)) {
             return;
         }
@@ -241,9 +231,9 @@ final class PreviewPluginLoadCoordinator {
         final List<LocalPluginRuntime.LoadedPlugin> fenced = new ArrayList<>();
         for (String dependentId : unloadOrder(closure, candidates)) {
             loaded.stream()
-                .filter(plugin -> plugin.runtime().id().equals(dependentId))
-                .findFirst()
-                .ifPresent(fenced::add);
+                    .filter(plugin -> plugin.runtime().id().equals(dependentId))
+                    .findFirst()
+                    .ifPresent(fenced::add);
         }
         shutdown.fence(fenced);
         for (LocalPluginRuntime.LoadedPlugin live : fenced) {
@@ -252,22 +242,20 @@ final class PreviewPluginLoadCoordinator {
         }
         for (LocalPluginRuntime.LoadedPlugin live : fenced) {
             final String dependentId = live.runtime().id();
-            final List<String> failedDependencies = failedDependencies(
-                live.runtime().descriptor(), runtimeFailed
-            );
+            final List<String> failedDependencies =
+                    failedDependencies(live.runtime().descriptor(), runtimeFailed);
             final LocalPluginRuntime.LoadedPluginSummary unloadSummary = shutdown.unloadOne(live);
             failures.add(new LocalPluginRuntime.PluginFailure(
-                dependentId, live.jar(),
-                "DEPENDENCY_LOAD_FAILED",
-                "Required dependencies failed after this plugin loaded: "
-                    + String.join(", ", failedDependencies)
-                    + "; plugin unloaded (unload=" + unloadSummary.unloadState() + ")"
-            ));
+                    dependentId,
+                    live.jar(),
+                    "DEPENDENCY_LOAD_FAILED",
+                    "Required dependencies failed after this plugin loaded: "
+                            + String.join(", ", failedDependencies)
+                            + "; plugin unloaded (unload=" + unloadSummary.unloadState() + ")"));
             log.warn(
-                dependentId,
-                "Plugin lifecycle: unloaded because required dependencies failed after load: "
-                    + String.join(", ", failedDependencies)
-            );
+                    dependentId,
+                    "Plugin lifecycle: unloaded because required dependencies failed after load: "
+                            + String.join(", ", failedDependencies));
         }
     }
 
@@ -276,10 +264,7 @@ final class PreviewPluginLoadCoordinator {
      * require, so a still-live plugin never observes a dependency already disposed. Ties and any
      * residual required-cycles fall back to the order the plugins originally loaded in.
      */
-    private List<String> unloadOrder(
-        final Set<String> closure,
-        final Map<String, PreviewPluginCandidate> candidates
-    ) {
+    private List<String> unloadOrder(final Set<String> closure, final Map<String, PreviewPluginCandidate> candidates) {
         final Map<String, Integer> loadIndex = new HashMap<>();
         for (int index = 0; index < loaded.size(); index++) {
             loadIndex.put(loaded.get(index).runtime().id(), index);
@@ -307,15 +292,15 @@ final class PreviewPluginLoadCoordinator {
         final Set<String> pending = new LinkedHashSet<>(closure);
         while (true) {
             final String next = pending.stream()
-                .filter(member -> requiredBy.get(member).isEmpty())
-                .min(java.util.Comparator.comparingInt(member -> loadIndex.getOrDefault(member, -1)))
-                .orElse(null);
+                    .filter(member -> requiredBy.get(member).isEmpty())
+                    .min(java.util.Comparator.comparingInt(member -> loadIndex.getOrDefault(member, -1)))
+                    .orElse(null);
             if (next == null) {
                 // Mutual required references leave no dependency-free member; the residual order
                 // is arbitrary but must stay deterministic.
                 pending.stream()
-                    .sorted(java.util.Comparator.comparingInt(member -> loadIndex.getOrDefault(member, -1)))
-                    .forEach(order::add);
+                        .sorted(java.util.Comparator.comparingInt(member -> loadIndex.getOrDefault(member, -1)))
+                        .forEach(order::add);
                 break;
             }
             order.add(next);
@@ -327,14 +312,11 @@ final class PreviewPluginLoadCoordinator {
         return order;
     }
 
-    private static List<String> failedDependencies(
-        final PluginDescriptor descriptor,
-        final Set<String> runtimeFailed
-    ) {
+    private static List<String> failedDependencies(final PluginDescriptor descriptor, final Set<String> runtimeFailed) {
         return descriptor.dependencies().stream()
-            .filter(dependency -> "required".equals(dependency.type()))
-            .map(PluginDescriptor.DependencyRef::id)
-            .filter(runtimeFailed::contains)
-            .toList();
+                .filter(dependency -> "required".equals(dependency.type()))
+                .map(PluginDescriptor.DependencyRef::id)
+                .filter(runtimeFailed::contains)
+                .toList();
     }
 }

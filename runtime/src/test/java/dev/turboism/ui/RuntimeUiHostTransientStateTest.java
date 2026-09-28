@@ -1,5 +1,10 @@
 package dev.turboism.ui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
 import dev.turboism.permissions.PermissionChecker;
@@ -13,7 +18,6 @@ import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
-
 import java.awt.GraphicsEnvironment;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,11 +25,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 class RuntimeUiHostTransientStateTest {
 
@@ -73,41 +72,31 @@ class RuntimeUiHostTransientStateTest {
         final Path stdout = Files.createTempFile("headless-choice-stdout", ".log");
         final Path stderr = Files.createTempFile("headless-choice-stderr", ".log");
         final Process probe = new ProcessBuilder(
-            javaBinary(),
-            "-Djava.awt.headless=true",
-            "-cp",
-            System.getProperty("java.class.path"),
-            HeadlessChoiceProbe.class.getName()
-        )
-            .redirectOutput(stdout.toFile())
-            .redirectError(stderr.toFile())
-            .start();
+                        javaBinary(),
+                        "-Djava.awt.headless=true",
+                        "-cp",
+                        System.getProperty("java.class.path"),
+                        HeadlessChoiceProbe.class.getName())
+                .redirectOutput(stdout.toFile())
+                .redirectError(stderr.toFile())
+                .start();
         try {
             if (!probe.waitFor(60, TimeUnit.SECONDS)) {
-                fail(
-                    "headless choice probe did not exit within 60s; stdout=" + stdout
-                        + " stderr=" + stderr
-                );
+                fail("headless choice probe did not exit within 60s; stdout=" + stdout + " stderr=" + stderr);
             }
             final String out = Files.readString(stdout);
             final String err = Files.readString(stderr);
-            assertEquals(
-                0,
-                probe.exitValue(),
-                "headless choice probe failed: stdout=" + out + " stderr=" + err
-            );
+            assertEquals(0, probe.exitValue(), "headless choice probe failed: stdout=" + out + " stderr=" + err);
             assertTrue(
-                out.contains(HeadlessChoiceProbe.SUCCESS_MARKER),
-                "headless choice probe did not report success: stdout=" + out + " stderr=" + err
-            );
+                    out.contains(HeadlessChoiceProbe.SUCCESS_MARKER),
+                    "headless choice probe did not report success: stdout=" + out + " stderr=" + err);
         } finally {
             probe.destroyForcibly();
         }
         assertEquals(
-            parentHeadless,
-            GraphicsEnvironment.isHeadless(),
-            "parent JVM headless state must be unchanged by the headless probe"
-        );
+                parentHeadless,
+                GraphicsEnvironment.isHeadless(),
+                "parent JVM headless state must be unchanged by the headless probe");
     }
 
     @Test
@@ -136,9 +125,8 @@ class RuntimeUiHostTransientStateTest {
         scope.close();
 
         assertTrue(
-            service.notifications().isEmpty(),
-            "a tracked status notification must be dismissed with the plugin scope"
-        );
+                service.notifications().isEmpty(),
+                "a tracked status notification must be dismissed with the plugin scope");
     }
 
     @Test
@@ -152,40 +140,32 @@ class RuntimeUiHostTransientStateTest {
         scope.close();
 
         assertTrue(
-            service.canvasHints().isEmpty(),
-            "the hint handle is enrolled once, so scope close clears the tracked fallback"
-        );
+                service.canvasHints().isEmpty(),
+                "the hint handle is enrolled once, so scope close clears the tracked fallback");
     }
 
     @Test
     void aSealedScopeRejectsContributionsWithoutLeavingAuthorityOrListState() {
         DisposableScope scope = new DisposableScope();
-        EditorUiContributionAuthority authority =
-            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle());
+        EditorUiContributionAuthority authority = new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle());
         RuntimeUiHostCapabilityService service = new RuntimeUiHostCapabilityService(
-            PermissionChecker.allowAll(),
-            "plugin.test",
-            UiHostStateSource.DEFAULT,
-            scope,
-            StatusToolbarAdapterImpl.safeMode(),
-            UiSurfaceAdapterImpl.safeMode(),
-            null,
-            authority
-        );
+                PermissionChecker.allowAll(),
+                "plugin.test",
+                UiHostStateSource.DEFAULT,
+                scope,
+                StatusToolbarAdapterImpl.safeMode(),
+                UiSurfaceAdapterImpl.safeMode(),
+                null,
+                authority);
         scope.seal();
 
         assertThrows(
-            IllegalStateException.class,
-            () -> service.contributeOverlay(new OverlayContribution("overlay-1", "anchor", 0))
-        );
+                IllegalStateException.class,
+                () -> service.contributeOverlay(new OverlayContribution("overlay-1", "anchor", 0)));
+        assertTrue(service.overlays().isEmpty(), "a rejected contribution must not stay in the tracked overlay list");
         assertTrue(
-            service.overlays().isEmpty(),
-            "a rejected contribution must not stay in the tracked overlay list"
-        );
-        assertTrue(
-            authority.contributions(EditorUiFamily.OVERLAY_STATUS).isEmpty(),
-            "a rejected contribution must not stay registered with the contribution authority"
-        );
+                authority.contributions(EditorUiFamily.OVERLAY_STATUS).isEmpty(),
+                "a rejected contribution must not stay registered with the contribution authority");
     }
 
     private static RuntimeUiHostCapabilityService service() {
@@ -196,26 +176,21 @@ class RuntimeUiHostTransientStateTest {
         return service(pluginId, new DisposableScope());
     }
 
-    private static RuntimeUiHostCapabilityService service(
-        final String pluginId,
-        final DisposableScope scope
-    ) {
+    private static RuntimeUiHostCapabilityService service(final String pluginId, final DisposableScope scope) {
         return new RuntimeUiHostCapabilityService(
-            PermissionChecker.allowAll(),
-            pluginId,
-            UiHostStateSource.DEFAULT,
-            scope
-        );
+                PermissionChecker.allowAll(), pluginId, UiHostStateSource.DEFAULT, scope);
     }
 
     private static String javaBinary() {
         return Path.of(
-            System.getProperty("java.home"),
-            "bin",
-            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")
-                ? "java.exe"
-                : "java"
-        ).toString();
+                        System.getProperty("java.home"),
+                        "bin",
+                        System.getProperty("os.name", "")
+                                        .toLowerCase(java.util.Locale.ROOT)
+                                        .contains("win")
+                                ? "java.exe"
+                                : "java")
+                .toString();
     }
 
     /**
@@ -227,8 +202,7 @@ class RuntimeUiHostTransientStateTest {
     public static final class HeadlessChoiceProbe {
         static final String SUCCESS_MARKER = "HEADLESS_CHOICE_OK";
 
-        private HeadlessChoiceProbe() {
-        }
+        private HeadlessChoiceProbe() {}
 
         public static void main(final String[] args) throws Exception {
             if (!GraphicsEnvironment.isHeadless()) {
@@ -237,14 +211,13 @@ class RuntimeUiHostTransientStateTest {
             }
             final RuntimeUiHostCapabilityService service = service("plugin.test");
             final Optional<String> selected = service.choose(new ChoiceDialogRequest(
-                "theme-manager",
-                "Choose Theme",
-                "Select one",
-                List.of(new ChoiceDialogOption("dark", "Dark", "Built-in", true)),
-                Optional.of("dark"),
-                "Apply",
-                "Cancel"
-            ));
+                    "theme-manager",
+                    "Choose Theme",
+                    "Select one",
+                    List.of(new ChoiceDialogOption("dark", "Dark", "Built-in", true)),
+                    Optional.of("dark"),
+                    "Apply",
+                    "Cancel"));
             if (selected.isPresent()) {
                 System.err.println("headless choose returned a selection: " + selected);
                 System.exit(3);
@@ -253,12 +226,10 @@ class RuntimeUiHostTransientStateTest {
                 System.err.println("headless choose left persistent dialog state: " + service.dialogs());
                 System.exit(4);
             }
-            System.out.println(
-                SUCCESS_MARKER
+            System.out.println(SUCCESS_MARKER
                     + " pid=" + ProcessHandle.current().pid()
                     + " java.home=" + System.getProperty("java.home")
-                    + " headless=" + GraphicsEnvironment.isHeadless()
-            );
+                    + " headless=" + GraphicsEnvironment.isHeadless());
         }
     }
 }

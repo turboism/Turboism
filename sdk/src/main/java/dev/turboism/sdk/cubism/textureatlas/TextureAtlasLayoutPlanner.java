@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-
 import java.util.List;
 
 /**
@@ -22,10 +21,7 @@ public interface TextureAtlasLayoutPlanner {
      * @param constraints the atlas size, padding, and rotation/scaling limits
      * @return a layout plan accepted by {@link TextureAtlasLayoutService#apply}
      */
-    TextureAtlasLayoutPlan plan(
-        List<TextureAtlasLayoutItem> items,
-        TextureAtlasLayoutConstraints constraints
-    );
+    TextureAtlasLayoutPlan plan(List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints constraints);
 
     /**
      * Parallel variant. The default ignores {@code parallel} and delegates to the
@@ -33,10 +29,9 @@ public interface TextureAtlasLayoutPlanner {
      * parallelize their search should override this and preserve result determinism.
      */
     default TextureAtlasLayoutPlan plan(
-        final List<TextureAtlasLayoutItem> items,
-        final TextureAtlasLayoutConstraints constraints,
-        final boolean parallel
-    ) {
+            final List<TextureAtlasLayoutItem> items,
+            final TextureAtlasLayoutConstraints constraints,
+            final boolean parallel) {
         return plan(items, constraints);
     }
 }

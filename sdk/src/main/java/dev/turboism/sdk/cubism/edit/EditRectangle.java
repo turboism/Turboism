@@ -16,11 +16,7 @@ import java.util.Objects;
  * @param bottomRight bottom-right corner position
  */
 @CubismEditor(from = "5.2.03", to = "5.3.99")
-public record EditRectangle(
-        Point2 topLeft,
-        Point2 bottomLeft,
-        Point2 topRight,
-        Point2 bottomRight) {
+public record EditRectangle(Point2 topLeft, Point2 bottomLeft, Point2 topRight, Point2 bottomRight) {
 
     public EditRectangle {
         Objects.requireNonNull(topLeft, "topLeft");

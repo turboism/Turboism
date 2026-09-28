@@ -39,7 +39,7 @@ public final class UnchangedFramePredicate {
         ARGUMENT_FLAGS_CHANGED
     }
 
-    private UnchangedFramePredicate() { }
+    private UnchangedFramePredicate() {}
 
     /** Minimal indexed view over a host parameter set's parameter list. */
     public interface ParamSet {
@@ -99,8 +99,7 @@ public final class UnchangedFramePredicate {
             boolean conflictPolygon,
             Object contextParam,
             boolean argAllowAnimation,
-            boolean argFormAnimation) {
-    }
+            boolean argFormAnimation) {}
 
     /**
      * The full skip conjunction. {@code previous} is the stored frame of the last
@@ -113,8 +112,8 @@ public final class UnchangedFramePredicate {
      * @param lastUpdated the model's own last-updated parameter set view
      * @return true only when a skip is provably semantics-preserving
      */
-    public static boolean test(final Frame current, final Frame previous,
-                               final ParamSet parameters, final ParamSet lastUpdated) {
+    public static boolean test(
+            final Frame current, final Frame previous, final ParamSet parameters, final ParamSet lastUpdated) {
         return check(current, previous, parameters, lastUpdated) == Decision.SKIP;
     }
 
@@ -123,8 +122,8 @@ public final class UnchangedFramePredicate {
      * decision source used by {@link #test(Frame, Frame, ParamSet, ParamSet)} so
      * diagnostics cannot drift from production behavior.
      */
-    public static Decision check(final Frame current, final Frame previous,
-                                 final ParamSet parameters, final ParamSet lastUpdated) {
+    public static Decision check(
+            final Frame current, final Frame previous, final ParamSet parameters, final ParamSet lastUpdated) {
         if (current == null || parameters == null || lastUpdated == null) {
             return Decision.MISSING_REQUIRED_STATE;
         }
@@ -132,8 +131,10 @@ public final class UnchangedFramePredicate {
             return Decision.NO_BASELINE;
         }
         // Inputs that must exist for any safe decision at all.
-        if (current.model() == null || current.modelingView() == null || current.document() == null
-            || !current.updateContextPresent()) {
+        if (current.model() == null
+                || current.modelingView() == null
+                || current.document() == null
+                || !current.updateContextPresent()) {
             return Decision.MISSING_REQUIRED_STATE;
         }
         // Same model and same document generation only.
@@ -141,13 +142,20 @@ public final class UnchangedFramePredicate {
             return Decision.MODEL_OR_DOCUMENT_CHANGED;
         }
         // Modes that gate work inside the entry method: all must be off now and off then.
-        if (current.modelEditing() || previous.modelEditing()
-            || current.randomPoseAnimation() || previous.randomPoseAnimation()
-            || current.externalAppAnimation() || previous.externalAppAnimation()
-            || current.recording() || previous.recording()
-            || current.developSettingH() || previous.developSettingH()
-            || current.developSettingK() || previous.developSettingK()
-            || current.formAnimationGate() || previous.formAnimationGate()) {
+        if (current.modelEditing()
+                || previous.modelEditing()
+                || current.randomPoseAnimation()
+                || previous.randomPoseAnimation()
+                || current.externalAppAnimation()
+                || previous.externalAppAnimation()
+                || current.recording()
+                || previous.recording()
+                || current.developSettingH()
+                || previous.developSettingH()
+                || current.developSettingK()
+                || previous.developSettingK()
+                || current.formAnimationGate()
+                || previous.formAnimationGate()) {
             return Decision.TEMPORAL_MODE_ACTIVE;
         }
         // The update reads selection-backed lazy lists only in this mode; never skip there.
@@ -179,24 +187,24 @@ public final class UnchangedFramePredicate {
             return Decision.APPEARANCE_CHANGED;
         }
         if (current.optimizeArtMesh() != previous.optimizeArtMesh()
-            || current.optimizeDeformer() != previous.optimizeDeformer()
-            || current.optimizeDrawOrder() != previous.optimizeDrawOrder()
-            || current.optimizeHierarchy() != previous.optimizeHierarchy()) {
+                || current.optimizeDeformer() != previous.optimizeDeformer()
+                || current.optimizeDrawOrder() != previous.optimizeDrawOrder()
+                || current.optimizeHierarchy() != previous.optimizeHierarchy()) {
             return Decision.DRAW_SETTINGS_CHANGED;
         }
         if (current.maskWarningHint() != previous.maskWarningHint()
-            || current.blendModeWarningHint() != previous.blendModeWarningHint()
-            || current.hideSelectedState() != previous.hideSelectedState()
-            || current.highLightDeformerChild() != previous.highLightDeformerChild()) {
+                || current.blendModeWarningHint() != previous.blendModeWarningHint()
+                || current.hideSelectedState() != previous.hideSelectedState()
+                || current.highLightDeformerChild() != previous.highLightDeformerChild()) {
             return Decision.VIEW_SETTINGS_CHANGED;
         }
         if (current.updateContextB() != previous.updateContextB()
-            || current.updateContextD() != previous.updateContextD()
-            || current.updateContextE() != previous.updateContextE()
-            || current.updateContextF() != previous.updateContextF()
-            || bits(current.updateContextC()) != bits(previous.updateContextC())
-            || current.updateContextView() != previous.updateContextView()
-            || current.updateContextEditMode() != previous.updateContextEditMode()) {
+                || current.updateContextD() != previous.updateContextD()
+                || current.updateContextE() != previous.updateContextE()
+                || current.updateContextF() != previous.updateContextF()
+                || bits(current.updateContextC()) != bits(previous.updateContextC())
+                || current.updateContextView() != previous.updateContextView()
+                || current.updateContextEditMode() != previous.updateContextEditMode()) {
             return Decision.UPDATE_CONTEXT_CHANGED;
         }
         if (!Objects.equals(current.updateContextSelection(), previous.updateContextSelection())) {
@@ -208,12 +216,11 @@ public final class UnchangedFramePredicate {
         if (current.conflictPolygon() != previous.conflictPolygon()) {
             return Decision.CONFLICT_CHANGED;
         }
-        if (current.updaterFlagA() != previous.updaterFlagA()
-            || current.updaterFlagB() != previous.updaterFlagB()) {
+        if (current.updaterFlagA() != previous.updaterFlagA() || current.updaterFlagB() != previous.updaterFlagB()) {
             return Decision.UPDATER_FLAGS_CHANGED;
         }
         if (current.argAllowAnimation() != previous.argAllowAnimation()
-            || current.argFormAnimation() != previous.argFormAnimation()) {
+                || current.argFormAnimation() != previous.argFormAnimation()) {
             return Decision.ARGUMENT_FLAGS_CHANGED;
         }
         return Decision.SKIP;

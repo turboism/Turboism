@@ -18,18 +18,20 @@ final class RedundantStateElisionHookContributor extends NativeOptimizationHookC
         super("TURBOISM_STATE_ELISION");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!Boolean.getBoolean(RedundantStateElisionTransformer.ENABLE_PROPERTY)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
         final var host = environment.host().orElseThrow();
-        final VerifiedRedundantStateElisionInstaller installer =
-            new VerifiedRedundantStateElisionInstaller(environment.instrumentation(),
-                host.artifact(), host.classLoader());
+        final VerifiedRedundantStateElisionInstaller installer = new VerifiedRedundantStateElisionInstaller(
+                environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
-        log(environment, id() + " elision=ACTIVE sites=" + installer.sites()
-            + " target=" + RedundantStateElisionTransformer.OWNER_DESCRIPTION);
+        log(
+                environment,
+                id() + " elision=ACTIVE sites=" + installer.sites() + " target="
+                        + RedundantStateElisionTransformer.OWNER_DESCRIPTION);
         return installer;
     }
 }

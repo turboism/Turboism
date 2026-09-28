@@ -2,7 +2,6 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.ui.context.ParameterPointContextMenuNativeMethodTransformer;
-
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
@@ -21,11 +20,10 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
     private final AtomicBoolean installed = new AtomicBoolean();
 
     VerifiedParameterPointContextMenuHookInstaller(
-        final Instrumentation instrumentation,
-        final String owner,
-        final String contextDescriptor,
-        final ClassLoader loader
-    ) {
+            final Instrumentation instrumentation,
+            final String owner,
+            final String contextDescriptor,
+            final ClassLoader loader) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.owner = Objects.requireNonNull(owner, "owner");
         this.contextDescriptor = Objects.requireNonNull(contextDescriptor, "contextDescriptor");
@@ -39,16 +37,14 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
                 throw new IllegalStateException("Parameter-point context-menu retransformation is unavailable");
             }
             transformers.add(new ParameterPointContextMenuNativeMethodTransformer(
-                owner, "a", "(" + contextDescriptor + "II)V", "i", loader
-            ));
+                    owner, "a", "(" + contextDescriptor + "II)V", "i", loader));
             transformers.add(new ParameterPointContextMenuNativeMethodTransformer(
-                owner, "b", "(" + contextDescriptor + "II)V", "h", loader
-            ));
+                    owner, "b", "(" + contextDescriptor + "II)V", "h", loader));
             transformers.forEach(value -> instrumentation.addTransformer(value, true));
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getClassLoader() == loader
-                    && owner.equals(loaded.getName().replace('.', '/'))
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && owner.equals(loaded.getName().replace('.', '/'))
+                        && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
                 }
             }
@@ -69,8 +65,8 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
         try {
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getClassLoader() == loader
-                    && owner.equals(loaded.getName().replace('.', '/'))
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && owner.equals(loaded.getName().replace('.', '/'))
+                        && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
                 }
             }

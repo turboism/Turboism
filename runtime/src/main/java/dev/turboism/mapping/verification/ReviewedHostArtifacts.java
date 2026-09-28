@@ -31,31 +31,23 @@ public final class ReviewedHostArtifacts {
     public static final String CUBISM_5_3_03_VERSION = "5.3.03";
 
     /** Exact reviewed Cubism Editor 5.2.03 application artifact. */
-    public static final HostArtifactDigest CUBISM_5_2_03 = new HostArtifactDigest(
-        40_805_584L,
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
-    );
+    public static final HostArtifactDigest CUBISM_5_2_03 =
+            new HostArtifactDigest(40_805_584L, "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd");
 
     /** Exact reviewed Cubism Editor 5.3.02 application artifact. */
-    public static final HostArtifactDigest CUBISM_5_3_02 = new HostArtifactDigest(
-        41_922_739L,
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-    );
+    public static final HostArtifactDigest CUBISM_5_3_02 =
+            new HostArtifactDigest(41_922_739L, "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21");
 
     /** Exact reviewed Cubism Editor 5.3.03 application artifact. */
-    public static final HostArtifactDigest CUBISM_5_3_03 = new HostArtifactDigest(
-        42_010_633L,
-        "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166"
-    );
+    public static final HostArtifactDigest CUBISM_5_3_03 =
+            new HostArtifactDigest(42_010_633L, "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166");
 
     /**
      * Bundled JOGL dependency examined for the opt-in 5.3.03 uniform-location hook.
      * This is not an Editor artifact and is deliberately excluded from {@link #all()}.
      */
-    public static final HostArtifactDigest CUBISM_5_3_03_JOGL = new HostArtifactDigest(
-        3_616_948L,
-        "7dbedb4ba89d9744aa8f8e3710436ef349547058c78e5b3beb813b27b382b0b9"
-    );
+    public static final HostArtifactDigest CUBISM_5_3_03_JOGL =
+            new HostArtifactDigest(3_616_948L, "7dbedb4ba89d9744aa8f8e3710436ef349547058c78e5b3beb813b27b382b0b9");
 
     /**
      * Returns every reviewed artifact, oldest supported Cubism version first.
@@ -120,10 +112,9 @@ public final class ReviewedHostArtifacts {
     public static boolean admitsFullRuntime(final String cubismVersion) {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
         return CUBISM_5_2_03_VERSION.equals(cubismVersion)
-            || CUBISM_5_3_02_VERSION.equals(cubismVersion)
-            || CUBISM_5_3_03_VERSION.equals(cubismVersion);
+                || CUBISM_5_3_02_VERSION.equals(cubismVersion)
+                || CUBISM_5_3_03_VERSION.equals(cubismVersion);
     }
 
-    private ReviewedHostArtifacts() {
-    }
+    private ReviewedHostArtifacts() {}
 }

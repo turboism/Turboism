@@ -1,5 +1,7 @@
 package dev.turboism.tests.schema;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.schema.JsonSchemaValidator;
@@ -19,17 +21,14 @@ import dev.turboism.mapping.draft.StrictJson;
 import dev.turboism.mapping.schema.MappingPackValidator;
 import dev.turboism.mapping.schema.ProfileValidator;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Validates all schema fixtures against the runtime validators.
@@ -37,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class SchemaFixtureValidationTest {
 
     private static final Path FIXTURES = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
-        .resolve("testing/test-support/src/main/resources/fixtures/schema");
+            .resolve("testing/test-support/src/main/resources/fixtures/schema");
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -75,7 +74,9 @@ class SchemaFixtureValidationTest {
         JsonNode root = parseFixture(type, path, "VALID_FIXTURE_INVALID_JSON");
         JsonSchemaValidator validator = validatorFor(type);
         List<SchemaValidationError> errors = validator.validate(root, path.toString());
-        assertTrue(errors.isEmpty(), "Expected no errors for valid fixture " + dir + "/valid/" + file + " but got: " + errors);
+        assertTrue(
+                errors.isEmpty(),
+                "Expected no errors for valid fixture " + dir + "/valid/" + file + " but got: " + errors);
     }
 
     @ParameterizedTest(name = "invalid fixture: {0} ({1})")
@@ -170,8 +171,9 @@ class SchemaFixtureValidationTest {
         JsonSchemaValidator validator = validatorFor(type);
         List<SchemaValidationError> errors = validator.validate(root, path.toString());
         assertFalse(errors.isEmpty(), "Expected errors for invalid fixture " + dir + "/invalid/" + file);
-        assertTrue(errors.stream().anyMatch(e -> e.code().equals(expectedCode)),
-            "Expected error code " + expectedCode + " in " + errors);
+        assertTrue(
+                errors.stream().anyMatch(e -> e.code().equals(expectedCode)),
+                "Expected error code " + expectedCode + " in " + errors);
     }
 
     @Test

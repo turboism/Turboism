@@ -5,7 +5,6 @@ import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -37,9 +36,7 @@ final class HostUndoMutationScope {
      */
     static final String ENABLED_PROPERTY = "turboism.editorAmbientEnvelopeJoin";
 
-    private static final Set<String> GROUP_UNDO_REQUIRED = Set.of(
-        "cubism.editor-model.undo.group-undo"
-    );
+    private static final Set<String> GROUP_UNDO_REQUIRED = Set.of("cubism.editor-model.undo.group-undo");
 
     private final EditorAuthoringTransactionCoordinator coordinator;
 
@@ -53,20 +50,18 @@ final class HostUndoMutationScope {
      * not verify the {@code undo.group-undo} member rollback depends on.
      */
     static Optional<HostUndoMutationScope> ambient(
-        final EditorAuthoringTransactionCoordinator coordinator,
-        final VerifiedMemberResolver resolver
-    ) {
+            final EditorAuthoringTransactionCoordinator coordinator, final VerifiedMemberResolver resolver) {
         if (coordinator == null || !coordinator.ambientScopeActive()) {
             return Optional.empty();
         }
         if ("false".equalsIgnoreCase(System.getProperty(ENABLED_PROPERTY))) {
             return Optional.empty();
         }
-        if (resolver == null || !resolver.authorizesFeature(
-            EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
-            EditorEditSessionSelectorContract.EDIT_BEGIN_CAPABILITY_ID,
-            GROUP_UNDO_REQUIRED
-        )) {
+        if (resolver == null
+                || !resolver.authorizesFeature(
+                        EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
+                        EditorEditSessionSelectorContract.EDIT_BEGIN_CAPABILITY_ID,
+                        GROUP_UNDO_REQUIRED)) {
             return Optional.empty();
         }
         return Optional.of(new HostUndoMutationScope(coordinator));
@@ -79,25 +74,23 @@ final class HostUndoMutationScope {
      * mechanism and report unrestored when it did not run.
      */
     void admit(
-        final String operationId,
-        final String targetIdentity,
-        final String label,
-        final EditorUndoContribution.UndoAdmission admission,
-        final Runnable mutation,
-        final BooleanSupplier applied,
-        final Set<EditorRefreshRequirement> refreshRequirements
-    ) {
+            final String operationId,
+            final String targetIdentity,
+            final String label,
+            final EditorUndoContribution.UndoAdmission admission,
+            final Runnable mutation,
+            final BooleanSupplier applied,
+            final Set<EditorRefreshRequirement> refreshRequirements) {
         admit(
-            operationId,
-            targetIdentity,
-            label,
-            admission,
-            mutation,
-            applied,
-            () -> { },
-            this::groupUndoApplied,
-            refreshRequirements
-        );
+                operationId,
+                targetIdentity,
+                label,
+                admission,
+                mutation,
+                applied,
+                () -> {},
+                this::groupUndoApplied,
+                refreshRequirements);
     }
 
     /**
@@ -106,27 +99,25 @@ final class HostUndoMutationScope {
      * actual model state instead of only the group-undo step's completion.
      */
     void admit(
-        final String operationId,
-        final String targetIdentity,
-        final String label,
-        final EditorUndoContribution.UndoAdmission admission,
-        final Runnable mutation,
-        final BooleanSupplier applied,
-        final Runnable compensation,
-        final BooleanSupplier restored,
-        final Set<EditorRefreshRequirement> refreshRequirements
-    ) {
+            final String operationId,
+            final String targetIdentity,
+            final String label,
+            final EditorUndoContribution.UndoAdmission admission,
+            final Runnable mutation,
+            final BooleanSupplier applied,
+            final Runnable compensation,
+            final BooleanSupplier restored,
+            final Set<EditorRefreshRequirement> refreshRequirements) {
         coordinator.mutateEnvelope(new EditorUndoContribution(
-            Objects.requireNonNull(operationId, "operationId"),
-            Objects.requireNonNull(targetIdentity, "targetIdentity"),
-            Objects.requireNonNull(label, "label"),
-            Objects.requireNonNull(admission, "admission"),
-            Objects.requireNonNull(mutation, "mutation"),
-            Objects.requireNonNull(applied, "applied"),
-            Objects.requireNonNull(compensation, "compensation"),
-            Objects.requireNonNull(restored, "restored"),
-            Objects.requireNonNull(refreshRequirements, "refreshRequirements")
-        ));
+                Objects.requireNonNull(operationId, "operationId"),
+                Objects.requireNonNull(targetIdentity, "targetIdentity"),
+                Objects.requireNonNull(label, "label"),
+                Objects.requireNonNull(admission, "admission"),
+                Objects.requireNonNull(mutation, "mutation"),
+                Objects.requireNonNull(applied, "applied"),
+                Objects.requireNonNull(compensation, "compensation"),
+                Objects.requireNonNull(restored, "restored"),
+                Objects.requireNonNull(refreshRequirements, "refreshRequirements")));
     }
 
     /** Restored probe for contributions without a cheap before-state readback. */
@@ -140,9 +131,7 @@ final class HostUndoMutationScope {
      */
     static void requireUndoAccepted(final Object accepted, final String label) {
         if (!(accepted instanceof Boolean value) || !value) {
-            throw new IllegalStateException(
-                "Cubism rejected the " + label + " Undo entry."
-            );
+            throw new IllegalStateException("Cubism rejected the " + label + " Undo entry.");
         }
     }
 }

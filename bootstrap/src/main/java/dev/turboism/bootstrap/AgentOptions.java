@@ -8,20 +8,19 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 record AgentOptions(
-    Path home,
-    String hostClassName,
-    Duration detectionTimeout,
-    boolean performanceProbeInstall,
-    boolean performanceProbeCapture,
-    int performanceProbeDelaySeconds,
-    int performanceProbeDurationSeconds,
-    Path performanceProbeOutput,
-    String performanceProbeScenario,
-    String performanceProbeAgentSha256,
-    String performanceProbeFixtureSha256,
-    String performanceProbeRunId,
-    Path performanceProbeRollbackOutput
-) {
+        Path home,
+        String hostClassName,
+        Duration detectionTimeout,
+        boolean performanceProbeInstall,
+        boolean performanceProbeCapture,
+        int performanceProbeDelaySeconds,
+        int performanceProbeDurationSeconds,
+        Path performanceProbeOutput,
+        String performanceProbeScenario,
+        String performanceProbeAgentSha256,
+        String performanceProbeFixtureSha256,
+        String performanceProbeRunId,
+        Path performanceProbeRollbackOutput) {
 
     private static final String DEFAULT_HOST_CLASS = "com.live2d.cubism.CEAppCtrl";
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(90);
@@ -41,15 +40,19 @@ record AgentOptions(
                 }
                 final String key = token.substring(0, separator).trim();
                 final String value = token.substring(separator + 1).trim();
-                if (!key.equals("home") && !key.equals("hostClass") && !key.equals("timeoutSeconds")
-                    && !key.equals("performanceProbeInstall") && !key.equals("performanceProbeCapture")
-                    && !key.equals("performanceProbeDelaySeconds")
-                    && !key.equals("performanceProbeDurationSeconds") && !key.equals("performanceProbeOutput")
-                    && !key.equals("performanceProbeScenario")
-                    && !key.equals("performanceProbeAgentSha256")
-                    && !key.equals("performanceProbeFixtureSha256")
-                    && !key.equals("performanceProbeRunId")
-                    && !key.equals("performanceProbeRollbackOutput")) {
+                if (!key.equals("home")
+                        && !key.equals("hostClass")
+                        && !key.equals("timeoutSeconds")
+                        && !key.equals("performanceProbeInstall")
+                        && !key.equals("performanceProbeCapture")
+                        && !key.equals("performanceProbeDelaySeconds")
+                        && !key.equals("performanceProbeDurationSeconds")
+                        && !key.equals("performanceProbeOutput")
+                        && !key.equals("performanceProbeScenario")
+                        && !key.equals("performanceProbeAgentSha256")
+                        && !key.equals("performanceProbeFixtureSha256")
+                        && !key.equals("performanceProbeRunId")
+                        && !key.equals("performanceProbeRollbackOutput")) {
                     throw new IllegalArgumentException("Unknown Turboism agent option: " + key);
                 }
                 if (values.putIfAbsent(key, value) != null) {
@@ -59,18 +62,16 @@ record AgentOptions(
         }
 
         final Path home = Path.of(values.getOrDefault("home", defaultHome.toString()))
-            .toAbsolutePath()
-            .normalize();
+                .toAbsolutePath()
+                .normalize();
         final String hostClass = values.getOrDefault("hostClass", DEFAULT_HOST_CLASS);
         if (hostClass.isBlank()) {
             throw new IllegalArgumentException("hostClass must not be blank");
         }
         final long timeoutSeconds;
         try {
-            timeoutSeconds = Long.parseLong(values.getOrDefault(
-                "timeoutSeconds",
-                Long.toString(DEFAULT_TIMEOUT.toSeconds())
-            ));
+            timeoutSeconds =
+                    Long.parseLong(values.getOrDefault("timeoutSeconds", Long.toString(DEFAULT_TIMEOUT.toSeconds())));
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException("timeoutSeconds must be an integer", exception);
         }
@@ -78,23 +79,24 @@ record AgentOptions(
             throw new IllegalArgumentException("timeoutSeconds must be between 1 and 600");
         }
         return new AgentOptions(
-            home,
-            hostClass,
-            Duration.ofSeconds(timeoutSeconds),
-            parseBoolean(values, "performanceProbeInstall"),
-            parseBoolean(values, "performanceProbeCapture"),
-            parseBoundedInteger(values, "performanceProbeDelaySeconds", 0, 300, 0),
-            parseBoundedInteger(values, "performanceProbeDurationSeconds", 5, 120, 30),
-            Path.of(values.getOrDefault(
-                "performanceProbeOutput",
-                home.resolve("logs/runtime/performance-probe.json").toString()
-            )).toAbsolutePath().normalize(),
-            values.getOrDefault("performanceProbeScenario", "camera"),
-            values.getOrDefault("performanceProbeAgentSha256", "unbound"),
-            values.getOrDefault("performanceProbeFixtureSha256", "unbound"),
-            values.getOrDefault("performanceProbeRunId", "unbound"),
-            rollbackOutput(values)
-        );
+                home,
+                hostClass,
+                Duration.ofSeconds(timeoutSeconds),
+                parseBoolean(values, "performanceProbeInstall"),
+                parseBoolean(values, "performanceProbeCapture"),
+                parseBoundedInteger(values, "performanceProbeDelaySeconds", 0, 300, 0),
+                parseBoundedInteger(values, "performanceProbeDurationSeconds", 5, 120, 30),
+                Path.of(values.getOrDefault(
+                                "performanceProbeOutput",
+                                home.resolve("logs/runtime/performance-probe.json")
+                                        .toString()))
+                        .toAbsolutePath()
+                        .normalize(),
+                values.getOrDefault("performanceProbeScenario", "camera"),
+                values.getOrDefault("performanceProbeAgentSha256", "unbound"),
+                values.getOrDefault("performanceProbeFixtureSha256", "unbound"),
+                values.getOrDefault("performanceProbeRunId", "unbound"),
+                rollbackOutput(values));
     }
 
     private static Path rollbackOutput(final Map<String, String> values) {
@@ -111,12 +113,11 @@ record AgentOptions(
     }
 
     private static int parseBoundedInteger(
-        final Map<String, String> values,
-        final String key,
-        final int minimum,
-        final int maximum,
-        final int fallback
-    ) {
+            final Map<String, String> values,
+            final String key,
+            final int minimum,
+            final int maximum,
+            final int fallback) {
         final int parsed;
         try {
             parsed = Integer.parseInt(values.getOrDefault(key, Integer.toString(fallback)));
@@ -135,26 +136,26 @@ record AgentOptions(
         detectionTimeout = Objects.requireNonNull(detectionTimeout, "detectionTimeout");
         performanceProbeOutput = Objects.requireNonNull(performanceProbeOutput, "performanceProbeOutput");
         performanceProbeScenario = Objects.requireNonNull(performanceProbeScenario, "performanceProbeScenario");
-        if (!performanceProbeScenario.equals("camera") && !performanceProbeScenario.equals("edit")
-            && !performanceProbeScenario.equals("images")) {
+        if (!performanceProbeScenario.equals("camera")
+                && !performanceProbeScenario.equals("edit")
+                && !performanceProbeScenario.equals("images")) {
             throw new IllegalArgumentException("performanceProbeScenario must be camera, edit or images");
         }
-        performanceProbeAgentSha256 = Objects.requireNonNull(performanceProbeAgentSha256, "performanceProbeAgentSha256");
-        performanceProbeFixtureSha256 = Objects.requireNonNull(performanceProbeFixtureSha256, "performanceProbeFixtureSha256");
+        performanceProbeAgentSha256 =
+                Objects.requireNonNull(performanceProbeAgentSha256, "performanceProbeAgentSha256");
+        performanceProbeFixtureSha256 =
+                Objects.requireNonNull(performanceProbeFixtureSha256, "performanceProbeFixtureSha256");
         if (performanceProbeCapture && !performanceProbeInstall) {
-            throw new IllegalArgumentException(
-                "performanceProbeCapture requires performanceProbeInstall=true"
-            );
+            throw new IllegalArgumentException("performanceProbeCapture requires performanceProbeInstall=true");
         }
         if (performanceProbeCapture) {
             requireBoundSha256(performanceProbeAgentSha256, "performanceProbeAgentSha256");
             requireBoundSha256(performanceProbeFixtureSha256, "performanceProbeFixtureSha256");
         }
         if (!performanceProbeRunId.equals("unbound")
-            && !RUN_ID_PATTERN.matcher(performanceProbeRunId).matches()) {
+                && !RUN_ID_PATTERN.matcher(performanceProbeRunId).matches()) {
             throw new IllegalArgumentException(
-                "performanceProbeRunId must match [A-Za-z0-9][A-Za-z0-9._-]{0,127} or be unbound"
-            );
+                    "performanceProbeRunId must match [A-Za-z0-9][A-Za-z0-9._-]{0,127} or be unbound");
         }
         if (performanceProbeRollbackOutput != null && performanceProbeRunId.equals("unbound")) {
             throw new IllegalArgumentException("performanceProbeRollbackOutput requires performanceProbeRunId");
@@ -164,8 +165,7 @@ record AgentOptions(
     private static void requireBoundSha256(final String value, final String key) {
         if (value.equals("unbound") || !SHA256_PATTERN.matcher(value).matches()) {
             throw new IllegalArgumentException(
-                key + " must be a lowercase 64-character SHA-256 when capture is enabled"
-            );
+                    key + " must be a lowercase 64-character SHA-256 when capture is enabled");
         }
     }
 
@@ -175,9 +175,13 @@ record AgentOptions(
             return Path.of(configured).toAbsolutePath().normalize();
         }
         try {
-            final Path location = Path.of(
-                AgentOptions.class.getProtectionDomain().getCodeSource().getLocation().toURI()
-            ).toAbsolutePath().normalize();
+            final Path location = Path.of(AgentOptions.class
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI())
+                    .toAbsolutePath()
+                    .normalize();
             if (java.nio.file.Files.isRegularFile(location)) {
                 return location.getParent();
             }

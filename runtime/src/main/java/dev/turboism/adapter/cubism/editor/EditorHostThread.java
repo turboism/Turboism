@@ -1,10 +1,10 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.core.runtime.work.FatalErrors;
-import javax.swing.SwingUtilities;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
 import java.util.function.Supplier;
+import javax.swing.SwingUtilities;
 
 /** Synchronous access to Cubism Editor state on the Swing host thread. */
 public final class EditorHostThread {
@@ -25,9 +25,7 @@ public final class EditorHostThread {
      */
     public static void requireHostThread(final String operation) {
         if (!isCurrent()) {
-            throw new IllegalStateException(
-                operation + " must run on the Cubism Editor host thread (Swing EDT)."
-            );
+            throw new IllegalStateException(operation + " must run on the Cubism Editor host thread (Swing EDT).");
         }
     }
 
@@ -66,10 +64,10 @@ public final class EditorHostThread {
         if (failure[0] != null) {
             throw new IllegalStateException(label + " EDT operation failed", failure[0]);
         }
-        @SuppressWarnings("unchecked") final T value = (T) result[0];
+        @SuppressWarnings("unchecked")
+        final T value = (T) result[0];
         return value;
     }
 
-    private EditorHostThread() {
-    }
+    private EditorHostThread() {}
 }

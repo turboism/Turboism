@@ -12,10 +12,6 @@ import dev.turboism.sdk.cubism.mesh.MeshPointRef;
 import dev.turboism.sdk.cubism.mesh.MeshSnapshot;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.plugin.PluginContext;
-
-import javax.swing.JTree;
-import javax.swing.SwingUtilities;
-import javax.swing.tree.TreePath;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Frame;
@@ -35,13 +31,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.JTree;
+import javax.swing.SwingUtilities;
+import javax.swing.tree.TreePath;
 
 /** Manual-test-only public-SDK probe for exact-host direct mesh authoring. */
 public final class WindowsMeshEditValidationProbe implements CubismPlugin {
@@ -102,15 +100,13 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         try {
             Files.createDirectories(result.getParent());
             Files.writeString(
-                result,
-                String.join(System.lineSeparator(), report) + System.lineSeparator(),
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING
-            );
-            context.logger().info(
-                "MESH_EDIT_HOST_VALIDATION_RESULT status=" + (passed ? "PASS" : "FAIL")
-                    + " mode=" + mode + " result=" + result
-            );
+                    result,
+                    String.join(System.lineSeparator(), report) + System.lineSeparator(),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
+            context.logger()
+                    .info("MESH_EDIT_HOST_VALIDATION_RESULT status=" + (passed ? "PASS" : "FAIL") + " mode=" + mode
+                            + " result=" + result);
         } catch (Exception publicationFailure) {
             context.logger().error("Mesh edit validation result could not be written", publicationFailure);
         } finally {
@@ -127,90 +123,90 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final MeshPointPosition addedPosition = distinctPosition(original);
 
         final MeshSnapshot afterAddPoint = mutate(
-            report, "addPoint", original,
-            () -> edit.addPoints(List.of(addedPosition)),
-            snapshot -> isExactPointAddition(original, snapshot, addedPosition)
-        );
+                report,
+                "addPoint",
+                original,
+                () -> edit.addPoints(List.of(addedPosition)),
+                snapshot -> isExactPointAddition(original, snapshot, addedPosition));
         final MeshPointRef added = discoverAddedPoint(original, afterAddPoint, addedPosition);
         undoRedo(report, "addPoint", original, afterAddPoint);
 
         final MeshPointRef moveSource = pointWithConnectedEdge(original);
         final MeshPointRef moved = movedPoint(moveSource, afterAddPoint);
         final MeshSnapshot afterMove = mutate(
-            report, "movePoint", afterAddPoint,
-            () -> edit.movePoints(List.of(moved)),
-            snapshot -> isExactPointMove(afterAddPoint, snapshot, moved)
-        );
+                report,
+                "movePoint",
+                afterAddPoint,
+                () -> edit.movePoints(List.of(moved)),
+                snapshot -> isExactPointMove(afterAddPoint, snapshot, moved));
         undoRedo(report, "movePoint", afterAddPoint, afterMove);
         require(
-            report,
-            "movePoint.connectedEdges",
-            connectedEdges(original, moveSource.id()).equals(connectedEdges(afterMove, moveSource.id())),
-            "before=" + connectedEdges(original, moveSource.id())
-                + " after=" + connectedEdges(afterMove, moveSource.id())
-        );
+                report,
+                "movePoint.connectedEdges",
+                connectedEdges(original, moveSource.id()).equals(connectedEdges(afterMove, moveSource.id())),
+                "before=" + connectedEdges(original, moveSource.id()) + " after="
+                        + connectedEdges(afterMove, moveSource.id()));
 
         final MeshPointRef addEdgePartner = chooseEdgePartner(afterMove, added.id());
         final MeshEdgeRef addedEdge = new MeshEdgeRef(added.id(), addEdgePartner.id(), MeshEdgeKind.INNER);
         final MeshSnapshot afterAddEdge = mutate(
-            report, "addEdge", afterMove,
-            () -> edit.addEdges(List.of(addedEdge)),
-            snapshot -> isExactEdgeAddition(afterMove, snapshot, addedEdge)
-        );
+                report,
+                "addEdge",
+                afterMove,
+                () -> edit.addEdges(List.of(addedEdge)),
+                snapshot -> isExactEdgeAddition(afterMove, snapshot, addedEdge));
         undoRedo(report, "addEdge", afterMove, afterAddEdge);
 
         final MeshSnapshot afterDeleteEdge = mutate(
-            report, "deleteEdge", afterAddEdge,
-            () -> edit.deleteEdges(List.of(addedEdge)),
-            snapshot -> isExactEdgeDeletion(afterAddEdge, snapshot, addedEdge)
-        );
+                report,
+                "deleteEdge",
+                afterAddEdge,
+                () -> edit.deleteEdges(List.of(addedEdge)),
+                snapshot -> isExactEdgeDeletion(afterAddEdge, snapshot, addedEdge));
         undoRedo(report, "deleteEdge", afterAddEdge, afterDeleteEdge);
 
         final MeshSnapshot afterDeletePoint = mutate(
-            report, "deletePoint", afterDeleteEdge,
-            () -> edit.deletePoints(List.of(added)),
-            snapshot -> isExactPointDeletion(afterDeleteEdge, snapshot, added.id())
-        );
+                report,
+                "deletePoint",
+                afterDeleteEdge,
+                () -> edit.deletePoints(List.of(added)),
+                snapshot -> isExactPointDeletion(afterDeleteEdge, snapshot, added.id()));
         undoRedo(report, "deletePoint", afterDeleteEdge, afterDeletePoint);
 
         executeCommand(report, "cleanup.deletePoint", EditorCommand.UNDO);
         require(
-            report,
-            "cleanup.afterDeletePointUndo",
-            awaitSnapshot(afterDeleteEdge::equals, "cleanup delete point undo").equals(afterDeleteEdge),
-            afterDeleteEdge.toString()
-        );
+                report,
+                "cleanup.afterDeletePointUndo",
+                awaitSnapshot(afterDeleteEdge::equals, "cleanup delete point undo")
+                        .equals(afterDeleteEdge),
+                afterDeleteEdge.toString());
         executeCommand(report, "cleanup.deleteEdge", EditorCommand.UNDO);
         require(
-            report,
-            "cleanup.afterDeleteEdgeUndo",
-            awaitSnapshot(afterAddEdge::equals, "cleanup delete edge undo").equals(afterAddEdge),
-            afterAddEdge.toString()
-        );
+                report,
+                "cleanup.afterDeleteEdgeUndo",
+                awaitSnapshot(afterAddEdge::equals, "cleanup delete edge undo").equals(afterAddEdge),
+                afterAddEdge.toString());
         executeCommand(report, "cleanup.addEdge", EditorCommand.UNDO);
         require(
-            report,
-            "cleanup.afterAddEdgeUndo",
-            awaitSnapshot(afterMove::equals, "cleanup add edge undo").equals(afterMove),
-            afterMove.toString()
-        );
+                report,
+                "cleanup.afterAddEdgeUndo",
+                awaitSnapshot(afterMove::equals, "cleanup add edge undo").equals(afterMove),
+                afterMove.toString());
         executeCommand(report, "cleanup.movePoint", EditorCommand.UNDO);
         require(
-            report,
-            "cleanup.afterMoveUndo",
-            awaitSnapshot(afterAddPoint::equals, "cleanup move point undo").equals(afterAddPoint),
-            afterAddPoint.toString()
-        );
+                report,
+                "cleanup.afterMoveUndo",
+                awaitSnapshot(afterAddPoint::equals, "cleanup move point undo").equals(afterAddPoint),
+                afterAddPoint.toString());
         executeCommand(report, "cleanup.addPoint", EditorCommand.UNDO);
         final MeshSnapshot restored = awaitSnapshot(original::equals, "cleanup add point undo");
         require(report, "cleanup.restored", restored.equals(original), restored.toString());
         finishMeshEditIfActive(report);
         require(
-            report,
-            "cleanup.meshEditorExited",
-            context.meshEdit().snapshot().points().isEmpty(),
-            context.meshEdit().snapshot().toString()
-        );
+                report,
+                "cleanup.meshEditorExited",
+                context.meshEdit().snapshot().points().isEmpty(),
+                context.meshEdit().snapshot().toString());
         report.add("original.points=" + original.points().size());
         report.add("original.edges=" + original.edges().size());
         report.add("assignedPointId=" + added.id());
@@ -235,15 +231,15 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                     return;
                 }
             }
-            final EditorCommandResult exit = context.editorCommands().execute(
-                EditorCommand.START_OR_END_MESH_EDITOR
-            );
+            final EditorCommandResult exit = context.editorCommands().execute(EditorCommand.START_OR_END_MESH_EDITOR);
             report.add("failureCleanup.meshExit=" + exit.status());
             final long deadline = System.nanoTime() + 10_000_000_000L;
-            while (System.nanoTime() < deadline && !context.meshEdit().snapshot().points().isEmpty()) {
+            while (System.nanoTime() < deadline
+                    && !context.meshEdit().snapshot().points().isEmpty()) {
                 Thread.sleep(100L);
             }
-            report.add("failureCleanup.meshInactive=" + context.meshEdit().snapshot().points().isEmpty());
+            report.add("failureCleanup.meshInactive="
+                    + context.meshEdit().snapshot().points().isEmpty());
         } catch (Exception failure) {
             report.add("failureCleanup.error=" + safe(failureDescription(failure)));
             if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
@@ -257,10 +253,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final byte[] original = persistenceFileBaseline.getAndSet(null);
         try {
             if (persistenceFileWritten && original != null) {
-                Files.write(
-                    fixturePath(), original,
-                    StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING
-                );
+                Files.write(fixturePath(), original, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
                 report.add("failureCleanup.fixtureBytesRestored=true");
             }
         } catch (Exception failure) {
@@ -270,10 +263,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         }
     }
 
-    private MeshSnapshot awaitCleanupSnapshotChange(
-        final MeshSnapshot before,
-        final long timeoutMillis
-    ) throws InterruptedException {
+    private MeshSnapshot awaitCleanupSnapshotChange(final MeshSnapshot before, final long timeoutMillis)
+            throws InterruptedException {
         final long deadline = System.nanoTime() + timeoutMillis * 1_000_000L;
         MeshSnapshot current = context.meshEdit().snapshot();
         while (System.nanoTime() < deadline && current.equals(before)) {
@@ -294,9 +285,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final MeshEditResult addedResult = edit.addPoints(List.of(position));
         requireApplied(report, "persist.addPoint", addedResult);
         final MeshSnapshot after = awaitSnapshot(
-            snapshot -> snapshot.points().size() == before.points().size() + 1,
-            "persist point addition"
-        );
+                snapshot -> snapshot.points().size() == before.points().size() + 1, "persist point addition");
         final MeshPointRef added = discoverAddedPoint(before, after, position);
         finishMeshEditIfActive(report);
         final SaveConfirmation firstSave = saveFixture(report, "saveWritten");
@@ -307,22 +296,16 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final EditorCommandResult reloadWritten = context.editorCommands().execute(EditorCommand.RELOAD_MODEL);
         require(report, "persist.reloadWritten", reloadWritten.executed(), reloadWritten.toString());
         final MeshSnapshot persisted = awaitEditableMesh(report);
-        require(
-            report,
-            "persist.reopened",
-            persisted.equals(after),
-            "expected=" + after + " actual=" + persisted
-        );
+        require(report, "persist.reopened", persisted.equals(after), "expected=" + after + " actual=" + persisted);
 
         final MeshPointRef persistedAdded = point(persisted, added.id()).orElseThrow();
         final MeshEditResult removed = edit.deletePoints(List.of(persistedAdded));
         requireApplied(report, "persist.cleanupDelete", removed);
         final MeshSnapshot restored = awaitSnapshot(
-            snapshot -> snapshot.points().size() == before.points().size()
-                && snapshot.edges().size() == before.edges().size()
-                && point(snapshot, added.id()).isEmpty(),
-            "persist cleanup"
-        );
+                snapshot -> snapshot.points().size() == before.points().size()
+                        && snapshot.edges().size() == before.edges().size()
+                        && point(snapshot, added.id()).isEmpty(),
+                "persist cleanup");
         finishMeshEditIfActive(report);
         final SaveConfirmation cleanupSave = saveFixture(report, "saveRestored");
         require(report, "persist.saveRestored", cleanupSave.confirmed(), cleanupSave.toString());
@@ -332,18 +315,16 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         require(report, "persist.reloadRestored", reloadRestored.executed(), reloadRestored.toString());
         final MeshSnapshot finalState = awaitEditableMesh(report);
         require(
-            report,
-            "persist.finalRestored",
-            finalState.equals(before),
-            "expected=" + before + " actual=" + finalState
-        );
+                report,
+                "persist.finalRestored",
+                finalState.equals(before),
+                "expected=" + before + " actual=" + finalState);
         finishMeshEditIfActive(report);
         require(
-            report,
-            "persist.finalMeshEditorExited",
-            context.meshEdit().snapshot().points().isEmpty(),
-            context.meshEdit().snapshot().toString()
-        );
+                report,
+                "persist.finalMeshEditorExited",
+                context.meshEdit().snapshot().points().isEmpty(),
+                context.meshEdit().snapshot().toString());
         report.add("persist.addedPointId=" + added.id());
         report.add("persist.restoredPoints=" + restored.points().size());
         report.add("persist.restoredEdges=" + restored.edges().size());
@@ -361,13 +342,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             return snapshot;
         }
         final SelectionTarget target = selectFirstArtMesh(report);
-        report.add("detail.selection.snapshot=" + safe(
-            context.cubism().runtime().selection().toString()
-        ));
+        report.add("detail.selection.snapshot="
+                + safe(context.cubism().runtime().selection().toString()));
         EditorCommandResult entered = new EditorCommandResult(
-            EditorCommandResult.Status.INVALID_STATE,
-            EditorCommand.START_OR_END_MESH_EDITOR.id()
-        );
+                EditorCommandResult.Status.INVALID_STATE, EditorCommand.START_OR_END_MESH_EDITOR.id());
         final long entryDeadline = System.nanoTime() + 30_000_000_000L;
         int attempts = 0;
         while (System.nanoTime() < entryDeadline && !entered.executed()) {
@@ -394,8 +372,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             try {
                 final boolean visible = onEdt(() -> {
                     for (Frame frame : Frame.getFrames()) {
-                        if (frame.isShowing() && frame.isDisplayable()
-                            && frame.getTitle() != null && frame.getTitle().contains(".cmo3")) {
+                        if (frame.isShowing()
+                                && frame.isDisplayable()
+                                && frame.getTitle() != null
+                                && frame.getTitle().contains(".cmo3")) {
                             return true;
                         }
                     }
@@ -411,8 +391,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             throw new InterruptedException("model-window wait interrupted");
         }
         throw unavailable == null
-            ? new IllegalStateException("visible Cubism model window did not become ready")
-            : unavailable;
+                ? new IllegalStateException("visible Cubism model window did not become ready")
+                : unavailable;
     }
 
     private void awaitModelingDocument() throws Exception {
@@ -430,19 +410,14 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException("modeling-document wait interrupted");
         }
-        throw unavailable == null
-            ? new IllegalStateException("modeling document did not become active")
-            : unavailable;
+        throw unavailable == null ? new IllegalStateException("modeling document did not become active") : unavailable;
     }
 
     private SelectionTarget selectFirstArtMesh(final List<String> report) throws Exception {
         executeCommand(report, "selection.showPartsPalette", EditorCommand.SHOW_PARTS_PALETTE);
         final SelectionTarget target = onEdt(() -> uniqueSelectionTarget(
-            context.cubism().model().active().drawables().all()
-        ));
-        SelectionAttempt attempt = new SelectionAttempt(
-            false, "none", target.displayName(), -1, -1, -1, -1, -1, -1
-        );
+                context.cubism().model().active().drawables().all()));
+        SelectionAttempt attempt = new SelectionAttempt(false, "none", target.displayName(), -1, -1, -1, -1, -1, -1);
         final long selectionDeadline = System.nanoTime() + 30_000_000_000L;
         while (System.nanoTime() < selectionDeadline && !attempt.selected()) {
             attempt = onEdt(() -> selectTreePath(target.displayName()));
@@ -463,13 +438,13 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             if (name != null && !name.isBlank()) counts.merge(name, 1, Integer::sum);
         }
         return drawables.stream()
-            .map(drawable -> new SelectionTarget(drawable.id().value(), drawable.name()))
-            .filter(target -> target.displayName() != null && !target.displayName().isBlank())
-            .filter(target -> counts.getOrDefault(target.displayName(), 0) == 1)
-            .min(Comparator.comparing(SelectionTarget::id))
-            .orElseThrow(() -> new IllegalStateException(
-                "fixture has no ArtMesh with a unique nonblank display name"
-            ));
+                .map(drawable -> new SelectionTarget(drawable.id().value(), drawable.name()))
+                .filter(target ->
+                        target.displayName() != null && !target.displayName().isBlank())
+                .filter(target -> counts.getOrDefault(target.displayName(), 0) == 1)
+                .min(Comparator.comparing(SelectionTarget::id))
+                .orElseThrow(
+                        () -> new IllegalStateException("fixture has no ArtMesh with a unique nonblank display name"));
     }
 
     static SelectionAttempt selectTreePath(final String displayName) {
@@ -485,20 +460,19 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 final String ownerName = owner == null ? "" : owner.getClass().getName();
                 final boolean project = listeners.contains(".palette.project.");
                 final boolean deformer = ownerName.contains("palette.deformer");
-                final boolean parts = listeners.contains(".palette.parts.")
-                    || ownerName.contains("palette.parts");
+                final boolean parts = listeners.contains(".palette.parts.") || ownerName.contains("palette.parts");
                 if (parts || project) {
                     candidates.add(tree);
-                    observed.add((parts ? "candidate-parts:" : "candidate-project:")
-                        + describeTree(tree) + ":listeners=" + listeners);
+                    observed.add((parts ? "candidate-parts:" : "candidate-project:") + describeTree(tree)
+                            + ":listeners=" + listeners);
                     continue;
                 }
                 if (deformer) {
                     observed.add("skip-deformer:" + describeTree(tree) + ":owner=" + ownerName);
                     continue;
                 }
-                observed.add("skip-unknown:" + describeTree(tree) + ":listeners=" + listeners
-                    + ":owner=" + (ownerName.isEmpty() ? "none" : ownerName));
+                observed.add("skip-unknown:" + describeTree(tree) + ":listeners=" + listeners + ":owner="
+                        + (ownerName.isEmpty() ? "none" : ownerName));
             }
         }
         for (JTree tree : candidates) {
@@ -509,8 +483,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 } else {
                     // A zero-match failure needs to show what the tree renders: the model's part
                     // names and the rendered row labels are not guaranteed to be the same text.
-                    observed.add("no-match:" + describeTree(tree)
-                        + ":rendered=" + renderedLabels(tree));
+                    observed.add("no-match:" + describeTree(tree) + ":rendered=" + renderedLabels(tree));
                 }
                 continue;
             }
@@ -551,38 +524,30 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             final Point screen = new Point(localX, localY);
             SwingUtilities.convertPointToScreen(screen, clickComponent);
             final Point focus = new Point(
-                Math.max(1, window.getWidth() / 2),
-                Math.max(1, Math.min(window.getHeight() - 1, window.getHeight() / 3))
-            );
+                    Math.max(1, window.getWidth() / 2),
+                    Math.max(1, Math.min(window.getHeight() - 1, window.getHeight() / 3)));
             SwingUtilities.convertPointToScreen(focus, window);
             return new SelectionAttempt(
-                true,
-                describeTree(tree)
-                    + " owner=" + (owner == null ? "none" : owner.getClass().getName()
-                        + " rows=" + owner.getRowCount())
-                    + " click=" + clickComponent.getClass().getName()
-                    + " window=" + window.getClass().getName()
-                    + " active=" + window.isActive() + " focused=" + window.isFocused()
-                    + " listeners=" + listenerClasses(tree),
-                String.valueOf(path.getLastPathComponent()),
-                screen.x,
-                screen.y,
-                focus.x,
-                focus.y,
-                tree.getRowForPath(path),
-                clickBounds.height
-            );
+                    true,
+                    describeTree(tree)
+                            + " owner="
+                            + (owner == null ? "none" : owner.getClass().getName() + " rows=" + owner.getRowCount())
+                            + " click=" + clickComponent.getClass().getName()
+                            + " window=" + window.getClass().getName()
+                            + " active=" + window.isActive() + " focused=" + window.isFocused()
+                            + " listeners=" + listenerClasses(tree),
+                    String.valueOf(path.getLastPathComponent()),
+                    screen.x,
+                    screen.y,
+                    focus.x,
+                    focus.y,
+                    tree.getRowForPath(path),
+                    clickBounds.height);
         }
-        return new SelectionAttempt(
-            false, String.join("|", observed), displayName, -1, -1, -1, -1, -1, -1
-        );
+        return new SelectionAttempt(false, String.join("|", observed), displayName, -1, -1, -1, -1, -1, -1);
     }
 
-    private static void collectTrees(
-        final Component component,
-        final List<JTree> trees,
-        final List<String> observed
-    ) {
+    private static void collectTrees(final Component component, final List<JTree> trees, final List<String> observed) {
         final String componentClass = component.getClass().getName();
         if (componentClass.toLowerCase(java.util.Locale.ROOT).contains("part")) {
             observed.add("part-component:" + componentClass + ":showing=" + component.isShowing());
@@ -595,8 +560,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             final String className = table.getClass().getName();
             if (className.contains("Parts") || className.contains("parts") || className.contains("TreeTable")) {
                 final JTree embedded = extractTree(table);
-                observed.add("table:" + className + ":rows=" + table.getRowCount()
-                    + ":embedded=" + (embedded == null ? "none" : embedded.getClass().getName()));
+                observed.add("table:" + className + ":rows=" + table.getRowCount() + ":embedded="
+                        + (embedded == null ? "none" : embedded.getClass().getName()));
                 if (embedded != null && !trees.contains(embedded)) trees.add(embedded);
             }
         }
@@ -648,10 +613,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return null;
     }
 
-    private static javax.swing.JTable findTreeTableOwner(
-        final Component component,
-        final JTree tree
-    ) {
+    private static javax.swing.JTable findTreeTableOwner(final Component component, final JTree tree) {
         if (component instanceof javax.swing.JTable table && extractTree(table) == tree) {
             return table;
         }
@@ -683,11 +645,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     private static void findTreePaths(
-        final JTree tree,
-        final TreePath path,
-        final String displayName,
-        final List<TreePath> matches
-    ) {
+            final JTree tree, final TreePath path, final String displayName, final List<TreePath> matches) {
         final Object node = path.getLastPathComponent();
         final String rendered = tree.convertValueToText(node, false, false, false, 0, false);
         if (displayName.equals(rendered) || displayName.equals(String.valueOf(node))) {
@@ -737,28 +695,25 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         }
     }
 
-    record SelectionTarget(String id, String displayName) { }
+    record SelectionTarget(String id, String displayName) {}
 
     record SelectionAttempt(
-        boolean selected,
-        String treeDescription,
-        String node,
-        int screenX,
-        int screenY,
-        int focusX,
-        int focusY,
-        int treeRow,
-        int rowHeight
-    ) { }
+            boolean selected,
+            String treeDescription,
+            String node,
+            int screenX,
+            int screenY,
+            int focusX,
+            int focusY,
+            int treeRow,
+            int rowHeight) {}
 
     private void finishMeshEditIfActive(final List<String> report) throws Exception {
         if (context.meshEdit().snapshot().points().isEmpty()) {
             report.add("meshExit=already-inactive");
             return;
         }
-        final EditorCommandResult result = context.editorCommands().execute(
-            EditorCommand.START_OR_END_MESH_EDITOR
-        );
+        final EditorCommandResult result = context.editorCommands().execute(EditorCommand.START_OR_END_MESH_EDITOR);
         require(report, "meshExit.command", result.executed(), result.toString());
         final long deadline = System.nanoTime() + SNAPSHOT_TIMEOUT_MILLIS * 1_000_000L;
         while (System.nanoTime() < deadline) {
@@ -772,12 +727,12 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     private MeshSnapshot mutate(
-        final List<String> report,
-        final String name,
-        final MeshSnapshot before,
-        final Callable<MeshEditResult> mutation,
-        final java.util.function.Predicate<MeshSnapshot> expected
-    ) throws Exception {
+            final List<String> report,
+            final String name,
+            final MeshSnapshot before,
+            final Callable<MeshEditResult> mutation,
+            final java.util.function.Predicate<MeshSnapshot> expected)
+            throws Exception {
         final MeshEditResult result = mutation.call();
         requireApplied(report, name + ".result", result);
         final MeshSnapshot after = awaitSnapshot(expected, name);
@@ -786,33 +741,30 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     private void undoRedo(
-        final List<String> report,
-        final String name,
-        final MeshSnapshot before,
-        final MeshSnapshot after
-    ) throws Exception {
+            final List<String> report, final String name, final MeshSnapshot before, final MeshSnapshot after)
+            throws Exception {
         executeCommand(report, name + ".undo", EditorCommand.UNDO);
-        require(report, name + ".undoState", awaitSnapshot(before::equals, name + " undo").equals(before),
-            before.toString());
+        require(
+                report,
+                name + ".undoState",
+                awaitSnapshot(before::equals, name + " undo").equals(before),
+                before.toString());
         executeCommand(report, name + ".redo", EditorCommand.REDO);
-        require(report, name + ".redoState", awaitSnapshot(after::equals, name + " redo").equals(after),
-            after.toString());
+        require(
+                report,
+                name + ".redoState",
+                awaitSnapshot(after::equals, name + " redo").equals(after),
+                after.toString());
         report.add("assertion." + name + ".oneUndoStep=PASS");
     }
 
-    private void executeCommand(
-        final List<String> report,
-        final String phase,
-        final EditorCommand command
-    ) {
+    private void executeCommand(final List<String> report, final String phase, final EditorCommand command) {
         final EditorCommandResult result = context.editorCommands().execute(command);
         require(report, phase + ".command", result.executed(), result.toString());
     }
 
-    private MeshSnapshot awaitSnapshot(
-        final java.util.function.Predicate<MeshSnapshot> expected,
-        final String phase
-    ) throws Exception {
+    private MeshSnapshot awaitSnapshot(final java.util.function.Predicate<MeshSnapshot> expected, final String phase)
+            throws Exception {
         final long deadline = System.nanoTime() + SNAPSHOT_TIMEOUT_MILLIS * 1_000_000L;
         MeshSnapshot actual = context.meshEdit().snapshot();
         while (System.nanoTime() < deadline) {
@@ -833,28 +785,23 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     static boolean isExactPointAddition(
-        final MeshSnapshot before,
-        final MeshSnapshot after,
-        final MeshPointPosition requested
-    ) {
+            final MeshSnapshot before, final MeshSnapshot after, final MeshPointPosition requested) {
         if (!after.edges().equals(before.edges())
-            || after.points().size() != before.points().size() + 1) return false;
+                || after.points().size() != before.points().size() + 1) return false;
         final Map<Integer, MeshPointRef> old = pointsById(before);
         for (MeshPointRef point : before.points()) {
             if (!after.points().contains(point)) return false;
         }
         return after.points().stream()
-            .filter(point -> !old.containsKey(point.id()))
-            .filter(point -> same(point.x(), requested.x()) && same(point.y(), requested.y()))
-            .count() == 1L;
+                        .filter(point -> !old.containsKey(point.id()))
+                        .filter(point -> same(point.x(), requested.x()) && same(point.y(), requested.y()))
+                        .count()
+                == 1L;
     }
 
-    static boolean isExactPointMove(
-        final MeshSnapshot before,
-        final MeshSnapshot after,
-        final MeshPointRef moved
-    ) {
-        if (!after.edges().equals(before.edges()) || after.points().size() != before.points().size()) {
+    static boolean isExactPointMove(final MeshSnapshot before, final MeshSnapshot after, final MeshPointRef moved) {
+        if (!after.edges().equals(before.edges())
+                || after.points().size() != before.points().size()) {
             return false;
         }
         for (MeshPointRef point : before.points()) {
@@ -864,51 +811,36 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return true;
     }
 
-    static boolean isExactEdgeAddition(
-        final MeshSnapshot before,
-        final MeshSnapshot after,
-        final MeshEdgeRef added
-    ) {
+    static boolean isExactEdgeAddition(final MeshSnapshot before, final MeshSnapshot after, final MeshEdgeRef added) {
         if (!after.points().equals(before.points())
-            || after.edges().size() != before.edges().size() + 1
-            || !after.edges().contains(added)) return false;
+                || after.edges().size() != before.edges().size() + 1
+                || !after.edges().contains(added)) return false;
         return before.edges().stream().allMatch(after.edges()::contains);
     }
 
-    static boolean isExactEdgeDeletion(
-        final MeshSnapshot before,
-        final MeshSnapshot after,
-        final MeshEdgeRef deleted
-    ) {
+    static boolean isExactEdgeDeletion(final MeshSnapshot before, final MeshSnapshot after, final MeshEdgeRef deleted) {
         if (!after.points().equals(before.points())
-            || after.edges().size() != before.edges().size() - 1
-            || after.edges().contains(deleted)) return false;
+                || after.edges().size() != before.edges().size() - 1
+                || after.edges().contains(deleted)) return false;
         return after.edges().stream().allMatch(before.edges()::contains);
     }
 
-    static boolean isExactPointDeletion(
-        final MeshSnapshot before,
-        final MeshSnapshot after,
-        final int deletedId
-    ) {
+    static boolean isExactPointDeletion(final MeshSnapshot before, final MeshSnapshot after, final int deletedId) {
         if (after.points().size() != before.points().size() - 1
-            || point(after, deletedId).isPresent()) return false;
+                || point(after, deletedId).isPresent()) return false;
         if (!after.points().stream().allMatch(before.points()::contains)) return false;
         final List<MeshEdgeRef> expectedEdges = before.edges().stream()
-            .filter(edge -> !endpoint(edge, deletedId))
-            .toList();
+                .filter(edge -> !endpoint(edge, deletedId))
+                .toList();
         return after.edges().equals(expectedEdges);
     }
 
     static MeshPointRef discoverAddedPoint(
-        final MeshSnapshot before,
-        final MeshSnapshot after,
-        final MeshPointPosition requested
-    ) {
+            final MeshSnapshot before, final MeshSnapshot after, final MeshPointPosition requested) {
         final Map<Integer, MeshPointRef> old = pointsById(before);
         final List<MeshPointRef> added = after.points().stream()
-            .filter(point -> !old.containsKey(point.id()))
-            .toList();
+                .filter(point -> !old.containsKey(point.id()))
+                .toList();
         if (added.size() != 1) {
             throw new IllegalStateException("expected exactly one assigned point id; added=" + added);
         }
@@ -921,10 +853,22 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     static MeshPointPosition distinctPosition(final MeshSnapshot snapshot) {
         if (snapshot.points().isEmpty()) throw new IllegalArgumentException("mesh has no points");
-        final float minX = snapshot.points().stream().map(MeshPointRef::x).min(Float::compare).orElseThrow();
-        final float maxX = snapshot.points().stream().map(MeshPointRef::x).max(Float::compare).orElseThrow();
-        final float minY = snapshot.points().stream().map(MeshPointRef::y).min(Float::compare).orElseThrow();
-        final float maxY = snapshot.points().stream().map(MeshPointRef::y).max(Float::compare).orElseThrow();
+        final float minX = snapshot.points().stream()
+                .map(MeshPointRef::x)
+                .min(Float::compare)
+                .orElseThrow();
+        final float maxX = snapshot.points().stream()
+                .map(MeshPointRef::x)
+                .max(Float::compare)
+                .orElseThrow();
+        final float minY = snapshot.points().stream()
+                .map(MeshPointRef::y)
+                .min(Float::compare)
+                .orElseThrow();
+        final float maxY = snapshot.points().stream()
+                .map(MeshPointRef::y)
+                .max(Float::compare)
+                .orElseThrow();
         final float span = Math.max(Math.max(maxX - minX, maxY - minY), 1.0F);
         return new MeshPointPosition(maxX + span * 0.173F, maxY + span * 0.197F);
     }
@@ -937,14 +881,14 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     static MeshPointRef chooseEdgePartner(final MeshSnapshot snapshot, final int addedId) {
         final Map<Integer, MeshPointRef> points = pointsById(snapshot);
         return snapshot.points().stream()
-            .filter(point -> point.id() != addedId)
-            .filter(point -> snapshot.edges().stream().noneMatch(edge ->
-                edge.equals(new MeshEdgeRef(addedId, point.id(), edge.kind()))))
-            .min(Comparator.comparingInt(MeshPointRef::id))
-            .orElseGet(() -> points.values().stream()
                 .filter(point -> point.id() != addedId)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("no edge partner is available")));
+                .filter(point -> snapshot.edges().stream()
+                        .noneMatch(edge -> edge.equals(new MeshEdgeRef(addedId, point.id(), edge.kind()))))
+                .min(Comparator.comparingInt(MeshPointRef::id))
+                .orElseGet(() -> points.values().stream()
+                        .filter(point -> point.id() != addedId)
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("no edge partner is available")));
     }
 
     static MeshPointRef pointWithConnectedEdge(final MeshSnapshot snapshot) {
@@ -982,20 +926,12 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return Math.abs(first - second) <= EPSILON;
     }
 
-    private static void requireApplied(
-        final List<String> report,
-        final String name,
-        final MeshEditResult result
-    ) {
+    private static void requireApplied(final List<String> report, final String name, final MeshEditResult result) {
         require(report, name, result.accepted() && result.rejected().isEmpty(), result.toString());
     }
 
     private static void require(
-        final List<String> report,
-        final String name,
-        final boolean condition,
-        final String detail
-    ) {
+            final List<String> report, final String name, final boolean condition, final String detail) {
         report.add("assertion." + name + "=" + (condition ? "PASS" : "FAIL"));
         report.add("detail." + name + "=" + safe(detail));
         if (!condition) throw new IllegalStateException(name + ": " + safe(detail));
@@ -1010,12 +946,12 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     static SaveConfirmation awaitSaveConfirmation(
-        final Path fixture,
-        final FileTime beforeMtime,
-        final long beforeSize,
-        final long deadlineMillis,
-        final long pollMillis
-    ) throws Exception {
+            final Path fixture,
+            final FileTime beforeMtime,
+            final long beforeSize,
+            final long deadlineMillis,
+            final long pollMillis)
+            throws Exception {
         if (!Files.isRegularFile(fixture)) {
             throw new IllegalArgumentException("validation fixture is missing: " + fixture);
         }
@@ -1033,35 +969,27 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                     stable = 0;
                 }
                 if (++stable >= SAVE_STABLE_SAMPLES) {
-                    return new SaveConfirmation(
-                        true, beforeMtime.toMillis(), beforeSize, mtime.toMillis(), size
-                    );
+                    return new SaveConfirmation(true, beforeMtime.toMillis(), beforeSize, mtime.toMillis(), size);
                 }
             }
             Thread.sleep(pollMillis);
         }
         return new SaveConfirmation(
-            false,
-            beforeMtime.toMillis(),
-            beforeSize,
-            Files.getLastModifiedTime(fixture).toMillis(),
-            Files.size(fixture)
-        );
+                false,
+                beforeMtime.toMillis(),
+                beforeSize,
+                Files.getLastModifiedTime(fixture).toMillis(),
+                Files.size(fixture));
     }
 
     record SaveConfirmation(
-        boolean confirmed,
-        long beforeMtimeMillis,
-        long beforeSize,
-        long afterMtimeMillis,
-        long afterSize
-    ) {
+            boolean confirmed, long beforeMtimeMillis, long beforeSize, long afterMtimeMillis, long afterSize) {
         String report(final String prefix) {
             return prefix + "confirmed=" + confirmed + ";"
-                + prefix + "beforeMtimeMillis=" + beforeMtimeMillis + ";"
-                + prefix + "beforeSize=" + beforeSize + ";"
-                + prefix + "afterMtimeMillis=" + afterMtimeMillis + ";"
-                + prefix + "afterSize=" + afterSize;
+                    + prefix + "beforeMtimeMillis=" + beforeMtimeMillis + ";"
+                    + prefix + "beforeSize=" + beforeSize + ";"
+                    + prefix + "afterMtimeMillis=" + afterMtimeMillis + ";"
+                    + prefix + "afterSize=" + afterSize;
         }
     }
 
@@ -1070,8 +998,9 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         Throwable current = failure;
         for (int depth = 0; current != null && depth < 4; depth++, current = current.getCause()) {
             if (depth > 0) result.append(" <- ");
-            result.append(current.getClass().getSimpleName()).append(": ")
-                .append(current.getMessage() == null ? "" : current.getMessage());
+            result.append(current.getClass().getSimpleName())
+                    .append(": ")
+                    .append(current.getMessage() == null ? "" : current.getMessage());
         }
         return result.toString();
     }

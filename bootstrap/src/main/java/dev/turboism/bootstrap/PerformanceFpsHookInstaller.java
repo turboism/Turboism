@@ -2,8 +2,8 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.performance.NativePerformanceProbeBridge;
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
-import dev.turboism.adapter.cubism.performance.PerformanceProbeMetric;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeMethodTransformer;
+import dev.turboism.adapter.cubism.performance.PerformanceProbeMetric;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeRecorder;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeRollbackObserver;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeTargets;
@@ -13,7 +13,6 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.ui.appearance.SwingFlatLafHostOperations;
-
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -42,6 +41,7 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
      * counts.
      */
     static final long LAF_READY_TIMEOUT_MILLIS = 30_000L;
+
     private static final long LAF_POLL_MILLIS = 100L;
 
     private final Instrumentation instrumentation;
@@ -57,10 +57,8 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
     private final long lafReadyTimeoutMillis;
 
     public PerformanceFpsHookInstaller(
-        final Instrumentation instrumentation,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader
-    ) throws Exception {
+            final Instrumentation instrumentation, final Path hostArtifact, final ClassLoader hostClassLoader)
+            throws Exception {
         this(instrumentation, hostArtifact, hostClassLoader, java.util.Optional.empty());
     }
 
@@ -74,37 +72,31 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
      *     declared version, empty unless the host is declared-generation-bound
      */
     PerformanceFpsHookInstaller(
-        final Instrumentation instrumentation,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader,
-        final java.util.Optional<String> admittedGeneration
-    ) throws Exception {
+            final Instrumentation instrumentation,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final java.util.Optional<String> admittedGeneration)
+            throws Exception {
         this(
-            instrumentation,
-            hostArtifact,
-            hostClassLoader,
-            fpsTargets(HostArtifactDigest.from(hostArtifact), admittedGeneration),
-            LAF_READY_TIMEOUT_MILLIS
-        );
+                instrumentation,
+                hostArtifact,
+                hostClassLoader,
+                fpsTargets(HostArtifactDigest.from(hostArtifact), admittedGeneration),
+                LAF_READY_TIMEOUT_MILLIS);
     }
 
     private static List<PerformanceProbeMethodTransformer.Target> fpsTargets(
-        final HostArtifactDigest digest,
-        final java.util.Optional<String> admittedGeneration
-    ) {
-        final java.util.Optional<String> reviewedVersion =
-            ReviewedHostArtifacts.cubismVersionOf(digest);
+            final HostArtifactDigest digest, final java.util.Optional<String> admittedGeneration) {
+        final java.util.Optional<String> reviewedVersion = ReviewedHostArtifacts.cubismVersionOf(digest);
         if (reviewedVersion.isPresent()) {
             return fpsTargetsForVersion(reviewedVersion.orElseThrow());
         }
         if (admittedGeneration.isPresent()) {
             return fpsTargetsForVersion(admittedGeneration.orElseThrow());
         }
-        throw new IllegalArgumentException(
-            "unsupported Cubism artifact for FPS counting"
+        throw new IllegalArgumentException("unsupported Cubism artifact for FPS counting"
                 + " (expected Cubism 5.2.03, 5.3.02, or 5.3.03; got size=" + digest.size()
-                + " sha256=" + digest.sha256() + ")"
-        );
+                + " sha256=" + digest.sha256() + ")");
     }
 
     /**
@@ -113,9 +105,7 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
      * compatibility hosts, whose declared identity already pinned a reviewed
      * runtime version.
      */
-    static List<PerformanceProbeMethodTransformer.Target> fpsTargetsForVersion(
-        final String cubismVersion
-    ) {
+    static List<PerformanceProbeMethodTransformer.Target> fpsTargetsForVersion(final String cubismVersion) {
         if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)) {
             return PerformanceProbeTargets.cubism5203();
         }
@@ -125,9 +115,7 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
         if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
             return renderSceneTargets(PerformanceProbeTargets.cubism5303());
         }
-        throw new IllegalArgumentException(
-            "unsupported Cubism version for FPS counting: " + cubismVersion
-        );
+        throw new IllegalArgumentException("unsupported Cubism version for FPS counting: " + cubismVersion);
     }
 
     /**
@@ -137,12 +125,11 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
      * tests.
      */
     PerformanceFpsHookInstaller(
-        final Instrumentation instrumentation,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader,
-        final List<PerformanceProbeMethodTransformer.Target> targets,
-        final long lafReadyTimeoutMillis
-    ) {
+            final Instrumentation instrumentation,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final List<PerformanceProbeMethodTransformer.Target> targets,
+            final long lafReadyTimeoutMillis) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.targets = List.copyOf(targets);
@@ -156,18 +143,15 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
      * version the digest belongs to rather than the digest itself. Unreviewed
      * artifacts fail closed.
      */
-    static List<PerformanceProbeMethodTransformer.Target> fpsTargetsFor(
-        final HostArtifactDigest digest
-    ) {
+    static List<PerformanceProbeMethodTransformer.Target> fpsTargetsFor(final HostArtifactDigest digest) {
         return fpsTargets(digest, java.util.Optional.empty());
     }
 
     private static List<PerformanceProbeMethodTransformer.Target> renderSceneTargets(
-        final List<PerformanceProbeMethodTransformer.Target> targets
-    ) {
+            final List<PerformanceProbeMethodTransformer.Target> targets) {
         return targets.stream()
-            .filter(target -> target.metric() == PerformanceProbeMetric.RENDER_SCENE)
-            .toList();
+                .filter(target -> target.metric() == PerformanceProbeMetric.RENDER_SCENE)
+                .toList();
     }
 
     @Override
@@ -179,10 +163,13 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
                 throw new IllegalStateException("Class retransformation is unavailable.");
             }
             callback = new PerformanceProbeCallback() {
-                @Override public long enter(final int metricId) {
+                @Override
+                public long enter(final int metricId) {
                     return NativePerformanceProbeBridge.enter(recorder, metricId);
                 }
-                @Override public void exit(final int metricId, final long startedNanos) {
+
+                @Override
+                public void exit(final int metricId, final long startedNanos) {
                     NativePerformanceProbeBridge.exit(recorder, metricId, startedNanos);
                 }
             };
@@ -208,24 +195,23 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
      * preferable to a lost count.
      */
     private void deferLoadedTargetRetransform() {
-        final Thread thread = new Thread(() -> {
-            waitForHostLafReady(lafReadyTimeoutMillis);
-            synchronized (lifecycleLock) {
-                if (!installed.get()) return; // closed before the deferred pass ran
-                try {
-                    retransformLoadedTargets();
-                } catch (Throwable failure) {
-                    FatalErrors.rethrowIfFatal(failure);
-                    // Fail-open diagnostic: on-load instrumentation keeps
-                    // counting; only pre-install loaded classes are missed.
-                    dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                        "performance",
-                        "FPS counting hook deferred retransform failed safely",
-                        failure
-                    );
-                }
-            }
-        }, "turboism-fps-laf-ready");
+        final Thread thread = new Thread(
+                () -> {
+                    waitForHostLafReady(lafReadyTimeoutMillis);
+                    synchronized (lifecycleLock) {
+                        if (!installed.get()) return; // closed before the deferred pass ran
+                        try {
+                            retransformLoadedTargets();
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            // Fail-open diagnostic: on-load instrumentation keeps
+                            // counting; only pre-install loaded classes are missed.
+                            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                                    "performance", "FPS counting hook deferred retransform failed safely", failure);
+                        }
+                    }
+                },
+                "turboism-fps-laf-ready");
         thread.setDaemon(true);
         thread.start();
     }
@@ -272,21 +258,20 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
                 instrumentation.retransformClasses(loaded);
             }
         } catch (java.lang.instrument.UnmodifiableClassException failure) {
-            throw new IllegalStateException(
-                "performance FPS hook target retransformation failed", failure
-            );
+            throw new IllegalStateException("performance FPS hook target retransformation failed", failure);
         }
     }
 
     private List<Class<?>> loadedTargetClasses() {
         final List<String> targetNames = targets.stream()
-            .map(target -> target.ownerInternalName().replace('/', '.'))
-            .distinct().toList();
+                .map(target -> target.ownerInternalName().replace('/', '.'))
+                .distinct()
+                .toList();
         final List<Class<?>> loaded = new ArrayList<>();
         for (Class<?> candidate : instrumentation.getAllLoadedClasses()) {
             if (targetNames.contains(candidate.getName())
-                && candidate.getClassLoader() == hostClassLoader
-                && instrumentation.isModifiableClass(candidate)) {
+                    && candidate.getClassLoader() == hostClassLoader
+                    && instrumentation.isModifiableClass(candidate)) {
                 loaded.add(candidate);
             }
         }
@@ -358,8 +343,7 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
         }
         if (!mismatches.isEmpty()) {
             throw new IllegalStateException(
-                "performance FPS hook bytecode restoration verification failed: " + mismatches
-            );
+                    "performance FPS hook bytecode restoration verification failed: " + mismatches);
         }
     }
 }

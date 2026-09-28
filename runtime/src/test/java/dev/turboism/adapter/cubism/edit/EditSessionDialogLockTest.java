@@ -1,20 +1,19 @@
 package dev.turboism.adapter.cubism.edit;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.edit.EditSessionDialogPrimitives.InvisibleModal;
 import dev.turboism.adapter.cubism.edit.EditSessionDialogPrimitives.StatusDialog;
 import dev.turboism.adapter.cubism.edit.EditSessionDialogPrimitives.TimerHandle;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * Drives {@link EditSessionDialogLock} through fake {@link EditSessionDialogPrimitives} — no real
@@ -28,10 +27,7 @@ final class EditSessionDialogLockTest {
         final Primitives primitives = new Primitives();
         final AtomicLong now = new AtomicLong();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
-            primitives,
-            new EditSessionUiLockContext(Optional.of(new Object()), () -> {}),
-            now::get
-        );
+                primitives, new EditSessionUiLockContext(Optional.of(new Object()), () -> {}), now::get);
 
         lock.engage(false);
 
@@ -48,10 +44,7 @@ final class EditSessionDialogLockTest {
         final Primitives primitives = new Primitives();
         final AtomicLong now = new AtomicLong();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
-            primitives,
-            new EditSessionUiLockContext(Optional.of(new Object()), () -> {}),
-            now::get
-        );
+                primitives, new EditSessionUiLockContext(Optional.of(new Object()), () -> {}), now::get);
 
         lock.engage(true);
 
@@ -80,10 +73,7 @@ final class EditSessionDialogLockTest {
         final Primitives primitives = new Primitives();
         final AtomicLong now = new AtomicLong();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
-            primitives,
-            new EditSessionUiLockContext(Optional.of(new Object()), () -> {}),
-            now::get
-        );
+                primitives, new EditSessionUiLockContext(Optional.of(new Object()), () -> {}), now::get);
         lock.engage(true);
 
         lock.disengage();
@@ -104,10 +94,7 @@ final class EditSessionDialogLockTest {
         final Primitives primitives = new Primitives();
         final AtomicLong now = new AtomicLong();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
-            primitives,
-            new EditSessionUiLockContext(Optional.empty(), () -> {}),
-            now::get
-        );
+                primitives, new EditSessionUiLockContext(Optional.empty(), () -> {}), now::get);
 
         lock.disengage();
         lock.engage(true);
@@ -124,10 +111,7 @@ final class EditSessionDialogLockTest {
         final Primitives primitives = new Primitives();
         final AtomicBoolean cancelRequested = new AtomicBoolean();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
-            primitives,
-            new EditSessionUiLockContext(Optional.empty(), () -> cancelRequested.set(true)),
-            () -> 0L
-        );
+                primitives, new EditSessionUiLockContext(Optional.empty(), () -> cancelRequested.set(true)), () -> 0L);
         lock.engage(false);
 
         primitives.context.cancelRequest().run();
@@ -139,10 +123,7 @@ final class EditSessionDialogLockTest {
     void logAndProgressReachTheStatusDialogWhileEngaged() {
         final Primitives primitives = new Primitives();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
-            primitives,
-            new EditSessionUiLockContext(Optional.empty(), () -> {}),
-            () -> 0L
-        );
+                primitives, new EditSessionUiLockContext(Optional.empty(), () -> {}), () -> 0L);
 
         lock.log("dropped");
         lock.engage(false);
@@ -195,8 +176,8 @@ final class EditSessionDialogLockTest {
         void fire(final int delayMs) {
             // Snapshot: a pulse tick may re-arm the next 100ms timer while firing.
             List.copyOf(timers).stream()
-                .filter(timer -> timer.delayMs == delayMs && !timer.cancelled())
-                .forEach(FakeTimer::fire);
+                    .filter(timer -> timer.delayMs == delayMs && !timer.cancelled())
+                    .forEach(FakeTimer::fire);
         }
 
         void fireAll() {

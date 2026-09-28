@@ -33,22 +33,19 @@ final class PluginLifecycleLane {
     PluginLifecycleLane(final PluginLifecyclePolicy policy) {
         Objects.requireNonNull(policy, "policy");
         executor = new ThreadPoolExecutor(
-            policy.workerCount(),
-            policy.workerCount(),
-            0L,
-            TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(policy.queueCapacity()),
-            runnable -> {
-                final Thread thread = new Thread(
-                    runnable,
-                    "turboism-plugin-lifecycle-" + workerSequence.incrementAndGet()
-                );
-                thread.setDaemon(true);
-                thread.setContextClassLoader(PluginLifecycleLane.class.getClassLoader());
-                return thread;
-            },
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+                policy.workerCount(),
+                policy.workerCount(),
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(policy.queueCapacity()),
+                runnable -> {
+                    final Thread thread =
+                            new Thread(runnable, "turboism-plugin-lifecycle-" + workerSequence.incrementAndGet());
+                    thread.setDaemon(true);
+                    thread.setContextClassLoader(PluginLifecycleLane.class.getClassLoader());
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
     /**
@@ -57,11 +54,7 @@ final class PluginLifecycleLane {
      * @return the invocation handle; {@link Invocation#rejected} is set when the lane stopped
      *     accepting work or the bounded queue is full — the task never runs in that case
      */
-    <T> Invocation<T> submit(
-        final String pluginId,
-        final String phase,
-        final Callable<T> work
-    ) {
+    <T> Invocation<T> submit(final String pluginId, final String phase, final Callable<T> work) {
         final Invocation<T> invocation = new Invocation<>(pluginId, phase);
         if (!accepting.get()) {
             invocation.rejected = true;
@@ -76,11 +69,7 @@ final class PluginLifecycleLane {
      * on the lane after public admission stops — its generations are already tracked and still
      * hold plugin resources — so this bypasses the admission flag but not the bounded queue.
      */
-    <T> Invocation<T> submitRetained(
-        final String pluginId,
-        final String phase,
-        final Callable<T> work
-    ) {
+    <T> Invocation<T> submitRetained(final String pluginId, final String phase, final Callable<T> work) {
         return dispatch(new Invocation<>(pluginId, phase), work);
     }
 
@@ -118,11 +107,7 @@ final class PluginLifecycleLane {
      * reported as success instead. The worker is then interrupted — advisory only — and the
      * caller must consult {@link Invocation#workerDone} before reclaiming resources.</p>
      */
-    <T> AwaitResult<T> await(
-        final Invocation<T> invocation,
-        final Duration timeout,
-        final PluginLifecycleLease lease
-    ) {
+    <T> AwaitResult<T> await(final Invocation<T> invocation, final Duration timeout, final PluginLifecycleLease lease) {
         Objects.requireNonNull(invocation, "invocation");
         Objects.requireNonNull(timeout, "timeout");
         if (invocation.rejected) {
@@ -187,9 +172,7 @@ final class PluginLifecycleLane {
             Thread.currentThread().interrupt();
             return AwaitResult.timedOut();
         } catch (TimeoutException impossible) {
-            return AwaitResult.failed(new IllegalStateException(
-                "Committed lifecycle task did not publish its result"
-            ));
+            return AwaitResult.failed(new IllegalStateException("Committed lifecycle task did not publish its result"));
         }
     }
 
@@ -247,6 +230,7 @@ final class PluginLifecycleLane {
         final CompletableFuture<Void> workerDone = new CompletableFuture<>();
         /** PENDING → RUNNING is claimed by the wrapper; PENDING → CANCELLED by the canceller. */
         final AtomicInteger state = new AtomicInteger(PENDING);
+
         volatile Future<?> raw;
         volatile boolean rejected;
 

@@ -1,27 +1,29 @@
 package dev.turboism.tests.runtime;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.SelectionObservation;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.core.event.RuntimeEventBroker;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.sdk.plugin.WorkBudget;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismServiceException;
 import dev.turboism.sdk.cubism.DeformerType;
-import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
+import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.permission.PluginPermission;
-import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
+import dev.turboism.sdk.plugin.WorkBudget;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -31,10 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class SelectionQueryIsolationTest {
 
@@ -50,14 +49,10 @@ class SelectionQueryIsolationTest {
         final List<SelectionChangedEvent> events = new CopyOnWriteArrayList<>();
         final AtomicReference<String> subscriberThread = new AtomicReference<>();
         final String callerThread = Thread.currentThread().getName();
-        fixture.broker().subscribe(
-            fixture.observer().key(),
-            SelectionChangedEvent.class,
-            event -> {
-                subscriberThread.set(Thread.currentThread().getName());
-                events.add(event);
-            }
-        );
+        fixture.broker().subscribe(fixture.observer().key(), SelectionChangedEvent.class, event -> {
+            subscriberThread.set(Thread.currentThread().getName());
+            events.add(event);
+        });
         fixture.observer().activate();
         fixture.service().currentSelection();
         source.replaceSelection(List.of("mesh-face"));
@@ -70,7 +65,9 @@ class SelectionQueryIsolationTest {
         waitFor(() -> events.size() == 1, Duration.ofSeconds(1));
         assertEquals(1, events.size());
         assertNotEquals(callerThread, subscriberThread.get());
-        assertEquals(List.of(new ModelObjectId("mesh-face")), events.get(0).currentSelection().selectedModelObjectIds());
+        assertEquals(
+                List.of(new ModelObjectId("mesh-face")),
+                events.get(0).currentSelection().selectedModelObjectIds());
     }
 
     @Test
@@ -80,11 +77,7 @@ class SelectionQueryIsolationTest {
         final RecordingSidecarDispatcher dispatcher = new RecordingSidecarDispatcher();
         final SelectionFixture fixture = serviceWith(source, dispatcher);
         final List<SelectionChangedEvent> events = new CopyOnWriteArrayList<>();
-        fixture.broker().subscribe(
-            fixture.observer().key(),
-            SelectionChangedEvent.class,
-            events::add
-        );
+        fixture.broker().subscribe(fixture.observer().key(), SelectionChangedEvent.class, events::add);
         fixture.observer().activate();
         fixture.service().currentSelection();
 
@@ -98,63 +91,62 @@ class SelectionQueryIsolationTest {
         assertTrue(dispatcher.dispatchCount() <= MAX_COALESCED_DISPATCHES);
         dispatcher.drain();
         waitFor(
-            () -> !events.isEmpty()
-                && events.get(events.size() - 1).currentSelection().selectedModelObjectIds()
-                    .equals(List.of(new ModelObjectId("deformer-root"))),
-            Duration.ofSeconds(1)
-        );
+                () -> !events.isEmpty()
+                        && events.get(events.size() - 1)
+                                .currentSelection()
+                                .selectedModelObjectIds()
+                                .equals(List.of(new ModelObjectId("deformer-root"))),
+                Duration.ofSeconds(1));
         assertEquals(
-            List.of(new ModelObjectId("deformer-root")),
-            events.get(events.size() - 1).currentSelection().selectedModelObjectIds()
-        );
+                List.of(new ModelObjectId("deformer-root")),
+                events.get(events.size() - 1).currentSelection().selectedModelObjectIds());
     }
 
     private static SelectionFixture serviceWith(
-        final HostSnapshotSource source,
-        final RecordingSidecarDispatcher dispatcher
-    ) {
+            final HostSnapshotSource source, final RecordingSidecarDispatcher dispatcher) {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final CubismPermissionGate permissionGate = new CubismPermissionGate(
-            "plugin.selection-tests",
-            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
-            auditEvents::add,
-            FIXED_CLOCK
-        );
+                "plugin.selection-tests",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                auditEvents::add,
+                FIXED_CLOCK);
         final RuntimeScheduler scheduler = new RuntimeScheduler(
-            task -> "event.subscribe".equals(task.taskType())
-                ? WorkBudget.LIGHTWEIGHT
-                : WorkBudget.SIDECAR,
-            new PluginWorkExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
-            dispatcher,
-            event -> { }
-        );
+                task -> "event.subscribe".equals(task.taskType()) ? WorkBudget.LIGHTWEIGHT : WorkBudget.SIDECAR,
+                new PluginWorkExecutorRegistry(1, 2, event -> {}, FIXED_CLOCK),
+                dispatcher,
+                event -> {});
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner observer = broker.admit("plugin.selection-observer");
         return new SelectionFixture(
-            new SelectionQueryServiceImpl(
-                new CubismFacadeImpl(source, permissionGate),
-                permissionGate,
+                new SelectionQueryServiceImpl(
+                        new CubismFacadeImpl(source, permissionGate),
+                        permissionGate,
+                        broker,
+                        new AtomicReference<SelectionObservation>(),
+                        source),
                 broker,
-                new AtomicReference<SelectionObservation>(),
-                source
-            ),
-            broker,
-            observer
-        );
+                observer);
     }
 
     private record SelectionFixture(
-        SelectionQueryServiceImpl service,
-        RuntimeEventBroker broker,
-        RuntimeEventBroker.Owner observer
-    ) {
-    }
+            SelectionQueryServiceImpl service, RuntimeEventBroker broker, RuntimeEventBroker.Owner observer) {}
 
     private static PluginPermission permission(final String id) {
         return new PluginPermission() {
-            @Override public String id() { return id; }
-            @Override public String scope() { return "read"; }
-            @Override public String reason() { return "selection isolation test"; }
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String scope() {
+                return "read";
+            }
+
+            @Override
+            public String reason() {
+                return "selection isolation test";
+            }
         };
     }
 
@@ -179,10 +171,13 @@ class SelectionQueryIsolationTest {
     }
 
     private static final class MutableSelectionSource implements HostSnapshotSource {
-        private static final HostParameter PARAMETER = new HostParameter("param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true);
+        private static final HostParameter PARAMETER =
+                new HostParameter("param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true);
         private static final HostArtMesh MESH = new HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
-        private static final HostDeformer DEFORMER = new HostDeformer("deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
-        private static final HostModel MODEL = new HostModel("model-1", "Model", List.of(PARAMETER), List.of(MESH), List.of(DEFORMER));
+        private static final HostDeformer DEFORMER =
+                new HostDeformer("deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
+        private static final HostModel MODEL =
+                new HostModel("model-1", "Model", List.of(PARAMETER), List.of(MESH), List.of(DEFORMER));
 
         private List<String> selectedObjectIds;
         private long invalidationToken;

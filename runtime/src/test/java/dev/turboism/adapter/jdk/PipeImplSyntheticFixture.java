@@ -19,8 +19,7 @@ import org.objectweb.asm.Opcodes;
  */
 final class PipeImplSyntheticFixture {
 
-    private PipeImplSyntheticFixture() {
-    }
+    private PipeImplSyntheticFixture() {}
 
     /** Generates bytecode with the full required pipeline shape. */
     static byte[] valid() {
@@ -33,36 +32,26 @@ final class PipeImplSyntheticFixture {
     }
 
     private static byte[] synthetic(
-        final boolean withClinit,
-        final boolean withFlag,
-        final boolean withCreateListener
-    ) {
+            final boolean withClinit, final boolean withFlag, final boolean withCreateListener) {
         final ClassWriter writer = new ClassWriter(0);
         writer.visit(
-            Opcodes.V17,
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
-            PipeImplLoopbackTransformer.TARGET_OWNER,
-            null,
-            "java/lang/Object",
-            null
-        );
+                Opcodes.V17,
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
+                PipeImplLoopbackTransformer.TARGET_OWNER,
+                null,
+                "java/lang/Object",
+                null);
         if (withFlag) {
             writer.visitField(
-                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_VOLATILE,
-                PipeImplLoopbackTransformer.FIELD_NAME,
-                PipeImplLoopbackTransformer.FIELD_DESCRIPTOR,
-                null,
-                null
-            ).visitEnd();
+                            Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_VOLATILE,
+                            PipeImplLoopbackTransformer.FIELD_NAME,
+                            PipeImplLoopbackTransformer.FIELD_DESCRIPTOR,
+                            null,
+                            null)
+                    .visitEnd();
         }
         if (withClinit) {
-            final MethodVisitor clinit = writer.visitMethod(
-                Opcodes.ACC_STATIC,
-                "<clinit>",
-                "()V",
-                null,
-                null
-            );
+            final MethodVisitor clinit = writer.visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", null, null);
             clinit.visitCode();
             clinit.visitInsn(Opcodes.RETURN);
             clinit.visitMaxs(0, 0);
@@ -70,19 +59,17 @@ final class PipeImplSyntheticFixture {
         }
         if (withCreateListener) {
             final MethodVisitor listener = writer.visitMethod(
-                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC,
-                "createListener",
-                "()Ljava/nio/channels/ServerSocketChannel;",
-                null,
-                null
-            );
+                    Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC,
+                    "createListener",
+                    "()Ljava/nio/channels/ServerSocketChannel;",
+                    null,
+                    null);
             listener.visitCode();
             listener.visitFieldInsn(
-                Opcodes.GETSTATIC,
-                PipeImplLoopbackTransformer.TARGET_OWNER,
-                PipeImplLoopbackTransformer.FIELD_NAME,
-                PipeImplLoopbackTransformer.FIELD_DESCRIPTOR
-            );
+                    Opcodes.GETSTATIC,
+                    PipeImplLoopbackTransformer.TARGET_OWNER,
+                    PipeImplLoopbackTransformer.FIELD_NAME,
+                    PipeImplLoopbackTransformer.FIELD_DESCRIPTOR);
             final org.objectweb.asm.Label inet = new org.objectweb.asm.Label();
             listener.visitJumpInsn(Opcodes.IFNE, inet);
             // Fallback kept minimal: the transform only needs the guarded
@@ -91,21 +78,15 @@ final class PipeImplSyntheticFixture {
             listener.visitInsn(Opcodes.DUP);
             listener.visitLdcInsn("synthetic fallback");
             listener.visitMethodInsn(
-                Opcodes.INVOKESPECIAL,
-                "java/io/IOException",
-                "<init>",
-                "(Ljava/lang/String;)V",
-                false
-            );
+                    Opcodes.INVOKESPECIAL, "java/io/IOException", "<init>", "(Ljava/lang/String;)V", false);
             listener.visitInsn(Opcodes.ATHROW);
             listener.visitLabel(inet);
             listener.visitMethodInsn(
-                Opcodes.INVOKESTATIC,
-                "java/nio/channels/ServerSocketChannel",
-                "open",
-                "()Ljava/nio/channels/ServerSocketChannel;",
-                false
-            );
+                    Opcodes.INVOKESTATIC,
+                    "java/nio/channels/ServerSocketChannel",
+                    "open",
+                    "()Ljava/nio/channels/ServerSocketChannel;",
+                    false);
             listener.visitInsn(Opcodes.ARETURN);
             listener.visitMaxs(0, 0);
             listener.visitEnd();

@@ -15,8 +15,8 @@ interface ArtifactSnapshotter {
 
     static ArtifactSnapshotter system() {
         return (source, maxBytes) -> {
-            final Path directory = Files.createTempDirectory(
-                "turboism-mapping-snapshot-", privateDirectoryAttributes());
+            final Path directory =
+                    Files.createTempDirectory("turboism-mapping-snapshot-", privateDirectoryAttributes());
             boolean completed = false;
             try {
                 final Path snapshot = directory.resolve("artifact.jar");
@@ -30,18 +30,20 @@ interface ArtifactSnapshotter {
     }
 
     record ArtifactSnapshot(Path directory, Path path, FileSafety.Digest digest) implements AutoCloseable {
-        @Override public void close() {
+        @Override
+        public void close() {
             deleteDirectory(directory);
         }
     }
 
     private static FileAttribute<?>[] privateDirectoryAttributes() {
         try {
-            return new FileAttribute<?>[]{java.nio.file.attribute.PosixFilePermissions.asFileAttribute(Set.of(
-                PosixFilePermission.OWNER_READ,
-                PosixFilePermission.OWNER_WRITE,
-                PosixFilePermission.OWNER_EXECUTE
-            ))};
+            return new FileAttribute<?>[] {
+                java.nio.file.attribute.PosixFilePermissions.asFileAttribute(Set.of(
+                        PosixFilePermission.OWNER_READ,
+                        PosixFilePermission.OWNER_WRITE,
+                        PosixFilePermission.OWNER_EXECUTE))
+            };
         } catch (UnsupportedOperationException exception) {
             return new FileAttribute<?>[0];
         }

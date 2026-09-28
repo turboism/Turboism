@@ -20,7 +20,7 @@ public final class ArchivePaths {
     public static String pathIdentityKey(final String value) {
         final String normalized = Normalizer.normalize(value, Normalizer.Form.NFC);
         final StringBuilder key = new StringBuilder(normalized.length());
-        for (int index = 0; index < normalized.length();) {
+        for (int index = 0; index < normalized.length(); ) {
             final int point = normalized.codePointAt(index);
             key.appendCodePoint(Character.toLowerCase(Character.toUpperCase(point)));
             index += Character.charCount(point);
@@ -36,18 +36,16 @@ public final class ArchivePaths {
      * are checked by callers after stripping their trailing slash.
      */
     public static boolean relativePath(final String value) {
-        if (value == null || value.isEmpty()
-            || !Normalizer.isNormalized(value, Normalizer.Form.NFC)) {
+        if (value == null || value.isEmpty() || !Normalizer.isNormalized(value, Normalizer.Form.NFC)) {
             return false;
         }
-        if (value.getBytes(StandardCharsets.UTF_8).length > 1024
-            || value.startsWith("/") || value.endsWith("/")) {
+        if (value.getBytes(StandardCharsets.UTF_8).length > 1024 || value.startsWith("/") || value.endsWith("/")) {
             return false;
         }
         if (value.indexOf('\\') >= 0 || value.indexOf(':') >= 0 || drivePrefix(value)) {
             return false;
         }
-        for (int index = 0; index < value.length();) {
+        for (int index = 0; index < value.length(); ) {
             final int point = value.codePointAt(index);
             if (point == 0 || Character.isISOControl(point)) {
                 return false;
@@ -107,15 +105,12 @@ public final class ArchivePaths {
             return false;
         }
         final int dot = segment.indexOf('.');
-        final String base = segment
-            .substring(0, dot < 0 ? segment.length() : dot)
-            .toUpperCase(Locale.ROOT);
+        final String base =
+                segment.substring(0, dot < 0 ? segment.length() : dot).toUpperCase(Locale.ROOT);
         return !base.matches("CON|PRN|AUX|NUL|(?:COM|LPT)[1-9]");
     }
 
     private static boolean drivePrefix(final String value) {
-        return value.length() >= 2
-            && Character.isLetter(value.charAt(0))
-            && value.charAt(1) == ':';
+        return value.length() >= 2 && Character.isLetter(value.charAt(0)) && value.charAt(1) == ':';
     }
 }

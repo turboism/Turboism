@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.id;
 
-
 import java.util.Objects;
 
 /** Stable identity for one parameter-binding point within a model generation. */

@@ -34,19 +34,46 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         /** Existing native shader error observation, not an additional query. */
         ERROR("com/live2d/graphics3d/shader/A", Map.of("a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I")),
         /** Concrete core and ARB program lifecycle operations used by this host. */
-        MUTATIONS("jogamp/opengl/gl4/GL4bcImpl", Map.of("glLinkProgram", "(I)V", "glDeleteProgram", "(I)V", "glProgramBinary", "(IILjava/nio/Buffer;I)V", "glLinkProgramARB", "(J)V", "glDeleteObjectARB", "(J)V")),
+        MUTATIONS(
+                "jogamp/opengl/gl4/GL4bcImpl",
+                Map.of(
+                        "glLinkProgram",
+                        "(I)V",
+                        "glDeleteProgram",
+                        "(I)V",
+                        "glProgramBinary",
+                        "(IILjava/nio/Buffer;I)V",
+                        "glLinkProgramARB",
+                        "(J)V",
+                        "glDeleteObjectARB",
+                        "(J)V")),
         /** Other bundled implementation capable of mutating a shared GLSL program. */
-        MUTATIONS_ES("jogamp/opengl/es3/GLES3Impl", Map.of("glLinkProgram", "(I)V", "glDeleteProgram", "(I)V", "glProgramBinary", "(IILjava/nio/Buffer;I)V"));
+        MUTATIONS_ES(
+                "jogamp/opengl/es3/GLES3Impl",
+                Map.of(
+                        "glLinkProgram",
+                        "(I)V",
+                        "glDeleteProgram",
+                        "(I)V",
+                        "glProgramBinary",
+                        "(IILjava/nio/Buffer;I)V"));
         private final String owner;
         private final Map<String, String> methods;
-        Role(String owner, Map<String, String> methods) { this.owner = owner; this.methods = methods; }
+
+        Role(String owner, Map<String, String> methods) {
+            this.owner = owner;
+            this.methods = methods;
+        }
         /** Returns the reviewed class internal name. */
-        public String owner() { return owner; }
+        public String owner() {
+            return owner;
+        }
         /** Returns this role's independently verified exact-version class name. */
         public String owner(HostArtifactDigest editor) {
             if (!supportedEditor(editor)) throw new IllegalArgumentException("unreviewed uniform lifecycle Editor");
             return this == ERROR && ReviewedHostArtifacts.CUBISM_5_2_03.equals(editor)
-                ? "com/live2d/graphics3d/shader/y" : owner;
+                    ? "com/live2d/graphics3d/shader/y"
+                    : owner;
         }
 
         /**
@@ -57,15 +84,20 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             if (!supportedEditorVersion(editorVersion)) {
                 throw new IllegalArgumentException("unreviewed uniform lifecycle Editor");
             }
-            return this == ERROR
-                && ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(editorVersion)
-                ? "com/live2d/graphics3d/shader/y" : owner;
+            return this == ERROR && ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(editorVersion)
+                    ? "com/live2d/graphics3d/shader/y"
+                    : owner;
         }
         /** Returns the fixed target method descriptors. */
-        public Map<String, String> methods() { return methods; }
+        public Map<String, String> methods() {
+            return methods;
+        }
         /** Whether this role needs begin/finally-end program mutation accounting. */
-        public boolean programMutations() { return this == MUTATIONS || this == MUTATIONS_ES; }
+        public boolean programMutations() {
+            return this == MUTATIONS || this == MUTATIONS_ES;
+        }
     }
+
     private final ClassLoader loader;
     private final Path artifact;
     private final Role role;
@@ -76,7 +108,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
     private final int errorReceiver;
     private volatile String failure, beforeSha256;
     private volatile int matches;
-    private Runnable onRejection = () -> { };
+    private Runnable onRejection = () -> {};
 
     /**
      * Creates an inert companion transform from official reference bytes.
@@ -98,8 +130,8 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
      * @param role the lifecycle operation family
      * @param editor the reviewed Editor identity
      */
-    public UniformLocationLifecycleTransformer(ClassLoader loader, Path artifact, byte[] reference,
-                                               Role role, HostArtifactDigest editor) {
+    public UniformLocationLifecycleTransformer(
+            ClassLoader loader, Path artifact, byte[] reference, Role role, HostArtifactDigest editor) {
         this(role, role.owner(editor), loader, artifact, reference);
     }
 
@@ -111,23 +143,23 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
      * @param role the lifecycle operation family
      * @param editorVersion the reviewed Editor version the host's contract bound to
      */
-    public UniformLocationLifecycleTransformer(ClassLoader loader, Path artifact, byte[] reference,
-                                               Role role, String editorVersion) {
+    public UniformLocationLifecycleTransformer(
+            ClassLoader loader, Path artifact, byte[] reference, Role role, String editorVersion) {
         this(role, role.ownerForVersion(editorVersion), loader, artifact, reference);
     }
 
     /** Returns whether an Editor artifact has a reviewed lifecycle mapping. */
     public static boolean supportedEditor(HostArtifactDigest editor) {
         return ReviewedHostArtifacts.CUBISM_5_2_03.equals(editor)
-            || ReviewedHostArtifacts.CUBISM_5_3_02.equals(editor)
-            || ReviewedHostArtifacts.CUBISM_5_3_03.equals(editor);
+                || ReviewedHostArtifacts.CUBISM_5_3_02.equals(editor)
+                || ReviewedHostArtifacts.CUBISM_5_3_03.equals(editor);
     }
 
     /** Returns whether a declared Editor version has a reviewed lifecycle mapping. */
     public static boolean supportedEditorVersion(String editorVersion) {
         return ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(editorVersion)
-            || ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(editorVersion)
-            || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(editorVersion);
+                || ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(editorVersion)
+                || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(editorVersion);
     }
 
     /**
@@ -139,11 +171,12 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         return REVIEWED_CLASS_SHA256;
     }
 
-    private UniformLocationLifecycleTransformer(Role role, String owner, ClassLoader loader,
-                                                Path artifact, byte[] reference) {
+    private UniformLocationLifecycleTransformer(
+            Role role, String owner, ClassLoader loader, Path artifact, byte[] reference) {
         this.owner = owner;
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         this.role = Objects.requireNonNull(role, "role");
         for (var target : role.methods.entrySet()) {
             List<String> shape = ReviewedMethodShape.read(reference, owner, target.getKey(), target.getValue());
@@ -152,47 +185,115 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         }
         int[] errorCalls = {0};
         int[] receiver = {-1};
-        new ClassReader(reference).accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-                if (!descriptor.equals(role.methods.get(name))) return null;
-                if ((access & (Opcodes.ACC_NATIVE | Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC)) != 0) {
-                    throw new IllegalArgumentException("unsupported lifecycle access");
-                }
-                return new MethodVisitor(Opcodes.ASM9) {
-                    /**
-                     * The local index when the immediately preceding instruction
-                     * pushed a reference, else -1. The elision replaces the error
-                     * query with {@code pop; iconst_0}, so the composed-body probe
-                     * must re-read the receiver from its local; only a preceding
-                     * plain {@code aload} makes that derivation exact.
-                     */
-                    int previous = -1;
-                    void advance(int state) { previous = state; }
-                    @Override public void visitCode() { previous = -1; }
-                    @Override public void visitInsn(int opcode) { advance(-1); }
-                    @Override public void visitIntInsn(int opcode, int operand) { advance(-1); }
-                    @Override public void visitVarInsn(int opcode, int variable) {
-                        advance(opcode == Opcodes.ALOAD ? variable : -1);
-                    }
-                    @Override public void visitTypeInsn(int opcode, String type) { advance(-1); }
-                    @Override public void visitFieldInsn(int opcode, String type, String field, String desc) { advance(-1); }
-                    @Override public void visitJumpInsn(int opcode, Label label) { advance(-1); }
-                    @Override public void visitLdcInsn(Object value) { advance(-1); }
-                    @Override public void visitIincInsn(int variable, int increment) { advance(-1); }
-                    @Override public void visitTableSwitchInsn(int min, int max, Label fallback, Label... targets) { advance(-1); }
-                    @Override public void visitLookupSwitchInsn(Label fallback, int[] keys, Label[] targets) { advance(-1); }
-                    @Override public void visitInvokeDynamicInsn(String name, String desc, Handle bootstrap, Object... args) { advance(-1); }
-                    @Override public void visitMultiANewArrayInsn(String desc, int dimensions) { advance(-1); }
-                    @Override public void visitMethodInsn(int opcode, String owner, String method, String desc, boolean itf) {
-                        if (errorQuery(opcode, owner, method, desc, itf)) {
-                            errorCalls[0]++; receiver[0] = previous;
-                        }
-                        advance(-1);
-                    }
-                    @Override public void visitMaxs(int stack, int maxLocals) { locals.put(name, maxLocals); }
-                };
-            }
-        }, ClassReader.SKIP_DEBUG);
+        new ClassReader(reference)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String descriptor, String signature, String[] exceptions) {
+                                if (!descriptor.equals(role.methods.get(name))) return null;
+                                if ((access & (Opcodes.ACC_NATIVE | Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC)) != 0) {
+                                    throw new IllegalArgumentException("unsupported lifecycle access");
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    /**
+                                     * The local index when the immediately preceding instruction
+                                     * pushed a reference, else -1. The elision replaces the error
+                                     * query with {@code pop; iconst_0}, so the composed-body probe
+                                     * must re-read the receiver from its local; only a preceding
+                                     * plain {@code aload} makes that derivation exact.
+                                     */
+                                    int previous = -1;
+
+                                    void advance(int state) {
+                                        previous = state;
+                                    }
+
+                                    @Override
+                                    public void visitCode() {
+                                        previous = -1;
+                                    }
+
+                                    @Override
+                                    public void visitInsn(int opcode) {
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitIntInsn(int opcode, int operand) {
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitVarInsn(int opcode, int variable) {
+                                        advance(opcode == Opcodes.ALOAD ? variable : -1);
+                                    }
+
+                                    @Override
+                                    public void visitTypeInsn(int opcode, String type) {
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitFieldInsn(int opcode, String type, String field, String desc) {
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitJumpInsn(int opcode, Label label) {
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitLdcInsn(Object value) {
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitIincInsn(int variable, int increment) {
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitTableSwitchInsn(
+                                            int min, int max, Label fallback, Label... targets) {
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitLookupSwitchInsn(Label fallback, int[] keys, Label[] targets) {
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitInvokeDynamicInsn(
+                                            String name, String desc, Handle bootstrap, Object... args) {
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitMultiANewArrayInsn(String desc, int dimensions) {
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitMethodInsn(
+                                            int opcode, String owner, String method, String desc, boolean itf) {
+                                        if (errorQuery(opcode, owner, method, desc, itf)) {
+                                            errorCalls[0]++;
+                                            receiver[0] = previous;
+                                        }
+                                        advance(-1);
+                                    }
+
+                                    @Override
+                                    public void visitMaxs(int stack, int maxLocals) {
+                                        locals.put(name, maxLocals);
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG);
         if (locals.size() != shapes.size() || (role == Role.ERROR && errorCalls[0] != 1)) {
             throw new IllegalArgumentException("incomplete lifecycle method bodies");
         }
@@ -206,27 +307,45 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
      */
     public static void verifyMutationInventory(java.util.jar.JarFile jar) throws java.io.IOException {
         java.util.Set<String> expected = new java.util.HashSet<>(), observed = new java.util.HashSet<>();
-        for (var role : Role.values()) if (role.programMutations()) {
-            role.methods().forEach((name, descriptor) -> expected.add(role.owner() + ":" + name + descriptor));
-        }
-        java.util.Set<String> names = java.util.Set.of("glLinkProgram", "glDeleteProgram", "glProgramBinary",
-            "glLinkProgramARB", "glDeleteObjectARB", "glProgramBinaryOES");
+        for (var role : Role.values())
+            if (role.programMutations()) {
+                role.methods().forEach((name, descriptor) -> expected.add(role.owner() + ":" + name + descriptor));
+            }
+        java.util.Set<String> names = java.util.Set.of(
+                "glLinkProgram",
+                "glDeleteProgram",
+                "glProgramBinary",
+                "glLinkProgramARB",
+                "glDeleteObjectARB",
+                "glProgramBinaryOES");
         for (var entry : java.util.Collections.list(jar.entries())) {
-            if (!entry.getName().startsWith("jogamp/opengl/") || !entry.getName().endsWith("Impl.class")) continue;
+            if (!entry.getName().startsWith("jogamp/opengl/")
+                    || !entry.getName().endsWith("Impl.class")) continue;
             byte[] bytes;
-            try (var input = jar.getInputStream(entry)) { bytes = input.readAllBytes(); }
+            try (var input = jar.getInputStream(entry)) {
+                bytes = input.readAllBytes();
+            }
             String owner = entry.getName().substring(0, entry.getName().length() - 6);
-            new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
-                @Override public MethodVisitor visitMethod(int access, String name, String descriptor,
-                                                            String signature, String[] exceptions) {
-                    if (names.contains(name) && (access & Opcodes.ACC_ABSTRACT) == 0) {
-                        observed.add(owner + ":" + name + descriptor);
-                    }
-                    return null;
-                }
-            }, ClassReader.SKIP_CODE);
+            new ClassReader(bytes)
+                    .accept(
+                            new ClassVisitor(Opcodes.ASM9) {
+                                @Override
+                                public MethodVisitor visitMethod(
+                                        int access,
+                                        String name,
+                                        String descriptor,
+                                        String signature,
+                                        String[] exceptions) {
+                                    if (names.contains(name) && (access & Opcodes.ACC_ABSTRACT) == 0) {
+                                        observed.add(owner + ":" + name + descriptor);
+                                    }
+                                    return null;
+                                }
+                            },
+                            ClassReader.SKIP_CODE);
         }
-        if (!expected.equals(observed)) throw new IllegalArgumentException("incomplete JOGL shared program mutation coverage");
+        if (!expected.equals(observed))
+            throw new IllegalArgumentException("incomplete JOGL shared program mutation coverage");
     }
 
     /**
@@ -241,26 +360,43 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
     }
 
     /** Registers a fail-closed action before installing this transformer. */
-    public void onRejection(Runnable action) { onRejection = Objects.requireNonNull(action, "action"); }
+    public void onRejection(Runnable action) {
+        onRejection = Objects.requireNonNull(action, "action");
+    }
     /** Returns the latest rejection, or null. */
-    public String failure() { return failure; }
+    public String failure() {
+        return failure;
+    }
     /** Returns successful class rewrites, not target method counts. */
-    public int matches() { return matches; }
+    public int matches() {
+        return matches;
+    }
     /** Returns the initial pre-rewrite class digest for restoration verification. */
-    public String beforeSha256() { return beforeSha256; }
+    public String beforeSha256() {
+        return beforeSha256;
+    }
 
-    @Override public byte[] transform(Module module, ClassLoader actualLoader, String name, Class<?> type,
-                                      ProtectionDomain domain, byte[] bytes) {
+    @Override
+    public byte[] transform(
+            Module module,
+            ClassLoader actualLoader,
+            String name,
+            Class<?> type,
+            ProtectionDomain domain,
+            byte[] bytes) {
         if (actualLoader != loader || !owner.equals(name) || bytes == null) return null;
         try {
-            if (domain == null || domain.getCodeSource() == null || !artifact.equals(
-                Path.of(domain.getCodeSource().getLocation().toURI()).toAbsolutePath().normalize())) {
+            if (domain == null
+                    || domain.getCodeSource() == null
+                    || !artifact.equals(
+                            Path.of(domain.getCodeSource().getLocation().toURI())
+                                    .toAbsolutePath()
+                                    .normalize())) {
                 throw new IllegalArgumentException("lifecycle artifact mismatch");
             }
             boolean composed = false;
             for (var target : role.methods.entrySet()) {
-                List<String> observed = ReviewedMethodShape.read(
-                    bytes, owner, target.getKey(), target.getValue());
+                List<String> observed = ReviewedMethodShape.read(bytes, owner, target.getKey(), target.getValue());
                 if (!shapes.get(target.getKey()).equals(observed)) {
                     if (!composedShapes.getOrDefault(target.getKey(), List.of()).equals(observed)) {
                         throw new IllegalArgumentException("lifecycle method shape mismatch: " + target.getKey());
@@ -270,31 +406,40 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             }
             if (composed && errorReceiver < 0) {
                 throw new IllegalArgumentException(
-                    "lifecycle composed body without a derivable error receiver: " + owner);
+                        "lifecycle composed body without a derivable error receiver: " + owner);
             }
             ClassReader reader = new ClassReader(bytes);
             ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override protected ClassLoader getClassLoader() { return loader; }
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader;
+                }
             };
             final boolean elidedError = composed && role == Role.ERROR;
             final Observer[] observer = {null};
-            reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-                @Override public MethodVisitor visitMethod(int access, String method, String desc, String signature, String[] exceptions) {
-                    MethodVisitor original = super.visitMethod(access, method, desc, signature, exceptions);
-                    if (!desc.equals(role.methods.get(method))) return original;
-                    return observer[0] = new Observer(original, role, locals.get(method), elidedError, errorReceiver);
-                }
-            }, ClassReader.EXPAND_FRAMES);
+            reader.accept(
+                    new ClassVisitor(Opcodes.ASM9, writer) {
+                        @Override
+                        public MethodVisitor visitMethod(
+                                int access, String method, String desc, String signature, String[] exceptions) {
+                            MethodVisitor original = super.visitMethod(access, method, desc, signature, exceptions);
+                            if (!desc.equals(role.methods.get(method))) return original;
+                            return observer[0] =
+                                    new Observer(original, role, locals.get(method), elidedError, errorReceiver);
+                        }
+                    },
+                    ClassReader.EXPAND_FRAMES);
             // The elided body must expose exactly one reviewed pop;iconst_0
             // site, and the replacement error callback must actually emit —
             // anything else would silently reintroduce the unconfirmed-pending
             // failure this composition exists to remove.
             if (elidedError && (observer[0] == null || observer[0].elisionSites != 1)) {
-                throw new IllegalArgumentException(
-                    "lifecycle composed error site absent or ambiguous: " + owner);
+                throw new IllegalArgumentException("lifecycle composed error site absent or ambiguous: " + owner);
             }
             byte[] changed = writer.toByteArray();
-            if (beforeSha256 == null) beforeSha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+            if (beforeSha256 == null)
+                beforeSha256 = HexFormat.of()
+                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
             matches++;
             return changed;
         } catch (Exception | LinkageError problem) {
@@ -303,11 +448,17 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             return null;
         }
     }
+
     private static boolean errorQuery(int opcode, String owner, String method, String desc, boolean itf) {
-        return opcode == Opcodes.INVOKEINTERFACE && itf && owner.equals("com/jogamp/opengl/GL")
-            && method.equals("glGetError") && desc.equals("()I");
+        return opcode == Opcodes.INVOKEINTERFACE
+                && itf
+                && owner.equals("com/jogamp/opengl/GL")
+                && method.equals("glGetError")
+                && desc.equals("()I");
     }
-    private record Handler(Label start, Label end, Label target, String type) { }
+
+    private record Handler(Label start, Label end, Label target, String type) {}
+
     private static final class Observer extends MethodVisitor {
         private final Role role;
         private final int base;
@@ -319,40 +470,66 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
          * constant is pushed. Inert unless {@link #elision} is set.
          */
         private final boolean elision;
+
         private final int errorGl;
         private int previousInsn = -1;
         int elisionSites;
         private final List<Handler> originalHandlers = new ArrayList<>();
         private final Label bodyStart = new Label(), bodyEnd = new Label(), exceptionalExit = new Label();
-        Observer(MethodVisitor visitor, Role role, int base) { this(visitor, role, base, false, -1); }
+
+        Observer(MethodVisitor visitor, Role role, int base) {
+            this(visitor, role, base, false, -1);
+        }
+
         Observer(MethodVisitor visitor, Role role, int base, boolean elision, int errorGl) {
             super(Opcodes.ASM9, visitor);
-            this.role = role; this.base = base; this.elision = elision; this.errorGl = errorGl;
+            this.role = role;
+            this.base = base;
+            this.elision = elision;
+            this.errorGl = errorGl;
         }
-        @Override public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
+
+        @Override
+        public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
             originalHandlers.add(new Handler(start, end, handler, type));
         }
-        @Override public void visitCode() {
+
+        @Override
+        public void visitCode() {
             super.visitCode();
             if (role == Role.FRAME || role.programMutations()) {
-                super.visitInsn(Opcodes.LCONST_0); super.visitVarInsn(Opcodes.LSTORE, base);
+                super.visitInsn(Opcodes.LCONST_0);
+                super.visitVarInsn(Opcodes.LSTORE, base);
                 if (role == Role.FRAME) {
-                    guarded(UniformLocationHookBridge.BEGIN_PROPERTY, "(Ljava/lang/Object;)J",
-                        () -> super.visitVarInsn(Opcodes.ALOAD, 1), () -> super.visitVarInsn(Opcodes.LSTORE, base));
+                    guarded(
+                            UniformLocationHookBridge.BEGIN_PROPERTY,
+                            "(Ljava/lang/Object;)J",
+                            () -> super.visitVarInsn(Opcodes.ALOAD, 1),
+                            () -> super.visitVarInsn(Opcodes.LSTORE, base));
                 } else {
-                    guarded(UniformLocationHookBridge.MUTATION_BEGIN_PROPERTY, "()J",
-                        () -> { }, () -> super.visitVarInsn(Opcodes.LSTORE, base));
+                    guarded(
+                            UniformLocationHookBridge.MUTATION_BEGIN_PROPERTY,
+                            "()J",
+                            () -> {},
+                            () -> super.visitVarInsn(Opcodes.LSTORE, base));
                 }
                 super.visitLabel(bodyStart);
             }
         }
-        @Override public void visitInsn(int opcode) {
+
+        @Override
+        public void visitInsn(int opcode) {
             if (elision && opcode == Opcodes.ICONST_0 && previousInsn == Opcodes.POP) {
                 super.visitInsn(opcode);
                 super.visitVarInsn(Opcodes.ISTORE, base + 1);
-                guarded(UniformLocationHookBridge.ERROR_PROPERTY, "(Ljava/lang/Object;I)V", () -> {
-                    super.visitVarInsn(Opcodes.ALOAD, errorGl); super.visitVarInsn(Opcodes.ILOAD, base + 1);
-                }, () -> { });
+                guarded(
+                        UniformLocationHookBridge.ERROR_PROPERTY,
+                        "(Ljava/lang/Object;I)V",
+                        () -> {
+                            super.visitVarInsn(Opcodes.ALOAD, errorGl);
+                            super.visitVarInsn(Opcodes.ILOAD, base + 1);
+                        },
+                        () -> {});
                 super.visitVarInsn(Opcodes.ILOAD, base + 1);
                 elisionSites++;
                 previousInsn = opcode;
@@ -367,92 +544,202 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
          * pending {@code pop; iconst_0} pair; a missed clear can only produce an
          * extra site, and the installer rejects any count other than one.
          */
-        private void breakPair() { previousInsn = -1; }
-        @Override public void visitIntInsn(int opcode, int operand) { breakPair(); super.visitIntInsn(opcode, operand); }
-        @Override public void visitVarInsn(int opcode, int variable) { breakPair(); super.visitVarInsn(opcode, variable); }
-        @Override public void visitTypeInsn(int opcode, String type) { breakPair(); super.visitTypeInsn(opcode, type); }
-        @Override public void visitFieldInsn(int opcode, String owner, String name, String desc) {
-            breakPair(); super.visitFieldInsn(opcode, owner, name, desc);
+        private void breakPair() {
+            previousInsn = -1;
         }
-        @Override public void visitJumpInsn(int opcode, Label label) { breakPair(); super.visitJumpInsn(opcode, label); }
-        @Override public void visitLdcInsn(Object value) { breakPair(); super.visitLdcInsn(value); }
-        @Override public void visitIincInsn(int variable, int increment) { breakPair(); super.visitIincInsn(variable, increment); }
-        @Override public void visitTableSwitchInsn(int min, int max, Label fallback, Label... targets) {
-            breakPair(); super.visitTableSwitchInsn(min, max, fallback, targets);
+
+        @Override
+        public void visitIntInsn(int opcode, int operand) {
+            breakPair();
+            super.visitIntInsn(opcode, operand);
         }
-        @Override public void visitLookupSwitchInsn(Label fallback, int[] keys, Label[] targets) {
-            breakPair(); super.visitLookupSwitchInsn(fallback, keys, targets);
+
+        @Override
+        public void visitVarInsn(int opcode, int variable) {
+            breakPair();
+            super.visitVarInsn(opcode, variable);
         }
-        @Override public void visitInvokeDynamicInsn(String name, String desc, Handle bootstrap, Object... args) {
-            breakPair(); super.visitInvokeDynamicInsn(name, desc, bootstrap, args);
+
+        @Override
+        public void visitTypeInsn(int opcode, String type) {
+            breakPair();
+            super.visitTypeInsn(opcode, type);
         }
-        @Override public void visitMultiANewArrayInsn(String desc, int dimensions) {
-            breakPair(); super.visitMultiANewArrayInsn(desc, dimensions);
+
+        @Override
+        public void visitFieldInsn(int opcode, String owner, String name, String desc) {
+            breakPair();
+            super.visitFieldInsn(opcode, owner, name, desc);
         }
-        @Override public void visitMethodInsn(int opcode, String owner, String method, String desc, boolean itf) {
+
+        @Override
+        public void visitJumpInsn(int opcode, Label label) {
+            breakPair();
+            super.visitJumpInsn(opcode, label);
+        }
+
+        @Override
+        public void visitLdcInsn(Object value) {
+            breakPair();
+            super.visitLdcInsn(value);
+        }
+
+        @Override
+        public void visitIincInsn(int variable, int increment) {
+            breakPair();
+            super.visitIincInsn(variable, increment);
+        }
+
+        @Override
+        public void visitTableSwitchInsn(int min, int max, Label fallback, Label... targets) {
+            breakPair();
+            super.visitTableSwitchInsn(min, max, fallback, targets);
+        }
+
+        @Override
+        public void visitLookupSwitchInsn(Label fallback, int[] keys, Label[] targets) {
+            breakPair();
+            super.visitLookupSwitchInsn(fallback, keys, targets);
+        }
+
+        @Override
+        public void visitInvokeDynamicInsn(String name, String desc, Handle bootstrap, Object... args) {
+            breakPair();
+            super.visitInvokeDynamicInsn(name, desc, bootstrap, args);
+        }
+
+        @Override
+        public void visitMultiANewArrayInsn(String desc, int dimensions) {
+            breakPair();
+            super.visitMultiANewArrayInsn(desc, dimensions);
+        }
+
+        @Override
+        public void visitMethodInsn(int opcode, String owner, String method, String desc, boolean itf) {
             breakPair();
             if (role != Role.ERROR || !errorQuery(opcode, owner, method, desc, itf)) {
-                super.visitMethodInsn(opcode, owner, method, desc, itf); return;
+                super.visitMethodInsn(opcode, owner, method, desc, itf);
+                return;
             }
             super.visitVarInsn(Opcodes.ASTORE, base);
             super.visitVarInsn(Opcodes.ALOAD, base);
             super.visitMethodInsn(opcode, owner, method, desc, itf);
             super.visitVarInsn(Opcodes.ISTORE, base + 1);
-            guarded(UniformLocationHookBridge.ERROR_PROPERTY, "(Ljava/lang/Object;I)V", () -> {
-                super.visitVarInsn(Opcodes.ALOAD, base); super.visitVarInsn(Opcodes.ILOAD, base + 1);
-            }, () -> { });
+            guarded(
+                    UniformLocationHookBridge.ERROR_PROPERTY,
+                    "(Ljava/lang/Object;I)V",
+                    () -> {
+                        super.visitVarInsn(Opcodes.ALOAD, base);
+                        super.visitVarInsn(Opcodes.ILOAD, base + 1);
+                    },
+                    () -> {});
             super.visitVarInsn(Opcodes.ILOAD, base + 1);
         }
+
         private void endFrame() {
-            guarded(role == Role.FRAME ? UniformLocationHookBridge.END_PROPERTY
-                : UniformLocationHookBridge.MUTATION_END_PROPERTY,
-                "(J)V", () -> super.visitVarInsn(Opcodes.LLOAD, base), () -> { });
+            guarded(
+                    role == Role.FRAME
+                            ? UniformLocationHookBridge.END_PROPERTY
+                            : UniformLocationHookBridge.MUTATION_END_PROPERTY,
+                    "(J)V",
+                    () -> super.visitVarInsn(Opcodes.LLOAD, base),
+                    () -> {});
         }
-        @Override public void visitMaxs(int stack, int localCount) {
+
+        @Override
+        public void visitMaxs(int stack, int localCount) {
             if (role == Role.FRAME || role.programMutations()) {
-                super.visitLabel(bodyEnd); super.visitLabel(exceptionalExit);
+                super.visitLabel(bodyEnd);
+                super.visitLabel(exceptionalExit);
                 super.visitVarInsn(Opcodes.ASTORE, base + 2);
                 endFrame();
-                super.visitVarInsn(Opcodes.ALOAD, base + 2); super.visitInsn(Opcodes.ATHROW);
+                super.visitVarInsn(Opcodes.ALOAD, base + 2);
+                super.visitInsn(Opcodes.ATHROW);
             }
-            for (Handler handler : originalHandlers) super.visitTryCatchBlock(handler.start, handler.end, handler.target, handler.type);
-            if (role == Role.FRAME || role.programMutations()) super.visitTryCatchBlock(bodyStart, bodyEnd, exceptionalExit, null);
+            for (Handler handler : originalHandlers)
+                super.visitTryCatchBlock(handler.start, handler.end, handler.target, handler.type);
+            if (role == Role.FRAME || role.programMutations())
+                super.visitTryCatchBlock(bodyStart, bodyEnd, exceptionalExit, null);
             super.visitMaxs(stack, Math.max(localCount, base + 3));
         }
+
         private void guarded(String property, String signature, Runnable arguments, Runnable consumeResult) {
-            Label start = new Label(), end = new Label(), failure = new Label(), discard = new Label(), done = new Label();
+            Label start = new Label(),
+                    end = new Label(),
+                    failure = new Label(),
+                    discard = new Label(),
+                    done = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
             super.visitLdcInsn(property);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
-            super.visitInsn(Opcodes.DUP); super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
-            super.visitJumpInsn(Opcodes.IFEQ, discard); super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/invoke/MethodHandle");
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            super.visitInsn(Opcodes.DUP);
+            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
+            super.visitJumpInsn(Opcodes.IFEQ, discard);
+            super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/invoke/MethodHandle");
             arguments.run();
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/invoke/MethodHandle", "invokeExact", signature, false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, "java/lang/invoke/MethodHandle", "invokeExact", signature, false);
             consumeResult.run();
-            super.visitLabel(end); super.visitJumpInsn(Opcodes.GOTO, done);
-            super.visitLabel(discard); super.visitInsn(Opcodes.POP); super.visitJumpInsn(Opcodes.GOTO, done);
-            super.visitLabel(failure); super.visitInsn(Opcodes.POP);
+            super.visitLabel(end);
+            super.visitJumpInsn(Opcodes.GOTO, done);
+            super.visitLabel(discard);
+            super.visitInsn(Opcodes.POP);
+            super.visitJumpInsn(Opcodes.GOTO, done);
+            super.visitLabel(failure);
+            super.visitInsn(Opcodes.POP);
             super.visitLabel(done);
         }
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
-        Map.of(
-        "5.2.03", Map.ofEntries(
-            Map.entry("com/live2d/graphics3d/shader/GShader", "172952b8b422f3b6b0610bc614672cad7259e33e5186e5128401dd40dadef7da"),
-            Map.entry("com/live2d/cubism/view/gl/SGFramework/g", "061f5ffc2b99495dc5996514838773c5d9b2eaf9cb5bc8d5fe8c934529f1c34f"),
-            Map.entry("com/live2d/graphics3d/a", "894406054708ff0f17592fa17e83e69231d5b3f946fb30aed1f01a6cef5a01cb"),
-            Map.entry("com/live2d/graphics3d/shader/y", "fe103c4a7eaec57261eaefcbdf3c02d489a97d25422db69409e68ce6c22154fc")),
-        "5.3.02", Map.ofEntries(
-            Map.entry("com/live2d/graphics3d/shader/GShader", "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0"),
-            Map.entry("com/live2d/cubism/view/gl/SGFramework/g", "d95e1daf66299fde63580f0588a6b256bcd67ddd1dfd412acbd7ee71a78b3ba9"),
-            Map.entry("com/live2d/graphics3d/a", "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e"),
-            Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")),
-        "5.3.03", Map.ofEntries(
-            Map.entry("com/live2d/graphics3d/shader/GShader", "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0"),
-            Map.entry("com/live2d/cubism/view/gl/SGFramework/g", "d50f44d3ad15d2c4d1c7b42df3c7e5098819c9c54ddbfb6b543a1c256bd49443"),
-            Map.entry("com/live2d/graphics3d/a", "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e"),
-            Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")));
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = Map.of(
+            "5.2.03",
+                    Map.ofEntries(
+                            Map.entry(
+                                    "com/live2d/graphics3d/shader/GShader",
+                                    "172952b8b422f3b6b0610bc614672cad7259e33e5186e5128401dd40dadef7da"),
+                            Map.entry(
+                                    "com/live2d/cubism/view/gl/SGFramework/g",
+                                    "061f5ffc2b99495dc5996514838773c5d9b2eaf9cb5bc8d5fe8c934529f1c34f"),
+                            Map.entry(
+                                    "com/live2d/graphics3d/a",
+                                    "894406054708ff0f17592fa17e83e69231d5b3f946fb30aed1f01a6cef5a01cb"),
+                            Map.entry(
+                                    "com/live2d/graphics3d/shader/y",
+                                    "fe103c4a7eaec57261eaefcbdf3c02d489a97d25422db69409e68ce6c22154fc")),
+            "5.3.02",
+                    Map.ofEntries(
+                            Map.entry(
+                                    "com/live2d/graphics3d/shader/GShader",
+                                    "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0"),
+                            Map.entry(
+                                    "com/live2d/cubism/view/gl/SGFramework/g",
+                                    "d95e1daf66299fde63580f0588a6b256bcd67ddd1dfd412acbd7ee71a78b3ba9"),
+                            Map.entry(
+                                    "com/live2d/graphics3d/a",
+                                    "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e"),
+                            Map.entry(
+                                    "com/live2d/graphics3d/shader/A",
+                                    "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")),
+            "5.3.03",
+                    Map.ofEntries(
+                            Map.entry(
+                                    "com/live2d/graphics3d/shader/GShader",
+                                    "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0"),
+                            Map.entry(
+                                    "com/live2d/cubism/view/gl/SGFramework/g",
+                                    "d50f44d3ad15d2c4d1c7b42df3c7e5098819c9c54ddbfb6b543a1c256bd49443"),
+                            Map.entry(
+                                    "com/live2d/graphics3d/a",
+                                    "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e"),
+                            Map.entry(
+                                    "com/live2d/graphics3d/shader/A",
+                                    "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")));
 }

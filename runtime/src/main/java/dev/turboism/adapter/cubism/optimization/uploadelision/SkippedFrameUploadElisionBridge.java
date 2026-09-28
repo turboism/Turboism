@@ -50,16 +50,14 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
      * {@link Buffer#mismatch} check against a retained payload snapshot —
      * reports {@code snapshotBytes} and {@code compareNanos}).
      */
-    public static final String COMPARE_PROPERTY =
-        "turboism.validation.skippedFrameUploadElision.compare";
+    public static final String COMPARE_PROPERTY = "turboism.validation.skippedFrameUploadElision.compare";
     /**
      * Production opt-in: installs the elision in content-compare mode, armed
      * unconditionally (no per-leg gate). Default off.
      */
     public static final String ENABLE_PROPERTY = "turboism.optimization.uploadElision";
     /** Retained-payload ceiling in bytes for content mode. */
-    public static final String SNAPSHOT_BUDGET_PROPERTY =
-        "turboism.optimization.uploadElision.snapshotBudget";
+    public static final String SNAPSHOT_BUDGET_PROPERTY = "turboism.optimization.uploadElision.snapshotBudget";
 
     private static final int MAX_WRAPPER_KINDS = 8;
 
@@ -83,8 +81,7 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
      *
      * @throws ReflectiveOperationException when any reviewed member is absent
      */
-    public SkippedFrameUploadElisionBridge(final ClassLoader loader)
-            throws ReflectiveOperationException {
+    public SkippedFrameUploadElisionBridge(final ClassLoader loader) throws ReflectiveOperationException {
         this(loader, false);
     }
 
@@ -92,23 +89,23 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
      * @param production true for the production opt-in: content compare, armed
      *                   at install, snapshot budget applied
      */
-    public SkippedFrameUploadElisionBridge(final ClassLoader loader,
-                                           final boolean production)
+    public SkippedFrameUploadElisionBridge(final ClassLoader loader, final boolean production)
             throws ReflectiveOperationException {
-        final Class<?> base = Class.forName(
-            SkippedFrameUploadElisionTarget.BASE_OWNER.replace('/', '.'), false, loader);
+        final Class<?> base =
+                Class.forName(SkippedFrameUploadElisionTarget.BASE_OWNER.replace('/', '.'), false, loader);
         nameHandle = MethodHandles.privateLookupIn(base, MethodHandles.lookup())
-            .findVirtual(base, "i", MethodType.methodType(IntBuffer.class));
-        final Class<?> helper = Class.forName(
-            SkippedFrameUploadElisionTarget.SIZE_OWNER.replace('/', '.'), false, loader);
+                .findVirtual(base, "i", MethodType.methodType(IntBuffer.class));
+        final Class<?> helper =
+                Class.forName(SkippedFrameUploadElisionTarget.SIZE_OWNER.replace('/', '.'), false, loader);
         final Object singleton = helper.getField("a").get(null);
         sizeHandle = MethodHandles.publicLookup()
-            .unreflect(helper.getMethod("a", Buffer.class)).bindTo(singleton);
+                .unreflect(helper.getMethod("a", Buffer.class))
+                .bindTo(singleton);
         tracker = new SkippedFrameUploadTracker(
-            production || "content".equals(
-                System.getProperty(COMPARE_PROPERTY, "identity"))
-                ? Compare.CONTENT : Compare.IDENTITY,
-            snapshotBudget());
+                production || "content".equals(System.getProperty(COMPARE_PROPERTY, "identity"))
+                        ? Compare.CONTENT
+                        : Compare.IDENTITY,
+                snapshotBudget());
         armed = production;
     }
 
@@ -119,8 +116,8 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
 
     private static long snapshotBudget() {
         try {
-            return Long.parseLong(System.getProperty(SNAPSHOT_BUDGET_PROPERTY,
-                Long.toString(SkippedFrameUploadTracker.DEFAULT_SNAPSHOT_BUDGET)));
+            return Long.parseLong(System.getProperty(
+                    SNAPSHOT_BUDGET_PROPERTY, Long.toString(SkippedFrameUploadTracker.DEFAULT_SNAPSHOT_BUDGET)));
         } catch (NumberFormatException invalid) {
             return SkippedFrameUploadTracker.DEFAULT_SNAPSHOT_BUDGET;
         }
@@ -139,10 +136,11 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
         if (active.get()) throw new IllegalStateException("upload elision already installed");
         final Properties properties = System.getProperties();
         synchronized (properties) {
-            if (properties.containsKey(PREDICATE_PROPERTY) || properties.containsKey(GATE_PROPERTY)
-                || properties.containsKey(LIFECYCLE_PROPERTY)
-                || properties.containsKey(FAILURE_PROPERTY)
-                || properties.containsKey(STATS_PROPERTY)) {
+            if (properties.containsKey(PREDICATE_PROPERTY)
+                    || properties.containsKey(GATE_PROPERTY)
+                    || properties.containsKey(LIFECYCLE_PROPERTY)
+                    || properties.containsKey(FAILURE_PROPERTY)
+                    || properties.containsKey(STATS_PROPERTY)) {
                 throw new IllegalStateException("upload elision slots occupied");
             }
             try {
@@ -170,8 +168,7 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
 
     private boolean frameSkipped() {
         try {
-            final Object slot = System.getProperties()
-                .get(ModelUpdateSkipBridge.SKIPPED_FRAME_PROPERTY);
+            final Object slot = System.getProperties().get(ModelUpdateSkipBridge.SKIPPED_FRAME_PROPERTY);
             return slot instanceof AtomicBoolean flag && flag.get();
         } catch (Throwable denied) {
             FatalErrors.rethrowIfFatal(denied);
@@ -190,11 +187,15 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
         try {
             final Class<?> wrapperType = wrapper.getClass();
             final MethodHandle bufferGet = bufferHandle(wrapperType);
-            if (bufferGet == null) { tracker.observerFailed(); return false; }
-            final Kind kind = kinds.computeIfAbsent(wrapperType, type ->
-                type.getName().replace('.', '/')
-                    .equals(SkippedFrameUploadElisionTarget.INDEX_OWNER)
-                    ? Kind.INDEX : Kind.FLOAT);
+            if (bufferGet == null) {
+                tracker.observerFailed();
+                return false;
+            }
+            final Kind kind = kinds.computeIfAbsent(
+                    wrapperType,
+                    type -> type.getName().replace('.', '/').equals(SkippedFrameUploadElisionTarget.INDEX_OWNER)
+                            ? Kind.INDEX
+                            : Kind.FLOAT);
             final IntBuffer names = (IntBuffer) nameHandle.invoke(wrapper);
             final Buffer buffer = (Buffer) bufferGet.invoke(wrapper);
             if (names == null || names.capacity() < 1 || buffer == null) {
@@ -204,13 +205,11 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
             final int name = names.get(0);
             final long size = (long) sizeHandle.invoke(buffer);
             final int position = buffer.position(), limit = buffer.limit();
-            if (name <= 0 || size <= 0L || size > Integer.MAX_VALUE * 4L
-                || position < 0 || limit < position) {
+            if (name <= 0 || size <= 0L || size > Integer.MAX_VALUE * 4L || position < 0 || limit < position) {
                 tracker.observerFailed();
                 return false;
             }
-            return tracker.consider(gl, name, size, buffer, position, limit,
-                frameSkipped(), armed, kind);
+            return tracker.consider(gl, name, size, buffer, position, limit, frameSkipped(), armed, kind);
         } catch (Throwable observerFailure) {
             FatalErrors.rethrowIfFatal(observerFailure);
             tracker.observerFailed();
@@ -224,8 +223,7 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
                 wrapperType.getName().replace('.', '/'))) {
             return null;
         }
-        if (bufferHandles.size() >= MAX_WRAPPER_KINDS
-            && !bufferHandles.containsKey(wrapperType)) {
+        if (bufferHandles.size() >= MAX_WRAPPER_KINDS && !bufferHandles.containsKey(wrapperType)) {
             return null;
         }
         return bufferHandles.computeIfAbsent(wrapperType, type -> {
@@ -241,18 +239,20 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     }
 
     /** Clears owned slots; outstanding consults fall back to the native path. */
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         active.set(false);
         armed = false;
         final Properties properties = installedProperties;
         installedProperties = null;
-        if (properties != null) synchronized (properties) {
-            properties.remove(PREDICATE_PROPERTY, predicate);
-            properties.remove(GATE_PROPERTY, gate);
-            properties.remove(LIFECYCLE_PROPERTY, lifecycle);
-            properties.remove(FAILURE_PROPERTY, failureNotify);
-            properties.remove(STATS_PROPERTY, statistics);
-        }
+        if (properties != null)
+            synchronized (properties) {
+                properties.remove(PREDICATE_PROPERTY, predicate);
+                properties.remove(GATE_PROPERTY, gate);
+                properties.remove(LIFECYCLE_PROPERTY, lifecycle);
+                properties.remove(FAILURE_PROPERTY, failureNotify);
+                properties.remove(STATS_PROPERTY, statistics);
+            }
     }
 
     /** Work counts only; no interaction benefit is inferred from them. */

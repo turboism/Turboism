@@ -1,7 +1,6 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.mapping.verification.SliceContract;
-
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.Objects;
@@ -17,84 +16,77 @@ import java.util.Set;
  * classloader. The Core slice attests its own Core artifact under that same classloader.</p>
  */
 public record HostVerificationEvidence(
-    Slice projectWorkspace,
-    Optional<Slice> clipMask,
-    Optional<Slice> editorModel,
-    Optional<Slice> coreRuntime,
-    Optional<Slice> mainToolbar,
-    Optional<Slice> embeddedPanel,
-    Optional<Slice> topMenu,
-    Optional<Slice> boundingBoxOverlayButton,
-    Optional<Slice> workspaceControl,
-    Optional<Slice> statusBar,
-    Optional<Slice> autoBackup
-) {
+        Slice projectWorkspace,
+        Optional<Slice> clipMask,
+        Optional<Slice> editorModel,
+        Optional<Slice> coreRuntime,
+        Optional<Slice> mainToolbar,
+        Optional<Slice> embeddedPanel,
+        Optional<Slice> topMenu,
+        Optional<Slice> boundingBoxOverlayButton,
+        Optional<Slice> workspaceControl,
+        Optional<Slice> statusBar,
+        Optional<Slice> autoBackup) {
     /** Compatibility constructor for evidence created before the distinct Core artifact slice. */
     public HostVerificationEvidence(
-        final Slice projectWorkspace,
-        final Optional<Slice> clipMask,
-        final Optional<Slice> editorModel,
-        final Optional<Slice> mainToolbar,
-        final Optional<Slice> embeddedPanel,
-        final Optional<Slice> topMenu,
-        final Optional<Slice> boundingBoxOverlayButton
-    ) {
+            final Slice projectWorkspace,
+            final Optional<Slice> clipMask,
+            final Optional<Slice> editorModel,
+            final Optional<Slice> mainToolbar,
+            final Optional<Slice> embeddedPanel,
+            final Optional<Slice> topMenu,
+            final Optional<Slice> boundingBoxOverlayButton) {
         this(
-            projectWorkspace,
-            clipMask,
-            editorModel,
-            Optional.empty(),
-            mainToolbar,
-            embeddedPanel,
-            topMenu,
-            boundingBoxOverlayButton,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()
-        );
+                projectWorkspace,
+                clipMask,
+                editorModel,
+                Optional.empty(),
+                mainToolbar,
+                embeddedPanel,
+                topMenu,
+                boundingBoxOverlayButton,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public HostVerificationEvidence(
-        final Slice projectWorkspace,
-        final Optional<Slice> clipMask,
-        final Optional<Slice> editorModel,
-        final Optional<Slice> mainToolbar
-    ) {
+            final Slice projectWorkspace,
+            final Optional<Slice> clipMask,
+            final Optional<Slice> editorModel,
+            final Optional<Slice> mainToolbar) {
         this(
-            projectWorkspace,
-            clipMask,
-            editorModel,
-            Optional.empty(),
-            mainToolbar,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()
-        );
+                projectWorkspace,
+                clipMask,
+                editorModel,
+                Optional.empty(),
+                mainToolbar,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public HostVerificationEvidence(
-        final Slice projectWorkspace,
-        final Optional<Slice> clipMask,
-        final Optional<Slice> editorModel,
-        final Optional<Slice> mainToolbar,
-        final Optional<Slice> embeddedPanel
-    ) {
+            final Slice projectWorkspace,
+            final Optional<Slice> clipMask,
+            final Optional<Slice> editorModel,
+            final Optional<Slice> mainToolbar,
+            final Optional<Slice> embeddedPanel) {
         this(
-            projectWorkspace,
-            clipMask,
-            editorModel,
-            Optional.empty(),
-            mainToolbar,
-            embeddedPanel,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()
-        );
+                projectWorkspace,
+                clipMask,
+                editorModel,
+                Optional.empty(),
+                mainToolbar,
+                embeddedPanel,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public HostVerificationEvidence {
@@ -105,10 +97,7 @@ public record HostVerificationEvidence(
         mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
         embeddedPanel = Objects.requireNonNull(embeddedPanel, "embeddedPanel");
         topMenu = Objects.requireNonNull(topMenu, "topMenu");
-        boundingBoxOverlayButton = Objects.requireNonNull(
-            boundingBoxOverlayButton,
-            "boundingBoxOverlayButton"
-        );
+        boundingBoxOverlayButton = Objects.requireNonNull(boundingBoxOverlayButton, "boundingBoxOverlayButton");
         workspaceControl = Objects.requireNonNull(workspaceControl, "workspaceControl");
         statusBar = Objects.requireNonNull(statusBar, "statusBar");
         autoBackup = Objects.requireNonNull(autoBackup, "autoBackup");
@@ -149,25 +138,19 @@ public record HostVerificationEvidence(
         final Path projectArtifact = normalize(project.verifiedArtifact());
         final Path candidateArtifact = normalize(candidate.verifiedArtifact());
         if (!projectArtifact.toString().equals(candidateArtifact.toString())) {
-            throw new IllegalArgumentException(
-                "all Editor verification slices must use the same host artifact"
-            );
+            throw new IllegalArgumentException("all Editor verification slices must use the same host artifact");
         }
     }
 
     private static void requireSameHostClassLoader(final Slice project, final Slice candidate) {
         if (project.hostClassLoader() != candidate.hostClassLoader()) {
-            throw new IllegalArgumentException(
-                "all host verification slices must use the same host classloader"
-            );
+            throw new IllegalArgumentException("all host verification slices must use the same host classloader");
         }
     }
 
     private static Path normalize(final Path path) {
         return Objects.requireNonNull(
-            Objects.requireNonNull(path, "path").toAbsolutePath().normalize(),
-            "normalized path"
-        );
+                Objects.requireNonNull(path, "path").toAbsolutePath().normalize(), "normalized path");
     }
 
     /**
@@ -178,18 +161,17 @@ public record HostVerificationEvidence(
      */
     public static HostVerificationEvidence projectOnly(final Slice projectWorkspace) {
         return new HostVerificationEvidence(
-            projectWorkspace,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()
-        );
+                projectWorkspace,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     /**
@@ -199,10 +181,7 @@ public record HostVerificationEvidence(
      * @param clipMask the verified clip-mask slice
      * @return evidence with those two slices present
      */
-    public static HostVerificationEvidence withClipMask(
-        final Slice projectWorkspace,
-        final Slice clipMask
-    ) {
+    public static HostVerificationEvidence withClipMask(final Slice projectWorkspace, final Slice clipMask) {
         return projectOnly(projectWorkspace).addingClipMask(clipMask);
     }
 
@@ -213,10 +192,7 @@ public record HostVerificationEvidence(
      * @param editorModel the verified Editor-model slice
      * @return evidence with those two slices present
      */
-    public static HostVerificationEvidence withEditorModel(
-        final Slice projectWorkspace,
-        final Slice editorModel
-    ) {
+    public static HostVerificationEvidence withEditorModel(final Slice projectWorkspace, final Slice editorModel) {
         return projectOnly(projectWorkspace).addingEditorModel(editorModel);
     }
 
@@ -232,18 +208,17 @@ public record HostVerificationEvidence(
      */
     public HostVerificationEvidence addingClipMask(final Slice slice) {
         return new HostVerificationEvidence(
-            projectWorkspace,
-            Optional.of(Objects.requireNonNull(slice, "clipMask")),
-            editorModel,
-            coreRuntime,
-            mainToolbar,
-            embeddedPanel,
-            topMenu,
-            boundingBoxOverlayButton,
-            workspaceControl,
-            statusBar,
-            autoBackup
-        );
+                projectWorkspace,
+                Optional.of(Objects.requireNonNull(slice, "clipMask")),
+                editorModel,
+                coreRuntime,
+                mainToolbar,
+                embeddedPanel,
+                topMenu,
+                boundingBoxOverlayButton,
+                workspaceControl,
+                statusBar,
+                autoBackup);
     }
 
     /**
@@ -258,18 +233,17 @@ public record HostVerificationEvidence(
      */
     public HostVerificationEvidence addingEditorModel(final Slice slice) {
         return new HostVerificationEvidence(
-            projectWorkspace,
-            clipMask,
-            Optional.of(Objects.requireNonNull(slice, "editorModel")),
-            coreRuntime,
-            mainToolbar,
-            embeddedPanel,
-            topMenu,
-            boundingBoxOverlayButton,
-            workspaceControl,
-            statusBar,
-            autoBackup
-        );
+                projectWorkspace,
+                clipMask,
+                Optional.of(Objects.requireNonNull(slice, "editorModel")),
+                coreRuntime,
+                mainToolbar,
+                embeddedPanel,
+                topMenu,
+                boundingBoxOverlayButton,
+                workspaceControl,
+                statusBar,
+                autoBackup);
     }
 
     /**
@@ -284,18 +258,17 @@ public record HostVerificationEvidence(
      */
     public HostVerificationEvidence addingCoreRuntime(final Slice slice) {
         return new HostVerificationEvidence(
-            projectWorkspace,
-            clipMask,
-            editorModel,
-            Optional.of(Objects.requireNonNull(slice, "coreRuntime")),
-            mainToolbar,
-            embeddedPanel,
-            topMenu,
-            boundingBoxOverlayButton,
-            workspaceControl,
-            statusBar,
-            autoBackup
-        );
+                projectWorkspace,
+                clipMask,
+                editorModel,
+                Optional.of(Objects.requireNonNull(slice, "coreRuntime")),
+                mainToolbar,
+                embeddedPanel,
+                topMenu,
+                boundingBoxOverlayButton,
+                workspaceControl,
+                statusBar,
+                autoBackup);
     }
 
     /**
@@ -310,18 +283,17 @@ public record HostVerificationEvidence(
      */
     public HostVerificationEvidence addingMainToolbar(final Slice slice) {
         return new HostVerificationEvidence(
-            projectWorkspace,
-            clipMask,
-            editorModel,
-            coreRuntime,
-            Optional.of(Objects.requireNonNull(slice, "mainToolbar")),
-            embeddedPanel,
-            topMenu,
-            boundingBoxOverlayButton,
-            workspaceControl,
-            statusBar,
-            autoBackup
-        );
+                projectWorkspace,
+                clipMask,
+                editorModel,
+                coreRuntime,
+                Optional.of(Objects.requireNonNull(slice, "mainToolbar")),
+                embeddedPanel,
+                topMenu,
+                boundingBoxOverlayButton,
+                workspaceControl,
+                statusBar,
+                autoBackup);
     }
 
     /**
@@ -336,18 +308,17 @@ public record HostVerificationEvidence(
      */
     public HostVerificationEvidence addingEmbeddedPanel(final Slice slice) {
         return new HostVerificationEvidence(
-            projectWorkspace,
-            clipMask,
-            editorModel,
-            coreRuntime,
-            mainToolbar,
-            Optional.of(Objects.requireNonNull(slice, "embeddedPanel")),
-            topMenu,
-            boundingBoxOverlayButton,
-            workspaceControl,
-            statusBar,
-            autoBackup
-        );
+                projectWorkspace,
+                clipMask,
+                editorModel,
+                coreRuntime,
+                mainToolbar,
+                Optional.of(Objects.requireNonNull(slice, "embeddedPanel")),
+                topMenu,
+                boundingBoxOverlayButton,
+                workspaceControl,
+                statusBar,
+                autoBackup);
     }
 
     /**
@@ -362,18 +333,17 @@ public record HostVerificationEvidence(
      */
     public HostVerificationEvidence addingTopMenu(final Slice slice) {
         return new HostVerificationEvidence(
-            projectWorkspace,
-            clipMask,
-            editorModel,
-            coreRuntime,
-            mainToolbar,
-            embeddedPanel,
-            Optional.of(Objects.requireNonNull(slice, "topMenu")),
-            boundingBoxOverlayButton,
-            workspaceControl,
-            statusBar,
-            autoBackup
-        );
+                projectWorkspace,
+                clipMask,
+                editorModel,
+                coreRuntime,
+                mainToolbar,
+                embeddedPanel,
+                Optional.of(Objects.requireNonNull(slice, "topMenu")),
+                boundingBoxOverlayButton,
+                workspaceControl,
+                statusBar,
+                autoBackup);
     }
 
     /**
@@ -388,18 +358,17 @@ public record HostVerificationEvidence(
      */
     public HostVerificationEvidence addingBoundingBoxOverlayButton(final Slice slice) {
         return new HostVerificationEvidence(
-            projectWorkspace,
-            clipMask,
-            editorModel,
-            coreRuntime,
-            mainToolbar,
-            embeddedPanel,
-            topMenu,
-            Optional.of(Objects.requireNonNull(slice, "boundingBoxOverlayButton")),
-            workspaceControl,
-            statusBar,
-            autoBackup
-        );
+                projectWorkspace,
+                clipMask,
+                editorModel,
+                coreRuntime,
+                mainToolbar,
+                embeddedPanel,
+                topMenu,
+                Optional.of(Objects.requireNonNull(slice, "boundingBoxOverlayButton")),
+                workspaceControl,
+                statusBar,
+                autoBackup);
     }
 
     /**
@@ -414,18 +383,17 @@ public record HostVerificationEvidence(
      */
     public HostVerificationEvidence addingWorkspaceControl(final Slice slice) {
         return new HostVerificationEvidence(
-            projectWorkspace,
-            clipMask,
-            editorModel,
-            coreRuntime,
-            mainToolbar,
-            embeddedPanel,
-            topMenu,
-            boundingBoxOverlayButton,
-            Optional.of(Objects.requireNonNull(slice, "workspaceControl")),
-            statusBar,
-            autoBackup
-        );
+                projectWorkspace,
+                clipMask,
+                editorModel,
+                coreRuntime,
+                mainToolbar,
+                embeddedPanel,
+                topMenu,
+                boundingBoxOverlayButton,
+                Optional.of(Objects.requireNonNull(slice, "workspaceControl")),
+                statusBar,
+                autoBackup);
     }
 
     /**
@@ -440,18 +408,17 @@ public record HostVerificationEvidence(
      */
     public HostVerificationEvidence addingStatusBar(final Slice statusBar) {
         return new HostVerificationEvidence(
-            projectWorkspace,
-            clipMask,
-            editorModel,
-            coreRuntime,
-            mainToolbar,
-            embeddedPanel,
-            topMenu,
-            boundingBoxOverlayButton,
-            workspaceControl,
-            Optional.of(Objects.requireNonNull(statusBar, "statusBar")),
-            autoBackup
-        );
+                projectWorkspace,
+                clipMask,
+                editorModel,
+                coreRuntime,
+                mainToolbar,
+                embeddedPanel,
+                topMenu,
+                boundingBoxOverlayButton,
+                workspaceControl,
+                Optional.of(Objects.requireNonNull(statusBar, "statusBar")),
+                autoBackup);
     }
 
     /**
@@ -466,18 +433,17 @@ public record HostVerificationEvidence(
      */
     public HostVerificationEvidence addingAutoBackup(final Slice autoBackupSlice) {
         return new HostVerificationEvidence(
-            projectWorkspace,
-            clipMask,
-            editorModel,
-            coreRuntime,
-            mainToolbar,
-            embeddedPanel,
-            topMenu,
-            boundingBoxOverlayButton,
-            workspaceControl,
-            statusBar,
-            Optional.of(Objects.requireNonNull(autoBackupSlice, "autoBackup"))
-        );
+                projectWorkspace,
+                clipMask,
+                editorModel,
+                coreRuntime,
+                mainToolbar,
+                embeddedPanel,
+                topMenu,
+                boundingBoxOverlayButton,
+                workspaceControl,
+                statusBar,
+                Optional.of(Objects.requireNonNull(autoBackupSlice, "autoBackup")));
     }
 
     /**
@@ -489,11 +455,7 @@ public record HostVerificationEvidence(
      * connection material and forces reconnection.</p>
      */
     public record Slice(
-        Path reviewedRecord,
-        Path verifiedArtifact,
-        ClassLoader hostClassLoader,
-        Optional<SliceContract> contract
-    ) {
+            Path reviewedRecord, Path verifiedArtifact, ClassLoader hostClassLoader, Optional<SliceContract> contract) {
         public Slice {
             reviewedRecord = Objects.requireNonNull(reviewedRecord, "reviewedRecord");
             verifiedArtifact = Objects.requireNonNull(verifiedArtifact, "verifiedArtifact");
@@ -508,11 +470,7 @@ public record HostVerificationEvidence(
          * @param verifiedArtifact artifact the record attests
          * @param hostClassLoader defining classloader
          */
-        public Slice(
-            final Path reviewedRecord,
-            final Path verifiedArtifact,
-            final ClassLoader hostClassLoader
-        ) {
+        public Slice(final Path reviewedRecord, final Path verifiedArtifact, final ClassLoader hostClassLoader) {
             this(reviewedRecord, verifiedArtifact, hostClassLoader, Optional.empty());
         }
 
@@ -526,15 +484,12 @@ public record HostVerificationEvidence(
          * @return immutable capability-id set for this slice's admission
          */
         public Set<String> capabilities() {
-            return contract
-                .map(SliceContract::capabilities)
-                .orElseGet(() -> declaredCapabilities(reviewedRecord));
+            return contract.map(SliceContract::capabilities).orElseGet(() -> declaredCapabilities(reviewedRecord));
         }
 
         private static Set<String> declaredCapabilities(final Path record) {
             try {
-                final com.fasterxml.jackson.databind.JsonNode root =
-                    new com.fasterxml.jackson.databind.ObjectMapper()
+                final com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper()
                         .readTree(java.nio.file.Files.readAllBytes(record));
                 final Set<String> ids = new LinkedHashSet<>();
                 final com.fasterxml.jackson.databind.JsonNode list = root.get("capabilityIds");

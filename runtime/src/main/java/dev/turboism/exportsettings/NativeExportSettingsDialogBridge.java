@@ -2,7 +2,6 @@ package dev.turboism.exportsettings;
 
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,8 +28,7 @@ public final class NativeExportSettingsDialogBridge {
 
     private static final AtomicReference<Handler> HANDLER = new AtomicReference<>();
 
-    private NativeExportSettingsDialogBridge() {
-    }
+    private NativeExportSettingsDialogBridge() {}
 
     /** Installs one handler and publishes the three loader-neutral JDK callbacks. */
     public static Registration install(final Handler handler) {
@@ -39,8 +37,8 @@ public final class NativeExportSettingsDialogBridge {
             throw new IllegalStateException("export settings dialog bridge is already installed");
         }
         final Properties properties = System.getProperties();
-        final BiFunction<Object, Object, Object> attachCallback = (owner, container) ->
-            dispatchAttach(owner, container);
+        final BiFunction<Object, Object, Object> attachCallback =
+                (owner, container) -> dispatchAttach(owner, container);
         final Consumer<Object> cancelCallback = NativeExportSettingsDialogBridge::dispatchCancel;
         final Function<Object, Object> decideCallback = NativeExportSettingsDialogBridge::dispatchDecide;
         final Function<Object, Object> redirectCallback = NativeExportSettingsDialogBridge::dispatchRedirect;
@@ -49,8 +47,7 @@ public final class NativeExportSettingsDialogBridge {
                 for (String key : new String[] {ATTACH_KEY, CANCEL_KEY, DECIDE_KEY, REDIRECT_KEY}) {
                     if (properties.containsKey(key)) {
                         throw new IllegalStateException(
-                            "export settings dialog callback property is already installed"
-                        );
+                                "export settings dialog callback property is already installed");
                     }
                 }
                 properties.put(ATTACH_KEY, attachCallback);
@@ -160,8 +157,7 @@ public final class NativeExportSettingsDialogBridge {
         Object attach(Object owner, Object container);
 
         /** Removes dialog-scoped state without invoking plugin callbacks. */
-        default void cancel(final Object owner) {
-        }
+        default void cancel(final Object owner) {}
 
         /** Returns whether native continuation is allowed; default is native continuation. */
         default Boolean decide(final Object owner) {

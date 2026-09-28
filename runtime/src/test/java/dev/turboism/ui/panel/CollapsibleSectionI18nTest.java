@@ -1,16 +1,15 @@
 package dev.turboism.ui.panel;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import javax.swing.JPanel;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import javax.swing.JPanel;
+import org.junit.jupiter.api.Test;
 
 class CollapsibleSectionI18nTest {
 
@@ -23,8 +22,16 @@ class CollapsibleSectionI18nTest {
     }
 
     private static MouseEvent click(JPanel panel, Point point) {
-        return new MouseEvent(panel, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0,
-                point.x, point.y, 1, false, MouseEvent.BUTTON1);
+        return new MouseEvent(
+                panel,
+                MouseEvent.MOUSE_CLICKED,
+                System.currentTimeMillis(),
+                0,
+                point.x,
+                point.y,
+                1,
+                false,
+                MouseEvent.BUTTON1);
     }
 
     private static Point centerOf(Rectangle bounds) {

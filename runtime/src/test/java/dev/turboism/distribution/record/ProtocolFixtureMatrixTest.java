@@ -1,6 +1,8 @@
 package dev.turboism.distribution.record;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,34 +17,43 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class ProtocolFixtureMatrixTest {
     private static final String ROOT = "fixtures/schema/distribution-protocol-v1";
 
-    @Test void acceptsEveryPersistentValidFixture() throws Exception {
+    @Test
+    void acceptsEveryPersistentValidFixture() throws Exception {
         for (Path fixture : fixtures("valid")) {
             assertTrue(ProtocolRecordParser.parse(Files.readAllBytes(fixture)).isValid(), fixture.toString());
         }
     }
 
-    @Test void rejectsEveryPersistentInvalidFixture() throws Exception {
+    @Test
+    void rejectsEveryPersistentInvalidFixture() throws Exception {
         for (Path fixture : fixtures("invalid")) {
             assertFalse(ProtocolRecordParser.parse(Files.readAllBytes(fixture)).isValid(), fixture.toString());
         }
     }
 
-    @Test void diagnosticMappingTsvIsCompleteAndStable() throws Exception {
+    @Test
+    void diagnosticMappingTsvIsCompleteAndStable() throws Exception {
         Set<String> expectedCodes = Set.of(
-            "PROTOCOL_EMPTY", "PROTOCOL_TOO_LARGE", "PROTOCOL_BOM", "PROTOCOL_UTF8_INVALID",
-            "PROTOCOL_JSON_INVALID", "PROTOCOL_ROOT_TYPE_INVALID", "PROTOCOL_UNKNOWN_FIELD",
-            "PROTOCOL_FIELD_MISSING", "PROTOCOL_TYPE_INVALID", "PROTOCOL_VALUE_INVALID",
-            "PROTOCOL_ID_INVALID", "PROTOCOL_ROOT_PATH_INVALID", "PROTOCOL_TIMESTAMP_INVALID"
-        );
-        List<String> lines = readResource(ROOT + "/diagnostic-mapping.tsv").lines().toList();
+                "PROTOCOL_EMPTY",
+                "PROTOCOL_TOO_LARGE",
+                "PROTOCOL_BOM",
+                "PROTOCOL_UTF8_INVALID",
+                "PROTOCOL_JSON_INVALID",
+                "PROTOCOL_ROOT_TYPE_INVALID",
+                "PROTOCOL_UNKNOWN_FIELD",
+                "PROTOCOL_FIELD_MISSING",
+                "PROTOCOL_TYPE_INVALID",
+                "PROTOCOL_VALUE_INVALID",
+                "PROTOCOL_ID_INVALID",
+                "PROTOCOL_ROOT_PATH_INVALID",
+                "PROTOCOL_TIMESTAMP_INVALID");
+        List<String> lines =
+                readResource(ROOT + "/diagnostic-mapping.tsv").lines().toList();
         assertEquals("code\tcategory\tseverity", lines.get(0));
         Map<String, String> rows = new HashMap<>();
         for (String line : lines.subList(1, lines.size())) {
@@ -56,7 +67,10 @@ class ProtocolFixtureMatrixTest {
     }
 
     private static List<Path> fixtures(String kind) throws Exception {
-        URI uri = ProtocolFixtureMatrixTest.class.getClassLoader().getResource(ROOT + "/" + kind).toURI();
+        URI uri = ProtocolFixtureMatrixTest.class
+                .getClassLoader()
+                .getResource(ROOT + "/" + kind)
+                .toURI();
         if (uri.getScheme().equals("file")) return regularFiles(Path.of(uri));
         try (FileSystem fileSystem = FileSystems.newFileSystem(uri, Map.of())) {
             return regularFiles(fileSystem.getPath(ROOT, kind));
@@ -72,7 +86,8 @@ class ProtocolFixtureMatrixTest {
     }
 
     private static String readResource(String name) throws IOException {
-        try (InputStream input = ProtocolFixtureMatrixTest.class.getClassLoader().getResourceAsStream(name)) {
+        try (InputStream input =
+                ProtocolFixtureMatrixTest.class.getClassLoader().getResourceAsStream(name)) {
             if (input == null) throw new IOException("Missing resource " + name);
             return new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }

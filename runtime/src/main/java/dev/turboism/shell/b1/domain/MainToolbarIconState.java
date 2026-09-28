@@ -12,11 +12,10 @@ public enum MainToolbarIconState {
      */
     public MainToolbarIconDescriptor descriptor() {
         return new MainToolbarIconDescriptor(
-            this,
-            "icons/main-toolbar-home.svg",
-            IconTintMode.CURRENT_COLOR,
-            "main-toolbar.home.aria-label",
-            "main-toolbar.home.tooltip"
-        );
+                this,
+                "icons/main-toolbar-home.svg",
+                IconTintMode.CURRENT_COLOR,
+                "main-toolbar.home.aria-label",
+                "main-toolbar.home.tooltip");
     }
 }

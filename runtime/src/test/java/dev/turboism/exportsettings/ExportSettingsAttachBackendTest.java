@@ -1,27 +1,5 @@
 package dev.turboism.exportsettings;
 
-import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
-import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
-import dev.turboism.sdk.cubism.export.ExportSettingsDecisionCallback;
-import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.event.HierarchyEvent;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-import java.awt.Component;
-import java.awt.Container;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -29,17 +7,39 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
+import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
+import dev.turboism.sdk.cubism.export.ExportSettingsDecisionCallback;
+import dev.turboism.sdk.plugin.Registration;
+import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Dimension;
+import java.awt.event.HierarchyEvent;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
+
 final class ExportSettingsAttachBackendTest {
 
     @Test
     void attachMaterializesOneOwnedPanelInOrderWithDefaultOffCheckboxes() {
         final JPanel host = hostWithOptions();
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
-        backend.attach(host, List.of(
-            contribution("option-a", "label.a"),
-            contribution("option-b", "label.b"),
-            contribution("option-c", "label.c")
-        ));
+        backend.attach(
+                host,
+                List.of(
+                        contribution("option-a", "label.a"),
+                        contribution("option-b", "label.b"),
+                        contribution("option-c", "label.c")));
 
         // One owned panel appended after the native options, nothing else added.
         assertEquals(3, host.getComponentCount());
@@ -113,9 +113,8 @@ final class ExportSettingsAttachBackendTest {
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
 
         final ExportSettingsAttachException failure = assertThrows(
-            ExportSettingsAttachException.class,
-            () -> backend.attach(content, List.of(contribution("option-a", "label.a")))
-        );
+                ExportSettingsAttachException.class,
+                () -> backend.attach(content, List.of(contribution("option-a", "label.a"))));
         assertEquals(ExportSettingsAttachBackend.OPTIONS_CONTAINER_KEY, failure.getMessage());
         assertEquals(2, content.getComponentCount(), "an unrecognized dialog must stay unchanged");
 
@@ -123,12 +122,11 @@ final class ExportSettingsAttachBackendTest {
         final JPanel onlyInjected = new JPanel();
         onlyInjected.add(new JCheckBox("stale injected"));
         assertEquals(
-            ExportSettingsAttachBackend.OPTIONS_CONTAINER_KEY,
-            assertThrows(
-                ExportSettingsAttachException.class,
-                () -> backend.attach(onlyInjected, List.of(contribution("option-b", "label.b")))
-            ).getMessage()
-        );
+                ExportSettingsAttachBackend.OPTIONS_CONTAINER_KEY,
+                assertThrows(
+                                ExportSettingsAttachException.class,
+                                () -> backend.attach(onlyInjected, List.of(contribution("option-b", "label.b"))))
+                        .getMessage());
 
         // A failed mount resolution does not consume the attach session.
         final JPanel healthy = hostWithOptions();
@@ -140,10 +138,7 @@ final class ExportSettingsAttachBackendTest {
     void selectionSnapshotIsImmutableLiveAndKeyedByOptionId() {
         final JPanel host = hostWithOptions();
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
-        backend.attach(host, List.of(
-            contribution("option-a", "label.a"),
-            contribution("option-b", "label.b")
-        ));
+        backend.attach(host, List.of(contribution("option-a", "label.a"), contribution("option-b", "label.b")));
 
         final Map<String, Boolean> before = backend.selectedSnapshot();
         assertEquals(Map.of("option-a", false, "option-b", false), before);
@@ -167,10 +162,8 @@ final class ExportSettingsAttachBackendTest {
         host.add(nativeOption);
         host.add(unrelated);
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
-        final Registration registration = backend.attach(host, List.of(
-            contribution("option-a", "label.a"),
-            contribution("option-b", "label.b")
-        ));
+        final Registration registration =
+                backend.attach(host, List.of(contribution("option-a", "label.a"), contribution("option-b", "label.b")));
         assertEquals(3, host.getComponentCount());
 
         host.resetCounts();
@@ -195,16 +188,11 @@ final class ExportSettingsAttachBackendTest {
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
 
         final ExportSettingsAttachException failure = assertThrows(
-            ExportSettingsAttachException.class,
-            () -> backend.attach(host, List.of(
-                contribution("option-a", "label.a"),
-                contribution("option-a", "label.duplicate")
-            ))
-        );
-        assertEquals(
-            ExportSettingsAttachBackend.DUPLICATE_OPTION_KEY + ": option-a",
-            failure.getMessage()
-        );
+                ExportSettingsAttachException.class,
+                () -> backend.attach(
+                        host,
+                        List.of(contribution("option-a", "label.a"), contribution("option-a", "label.duplicate"))));
+        assertEquals(ExportSettingsAttachBackend.DUPLICATE_OPTION_KEY + ": option-a", failure.getMessage());
         assertEquals(2, host.getComponentCount(), "no UI mutation may happen");
 
         // A failed validation does not consume the attach session.
@@ -219,9 +207,8 @@ final class ExportSettingsAttachBackendTest {
         backend.attach(host, List.of(contribution("option-a", "label.a")));
 
         final ExportSettingsAttachException failure = assertThrows(
-            ExportSettingsAttachException.class,
-            () -> backend.attach(host, List.of(contribution("option-b", "label.b")))
-        );
+                ExportSettingsAttachException.class,
+                () -> backend.attach(host, List.of(contribution("option-b", "label.b"))));
         assertEquals(ExportSettingsAttachBackend.ALREADY_ATTACHED_KEY, failure.getMessage());
         assertEquals(3, host.getComponentCount(), "second attach must not mutate the host");
         assertEquals(1, panel(host).getComponentCount(), "second attach must not add checkboxes");
@@ -233,27 +220,22 @@ final class ExportSettingsAttachBackendTest {
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
 
         assertEquals(
-            ExportSettingsAttachBackend.NULL_CONTAINER_KEY,
-            assertThrows(
-                ExportSettingsAttachException.class,
-                () -> backend.attach(null, List.of(contribution("option-a", "label.a")))
-            ).getMessage()
-        );
+                ExportSettingsAttachBackend.NULL_CONTAINER_KEY,
+                assertThrows(
+                                ExportSettingsAttachException.class,
+                                () -> backend.attach(null, List.of(contribution("option-a", "label.a"))))
+                        .getMessage());
         assertEquals(
-            ExportSettingsAttachBackend.NULL_CONTRIBUTIONS_KEY,
-            assertThrows(
-                ExportSettingsAttachException.class,
-                () -> backend.attach(host, null)
-            ).getMessage()
-        );
+                ExportSettingsAttachBackend.NULL_CONTRIBUTIONS_KEY,
+                assertThrows(ExportSettingsAttachException.class, () -> backend.attach(host, null))
+                        .getMessage());
         assertEquals(
-            ExportSettingsAttachBackend.NULL_CONTRIBUTION_KEY,
-            assertThrows(
-                ExportSettingsAttachException.class,
-                () -> backend.attach(host, java.util.Arrays.asList(
-                    contribution("option-a", "label.a"), null))
-            ).getMessage()
-        );
+                ExportSettingsAttachBackend.NULL_CONTRIBUTION_KEY,
+                assertThrows(
+                                ExportSettingsAttachException.class,
+                                () -> backend.attach(
+                                        host, java.util.Arrays.asList(contribution("option-a", "label.a"), null)))
+                        .getMessage());
         assertEquals(0, host.getComponentCount(), "no UI mutation may happen");
     }
 
@@ -265,9 +247,7 @@ final class ExportSettingsAttachBackendTest {
         host.resetFlags();
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
 
-        final Registration registration = backend.attach(host, List.of(
-            contribution("option-a", "label.a")
-        ));
+        final Registration registration = backend.attach(host, List.of(contribution("option-a", "label.a")));
         assertTrue(host.addedOnEdt, "component mutation must happen on the EDT");
         assertEquals(2, host.getComponentCount());
 
@@ -283,9 +263,7 @@ final class ExportSettingsAttachBackendTest {
             final RecordingContainer host = new RecordingContainer();
             host.add(new NativeCheckBox("native-a"));
             final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
-            final Registration registration = backend.attach(host, List.of(
-                contribution("option-a", "label.a")
-            ));
+            final Registration registration = backend.attach(host, List.of(contribution("option-a", "label.a")));
             assertEquals(2, host.getComponentCount());
             assertTrue(host.addedOnEdt);
             registration.close();
@@ -313,9 +291,8 @@ final class ExportSettingsAttachBackendTest {
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
 
         final ExportSettingsAttachException failure = assertThrows(
-            ExportSettingsAttachException.class,
-            () -> backend.attach(throwing, List.of(contribution("option-a", "label.a")))
-        );
+                ExportSettingsAttachException.class,
+                () -> backend.attach(throwing, List.of(contribution("option-a", "label.a"))));
         assertEquals(ExportSettingsAttachBackend.BOUNDARY_FAILURE_KEY, failure.getMessage());
         assertTrue(failure.getCause() instanceof IllegalStateException);
         assertEquals(1, throwing.getComponentCount(), "host must stay unchanged");
@@ -334,9 +311,8 @@ final class ExportSettingsAttachBackendTest {
         thread.interrupt();
         try {
             final ExportSettingsAttachException failure = assertThrows(
-                ExportSettingsAttachException.class,
-                () -> backend.attach(host, List.of(contribution("option-a", "label.a")))
-            );
+                    ExportSettingsAttachException.class,
+                    () -> backend.attach(host, List.of(contribution("option-a", "label.a"))));
             assertEquals(ExportSettingsAttachBackend.INTERRUPTED_KEY, failure.getMessage());
             assertTrue(thread.isInterrupted(), "interrupted status must be restored");
             assertEquals(0, host.getComponentCount(), "no UI mutation may happen");
@@ -349,22 +325,19 @@ final class ExportSettingsAttachBackendTest {
     void closedBackendRejectsFurtherAttachAndSnapshot() {
         final JPanel host = hostWithOptions();
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
-        final Registration registration = backend.attach(host, List.of(
-            contribution("option-a", "label.a")
-        ));
+        final Registration registration = backend.attach(host, List.of(contribution("option-a", "label.a")));
         registration.close();
 
         assertEquals(
-            ExportSettingsAttachBackend.CLOSED_KEY,
-            assertThrows(
-                ExportSettingsAttachException.class,
-                () -> backend.attach(host, List.of(contribution("option-b", "label.b")))
-            ).getMessage()
-        );
+                ExportSettingsAttachBackend.CLOSED_KEY,
+                assertThrows(
+                                ExportSettingsAttachException.class,
+                                () -> backend.attach(host, List.of(contribution("option-b", "label.b"))))
+                        .getMessage());
         assertEquals(
-            ExportSettingsAttachBackend.NOT_ATTACHED_KEY,
-            assertThrows(ExportSettingsAttachException.class, backend::selectedSnapshot).getMessage()
-        );
+                ExportSettingsAttachBackend.NOT_ATTACHED_KEY,
+                assertThrows(ExportSettingsAttachException.class, backend::selectedSnapshot)
+                        .getMessage());
     }
 
     @Test
@@ -378,9 +351,8 @@ final class ExportSettingsAttachBackendTest {
         host.throwOnRevalidate = true;
 
         final ExportSettingsAttachException failure = assertThrows(
-            ExportSettingsAttachException.class,
-            () -> backend.attach(host, List.of(contribution("option-a", "label.a")))
-        );
+                ExportSettingsAttachException.class,
+                () -> backend.attach(host, List.of(contribution("option-a", "label.a"))));
         assertEquals(ExportSettingsAttachBackend.BOUNDARY_FAILURE_KEY, failure.getMessage());
         final Throwable cause = failure.getCause();
         assertTrue(cause instanceof IllegalStateException);
@@ -409,9 +381,8 @@ final class ExportSettingsAttachBackendTest {
         host.throwOnRepaint = true;
 
         final ExportSettingsAttachException failure = assertThrows(
-            ExportSettingsAttachException.class,
-            () -> backend.attach(host, List.of(contribution("option-a", "label.a")))
-        );
+                ExportSettingsAttachException.class,
+                () -> backend.attach(host, List.of(contribution("option-a", "label.a"))));
         assertEquals(ExportSettingsAttachBackend.BOUNDARY_FAILURE_KEY, failure.getMessage());
         final Throwable cause = failure.getCause();
         assertTrue(cause instanceof IllegalStateException);
@@ -437,9 +408,8 @@ final class ExportSettingsAttachBackendTest {
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
 
         final ExportSettingsAttachException failure = assertThrows(
-            ExportSettingsAttachException.class,
-            () -> backend.attach(host, List.of(contribution("option-a", "label.a")))
-        );
+                ExportSettingsAttachException.class,
+                () -> backend.attach(host, List.of(contribution("option-a", "label.a"))));
         assertEquals(ExportSettingsAttachBackend.BOUNDARY_FAILURE_KEY, failure.getMessage());
         final Throwable cause = failure.getCause();
         assertTrue(cause instanceof IllegalStateException);
@@ -461,16 +431,12 @@ final class ExportSettingsAttachBackendTest {
         final ThrowingContainer host = new ThrowingContainer();
         host.add(new NativeCheckBox("native-a"));
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
-        final Registration registration = backend.attach(host, List.of(
-            contribution("option-a", "label.a")
-        ));
+        final Registration registration = backend.attach(host, List.of(contribution("option-a", "label.a")));
         assertEquals(2, host.getComponentCount());
         host.throwOnRemove = true;
 
-        final ExportSettingsAttachException failure = assertThrows(
-            ExportSettingsAttachException.class,
-            registration::close
-        );
+        final ExportSettingsAttachException failure =
+                assertThrows(ExportSettingsAttachException.class, registration::close);
         assertEquals(ExportSettingsAttachBackend.BOUNDARY_FAILURE_KEY, failure.getMessage());
         assertTrue(failure.getCause() instanceof IllegalStateException);
         assertEquals("remove-boom", failure.getCause().getMessage());
@@ -488,15 +454,11 @@ final class ExportSettingsAttachBackendTest {
         final ThrowingContainer host = new ThrowingContainer();
         host.add(new NativeCheckBox("native-a"));
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
-        final Registration registration = backend.attach(host, List.of(
-            contribution("option-a", "label.a")
-        ));
+        final Registration registration = backend.attach(host, List.of(contribution("option-a", "label.a")));
         host.throwOnRevalidate = true;
 
-        final ExportSettingsAttachException failure = assertThrows(
-            ExportSettingsAttachException.class,
-            registration::close
-        );
+        final ExportSettingsAttachException failure =
+                assertThrows(ExportSettingsAttachException.class, registration::close);
         assertEquals(ExportSettingsAttachBackend.BOUNDARY_FAILURE_KEY, failure.getMessage());
         assertEquals("revalidate-boom", failure.getCause().getMessage());
         assertEquals(1, host.getComponentCount(), "owned panel must be removed before the failure");
@@ -510,15 +472,11 @@ final class ExportSettingsAttachBackendTest {
         final ThrowingContainer host = new ThrowingContainer();
         host.add(new NativeCheckBox("native-a"));
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
-        final Registration registration = backend.attach(host, List.of(
-            contribution("option-a", "label.a")
-        ));
+        final Registration registration = backend.attach(host, List.of(contribution("option-a", "label.a")));
         host.throwOnRepaint = true;
 
-        final ExportSettingsAttachException failure = assertThrows(
-            ExportSettingsAttachException.class,
-            registration::close
-        );
+        final ExportSettingsAttachException failure =
+                assertThrows(ExportSettingsAttachException.class, registration::close);
         assertEquals(ExportSettingsAttachBackend.BOUNDARY_FAILURE_KEY, failure.getMessage());
         assertEquals("repaint-boom", failure.getCause().getMessage());
         assertEquals(1, host.getComponentCount(), "owned panel must be removed before the failure");
@@ -533,23 +491,19 @@ final class ExportSettingsAttachBackendTest {
         final RecordingContainer host = new RecordingContainer();
         host.add(new NativeCheckBox("native-a"));
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
-        final Registration registration = backend.attach(host, List.of(
-            contribution("option-a", "label.a")
-        ));
+        final Registration registration = backend.attach(host, List.of(contribution("option-a", "label.a")));
         assertEquals(2, host.getComponentCount());
         thread.interrupt();
         try {
-            final ExportSettingsAttachException failure = assertThrows(
-                ExportSettingsAttachException.class,
-                registration::close
-            );
+            final ExportSettingsAttachException failure =
+                    assertThrows(ExportSettingsAttachException.class, registration::close);
             assertEquals(ExportSettingsAttachBackend.INTERRUPTED_KEY, failure.getMessage());
             assertTrue(thread.isInterrupted(), "interrupted status must be restored");
         } finally {
             thread.interrupted();
         }
         // The removal event was queued before the interruption surfaced and must complete.
-        SwingUtilities.invokeAndWait(() -> { });
+        SwingUtilities.invokeAndWait(() -> {});
         assertEquals(1, host.getComponentCount());
         assertTrue(host.removedOnEdt);
     }
@@ -587,17 +541,13 @@ final class ExportSettingsAttachBackendTest {
         // without the contribution.
         window.setSize(400, window.getPreferredSize().height);
         final int baselineHeight = window.getHeight();
-        final ExportSettingsAttachBackend backend =
-            new ExportSettingsAttachBackend(JCheckBox::new, mount -> window);
+        final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend(JCheckBox::new, mount -> window);
 
-        final Registration registration = backend.attach(options, List.of(
-            contribution("option-a", "label.a"),
-            contribution("option-b", "label.b")
-        ));
+        final Registration registration = backend.attach(
+                options, List.of(contribution("option-a", "label.a"), contribution("option-b", "label.b")));
         final JPanel owned = panel(options);
         flushEdt();
-        assertEquals(baselineHeight, window.getHeight(),
-            "no growth may run before the window is showing");
+        assertEquals(baselineHeight, window.getHeight(), "no growth may run before the window is showing");
 
         window.showing = true;
         fireShowingChanged(owned);
@@ -606,17 +556,18 @@ final class ExportSettingsAttachBackendTest {
         flushEdt();
 
         final int preferredHeight = window.getPreferredSize().height;
-        assertTrue(preferredHeight > baselineHeight,
-            "the contributed panel must raise the required height");
-        assertEquals(preferredHeight, window.getHeight(),
-            "window must grow to cover its full content height");
+        assertTrue(preferredHeight > baselineHeight, "the contributed panel must raise the required height");
+        assertEquals(preferredHeight, window.getHeight(), "window must grow to cover its full content height");
         assertEquals(400, window.getWidth(), "width must stay untouched");
-        assertEquals(new Dimension(400, baselineHeight), owned.getClientProperty(
-            "turboism.export-settings.dialogBaselineSize"));
+        assertEquals(
+                new Dimension(400, baselineHeight),
+                owned.getClientProperty("turboism.export-settings.dialogBaselineSize"));
 
         registration.close();
-        assertEquals(new Dimension(400, baselineHeight), window.getSize(),
-            "close must restore the captured pre-growth size");
+        assertEquals(
+                new Dimension(400, baselineHeight),
+                window.getSize(),
+                "close must restore the captured pre-growth size");
     }
 
     @Test
@@ -627,11 +578,8 @@ final class ExportSettingsAttachBackendTest {
         final FakeTopLevel window = new FakeTopLevel();
         window.add(options);
         window.setSize(400, 800);
-        final ExportSettingsAttachBackend backend =
-            new ExportSettingsAttachBackend(JCheckBox::new, mount -> window);
-        final Registration registration = backend.attach(options, List.of(
-            contribution("option-a", "label.a")
-        ));
+        final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend(JCheckBox::new, mount -> window);
+        final Registration registration = backend.attach(options, List.of(contribution("option-a", "label.a")));
 
         window.showing = true;
         fireShowingChanged(panel(options));
@@ -639,8 +587,7 @@ final class ExportSettingsAttachBackendTest {
         flushEdt();
         flushEdt();
 
-        assertEquals(800, window.getHeight(),
-            "a window already covering its content must not shrink");
+        assertEquals(800, window.getHeight(), "a window already covering its content must not shrink");
         registration.close();
         assertEquals(800, window.getHeight());
     }
@@ -652,27 +599,29 @@ final class ExportSettingsAttachBackendTest {
         final FakeTopLevel window = new FakeTopLevel();
         window.add(options);
         window.setSize(400, 120);
-        final ExportSettingsAttachBackend backend =
-            new ExportSettingsAttachBackend(JCheckBox::new, mount -> window);
+        final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend(JCheckBox::new, mount -> window);
         options.throwOnRevalidate = true;
 
-        assertThrows(ExportSettingsAttachException.class,
-            () -> backend.attach(options, List.of(contribution("option-a", "label.a"))));
+        assertThrows(
+                ExportSettingsAttachException.class,
+                () -> backend.attach(options, List.of(contribution("option-a", "label.a"))));
         window.showing = true;
         flushEdt();
         flushEdt();
-        assertEquals(120, window.getHeight(),
-            "a rolled-back attach must not resize the window");
+        assertEquals(120, window.getHeight(), "a rolled-back attach must not resize the window");
     }
 
     private static void flushEdt() throws Exception {
-        SwingUtilities.invokeAndWait(() -> { });
+        SwingUtilities.invokeAndWait(() -> {});
     }
 
     private static void fireShowingChanged(final Component component) {
         final HierarchyEvent event = new HierarchyEvent(
-            component, HierarchyEvent.HIERARCHY_CHANGED, component,
-            component.getParent(), HierarchyEvent.SHOWING_CHANGED);
+                component,
+                HierarchyEvent.HIERARCHY_CHANGED,
+                component,
+                component.getParent(),
+                HierarchyEvent.SHOWING_CHANGED);
         for (java.awt.event.HierarchyListener listener : component.getHierarchyListeners()) {
             listener.hierarchyChanged(event);
         }
@@ -692,12 +641,9 @@ final class ExportSettingsAttachBackendTest {
         }
     }
 
-    private static ExportSettingsContribution contribution(
-        final String optionId,
-        final String labelKey
-    ) {
+    private static ExportSettingsContribution contribution(final String optionId, final String labelKey) {
         final ExportSettingsDecisionCallback callback =
-            (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged();
+                (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged();
         return new ExportSettingsContribution(optionId, labelKey, callback);
     }
 
@@ -799,6 +745,7 @@ final class ExportSettingsAttachBackendTest {
         private boolean throwOnRepaint;
         private boolean throwOnRemove;
         private int removeAttempts;
+
         @Override
         public Component add(final Component component) {
             final Component added = super.add(component);
@@ -807,6 +754,7 @@ final class ExportSettingsAttachBackendTest {
             }
             return added;
         }
+
         @Override
         public void remove(final Component component) {
             removeAttempts++;

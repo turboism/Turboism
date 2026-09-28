@@ -1,22 +1,20 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.selector.EditorModelInstanceReadSelectorContract;
-import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.mapping.verification.TestVerifiedResolvers;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.model.InstanceRenderType;
-import dev.turboism.sdk.cubism.model.ModelInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorModelInstanceReadSelectorContract;
+import dev.turboism.sdk.cubism.model.InstanceRenderType;
+import dev.turboism.sdk.cubism.model.ModelInstance;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Model-instance reads: authorized projections and the fail-closed gate
@@ -54,9 +52,8 @@ class EditorModelInstanceAccessTest {
 
         final var model = new EditorBackedCubismModelAccess(resolver(version, true), "session-a").active();
         assertEquals(
-            InstanceRenderType.ONION_SKIN_FOR_MODELING,
-            model.modelInstances().get(0).renderType()
-        );
+                InstanceRenderType.ONION_SKIN_FOR_MODELING,
+                model.modelInstances().get(0).renderType());
     }
 
     @ParameterizedTest
@@ -80,56 +77,74 @@ class EditorModelInstanceAccessTest {
             capabilities.add("fixture.unrelated");
         }
         return TestVerifiedResolvers.create(
-            version,
-            EditorModelInstanceReadSelectorContract.ADAPTER_SLICE_ID,
-            capabilities,
-            selectors(),
-            EditorModelInstanceAccessTest.class.getClassLoader()
-        );
+                version,
+                EditorModelInstanceReadSelectorContract.ADAPTER_SLICE_ID,
+                capabilities,
+                selectors(),
+                EditorModelInstanceAccessTest.class.getClassLoader());
     }
 
     private static List<StaticSelector> selectors() {
         final List<StaticSelector> values = new ArrayList<>();
         values.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
         values.add(StaticSelector.staticMethod(
-            "cubism.editor-model.app-controller.instance", internal(Host.class), "instance",
-            "()L" + internal(Host.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(method("cubism.editor-model.app-controller.current-document", Host.class, "currentDocument",
-            "()L" + internal(Document.class) + ";"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
-        values.add(method("cubism.editor-model.modeling-document.model-source", Document.class, "modelSource",
-            "()L" + internal(ModelSource.class) + ";"));
-        values.add(method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance",
-            "()L" + internal(Instance.class) + ";"));
-        values.add(method("cubism.editor-model.model-source.model-instances", ModelSource.class, "modelInstances",
-            "()Ljava/util/List;"));
+                "cubism.editor-model.app-controller.instance",
+                internal(Host.class),
+                "instance",
+                "()L" + internal(Host.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(method(
+                "cubism.editor-model.app-controller.current-document",
+                Host.class,
+                "currentDocument",
+                "()L" + internal(Document.class) + ";"));
+        values.add(
+                StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
+        values.add(method(
+                "cubism.editor-model.modeling-document.model-source",
+                Document.class,
+                "modelSource",
+                "()L" + internal(ModelSource.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.model-source.current-instance",
+                ModelSource.class,
+                "currentInstance",
+                "()L" + internal(Instance.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.model-source.model-instances",
+                ModelSource.class,
+                "modelInstances",
+                "()Ljava/util/List;"));
         values.add(method("cubism.editor-model.model-source.model-editing", ModelSource.class, "modelEditing", "()Z"));
-        values.add(method("cubism.editor-model.model-source.guid", ModelSource.class, "guid",
-            "()L" + internal(Id.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.model-source.guid", ModelSource.class, "guid", "()L" + internal(Id.class) + ";"));
         values.add(method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"));
         values.add(StaticSelector.classSelector("cubism.editor-model.model.class", internal(Instance.class)));
         values.add(StaticSelector.classSelector("cubism.editor-model.model-instance.class", internal(Instance.class)));
-        values.add(method("cubism.editor-model.model-instance.render-type", Instance.class, "renderType",
-            "()L" + internal(RenderType.class) + ";"));
+        values.add(method(
+                "cubism.editor-model.model-instance.render-type",
+                Instance.class,
+                "renderType",
+                "()L" + internal(RenderType.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.render-type.class", internal(RenderType.class)));
         for (String alias : List.of(
-            "cubism.editor-model.render-type.normal",
-            "cubism.editor-model.render-type.psd-export",
-            "cubism.editor-model.render-type.art-path",
-            "cubism.editor-model.render-type.art-path-illegal",
-            "cubism.editor-model.render-type.onion-skin-for-modeling"
-        )) {
-            values.add(StaticSelector.field(alias, internal(RenderType.class),
-                alias.substring(alias.lastIndexOf('.') + 1).toUpperCase().replace('-', '_'),
-                "L" + internal(RenderType.class) + ";",
-                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+                "cubism.editor-model.render-type.normal",
+                "cubism.editor-model.render-type.psd-export",
+                "cubism.editor-model.render-type.art-path",
+                "cubism.editor-model.render-type.art-path-illegal",
+                "cubism.editor-model.render-type.onion-skin-for-modeling")) {
+            values.add(StaticSelector.field(
+                    alias,
+                    internal(RenderType.class),
+                    alias.substring(alias.lastIndexOf('.') + 1).toUpperCase().replace('-', '_'),
+                    "L" + internal(RenderType.class) + ";",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
         }
         return List.copyOf(values);
     }
 
     private static StaticSelector method(
-        final String alias, final Class<?> owner, final String name, final String descriptor
-    ) {
+            final String alias, final Class<?> owner, final String name, final String descriptor) {
         return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
@@ -203,6 +218,10 @@ class EditorModelInstanceAccessTest {
     }
 
     public enum RenderType {
-        NORMAL, PSD_EXPORT, ART_PATH, ART_PATH_ILLEGAL, ONION_SKIN_FOR_MODELING
+        NORMAL,
+        PSD_EXPORT,
+        ART_PATH,
+        ART_PATH_ILLEGAL,
+        ONION_SKIN_FOR_MODELING
     }
 }

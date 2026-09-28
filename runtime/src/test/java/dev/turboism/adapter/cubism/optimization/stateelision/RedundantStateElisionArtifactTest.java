@@ -42,34 +42,35 @@ class RedundantStateElisionArtifactTest {
         return artifact.getParent().resolve("jogl/jogl-all.jar").normalize();
     }
 
-    @Test void pinnedJoglCarriesEveryTrackedMethodWithConcreteBodies() throws Exception {
+    @Test
+    void pinnedJoglCarriesEveryTrackedMethodWithConcreteBodies() throws Exception {
         final Path jogl = joglArtifact();
         assertEquals(ReviewedHostArtifacts.CUBISM_5_3_03_JOGL, HostArtifactDigest.from(jogl));
         try (JarFile jar = new JarFile(jogl.toFile())) {
             final byte[] reference;
-            try (var input = jar.getInputStream(jar.getJarEntry(
-                    RedundantStateElisionTarget.OWNER + ".class"))) {
+            try (var input = jar.getInputStream(jar.getJarEntry(RedundantStateElisionTarget.OWNER + ".class"))) {
                 reference = input.readAllBytes();
             }
             final List<URL> urls = new ArrayList<>();
             urls.add(jogl.toUri().toURL());
             try (URLClassLoader loader =
-                     new URLClassLoader(urls.toArray(URL[]::new), getClass().getClassLoader())) {
+                    new URLClassLoader(urls.toArray(URL[]::new), getClass().getClassLoader())) {
                 final RedundantStateElisionTransformer transformer =
-                    new RedundantStateElisionTransformer(loader, jogl, reference);
+                        new RedundantStateElisionTransformer(loader, jogl, reference);
                 assertNull(transformer.failure());
-                final ProtectionDomain domain = new ProtectionDomain(
-                    new CodeSource(jogl.toUri().toURL(), (Certificate[]) null), null);
-                final byte[] changed = transformer.transform(null, loader,
-                    RedundantStateElisionTarget.OWNER, null, domain, reference);
+                final ProtectionDomain domain =
+                        new ProtectionDomain(new CodeSource(jogl.toUri().toURL(), (Certificate[]) null), null);
+                final byte[] changed =
+                        transformer.transform(null, loader, RedundantStateElisionTarget.OWNER, null, domain, reference);
                 assertNotNull(changed, transformer.failure());
                 assertEquals(1, transformer.matches());
-                assertTrue(transformer.sites() > RedundantStateElisionTarget.SITES.size(),
-                    "invalidators must also instrument: " + transformer.sites());
+                assertTrue(
+                        transformer.sites() > RedundantStateElisionTarget.SITES.size(),
+                        "invalidators must also instrument: " + transformer.sites());
                 assertFalse(transformer.invalidatorNames().isEmpty());
-                assertTrue(transformer.invalidatorNames().values().stream()
-                        .anyMatch(name -> name.startsWith("glDelete")),
-                    "glDelete* methods must be invalidators");
+                assertTrue(
+                        transformer.invalidatorNames().values().stream().anyMatch(name -> name.startsWith("glDelete")),
+                        "glDelete* methods must be invalidators");
                 assertTrue(transformer.invalidatorNames().values().contains("glBindFramebuffer"));
                 assertTrue(transformer.invalidatorNames().values().contains("glBindVertexArray"));
                 assertNotNull(transformer.beforeSha256());
@@ -79,34 +80,42 @@ class RedundantStateElisionArtifactTest {
         }
     }
 
-    @Test void foreignClassIsIgnored() throws Exception {
+    @Test
+    void foreignClassIsIgnored() throws Exception {
         final Path jogl = joglArtifact();
         try (JarFile jar = new JarFile(jogl.toFile());
-             URLClassLoader loader = new URLClassLoader(new URL[] {jogl.toUri().toURL()},
-                 getClass().getClassLoader())) {
+                URLClassLoader loader = new URLClassLoader(
+                        new URL[] {jogl.toUri().toURL()}, getClass().getClassLoader())) {
             final byte[] reference;
-            try (var input = jar.getInputStream(jar.getJarEntry(
-                    RedundantStateElisionTarget.OWNER + ".class"))) {
+            try (var input = jar.getInputStream(jar.getJarEntry(RedundantStateElisionTarget.OWNER + ".class"))) {
                 reference = input.readAllBytes();
             }
             final RedundantStateElisionTransformer transformer =
-                new RedundantStateElisionTransformer(loader, jogl, reference);
+                    new RedundantStateElisionTransformer(loader, jogl, reference);
             assertNull(transformer.transform(null, loader, "other/Class", null, null, reference));
-            assertNull(transformer.transform(null, getClass().getClassLoader(),
-                RedundantStateElisionTarget.OWNER, null, null, reference));
+            assertNull(transformer.transform(
+                    null, getClass().getClassLoader(), RedundantStateElisionTarget.OWNER, null, null, reference));
             assertEquals(0, transformer.matches());
         }
     }
 
     private static Map<String, String> methods(final byte[] bytes) {
         final Map<String, String> result = new LinkedHashMap<>();
-        new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override public MethodVisitor visitMethod(final int access, final String name,
-                    final String descriptor, final String signature, final String[] exceptions) {
-                result.put(name + descriptor, descriptor);
-                return null;
-            }
-        }, ClassReader.SKIP_CODE);
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                result.put(name + descriptor, descriptor);
+                                return null;
+                            }
+                        },
+                        ClassReader.SKIP_CODE);
         return result;
     }
 }

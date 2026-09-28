@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.stateelision;
 
-import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * Semantics of the per-context redundant-state tracker. A repeat may only be
@@ -44,8 +45,8 @@ public class RedundantStateTrackerTest {
 
     private final Object gl = new Object();
 
-    private static boolean call(final RedundantStateTracker tracker, final Object gl,
-                                final int site, final int... args) {
+    private static boolean call(
+            final RedundantStateTracker tracker, final Object gl, final int site, final int... args) {
         final int[] padded = new int[4];
         System.arraycopy(args, 0, padded, 0, args.length);
         return tracker.consult(gl, site, padded[0], padded[1], padded[2], padded[3]);
@@ -57,7 +58,8 @@ public class RedundantStateTrackerTest {
         return tracker;
     }
 
-    @Test void exactRepeatElidesPerSite() {
+    @Test
+    void exactRepeatElidesPerSite() {
         final RedundantStateTracker tracker = armedTracker();
         final int[][] cases = {
             {USE_PROGRAM, 7, 0, 0, 0},
@@ -76,10 +78,8 @@ public class RedundantStateTrackerTest {
             {BIND_BUFFER, 34962, 42, 0, 0},
         };
         for (final int[] c : cases) {
-            assertFalse(call(tracker, gl, c[0], c[1], c[2], c[3], c[4]),
-                "first call records for site " + c[0]);
-            assertTrue(call(tracker, gl, c[0], c[1], c[2], c[3], c[4]),
-                "identical repeat elides for site " + c[0]);
+            assertFalse(call(tracker, gl, c[0], c[1], c[2], c[3], c[4]), "first call records for site " + c[0]);
+            assertTrue(call(tracker, gl, c[0], c[1], c[2], c[3], c[4]), "identical repeat elides for site " + c[0]);
         }
         final var stats = tracker.snapshot(true);
         assertEquals(cases.length, stats.get("elided").intValue());
@@ -87,7 +87,8 @@ public class RedundantStateTrackerTest {
         assertEquals(cases.length, stats.get("passNoBaseline").intValue());
     }
 
-    @Test void changedArgumentsPassAndUpdateBaseline() {
+    @Test
+    void changedArgumentsPassAndUpdateBaseline() {
         final RedundantStateTracker tracker = armedTracker();
         assertFalse(call(tracker, gl, USE_PROGRAM, 7));
         assertFalse(call(tracker, gl, USE_PROGRAM, 8), "different program passes");
@@ -96,9 +97,10 @@ public class RedundantStateTrackerTest {
         assertEquals(2L, tracker.snapshot(true).get("passChanged"));
     }
 
-    @Test void enableDisableShareCapabilityKeyButDifferInSignature() {
+    @Test
+    void enableDisableShareCapabilityKeyButDifferInSignature() {
         final RedundantStateTracker tracker = armedTracker();
-        assertFalse(call(tracker, gl, ENABLE, 3042));       // GL_BLEND on
+        assertFalse(call(tracker, gl, ENABLE, 3042)); // GL_BLEND on
         assertTrue(call(tracker, gl, ENABLE, 3042));
         assertFalse(call(tracker, gl, DISABLE, 3042), "disable is a different signature");
         assertTrue(call(tracker, gl, DISABLE, 3042));
@@ -106,27 +108,25 @@ public class RedundantStateTrackerTest {
         assertFalse(call(tracker, gl, ENABLE, 3042), "cap key still carries the off state");
     }
 
-    @Test void blendFuncAliasFormsShareTheSeparateSignature() {
+    @Test
+    void blendFuncAliasFormsShareTheSeparateSignature() {
         final RedundantStateTracker tracker = armedTracker();
         assertFalse(call(tracker, gl, BLEND_FUNC_SEPARATE, 1, 0, 1, 0));
-        assertTrue(call(tracker, gl, BLEND_FUNC, 1, 0),
-            "glBlendFunc(s,d) aliases separate(s,d,s,d)");
+        assertTrue(call(tracker, gl, BLEND_FUNC, 1, 0), "glBlendFunc(s,d) aliases separate(s,d,s,d)");
         assertFalse(call(tracker, gl, BLEND_FUNC, 1, 1), "changed dst factor passes");
         assertTrue(call(tracker, gl, BLEND_FUNC_SEPARATE, 1, 1, 1, 1));
         assertFalse(call(tracker, gl, BLEND_EQUATION, 4));
-        assertTrue(call(tracker, gl, BLEND_EQUATION_SEPARATE, 4, 4),
-            "glBlendEquation(m) aliases separate(m,m)");
+        assertTrue(call(tracker, gl, BLEND_EQUATION_SEPARATE, 4, 4), "glBlendEquation(m) aliases separate(m,m)");
         assertFalse(call(tracker, gl, BLEND_EQUATION_SEPARATE, 4, 5));
     }
 
-    @Test void textureBindingIsKeyedByActiveUnitAndTarget() {
+    @Test
+    void textureBindingIsKeyedByActiveUnitAndTarget() {
         final RedundantStateTracker tracker = armedTracker();
         final int texture0 = 33984, texture1 = 33985;
         final int tex2d = 3553, texCube = 34067;
-        assertEquals(0L, tracker.snapshot(true).get("passUnknownUnit"),
-            "counter starts at zero");
-        assertFalse(call(tracker, gl, BIND_TEXTURE, tex2d, 11),
-            "bind before any activeTexture is unkeyable");
+        assertEquals(0L, tracker.snapshot(true).get("passUnknownUnit"), "counter starts at zero");
+        assertFalse(call(tracker, gl, BIND_TEXTURE, tex2d, 11), "bind before any activeTexture is unkeyable");
         assertEquals(1L, tracker.snapshot(true).get("passUnknownUnit"));
         call(tracker, gl, ACTIVE_TEXTURE, texture0);
         assertFalse(call(tracker, gl, BIND_TEXTURE, tex2d, 11));
@@ -140,7 +140,8 @@ public class RedundantStateTrackerTest {
         assertFalse(call(tracker, gl, BIND_TEXTURE, tex2d, 22), "unit 0 texture differs");
     }
 
-    @Test void samplerAndBufferKeysAreUnitAndTargetScoped() {
+    @Test
+    void samplerAndBufferKeysAreUnitAndTargetScoped() {
         final RedundantStateTracker tracker = armedTracker();
         assertFalse(call(tracker, gl, BIND_SAMPLER, 0, 7));
         assertTrue(call(tracker, gl, BIND_SAMPLER, 0, 7));
@@ -151,7 +152,8 @@ public class RedundantStateTrackerTest {
         assertFalse(call(tracker, gl, BIND_BUFFER, 34963, 5), "element binding is separate");
     }
 
-    @Test void vertexAttribEnablesAreIndexedPerAttribute() {
+    @Test
+    void vertexAttribEnablesAreIndexedPerAttribute() {
         final RedundantStateTracker tracker = armedTracker();
         assertFalse(call(tracker, gl, ENABLE_VAA, 0));
         assertTrue(call(tracker, gl, ENABLE_VAA, 0));
@@ -160,7 +162,8 @@ public class RedundantStateTrackerTest {
         assertTrue(call(tracker, gl, DISABLE_VAA, 0));
     }
 
-    @Test void contextsAreIndependent() {
+    @Test
+    void contextsAreIndependent() {
         final RedundantStateTracker tracker = armedTracker();
         final Object other = new Object();
         assertFalse(call(tracker, gl, USE_PROGRAM, 7));
@@ -170,7 +173,8 @@ public class RedundantStateTrackerTest {
         assertEquals(2L, tracker.snapshot(true).get("contexts"));
     }
 
-    @Test void contextScopedInvalidatorClearsOnlyThatContext() {
+    @Test
+    void contextScopedInvalidatorClearsOnlyThatContext() {
         final RedundantStateTracker tracker = armedTracker();
         final Object other = new Object();
         tracker.registerInvalidator(1000, "glBindFramebuffer");
@@ -184,7 +188,8 @@ public class RedundantStateTrackerTest {
         assertEquals(1L, tracker.snapshot(true).get("glBindFramebufferInvalidations"));
     }
 
-    @Test void glDeleteInvalidationClearsEveryContextViaEpoch() {
+    @Test
+    void glDeleteInvalidationClearsEveryContextViaEpoch() {
         final RedundantStateTracker tracker = armedTracker();
         final Object other = new Object();
         tracker.registerInvalidator(1000, "glDeleteBuffers");
@@ -196,7 +201,8 @@ public class RedundantStateTrackerTest {
         assertEquals(2L, tracker.snapshot(true).get("epochClears"));
     }
 
-    @Test void foreignThreadClearsTheContext() throws Exception {
+    @Test
+    void foreignThreadClearsTheContext() throws Exception {
         final RedundantStateTracker tracker = armedTracker();
         assertFalse(call(tracker, gl, USE_PROGRAM, 7));
         final boolean[] second = new boolean[1];
@@ -208,7 +214,8 @@ public class RedundantStateTrackerTest {
         assertEquals(2L, tracker.snapshot(true).get("threadClears"));
     }
 
-    @Test void thrownCallClearsTheContext() {
+    @Test
+    void thrownCallClearsTheContext() {
         final RedundantStateTracker tracker = armedTracker();
         assertFalse(call(tracker, gl, USE_PROGRAM, 7));
         tracker.exception(gl);
@@ -216,25 +223,27 @@ public class RedundantStateTrackerTest {
         assertEquals(1L, tracker.snapshot(true).get("exceptionClears"));
     }
 
-    @Test void disarmedGatePassesButStillRecords() {
+    @Test
+    void disarmedGatePassesButStillRecords() {
         final RedundantStateTracker tracker = new RedundantStateTracker();
         assertFalse(call(tracker, gl, USE_PROGRAM, 7), "disarmed never elides");
         assertFalse(call(tracker, gl, USE_PROGRAM, 7));
         tracker.setArmed(true);
-        assertTrue(call(tracker, gl, USE_PROGRAM, 7),
-            "state recorded while disarmed stays usable when armed");
+        assertTrue(call(tracker, gl, USE_PROGRAM, 7), "state recorded while disarmed stays usable when armed");
         final var stats = tracker.snapshot(true);
         assertEquals(2L, stats.get("passGate"));
         assertEquals(1L, stats.get("elided"));
     }
 
-    @Test void observerSlotsAbsentNeverThrows() {
+    @Test
+    void observerSlotsAbsentNeverThrows() {
         final RedundantStateTracker tracker = armedTracker();
         tracker.invalidate(gl, 4242);
         assertEquals(1L, tracker.snapshot(true).get("site-4242Invalidations"));
     }
 
-    @Test void invalidatorNameRules() {
+    @Test
+    void invalidatorNameRules() {
         assertTrue(RedundantStateElisionTarget.invalidates("glDeleteBuffers"));
         assertTrue(RedundantStateElisionTarget.invalidates("glDeleteProgram"));
         assertTrue(RedundantStateElisionTarget.invalidates("glBindVertexArray"));
@@ -245,8 +254,9 @@ public class RedundantStateTrackerTest {
         assertTrue(RedundantStateElisionTarget.invalidates("glUseProgramStages"));
         assertTrue(RedundantStateElisionTarget.invalidates("glBindBufferBase"));
         assertTrue(RedundantStateElisionTarget.invalidates("glBindTextures"));
-        assertTrue(RedundantStateElisionTarget.invalidates("glBindSampler"),
-            "the bare name is prefix-true; the exact tracked name+desc check happens before it");
+        assertTrue(
+                RedundantStateElisionTarget.invalidates("glBindSampler"),
+                "the bare name is prefix-true; the exact tracked name+desc check happens before it");
         assertTrue(RedundantStateElisionTarget.invalidates("glEnablei"));
         assertTrue(RedundantStateElisionTarget.invalidates("glStencilFuncSeparate"));
         assertTrue(RedundantStateElisionTarget.invalidates("glColorMaski"));

@@ -1,9 +1,8 @@
 package dev.turboism.hook.ingress;
 
-import dev.turboism.sdk.event.EventBus;
-import org.junit.jupiter.api.RepeatedTest;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
+import dev.turboism.sdk.event.EventBus;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -14,8 +13,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 
 class BoundedHookEventMailboxTest {
 
@@ -23,8 +22,8 @@ class BoundedHookEventMailboxTest {
 
     @Test
     void validatesCapacityAndKeepsEveryDeclaredApiAndNestedTypePackagePrivate() {
-        assertThrows(IllegalArgumentException.class,
-            () -> new BoundedHookEventMailbox(0, event -> { }, diagnostic -> { }));
+        assertThrows(
+                IllegalArgumentException.class, () -> new BoundedHookEventMailbox(0, event -> {}, diagnostic -> {}));
         assertPackagePrivate(BoundedHookEventMailbox.class.getModifiers(), "mailbox type");
         for (Class<?> nested : BoundedHookEventMailbox.class.getDeclaredClasses()) {
             assertPackagePrivate(nested.getModifiers(), nested.getSimpleName());
@@ -37,14 +36,15 @@ class BoundedHookEventMailboxTest {
         }
 
         Method offer = assertDoesNotThrow(() -> BoundedHookEventMailbox.class.getDeclaredMethod(
-            "offer", HookIngressSpec.class, EventBus.TurboismEvent.class));
+                "offer", HookIngressSpec.class, EventBus.TurboismEvent.class));
         assertEquals(2, offer.getParameterCount());
-        assertTrue(List.of(offer.getParameterTypes()).containsAll(List.of(HookIngressSpec.class, EventBus.TurboismEvent.class)));
+        assertTrue(List.of(offer.getParameterTypes())
+                .containsAll(List.of(HookIngressSpec.class, EventBus.TurboismEvent.class)));
         assertFalse(List.of(offer.getParameterTypes()).contains(Object.class));
         assertFalse(List.of(offer.getParameterTypes()).contains(Runnable.class));
         assertFalse(List.of(offer.getParameterTypes()).contains(java.util.concurrent.Callable.class));
         assertFalse(Arrays.stream(BoundedHookEventMailbox.DiagnosticCode.values())
-            .anyMatch(code -> code.name().equals("DIAGNOSTIC_SINK_FAILED")));
+                .anyMatch(code -> code.name().equals("DIAGNOSTIC_SINK_FAILED")));
     }
 
     @Test
@@ -56,12 +56,15 @@ class BoundedHookEventMailboxTest {
 
         assertEquals(BoundedHookEventMailbox.OfferOutcome.ACCEPTED, mailbox.offer(SPEC, first));
         assertEquals(BoundedHookEventMailbox.OfferOutcome.ACCEPTED, mailbox.offer(SPEC, second));
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
         assertEquals(List.of(first), delivered);
         assertEquals(1, mailbox.snapshot().pending());
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
         assertEquals(List.of(first, second), delivered);
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.EMPTY, mailbox.drainOne().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.EMPTY, mailbox.drainOne().outcome());
     }
 
     @RepeatedTest(20)
@@ -117,9 +120,12 @@ class BoundedHookEventMailboxTest {
         assertEquals(BoundedHookEventMailbox.OfferOutcome.ACCEPTED, mailbox.offer(spec("hook.first"), first));
         assertEquals(BoundedHookEventMailbox.OfferOutcome.ACCEPTED, mailbox.offer(spec("hook.second"), second));
         assertEquals(BoundedHookEventMailbox.OfferOutcome.QUEUE_FULL, mailbox.offer(spec("hook.newest"), newest));
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.EMPTY, mailbox.drainOne().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.EMPTY, mailbox.drainOne().outcome());
 
         assertEquals(List.of(first, second), delivered);
         assertEquals(List.of(BoundedHookEventMailbox.DiagnosticCode.QUEUE_FULL), codes(diagnostics));
@@ -185,7 +191,9 @@ class BoundedHookEventMailboxTest {
         assertEquals(afterFirstClose, mailbox.snapshot());
         assertEquals(2, mailbox.snapshot().pendingDroppedOnClose());
         assertEquals(1, diagnostics.size());
-        assertEquals(BoundedHookEventMailbox.DiagnosticCode.PENDING_DROPPED_ON_CLOSE, diagnostics.get(0).code());
+        assertEquals(
+                BoundedHookEventMailbox.DiagnosticCode.PENDING_DROPPED_ON_CLOSE,
+                diagnostics.get(0).code());
         assertEquals(2, diagnostics.get(0).count());
     }
 
@@ -211,10 +219,13 @@ class BoundedHookEventMailboxTest {
         CountDownLatch downstreamEntered = new CountDownLatch(1);
         CountDownLatch releaseDownstream = new CountDownLatch(1);
         List<BoundedHookEventMailbox.Diagnostic> diagnostics = new ArrayList<>();
-        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(3, entry -> {
-            downstreamEntered.countDown();
-            await(releaseDownstream);
-        }, diagnostics::add);
+        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(
+                3,
+                entry -> {
+                    downstreamEntered.countDown();
+                    await(releaseDownstream);
+                },
+                diagnostics::add);
         mailbox.offer(spec("hook.inflight"), new TestEvent("inflight"));
         mailbox.offer(spec("hook.pending.one"), new TestEvent("pending-one"));
         mailbox.offer(spec("hook.pending.two"), new TestEvent("pending-two"));
@@ -230,23 +241,26 @@ class BoundedHookEventMailboxTest {
             closer.start();
             join(closer);
             rethrowThreadFailure(threadFailure);
-            assertEquals(BoundedHookEventMailbox.OfferOutcome.MAILBOX_CLOSED,
-                mailbox.offer(spec("hook.late"), new TestEvent("late")));
+            assertEquals(
+                    BoundedHookEventMailbox.OfferOutcome.MAILBOX_CLOSED,
+                    mailbox.offer(spec("hook.late"), new TestEvent("late")));
         } finally {
             releaseDownstream.countDown();
         }
         join(consumer);
         rethrowThreadFailure(threadFailure);
 
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.DRAINED, drainResult.get().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.DRAINED, drainResult.get().outcome());
         assertEquals(2, dropped.get());
         BoundedHookEventMailbox.Snapshot snapshot = mailbox.snapshot();
         assertSnapshot(snapshot, 3, 0, true, 3, 1, 0, 1, 2, 0, 0, 0);
         assertConservation(snapshot);
-        assertEquals(List.of(
-            BoundedHookEventMailbox.DiagnosticCode.PENDING_DROPPED_ON_CLOSE,
-            BoundedHookEventMailbox.DiagnosticCode.MAILBOX_CLOSED
-        ), codes(diagnostics));
+        assertEquals(
+                List.of(
+                        BoundedHookEventMailbox.DiagnosticCode.PENDING_DROPPED_ON_CLOSE,
+                        BoundedHookEventMailbox.DiagnosticCode.MAILBOX_CLOSED),
+                codes(diagnostics));
     }
 
     @Test
@@ -255,7 +269,7 @@ class BoundedHookEventMailboxTest {
         CountDownLatch releaseDiagnostic = new CountDownLatch(1);
         AtomicReference<BoundedHookEventMailbox> mailboxRef = new AtomicReference<>();
         AtomicReference<BoundedHookEventMailbox.Snapshot> reentrantSnapshot = new AtomicReference<>();
-        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(1, entry -> { }, diagnostic -> {
+        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(1, entry -> {}, diagnostic -> {
             reentrantSnapshot.set(mailboxRef.get().snapshot());
             diagnosticEntered.countDown();
             await(releaseDiagnostic);
@@ -265,14 +279,15 @@ class BoundedHookEventMailboxTest {
 
         AtomicReference<Throwable> threadFailure = new AtomicReference<>();
         AtomicReference<BoundedHookEventMailbox.OfferOutcome> rejectedOutcome = new AtomicReference<>();
-        Thread rejectedOffer = thread("blocking-diagnostic", threadFailure,
-            () -> rejectedOutcome.set(mailbox.offer(SPEC, new TestEvent("rejected"))));
+        Thread rejectedOffer = thread(
+                "blocking-diagnostic",
+                threadFailure,
+                () -> rejectedOutcome.set(mailbox.offer(SPEC, new TestEvent("rejected"))));
         rejectedOffer.start();
         AtomicReference<BoundedHookEventMailbox.Snapshot> concurrentSnapshot = new AtomicReference<>();
         try {
             await(diagnosticEntered);
-            Thread observer = thread("lock-observer", threadFailure,
-                () -> concurrentSnapshot.set(mailbox.snapshot()));
+            Thread observer = thread("lock-observer", threadFailure, () -> concurrentSnapshot.set(mailbox.snapshot()));
             observer.start();
             join(observer);
             rethrowThreadFailure(threadFailure);
@@ -291,37 +306,48 @@ class BoundedHookEventMailboxTest {
         AtomicReference<BoundedHookEventMailbox> mailboxRef = new AtomicReference<>();
         AtomicReference<BoundedHookEventMailbox.DrainResult> reentrantResult = new AtomicReference<>();
         List<EventBus.TurboismEvent> delivered = new ArrayList<>();
-        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(2, entry -> {
-            delivered.add(entry.event());
-            reentrantResult.set(mailboxRef.get().drainOne());
-        }, diagnostic -> { });
+        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(
+                2,
+                entry -> {
+                    delivered.add(entry.event());
+                    reentrantResult.set(mailboxRef.get().drainOne());
+                },
+                diagnostic -> {});
         mailboxRef.set(mailbox);
         TestEvent first = new TestEvent("first");
         TestEvent second = new TestEvent("second");
         mailbox.offer(SPEC, first);
         mailbox.offer(SPEC, second);
 
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.BUSY, reentrantResult.get().outcome());
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.BUSY, reentrantResult.get().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
         assertEquals(List.of(first, second), delivered);
         assertEquals(2, mailbox.snapshot().busyDrains());
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.EMPTY, mailbox.drainOne().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.EMPTY, mailbox.drainOne().outcome());
     }
 
     @Test
     void downstreamErrorCommitsFailureReleasesClaimAndAllowsFurtherDrain() {
         AtomicInteger calls = new AtomicInteger();
-        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(2, entry -> {
-            if (calls.getAndIncrement() == 0) {
-                throw new AssertionError("fatal downstream");
-            }
-        }, diagnostic -> { });
+        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(
+                2,
+                entry -> {
+                    if (calls.getAndIncrement() == 0) {
+                        throw new AssertionError("fatal downstream");
+                    }
+                },
+                diagnostic -> {});
         mailbox.offer(SPEC, new TestEvent("fatal"));
         mailbox.offer(SPEC, new TestEvent("next"));
 
         assertThrows(AssertionError.class, mailbox::drainOne);
-        assertEquals(BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
+        assertEquals(
+                BoundedHookEventMailbox.DrainOutcome.DRAINED, mailbox.drainOne().outcome());
         BoundedHookEventMailbox.Snapshot snapshot = mailbox.snapshot();
         assertEquals(1, snapshot.downstreamFailures());
         assertEquals(1, snapshot.drained());
@@ -331,7 +357,7 @@ class BoundedHookEventMailboxTest {
 
     @Test
     void diagnosticErrorPropagatesOnlyAfterClosedAndDropStateIsCommitted() {
-        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(2, entry -> { }, diagnostic -> {
+        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(2, entry -> {}, diagnostic -> {
             throw new AssertionError("fatal diagnostic");
         });
         mailbox.offer(spec("hook.one"), new TestEvent("one"));
@@ -351,31 +377,35 @@ class BoundedHookEventMailboxTest {
         CountDownLatch entered = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         AtomicInteger calls = new AtomicInteger();
-        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(3, entry -> {
-            int call = calls.getAndIncrement();
-            if (call == 0) {
-                entered.countDown();
-                await(release);
-            } else if (call == 1) {
-                throw new IllegalStateException("private downstream text");
-            }
-        }, diagnostic -> {
-            if (diagnostic.code() == BoundedHookEventMailbox.DiagnosticCode.DOWNSTREAM_FAILED) {
-                throw new IllegalArgumentException("private sink text");
-            }
-        });
+        BoundedHookEventMailbox mailbox = new BoundedHookEventMailbox(
+                3,
+                entry -> {
+                    int call = calls.getAndIncrement();
+                    if (call == 0) {
+                        entered.countDown();
+                        await(release);
+                    } else if (call == 1) {
+                        throw new IllegalStateException("private downstream text");
+                    }
+                },
+                diagnostic -> {
+                    if (diagnostic.code() == BoundedHookEventMailbox.DiagnosticCode.DOWNSTREAM_FAILED) {
+                        throw new IllegalArgumentException("private sink text");
+                    }
+                });
         mailbox.offer(SPEC, new TestEvent("blocked"));
         mailbox.offer(SPEC, new TestEvent("runtime-failure"));
         mailbox.offer(SPEC, new TestEvent("to-close"));
-        assertEquals(BoundedHookEventMailbox.OfferOutcome.QUEUE_FULL,
-            mailbox.offer(SPEC, new TestEvent("full")));
+        assertEquals(BoundedHookEventMailbox.OfferOutcome.QUEUE_FULL, mailbox.offer(SPEC, new TestEvent("full")));
 
         AtomicReference<Throwable> threadFailure = new AtomicReference<>();
         Thread consumer = thread("snapshot-consumer", threadFailure, mailbox::drainOne);
         consumer.start();
         try {
             await(entered);
-            assertEquals(BoundedHookEventMailbox.DrainOutcome.BUSY, mailbox.drainOne().outcome());
+            assertEquals(
+                    BoundedHookEventMailbox.DrainOutcome.BUSY,
+                    mailbox.drainOne().outcome());
         } finally {
             release.countDown();
         }
@@ -385,8 +415,7 @@ class BoundedHookEventMailboxTest {
         assertEquals(BoundedHookEventMailbox.DrainOutcome.DOWNSTREAM_FAILED, failure.outcome());
         assertTrue(failure.diagnosticSinkFailed());
         assertEquals(1, mailbox.close());
-        assertEquals(BoundedHookEventMailbox.OfferOutcome.MAILBOX_CLOSED,
-            mailbox.offer(SPEC, new TestEvent("closed")));
+        assertEquals(BoundedHookEventMailbox.OfferOutcome.MAILBOX_CLOSED, mailbox.offer(SPEC, new TestEvent("closed")));
 
         BoundedHookEventMailbox.Snapshot snapshot = mailbox.snapshot();
         assertSnapshot(snapshot, 3, 0, true, 3, 1, 1, 1, 1, 1, 1, 1);
@@ -394,28 +423,40 @@ class BoundedHookEventMailboxTest {
     }
 
     private static void assertConservation(BoundedHookEventMailbox.Snapshot snapshot) {
-        assertEquals(snapshot.accepted(),
-            snapshot.drained() + snapshot.pending() + snapshot.pendingDroppedOnClose() + snapshot.downstreamFailures(),
-            "every accepted entry must be drained, pending, dropped on close, or failed downstream");
+        assertEquals(
+                snapshot.accepted(),
+                snapshot.drained()
+                        + snapshot.pending()
+                        + snapshot.pendingDroppedOnClose()
+                        + snapshot.downstreamFailures(),
+                "every accepted entry must be drained, pending, dropped on close, or failed downstream");
     }
 
-    private static void assertSnapshot(BoundedHookEventMailbox.Snapshot actual, int capacity, int pending,
-                                       boolean closed, long accepted, long drained, long fullRejected,
-                                       long closedRejected, long dropped, long downstreamFailures,
-                                       long diagnosticFailures, long busyDrains) {
+    private static void assertSnapshot(
+            BoundedHookEventMailbox.Snapshot actual,
+            int capacity,
+            int pending,
+            boolean closed,
+            long accepted,
+            long drained,
+            long fullRejected,
+            long closedRejected,
+            long dropped,
+            long downstreamFailures,
+            long diagnosticFailures,
+            long busyDrains) {
         assertAll(
-            () -> assertEquals(capacity, actual.capacity()),
-            () -> assertEquals(pending, actual.pending()),
-            () -> assertEquals(closed, actual.closed()),
-            () -> assertEquals(accepted, actual.accepted()),
-            () -> assertEquals(drained, actual.drained()),
-            () -> assertEquals(fullRejected, actual.queueFullRejected()),
-            () -> assertEquals(closedRejected, actual.closedRejected()),
-            () -> assertEquals(dropped, actual.pendingDroppedOnClose()),
-            () -> assertEquals(downstreamFailures, actual.downstreamFailures()),
-            () -> assertEquals(diagnosticFailures, actual.diagnosticSinkFailures()),
-            () -> assertEquals(busyDrains, actual.busyDrains())
-        );
+                () -> assertEquals(capacity, actual.capacity()),
+                () -> assertEquals(pending, actual.pending()),
+                () -> assertEquals(closed, actual.closed()),
+                () -> assertEquals(accepted, actual.accepted()),
+                () -> assertEquals(drained, actual.drained()),
+                () -> assertEquals(fullRejected, actual.queueFullRejected()),
+                () -> assertEquals(closedRejected, actual.closedRejected()),
+                () -> assertEquals(dropped, actual.pendingDroppedOnClose()),
+                () -> assertEquals(downstreamFailures, actual.downstreamFailures()),
+                () -> assertEquals(diagnosticFailures, actual.diagnosticSinkFailures()),
+                () -> assertEquals(busyDrains, actual.busyDrains()));
     }
 
     private static void assertPackagePrivate(int modifiers, String description) {
@@ -424,8 +465,10 @@ class BoundedHookEventMailboxTest {
         assertFalse(Modifier.isPrivate(modifiers), description + " must not be private");
     }
 
-    private static BoundedHookEventMailbox mailbox(int capacity, List<EventBus.TurboismEvent> delivered,
-                                                    List<BoundedHookEventMailbox.Diagnostic> diagnostics) {
+    private static BoundedHookEventMailbox mailbox(
+            int capacity,
+            List<EventBus.TurboismEvent> delivered,
+            List<BoundedHookEventMailbox.Diagnostic> diagnostics) {
         return new BoundedHookEventMailbox(capacity, entry -> delivered.add(entry.event()), diagnostics::add);
     }
 
@@ -433,18 +476,23 @@ class BoundedHookEventMailboxTest {
         return new HookIngressSpec(hookId, "event.test", false, "fake");
     }
 
-    private static List<BoundedHookEventMailbox.DiagnosticCode> codes(List<BoundedHookEventMailbox.Diagnostic> diagnostics) {
-        return diagnostics.stream().map(BoundedHookEventMailbox.Diagnostic::code).toList();
+    private static List<BoundedHookEventMailbox.DiagnosticCode> codes(
+            List<BoundedHookEventMailbox.Diagnostic> diagnostics) {
+        return diagnostics.stream()
+                .map(BoundedHookEventMailbox.Diagnostic::code)
+                .toList();
     }
 
     private static Thread thread(String name, AtomicReference<Throwable> failure, Runnable runnable) {
-        return new Thread(() -> {
-            try {
-                runnable.run();
-            } catch (Throwable throwable) {
-                failure.compareAndSet(null, throwable);
-            }
-        }, name);
+        return new Thread(
+                () -> {
+                    try {
+                        runnable.run();
+                    } catch (Throwable throwable) {
+                        failure.compareAndSet(null, throwable);
+                    }
+                },
+                name);
     }
 
     private static void rethrowThreadFailure(AtomicReference<Throwable> failure) {
@@ -480,5 +528,5 @@ class BoundedHookEventMailboxTest {
         assertFalse(thread.isAlive(), () -> "timed out joining " + thread.getName());
     }
 
-    private record TestEvent(String value) implements EventBus.TurboismEvent { }
+    private record TestEvent(String value) implements EventBus.TurboismEvent {}
 }

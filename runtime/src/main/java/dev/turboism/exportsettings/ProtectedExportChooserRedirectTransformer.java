@@ -1,15 +1,14 @@
 package dev.turboism.exportsettings;
 
+import java.lang.instrument.ClassFileTransformer;
+import java.security.ProtectionDomain;
+import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.lang.instrument.ClassFileTransformer;
-import java.security.ProtectionDomain;
-import java.util.Objects;
 
 /**
  * Exact-owner transformer redirecting the native export chooser result on
@@ -53,17 +52,16 @@ public final class ProtectedExportChooserRedirectTransformer implements ClassFil
     private final ClassLoader expectedClassLoader;
 
     public ProtectedExportChooserRedirectTransformer(
-        final String ownerInternalName,
-        final String moc3HostMethod,
-        final String moc3HostDescriptor,
-        final String moc3ChooserName,
-        final String moc3ChooserDescriptor,
-        final String gatedHostMethod,
-        final String gatedHostDescriptor,
-        final String gatedChooserName,
-        final String gatedChooserDescriptor,
-        final ClassLoader expectedClassLoader
-    ) {
+            final String ownerInternalName,
+            final String moc3HostMethod,
+            final String moc3HostDescriptor,
+            final String moc3ChooserName,
+            final String moc3ChooserDescriptor,
+            final String gatedHostMethod,
+            final String gatedHostDescriptor,
+            final String gatedChooserName,
+            final String gatedChooserDescriptor,
+            final ClassLoader expectedClassLoader) {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.moc3HostMethod = requireText(moc3HostMethod, "moc3HostMethod");
         this.moc3HostDescriptor = requireText(moc3HostDescriptor, "moc3HostDescriptor");
@@ -78,48 +76,43 @@ public final class ProtectedExportChooserRedirectTransformer implements ClassFil
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
-        if (!ownerInternalName.equals(className)
-            || loader != expectedClassLoader
-            || classfileBuffer == null) {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
+        if (!ownerInternalName.equals(className) || loader != expectedClassLoader || classfileBuffer == null) {
             return null;
         }
         final boolean[] markerFound = {false};
         final boolean[] moc3Shape = {false};
         final boolean[] gatedShape = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(
-            reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS
-        );
-        reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String descriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                final MethodVisitor delegate = super.visitMethod(
-                    access, name, descriptor, signature, exceptions
-                );
-                if (moc3HostMethod.equals(name) && moc3HostDescriptor.equals(descriptor)) {
-                    return new RedirectMethodVisitor(
-                        delegate, markerFound, moc3Shape, moc3ChooserName, moc3ChooserDescriptor);
-                }
-                if (gatedHostMethod.equals(name) && gatedHostDescriptor.equals(descriptor)) {
-                    return new RedirectMethodVisitor(
-                        delegate, markerFound, gatedShape, gatedChooserName, gatedChooserDescriptor);
-                }
-                return delegate;
-            }
-        }, ClassReader.EXPAND_FRAMES);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String descriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor delegate =
+                                super.visitMethod(access, name, descriptor, signature, exceptions);
+                        if (moc3HostMethod.equals(name) && moc3HostDescriptor.equals(descriptor)) {
+                            return new RedirectMethodVisitor(
+                                    delegate, markerFound, moc3Shape, moc3ChooserName, moc3ChooserDescriptor);
+                        }
+                        if (gatedHostMethod.equals(name) && gatedHostDescriptor.equals(descriptor)) {
+                            return new RedirectMethodVisitor(
+                                    delegate, markerFound, gatedShape, gatedChooserName, gatedChooserDescriptor);
+                        }
+                        return delegate;
+                    }
+                },
+                ClassReader.EXPAND_FRAMES);
         if (markerFound[0] || !moc3Shape[0] || !gatedShape[0]) {
             return null;
         }
@@ -137,12 +130,11 @@ public final class ProtectedExportChooserRedirectTransformer implements ClassFil
         private boolean invalid;
 
         private RedirectMethodVisitor(
-            final MethodVisitor delegate,
-            final boolean[] markerFound,
-            final boolean[] shape,
-            final String chooserName,
-            final String chooserDescriptor
-        ) {
+                final MethodVisitor delegate,
+                final boolean[] markerFound,
+                final boolean[] shape,
+                final String chooserName,
+                final String chooserDescriptor) {
             super(Opcodes.ASM9, delegate);
             this.markerFound = markerFound;
             this.shape = shape;
@@ -163,20 +155,19 @@ public final class ProtectedExportChooserRedirectTransformer implements ClassFil
 
         @Override
         public void visitMethodInsn(
-            final int opcode,
-            final String owner,
-            final String name,
-            final String descriptor,
-            final boolean isInterface
-        ) {
+                final int opcode,
+                final String owner,
+                final String name,
+                final String descriptor,
+                final boolean isInterface) {
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
             if (sawMarker || emitting || invalid) {
                 return;
             }
             if (opcode == Opcodes.INVOKESPECIAL
-                && ownerInternalName.equals(owner)
-                && chooserName.equals(name)
-                && chooserDescriptor.equals(descriptor)) {
+                    && ownerInternalName.equals(owner)
+                    && chooserName.equals(name)
+                    && chooserDescriptor.equals(descriptor)) {
                 if (callsiteFound) {
                     // A second matching callsite means the host shape drifted; emit the
                     // redirect anyway is unsafe, so mark the transform invalid.
@@ -216,20 +207,14 @@ public final class ProtectedExportChooserRedirectTransformer implements ClassFil
                 super.visitTryCatchBlock(tryStart, tryEnd, handler, "java/lang/Throwable");
                 super.visitLabel(tryStart);
                 super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC,
-                    "java/lang/System",
-                    "getProperties",
-                    "()Ljava/util/Properties;",
-                    false
-                );
+                        Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
                 super.visitLdcInsn(NativeExportSettingsDialogBridge.REDIRECT_KEY);
                 super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false
-                );
+                        Opcodes.INVOKEVIRTUAL,
+                        "java/util/Properties",
+                        "get",
+                        "(Ljava/lang/Object;)Ljava/lang/Object;",
+                        false);
                 // stack: [picked, callback]
                 super.visitInsn(Opcodes.DUP);
                 super.visitJumpInsn(Opcodes.IFNONNULL, haveCallback);
@@ -241,12 +226,11 @@ public final class ProtectedExportChooserRedirectTransformer implements ClassFil
                 super.visitInsn(Opcodes.SWAP);
                 // stack: [callback, picked]
                 super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE,
-                    "java/util/function/Function",
-                    "apply",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    true
-                );
+                        Opcodes.INVOKEINTERFACE,
+                        "java/util/function/Function",
+                        "apply",
+                        "(Ljava/lang/Object;)Ljava/lang/Object;",
+                        true);
                 // stack: [result]
                 super.visitInsn(Opcodes.DUP);
                 super.visitJumpInsn(Opcodes.IFNONNULL, resultOk);

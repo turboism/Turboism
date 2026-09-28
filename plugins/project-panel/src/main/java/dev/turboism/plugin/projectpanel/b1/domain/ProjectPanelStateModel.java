@@ -20,14 +20,13 @@ package dev.turboism.plugin.projectpanel.b1.domain;
  *                 unchanged by a refused transition
  */
 public record ProjectPanelStateModel(
-    Active active,
-    ProjectPhase lastPhase,
-    int openingCount,
-    int openedCount,
-    int closingCount,
-    int closedCount,
-    long revision
-) {
+        Active active,
+        ProjectPhase lastPhase,
+        int openingCount,
+        int openedCount,
+        int closingCount,
+        int closedCount,
+        long revision) {
     private static final int MAX_COUNTER = 1_000_000;
 
     public ProjectPanelStateModel {
@@ -64,15 +63,13 @@ public record ProjectPanelStateModel(
      * @throws IllegalArgumentException if any counter is negative or exceeds 1,000,000
      */
     public static ProjectPanelStateModel hydrate(
-        final ProjectPhase lastPhase,
-        final int openingCount,
-        final int openedCount,
-        final int closingCount,
-        final int closedCount
-    ) {
+            final ProjectPhase lastPhase,
+            final int openingCount,
+            final int openedCount,
+            final int closingCount,
+            final int closedCount) {
         return new ProjectPanelStateModel(
-            Active.INACTIVE, lastPhase, openingCount, openedCount, closingCount, closedCount, 0
-        );
+                Active.INACTIVE, lastPhase, openingCount, openedCount, closingCount, closedCount, 0);
     }
 
     /**
@@ -85,9 +82,10 @@ public record ProjectPanelStateModel(
         if (active == Active.ACTIVE) {
             return reduction(ProjectPhaseResult.DUPLICATE);
         }
-        return new ProjectPanelReduction(new ProjectPanelStateModel(
-            Active.ACTIVE, lastPhase, openingCount, openedCount, closingCount, closedCount, revision + 1
-        ), ProjectPhaseResult.APPLIED);
+        return new ProjectPanelReduction(
+                new ProjectPanelStateModel(
+                        Active.ACTIVE, lastPhase, openingCount, openedCount, closingCount, closedCount, revision + 1),
+                ProjectPhaseResult.APPLIED);
     }
 
     /**
@@ -101,9 +99,10 @@ public record ProjectPanelStateModel(
         if (active == Active.INACTIVE) {
             return reduction(ProjectPhaseResult.DUPLICATE);
         }
-        return new ProjectPanelReduction(new ProjectPanelStateModel(
-            Active.INACTIVE, lastPhase, openingCount, openedCount, closingCount, closedCount, revision + 1
-        ), ProjectPhaseResult.APPLIED);
+        return new ProjectPanelReduction(
+                new ProjectPanelStateModel(
+                        Active.INACTIVE, lastPhase, openingCount, openedCount, closingCount, closedCount, revision + 1),
+                ProjectPhaseResult.APPLIED);
     }
 
     /**
@@ -133,15 +132,16 @@ public record ProjectPanelStateModel(
         if (current >= MAX_COUNTER) {
             return reduction(ProjectPhaseResult.COUNTER_LIMIT);
         }
-        return new ProjectPanelReduction(new ProjectPanelStateModel(
-            active,
-            next,
-            openingCount + (next == ProjectPhase.OPENING ? 1 : 0),
-            openedCount + (next == ProjectPhase.OPENED ? 1 : 0),
-            closingCount + (next == ProjectPhase.CLOSING ? 1 : 0),
-            closedCount + (next == ProjectPhase.CLOSED ? 1 : 0),
-            revision + 1
-        ), ProjectPhaseResult.APPLIED);
+        return new ProjectPanelReduction(
+                new ProjectPanelStateModel(
+                        active,
+                        next,
+                        openingCount + (next == ProjectPhase.OPENING ? 1 : 0),
+                        openedCount + (next == ProjectPhase.OPENED ? 1 : 0),
+                        closingCount + (next == ProjectPhase.CLOSING ? 1 : 0),
+                        closedCount + (next == ProjectPhase.CLOSED ? 1 : 0),
+                        revision + 1),
+                ProjectPhaseResult.APPLIED);
     }
 
     private int counter(final ProjectPhase phase) {

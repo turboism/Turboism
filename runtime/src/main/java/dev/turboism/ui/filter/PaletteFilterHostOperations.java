@@ -8,15 +8,6 @@ import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.ui.palette.LogPaletteHostStructure;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import dev.turboism.ui.toolbar.PaletteToolbarHostOperations;
-
-import javax.swing.JComponent;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextPane;
-import javax.swing.JTree;
-import javax.swing.JViewport;
-import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 import java.awt.Container;
 import java.awt.Window;
 import java.lang.reflect.Field;
@@ -30,6 +21,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.swing.JComponent;
+import javax.swing.JTable;
+import javax.swing.JTextPane;
+import javax.swing.JTree;
+import javax.swing.JViewport;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 /**
  * Session-level host attachment for palette tab filter boxes.
@@ -55,7 +53,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Real-host readiness is not claimed here; reflective host paths remain
  * pending exact-version validation.</p>
  */
-public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink, PaletteToolbarHostOperations, AutoCloseable {
+public class PaletteFilterHostOperations
+        implements PaletteFilterVisibilitySink, PaletteToolbarHostOperations, AutoCloseable {
 
     private static final int CONNECT_ATTEMPTS = 300;
     private static final int CONNECT_DELAY_MS = 250;
@@ -77,9 +76,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
 
     private final Map<PaletteKind, PaletteFilterState> states = new ConcurrentHashMap<>();
     private final Map<String, List<PaletteFilterRegistry.PaletteFilterContribution>> contributionsByPlugin =
-        new ConcurrentHashMap<>();
+            new ConcurrentHashMap<>();
     final Map<PaletteKind, List<PaletteToolbarHostOperations.ButtonContribution>> toolbarContributions =
-        new ConcurrentHashMap<>();
+            new ConcurrentHashMap<>();
     final EditorUiPluginResourceRegistry resources;
     private final PaletteControllerResolver controllerResolver;
     final Map<PaletteKind, String> lastAttachStatus = new ConcurrentHashMap<>();
@@ -121,9 +120,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     }
 
     PaletteFilterHostOperations(
-        final EditorUiPluginResourceRegistry resources,
-        final PaletteControllerResolver controllerResolver
-    ) {
+            final EditorUiPluginResourceRegistry resources, final PaletteControllerResolver controllerResolver) {
         this.resources = resources;
         this.controllerResolver = controllerResolver;
         for (PaletteKind kind : PaletteKind.values()) {
@@ -143,9 +140,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     }
 
     /** Binds the exact native parameter-row catalog populated by the verified row hook. */
-    public void bindParameterRows(
-        final dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator source
-    ) {
+    public void bindParameterRows(final dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator source) {
         this.parameterRows = Objects.requireNonNull(source, "source");
     }
 
@@ -176,24 +171,21 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             for (PaletteKind kind : PaletteKind.values()) {
-                lastAttachStatus.put(kind, "reconcile-failed:" + failure.getClass().getSimpleName()
-                    + ":" + failure.getMessage());
+                lastAttachStatus.put(
+                        kind, "reconcile-failed:" + failure.getClass().getSimpleName() + ":" + failure.getMessage());
             }
         }
         final boolean fast = attempt + 1 < CONNECT_ATTEMPTS;
         final Timer retry = new Timer(
-            fast ? CONNECT_DELAY_MS : IDLE_CONNECT_DELAY_MS,
-            ignored -> connect(hostClassLoader, token, attempt + 1)
-        );
+                fast ? CONNECT_DELAY_MS : IDLE_CONNECT_DELAY_MS,
+                ignored -> connect(hostClassLoader, token, attempt + 1));
         retry.setRepeats(false);
         retry.start();
     }
 
     @Override
     public void onPaletteFilterVisibilityChanged(
-        final String pluginId,
-        final List<PaletteFilterRegistry.PaletteFilterContribution> contributions
-    ) {
+            final String pluginId, final List<PaletteFilterRegistry.PaletteFilterContribution> contributions) {
         Objects.requireNonNull(pluginId, "pluginId");
         if (contributions.isEmpty()) {
             contributionsByPlugin.remove(pluginId);
@@ -204,12 +196,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     }
 
     /** Replaces the authority-owned filter snapshot for the shared Palette surface. */
-    public void setFilterContributions(
-        final List<PaletteFilterRegistry.PaletteFilterContribution> contributions
-    ) {
-        final List<PaletteFilterRegistry.PaletteFilterContribution> requested = List.copyOf(
-            Objects.requireNonNull(contributions, "contributions")
-        );
+    public void setFilterContributions(final List<PaletteFilterRegistry.PaletteFilterContribution> contributions) {
+        final List<PaletteFilterRegistry.PaletteFilterContribution> requested =
+                List.copyOf(Objects.requireNonNull(contributions, "contributions"));
         for (PaletteFilterRegistry.PaletteFilterContribution contribution : requested) {
             paletteKind(contribution.paletteId());
         }
@@ -224,20 +213,18 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     @Override
     public void setContributions(final List<PaletteToolbarHostOperations.ButtonContribution> contributions) {
         final Map<PaletteKind, List<PaletteToolbarHostOperations.ButtonContribution>> next =
-            new java.util.EnumMap<>(PaletteKind.class);
+                new java.util.EnumMap<>(PaletteKind.class);
         for (PaletteKind kind : PaletteKind.values()) {
             next.put(kind, new ArrayList<>());
         }
         final Set<String> nativeIds = new java.util.HashSet<>();
-        for (PaletteToolbarHostOperations.ButtonContribution contribution : List.copyOf(
-            Objects.requireNonNull(contributions, "contributions")
-        )) {
+        for (PaletteToolbarHostOperations.ButtonContribution contribution :
+                List.copyOf(Objects.requireNonNull(contributions, "contributions"))) {
             final PaletteKind kind = paletteKind(contribution.descriptor().paletteId());
             PaletteToolbarSupport.toolbarAlignment(contribution.descriptor().anchor());
             if (!nativeIds.add(contribution.descriptor().nativeId())) {
-                throw new IllegalArgumentException(
-                    "duplicate palette toolbar contribution: " + contribution.descriptor().nativeId()
-                );
+                throw new IllegalArgumentException("duplicate palette toolbar contribution: "
+                        + contribution.descriptor().nativeId());
             }
             next.get(kind).add(contribution);
         }
@@ -272,7 +259,8 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
 
     private static PaletteKind paletteKind(final String paletteId) {
         try {
-            return PaletteKind.valueOf(Objects.requireNonNull(paletteId, "paletteId").toUpperCase(Locale.ROOT));
+            return PaletteKind.valueOf(
+                    Objects.requireNonNull(paletteId, "paletteId").toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException failure) {
             throw new IllegalArgumentException("unsupported palette id: " + paletteId, failure);
         }
@@ -297,10 +285,10 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
 
     private PaletteFilterRegistry.PaletteFilterContribution highestOrderContribution(final PaletteKind kind) {
         return contributionsByPlugin.values().stream()
-            .flatMap(List::stream)
-            .filter(contribution -> kind.name().equals(contribution.paletteId()))
-            .max(Comparator.comparingInt(PaletteFilterRegistry.PaletteFilterContribution::order))
-            .orElse(null);
+                .flatMap(List::stream)
+                .filter(contribution -> kind.name().equals(contribution.paletteId()))
+                .max(Comparator.comparingInt(PaletteFilterRegistry.PaletteFilterContribution::order))
+                .orElse(null);
     }
 
     @Override
@@ -326,16 +314,14 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     // ------------------------------------------------------------------ attach
 
     private boolean attach(
-        final PaletteFilterState state,
-        final PaletteFilterRegistry.PaletteFilterContribution contribution
-    ) {
+            final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
         if (!bindingIsCurrent(state)) {
             resetBinding(state, true);
         }
         if (state.controller == null) {
             final Object resolved = controllerResolver == null
-                ? resolvePaletteController(state.kind)
-                : controllerResolver.resolve(state.kind);
+                    ? resolvePaletteController(state.kind)
+                    : controllerResolver.resolve(state.kind);
             if (resolved == null) {
                 lastAttachStatus.put(state.kind, "root-not-found");
                 return false;
@@ -343,7 +329,8 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             state.controller = resolved;
             state.root = resolved instanceof JComponent component ? component : null;
             if (state.root == null) {
-                lastAttachStatus.put(state.kind, "root-not-swing:" + resolved.getClass().getName());
+                lastAttachStatus.put(
+                        state.kind, "root-not-swing:" + resolved.getClass().getName());
                 resetBinding(state, true);
                 return false;
             }
@@ -358,8 +345,8 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             };
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-            lastAttachStatus.put(state.kind, "attach-failed:" + failure.getClass().getSimpleName()
-                + ":" + failure.getMessage());
+            lastAttachStatus.put(
+                    state.kind, "attach-failed:" + failure.getClass().getSimpleName() + ":" + failure.getMessage());
             resetBinding(state, true);
             return false;
         }
@@ -385,15 +372,17 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             return false;
         }
         final JTextPane textPane = state.sourceTextPane;
-        if (textPane != null && state.kind != PaletteKind.LOG
-            && (!textPane.isDisplayable() || !PaletteComponentFinder.isInVisibleCubismWindow(textPane))) {
+        if (textPane != null
+                && state.kind != PaletteKind.LOG
+                && (!textPane.isDisplayable() || !PaletteComponentFinder.isInVisibleCubismWindow(textPane))) {
             return false;
         }
         if (state.kind == PaletteKind.LOG && state.filteredDoc != null) {
             if (state.sourceTextPane == null || state.sourceTextPane.getDocument() != state.filteredDoc) {
                 return false;
             }
-            if (!state.sourceTextPane.isDisplayable() || !PaletteComponentFinder.isInVisibleCubismWindow(state.sourceTextPane)) {
+            if (!state.sourceTextPane.isDisplayable()
+                    || !PaletteComponentFinder.isInVisibleCubismWindow(state.sourceTextPane)) {
                 return false;
             }
         }
@@ -422,8 +411,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         if (state.sourceDocumentListener != null && state.sourceDoc != null) {
             state.sourceDoc.removeDocumentListener(state.sourceDocumentListener);
         }
-        if (state.sourceTextPane != null && state.filteredDoc != null
-            && state.sourceTextPane.getDocument() == state.filteredDoc) {
+        if (state.sourceTextPane != null
+                && state.filteredDoc != null
+                && state.sourceTextPane.getDocument() == state.filteredDoc) {
             state.sourceTextPane.setDocument(state.sourceDoc);
         }
         if (state.wrapper != null && state.scrollShell != null) {
@@ -433,8 +423,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             }
         }
         if (state.filteredTreeModel != null) {
-            if (state.tree != null && state.treeModel != null
-                && state.tree.getModel() == state.filteredTreeModel) {
+            if (state.tree != null && state.treeModel != null && state.tree.getModel() == state.filteredTreeModel) {
                 state.tree.setModel(state.treeModel);
                 PaletteComponentFinder.refreshTableModel(state.table);
             }
@@ -498,7 +487,8 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
                 }
             }
             case DEFORMER -> {
-                final JTable table = PaletteComponentFinder.findTreeTable("com.live2d.cubism.view.palette.deformer.CDeformerTreeTable");
+                final JTable table = PaletteComponentFinder.findTreeTable(
+                        "com.live2d.cubism.view.palette.deformer.CDeformerTreeTable");
                 if (table != null) {
                     return table;
                 }
@@ -532,19 +522,22 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     // ------------------------------------------------------------ attach kinds
 
     private boolean attachScene(
-        final PaletteFilterState state,
-        final PaletteFilterRegistry.PaletteFilterContribution contribution
-    ) {
+            final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
         final JComponent component = state.root;
         if (component == null) return false;
-        final JTable table = component instanceof JTable tableValue ? tableValue : PaletteComponentFinder.findTable(component);
+        final JTable table =
+                component instanceof JTable tableValue ? tableValue : PaletteComponentFinder.findTable(component);
         if (table == null) {
-            lastAttachStatus.put(state.kind, "scene-table-not-found root=" + component.getClass().getName());
+            lastAttachStatus.put(
+                    state.kind,
+                    "scene-table-not-found root=" + component.getClass().getName());
             return false;
         }
         final Container toolbar = PaletteComponentFinder.findToolbarContainer(table);
         if (toolbar == null) {
-            lastAttachStatus.put(state.kind, "scene-toolbar-not-found table=" + table.getClass().getName());
+            lastAttachStatus.put(
+                    state.kind,
+                    "scene-toolbar-not-found table=" + table.getClass().getName());
             return false;
         }
         state.table = table;
@@ -553,7 +546,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         if (contribution != null) {
             final Object palette = PaletteSceneFilter.reverseResolvePalette(table);
             if (palette == null) {
-                lastAttachStatus.put(state.kind, "scene-palette-not-found table=" + table.getClass().getName());
+                lastAttachStatus.put(
+                        state.kind,
+                        "scene-palette-not-found table=" + table.getClass().getName());
                 return false;
             }
             state.scenePalette = palette;
@@ -566,25 +561,30 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             PaletteToolbarSupport.detachFilterBox(state);
         }
         PaletteToolbarSupport.syncToolbarButtons(PaletteFilterHostOperations.this, state, toolbar);
-        lastAttachStatus.put(state.kind, "attached table=" + table.getClass().getName()
-            + " toolbar=" + toolbar.getClass().getName());
+        lastAttachStatus.put(
+                state.kind,
+                "attached table=" + table.getClass().getName() + " toolbar="
+                        + toolbar.getClass().getName());
         return true;
     }
 
     private boolean attachDeformer(
-        final PaletteFilterState state,
-        final PaletteFilterRegistry.PaletteFilterContribution contribution
-    ) {
+            final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
         final JComponent component = state.root;
         if (component == null) return false;
-        final JTable table = component instanceof JTable tableValue ? tableValue : PaletteComponentFinder.findTable(component);
+        final JTable table =
+                component instanceof JTable tableValue ? tableValue : PaletteComponentFinder.findTable(component);
         if (table == null) {
-            lastAttachStatus.put(state.kind, "deformer-table-not-found root=" + component.getClass().getName());
+            lastAttachStatus.put(
+                    state.kind,
+                    "deformer-table-not-found root=" + component.getClass().getName());
             return false;
         }
         final Container toolbar = PaletteComponentFinder.findToolbarContainer(table);
         if (toolbar == null) {
-            lastAttachStatus.put(state.kind, "deformer-toolbar-not-found table=" + table.getClass().getName());
+            lastAttachStatus.put(
+                    state.kind,
+                    "deformer-toolbar-not-found table=" + table.getClass().getName());
             return false;
         }
         state.table = table;
@@ -592,7 +592,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         if (contribution != null) {
             final JTree tree = PaletteComponentFinder.extractTree(table);
             if (tree == null) {
-                lastAttachStatus.put(state.kind, "deformer-tree-not-found table=" + table.getClass().getName());
+                lastAttachStatus.put(
+                        state.kind,
+                        "deformer-tree-not-found table=" + table.getClass().getName());
                 return false;
             }
             state.tree = tree;
@@ -612,68 +614,80 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             PaletteToolbarSupport.detachFilterBox(state);
         }
         PaletteToolbarSupport.syncToolbarButtons(PaletteFilterHostOperations.this, state, toolbar);
-        lastAttachStatus.put(state.kind, "attached table=" + table.getClass().getName()
-            + " toolbar=" + toolbar.getClass().getName());
+        lastAttachStatus.put(
+                state.kind,
+                "attached table=" + table.getClass().getName() + " toolbar="
+                        + toolbar.getClass().getName());
         return true;
     }
 
     private boolean attachParameter(
-        final PaletteFilterState state,
-        final PaletteFilterRegistry.PaletteFilterContribution contribution
-    ) {
+            final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
         final JComponent component = state.root;
         if (component == null) return false;
         final Container toolbar = PaletteComponentFinder.findParameterToolbar(component);
         if (toolbar == null) {
-            lastAttachStatus.put(state.kind, "parameter-toolbar-not-found root=" + component.getClass().getName());
+            lastAttachStatus.put(
+                    state.kind,
+                    "parameter-toolbar-not-found root=" + component.getClass().getName());
             return false;
         }
         state.toolbar = toolbar;
         if (contribution != null) {
-            final List<ParameterFilterRow> rows = PaletteParameterRows.parameterFilterRows(PaletteFilterHostOperations.this, component);
+            final List<ParameterFilterRow> rows =
+                    PaletteParameterRows.parameterFilterRows(PaletteFilterHostOperations.this, component);
             if (rows.isEmpty()) {
-                lastAttachStatus.put(state.kind, "parameter-rows-not-found root=" + component.getClass().getName());
+                lastAttachStatus.put(
+                        state.kind,
+                        "parameter-rows-not-found root=" + component.getClass().getName());
                 return false;
             }
             state.rows = rows;
             final Set<JComponent> live = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
             for (ParameterFilterRow row : rows) {
                 live.add(row.component());
-                state.originalRowVisibility.putIfAbsent(row.component(), row.component().isVisible());
+                state.originalRowVisibility.putIfAbsent(
+                        row.component(), row.component().isVisible());
             }
             PaletteParameterRows.restoreDiscardedParameterRows(state.originalRowVisibility, live);
-            PaletteToolbarSupport.ensureFilterBox(state, toolbar, contribution, text -> PaletteParameterRows.applyParameterFilter(state, text));
+            PaletteToolbarSupport.ensureFilterBox(
+                    state, toolbar, contribution, text -> PaletteParameterRows.applyParameterFilter(state, text));
             PaletteParameterRows.applyParameterFilter(state, state.filterText);
         } else {
             PaletteParameterRows.restoreParameterRows(state);
             PaletteToolbarSupport.detachFilterBox(state);
         }
         PaletteToolbarSupport.syncToolbarButtons(PaletteFilterHostOperations.this, state, toolbar);
-        lastAttachStatus.put(state.kind, "attached root=" + component.getClass().getName()
-            + " toolbar=" + toolbar.getClass().getName());
+        lastAttachStatus.put(
+                state.kind,
+                "attached root=" + component.getClass().getName() + " toolbar="
+                        + toolbar.getClass().getName());
         return true;
     }
 
     private boolean attachLog(
-        final PaletteFilterState state,
-        final PaletteFilterRegistry.PaletteFilterContribution contribution
-    ) {
+            final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
         if (contribution == null && state.filteredDoc != null) {
             resetBinding(state, true);
             return false;
         }
-        if (contribution != null && state.filteredDoc != null && state.sourceTextPane != null
-            && state.sourceTextPane.getDocument() == state.filteredDoc
-            && state.sourceTextPane.isDisplayable()) {
+        if (contribution != null
+                && state.filteredDoc != null
+                && state.sourceTextPane != null
+                && state.sourceTextPane.getDocument() == state.filteredDoc
+                && state.sourceTextPane.isDisplayable()) {
             PaletteToolbarSupport.syncToolbarButtons(PaletteFilterHostOperations.this, state, state.toolbarPanel);
             PaletteLogFilter.refreshFilteredLogText(state);
             return true;
         }
         final JComponent component = state.root;
         if (component == null) return false;
-        final JTextPane textPane = component instanceof JTextPane pane ? pane : PaletteComponentFinder.findTextPane(component);
+        final JTextPane textPane =
+                component instanceof JTextPane pane ? pane : PaletteComponentFinder.findTextPane(component);
         if (textPane == null) {
-            lastAttachStatus.put(state.kind, "log-textpane-not-found root=" + component.getClass().getName());
+            lastAttachStatus.put(
+                    state.kind,
+                    "log-textpane-not-found root=" + component.getClass().getName());
             return false;
         }
         final JViewport viewport = LogPaletteHostStructure.findAncestorViewport(textPane);
@@ -692,9 +706,11 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             PaletteLogFilter.installFilteredDocument(state);
             PaletteLogFilter.refreshFilteredLogText(state);
         }
-        lastAttachStatus.put(state.kind, "attached pane=" + textPane.getClass().getName()
-            + " scrollShell=" + scrollShell.getClass().getName()
-            + " filter=" + (contribution != null));
+        lastAttachStatus.put(
+                state.kind,
+                "attached pane=" + textPane.getClass().getName()
+                        + " scrollShell=" + scrollShell.getClass().getName()
+                        + " filter=" + (contribution != null));
         return true;
     }
 
@@ -739,8 +755,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
                 return "";
             }
             appendToken(builder, text(resolver.invoke("cubism.editor-model.id.value", id)));
-            appendToken(builder, text(resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.local-name", source)));
+            appendToken(
+                    builder,
+                    text(resolver.invoke("cubism.editor-model.parameter-controllable-source.local-name", source)));
         } catch (VerifiedAccessException perNodeFailure) {
             // Per-node fail closed: an unresolvable node simply does not match the keyword.
             return "";
@@ -750,10 +767,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
 
     /** Verified Editor-model aliases of the deformer id/name search-text chain. */
     private static final List<String> DEORMER_ID_NAME_ALIASES = List.of(
-        "cubism.editor-model.parameter-controllable-source.id",
-        "cubism.editor-model.id.value",
-        "cubism.editor-model.parameter-controllable-source.local-name"
-    );
+            "cubism.editor-model.parameter-controllable-source.id",
+            "cubism.editor-model.id.value",
+            "cubism.editor-model.parameter-controllable-source.local-name");
 
     /**
      * Binding-period guard for deformer tree filtering. Returns a fail-closed diagnostic when
@@ -775,8 +791,8 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             return "tree-filter:node-source-unavailable version=" + resolver.cubismVersion();
         }
         if (!nodeSourceAccessorResolvable(resolver, profile.get())) {
-            return "tree-filter:node-source-unavailable accessor=" + profile.get().accessorName()
-                + " class=" + DeformerNodeSourceProfile.OWNER_BINARY_NAME;
+            return "tree-filter:node-source-unavailable accessor="
+                    + profile.get().accessorName() + " class=" + DeformerNodeSourceProfile.OWNER_BINARY_NAME;
         }
         // The whole id/name chain must be present in the verified plan; a missing alias would
         // make every node search text empty and silently collapse the tree.
@@ -797,19 +813,14 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
      * filtering (fail closed); no guessing fallback is attempted.
      */
     private static boolean nodeSourceAccessorResolvable(
-        final VerifiedMemberResolver resolver,
-        final DeformerNodeSourceProfile profile
-    ) {
+            final VerifiedMemberResolver resolver, final DeformerNodeSourceProfile profile) {
         try {
-            final Class<?> owner = Class.forName(
-                DeformerNodeSourceProfile.OWNER_BINARY_NAME,
-                false,
-                resolver.hostClassLoader()
-            );
+            final Class<?> owner =
+                    Class.forName(DeformerNodeSourceProfile.OWNER_BINARY_NAME, false, resolver.hostClassLoader());
             final Method accessor = owner.getDeclaredMethod(profile.accessorName());
             if (accessor.getParameterCount() != 0
-                || accessor.getReturnType() != Object.class
-                || !accessor.getDeclaringClass().equals(owner)) {
+                    || accessor.getReturnType() != Object.class
+                    || !accessor.getDeclaringClass().equals(owner)) {
                 return false;
             }
             // No-arg instance accessor: reflective access is granted once trySetAccessible
@@ -889,5 +900,4 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             SwingUtilities.invokeLater(runnable);
         }
     }
-
 }

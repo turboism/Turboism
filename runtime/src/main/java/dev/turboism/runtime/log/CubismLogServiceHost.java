@@ -8,7 +8,6 @@ import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.CubismLogBatchEvent;
 import dev.turboism.sdk.runtime.CubismLogService;
-
 import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -40,28 +39,16 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
     private static final String REDACTED_PATH = "<redacted-path>";
     private static final String REDACTED_URI = "<redacted-uri>";
     private static final String REDACTED_SECRET = "<redacted-secret>";
-    private static final Pattern URI = Pattern.compile(
-        "(?i)\\b(?:https?|file)://[^\\s\\\"']+"
-    );
-    private static final Pattern UNC_PATH = Pattern.compile(
-        "\\\\\\\\[^\\s\\\"'<>]+(?:\\\\[^\\s\\\"'<>]+)+"
-    );
-    private static final Pattern WINDOWS_PATH = Pattern.compile(
-        "(?i)(?<![A-Za-z0-9])(?:[A-Z]:[\\\\/])[^\\s\\\"'<>]+"
-    );
-    private static final Pattern HOME_PATH = Pattern.compile(
-        "(?<![A-Za-z0-9_])~(?:[/\\\\])[^\\s\\\"'<>]+"
-    );
-    private static final Pattern UNIX_PATH = Pattern.compile(
-        "(?<![A-Za-z0-9._~:/-])/(?:[^/\\s\\\"'<>]+/)*[^\\s\\\"'<>]+"
-    );
-    private static final Pattern AUTHORIZATION = Pattern.compile(
-        "(?i)\\b(?:authorization\\s*[:=]\\s*|bearer\\s+)"
-            + "[A-Za-z0-9._~+/=-]+"
-    );
-    private static final Pattern SECRET_ASSIGNMENT = Pattern.compile(
-        "(?i)\\b(?:token|secret|password)\\s*[:=]\\s*[A-Za-z0-9._~+/=-]+"
-    );
+    private static final Pattern URI = Pattern.compile("(?i)\\b(?:https?|file)://[^\\s\\\"']+");
+    private static final Pattern UNC_PATH = Pattern.compile("\\\\\\\\[^\\s\\\"'<>]+(?:\\\\[^\\s\\\"'<>]+)+");
+    private static final Pattern WINDOWS_PATH = Pattern.compile("(?i)(?<![A-Za-z0-9])(?:[A-Z]:[\\\\/])[^\\s\\\"'<>]+");
+    private static final Pattern HOME_PATH = Pattern.compile("(?<![A-Za-z0-9_])~(?:[/\\\\])[^\\s\\\"'<>]+");
+    private static final Pattern UNIX_PATH =
+            Pattern.compile("(?<![A-Za-z0-9._~:/-])/(?:[^/\\s\\\"'<>]+/)*[^\\s\\\"'<>]+");
+    private static final Pattern AUTHORIZATION =
+            Pattern.compile("(?i)\\b(?:authorization\\s*[:=]\\s*|bearer\\s+)" + "[A-Za-z0-9._~+/=-]+");
+    private static final Pattern SECRET_ASSIGNMENT =
+            Pattern.compile("(?i)\\b(?:token|secret|password)\\s*[:=]\\s*[A-Za-z0-9._~+/=-]+");
 
     private final List<Consumer<LogEntry>> listeners = new CopyOnWriteArrayList<>();
     private final AtomicReference<LogFilter> filter = new AtomicReference<>(LogFilter.all());
@@ -80,25 +67,16 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
     private volatile ClassLoader hostClassLoader;
 
     public CubismLogServiceHost() {
-        this(
-            DEFAULT_EVENT_QUEUE_CAPACITY,
-            DEFAULT_EVENT_BATCH_SIZE,
-            DEFAULT_EVENT_FLUSH_DELAY
-        );
+        this(DEFAULT_EVENT_QUEUE_CAPACITY, DEFAULT_EVENT_BATCH_SIZE, DEFAULT_EVENT_FLUSH_DELAY);
     }
 
-    CubismLogServiceHost(
-        final int eventQueueCapacity,
-        final int eventBatchSize,
-        final Duration eventFlushDelay
-    ) {
+    CubismLogServiceHost(final int eventQueueCapacity, final int eventBatchSize, final Duration eventFlushDelay) {
         if (eventQueueCapacity < 1) {
             throw new IllegalArgumentException("eventQueueCapacity must be positive");
         }
         if (eventBatchSize < 1 || eventBatchSize > eventQueueCapacity) {
             throw new IllegalArgumentException(
-                "eventBatchSize must be positive and no greater than eventQueueCapacity"
-            );
+                    "eventBatchSize must be positive and no greater than eventQueueCapacity");
         }
         this.eventQueueCapacity = eventQueueCapacity;
         this.eventBatchSize = eventBatchSize;
@@ -112,10 +90,7 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
      * Attaches the session event broker used for privacy-safe batched observations.
      * Reattachment discards queued entries owned by the previous composition.
      */
-    public void attachEventBroker(
-        final RuntimeEventBroker broker,
-        final RuntimeScheduler scheduler
-    ) {
+    public void attachEventBroker(final RuntimeEventBroker broker, final RuntimeScheduler scheduler) {
         synchronized (eventLock) {
             requireOpen();
             cancelEventFlushLocked();
@@ -134,20 +109,20 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
         }
         try {
             final Class<?> logManager = Class.forName("org.apache.logging.log4j.LogManager", true, hostClassLoader);
-            final Object context = logManager.getMethod("getContext", boolean.class)
-                .invoke(null, false);
-            final Class<?> loggerContextClass = Class.forName(
-                "org.apache.logging.log4j.core.LoggerContext", true, hostClassLoader);
-            final Object configuration = loggerContextClass.getMethod("getConfiguration").invoke(context);
+            final Object context =
+                    logManager.getMethod("getContext", boolean.class).invoke(null, false);
+            final Class<?> loggerContextClass =
+                    Class.forName("org.apache.logging.log4j.core.LoggerContext", true, hostClassLoader);
+            final Object configuration =
+                    loggerContextClass.getMethod("getConfiguration").invoke(context);
             final Class<?> configurationClass = configuration.getClass();
-            final Object rootLoggerConfig = configurationClass.getMethod("getRootLogger").invoke(configuration);
-            final Object appenders = rootLoggerConfig.getClass()
-                .getMethod("getAppenders").invoke(rootLoggerConfig);
+            final Object rootLoggerConfig =
+                    configurationClass.getMethod("getRootLogger").invoke(configuration);
+            final Object appenders =
+                    rootLoggerConfig.getClass().getMethod("getAppenders").invoke(rootLoggerConfig);
             final String topology = describeAppenders(appenders);
             RuntimeDiagnostics.debug("cubism-log", "Appender topology: " + topology);
-            final Object logPaneAppender = appenders instanceof java.util.Map<?, ?> map
-                ? map.get("CTextPane")
-                : null;
+            final Object logPaneAppender = appenders instanceof java.util.Map<?, ?> map ? map.get("CTextPane") : null;
             if (logPaneAppender == wrappedAppender) {
                 return;
             }
@@ -157,9 +132,7 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
                 wrapLogPaneAppender(context, rootLoggerConfig, logPaneAppender, hostClassLoader);
             } else {
                 RuntimeDiagnostics.warn(
-                    "cubism-log",
-                    "Native log appender was not found; pre-render filtering is unavailable"
-                );
+                        "cubism-log", "Native log appender was not found; pre-render filtering is unavailable");
             }
         } catch (ReflectiveOperationException | LinkageError failure) {
             RuntimeDiagnostics.error("cubism-log", "Cubism Log4j2 probe failed", failure);
@@ -172,59 +145,60 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
      * and publishes every event to subscribers with the real log4j level.
      */
     private void wrapLogPaneAppender(
-        final Object loggerContext,
-        final Object rootLoggerConfig,
-        final Object original,
-        final ClassLoader hostClassLoader
-    ) throws ReflectiveOperationException {
-        final Class<?> appenderInterface = Class.forName(
-            "org.apache.logging.log4j.core.Appender", true, hostClassLoader);
+            final Object loggerContext,
+            final Object rootLoggerConfig,
+            final Object original,
+            final ClassLoader hostClassLoader)
+            throws ReflectiveOperationException {
+        final Class<?> appenderInterface =
+                Class.forName("org.apache.logging.log4j.core.Appender", true, hostClassLoader);
         final Object delegate = original;
-        final Object proxy = Proxy.newProxyInstance(
-            hostClassLoader,
-            new Class<?>[] {appenderInterface},
-            (p, method, args) -> {
-                final String name = method.getName();
-                switch (name) {
-                    case "append" -> {
-                        final Object event = args[0];
-                        if (event != null) {
-                            final LogEntry entry = toEntry(event);
-                            publish(entry.level(), entry.message(), entry.timestampNanos());
-                            if (filter.get().matches(entry)) {
-                                try {
-                                    method.invoke(delegate, args);
-                                } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
-                                    RuntimeDiagnostics.error(
-                                        "cubism-log",
-                                        "Native log pane append failed safely",
-                                        failure
-                                    );
+        final Object proxy =
+                Proxy.newProxyInstance(hostClassLoader, new Class<?>[] {appenderInterface}, (p, method, args) -> {
+                    final String name = method.getName();
+                    switch (name) {
+                        case "append" -> {
+                            final Object event = args[0];
+                            if (event != null) {
+                                final LogEntry entry = toEntry(event);
+                                publish(entry.level(), entry.message(), entry.timestampNanos());
+                                if (filter.get().matches(entry)) {
+                                    try {
+                                        method.invoke(delegate, args);
+                                    } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+                                        RuntimeDiagnostics.error(
+                                                "cubism-log", "Native log pane append failed safely", failure);
+                                    }
                                 }
                             }
+                            return null;
                         }
-                        return null;
+                        case "getName" -> {
+                            return method.invoke(delegate, args);
+                        }
+                        case "getLayout",
+                                "getFilter",
+                                "getIgnoreExceptions",
+                                "isStarted",
+                                "isStopped",
+                                "getState",
+                                "getHandler",
+                                "start",
+                                "stop",
+                                "setIgnoreExceptions" -> {
+                            return method.invoke(delegate, args);
+                        }
+                        default -> {
+                            return method.invoke(delegate, args);
+                        }
                     }
-                    case "getName" -> {
-                        return method.invoke(delegate, args);
-                    }
-                    case "getLayout", "getFilter", "getIgnoreExceptions", "isStarted",
-                         "isStopped", "getState", "getHandler", "start", "stop",
-                         "setIgnoreExceptions" -> {
-                        return method.invoke(delegate, args);
-                    }
-                    default -> {
-                        return method.invoke(delegate, args);
-                    }
-                }
-            });
-        rootLoggerConfig.getClass().getMethod("removeAppender", String.class)
-            .invoke(rootLoggerConfig, "CTextPane");
+                });
+        rootLoggerConfig.getClass().getMethod("removeAppender", String.class).invoke(rootLoggerConfig, "CTextPane");
         final java.lang.reflect.Method addAppender = findAddAppender(rootLoggerConfig.getClass(), appenderInterface);
         addAppender.invoke(rootLoggerConfig, proxy, null, null);
         // Commit the configuration change; without this log4j2 keeps routing to the removed appender.
-        final Class<?> loggerContextClass = Class.forName(
-            "org.apache.logging.log4j.core.LoggerContext", true, hostClassLoader);
+        final Class<?> loggerContextClass =
+                Class.forName("org.apache.logging.log4j.core.LoggerContext", true, hostClassLoader);
         loggerContextClass.getMethod("updateLoggers").invoke(loggerContext);
         wrappedAppender = proxy;
         originalAppender = original;
@@ -234,16 +208,15 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
     /** Converts a log4j2 LogEvent into a typed log entry (real level, no text guessing). */
     private LogEntry toEntry(final Object event) {
         try {
-            final Object level = MethodHandleCache.method(event.getClass(), "getLevel")
-                .invoke(event);
+            final Object level =
+                    MethodHandleCache.method(event.getClass(), "getLevel").invoke(event);
             final String levelName = String.valueOf(
-                MethodHandleCache.method(level.getClass(), "name").invoke(level)
-            );
-            final Object messageObject = MethodHandleCache.method(event.getClass(), "getMessage")
-                .invoke(event);
+                    MethodHandleCache.method(level.getClass(), "name").invoke(level));
+            final Object messageObject =
+                    MethodHandleCache.method(event.getClass(), "getMessage").invoke(event);
             final String message = messageObject == null ? "" : String.valueOf(messageObject);
-            final long timestamp = (Long) MethodHandleCache
-                .method(event.getClass(), "getTimeMillis").invoke(event);
+            final long timestamp = (Long)
+                    MethodHandleCache.method(event.getClass(), "getTimeMillis").invoke(event);
             return new LogEntry(toSdkLevel(levelName), message, timestamp * 1_000_000L);
         } catch (ReflectiveOperationException | LinkageError failure) {
             return new LogEntry(LogLevel.INFO, String.valueOf(event), System.nanoTime());
@@ -270,8 +243,12 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
             if (builder.length() > 0) {
                 builder.append("; ");
             }
-            builder.append(entry.getKey()).append('=').append(
-                entry.getValue() == null ? "null" : entry.getValue().getClass().getName());
+            builder.append(entry.getKey())
+                    .append('=')
+                    .append(
+                            entry.getValue() == null
+                                    ? "null"
+                                    : entry.getValue().getClass().getName());
         }
         return builder.toString();
     }
@@ -320,10 +297,7 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
                 return;
             }
             eventQueue.addLast(new CubismLogBatchEvent.Entry(
-                entry.level(),
-                redactAndBound(entry.message()),
-                Math.max(0L, entry.timestampNanos())
-            ));
+                    entry.level(), redactAndBound(entry.message()), Math.max(0L, entry.timestampNanos())));
             scheduleEventFlushLocked();
         }
     }
@@ -332,10 +306,7 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
         if (eventFlushTimer != null || eventScheduler == null) {
             return;
         }
-        final RuntimeTimerSubmission submission = eventScheduler.schedule(
-            eventFlushDelay,
-            this::flushEventBatch
-        );
+        final RuntimeTimerSubmission submission = eventScheduler.schedule(eventFlushDelay, this::flushEventBatch);
         if (submission.accepted()) {
             eventFlushTimer = submission.handle();
         } else {
@@ -424,26 +395,25 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
         if (sanitized.indexOf('/') >= 0) {
             sanitized = UNIX_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
         }
-        if (containsIgnoreCase(sanitized, "authorization")
-            || containsIgnoreCase(sanitized, "bearer")) {
+        if (containsIgnoreCase(sanitized, "authorization") || containsIgnoreCase(sanitized, "bearer")) {
             sanitized = AUTHORIZATION.matcher(sanitized).replaceAll(REDACTED_SECRET);
         }
         if (containsIgnoreCase(sanitized, "token")
-            || containsIgnoreCase(sanitized, "secret")
-            || containsIgnoreCase(sanitized, "password")) {
+                || containsIgnoreCase(sanitized, "secret")
+                || containsIgnoreCase(sanitized, "password")) {
             sanitized = SECRET_ASSIGNMENT.matcher(sanitized).replaceAll(REDACTED_SECRET);
         }
         return sanitized.length() <= MAX_EVENT_MESSAGE_LENGTH
-            ? sanitized
-            : sanitized.substring(0, MAX_EVENT_MESSAGE_LENGTH);
+                ? sanitized
+                : sanitized.substring(0, MAX_EVENT_MESSAGE_LENGTH);
     }
 
     private static boolean containsWindowsDrivePrefix(final String text) {
         for (int index = 0; index + 2 < text.length(); index++) {
             final char letter = text.charAt(index);
             if (((letter >= 'a' && letter <= 'z') || (letter >= 'A' && letter <= 'Z'))
-                && text.charAt(index + 1) == ':'
-                && (text.charAt(index + 2) == '/' || text.charAt(index + 2) == '\\')) {
+                    && text.charAt(index + 1) == ':'
+                    && (text.charAt(index + 2) == '/' || text.charAt(index + 2) == '\\')) {
                 return true;
             }
         }
@@ -481,21 +451,24 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
         }
         if (wrappedAppender != null && originalAppender != null && hostClassLoader != null) {
             try {
-                final Class<?> logManager = Class.forName(
-                    "org.apache.logging.log4j.LogManager", true, hostClassLoader);
-                final Object context = logManager.getMethod("getContext", boolean.class)
-                    .invoke(null, false);
-                final Class<?> loggerContextClass = Class.forName(
-                    "org.apache.logging.log4j.core.LoggerContext", true, hostClassLoader);
-                final Object configuration = loggerContextClass.getMethod("getConfiguration").invoke(context);
-                final Object rootLoggerConfig = configuration.getClass()
-                    .getMethod("getRootLogger").invoke(configuration);
-                final Object appenders = rootLoggerConfig.getClass().getMethod("getAppenders").invoke(rootLoggerConfig);
+                final Class<?> logManager = Class.forName("org.apache.logging.log4j.LogManager", true, hostClassLoader);
+                final Object context =
+                        logManager.getMethod("getContext", boolean.class).invoke(null, false);
+                final Class<?> loggerContextClass =
+                        Class.forName("org.apache.logging.log4j.core.LoggerContext", true, hostClassLoader);
+                final Object configuration =
+                        loggerContextClass.getMethod("getConfiguration").invoke(context);
+                final Object rootLoggerConfig =
+                        configuration.getClass().getMethod("getRootLogger").invoke(configuration);
+                final Object appenders =
+                        rootLoggerConfig.getClass().getMethod("getAppenders").invoke(rootLoggerConfig);
                 if (appenders instanceof java.util.Map<?, ?> map && map.get("CTextPane") == wrappedAppender) {
-                    rootLoggerConfig.getClass().getMethod("removeAppender", String.class)
-                        .invoke(rootLoggerConfig, "CTextPane");
+                    rootLoggerConfig
+                            .getClass()
+                            .getMethod("removeAppender", String.class)
+                            .invoke(rootLoggerConfig, "CTextPane");
                     findAddAppender(rootLoggerConfig.getClass(), appenderInterface(hostClassLoader))
-                        .invoke(rootLoggerConfig, originalAppender, null, null);
+                            .invoke(rootLoggerConfig, originalAppender, null, null);
                     loggerContextClass.getMethod("updateLoggers").invoke(context);
                 }
             } catch (ReflectiveOperationException | LinkageError ignored) {
@@ -512,9 +485,7 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
     }
 
     private static java.lang.reflect.Method findAddAppender(
-        final Class<?> loggerConfigType,
-        final Class<?> appenderInterface
-    ) throws NoSuchMethodException {
+            final Class<?> loggerConfigType, final Class<?> appenderInterface) throws NoSuchMethodException {
         for (java.lang.reflect.Method method : loggerConfigType.getMethods()) {
             if (!"addAppender".equals(method.getName())) {
                 continue;
@@ -526,5 +497,4 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
         }
         throw new NoSuchMethodException("LoggerConfig.addAppender(Appender, Level, Filter)");
     }
-
 }

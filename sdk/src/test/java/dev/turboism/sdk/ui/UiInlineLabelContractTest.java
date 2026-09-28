@@ -1,17 +1,16 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.ui.resource.CubismIcon;
-import dev.turboism.sdk.ui.resource.UiIconRef;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.ui.resource.CubismIcon;
+import dev.turboism.sdk.ui.resource.UiIconRef;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class UiInlineLabelContractTest {
 
@@ -25,20 +24,16 @@ class UiInlineLabelContractTest {
 
         assertEquals(List.of(text), label.runs());
         assertEquals("<literal>", label.fallbackText());
-        assertThrows(
-            UnsupportedOperationException.class,
-            () -> label.runs().add(UiInlineLabel.textRun("mutate"))
-        );
+        assertThrows(UnsupportedOperationException.class, () -> label.runs().add(UiInlineLabel.textRun("mutate")));
     }
 
     @Test
     void concatenatesLiteralTextAndMandatoryIconFallbackForAccessibility() {
         final UiIconRef artmesh = new UiIconRef(CubismIcon.ART_MESH);
         final UiInlineLabel label = UiInlineLabel.of(
-            UiInlineLabel.textRun("<Move> \"quoted\"\n"),
-            UiInlineLabel.iconRun(artmesh, "图形网格"),
-            UiInlineLabel.textRun(" 左眼皮")
-        );
+                UiInlineLabel.textRun("<Move> \"quoted\"\n"),
+                UiInlineLabel.iconRun(artmesh, "图形网格"),
+                UiInlineLabel.textRun(" 左眼皮"));
 
         assertEquals("<Move> \"quoted\"\n图形网格 左眼皮", label.fallbackText());
         assertEquals(label.fallbackText(), label.accessibleText());
@@ -51,17 +46,11 @@ class UiInlineLabelContractTest {
     void enforcesRunAndTotalTextBounds() {
         final String maxRun = "x".repeat(UiInlineLabel.MAX_RUN_TEXT_LENGTH);
         assertDoesNotThrow(() -> new UiInlineLabel.TextRun(maxRun));
+        assertThrows(IllegalArgumentException.class, () -> new UiInlineLabel.TextRun(maxRun + "x"));
+        assertDoesNotThrow(() -> new UiInlineLabel.IconRun(new UiIconRef(CubismIcon.WARP_DEFORMER), maxRun));
         assertThrows(
-            IllegalArgumentException.class,
-            () -> new UiInlineLabel.TextRun(maxRun + "x")
-        );
-        assertDoesNotThrow(
-            () -> new UiInlineLabel.IconRun(new UiIconRef(CubismIcon.WARP_DEFORMER), maxRun)
-        );
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> new UiInlineLabel.IconRun(new UiIconRef(CubismIcon.WARP_DEFORMER), maxRun + "x")
-        );
+                IllegalArgumentException.class,
+                () -> new UiInlineLabel.IconRun(new UiIconRef(CubismIcon.WARP_DEFORMER), maxRun + "x"));
 
         final List<UiInlineLabel.Run> maxRuns = new ArrayList<>();
         for (int index = 0; index < UiInlineLabel.MAX_RUNS; index++) {
@@ -84,18 +73,9 @@ class UiInlineLabelContractTest {
     void rejectsNullEmptyAndMissingFallbackValues() {
         final UiIconRef icon = new UiIconRef(CubismIcon.ROTATION_DEFORMER);
 
-        assertThrows(
-            NullPointerException.class,
-            () -> new UiInlineLabel((List<UiInlineLabel.Run>) null)
-        );
-        assertThrows(
-            NullPointerException.class,
-            () -> new UiInlineLabel((UiInlineLabel.Run[]) null)
-        );
-        assertThrows(
-            NullPointerException.class,
-            () -> new UiInlineLabel(new UiInlineLabel.Run[]{null})
-        );
+        assertThrows(NullPointerException.class, () -> new UiInlineLabel((List<UiInlineLabel.Run>) null));
+        assertThrows(NullPointerException.class, () -> new UiInlineLabel((UiInlineLabel.Run[]) null));
+        assertThrows(NullPointerException.class, () -> new UiInlineLabel(new UiInlineLabel.Run[] {null}));
         assertThrows(NullPointerException.class, () -> new UiInlineLabel.TextRun(null));
         assertThrows(NullPointerException.class, () -> new UiInlineLabel.IconRun(null, "icon"));
         assertThrows(NullPointerException.class, () -> new UiInlineLabel.IconRun(icon, null));

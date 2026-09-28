@@ -12,14 +12,13 @@ import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
-
 import java.util.List;
 
 /** Core families whose structural projections are not installed in the current provider slice. */
 final class UnavailableCoreModelCollections {
 
     private static final String MESSAGE =
-        "This Cubism Core model family is unavailable in the installed Runtime projection.";
+            "This Cubism Core model family is unavailable in the installed Runtime projection.";
 
     static final Parts PARTS = new Parts() {
         @Override
@@ -69,8 +68,7 @@ final class UnavailableCoreModelCollections {
         }
     };
 
-    private UnavailableCoreModelCollections() {
-    }
+    private UnavailableCoreModelCollections() {}
 
     private static UnsupportedOperationException unavailable() {
         return new UnsupportedOperationException(MESSAGE);

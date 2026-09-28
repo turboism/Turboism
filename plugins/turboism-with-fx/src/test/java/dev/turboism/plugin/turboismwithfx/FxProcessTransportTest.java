@@ -1,17 +1,16 @@
 package dev.turboism.plugin.turboismwithfx;
 
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Duration;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class FxProcessTransportTest {
 
@@ -21,29 +20,20 @@ final class FxProcessTransportTest {
     @Test
     void startupModelIsAnOptionalDirectArgument() {
         assertEquals(
-            java.util.List.of("C:\\Program Files\\fx.exe", "acp"),
-            new FxLaunchConfiguration(
-                "C:\\Program Files\\fx.exe",
-                temporaryDirectory,
-                FxSecurityMode.FX_NATIVE_TOOLS
-            ).command()
-        );
+                java.util.List.of("C:\\Program Files\\fx.exe", "acp"),
+                new FxLaunchConfiguration(
+                                "C:\\Program Files\\fx.exe", temporaryDirectory, FxSecurityMode.FX_NATIVE_TOOLS)
+                        .command());
         assertEquals(
-            java.util.List.of(
-                "C:\\Program Files\\fx.exe",
-                "acp",
-                "--model",
-                "vendor/model with space"
-            ),
-            new FxLaunchConfiguration(
-                "C:\\Program Files\\fx.exe",
-                temporaryDirectory,
-                FxSecurityMode.FX_NATIVE_TOOLS,
-                null,
-                java.util.Map.of(),
-                "vendor/model with space"
-            ).command()
-        );
+                java.util.List.of("C:\\Program Files\\fx.exe", "acp", "--model", "vendor/model with space"),
+                new FxLaunchConfiguration(
+                                "C:\\Program Files\\fx.exe",
+                                temporaryDirectory,
+                                FxSecurityMode.FX_NATIVE_TOOLS,
+                                null,
+                                java.util.Map.of(),
+                                "vendor/model with space")
+                        .command());
     }
 
     @Test
@@ -58,19 +48,13 @@ final class FxProcessTransportTest {
         final Path executable = temporaryDirectory.resolve("fx-managed");
         Files.writeString(executable, "original");
         executable.toFile().setExecutable(true, true);
-        final String digest = java.util.HexFormat.of().formatHex(
-            java.security.MessageDigest.getInstance("SHA-256")
-                .digest(Files.readAllBytes(executable))
-        );
+        final String digest = java.util.HexFormat.of()
+                .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(executable)));
         final FxLaunchConfiguration configuration = new FxLaunchConfiguration(
-            executable.toString(),
-            temporaryDirectory,
-            FxSecurityMode.FX_NATIVE_TOOLS,
-            new FxLaunchConfiguration.ManagedRuntimeIdentity(
-                Files.size(executable),
-                digest
-            )
-        );
+                executable.toString(),
+                temporaryDirectory,
+                FxSecurityMode.FX_NATIVE_TOOLS,
+                new FxLaunchConfiguration.ManagedRuntimeIdentity(Files.size(executable), digest));
         Files.writeString(executable, "changed!");
 
         assertThrows(java.io.IOException.class, () -> FxProcessTransport.start(configuration));
@@ -102,11 +86,8 @@ final class FxProcessTransportTest {
             """.formatted(childScript, grandchildPid, childPid));
         executable.toFile().setExecutable(true, true);
 
-        final FxProcessTransport transport = FxProcessTransport.start(new FxLaunchConfiguration(
-            executable.toString(),
-            temporaryDirectory,
-            FxSecurityMode.FX_NATIVE_TOOLS
-        ));
+        final FxProcessTransport transport = FxProcessTransport.start(
+                new FxLaunchConfiguration(executable.toString(), temporaryDirectory, FxSecurityMode.FX_NATIVE_TOOLS));
         long child = -1L;
         long grandchild = -1L;
         try {
@@ -131,11 +112,12 @@ final class FxProcessTransportTest {
             if (Files.exists(grandchildPid)) {
                 grandchild = Long.parseLong(Files.readString(grandchildPid));
             }
-            assertTrue(awaitGone(childHandle, Duration.ofSeconds(5)),
-                "retained child survived after direct process exit");
+            assertTrue(
+                    awaitGone(childHandle, Duration.ofSeconds(5)), "retained child survived after direct process exit");
             if (grandchild > 0L) {
-                assertTrue(awaitGone(grandchild, Duration.ofSeconds(3)),
-                    "observed late-spawned grandchild survived best-effort cleanup");
+                assertTrue(
+                        awaitGone(grandchild, Duration.ofSeconds(3)),
+                        "observed late-spawned grandchild survived best-effort cleanup");
             }
         } finally {
             killFixtureProcess(child);
@@ -165,11 +147,8 @@ final class FxProcessTransportTest {
             """.formatted(script, childPid));
         executable.toFile().setExecutable(true, true);
 
-        final FxProcessTransport transport = FxProcessTransport.start(new FxLaunchConfiguration(
-            executable.toString(),
-            temporaryDirectory,
-            FxSecurityMode.FX_NATIVE_TOOLS
-        ));
+        final FxProcessTransport transport = FxProcessTransport.start(
+                new FxLaunchConfiguration(executable.toString(), temporaryDirectory, FxSecurityMode.FX_NATIVE_TOOLS));
         long pid = -1L;
         try {
             for (int attempt = 0; attempt < 200 && !Files.exists(childPid); attempt++) {
@@ -182,24 +161,21 @@ final class FxProcessTransportTest {
             transport.terminate(Duration.ofMillis(100));
         }
         final long retainedPid = pid;
-        assertTrue(awaitGone(retainedPid, Duration.ofSeconds(3)),
-            "retained fixture child survived best-effort cleanup");
+        assertTrue(
+                awaitGone(retainedPid, Duration.ofSeconds(3)), "retained fixture child survived best-effort cleanup");
     }
 
     private static void killFixtureProcess(final long pid) {
         if (pid <= 0L) return;
-        ProcessHandle.of(pid).filter(ProcessHandle::isAlive)
-            .ifPresent(ProcessHandle::destroyForcibly);
+        ProcessHandle.of(pid).filter(ProcessHandle::isAlive).ifPresent(ProcessHandle::destroyForcibly);
     }
 
-    private static boolean awaitGone(final long pid, final Duration timeout)
-        throws InterruptedException {
+    private static boolean awaitGone(final long pid, final Duration timeout) throws InterruptedException {
         final ProcessHandle handle = ProcessHandle.of(pid).orElse(null);
         return handle == null || awaitGone(handle, timeout);
     }
 
-    private static boolean awaitGone(final ProcessHandle handle, final Duration timeout)
-        throws InterruptedException {
+    private static boolean awaitGone(final ProcessHandle handle, final Duration timeout) throws InterruptedException {
         final long deadline = System.nanoTime() + timeout.toNanos();
         while (System.nanoTime() < deadline) {
             if (!handle.isAlive() || zombie(handle)) return true;
@@ -213,7 +189,7 @@ final class FxProcessTransportTest {
         if (!Files.isRegularFile(status)) return false;
         try {
             return Files.readAllLines(status).stream()
-                .anyMatch(line -> line.startsWith("State:") && line.contains("Z"));
+                    .anyMatch(line -> line.startsWith("State:") && line.contains("Z"));
         } catch (java.io.IOException ignored) {
             return false;
         }

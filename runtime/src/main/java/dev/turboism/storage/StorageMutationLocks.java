@@ -26,17 +26,13 @@ final class StorageMutationLocks {
         }
     }
 
-    private StorageMutationLocks() {
-    }
+    private StorageMutationLocks() {}
 
-    static LockScope acquire(final List<Path> canonicalRoots)
-        throws IOException, InterruptedException {
+    static LockScope acquire(final List<Path> canonicalRoots) throws IOException, InterruptedException {
         Objects.requireNonNull(canonicalRoots, "canonicalRoots");
         final Set<Integer> indexes = new HashSet<>();
         for (Path root : canonicalRoots) {
-            final Path canonical = canonicalLockPath(
-                Objects.requireNonNull(root, "canonical root")
-            );
+            final Path canonical = canonicalLockPath(Objects.requireNonNull(root, "canonical root"));
             indexes.add(Math.floorMod(canonical.toString().hashCode(), STRIPE_COUNT));
         }
         final List<Integer> ordered = new ArrayList<>(indexes);

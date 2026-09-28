@@ -1,12 +1,12 @@
 package dev.turboism.core.runtime.work;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 class FatalErrorsTest {
 
@@ -15,24 +15,16 @@ class FatalErrorsTest {
         final OutOfMemoryError outOfMemory = new OutOfMemoryError("probe");
         final StackOverflowError stackOverflow = new StackOverflowError("probe");
 
-        assertSame(outOfMemory, assertThrows(
-            OutOfMemoryError.class,
-            () -> FatalErrors.rethrowIfFatal(outOfMemory)
-        ));
-        assertSame(stackOverflow, assertThrows(
-            StackOverflowError.class,
-            () -> FatalErrors.rethrowIfFatal(stackOverflow)
-        ));
+        assertSame(outOfMemory, assertThrows(OutOfMemoryError.class, () -> FatalErrors.rethrowIfFatal(outOfMemory)));
+        assertSame(
+                stackOverflow, assertThrows(StackOverflowError.class, () -> FatalErrors.rethrowIfFatal(stackOverflow)));
     }
 
     @Test
     void rethrowsThreadDeath() {
         final ThreadDeath death = new ThreadDeath();
 
-        assertSame(death, assertThrows(
-            ThreadDeath.class,
-            () -> FatalErrors.rethrowIfFatal(death)
-        ));
+        assertSame(death, assertThrows(ThreadDeath.class, () -> FatalErrors.rethrowIfFatal(death)));
     }
 
     @Test
@@ -45,7 +37,7 @@ class FatalErrorsTest {
 
     @Test
     void isFatalMatchesRethrowBehavior() {
-        assertTrue(FatalErrors.isFatal(new VirtualMachineError("probe") { }));
+        assertTrue(FatalErrors.isFatal(new VirtualMachineError("probe") {}));
         assertTrue(FatalErrors.isFatal(new OutOfMemoryError("probe")));
         assertTrue(FatalErrors.isFatal(new ThreadDeath()));
         assertFalse(FatalErrors.isFatal(new RuntimeException("probe")));

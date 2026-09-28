@@ -24,21 +24,19 @@ public final class ThemePaletteGenerator {
     private static final String GENERATOR_VERSION = "1.0.0";
     private static final Pattern COLOR = Pattern.compile("#[0-9A-Fa-f]{6}");
     private static final List<String> SLOT_ORDER = List.of(
-        "accent",
-        "background",
-        "surface",
-        "inputBackground",
-        "foreground",
-        "mutedForeground",
-        "selectionBackground",
-        "selectionForeground",
-        "border",
-        "glViewportBackground"
-    );
+            "accent",
+            "background",
+            "surface",
+            "inputBackground",
+            "foreground",
+            "mutedForeground",
+            "selectionBackground",
+            "selectionForeground",
+            "border",
+            "glViewportBackground");
     private static final Map<String, List<String>> SLOT_TO_KEYS = slotMap();
 
-    private ThemePaletteGenerator() {
-    }
+    private ThemePaletteGenerator() {}
 
     /**
      * Expands a complete set of slot values into legacy color keys, preserving unmanaged colors.
@@ -61,10 +59,9 @@ public final class ThemePaletteGenerator {
      * @throws NullPointerException if any argument is null, or any supplied slot value is null
      */
     public static Result generate(
-        final Map<String, String> slots,
-        final Map<String, String> existingColors,
-        final Set<String> previousManagedKeys
-    ) {
+            final Map<String, String> slots,
+            final Map<String, String> existingColors,
+            final Set<String> previousManagedKeys) {
         Objects.requireNonNull(slots, "slots");
         Objects.requireNonNull(existingColors, "existingColors");
         Objects.requireNonNull(previousManagedKeys, "previousManagedKeys");
@@ -142,10 +139,9 @@ public final class ThemePaletteGenerator {
     }
 
     private static Result result(
-        final LinkedHashMap<String, String> slots,
-        final LinkedHashMap<String, String> colors,
-        final LinkedHashSet<String> managedKeys
-    ) {
+            final LinkedHashMap<String, String> slots,
+            final LinkedHashMap<String, String> colors,
+            final LinkedHashSet<String> managedKeys) {
         final LinkedHashMap<String, String> metadata = new LinkedHashMap<>();
         metadata.put("generator.id", GENERATOR_ID);
         metadata.put("generator.version", GENERATOR_VERSION);
@@ -159,9 +155,7 @@ public final class ThemePaletteGenerator {
     }
 
     private static LinkedHashMap<String, String> normalizeSlots(
-        final Map<String, String> values,
-        final boolean requireAll
-    ) {
+            final Map<String, String> values, final boolean requireAll) {
         Objects.requireNonNull(values, "values");
         for (String key : values.keySet()) {
             if (!SLOT_ORDER.contains(key)) {
@@ -187,29 +181,36 @@ public final class ThemePaletteGenerator {
 
     private static Map<String, List<String>> slotMap() {
         final LinkedHashMap<String, List<String>> values = new LinkedHashMap<>();
-        values.put("accent", List.of(
-            "accent", "CubismCommon.blue", "CubismCommon.selectedColor", "CubismCommon.activeColor",
-            "CubismCommon.progressColor", "CubismCommon.linkColor", "Component.accentColor",
-            "ToggleButton.selectedBackground"
-        ));
+        values.put(
+                "accent",
+                List.of(
+                        "accent",
+                        "CubismCommon.blue",
+                        "CubismCommon.selectedColor",
+                        "CubismCommon.activeColor",
+                        "CubismCommon.progressColor",
+                        "CubismCommon.linkColor",
+                        "Component.accentColor",
+                        "ToggleButton.selectedBackground"));
         values.put("background", List.of("CubismCommon.background", "Panel.background"));
-        values.put("surface", List.of(
-            "CubismCommon.surface", "Button.background", "ComboBox.background", "Table.background"
-        ));
-        values.put("inputBackground", List.of(
-            "CubismCommon.inputBackground", "TextField.background", "TextArea.background"
-        ));
-        values.put("foreground", List.of(
-            "CubismCommon.foreground", "Button.foreground", "Label.foreground", "ComboBox.foreground",
-            "TextField.foreground", "TextArea.foreground"
-        ));
+        values.put(
+                "surface",
+                List.of("CubismCommon.surface", "Button.background", "ComboBox.background", "Table.background"));
+        values.put(
+                "inputBackground",
+                List.of("CubismCommon.inputBackground", "TextField.background", "TextArea.background"));
+        values.put(
+                "foreground",
+                List.of(
+                        "CubismCommon.foreground",
+                        "Button.foreground",
+                        "Label.foreground",
+                        "ComboBox.foreground",
+                        "TextField.foreground",
+                        "TextArea.foreground"));
         values.put("mutedForeground", List.of("CubismCommon.mutedForeground"));
-        values.put("selectionBackground", List.of(
-            "CubismCommon.selectionBackground", "Table.selectionBackground"
-        ));
-        values.put("selectionForeground", List.of(
-            "CubismCommon.selectionForeground", "Table.selectionForeground"
-        ));
+        values.put("selectionBackground", List.of("CubismCommon.selectionBackground", "Table.selectionBackground"));
+        values.put("selectionForeground", List.of("CubismCommon.selectionForeground", "Table.selectionForeground"));
         values.put("border", List.of("CubismCommon.border", "Separator.foreground"));
         values.put("glViewportBackground", List.of("CubismCommon.gl.viewArea.background"));
         return Collections.unmodifiableMap(values);
@@ -231,11 +232,10 @@ public final class ThemePaletteGenerator {
      *                 comma-separated list, for embedding in the package
      */
     public record Result(
-        Map<String, String> slotValues,
-        Map<String, String> colors,
-        Set<String> managedKeys,
-        Map<String, String> metadata
-    ) {
+            Map<String, String> slotValues,
+            Map<String, String> colors,
+            Set<String> managedKeys,
+            Map<String, String> metadata) {
         public Result {
             slotValues = immutableMap(slotValues);
             colors = immutableMap(colors);

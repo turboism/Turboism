@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class NativePhysicsEditorBridge {
     private static final AtomicReference<Binding> INSTALLED = new AtomicReference<>();
 
-    private NativePhysicsEditorBridge() { }
+    private NativePhysicsEditorBridge() {}
 
     /**
      * Publishes the coordinator and host profile that transformed Physics Settings constructors will
@@ -17,10 +17,7 @@ public final class NativePhysicsEditorBridge {
      * @param profile the reviewed selector set matching the running host build
      * @throws IllegalStateException if a binding is already installed
      */
-    public static void install(
-        final PhysicsEditorCoordinator coordinator,
-        final PhysicsEditorHostProfile profile
-    ) {
+    public static void install(final PhysicsEditorCoordinator coordinator, final PhysicsEditorHostProfile profile) {
         final Binding binding = new Binding(coordinator, profile);
         if (!INSTALLED.compareAndSet(null, binding)) {
             throw new IllegalStateException("physics editor bridge is already installed");
@@ -57,12 +54,9 @@ public final class NativePhysicsEditorBridge {
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "physics-editor",
-                "Physics editor contribution failed safely",
-                failure
-            );
+                    "physics-editor", "Physics editor contribution failed safely", failure);
         }
     }
 
-    private record Binding(PhysicsEditorCoordinator coordinator, PhysicsEditorHostProfile profile) { }
+    private record Binding(PhysicsEditorCoordinator coordinator, PhysicsEditorHostProfile profile) {}
 }

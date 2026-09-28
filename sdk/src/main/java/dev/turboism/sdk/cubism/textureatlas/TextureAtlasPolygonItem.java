@@ -14,15 +14,14 @@ import java.util.Objects;
  * inside the page (versus the overflow list).</p>
  */
 public record TextureAtlasPolygonItem(
-    String textureId,
-    int width,
-    int height,
-    TextureAtlasOutline outline,
-    TextureAtlasItemLayoutPolicy policy,
-    TextureAtlasOutlineSource outlineSource,
-    double[] currentMatrix,
-    boolean currentlyPlaced
-) {
+        String textureId,
+        int width,
+        int height,
+        TextureAtlasOutline outline,
+        TextureAtlasItemLayoutPolicy policy,
+        TextureAtlasOutlineSource outlineSource,
+        double[] currentMatrix,
+        boolean currentlyPlaced) {
 
     public TextureAtlasPolygonItem {
         Objects.requireNonNull(textureId, "textureId");
@@ -62,8 +61,7 @@ public record TextureAtlasPolygonItem(
         if (currentMatrix == null) {
             return 1.0;
         }
-        return Math.sqrt(Math.abs(
-            currentMatrix[0] * currentMatrix[3] - currentMatrix[1] * currentMatrix[2]));
+        return Math.sqrt(Math.abs(currentMatrix[0] * currentMatrix[3] - currentMatrix[1] * currentMatrix[2]));
     }
 
     /** Rotation in degrees implied by the current matrix, or {@code 0} when unplaced. */

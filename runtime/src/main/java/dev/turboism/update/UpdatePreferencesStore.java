@@ -3,7 +3,6 @@ package dev.turboism.update;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.internal.core.CoreUpdateService;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -20,7 +19,7 @@ public final class UpdatePreferencesStore {
     private final Consumer<String> diagnostic;
 
     public UpdatePreferencesStore(final Path home) {
-        this(home, ignored -> { });
+        this(home, ignored -> {});
     }
 
     public UpdatePreferencesStore(final Path home, final Consumer<String> diagnostic) {
@@ -31,12 +30,12 @@ public final class UpdatePreferencesStore {
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
     }
 
-/** Returns the isolated preference file path. */
+    /** Returns the isolated preference file path. */
     public Path path() {
         return path;
     }
 
-/** Reads the preference, defaulting safely to enabled when invalid or absent. */
+    /** Reads the preference, defaulting safely to enabled when invalid or absent. */
     public CoreUpdateService.Preferences read() {
         synchronized (lock) {
             try {
@@ -44,8 +43,12 @@ public final class UpdatePreferencesStore {
                 if (root == null) return new CoreUpdateService.Preferences(true);
                 final JsonNode schema = root.get("schemaVersion");
                 final JsonNode enabled = root.get("automaticChecksEnabled");
-                if (schema == null || !schema.isIntegralNumber() || !schema.canConvertToInt()
-                    || schema.intValue() != SCHEMA_VERSION || enabled == null || !enabled.isBoolean()) {
+                if (schema == null
+                        || !schema.isIntegralNumber()
+                        || !schema.canConvertToInt()
+                        || schema.intValue() != SCHEMA_VERSION
+                        || enabled == null
+                        || !enabled.isBoolean()) {
                     throw new IOException("preference schema invalid");
                 }
                 return new CoreUpdateService.Preferences(enabled.booleanValue());
@@ -56,7 +59,7 @@ public final class UpdatePreferencesStore {
         }
     }
 
-/** Atomically saves the independent automatic-check preference. */
+    /** Atomically saves the independent automatic-check preference. */
     public CoreUpdateService.PreferenceSaveResult save(final CoreUpdateService.Preferences preferences) {
         Objects.requireNonNull(preferences, "preferences");
         synchronized (lock) {
@@ -69,8 +72,7 @@ public final class UpdatePreferencesStore {
             } catch (RuntimeException | IOException failure) {
                 UpdateFileSupport.report(diagnostic, "UPDATE_PREFERENCES_WRITE_FAILED");
                 return CoreUpdateService.PreferenceSaveResult.failed(
-                    "Automatic update preference could not be saved; check the Turboism home permissions."
-                );
+                        "Automatic update preference could not be saved; check the Turboism home permissions.");
             }
         }
     }

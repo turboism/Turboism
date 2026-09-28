@@ -75,18 +75,13 @@ public final class InputPathElisionBridge implements AutoCloseable {
      *
      * @throws ReflectiveOperationException when any reviewed member is absent
      */
-    public InputPathElisionBridge(final ClassLoader loader)
-            throws ReflectiveOperationException {
-        final Class<?> widget = Class.forName(
-            InputPathElisionTarget.OWNER.replace('/', '.'), false, loader);
-        componentHandle = MethodHandles.publicLookup().findVirtual(widget,
-            InputPathElisionTarget.COMPONENT_METHOD,
-            MethodType.methodType(JComponent.class));
-        final Class<?> cursorType = Class.forName(
-            InputPathElisionTarget.CURSOR_OWNER.replace('/', '.'), false, loader);
-        cursorHandle = MethodHandles.publicLookup().findVirtual(cursorType,
-            InputPathElisionTarget.CURSOR_ACCESSOR,
-            MethodType.methodType(Cursor.class));
+    public InputPathElisionBridge(final ClassLoader loader) throws ReflectiveOperationException {
+        final Class<?> widget = Class.forName(InputPathElisionTarget.OWNER.replace('/', '.'), false, loader);
+        componentHandle = MethodHandles.publicLookup()
+                .findVirtual(widget, InputPathElisionTarget.COMPONENT_METHOD, MethodType.methodType(JComponent.class));
+        final Class<?> cursorType = Class.forName(InputPathElisionTarget.CURSOR_OWNER.replace('/', '.'), false, loader);
+        cursorHandle = MethodHandles.publicLookup()
+                .findVirtual(cursorType, InputPathElisionTarget.CURSOR_ACCESSOR, MethodType.methodType(Cursor.class));
     }
 
     /**
@@ -98,8 +93,8 @@ public final class InputPathElisionBridge implements AutoCloseable {
     public static boolean enabledByPreference() {
         final String explicit = System.getProperty(ENABLE_PROPERTY);
         return explicit == null
-            ? dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()
-            : Boolean.parseBoolean(explicit);
+                ? dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()
+                : Boolean.parseBoolean(explicit);
     }
 
     /** Occupies the consult/gate/stats slots; refuses to replace another installation. */
@@ -115,8 +110,10 @@ public final class InputPathElisionBridge implements AutoCloseable {
         if (active.get()) throw new IllegalStateException("input path elision already installed");
         final Properties properties = System.getProperties();
         synchronized (properties) {
-            if (properties.containsKey(FOCUS_PROPERTY) || properties.containsKey(CURSOR_PROPERTY)
-                || properties.containsKey(GATE_PROPERTY) || properties.containsKey(STATS_PROPERTY)) {
+            if (properties.containsKey(FOCUS_PROPERTY)
+                    || properties.containsKey(CURSOR_PROPERTY)
+                    || properties.containsKey(GATE_PROPERTY)
+                    || properties.containsKey(STATS_PROPERTY)) {
                 throw new IllegalStateException("input path elision slots occupied");
             }
             try {
@@ -154,7 +151,8 @@ public final class InputPathElisionBridge implements AutoCloseable {
         }
         try {
             final boolean elide = focusAlreadyHeld((Component) componentHandle.invoke(widget));
-            if (elide) focusElided++; else focusPassed++;
+            if (elide) focusElided++;
+            else focusPassed++;
             return elide;
         } catch (Throwable observerFailure) {
             FatalErrors.rethrowIfFatal(observerFailure);
@@ -175,12 +173,10 @@ public final class InputPathElisionBridge implements AutoCloseable {
             return false;
         }
         try {
-            final Cursor target = packCursor == null
-                ? null
-                : (Cursor) cursorHandle.invoke(packCursor);
-            final boolean elide =
-                cursorUnchanged((Component) componentHandle.invoke(widget), target);
-            if (elide) cursorElided++; else cursorPassed++;
+            final Cursor target = packCursor == null ? null : (Cursor) cursorHandle.invoke(packCursor);
+            final boolean elide = cursorUnchanged((Component) componentHandle.invoke(widget), target);
+            if (elide) cursorElided++;
+            else cursorPassed++;
             return elide;
         } catch (Throwable observerFailure) {
             FatalErrors.rethrowIfFatal(observerFailure);
@@ -197,36 +193,33 @@ public final class InputPathElisionBridge implements AutoCloseable {
      */
     static boolean focusAlreadyHeld(final Component component) {
         if (component == null) return false;
-        final KeyboardFocusManager manager =
-            KeyboardFocusManager.getCurrentKeyboardFocusManager();
-        final Window window = component instanceof Window owned
-            ? owned : SwingUtilities.getWindowAncestor(component);
+        final KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+        final Window window = component instanceof Window owned ? owned : SwingUtilities.getWindowAncestor(component);
         return window != null
-            && manager.getFocusOwner() == component
-            && manager.getFocusedWindow() == window
-            && window.isActive();
+                && manager.getFocusOwner() == component
+                && manager.getFocusedWindow() == window
+                && window.isActive();
     }
 
     /** Pure Java redundancy rule for the cursor forwarder; never touches native state. */
     static boolean cursorUnchanged(final Component component, final Cursor target) {
-        return component != null
-            && component.isShowing()
-            && component.isCursorSet()
-            && component.getCursor() == target;
+        return component != null && component.isShowing() && component.isCursorSet() && component.getCursor() == target;
     }
 
     /** Clears owned slots; outstanding consults fall back to the native path. */
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         active.set(false);
         armed = false;
         final Properties properties = installedProperties;
         installedProperties = null;
-        if (properties != null) synchronized (properties) {
-            properties.remove(FOCUS_PROPERTY, focus);
-            properties.remove(CURSOR_PROPERTY, cursor);
-            properties.remove(GATE_PROPERTY, gate);
-            properties.remove(STATS_PROPERTY, statistics);
-        }
+        if (properties != null)
+            synchronized (properties) {
+                properties.remove(FOCUS_PROPERTY, focus);
+                properties.remove(CURSOR_PROPERTY, cursor);
+                properties.remove(GATE_PROPERTY, gate);
+                properties.remove(STATS_PROPERTY, statistics);
+            }
     }
 
     /** Work counts only; no interaction benefit is inferred from them. */

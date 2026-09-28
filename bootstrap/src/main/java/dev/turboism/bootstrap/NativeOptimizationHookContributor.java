@@ -29,32 +29,38 @@ abstract class NativeOptimizationHookContributor implements HookContributor {
         this.protocolId = protocolId;
     }
 
-    @Override public final String id() {
+    @Override
+    public final String id() {
         return protocolId;
     }
 
-    @Override public final Phase phase() {
+    @Override
+    public final Phase phase() {
         return Phase.HOST_RESOLVED;
     }
 
-    @Override public final boolean admitted(final HookEnvironment environment) {
+    @Override
+    public final boolean admitted(final HookEnvironment environment) {
         return environment.runtimeSliceAdmitted(HOOK_SLICE);
     }
 
-    @Override public final AutoCloseable install(final HookEnvironment environment) {
+    @Override
+    public final AutoCloseable install(final HookEnvironment environment) {
         try {
             final AutoCloseable handle = installAdmitted(environment);
             complete = true;
             log(environment, protocolId + " installation=COMPLETE");
             return handle;
         } catch (final Throwable failure) {
-            log(environment, protocolId + " installation=FAILED " + failure.getClass().getName()
-                + ": " + failure.getMessage());
-            return () -> { };
+            log(
+                    environment,
+                    protocolId + " installation=FAILED " + failure.getClass().getName() + ": " + failure.getMessage());
+            return () -> {};
         }
     }
 
-    @Override public final void bind(final HookEnvironment environment) {
+    @Override
+    public final void bind(final HookEnvironment environment) {
         if (complete) {
             log(environment, protocolId + " installation=COMPLETE phase=runtime-ready");
         }
@@ -89,6 +95,6 @@ abstract class NativeOptimizationHookContributor implements HookContributor {
     }
 
     static AutoCloseable noOp() {
-        return () -> { };
+        return () -> {};
     }
 }

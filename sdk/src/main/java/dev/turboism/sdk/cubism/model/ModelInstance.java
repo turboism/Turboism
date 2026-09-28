@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 /**
  * Read-only projection of one Editor model instance
  * ({@code com.live2d.cubism.doc.model.CModel}).

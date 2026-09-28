@@ -9,7 +9,6 @@ import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.PluginContext;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -42,20 +41,18 @@ public final class RuntimeTransactionManager implements TransactionManager {
     private final AtomicLong nextTransactionId = new AtomicLong(1L);
 
     public RuntimeTransactionManager(
-        final HostWriteAdapter adapter,
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler
-    ) {
+            final HostWriteAdapter adapter,
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler) {
         this(adapter, permissionChecker, new TransactionRegistry(), new TransactionValidator(), scheduler);
     }
 
     RuntimeTransactionManager(
-        final HostWriteAdapter adapter,
-        final PermissionChecker permissionChecker,
-        final TransactionRegistry registry,
-        final TransactionValidator validator,
-        final RuntimeScheduler scheduler
-    ) {
+            final HostWriteAdapter adapter,
+            final PermissionChecker permissionChecker,
+            final TransactionRegistry registry,
+            final TransactionValidator validator,
+            final RuntimeScheduler scheduler) {
         this.adapter = Objects.requireNonNull(adapter, "adapter");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.registry = Objects.requireNonNull(registry, "registry");
@@ -65,20 +62,19 @@ public final class RuntimeTransactionManager implements TransactionManager {
 
     @Override
     public RuntimeModelTransaction openTransaction(final PluginContext ctx, final DocumentId docId)
-        throws TransactionException, CubismPermissionException {
+            throws TransactionException, CubismPermissionException {
         Objects.requireNonNull(ctx, "ctx");
         requireDocumentId(docId, "docId");
         requireWritePermission("transaction.open");
         final RuntimeModelTransaction transaction = new RuntimeModelTransaction(
-            "tx-" + nextTransactionId.getAndIncrement(),
-            ctx.descriptor().id(),
-            docId,
-            adapter,
-            adapter.capture(docId),
-            registry,
-            validator,
-            this
-        );
+                "tx-" + nextTransactionId.getAndIncrement(),
+                ctx.descriptor().id(),
+                docId,
+                adapter,
+                adapter.capture(docId),
+                registry,
+                validator,
+                this);
         registry.register(transaction);
         return transaction;
     }
@@ -113,17 +109,15 @@ public final class RuntimeTransactionManager implements TransactionManager {
     }
 
     void dispatchTransactionWork(
-        final RuntimeModelTransaction transaction,
-        final String taskType,
-        final ThrowingRunnable work
-    ) throws TransactionException {
+            final RuntimeModelTransaction transaction, final String taskType, final ThrowingRunnable work)
+            throws TransactionException {
         final CompletableFuture<TransactionException> completion = new CompletableFuture<>();
         final PluginTask task = new PluginTask(
-            taskType,
-            transaction.pluginId(),
-            "transaction:" + transaction.transactionId() + ":" + transaction.documentId().value(),
-            DEFAULT_CAPABILITY
-        );
+                taskType,
+                transaction.pluginId(),
+                "transaction:" + transaction.transactionId() + ":"
+                        + transaction.documentId().value(),
+                DEFAULT_CAPABILITY);
         final boolean accepted = scheduler.dispatch(task, () -> {
             try {
                 work.run();
@@ -132,21 +126,12 @@ public final class RuntimeTransactionManager implements TransactionManager {
                 completion.complete(exception);
             } catch (RuntimeException exception) {
                 completion.complete(new TransactionException(
-                    transaction.transactionId(),
-                    1203,
-                    "ERROR",
-                    "Transaction scheduler task failed",
-                    exception
-                ));
+                        transaction.transactionId(), 1203, "ERROR", "Transaction scheduler task failed", exception));
             }
         });
         if (!accepted) {
             throw new TransactionException(
-                transaction.transactionId(),
-                1206,
-                "ERROR",
-                "Transaction scheduler rejected " + taskType
-            );
+                    transaction.transactionId(), 1206, "ERROR", "Transaction scheduler rejected " + taskType);
         }
         awaitTransactionWork(transaction, taskType, completion);
     }
@@ -160,10 +145,10 @@ public final class RuntimeTransactionManager implements TransactionManager {
     }
 
     private static void awaitTransactionWork(
-        final RuntimeModelTransaction transaction,
-        final String taskType,
-        final CompletableFuture<TransactionException> completion
-    ) throws TransactionException {
+            final RuntimeModelTransaction transaction,
+            final String taskType,
+            final CompletableFuture<TransactionException> completion)
+            throws TransactionException {
         try {
             TransactionException failure = completion.get(TRANSACTION_WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
             if (failure != null) {
@@ -172,28 +157,13 @@ public final class RuntimeTransactionManager implements TransactionManager {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new TransactionException(
-                transaction.transactionId(),
-                1204,
-                "ERROR",
-                "Interrupted while waiting for " + taskType,
-                exception
-            );
+                    transaction.transactionId(), 1204, "ERROR", "Interrupted while waiting for " + taskType, exception);
         } catch (ExecutionException exception) {
             throw new TransactionException(
-                transaction.transactionId(),
-                1205,
-                "ERROR",
-                "Failed while waiting for " + taskType,
-                exception
-            );
+                    transaction.transactionId(), 1205, "ERROR", "Failed while waiting for " + taskType, exception);
         } catch (TimeoutException exception) {
             throw new TransactionException(
-                transaction.transactionId(),
-                1206,
-                "ERROR",
-                "Timed out waiting for " + taskType,
-                exception
-            );
+                    transaction.transactionId(), 1206, "ERROR", "Timed out waiting for " + taskType, exception);
         }
     }
 

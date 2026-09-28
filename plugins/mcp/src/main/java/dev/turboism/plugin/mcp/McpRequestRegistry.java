@@ -1,10 +1,9 @@
 package dev.turboism.plugin.mcp;
 
+import dev.turboism.sdk.plugin.Registration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import dev.turboism.sdk.plugin.Registration;
-
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,7 +47,7 @@ final class McpRequestRegistry {
 
     static Registration onCancellation(final Runnable action) {
         final Token token = CURRENT.get();
-        if (token == null) return () -> { };
+        if (token == null) return () -> {};
         return token.onCancellation(action);
     }
 
@@ -63,7 +62,8 @@ final class McpRequestRegistry {
 
     @FunctionalInterface
     interface Scope extends AutoCloseable {
-        @Override void close();
+        @Override
+        void close();
     }
 
     private record Key(String sessionId, Object requestId) {
@@ -88,7 +88,7 @@ final class McpRequestRegistry {
             final Runnable checked = Objects.requireNonNull(action, "action");
             if (cancelled()) {
                 checked.run();
-                return () -> { };
+                return () -> {};
             }
             listeners.add(checked);
             if (cancelled() && listeners.remove(checked)) checked.run();

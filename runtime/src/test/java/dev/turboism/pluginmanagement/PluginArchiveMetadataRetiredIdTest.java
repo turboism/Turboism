@@ -1,7 +1,8 @@
 package dev.turboism.pluginmanagement;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -10,10 +11,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Retired fake plugin ids must never surface through the plugin-management
@@ -37,18 +36,21 @@ class PluginArchiveMetadataRetiredIdTest {
         Files.write(plugins.resolve("renamed-retired.jar"), archive(RETIRED_ID));
         Files.write(plugins.resolve("clipmask-viewer.jar"), archive(SUCCESSOR_ID));
 
-        assertTrue(PluginArchiveMetadata.read(plugins.resolve("renamed-retired.jar")).isEmpty(),
-            "retired id must not yield archive metadata");
-        assertTrue(PluginArchiveMetadata.read(plugins.resolve("clipmask-viewer.jar")).isPresent(),
-            "retained successor id must still yield archive metadata");
+        assertTrue(
+                PluginArchiveMetadata.read(plugins.resolve("renamed-retired.jar"))
+                        .isEmpty(),
+                "retired id must not yield archive metadata");
+        assertTrue(
+                PluginArchiveMetadata.read(plugins.resolve("clipmask-viewer.jar"))
+                        .isPresent(),
+                "retained successor id must still yield archive metadata");
 
-        final RuntimePluginManagementService service = RuntimePluginManagementService.withMetadataLocale(
-            home, List::of, () -> Locale.ENGLISH, ignored -> { }
-        );
+        final RuntimePluginManagementService service =
+                RuntimePluginManagementService.withMetadataLocale(home, List::of, () -> Locale.ENGLISH, ignored -> {});
         final List<String> listed = service.plugins().stream()
-            .map(RuntimePluginManagementService.PluginInfo::id)
-            .filter(id -> !dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(id))
-            .toList();
+                .map(RuntimePluginManagementService.PluginInfo::id)
+                .filter(id -> !dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(id))
+                .toList();
         assertFalse(listed.contains(RETIRED_ID), "retired id must not be listed: " + listed);
         assertTrue(listed.contains(SUCCESSOR_ID), "retained successor id must be listed: " + listed);
     }
@@ -65,22 +67,21 @@ class PluginArchiveMetadataRetiredIdTest {
         Files.write(plugins.resolve("backup.jar"), archive("dev.turboism.plugin.backup"));
         Files.write(plugins.resolve("webdav-backup.jar"), archive("dev.turboism.plugin.webdav"));
 
-        assertTrue(PluginArchiveMetadata.read(plugins.resolve("backup.jar")).isEmpty(),
-            "the superseded id must not yield archive metadata");
-        assertTrue(PluginArchiveMetadata.read(plugins.resolve("webdav-backup.jar")).isPresent(),
-            "the replacement id must still yield archive metadata");
+        assertTrue(
+                PluginArchiveMetadata.read(plugins.resolve("backup.jar")).isEmpty(),
+                "the superseded id must not yield archive metadata");
+        assertTrue(
+                PluginArchiveMetadata.read(plugins.resolve("webdav-backup.jar")).isPresent(),
+                "the replacement id must still yield archive metadata");
 
-        final RuntimePluginManagementService service = RuntimePluginManagementService.withMetadataLocale(
-            home, List::of, () -> Locale.ENGLISH, ignored -> { }
-        );
+        final RuntimePluginManagementService service =
+                RuntimePluginManagementService.withMetadataLocale(home, List::of, () -> Locale.ENGLISH, ignored -> {});
         final List<String> listed = service.plugins().stream()
-            .map(RuntimePluginManagementService.PluginInfo::id)
-            .filter(id -> !dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(id))
-            .toList();
-        assertFalse(listed.contains("dev.turboism.plugin.backup"),
-            "the superseded id must not be listed: " + listed);
-        assertTrue(listed.contains("dev.turboism.plugin.webdav"),
-            "the replacement id must be listed: " + listed);
+                .map(RuntimePluginManagementService.PluginInfo::id)
+                .filter(id -> !dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(id))
+                .toList();
+        assertFalse(listed.contains("dev.turboism.plugin.backup"), "the superseded id must not be listed: " + listed);
+        assertTrue(listed.contains("dev.turboism.plugin.webdav"), "the replacement id must be listed: " + listed);
         assertEquals(1, listed.size(), "exactly one WebDAV entry expected: " + listed);
     }
 
@@ -99,24 +100,25 @@ class PluginArchiveMetadataRetiredIdTest {
 
     private static byte[] descriptor(final String id) {
         return ("{\n"
-            + "  \"format\": \"turboism.plugin.meta\",\n"
-            + "  \"schemaVersion\": 2,\n"
-            + "  \"id\": \"" + id + "\",\n"
-            + "  \"name\": \"Fixture\",\n"
-            + "  \"version\": \"1.0.0\",\n"
-            + "  \"description\": \"Fixture.\",\n"
-            + "  \"entrypoints\": [\"dev.example.FixturePlugin\"],\n"
-            + "  \"turboismApi\": \"[0.1.0,0.2.0)\",\n"
-            + "  \"authors\": [{\"name\": \"Turboism Contributors\"}],\n"
-            + "  \"license\": \"Project License\",\n"
-            + "  \"website\": \"https://turboism.dev\",\n"
-            + "  \"resources\": [],\n"
-            + "  \"i18n\": {\"baseName\": \"META-INF/turboism/i18n/messages\","
-            + " \"locales\": [\"en\", \"ja\", \"ko\", \"zh-Hans\", \"zh-Hant\"]},\n"
-            + "  \"dependencies\": [],\n"
-            + "  \"permissions\": [],\n"
-            + "  \"capabilities\": [],\n"
-            + "  \"environment\": {\"requiresCubism\": false, \"ui\": \"none\"}\n"
-            + "}\n").getBytes(StandardCharsets.UTF_8);
+                        + "  \"format\": \"turboism.plugin.meta\",\n"
+                        + "  \"schemaVersion\": 2,\n"
+                        + "  \"id\": \"" + id + "\",\n"
+                        + "  \"name\": \"Fixture\",\n"
+                        + "  \"version\": \"1.0.0\",\n"
+                        + "  \"description\": \"Fixture.\",\n"
+                        + "  \"entrypoints\": [\"dev.example.FixturePlugin\"],\n"
+                        + "  \"turboismApi\": \"[0.1.0,0.2.0)\",\n"
+                        + "  \"authors\": [{\"name\": \"Turboism Contributors\"}],\n"
+                        + "  \"license\": \"Project License\",\n"
+                        + "  \"website\": \"https://turboism.dev\",\n"
+                        + "  \"resources\": [],\n"
+                        + "  \"i18n\": {\"baseName\": \"META-INF/turboism/i18n/messages\","
+                        + " \"locales\": [\"en\", \"ja\", \"ko\", \"zh-Hans\", \"zh-Hant\"]},\n"
+                        + "  \"dependencies\": [],\n"
+                        + "  \"permissions\": [],\n"
+                        + "  \"capabilities\": [],\n"
+                        + "  \"environment\": {\"requiresCubism\": false, \"ui\": \"none\"}\n"
+                        + "}\n")
+                .getBytes(StandardCharsets.UTF_8);
     }
 }

@@ -1,5 +1,9 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -9,11 +13,9 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.CubismOperation;
+import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
@@ -21,10 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class SemanticOperationEventContractTest {
     @Test
@@ -32,38 +31,38 @@ class SemanticOperationEventContractTest {
         final RuntimeScheduler scheduler = scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-            final SemanticOperationLifecycleCoordinator coordinator =
-                new SemanticOperationLifecycleCoordinator();
+            final SemanticOperationLifecycleCoordinator coordinator = new SemanticOperationLifecycleCoordinator();
             coordinator.attachEventBroker(broker);
             final RuntimeEventBroker.Owner owner = broker.admit("semantic-events");
             final CountDownLatch completion = new CountDownLatch(5);
             final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
-            owner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
-                new Subscriber(events, completion)
-            )));
+            owner.registerAnnotated(
+                    new EntrypointSubscriberCatalog().inspect(List.of(new Subscriber(events, completion))));
             owner.activate();
             final int[] state = {0};
 
             coordinator.runComparing(
-                CubismOperation.OPEN_DOCUMENT,
-                CubismOperationOrigin.HOST_UI,
-                Optional.of("DocumentA"),
-                () -> state[0],
-                () -> state[0]++
-            );
+                    CubismOperation.OPEN_DOCUMENT,
+                    CubismOperationOrigin.HOST_UI,
+                    Optional.of("DocumentA"),
+                    () -> state[0],
+                    () -> state[0]++);
             coordinator.runComparing(
-                CubismOperation.SAVE_DOCUMENT,
-                CubismOperationOrigin.TURBOISM_API,
-                Optional.of("DocumentA"),
-                () -> state[0],
-                () -> { }
-            );
+                    CubismOperation.SAVE_DOCUMENT,
+                    CubismOperationOrigin.TURBOISM_API,
+                    Optional.of("DocumentA"),
+                    () -> state[0],
+                    () -> {});
 
             assertTrue(completion.await(1, TimeUnit.SECONDS));
-            assertEquals(List.of(
-                "before:OPEN_DOCUMENT", "on:OPEN_DOCUMENT", "after:OPEN_DOCUMENT:true",
-                "before:SAVE_DOCUMENT", "after:SAVE_DOCUMENT:false"
-            ), events);
+            assertEquals(
+                    List.of(
+                            "before:OPEN_DOCUMENT",
+                            "on:OPEN_DOCUMENT",
+                            "after:OPEN_DOCUMENT:true",
+                            "before:SAVE_DOCUMENT",
+                            "after:SAVE_DOCUMENT:false"),
+                    events);
         } finally {
             scheduler.shutdown();
         }
@@ -74,8 +73,7 @@ class SemanticOperationEventContractTest {
         final RuntimeScheduler scheduler = scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-            final SemanticOperationLifecycleCoordinator coordinator =
-                new SemanticOperationLifecycleCoordinator();
+            final SemanticOperationLifecycleCoordinator coordinator = new SemanticOperationLifecycleCoordinator();
             coordinator.attachEventBroker(broker);
             final RuntimeEventBroker.Owner owner = broker.admit("observed-events");
             final CountDownLatch completion = new CountDownLatch(2);
@@ -85,16 +83,13 @@ class SemanticOperationEventContractTest {
             owner.activate();
 
             coordinator.publishObserved(
-                CubismOperation.SET_HIERARCHY_PARENT,
-                CubismOperationOrigin.HOST_UI,
-                Optional.of("mesh-1"),
-                Optional.of("Add Part")
-            );
+                    CubismOperation.SET_HIERARCHY_PARENT,
+                    CubismOperationOrigin.HOST_UI,
+                    Optional.of("mesh-1"),
+                    Optional.of("Add Part"));
 
             assertTrue(completion.await(1, TimeUnit.SECONDS));
-            assertEquals(List.of(
-                "on:SET_HIERARCHY_PARENT", "after:SET_HIERARCHY_PARENT:true"
-            ), events);
+            assertEquals(List.of("on:SET_HIERARCHY_PARENT", "after:SET_HIERARCHY_PARENT:true"), events);
             assertEquals(Optional.of("Add Part"), subscriber.observedLabel());
         } finally {
             scheduler.shutdown();
@@ -103,26 +98,24 @@ class SemanticOperationEventContractTest {
 
     @Test
     void anObservedEditIsRejectedWhenItWouldNestInsideAnActiveOperation() {
-        final SemanticOperationLifecycleCoordinator coordinator =
-            new SemanticOperationLifecycleCoordinator();
+        final SemanticOperationLifecycleCoordinator coordinator = new SemanticOperationLifecycleCoordinator();
 
-        assertThrows(IllegalStateException.class, () -> coordinator.runConfirmed(
-            CubismOperation.SET_HIERARCHY_PARENT,
-            CubismOperationOrigin.TURBOISM_API,
-            Optional.of("mesh-1"),
-            () -> coordinator.publishObserved(
-                CubismOperation.SET_HIERARCHY_PARENT,
-                CubismOperationOrigin.HOST_UI,
-                Optional.of("mesh-1")
-            )
-        ));
+        assertThrows(
+                IllegalStateException.class,
+                () -> coordinator.runConfirmed(
+                        CubismOperation.SET_HIERARCHY_PARENT,
+                        CubismOperationOrigin.TURBOISM_API,
+                        Optional.of("mesh-1"),
+                        () -> coordinator.publishObserved(
+                                CubismOperation.SET_HIERARCHY_PARENT,
+                                CubismOperationOrigin.HOST_UI,
+                                Optional.of("mesh-1"))));
     }
 
     public static final class Subscriber {
         private final List<String> events;
         private final CountDownLatch completion;
-        private final List<CubismOperationLifecycleEvent> observed =
-            new java.util.concurrent.CopyOnWriteArrayList<>();
+        private final List<CubismOperationLifecycleEvent> observed = new java.util.concurrent.CopyOnWriteArrayList<>();
 
         private Subscriber(final List<String> events, final CountDownLatch completion) {
             this.events = events;
@@ -143,35 +136,29 @@ class SemanticOperationEventContractTest {
 
         @SubscribeEvent
         public void after(final CubismOperationLifecycleEvent.After event) {
-            events.add(
-                "after:" + event.operation().operation() + ":" + event.confirmed()
-            );
+            events.add("after:" + event.operation().operation() + ":" + event.confirmed());
             observed.add(event);
             completion.countDown();
         }
 
         private Optional<String> observedLabel() {
             return observed.isEmpty()
-                ? Optional.empty()
-                : observed.get(0).operation().label();
+                    ? Optional.empty()
+                    : observed.get(0).operation().label();
         }
     }
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 8, ignored -> { }, Clock.systemUTC()),
-            new NoOpSidecarDispatcher(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
+                new NoOpSidecarDispatcher(),
+                ignored -> {});
     }
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
         @Override
-        public CompletionStage<SidecarResult> dispatch(
-            final PluginTask task,
-            final Runnable callback
-        ) {
+        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
             return CompletableFuture.completedFuture(SidecarResult.success(""));
         }
     }

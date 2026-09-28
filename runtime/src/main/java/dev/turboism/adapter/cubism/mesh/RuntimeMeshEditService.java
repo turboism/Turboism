@@ -7,8 +7,6 @@ import dev.turboism.sdk.cubism.mesh.MeshEditService;
 import dev.turboism.sdk.cubism.mesh.MeshPointPosition;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
 import dev.turboism.sdk.cubism.mesh.MeshSnapshot;
-
-import javax.swing.SwingUtilities;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -18,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
+import javax.swing.SwingUtilities;
 
 /**
  * Plugin-initiated mesh authoring, each call its own undoable step.
@@ -44,7 +43,8 @@ public final class RuntimeMeshEditService implements MeshEditService {
                 return new MeshSnapshot(points, edges);
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
-                NativeMeshMirrorBridge.diagnostic("MESH_EDIT_SNAPSHOT_FAILED reason=" + failure.getClass().getName());
+                NativeMeshMirrorBridge.diagnostic(
+                        "MESH_EDIT_SNAPSHOT_FAILED reason=" + failure.getClass().getName());
                 return MeshSnapshot.empty();
             }
         });
@@ -113,14 +113,13 @@ public final class RuntimeMeshEditService implements MeshEditService {
                 if (group == null) return MeshEditResult.refused("the host refused an undo group");
                 started = true;
                 final Method delete = NativeMeshMirrorBridge.declaredMethod(
-                    editMode.getClass(), "delete_exe", List.class, group.getClass()
-                );
+                        editMode.getClass(), "delete_exe", List.class, group.getClass());
                 if (delete == null) {
                     final String rollback = rollback(editMode, "MESH_EDIT_DELETE_POINTS_FAILED");
                     started = false;
                     return rollback == null
-                        ? MeshEditResult.refused("the host exposes no point deletion")
-                        : MeshEditResult.refused("the host exposes no point deletion; " + rollback);
+                            ? MeshEditResult.refused("the host exposes no point deletion")
+                            : MeshEditResult.refused("the host exposes no point deletion; " + rollback);
                 }
                 delete.invoke(editMode, List.of(live), group);
                 NativeMeshMirrorBridge.commitUndoGroup(editMode);
@@ -128,10 +127,10 @@ public final class RuntimeMeshEditService implements MeshEditService {
                 return result(rejected);
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
-                final String rollback = started && editMode != null
-                    ? rollback(editMode, "MESH_EDIT_DELETE_POINTS_FAILED")
-                    : null;
-                NativeMeshMirrorBridge.diagnostic("MESH_EDIT_DELETE_POINTS_FAILED reason=" + failure.getClass().getName());
+                final String rollback =
+                        started && editMode != null ? rollback(editMode, "MESH_EDIT_DELETE_POINTS_FAILED") : null;
+                NativeMeshMirrorBridge.diagnostic("MESH_EDIT_DELETE_POINTS_FAILED reason="
+                        + failure.getClass().getName());
                 return refused(failure, rollback);
             }
         });
@@ -201,7 +200,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
                     continue;
                 }
                 if (index.pointsById().get(ref.startPointId()) == null
-                    || index.pointsById().get(ref.endPointId()) == null) {
+                        || index.pointsById().get(ref.endPointId()) == null) {
                     rejected.add("edge " + key + " does not name two live points");
                 } else if (index.edgesByKey().containsKey(MeshFrameIndex.refEdgeKey(ref))) {
                     rejected.add("edge " + key + " already exists");
@@ -211,9 +210,9 @@ public final class RuntimeMeshEditService implements MeshEditService {
                     prepared.add(ref);
                 }
             }
-            if (prepared.isEmpty()) return Preparation.refused(
-                rejected.isEmpty() ? "the host can add no requested edge" : String.join("; ", rejected)
-            );
+            if (prepared.isEmpty())
+                return Preparation.refused(
+                        rejected.isEmpty() ? "the host can add no requested edge" : String.join("; ", rejected));
             return Preparation.ready(result(rejected), () -> {
                 for (MeshEdgeRef ref : prepared) NativeMeshMirrorBridge.addEdge(mesh, ref);
             });
@@ -265,28 +264,25 @@ public final class RuntimeMeshEditService implements MeshEditService {
                     final String rollback = rollback(editMode, "MESH_EDIT_DELETE_EDGES_FAILED");
                     started = false;
                     return rollback == null
-                        ? MeshEditResult.refused("the host did not remove every prepared edge")
-                        : MeshEditResult.refused("the host did not remove every prepared edge; " + rollback);
+                            ? MeshEditResult.refused("the host did not remove every prepared edge")
+                            : MeshEditResult.refused("the host did not remove every prepared edge; " + rollback);
                 }
                 NativeMeshMirrorBridge.commitUndoGroup(editMode);
                 started = false;
                 return result(rejected);
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
-                final String rollback = started && editMode != null
-                    ? rollback(editMode, "MESH_EDIT_DELETE_EDGES_FAILED")
-                    : null;
-                NativeMeshMirrorBridge.diagnostic("MESH_EDIT_DELETE_EDGES_FAILED reason=" + failure.getClass().getName());
+                final String rollback =
+                        started && editMode != null ? rollback(editMode, "MESH_EDIT_DELETE_EDGES_FAILED") : null;
+                NativeMeshMirrorBridge.diagnostic("MESH_EDIT_DELETE_EDGES_FAILED reason="
+                        + failure.getClass().getName());
                 return refused(failure, rollback);
             }
         });
     }
 
     private static MeshEditResult mutate(
-        final String label,
-        final String failureMarker,
-        final MutationPreparation preparation
-    ) {
+            final String label, final String failureMarker, final MutationPreparation preparation) {
         return onEdt(() -> {
             Object actionPack = null;
             boolean started = false;
@@ -316,7 +312,8 @@ public final class RuntimeMeshEditService implements MeshEditService {
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 final String rollback = started && actionPack != null ? rollback(actionPack, failureMarker) : null;
-                NativeMeshMirrorBridge.diagnostic(failureMarker + " reason=" + failure.getClass().getName());
+                NativeMeshMirrorBridge.diagnostic(
+                        failureMarker + " reason=" + failure.getClass().getName());
                 return refused(failure, rollback);
             }
         });
@@ -338,7 +335,8 @@ public final class RuntimeMeshEditService implements MeshEditService {
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             final String detail = "rollback failed: " + failure.getClass().getName();
-            NativeMeshMirrorBridge.diagnostic(marker + " rollback=" + failure.getClass().getName());
+            NativeMeshMirrorBridge.diagnostic(
+                    marker + " rollback=" + failure.getClass().getName());
             return detail;
         }
     }
@@ -360,9 +358,12 @@ public final class RuntimeMeshEditService implements MeshEditService {
         final Throwable[] failure = new Throwable[1];
         try {
             SwingUtilities.invokeAndWait(() -> {
-                try { result[0] = operation.get(); }
-                catch (Throwable throwable) {
-                    FatalErrors.rethrowIfFatal(throwable); failure[0] = throwable; }
+                try {
+                    result[0] = operation.get();
+                } catch (Throwable throwable) {
+                    FatalErrors.rethrowIfFatal(throwable);
+                    failure[0] = throwable;
+                }
             });
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -373,7 +374,8 @@ public final class RuntimeMeshEditService implements MeshEditService {
         if (failure[0] instanceof RuntimeException exception) throw exception;
         if (failure[0] instanceof Error error) throw error;
         if (failure[0] != null) throw new IllegalStateException("Mesh edit dispatch failed", failure[0]);
-        @SuppressWarnings("unchecked") final T value = (T) result[0];
+        @SuppressWarnings("unchecked")
+        final T value = (T) result[0];
         return value;
     }
 
@@ -395,7 +397,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
         }
     }
 
-    private record PointMove(Object point, float x, float y) { }
+    private record PointMove(Object point, float x, float y) {}
 
     private record EdgeKey(int start, int end) {
         static EdgeKey of(final MeshEdgeRef ref) {

@@ -2,16 +2,14 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.FatalErrors;
-import dev.turboism.sdk.cubism.event.EditorExitEvent;
-import dev.turboism.sdk.cubism.event.EditorStartupEvent;
-
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.EditorExitResult;
 import dev.turboism.sdk.cubism.EditorLifecycleSnapshot;
+import dev.turboism.sdk.cubism.event.EditorExitEvent;
+import dev.turboism.sdk.cubism.event.EditorStartupEvent;
 import dev.turboism.sdk.cubism.hook.EditorLifecycleHooks;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -33,7 +31,7 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
     private volatile RuntimeEventBroker eventBroker;
 
     public EditorLifecycleCoordinator() {
-        this(new PluginWorkExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()));
+        this(new PluginWorkExecutorRegistry(1, 64, ignored -> {}, Clock.systemUTC()));
     }
 
     public EditorLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
@@ -45,9 +43,7 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
         final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
         synchronized (registrationLock) {
             if (eventBroker != null && eventBroker != value) {
-                throw new IllegalStateException(
-                    "Editor lifecycle already belongs to another Runtime event broker."
-                );
+                throw new IllegalStateException("Editor lifecycle already belongs to another Runtime event broker.");
             }
             eventBroker = value;
         }
@@ -66,7 +62,10 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
         final PluginHooks hooks = Objects.requireNonNull(plugin, "plugin");
         final Registration registration = new Registration(new Object(), hooks);
         synchronized (registrationLock) {
-            plugins.removeIf(existing -> existing.plugin().descriptor().id().equals(hooks.descriptor().id()));
+            plugins.removeIf(existing -> existing.plugin()
+                    .descriptor()
+                    .id()
+                    .equals(hooks.descriptor().id()));
             callbacks.shutdown(hooks.descriptor().id());
             plugins.add(registration);
             final EditorLifecycleSnapshot started = current;
@@ -77,16 +76,14 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
     }
 
     void register(final Object token, final PluginHooks plugin) {
-        final Registration registration = new Registration(
-            Objects.requireNonNull(token, "token"),
-            Objects.requireNonNull(plugin, "plugin")
-        );
+        final Registration registration =
+                new Registration(Objects.requireNonNull(token, "token"), Objects.requireNonNull(plugin, "plugin"));
         synchronized (registrationLock) {
             plugins.add(registration);
             final EditorLifecycleSnapshot started = current;
             if (startupPublished.get()
-                && started != null
-                && registration.plugin().observeAllowed()) {
+                    && started != null
+                    && registration.plugin().observeAllowed()) {
                 publishStartupTo(registration, started);
             }
         }
@@ -102,7 +99,8 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
     public void unregister(final String pluginId) {
         final String id = Objects.requireNonNull(pluginId, "pluginId");
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(id));
+            plugins.removeIf(
+                    registration -> registration.plugin().descriptor().id().equals(id));
             callbacks.shutdown(id);
         }
     }
@@ -111,13 +109,12 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
         final String id = Objects.requireNonNull(pluginId, "pluginId");
         final Object generation = Objects.requireNonNull(token, "token");
         synchronized (registrationLock) {
-            final boolean removed = plugins.removeIf(registration ->
-                registration.token() == generation
-                    && registration.plugin().descriptor().id().equals(id)
-            );
-            if (removed && plugins.stream().noneMatch(registration ->
-                registration.plugin().descriptor().id().equals(id)
-            )) {
+            final boolean removed = plugins.removeIf(registration -> registration.token() == generation
+                    && registration.plugin().descriptor().id().equals(id));
+            if (removed
+                    && plugins.stream()
+                            .noneMatch(registration ->
+                                    registration.plugin().descriptor().id().equals(id))) {
                 callbacks.shutdown(id);
             }
         }
@@ -125,10 +122,8 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
 
     /** Publishes startup exactly once after plugins are loaded and the verified host is ready. */
     public void publishStartup(final String hostVersion) {
-        final EditorLifecycleSnapshot editor = new EditorLifecycleSnapshot(
-            Objects.requireNonNull(hostVersion, "hostVersion"),
-            Instant.now()
-        );
+        final EditorLifecycleSnapshot editor =
+                new EditorLifecycleSnapshot(Objects.requireNonNull(hostVersion, "hostVersion"), Instant.now());
         current = editor;
         if (!startupPublished.compareAndSet(false, true)) return;
         final RuntimeEventBroker broker = eventBroker;
@@ -145,9 +140,8 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
 
     /** Synchronous before phase invoked at the beginning of Cubism's exit command. */
     public ExitInvocation beginExit(final String hostVersion) {
-        final EditorLifecycleSnapshot editor = Optional.ofNullable(current).orElseGet(
-            () -> new EditorLifecycleSnapshot(hostVersion, Instant.now())
-        );
+        final EditorLifecycleSnapshot editor =
+                Optional.ofNullable(current).orElseGet(() -> new EditorLifecycleSnapshot(hostVersion, Instant.now()));
         final RuntimeEventBroker broker = eventBroker;
         if (broker != null) {
             broker.publishRuntime(new EditorExitEvent.Before(editor));
@@ -174,17 +168,14 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
      * {@code command_exit()} returns, so queued callbacks would not be guaranteed to run before
      * process shutdown. Plugin failures remain isolated and cannot cancel the host exit.</p>
      */
-    public void completeExit(
-        final ExitInvocation invocation,
-        final boolean accepted,
-        final Throwable failure
-    ) {
+    public void completeExit(final ExitInvocation invocation, final boolean accepted, final Throwable failure) {
         final ExitInvocation currentExit = Objects.requireNonNull(invocation, "invocation");
         final EditorExitResult result = new EditorExitResult(
-            currentExit.editor(),
-            accepted,
-            failure == null ? Optional.empty() : Optional.of(failure.getClass().getName())
-        );
+                currentExit.editor(),
+                accepted,
+                failure == null
+                        ? Optional.empty()
+                        : Optional.of(failure.getClass().getName()));
         for (Registration registration : plugins) {
             final PluginHooks plugin = registration.plugin();
             if (!plugin.observeAllowed()) continue;
@@ -230,10 +221,7 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
         }
     }
 
-    private void publishStartupTo(
-        final Registration registration,
-        final EditorLifecycleSnapshot editor
-    ) {
+    private void publishStartupTo(final Registration registration, final EditorLifecycleSnapshot editor) {
         final PluginHooks plugin = registration.plugin();
         for (EditorLifecycleHooks hook : plugin.entrypoints()) {
             try {
@@ -266,19 +254,11 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
             if (!plugins.contains(registration)) {
                 return;
             }
-            callbacks.submit(
-                registration.plugin().descriptor().id(),
-                OPERATION_ID,
-                callback
-            );
+            callbacks.submit(registration.plugin().descriptor().id(), OPERATION_ID, callback);
         }
     }
 
-    private static void logFailure(
-        final PluginHooks plugin,
-        final String phase,
-        final Throwable failure
-    ) {
+    private static void logFailure(final PluginHooks plugin, final String phase, final Throwable failure) {
         try {
             plugin.logger().error("Cubism editor lifecycle hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
@@ -287,7 +267,7 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
         }
     }
 
-    private record Registration(Object token, PluginHooks plugin) { }
+    private record Registration(Object token, PluginHooks plugin) {}
 
     /**
      * Token handed from {@code beginExit} to {@code completeExit} so both phases report the same
@@ -310,11 +290,10 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
      * @param observeAllowed whether this plugin receives startup and exit callbacks at all
      */
     public record PluginHooks(
-        PluginDescriptor descriptor,
-        List<? extends EditorLifecycleHooks> entrypoints,
-        PluginLogger logger,
-        boolean observeAllowed
-    ) {
+            PluginDescriptor descriptor,
+            List<? extends EditorLifecycleHooks> entrypoints,
+            PluginLogger logger,
+            boolean observeAllowed) {
         public PluginHooks {
             descriptor = Objects.requireNonNull(descriptor, "descriptor");
             entrypoints = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));

@@ -1,7 +1,6 @@
 package dev.turboism.core.event;
 
 import dev.turboism.sdk.event.EventBus;
-
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Set;
@@ -24,10 +23,7 @@ class ContractArtifactClassLoader extends URLClassLoader {
     private final Set<String> ownedClassNames;
 
     ContractArtifactClassLoader(final URL artifact, final Set<String> ownedClassNames) {
-        super(
-            new URL[] {artifact},
-            new SdkContractParent(EventBus.class.getClassLoader())
-        );
+        super(new URL[] {artifact}, new SdkContractParent(EventBus.class.getClassLoader()));
         this.ownedClassNames = Set.copyOf(ownedClassNames);
     }
 
@@ -36,8 +32,7 @@ class ContractArtifactClassLoader extends URLClassLoader {
     }
 
     @Override
-    protected Class<?> loadClass(final String name, final boolean resolve)
-        throws ClassNotFoundException {
+    protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
         if (!ownedClassNames.contains(name)) {
             // Strict delegation: non-owned names never reach findClass, so the artifact
             // JAR (and any manifest Class-Path it could declare) cannot extend the allowed

@@ -6,7 +6,6 @@ import dev.turboism.sdk.config.ConfigReadResult;
 import dev.turboism.sdk.config.ConfigSchema;
 import dev.turboism.sdk.config.ConfigWriteResult;
 import dev.turboism.sdk.config.PluginConfigRegistry;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -19,18 +18,9 @@ public final class ThemeSelectionConfig implements ThemeSelectionService.Selecti
     public static final String CONFIG_PATH = "ui-theme/selection.cfg";
     public static final String NATIVE_ID = "__native__";
     private static final String EMPTY = NATIVE_ID;
-    private static final ConfigKey<List<String>> SELECTED_THEME = new ConfigKey<>(
-        CONFIG_ID,
-        "selected-theme",
-        List.of(),
-        ConfigCodecs.boundedStringList(1, 128)
-    );
-    private static final ConfigSchema SCHEMA = new ConfigSchema(
-        CONFIG_ID,
-        CONFIG_PATH,
-        1,
-        List.of(SELECTED_THEME)
-    );
+    private static final ConfigKey<List<String>> SELECTED_THEME =
+            new ConfigKey<>(CONFIG_ID, "selected-theme", List.of(), ConfigCodecs.boundedStringList(1, 128));
+    private static final ConfigSchema SCHEMA = new ConfigSchema(CONFIG_ID, CONFIG_PATH, 1, List.of(SELECTED_THEME));
 
     private final PluginConfigRegistry registry;
     private Optional<String> selectedThemeId = Optional.empty();
@@ -52,8 +42,8 @@ public final class ThemeSelectionConfig implements ThemeSelectionService.Selecti
      */
     public CompletionStage<Void> initialize() {
         return registry.registerSchema(SCHEMA, List.of())
-            .thenCompose(ignored -> registry.read(SELECTED_THEME))
-            .thenAccept(this::acceptRead);
+                .thenCompose(ignored -> registry.read(SELECTED_THEME))
+                .thenAccept(this::acceptRead);
     }
 
     @Override
@@ -79,7 +69,8 @@ public final class ThemeSelectionConfig implements ThemeSelectionService.Selecti
 
     private void acceptRead(final ConfigReadResult<List<String>> read) {
         if (read.error().isPresent()) {
-            throw new IllegalStateException("theme selection config is unavailable: " + read.error().orElseThrow().code());
+            throw new IllegalStateException("theme selection config is unavailable: "
+                    + read.error().orElseThrow().code());
         }
         final List<String> value = read.value().value();
         if (value.size() > 1) {
@@ -93,9 +84,11 @@ public final class ThemeSelectionConfig implements ThemeSelectionService.Selecti
     private void write(final List<String> value) {
         requireInitialized();
         final ConfigWriteResult result = registry.write(SELECTED_THEME, value, revision)
-            .toCompletableFuture().join();
+                .toCompletableFuture()
+                .join();
         if (!result.written()) {
-            throw new IllegalStateException("could not persist theme selection: " + result.error().orElseThrow().code());
+            throw new IllegalStateException("could not persist theme selection: "
+                    + result.error().orElseThrow().code());
         }
         revision = result.revision();
     }

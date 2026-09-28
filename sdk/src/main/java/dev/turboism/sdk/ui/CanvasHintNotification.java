@@ -21,12 +21,11 @@ import java.util.Optional;
  * @param onClick action run when the user clicks the hint, empty for a passive hint
  */
 public record CanvasHintNotification(
-    String id,
-    String message,
-    float durationSeconds,
-    Optional<Runnable> onClick,
-    Optional<CanvasHintPosition> position
-) {
+        String id,
+        String message,
+        float durationSeconds,
+        Optional<Runnable> onClick,
+        Optional<CanvasHintPosition> position) {
     /** The timeout used by the native Cubism screen-color warning. */
     public static final float DEFAULT_DURATION_SECONDS = 5.0f;
 
@@ -49,21 +48,13 @@ public record CanvasHintNotification(
     }
 
     /** Creates a passive hint that the user cannot click. */
-    public CanvasHintNotification(
-        final String id,
-        final String message,
-        final float durationSeconds
-    ) {
+    public CanvasHintNotification(final String id, final String message, final float durationSeconds) {
         this(id, message, durationSeconds, Optional.empty(), Optional.empty());
     }
 
     /** Creates a hint that the user cannot click, placed by the native host. */
     public CanvasHintNotification(
-        final String id,
-        final String message,
-        final float durationSeconds,
-        final Optional<Runnable> onClick
-    ) {
+            final String id, final String message, final float durationSeconds, final Optional<Runnable> onClick) {
         this(id, message, durationSeconds, onClick, Optional.empty());
     }
 
@@ -92,12 +83,7 @@ public record CanvasHintNotification(
      */
     public CanvasHintNotification withOnClick(final Runnable action) {
         return new CanvasHintNotification(
-            id,
-            message,
-            durationSeconds,
-            Optional.of(Objects.requireNonNull(action, "action")),
-            position
-        );
+                id, message, durationSeconds, Optional.of(Objects.requireNonNull(action, "action")), position);
     }
 
     /**
@@ -110,11 +96,6 @@ public record CanvasHintNotification(
      */
     public CanvasHintNotification withPosition(final CanvasHintPosition override) {
         return new CanvasHintNotification(
-            id,
-            message,
-            durationSeconds,
-            onClick,
-            Optional.of(Objects.requireNonNull(override, "override"))
-        );
+                id, message, durationSeconds, onClick, Optional.of(Objects.requireNonNull(override, "override")));
     }
 }

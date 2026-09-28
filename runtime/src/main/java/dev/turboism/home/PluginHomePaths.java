@@ -1,7 +1,6 @@
 package dev.turboism.home;
 
 import dev.turboism.sdk.plugin.PluginPaths;
-
 import java.nio.file.Path;
 
 /**
@@ -18,10 +17,4 @@ import java.nio.file.Path;
  * @param cacheDir regenerable data that may be deleted between runs without loss
  * @param stateDir internal runtime state that is not user-facing configuration
  */
-public record PluginHomePaths(
-    Path configDir,
-    Path dataDir,
-    Path cacheDir,
-    Path stateDir
-) implements PluginPaths {
-}
+public record PluginHomePaths(Path configDir, Path dataDir, Path cacheDir, Path stateDir) implements PluginPaths {}

@@ -19,20 +19,22 @@ final class CanvasCompositeElisionHookContributor extends NativeOptimizationHook
         super("TURBOISM_CANVAS_COMPOSITE");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!Boolean.getBoolean(CanvasCompositeElisionTransformer.ENABLE_PROPERTY)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
         final var host = environment.host().orElseThrow();
-        final VerifiedCanvasCompositeElisionInstaller installer =
-            new VerifiedCanvasCompositeElisionInstaller(
+        final VerifiedCanvasCompositeElisionInstaller installer = new VerifiedCanvasCompositeElisionInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
-        log(environment, id() + " elision=ACTIVE sites=" + installer.sites()
-            + " targets=javax/swing/RepaintManager$PaintManager.paint(IIII)Z"
-            + "+com/formdev/flatlaf/ui/FlatPanelUI.update(Ljava/awt/Graphics;"
-            + "Ljavax/swing/JComponent;)V");
+        log(
+                environment,
+                id() + " elision=ACTIVE sites=" + installer.sites()
+                        + " targets=javax/swing/RepaintManager$PaintManager.paint(IIII)Z"
+                        + "+com/formdev/flatlaf/ui/FlatPanelUI.update(Ljava/awt/Graphics;"
+                        + "Ljavax/swing/JComponent;)V");
         return installer;
     }
 }

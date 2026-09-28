@@ -16,8 +16,8 @@ final class FrameworkPackageFixtures {
         return frameworkZip(runtime, sdk, "payload/runtime.jar", "lib/runtime.jar", "");
     }
 
-    static byte[] frameworkZip(byte[] runtime, byte[] sdk, String runtimePath,
-                               String runtimeInstallPath, String extra) throws Exception {
+    static byte[] frameworkZip(byte[] runtime, byte[] sdk, String runtimePath, String runtimeInstallPath, String extra)
+            throws Exception {
         String manifest = """
             {"format":"turboism.framework.package","schemaVersion":1,"kind":"framework",
              "id":"dev.turboism.framework","version":"0.1.0","apiVersion":"0.1.0","javaVersion":17,
@@ -25,8 +25,14 @@ final class FrameworkPackageFixtures {
                {"role":"runtime","path":%s,"installPath":%s,"sha256":"%s","size":%d},
                {"role":"sdk","path":"payload/sdk.jar","installPath":"lib/sdk.jar","sha256":"%s","size":%d}
              ]%s}
-            """.formatted(json(runtimePath), json(runtimeInstallPath), sha256(runtime), runtime.length,
-                sha256(sdk), sdk.length, extra);
+            """.formatted(
+                        json(runtimePath),
+                        json(runtimeInstallPath),
+                        sha256(runtime),
+                        runtime.length,
+                        sha256(sdk),
+                        sdk.length,
+                        extra);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(output)) {
             add(zip, "META-INF/turboism/package.json", manifest.getBytes(StandardCharsets.UTF_8));
