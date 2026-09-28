@@ -1,5 +1,8 @@
 package dev.turboism.graalhost;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PipedInputStream;
@@ -7,11 +10,7 @@ import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class GraalHostMainTest {
 
@@ -21,13 +20,15 @@ final class GraalHostMainTest {
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         final GraalHostMain host = new GraalHostMain(new ByteArrayInputStream(input), output);
 
-        final Thread thread = new Thread(() -> {
-            try {
-                host.run();
-            } catch (Exception failure) {
-                throw new AssertionError(failure);
-            }
-        }, "graal-host-main-test");
+        final Thread thread = new Thread(
+                () -> {
+                    try {
+                        host.run();
+                    } catch (Exception failure) {
+                        throw new AssertionError(failure);
+                    }
+                },
+                "graal-host-main-test");
         thread.start();
         thread.join(TimeUnit.SECONDS.toMillis(2));
 
@@ -43,10 +44,9 @@ final class GraalHostMainTest {
     void crLfProtocolInputReachesThePublicPingResponse() throws Exception {
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         final GraalHostMain host = new GraalHostMain(
-            new ByteArrayInputStream("{\"type\":\"PING\"}\r\n{\"type\":\"SHUTDOWN\"}\r\n"
-                .getBytes(StandardCharsets.UTF_8)),
-            output
-        );
+                new ByteArrayInputStream(
+                        "{\"type\":\"PING\"}\r\n{\"type\":\"SHUTDOWN\"}\r\n".getBytes(StandardCharsets.UTF_8)),
+                output);
 
         host.run();
 
@@ -70,16 +70,20 @@ final class GraalHostMainTest {
                 throw new IllegalStateException(failure);
             }
         });
-        final Thread hostThread = new Thread(() -> {
-            try {
-                host.run();
-            } catch (Exception failure) {
-                throw new AssertionError(failure);
-            }
-        }, "graal-host-main-cancel-test");
+        final Thread hostThread = new Thread(
+                () -> {
+                    try {
+                        host.run();
+                    } catch (Exception failure) {
+                        throw new AssertionError(failure);
+                    }
+                },
+                "graal-host-main-cancel-test");
         hostThread.start();
-        write(commands, "{\"type\":\"RUN\",\"executionId\":\"queued\","
-            + "\"scriptId\":\"queued\",\"source\":\"\",\"arguments\":{}}");
+        write(
+                commands,
+                "{\"type\":\"RUN\",\"executionId\":\"queued\","
+                        + "\"scriptId\":\"queued\",\"source\":\"\",\"arguments\":{}}");
         assertTrue(workerStarted.await(5L, TimeUnit.SECONDS));
 
         write(commands, "{\"type\":\"CANCEL\",\"executionId\":\"queued\"}");
@@ -94,16 +98,14 @@ final class GraalHostMainTest {
         assertTrue(messages.contains("\"executionId\":\"queued\""), messages);
         assertTrue(messages.contains("\"status\":\"CANCELLED\""), messages);
         assertEquals(
-            1,
-            messages.lines().filter(line -> line.contains("\"executionId\":\"queued\"")).count(),
-            messages
-        );
+                1,
+                messages.lines()
+                        .filter(line -> line.contains("\"executionId\":\"queued\""))
+                        .count(),
+                messages);
     }
 
-    private static void awaitOutput(
-        final ByteArrayOutputStream output,
-        final String marker
-    ) throws Exception {
+    private static void awaitOutput(final ByteArrayOutputStream output, final String marker) throws Exception {
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5L);
         while (System.nanoTime() < deadline) {
             if (output.toString(StandardCharsets.UTF_8).contains(marker)) {
@@ -114,8 +116,7 @@ final class GraalHostMainTest {
         assertTrue(false, output.toString(StandardCharsets.UTF_8));
     }
 
-    private static void write(final PipedOutputStream output, final String line)
-        throws Exception {
+    private static void write(final PipedOutputStream output, final String line) throws Exception {
         output.write((line + "\n").getBytes(StandardCharsets.UTF_8));
         output.flush();
     }

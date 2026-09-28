@@ -5,7 +5,6 @@ import dev.turboism.mapping.verification.CubismHostIdentity;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.HostIdentityProbe;
 import dev.turboism.mapping.verification.ReviewedCubismReleases;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -55,8 +54,7 @@ import java.util.jar.JarFile;
  */
 public final class ReviewedHostContract {
 
-    private ReviewedHostContract() {
-    }
+    private ReviewedHostContract() {}
 
     /**
      * One reviewed generation of a hook contract.
@@ -66,14 +64,11 @@ public final class ReviewedHostContract {
      * @param pinnedClassSha256 SHA-256 of each reviewed class entry, keyed by internal
      *     name (the jar entry path minus {@code .class})
      */
-    public record Candidate<T>(
-        String version, T contract, Map<String, String> pinnedClassSha256
-    ) {
+    public record Candidate<T>(String version, T contract, Map<String, String> pinnedClassSha256) {
         public Candidate {
             Objects.requireNonNull(version, "version");
             Objects.requireNonNull(contract, "contract");
-            pinnedClassSha256 = Map.copyOf(
-                Objects.requireNonNull(pinnedClassSha256, "pinnedClassSha256"));
+            pinnedClassSha256 = Map.copyOf(Objects.requireNonNull(pinnedClassSha256, "pinnedClassSha256"));
             if (pinnedClassSha256.isEmpty()) {
                 throw new IllegalArgumentException("a candidate must pin at least one class");
             }
@@ -81,8 +76,7 @@ public final class ReviewedHostContract {
     }
 
     /** The outcome of {@link #resolve}: either one bound contract or a refusal. */
-    public sealed interface Resolution<T> permits Bound, Refused {
-    }
+    public sealed interface Resolution<T> permits Bound, Refused {}
 
     /**
      * The single contract the artifact proved.
@@ -95,12 +89,12 @@ public final class ReviewedHostContract {
      * @param declaredRelease whether the host declared a reviewed version+build
      */
     public record Bound<T>(
-        String sourceVersion,
-        T contract,
-        HostIdentityProbe probe,
-        List<String> matchedVersions,
-        boolean declaredRelease
-    ) implements Resolution<T> {
+            String sourceVersion,
+            T contract,
+            HostIdentityProbe probe,
+            List<String> matchedVersions,
+            boolean declaredRelease)
+            implements Resolution<T> {
         public Bound {
             Objects.requireNonNull(sourceVersion, "sourceVersion");
             Objects.requireNonNull(contract, "contract");
@@ -138,9 +132,7 @@ public final class ReviewedHostContract {
      * @return candidates in the pin table's iteration order
      */
     public static <T> List<Candidate<T>> candidates(
-        final Map<String, Map<String, String>> pins,
-        final Function<String, T> contractFor
-    ) {
+            final Map<String, Map<String, String>> pins, final Function<String, T> contractFor) {
         final List<Candidate<T>> candidates = new ArrayList<>(pins.size());
         for (final Map.Entry<String, Map<String, String>> entry : pins.entrySet()) {
             final T contract = contractFor.apply(entry.getKey());
@@ -152,10 +144,7 @@ public final class ReviewedHostContract {
     }
 
     /** Whether {@link #resolve} bound exactly one contract for the artifact. */
-    public static <T> boolean resolved(
-        final Path artifact,
-        final List<Candidate<T>> candidates
-    ) {
+    public static <T> boolean resolved(final Path artifact, final List<Candidate<T>> candidates) {
         return resolve(artifact, candidates) instanceof Bound<T>;
     }
 
@@ -163,15 +152,11 @@ public final class ReviewedHostContract {
      * Unwraps a bound contract or throws with the bounded refusal reason.
      * @param feature hook feature name for the exception message
      */
-    public static <T> Bound<T> requireBound(
-        final Resolution<T> resolution,
-        final String feature
-    ) {
+    public static <T> Bound<T> requireBound(final Resolution<T> resolution, final String feature) {
         if (resolution instanceof Bound<T> bound) {
             return bound;
         }
-        throw new IllegalArgumentException(
-            feature + " refused: " + ((Refused<T>) resolution).reason());
+        throw new IllegalArgumentException(feature + " refused: " + ((Refused<T>) resolution).reason());
     }
 
     /**
@@ -181,19 +166,15 @@ public final class ReviewedHostContract {
      * @param candidates the hook's reviewed contract generations
      * @return the resolution verdict
      */
-    public static <T> Resolution<T> resolve(
-        final Path artifact,
-        final List<Candidate<T>> candidates
-    ) {
+    public static <T> Resolution<T> resolve(final Path artifact, final List<Candidate<T>> candidates) {
         return resolve(artifact, candidates, CubismEditorReleaseDetector::probe);
     }
 
     // Identity-probe seam permits deterministic replacement-during-inspection tests.
     static <T> Resolution<T> resolve(
-        final Path artifact,
-        final List<Candidate<T>> candidates,
-        final Function<Path, HostIdentityProbe> identityProbe
-    ) {
+            final Path artifact,
+            final List<Candidate<T>> candidates,
+            final Function<Path, HostIdentityProbe> identityProbe) {
         Objects.requireNonNull(artifact, "artifact");
         Objects.requireNonNull(candidates, "candidates");
         if (candidates.isEmpty()) {
@@ -201,12 +182,10 @@ public final class ReviewedHostContract {
         }
         final HostIdentityProbe probe = identityProbe.apply(artifact);
         if (!probe.declared()) {
-            return new Refused<>("host identity rejected: " + probe.status()
-                + " — " + probe.detail());
+            return new Refused<>("host identity rejected: " + probe.status() + " — " + probe.detail());
         }
         final CubismHostIdentity identity = probe.identity().orElseThrow();
-        final boolean declaredRelease = ReviewedCubismReleases.isReviewed(
-            identity.version(), identity.build());
+        final boolean declaredRelease = ReviewedCubismReleases.isReviewed(identity.version(), identity.build());
         try {
             final Resolution<T> resolution;
             try (JarFile jar = new JarFile(artifact.toFile())) {
@@ -228,8 +207,7 @@ public final class ReviewedHostContract {
                     resolution = bindStructurally(jar, probe, candidates, false);
                 }
             }
-            if (resolution instanceof Bound<T>
-                && !identity.artifact().equals(HostArtifactDigest.from(artifact))) {
+            if (resolution instanceof Bound<T> && !identity.artifact().equals(HostArtifactDigest.from(artifact))) {
                 return new Refused<>("host artifact changed during contract inspection");
             }
             return resolution;
@@ -239,11 +217,10 @@ public final class ReviewedHostContract {
     }
 
     private static <T> Resolution<T> bindDeclared(
-        final JarFile jar,
-        final HostIdentityProbe probe,
-        final List<Candidate<T>> own,
-        final boolean declaredRelease
-    ) {
+            final JarFile jar,
+            final HostIdentityProbe probe,
+            final List<Candidate<T>> own,
+            final boolean declaredRelease) {
         final List<Candidate<T>> matched = new ArrayList<>();
         final List<String> mismatch = new ArrayList<>();
         for (final Candidate<T> candidate : own) {
@@ -257,23 +234,20 @@ public final class ReviewedHostContract {
         if (matched.size() == 1) {
             final Candidate<T> candidate = matched.get(0);
             return new Bound<>(
-                candidate.version(), candidate.contract(), probe,
-                List.of(candidate.version()), declaredRelease);
+                    candidate.version(), candidate.contract(), probe, List.of(candidate.version()), declaredRelease);
         }
         if (matched.isEmpty()) {
             return new Refused<>(
-                "declared reviewed release but the target contract is altered: "
-                    + String.join(", ", mismatch));
+                    "declared reviewed release but the target contract is altered: " + String.join(", ", mismatch));
         }
         return new Refused<>("ambiguous reviewed contract binding: " + matched);
     }
 
     private static <T> Resolution<T> bindStructurally(
-        final JarFile jar,
-        final HostIdentityProbe probe,
-        final List<Candidate<T>> candidates,
-        final boolean declaredRelease
-    ) {
+            final JarFile jar,
+            final HostIdentityProbe probe,
+            final List<Candidate<T>> candidates,
+            final boolean declaredRelease) {
         final List<Candidate<T>> matched = new ArrayList<>();
         for (final Candidate<T> candidate : candidates) {
             if (firstMismatch(jar, candidate.pinnedClassSha256()) == null) {
@@ -284,9 +258,9 @@ public final class ReviewedHostContract {
         // behind the same evidence describe one bound feature, so they merge.
         final List<Candidate<T>> distinct = new ArrayList<>();
         for (final Candidate<T> candidate : matched) {
-            final boolean duplicate = distinct.stream().anyMatch(other ->
-                Objects.equals(other.contract(), candidate.contract())
-                    && other.pinnedClassSha256().equals(candidate.pinnedClassSha256()));
+            final boolean duplicate = distinct.stream()
+                    .anyMatch(other -> Objects.equals(other.contract(), candidate.contract())
+                            && other.pinnedClassSha256().equals(candidate.pinnedClassSha256()));
             if (!duplicate) {
                 distinct.add(candidate);
             }
@@ -295,25 +269,22 @@ public final class ReviewedHostContract {
             return new Refused<>("no reviewed target contract matched the host classes");
         }
         if (distinct.size() > 1) {
-            return new Refused<>(
-                "ambiguous target contract: classes match reviewed generations "
-                    + versions(distinct));
+            return new Refused<>("ambiguous target contract: classes match reviewed generations " + versions(distinct));
         }
         // Every match here is the same contract under equivalent evidence; prefer the
         // candidate whose version the host declared, if any.
         final Candidate<T> bound = preferred(matched, probe);
         return new Bound<>(
-            bound.version(), bound.contract(), probe,
-            matched.stream().map(Candidate::version).toList(), declaredRelease);
+                bound.version(),
+                bound.contract(),
+                probe,
+                matched.stream().map(Candidate::version).toList(),
+                declaredRelease);
     }
 
-    private static <T> Candidate<T> preferred(
-        final List<Candidate<T>> matched,
-        final HostIdentityProbe probe
-    ) {
-        final String declared = probe.identity()
-            .map(CubismHostIdentity::version)
-            .orElse(null);
+    private static <T> Candidate<T> preferred(final List<Candidate<T>> matched, final HostIdentityProbe probe) {
+        final String declared =
+                probe.identity().map(CubismHostIdentity::version).orElse(null);
         if (declared != null) {
             for (final Candidate<T> candidate : matched) {
                 if (candidate.version().equals(declared)) {
@@ -325,7 +296,12 @@ public final class ReviewedHostContract {
     }
 
     private static String versions(final List<? extends Candidate<?>> matched) {
-        return matched.stream().map(Candidate::version).distinct().sorted().toList().toString();
+        return matched.stream()
+                .map(Candidate::version)
+                .distinct()
+                .sorted()
+                .toList()
+                .toString();
     }
 
     /**
@@ -336,9 +312,7 @@ public final class ReviewedHostContract {
      * @param bytes actual class definition presented to the transformer
      * @return whether this owner is pinned and these bytes match that pin
      */
-    public static boolean matchesClassBytes(
-        final Map<String, String> pins, final String owner, final byte[] bytes
-    ) {
+    public static boolean matchesClassBytes(final Map<String, String> pins, final String owner, final byte[] bytes) {
         final String expected = pins.get(owner);
         return expected != null && bytes != null && expected.equals(sha256(bytes));
     }
@@ -366,8 +340,7 @@ public final class ReviewedHostContract {
 
     private static String sha256(final byte[] bytes) {
         try {
-            return HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256").digest(bytes));
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (NoSuchAlgorithmException failure) {
             throw new IllegalStateException("SHA-256 unavailable", failure);
         }

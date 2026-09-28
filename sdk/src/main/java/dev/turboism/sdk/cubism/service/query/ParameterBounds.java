@@ -10,9 +10,4 @@ package dev.turboism.sdk.cubism.service.query;
  * @param maxValue highest value the Editor allows for the parameter
  * @param defaultValue the parameter's rest value, what it returns to when reset
  */
-public record ParameterBounds(
-    double minValue,
-    double maxValue,
-    double defaultValue
-) {
-}
+public record ParameterBounds(double minValue, double maxValue, double defaultValue) {}

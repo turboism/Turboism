@@ -16,7 +16,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
@@ -62,6 +61,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     public static final String RESULT_PROPERTY = "turboism.model-update-skip.probe.result";
     /** Opt-in detailed timing; keep disabled in interaction acceptance runs. */
     public static final String TIMING_PROPERTY = "turboism.model-update-skip.timing";
+
     private static final Decision[] DECISIONS = Decision.values();
 
     private static final String MV = "com.live2d.cubism.view.context.CEViewContext_ModelingView";
@@ -73,40 +73,95 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
 
     private final ModelUpdateSkipTarget target;
     private final Class<?> modelingViewType, modelingDocumentType, meshFormType, pathFormType;
-    private final MethodHandle getParameterSet, getLastUpdatedParameterSet, getAllDrawables,
-        getSource, getParameters, getUpdateVersion, paramValue, paramId, getLastModifiedTime,
-        getDoc, getDevelopSetting, getAppearanceSetting, getCurrentEditMode,
-        isRandomPose, isExternalApp, isRecording, getCurrentViewMode,
-        developH, developK, appearanceD,
-        getDraw, optimizeArtMesh, optimizeDeformer, optimizeDrawOrder, optimizeHierarchy,
-        getGui, getWarning, maskWarning, blendWarning, getCanvas, hideSelected,
-        getDeveloper, highLightDeformerChild,
-        formAnimationGate, isModelEditing,
-        ucA, ucB, ucC, ucD, ucE, ucF, ucG, ucH, ucSelection,
-        ucAliasStack, ucRenderHash, ucRenderCodes,
-        getDeformedForm, getDrawOrder, meshPositions, pathPositions,
-        pointCurve, pointWidth, pointOpacity, spPoint, spStart, spEnd, vecX, vecY,
-        updaterA, updaterB;
+    private final MethodHandle getParameterSet,
+            getLastUpdatedParameterSet,
+            getAllDrawables,
+            getSource,
+            getParameters,
+            getUpdateVersion,
+            paramValue,
+            paramId,
+            getLastModifiedTime,
+            getDoc,
+            getDevelopSetting,
+            getAppearanceSetting,
+            getCurrentEditMode,
+            isRandomPose,
+            isExternalApp,
+            isRecording,
+            getCurrentViewMode,
+            developH,
+            developK,
+            appearanceD,
+            getDraw,
+            optimizeArtMesh,
+            optimizeDeformer,
+            optimizeDrawOrder,
+            optimizeHierarchy,
+            getGui,
+            getWarning,
+            maskWarning,
+            blendWarning,
+            getCanvas,
+            hideSelected,
+            getDeveloper,
+            highLightDeformerChild,
+            formAnimationGate,
+            isModelEditing,
+            ucA,
+            ucB,
+            ucC,
+            ucD,
+            ucE,
+            ucF,
+            ucG,
+            ucH,
+            ucSelection,
+            ucAliasStack,
+            ucRenderHash,
+            ucRenderCodes,
+            getDeformedForm,
+            getDrawOrder,
+            meshPositions,
+            pathPositions,
+            pointCurve,
+            pointWidth,
+            pointOpacity,
+            spPoint,
+            spStart,
+            spEnd,
+            vecX,
+            vecY,
+            updaterA,
+            updaterB;
     private final Object appSettingInstance, formAnimationInstance;
     private final AtomicBoolean active = new AtomicBoolean();
-    private final LongAdder calls = new LongAdder(), skipped = new LongAdder(),
-        full = new LongAdder(), probeMismatch = new LongAdder(), failures = new LongAdder(),
-        predicateNanos = new LongAdder(), digestNanos = new LongAdder();
+    private final LongAdder calls = new LongAdder(),
+            skipped = new LongAdder(),
+            full = new LongAdder(),
+            probeMismatch = new LongAdder(),
+            failures = new LongAdder(),
+            predicateNanos = new LongAdder(),
+            digestNanos = new LongAdder();
     private final java.util.concurrent.atomic.AtomicLong predicateMaxNanos =
-        new java.util.concurrent.atomic.AtomicLong();
+            new java.util.concurrent.atomic.AtomicLong();
     private final LongAdder[] decisions = newDecisionCounters();
-    private final LongAdder readFrameNanos = new LongAdder(), decisionNanos = new LongAdder(),
-        readFrameSamples = new LongAdder(), decisionSamples = new LongAdder();
+    private final LongAdder readFrameNanos = new LongAdder(),
+            decisionNanos = new LongAdder(),
+            readFrameSamples = new LongAdder(),
+            decisionSamples = new LongAdder();
     private final java.util.concurrent.atomic.AtomicLong readFrameMaxNanos =
-        new java.util.concurrent.atomic.AtomicLong();
+            new java.util.concurrent.atomic.AtomicLong();
     private final java.util.concurrent.atomic.AtomicLong decisionMaxNanos =
-        new java.util.concurrent.atomic.AtomicLong();
+            new java.util.concurrent.atomic.AtomicLong();
     private volatile long parameterCount = -1L;
+
     private static LongAdder[] newDecisionCounters() {
         final LongAdder[] counters = new LongAdder[DECISIONS.length];
         Arrays.setAll(counters, index -> new LongAdder());
         return counters;
     }
+
     private final Predicate<Object[]> callback = this::shouldSkip;
     private final Consumer<Object> afterUpdate = this::updateCompleted;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
@@ -164,8 +219,8 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         getCanvas = target.appearanceAuxSettings() ? handles.get(dep(AS, "getCanvas")) : null;
         hideSelected = target.appearanceAuxSettings() ? handles.get(dep(CS, "getHideSelectedState")) : null;
         getDeveloper = target.appearanceAuxSettings() ? handles.get(dep(AS, "getDeveloper")) : null;
-        highLightDeformerChild = target.appearanceAuxSettings()
-            ? handles.get(dep(DEVSET, "getHighLightDeformerChild")) : null;
+        highLightDeformerChild =
+                target.appearanceAuxSettings() ? handles.get(dep(DEVSET, "getHighLightDeformerChild")) : null;
         formAnimationGate = handles.get(dep(FT, "a"));
         isModelEditing = handles.get(dep(MS, "isModelEditing"));
         ucA = handles.get(dep(target.updateContext(), "a"));
@@ -194,7 +249,8 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         vecY = handles.get(dep(GV, "getY"));
         updaterA = handles.get(dep(target.owner().replace('/', '.'), "a"));
         updaterB = handles.get(dep(target.owner().replace('/', '.'), "b"));
-        appSettingInstance = Class.forName(AS, false, loader).getField("INSTANCE").get(null);
+        appSettingInstance =
+                Class.forName(AS, false, loader).getField("INSTANCE").get(null);
         formAnimationInstance = Class.forName(FT, false, loader).getField("a").get(null);
     }
 
@@ -220,8 +276,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         throw new IllegalArgumentException("undeclared dependency " + owner + "." + name);
     }
 
-    private static Map<Dep, MethodHandle> resolve(final ModelUpdateSkipTarget target,
-                                                  final ClassLoader loader)
+    private static Map<Dep, MethodHandle> resolve(final ModelUpdateSkipTarget target, final ClassLoader loader)
             throws ReflectiveOperationException {
         final var lookup = MethodHandles.publicLookup();
         final Map<Dep, MethodHandle> handles = new java.util.HashMap<>();
@@ -245,8 +300,8 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     private static Method method(final Class<?> owner, final Dep dep) throws NoSuchMethodException {
         for (final Method method : owner.getMethods()) {
             if (!method.getName().equals(dep.name())) continue;
-            final String descriptor = MethodType.methodType(
-                method.getReturnType(), method.getParameterTypes()).descriptorString();
+            final String descriptor = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
+                    .descriptorString();
             if (descriptor.equals(dep.descriptor())) return method;
         }
         throw new NoSuchMethodException(owner.getName() + "." + dep.name() + dep.descriptor());
@@ -257,9 +312,10 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         if (active.get()) throw new IllegalStateException("model-update skip already installed");
         final Properties properties = System.getProperties();
         synchronized (properties) {
-            if (properties.containsKey(CALLBACK_PROPERTY) || properties.containsKey(AFTER_PROPERTY)
-                || properties.containsKey(STATS_PROPERTY)
-                || properties.containsKey(SKIPPED_FRAME_PROPERTY)) {
+            if (properties.containsKey(CALLBACK_PROPERTY)
+                    || properties.containsKey(AFTER_PROPERTY)
+                    || properties.containsKey(STATS_PROPERTY)
+                    || properties.containsKey(SKIPPED_FRAME_PROPERTY)) {
                 throw new IllegalStateException("model-update skip slots occupied");
             }
             try {
@@ -308,8 +364,8 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
             pendingFrame = current;
             pendingProbe = false;
             final long decisionStarted = timed ? System.nanoTime() : 0L;
-            final Decision decision = UnchangedFramePredicate.check(
-                current, lastFrame, currentParams, lastUpdatedParams);
+            final Decision decision =
+                    UnchangedFramePredicate.check(current, lastFrame, currentParams, lastUpdatedParams);
             if (timed) {
                 final long nanos = System.nanoTime() - decisionStarted;
                 decisionNanos.add(nanos);
@@ -427,12 +483,16 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
                 highLight = (boolean) highLightDeformerChild.invokeExact(developer);
             }
         }
-        final boolean formGate = ctx != null
-            && (boolean) formAnimationGate.invokeExact(formAnimationInstance, ctx);
+        final boolean formGate = ctx != null && (boolean) formAnimationGate.invokeExact(formAnimationInstance, ctx);
         final Object source = model != null ? (Object) getSource.invokeExact(model) : null;
         final boolean editing = source != null && (boolean) isModelEditing.invokeExact(source);
-        boolean ucPresent = update != null, ucAValue = false, ucBValue = false, ucDValue = false,
-            ucEValue = false, ucFValue = false, stacksEmpty = true;
+        boolean ucPresent = update != null,
+                ucAValue = false,
+                ucBValue = false,
+                ucDValue = false,
+                ucEValue = false,
+                ucFValue = false,
+                stacksEmpty = true;
         float ucCValue = 0f;
         Object ucView = null, ucEdit = null, ucHash = null;
         List<Object> selection = null;
@@ -453,30 +513,63 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
                 final Object stack = (Object) ucAliasStack.invokeExact(update);
                 final Object codes = (Object) ucRenderCodes.invokeExact(update);
                 stacksEmpty = (stack == null || ((List<?>) stack).isEmpty())
-                    && (codes == null || ((List<?>) codes).isEmpty());
+                        && (codes == null || ((List<?>) codes).isEmpty());
             }
         }
         final Object parameterSet = model != null ? (Object) getParameterSet.invokeExact(model) : null;
         final Object lastUpdated = model != null ? (Object) getLastUpdatedParameterSet.invokeExact(model) : null;
-        currentParams.list = parameterSet != null
-            ? castParameters((Object) getParameters.invokeExact(parameterSet)) : null;
-        lastUpdatedParams.list = lastUpdated != null
-            ? castParameters((Object) getParameters.invokeExact(lastUpdated)) : null;
-        final int paramVersion = parameterSet != null
-            ? (int) getUpdateVersion.invokeExact(parameterSet) : Integer.MIN_VALUE;
+        currentParams.list =
+                parameterSet != null ? castParameters((Object) getParameters.invokeExact(parameterSet)) : null;
+        lastUpdatedParams.list =
+                lastUpdated != null ? castParameters((Object) getParameters.invokeExact(lastUpdated)) : null;
+        final int paramVersion =
+                parameterSet != null ? (int) getUpdateVersion.invokeExact(parameterSet) : Integer.MIN_VALUE;
         final boolean conflict = args.length > 7 && Boolean.TRUE.equals(args[7]);
         final Object system = args[0];
         final boolean flagA = system != null && (boolean) updaterA.invokeExact(system);
         final boolean flagB = system != null && (boolean) updaterB.invokeExact(system);
-        return new Frame(model, view, document, documentModified, paramVersion,
-            viewMode, editMode, appearance,
-            optArtMesh, optDeformer, optDrawOrder, optHierarchy,
-            maskWarn, blendWarn, hideSel, highLight,
-            randomPose, externalApp, recording, developHValue, developKValue, formGate, editing,
-            flagA, flagB,
-            ucPresent, ucAValue, ucBValue, ucCValue, ucDValue, ucEValue, ucFValue,
-            ucView, ucEdit, selection, ucHash, stacksEmpty, conflict, contextParam,
-            Boolean.TRUE.equals(args[3]), Boolean.TRUE.equals(args[5]));
+        return new Frame(
+                model,
+                view,
+                document,
+                documentModified,
+                paramVersion,
+                viewMode,
+                editMode,
+                appearance,
+                optArtMesh,
+                optDeformer,
+                optDrawOrder,
+                optHierarchy,
+                maskWarn,
+                blendWarn,
+                hideSel,
+                highLight,
+                randomPose,
+                externalApp,
+                recording,
+                developHValue,
+                developKValue,
+                formGate,
+                editing,
+                flagA,
+                flagB,
+                ucPresent,
+                ucAValue,
+                ucBValue,
+                ucCValue,
+                ucDValue,
+                ucEValue,
+                ucFValue,
+                ucView,
+                ucEdit,
+                selection,
+                ucHash,
+                stacksEmpty,
+                conflict,
+                contextParam,
+                Boolean.TRUE.equals(args[3]),
+                Boolean.TRUE.equals(args[5]));
     }
 
     @SuppressWarnings("unchecked")
@@ -511,8 +604,8 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
                     if (points == null) {
                         putInt(md, buffer, -1);
                     } else if (!(points instanceof List)) {
-                        throw new IllegalStateException(
-                            "path points of unexpected type " + points.getClass().getName());
+                        throw new IllegalStateException("path points of unexpected type "
+                                + points.getClass().getName());
                     } else {
                         putInt(md, buffer, ((List<?>) points).size());
                         for (final Object point : (List<?>) points) {
@@ -534,7 +627,8 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
                         }
                     }
                 } else {
-                    throw new IllegalStateException("undigestable form " + form.getClass().getName());
+                    throw new IllegalStateException(
+                            "undigestable form " + form.getClass().getName());
                 }
                 putInt(md, buffer, (int) getDrawOrder.invokeExact(drawable));
             }
@@ -546,8 +640,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         }
     }
 
-    private void putVector(final MessageDigest md, final ByteBuffer buffer, final Object vector)
-            throws Throwable {
+    private void putVector(final MessageDigest md, final ByteBuffer buffer, final Object vector) throws Throwable {
         if (vector == null) {
             putInt(md, buffer, -1);
             return;
@@ -577,9 +670,14 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
             final StringBuilder json = new StringBuilder(512).append('{');
             json.append("\"target\":\"").append(target.version()).append('\"');
             json.append(",\"docLastModified\":").append(frame == null ? "null" : frame.documentLastModified());
-            json.append(",\"paramSetUpdateVersion\":").append(frame == null ? "null" : frame.parameterSetUpdateVersion());
-            if (post != null) json.append(",\"postDigest\":\"").append(HexFormat.of().formatHex(post)).append('\"');
-            if (failure != null) json.append(",\"error\":\"").append(escape(describe(failure))).append('\"');
+            json.append(",\"paramSetUpdateVersion\":")
+                    .append(frame == null ? "null" : frame.parameterSetUpdateVersion());
+            if (post != null)
+                json.append(",\"postDigest\":\"")
+                        .append(HexFormat.of().formatHex(post))
+                        .append('\"');
+            if (failure != null)
+                json.append(",\"error\":\"").append(escape(describe(failure))).append('\"');
             if (frame != null) {
                 json.append(",\"flags\":{");
                 json.append("\"modelEditing\":").append(frame.modelEditing());
@@ -596,8 +694,12 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
                 json.append('}');
             }
             json.append("}\n");
-            Files.writeString(Path.of(path), json.toString(), StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            Files.writeString(
+                    Path.of(path),
+                    json.toString(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             failures.increment();
@@ -647,31 +749,47 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     }
 
     /** Clears owned slots; outstanding callbacks fall back to the native path. */
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         active.set(false);
         skippedFrame.set(false);
         final Properties properties = installedProperties;
         installedProperties = null;
-        if (properties != null) synchronized (properties) {
-            properties.remove(CALLBACK_PROPERTY, callback);
-            properties.remove(AFTER_PROPERTY, afterUpdate);
-            properties.remove(STATS_PROPERTY, statistics);
-            properties.remove(SKIPPED_FRAME_PROPERTY, skippedFrame);
-        }
+        if (properties != null)
+            synchronized (properties) {
+                properties.remove(CALLBACK_PROPERTY, callback);
+                properties.remove(AFTER_PROPERTY, afterUpdate);
+                properties.remove(STATS_PROPERTY, statistics);
+                properties.remove(SKIPPED_FRAME_PROPERTY, skippedFrame);
+            }
     }
 
     private final class HostParamSet implements ParamSet {
         private List<Object> list;
-        @Override public int size() { return list == null ? -1 : list.size(); }
-        @Override public Object idAt(final int index) {
-            try { return (Object) paramId.invokeExact(list.get(index)); }
-            catch (Throwable failure) {
-                FatalErrors.rethrowIfFatal(failure); throw new IllegalStateException(failure); }
+
+        @Override
+        public int size() {
+            return list == null ? -1 : list.size();
         }
-        @Override public float valueAt(final int index) {
-            try { return (float) paramValue.invokeExact(list.get(index)); }
-            catch (Throwable failure) {
-                FatalErrors.rethrowIfFatal(failure); throw new IllegalStateException(failure); }
+
+        @Override
+        public Object idAt(final int index) {
+            try {
+                return (Object) paramId.invokeExact(list.get(index));
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw new IllegalStateException(failure);
+            }
+        }
+
+        @Override
+        public float valueAt(final int index) {
+            try {
+                return (float) paramValue.invokeExact(list.get(index));
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw new IllegalStateException(failure);
+            }
         }
     }
 }

@@ -21,7 +21,6 @@ import dev.turboism.sdk.cubism.edit.SelectionOps;
 import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.plugin.PluginContext;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -39,20 +38,17 @@ import java.util.function.Function;
  */
 final class FakeEditEngine {
 
-    private FakeEditEngine() {
-    }
+    private FakeEditEngine() {}
 
     /** {@return an inspector reporting every socket as registered + authorized} */
     static EditConnectionInspector registered() {
         return socket -> Optional.of(new EditConnectionInfo(
-            true, true, "key-" + Integer.toHexString(System.identityHashCode(socket)),
-            "fake-plugin"));
+                true, true, "key-" + Integer.toHexString(System.identityHashCode(socket)), "fake-plugin"));
     }
 
     /** {@return an inspector reporting every socket as present but unregistered} */
     static EditConnectionInspector unregistered() {
-        return socket -> Optional.of(new EditConnectionInfo(
-            false, false, "key", "fake-plugin"));
+        return socket -> Optional.of(new EditConnectionInfo(false, false, "key", "fake-plugin"));
     }
 
     /** {@return a gate that grants approval without interaction} */
@@ -77,20 +73,15 @@ final class FakeEditEngine {
 
     /** Assembles a test environment. */
     static EditBridgeEnvironment env(
-        final EditConnectionInspector inspector,
-        final EditSessionService sessions,
-        final java.util.function.Supplier<Optional<DocumentId>> activeDocument,
-        final EditApprovalGate gate
-    ) {
-        return new EditBridgeEnvironment(
-            inspector, sessions, context(), activeDocument, gate);
+            final EditConnectionInspector inspector,
+            final EditSessionService sessions,
+            final java.util.function.Supplier<Optional<DocumentId>> activeDocument,
+            final EditApprovalGate gate) {
+        return new EditBridgeEnvironment(inspector, sessions, context(), activeDocument, gate);
     }
 
     /** {@return a bridge over a recording writer and the given environment} */
-    static EditProtocolBridge bridge(
-        final List<String> sent,
-        final EditBridgeEnvironment env
-    ) {
+    static EditProtocolBridge bridge(final List<String> sent, final EditBridgeEnvironment env) {
         return new EditProtocolBridge((socket, text) -> sent.add(text), env);
     }
 
@@ -180,10 +171,8 @@ final class FakeEditEngine {
 
         @Override
         public EditSession open(
-            final PluginContext context,
-            final DocumentId document,
-            final EditSessionOptions options
-        ) throws EditSessionException {
+                final PluginContext context, final DocumentId document, final EditSessionOptions options)
+                throws EditSessionException {
             openCalls++;
             lastDocument = document;
             lastOptions = options;
@@ -213,8 +202,7 @@ final class FakeEditEngine {
         final Parts parts = new Parts();
         final Deformers deformers = new Deformers();
 
-        FakeSession() {
-        }
+        FakeSession() {}
 
         FakeSession(final EditSessionOptions options) {
             options.undoCancelListener().ifPresent(listener -> undoListener = listener);
@@ -240,8 +228,7 @@ final class FakeEditEngine {
 
         @Override
         public EditSessionOpenResult openResult() {
-            return new EditSessionOpenResult(
-                document(), EditSessionOptions.defaults());
+            return new EditSessionOpenResult(document(), EditSessionOptions.defaults());
         }
 
         @Override
@@ -290,8 +277,7 @@ final class FakeEditEngine {
         private EditSessionCloseResult closeResult(final EditSessionCloseOutcome outcome) {
             return switch (outcome) {
                 case COMMITTED -> EditSessionCloseResult.committed();
-                case CANCELLED -> EditSessionCloseResult.cancelled(
-                    CancelSource.PLUGIN);
+                case CANCELLED -> EditSessionCloseResult.cancelled(CancelSource.PLUGIN);
                 default -> EditSessionCloseResult.failed("fake-failure");
             };
         }
@@ -354,9 +340,7 @@ final class FakeEditEngine {
         }
 
         @Override
-        public List<ModelObjectId> objectsByParameterKeys(
-            final GetObjectsByParameterKeys request
-        ) {
+        public List<ModelObjectId> objectsByParameterKeys(final GetObjectsByParameterKeys request) {
             lastRequest = request;
             return objectsResult;
         }

@@ -1,20 +1,19 @@
 package dev.turboism.preview;
 
-import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
-import dev.turboism.core.event.GeneratedSubscriberCatalogLoader;
 import dev.turboism.core.event.EventSubscriberDescriptor;
 import dev.turboism.core.event.EventSubscriptionPermissionCatalog;
+import dev.turboism.core.event.GeneratedSubscriberCatalogLoader;
+import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.core.runtime.ContextClassLoaderScope;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.net.URL;
@@ -48,33 +47,25 @@ final class PreviewPluginLoader {
     private final PluginLifecycleEvents lifecycleEvents;
 
     PreviewPluginLoader(
-        final PreviewPluginContextFactory contextFactory,
-        final PreviewLog log,
-        final List<LocalPluginRuntime.LoadedPlugin> loaded,
-        final ParameterHookRegistry parameterHookRegistry,
-        final PartHookRegistry partHookRegistry,
-        final EditorObjectHookRegistry editorObjectHookRegistry,
-        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry,
-        final PluginLifecycleLane lane,
-        final PluginLifecyclePolicy policy,
-        final RetainedPluginGenerations retention
-    ) {
+            final PreviewPluginContextFactory contextFactory,
+            final PreviewLog log,
+            final List<LocalPluginRuntime.LoadedPlugin> loaded,
+            final ParameterHookRegistry parameterHookRegistry,
+            final PartHookRegistry partHookRegistry,
+            final EditorObjectHookRegistry editorObjectHookRegistry,
+            final ProjectLifecycleHookRegistry projectLifecycleHookRegistry,
+            final PluginLifecycleLane lane,
+            final PluginLifecyclePolicy policy,
+            final RetainedPluginGenerations retention) {
         this.contextFactory = contextFactory;
         this.log = log;
         this.loaded = loaded;
-        this.parameterHookRegistry = java.util.Objects.requireNonNull(
-            parameterHookRegistry,
-            "parameterHookRegistry"
-        );
+        this.parameterHookRegistry = java.util.Objects.requireNonNull(parameterHookRegistry, "parameterHookRegistry");
         this.partHookRegistry = java.util.Objects.requireNonNull(partHookRegistry, "partHookRegistry");
-        this.editorObjectHookRegistry = java.util.Objects.requireNonNull(
-            editorObjectHookRegistry,
-            "editorObjectHookRegistry"
-        );
-        this.projectLifecycleHookRegistry = java.util.Objects.requireNonNull(
-            projectLifecycleHookRegistry,
-            "projectLifecycleHookRegistry"
-        );
+        this.editorObjectHookRegistry =
+                java.util.Objects.requireNonNull(editorObjectHookRegistry, "editorObjectHookRegistry");
+        this.projectLifecycleHookRegistry =
+                java.util.Objects.requireNonNull(projectLifecycleHookRegistry, "projectLifecycleHookRegistry");
         this.lane = java.util.Objects.requireNonNull(lane, "lane");
         this.policy = java.util.Objects.requireNonNull(policy, "policy");
         this.retention = java.util.Objects.requireNonNull(retention, "retention");
@@ -82,15 +73,11 @@ final class PreviewPluginLoader {
     }
 
     LocalPluginRuntime.LoadedPluginSummary load(
-        final PreviewPluginCandidate candidate,
-        final List<LocalPluginRuntime.PluginFailure> failures
-    ) {
+            final PreviewPluginCandidate candidate, final List<LocalPluginRuntime.PluginFailure> failures) {
         final PluginDescriptor descriptor = candidate.descriptor();
         log.info(
-            descriptor.id(),
-            "Plugin lifecycle: load started name=" + descriptor.name()
-                + " version=" + descriptor.version()
-        );
+                descriptor.id(),
+                "Plugin lifecycle: load started name=" + descriptor.name() + " version=" + descriptor.version());
         final PluginRuntime runtime = new PluginRuntime(descriptor.id(), descriptor);
         runtime.transitionTo(PluginLifecycleState.RESOLVED);
         final LoadResources resources = new LoadResources();
@@ -99,30 +86,27 @@ final class PreviewPluginLoader {
         resources.guard = new PluginGenerationGuard(descriptor.id());
         final PluginLifecycleLease lease = new PluginLifecycleLease(descriptor.id());
         final PluginLifecycleLane.Invocation<LocalPluginRuntime.LoadedPlugin> invocation =
-            lane.submit(descriptor.id(), "load", () -> {
-                try {
-                    return loadPlugin(candidate, runtime, resources, lease);
-                } catch (Throwable failure) {
-                    FatalErrors.rethrowIfFatal(failure);
-                    resources.cleanupComplete = cleanupFailed(resources, descriptor.id(), true);
-                    throw failure;
-                }
-            });
+                lane.submit(descriptor.id(), "load", () -> {
+                    try {
+                        return loadPlugin(candidate, runtime, resources, lease);
+                    } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
+                        resources.cleanupComplete = cleanupFailed(resources, descriptor.id(), true);
+                        throw failure;
+                    }
+                });
         final PluginLifecycleLane.AwaitResult<LocalPluginRuntime.LoadedPlugin> result =
-            lane.await(invocation, policy.loadTimeout(), lease);
+                lane.await(invocation, policy.loadTimeout(), lease);
         return switch (result.outcome) {
             case SUCCEEDED -> {
                 loaded.add(result.value);
                 log.info(
-                    descriptor.id(),
-                    "Plugin lifecycle: load succeeded name=" + descriptor.name()
-                        + " version=" + descriptor.version()
-                        + " entrypoints=" + resources.entrypoints.size()
-                );
+                        descriptor.id(),
+                        "Plugin lifecycle: load succeeded name=" + descriptor.name()
+                                + " version=" + descriptor.version()
+                                + " entrypoints=" + resources.entrypoints.size());
                 lifecycleEvents.loaded(
-                    descriptor.id(),
-                    result.value.eventOwner().key().generation()
-                );
+                        descriptor.id(), result.value.eventOwner().key().generation());
                 yield PreviewPluginSummaryFactory.active(result.value);
             }
             case FAILED -> {
@@ -136,25 +120,23 @@ final class PreviewPluginLoader {
                 // Fence the pre-created guard anyway so no reference to it can admit work later.
                 fenceFailedGeneration(resources);
                 recordFailure(
-                    candidate, runtime, resources.classLoader, failures,
-                    new IllegalStateException(
-                        "Plugin lifecycle lane is saturated or closed: " + descriptor.id()
-                    )
-                );
+                        candidate,
+                        runtime,
+                        resources.classLoader,
+                        failures,
+                        new IllegalStateException("Plugin lifecycle lane is saturated or closed: " + descriptor.id()));
                 lifecycleEvents.loadFailed(
-                    descriptor.id(),
-                    dev.turboism.sdk.runtime.PluginLifecycleEvent.NO_ADMITTED_GENERATION
-                );
+                        descriptor.id(), dev.turboism.sdk.runtime.PluginLifecycleEvent.NO_ADMITTED_GENERATION);
                 yield null;
             }
             case TIMED_OUT -> {
                 fenceFailedGeneration(resources);
                 recordFailure(
-                    candidate, runtime, resources.classLoader, failures,
-                    new TimeoutException(
-                        "Plugin load exceeded " + policy.loadTimeout() + ": " + descriptor.id()
-                    )
-                );
+                        candidate,
+                        runtime,
+                        resources.classLoader,
+                        failures,
+                        new TimeoutException("Plugin load exceeded " + policy.loadTimeout() + ": " + descriptor.id()));
                 lifecycleEvents.loadTimedOut(descriptor.id(), generation(resources));
                 retainIfIncomplete(resources, descriptor.id(), invocation);
                 yield null;
@@ -169,8 +151,8 @@ final class PreviewPluginLoader {
     private static long generation(final LoadResources resources) {
         final dev.turboism.core.event.RuntimeEventBroker.Owner owner = resources.eventOwner;
         return owner == null
-            ? dev.turboism.sdk.runtime.PluginLifecycleEvent.NO_ADMITTED_GENERATION
-            : owner.key().generation();
+                ? dev.turboism.sdk.runtime.PluginLifecycleEvent.NO_ADMITTED_GENERATION
+                : owner.key().generation();
     }
 
     /**
@@ -189,11 +171,7 @@ final class PreviewPluginLoader {
                 eventOwner.beginClosing();
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
-                log.error(
-                    "plugin-loader",
-                    "Plugin event owner fencing after load timeout failed safely",
-                    failure
-                );
+                log.error("plugin-loader", "Plugin event owner fencing after load timeout failed safely", failure);
             }
             // Capture the executor set under this generation's owner so the cleanup tail can
             // release exactly that set — a same-id reload cannot have its executor closed by
@@ -202,11 +180,7 @@ final class PreviewPluginLoader {
                 eventOwner.claimExecutors();
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
-                log.error(
-                    "plugin-loader",
-                    "Plugin executor claim after load failure failed safely",
-                    failure
-                );
+                log.error("plugin-loader", "Plugin executor claim after load failure failed safely", failure);
             }
         }
         final DisposableScope scope = resources.scope;
@@ -216,105 +190,74 @@ final class PreviewPluginLoader {
     }
 
     private void retainIfIncomplete(
-        final LoadResources resources,
-        final String pluginId,
-        final PluginLifecycleLane.Invocation<?> invocation
-    ) {
+            final LoadResources resources, final String pluginId, final PluginLifecycleLane.Invocation<?> invocation) {
         if (resources.cleanupComplete) {
             return;
         }
         retention.retain(new RetainedPluginGenerations.RetainedGeneration(
-            pluginId,
-            invocation.workerDone,
-            resources.eventOwner,
-            resources.guard,
-            // Dormant only once every stage that can still run plugin code — enable
-            // rollback, shutdown bodies, scope closers — has been attempted. A failed
-            // scope close is one-shot and stays dormant; later passes release only
-            // runtime bookkeeping (loader, contract lease).
-            () -> resources.rolledBack && resources.shutdownCalled && resources.scopeAttempted,
-            () -> cleanupFailed(resources, pluginId, false)
-        ));
-        log.warn(
-            pluginId,
-            "Plugin lifecycle: failed generation retained until lifecycle work quiesces"
-        );
+                pluginId,
+                invocation.workerDone,
+                resources.eventOwner,
+                resources.guard,
+                // Dormant only once every stage that can still run plugin code — enable
+                // rollback, shutdown bodies, scope closers — has been attempted. A failed
+                // scope close is one-shot and stays dormant; later passes release only
+                // runtime bookkeeping (loader, contract lease).
+                () -> resources.rolledBack && resources.shutdownCalled && resources.scopeAttempted,
+                () -> cleanupFailed(resources, pluginId, false)));
+        log.warn(pluginId, "Plugin lifecycle: failed generation retained until lifecycle work quiesces");
     }
 
     private LocalPluginRuntime.LoadedPlugin loadPlugin(
-        final PreviewPluginCandidate candidate,
-        final PluginRuntime runtime,
-        final LoadResources resources,
-        final PluginLifecycleLease lease
-    ) throws Exception {
+            final PreviewPluginCandidate candidate,
+            final PluginRuntime runtime,
+            final LoadResources resources,
+            final PluginLifecycleLease lease)
+            throws Exception {
         // Contract visibility must exist before constructor/generated-subscriber
         // inspection: bind the declared contract artifacts, preflight the declared event
         // types against them, then create the plugin loader with contract delegation.
-        resources.contractLease = contextFactory.acquireEventContracts(
-            candidate.descriptor(),
-            candidate.jar()
-        );
-        contextFactory.preflightEventContracts(
-            candidate.descriptor(),
-            resources.contractLease
-        );
+        resources.contractLease = contextFactory.acquireEventContracts(candidate.descriptor(), candidate.jar());
+        contextFactory.preflightEventContracts(candidate.descriptor(), resources.contractLease);
         resources.classLoader = new PluginContractClassLoader(
-            new URL[]{candidate.jar().toUri().toURL()},
-            resolvePluginParent(TurboismPlugin.class.getClassLoader()),
-            resources.contractLease
-        );
+                new URL[] {candidate.jar().toUri().toURL()},
+                resolvePluginParent(TurboismPlugin.class.getClassLoader()),
+                resources.contractLease);
         runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
 
-        resources.entrypoints.addAll(instantiateAll(
-            candidate.descriptor(),
-            resources.classLoader
-        ));
+        resources.entrypoints.addAll(instantiateAll(candidate.descriptor(), resources.classLoader));
         runtime.setEntrypoints(resources.entrypoints);
-        resources.eventSubscribers = new GeneratedSubscriberCatalogLoader().inspect(
-            resources.entrypoints,
-            resources.classLoader,
-            resources.contractLease.delegates().values()
-        );
+        resources.eventSubscribers = new GeneratedSubscriberCatalogLoader()
+                .inspect(
+                        resources.entrypoints,
+                        resources.classLoader,
+                        resources.contractLease.delegates().values());
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
 
         resources.scope = new DisposableScope();
-        final PluginContextBundle contextBundle = contextFactory.create(
-            candidate.descriptor(),
-            resources.classLoader,
-            resources.scope
-        );
+        final PluginContextBundle contextBundle =
+                contextFactory.create(candidate.descriptor(), resources.classLoader, resources.scope);
         resources.eventOwner = contextBundle.eventOwner();
         if (!resources.eventSubscribers.isEmpty()) {
             requireEventSubscribePermission(candidate.descriptor());
-            EventSubscriptionPermissionCatalog.requireDeclared(
-                candidate.descriptor(),
-                resources.eventSubscribers
-            );
+            EventSubscriptionPermissionCatalog.requireDeclared(candidate.descriptor(), resources.eventSubscribers);
         }
-        resources.eventRegistrations = contextBundle.eventOwner().registerAnnotated(
-            resources.eventSubscribers,
-            resources.entrypoints
-        );
+        resources.eventRegistrations =
+                contextBundle.eventOwner().registerAnnotated(resources.eventSubscribers, resources.entrypoints);
         runtime.setContext(contextBundle.context());
         logLocalization(candidate.descriptor(), contextBundle);
-        final dev.turboism.sdk.plugin.PluginContext guardedContext =
-            resources.guard.wrap(contextBundle.context());
+        final dev.turboism.sdk.plugin.PluginContext guardedContext = resources.guard.wrap(contextBundle.context());
         resources.eventOwner.beginInitializing();
 
         for (TurboismPlugin entrypoint : resources.entrypoints) {
             lease.checkpoint();
-            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
-                resources.classLoader
-            )) {
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(resources.classLoader)) {
                 entrypoint.init(guardedContext);
             }
             resources.initialized++;
         }
         runtime.transitionTo(PluginLifecycleState.LOADED);
-        log.info(
-            candidate.descriptor().id(),
-            "Plugin lifecycle: initialized entrypoints=" + resources.initialized
-        );
+        log.info(candidate.descriptor().id(), "Plugin lifecycle: initialized entrypoints=" + resources.initialized);
 
         resources.eventOwner.beginEnabling();
         enableAll(resources, runtime, candidate.descriptor().id(), lease);
@@ -326,60 +269,54 @@ final class PreviewPluginLoader {
             resources.eventOwner.activate();
             registerHooks(candidate, resources, contextBundle);
             return new LocalPluginRuntime.LoadedPlugin(
-                candidate.jar(),
-                runtime,
-                resources.entrypoints,
-                resources.scope,
-                resources.classLoader,
-                contextBundle.localization(),
-                contextBundle.cleanupEvidence(),
-                contextBundle.eventOwner(),
-                contextBundle.context(),
-                resources.guard
-            );
+                    candidate.jar(),
+                    runtime,
+                    resources.entrypoints,
+                    resources.scope,
+                    resources.classLoader,
+                    contextBundle.localization(),
+                    contextBundle.cleanupEvidence(),
+                    contextBundle.eventOwner(),
+                    contextBundle.context(),
+                    resources.guard);
         });
     }
 
     private void registerHooks(
-        final PreviewPluginCandidate candidate,
-        final LoadResources resources,
-        final PluginContextBundle contextBundle
-    ) {
+            final PreviewPluginCandidate candidate,
+            final LoadResources resources,
+            final PluginContextBundle contextBundle) {
         parameterHookRegistry.register(
-            candidate.descriptor(),
-            resources.entrypoints,
-            contextBundle.context().logger(),
-            resources.scope,
-            contextFactory.eventBroker(),
-            resources.eventOwner.key()
-        );
+                candidate.descriptor(),
+                resources.entrypoints,
+                contextBundle.context().logger(),
+                resources.scope,
+                contextFactory.eventBroker(),
+                resources.eventOwner.key());
         resources.parameterHooksRegistered = true;
         partHookRegistry.register(
-            candidate.descriptor(),
-            resources.entrypoints,
-            contextBundle.context().logger(),
-            resources.scope,
-            contextFactory.eventBroker(),
-            resources.eventOwner.key()
-        );
+                candidate.descriptor(),
+                resources.entrypoints,
+                contextBundle.context().logger(),
+                resources.scope,
+                contextFactory.eventBroker(),
+                resources.eventOwner.key());
         resources.partHooksRegistered = true;
         editorObjectHookRegistry.register(
-            candidate.descriptor(),
-            resources.entrypoints,
-            contextBundle.context().logger(),
-            resources.scope,
-            contextFactory.eventBroker(),
-            resources.eventOwner.key()
-        );
+                candidate.descriptor(),
+                resources.entrypoints,
+                contextBundle.context().logger(),
+                resources.scope,
+                contextFactory.eventBroker(),
+                resources.eventOwner.key());
         resources.editorObjectHooksRegistered = true;
         projectLifecycleHookRegistry.register(
-            candidate.descriptor(),
-            resources.entrypoints,
-            contextBundle.context().logger(),
-            resources.scope,
-            contextFactory.eventBroker(),
-            resources.eventOwner.key()
-        );
+                candidate.descriptor(),
+                resources.entrypoints,
+                contextBundle.context().logger(),
+                resources.scope,
+                contextFactory.eventBroker(),
+                resources.eventOwner.key());
         resources.projectLifecycleHooksRegistered = true;
     }
 
@@ -394,16 +331,11 @@ final class PreviewPluginLoader {
      */
     static ClassLoader resolvePluginParent(final ClassLoader sdkClassLoader) {
         return PluginParentBoundary.denyImplementationNamespaces(
-            sdkClassLoader != null
-                ? sdkClassLoader
-                : ClassLoader.getPlatformClassLoader()
-        );
+                sdkClassLoader != null ? sdkClassLoader : ClassLoader.getPlatformClassLoader());
     }
 
-    private List<TurboismPlugin> instantiateAll(
-        final PluginDescriptor descriptor,
-        final URLClassLoader classLoader
-    ) throws Exception {
+    private List<TurboismPlugin> instantiateAll(final PluginDescriptor descriptor, final URLClassLoader classLoader)
+            throws Exception {
         final List<TurboismPlugin> instances = new ArrayList<>();
         for (String className : descriptor.entrypoints()) {
             final Class<?> type = Class.forName(className, true, classLoader);
@@ -413,78 +345,58 @@ final class PreviewPluginLoader {
         return List.copyOf(instances);
     }
 
-    private static void verifyEntrypoint(
-        final Class<?> type,
-        final URLClassLoader classLoader
-    ) throws NoSuchMethodException {
+    private static void verifyEntrypoint(final Class<?> type, final URLClassLoader classLoader)
+            throws NoSuchMethodException {
         if (type.getClassLoader() != classLoader) {
-            throw new IllegalArgumentException(
-                "Plugin entrypoint must be defined by its own plugin JAR"
-            );
+            throw new IllegalArgumentException("Plugin entrypoint must be defined by its own plugin JAR");
         }
         if (!TurboismPlugin.class.isAssignableFrom(type)) {
             throw new IllegalArgumentException(
-                "Plugin entrypoint does not implement TurboismPlugin: " + type.getName()
-            );
+                    "Plugin entrypoint does not implement TurboismPlugin: " + type.getName());
         }
         final Constructor<?> constructor = type.getDeclaredConstructor();
-        if (!Modifier.isPublic(type.getModifiers())
-            || !Modifier.isPublic(constructor.getModifiers())) {
+        if (!Modifier.isPublic(type.getModifiers()) || !Modifier.isPublic(constructor.getModifiers())) {
             throw new IllegalArgumentException(
-                "Plugin entrypoint and no-arg constructor must be public: " + type.getName()
-            );
+                    "Plugin entrypoint and no-arg constructor must be public: " + type.getName());
         }
     }
 
     private static void requireEventSubscribePermission(final PluginDescriptor descriptor) {
-        final boolean allowed = descriptor.permissions().stream().anyMatch(permission ->
-            dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
-                permission.id()
-            )
-        );
+        final boolean allowed = descriptor.permissions().stream()
+                .anyMatch(permission ->
+                        dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(permission.id()));
         if (!allowed) {
-            throw new IllegalArgumentException(
-                "@SubscribeEvent requires "
+            throw new IllegalArgumentException("@SubscribeEvent requires "
                     + dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE
-                    + ": " + descriptor.id()
-            );
+                    + ": " + descriptor.id());
         }
     }
 
-    private void logLocalization(
-        final PluginDescriptor descriptor,
-        final PluginContextBundle contextBundle
-    ) {
+    private void logLocalization(final PluginDescriptor descriptor, final PluginContextBundle contextBundle) {
         log.debug(
-            descriptor.id(),
-            "Localization active locale="
-                + contextBundle.localization().locale().toLanguageTag()
-                + " catalogs=" + descriptor.i18n().locales()
-        );
+                descriptor.id(),
+                "Localization active locale="
+                        + contextBundle.localization().locale().toLanguageTag()
+                        + " catalogs=" + descriptor.i18n().locales());
     }
 
     private void enableAll(
-        final LoadResources resources,
-        final PluginRuntime runtime,
-        final String pluginId,
-        final PluginLifecycleLease lease
-    ) throws Exception {
+            final LoadResources resources,
+            final PluginRuntime runtime,
+            final String pluginId,
+            final PluginLifecycleLease lease)
+            throws Exception {
         log.info(pluginId, "Plugin lifecycle: enable started");
         try {
             for (TurboismPlugin entrypoint : resources.entrypoints) {
                 lease.checkpoint();
-                try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
-                    resources.classLoader
-                )) {
+                try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(resources.classLoader)) {
                     entrypoint.enable();
                 }
                 resources.enabled++;
             }
             runtime.transitionTo(PluginLifecycleState.ENABLED);
-            log.info(
-                pluginId,
-                "Plugin lifecycle: enable succeeded entrypoints=" + resources.enabled
-            );
+            log.info(pluginId, "Plugin lifecycle: enable succeeded entrypoints=" + resources.enabled);
         } catch (Exception failure) {
             runtime.transitionTo(PluginLifecycleState.ENABLE_FAILED);
             log.error(pluginId, "Plugin lifecycle: enable failed", failure);
@@ -493,28 +405,18 @@ final class PreviewPluginLoader {
     }
 
     private void recordFailure(
-        final PreviewPluginCandidate candidate,
-        final PluginRuntime runtime,
-        final URLClassLoader classLoader,
-        final List<LocalPluginRuntime.PluginFailure> failures,
-        final Throwable failure
-    ) {
+            final PreviewPluginCandidate candidate,
+            final PluginRuntime runtime,
+            final URLClassLoader classLoader,
+            final List<LocalPluginRuntime.PluginFailure> failures,
+            final Throwable failure) {
         if (runtime.state() != PluginLifecycleState.ENABLE_FAILED) {
-            runtime.transitionTo(classLoader == null
-                ? PluginLifecycleState.CLASSLOADER_FAILED
-                : PluginLifecycleState.LOAD_FAILED);
+            runtime.transitionTo(
+                    classLoader == null ? PluginLifecycleState.CLASSLOADER_FAILED : PluginLifecycleState.LOAD_FAILED);
         }
         failures.add(new LocalPluginRuntime.PluginFailure(
-            candidate.descriptor().id(),
-            candidate.jar(),
-            runtime.state().name(),
-            safeMessage(failure)
-        ));
-        log.error(
-            candidate.descriptor().id(),
-            "Plugin lifecycle: load failed state=" + runtime.state(),
-            failure
-        );
+                candidate.descriptor().id(), candidate.jar(), runtime.state().name(), safeMessage(failure)));
+        log.error(candidate.descriptor().id(), "Plugin lifecycle: load failed state=" + runtime.state(), failure);
     }
 
     /**
@@ -526,26 +428,20 @@ final class PreviewPluginLoader {
      *     gets a bounded quiescence wait; when {@code false} (retention re-drive) readiness is
      *     already gated and quiescence is only probed
      */
-    private boolean cleanupFailed(
-        final LoadResources resources,
-        final String pluginId,
-        final boolean awaitEvents
-    ) {
+    private boolean cleanupFailed(final LoadResources resources, final String pluginId, final boolean awaitEvents) {
         // Every failed generation is fenced — ordinary failures too, not only timeouts — so the
         // guarded context stops admitting work before rollback touches plugin code.
         fenceFailedGeneration(resources);
         if (resources.eventOwner != null && !resources.eventOwnerClosed) {
             resources.eventOwner.beginClosing();
-            final boolean eventQuiesced = resources.eventOwner.awaitQuiescence(
-                awaitEvents ? policy.eventQuiescenceTimeout() : Duration.ZERO
-            );
+            final boolean eventQuiesced =
+                    resources.eventOwner.awaitQuiescence(awaitEvents ? policy.eventQuiescenceTimeout() : Duration.ZERO);
             if (!eventQuiesced) {
                 if (awaitEvents) {
                     log.error(
-                        pluginId,
-                        "Plugin event owner retained after load failure because callbacks did not quiesce",
-                        new IllegalStateException("Plugin event callbacks are still active")
-                    );
+                            pluginId,
+                            "Plugin event owner retained after load failure because callbacks did not quiesce",
+                            new IllegalStateException("Plugin event callbacks are still active"));
                 }
                 return false;
             }
@@ -577,9 +473,7 @@ final class PreviewPluginLoader {
         }
         if (resources.scopeClosed && !resources.loaderAttempted) {
             resources.loaderAttempted = true;
-            resources.loaderClosed = closeLoaderAfterFailure(
-                resources.classLoader, pluginId
-            );
+            resources.loaderClosed = closeLoaderAfterFailure(resources.classLoader, pluginId);
             if (resources.loaderClosed && resources.contractLease != null) {
                 // When the plugin loader exists it owns the lease and released it on a
                 // successful close; this call only matters when construction never
@@ -590,11 +484,7 @@ final class PreviewPluginLoader {
                     // Unproven contract release is unproven cleanup: retain the
                     // generation rather than reporting a false successful disposal.
                     resources.loaderClosed = false;
-                    log.error(
-                        pluginId,
-                        "Plugin event contract release after load failure failed safely",
-                        failure
-                    );
+                    log.error(pluginId, "Plugin event contract release after load failure failed safely", failure);
                 }
             }
         }
@@ -607,20 +497,15 @@ final class PreviewPluginLoader {
                 resources.eventOwner.releaseExecutors();
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
-                log.error(
-                    pluginId,
-                    "Plugin executor release after load failure failed safely",
-                    failure
-                );
+                log.error(pluginId, "Plugin executor release after load failure failed safely", failure);
             }
         }
         if (!(resources.scopeClosed && resources.loaderClosed) && !resources.retentionLogged) {
             resources.retentionLogged = true;
             log.error(
-                pluginId,
-                "Plugin classloader retained after load failure because cleanup did not quiesce",
-                new IllegalStateException("Plugin scope or classloader cleanup is incomplete")
-            );
+                    pluginId,
+                    "Plugin classloader retained after load failure because cleanup did not quiesce",
+                    new IllegalStateException("Plugin scope or classloader cleanup is incomplete"));
         }
         return resources.scopeClosed && resources.loaderClosed;
     }
@@ -644,14 +529,9 @@ final class PreviewPluginLoader {
         }
     }
 
-    private void disableEnabledAfterFailure(
-        final LoadResources resources,
-        final String pluginId
-    ) {
+    private void disableEnabledAfterFailure(final LoadResources resources, final String pluginId) {
         for (int index = resources.enabled - 1; index >= 0; index--) {
-            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
-                resources.classLoader
-            )) {
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(resources.classLoader)) {
                 resources.entrypoints.get(index).disable();
             } catch (Exception exception) {
                 log.error(pluginId, "Plugin enable rollback failed", exception);
@@ -659,14 +539,9 @@ final class PreviewPluginLoader {
         }
     }
 
-    private void shutdownConstructedAfterFailure(
-        final LoadResources resources,
-        final String pluginId
-    ) {
+    private void shutdownConstructedAfterFailure(final LoadResources resources, final String pluginId) {
         for (int index = resources.entrypoints.size() - 1; index >= 0; index--) {
-            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
-                resources.classLoader
-            )) {
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(resources.classLoader)) {
                 resources.entrypoints.get(index).shutdown();
             } catch (Exception exception) {
                 log.error(pluginId, "Plugin cleanup after load failure failed", exception);
@@ -674,10 +549,7 @@ final class PreviewPluginLoader {
         }
     }
 
-    private boolean closeScopeAfterFailure(
-        final DisposableScope scope,
-        final String pluginId
-    ) {
+    private boolean closeScopeAfterFailure(final DisposableScope scope, final String pluginId) {
         if (scope == null) {
             return true;
         }
@@ -690,10 +562,7 @@ final class PreviewPluginLoader {
         }
     }
 
-    private boolean closeLoaderAfterFailure(
-        final URLClassLoader classLoader,
-        final String pluginId
-    ) {
+    private boolean closeLoaderAfterFailure(final URLClassLoader classLoader, final String pluginId) {
         if (classLoader == null) {
             return true;
         }
@@ -702,11 +571,7 @@ final class PreviewPluginLoader {
             return true;
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-            log.error(
-                pluginId,
-                "Plugin classloader cleanup after load failure failed safely",
-                failure
-            );
+            log.error(pluginId, "Plugin classloader cleanup after load failure failed safely", failure);
             return false;
         }
     }

@@ -4,18 +4,17 @@ import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.ProjectContentKind;
-import dev.turboism.sdk.cubism.hook.AnimationFileHooks;
-import dev.turboism.sdk.cubism.hook.EditorLifecycleHooks;
-import dev.turboism.sdk.cubism.hook.ModelFileHooks;
 import dev.turboism.sdk.cubism.event.EditorExitEvent;
 import dev.turboism.sdk.cubism.event.EditorStartupEvent;
 import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.sdk.cubism.hook.AnimationFileHooks;
+import dev.turboism.sdk.cubism.hook.EditorLifecycleHooks;
+import dev.turboism.sdk.cubism.hook.ModelFileHooks;
 import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -27,15 +26,11 @@ public final class ProjectLifecycleHookRegistry {
     private final ProjectFileLifecycleCoordinator projectFiles;
     private final Object lifecycleLock = new Object();
     private final EditorLifecycleCoordinator editor;
-    private final java.util.Map<PluginEventOwnerKey, List<Registration>> eventAdapters =
-        new java.util.HashMap<>();
-    private final java.util.Map<PluginEventOwnerKey, Object> compatibilityTokens =
-        new java.util.HashMap<>();
+    private final java.util.Map<PluginEventOwnerKey, List<Registration>> eventAdapters = new java.util.HashMap<>();
+    private final java.util.Map<PluginEventOwnerKey, Object> compatibilityTokens = new java.util.HashMap<>();
 
     public ProjectLifecycleHookRegistry(
-        final ProjectFileLifecycleCoordinator projectFiles,
-        final EditorLifecycleCoordinator editor
-    ) {
+            final ProjectFileLifecycleCoordinator projectFiles, final EditorLifecycleCoordinator editor) {
         this.projectFiles = Objects.requireNonNull(projectFiles, "projectFiles");
         this.editor = Objects.requireNonNull(editor, "editor");
     }
@@ -64,41 +59,36 @@ public final class ProjectLifecycleHookRegistry {
      * @throws NullPointerException when {@code descriptor}, {@code entrypoints} or {@code logger} is null
      */
     public void register(
-        final PluginDescriptor descriptor,
-        final List<? extends TurboismPlugin> entrypoints,
-        final PluginLogger logger,
-        final DisposableScope scope
-    ) {
+            final PluginDescriptor descriptor,
+            final List<? extends TurboismPlugin> entrypoints,
+            final PluginLogger logger,
+            final DisposableScope scope) {
         final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
-        final List<? extends TurboismPlugin> ordered = List.copyOf(
-            Objects.requireNonNull(entrypoints, "entrypoints")
-        );
+        final List<? extends TurboismPlugin> ordered = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
         final PluginLogger pluginLogger = Objects.requireNonNull(logger, "logger");
         final boolean observeAllowed = hasPermission(plugin, OBSERVE_PERMISSION);
         final List<ModelFileHooks> modelHooks = ordered.stream()
-            .filter(ModelFileHooks.class::isInstance)
-            .map(ModelFileHooks.class::cast)
-            .toList();
+                .filter(ModelFileHooks.class::isInstance)
+                .map(ModelFileHooks.class::cast)
+                .toList();
         final List<AnimationFileHooks> animationHooks = ordered.stream()
-            .filter(AnimationFileHooks.class::isInstance)
-            .map(AnimationFileHooks.class::cast)
-            .toList();
+                .filter(AnimationFileHooks.class::isInstance)
+                .map(AnimationFileHooks.class::cast)
+                .toList();
         final List<EditorLifecycleHooks> editorHooks = ordered.stream()
-            .filter(EditorLifecycleHooks.class::isInstance)
-            .map(EditorLifecycleHooks.class::cast)
-            .toList();
+                .filter(EditorLifecycleHooks.class::isInstance)
+                .map(EditorLifecycleHooks.class::cast)
+                .toList();
         final boolean hasProjectHooks = !modelHooks.isEmpty() || !animationHooks.isEmpty();
         synchronized (lifecycleLock) {
             if (scope == null) {
                 if (hasProjectHooks) {
                     projectFiles.register(new ProjectFileLifecycleCoordinator.PluginHooks(
-                        plugin, modelHooks, animationHooks, pluginLogger, observeAllowed
-                    ));
+                            plugin, modelHooks, animationHooks, pluginLogger, observeAllowed));
                 }
                 if (!editorHooks.isEmpty()) {
                     editor.register(new EditorLifecycleCoordinator.PluginHooks(
-                        plugin, editorHooks, pluginLogger, observeAllowed
-                    ));
+                            plugin, editorHooks, pluginLogger, observeAllowed));
                 }
                 return;
             }
@@ -110,14 +100,16 @@ public final class ProjectLifecycleHookRegistry {
             final Object token = new Object();
             try {
                 if (hasProjectHooks) {
-                    projectFiles.register(token, new ProjectFileLifecycleCoordinator.PluginHooks(
-                        plugin, modelHooks, animationHooks, pluginLogger, observeAllowed
-                    ));
+                    projectFiles.register(
+                            token,
+                            new ProjectFileLifecycleCoordinator.PluginHooks(
+                                    plugin, modelHooks, animationHooks, pluginLogger, observeAllowed));
                 }
                 if (!editorHooks.isEmpty()) {
-                    editor.register(token, new EditorLifecycleCoordinator.PluginHooks(
-                        plugin, editorHooks, pluginLogger, observeAllowed
-                    ));
+                    editor.register(
+                            token,
+                            new EditorLifecycleCoordinator.PluginHooks(
+                                    plugin, editorHooks, pluginLogger, observeAllowed));
                 }
                 scope.register(() -> unregisterGeneration(plugin.id(), token));
             } catch (RuntimeException | Error failure) {
@@ -129,17 +121,14 @@ public final class ProjectLifecycleHookRegistry {
 
     /** Registers file-hook overrides as exact-generation broker adapters in Preview. */
     public void register(
-        final PluginDescriptor descriptor,
-        final List<? extends TurboismPlugin> entrypoints,
-        final PluginLogger logger,
-        final DisposableScope scope,
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner
-    ) {
+            final PluginDescriptor descriptor,
+            final List<? extends TurboismPlugin> entrypoints,
+            final PluginLogger logger,
+            final DisposableScope scope,
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner) {
         final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
-        final List<? extends TurboismPlugin> ordered = List.copyOf(
-            Objects.requireNonNull(entrypoints, "entrypoints")
-        );
+        final List<? extends TurboismPlugin> ordered = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
         final DisposableScope pluginScope = Objects.requireNonNull(scope, "scope");
         final RuntimeEventBroker runtimeBroker = Objects.requireNonNull(broker, "broker");
         final PluginEventOwnerKey eventOwner = Objects.requireNonNull(owner, "owner");
@@ -152,22 +141,13 @@ public final class ProjectLifecycleHookRegistry {
         int entrypointOrdinal = 0;
         for (TurboismPlugin entrypoint : ordered) {
             if (entrypoint instanceof ModelFileHooks hooks) {
-                adaptModel(
-                    runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks,
-                    sink, installed
-                );
+                adaptModel(runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed);
             }
             if (entrypoint instanceof AnimationFileHooks hooks) {
-                adaptAnimation(
-                    runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks,
-                    sink, installed
-                );
+                adaptAnimation(runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed);
             }
             if (entrypoint instanceof EditorLifecycleHooks hooks) {
-                adaptEditor(
-                    runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks,
-                    sink, installed
-                );
+                adaptEditor(runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed);
             }
             entrypointOrdinal++;
         }
@@ -179,8 +159,7 @@ public final class ProjectLifecycleHookRegistry {
             if (eventAdapters.putIfAbsent(eventOwner, adapters) != null) {
                 closeEventAdapters(adapters);
                 throw new IllegalStateException(
-                    "Project lifecycle event adapters already registered for " + eventOwner
-                );
+                        "Project lifecycle event adapters already registered for " + eventOwner);
             }
             try {
                 pluginScope.register(() -> closeEventAdapters(eventOwner));
@@ -196,35 +175,27 @@ public final class ProjectLifecycleHookRegistry {
     }
 
     private void registerProjectCompatibility(
-        final PluginDescriptor descriptor,
-        final List<? extends TurboismPlugin> entrypoints,
-        final PluginLogger logger,
-        final DisposableScope scope,
-        final PluginEventOwnerKey owner
-    ) {
+            final PluginDescriptor descriptor,
+            final List<? extends TurboismPlugin> entrypoints,
+            final PluginLogger logger,
+            final DisposableScope scope,
+            final PluginEventOwnerKey owner) {
         final List<? extends TurboismPlugin> editorOnly = entrypoints.stream()
-            .filter(EditorLifecycleHooks.class::isInstance)
-            .toList();
+                .filter(EditorLifecycleHooks.class::isInstance)
+                .toList();
         if (editorOnly.isEmpty()) {
             return;
         }
         final Object token = new Object();
         final boolean observeAllowed = hasPermission(descriptor, OBSERVE_PERMISSION);
-        final List<EditorLifecycleHooks> editorHooks = editorOnly.stream()
-            .map(EditorLifecycleHooks.class::cast)
-            .toList();
+        final List<EditorLifecycleHooks> editorHooks =
+                editorOnly.stream().map(EditorLifecycleHooks.class::cast).toList();
         synchronized (lifecycleLock) {
-            editor.register(token, new EditorLifecycleCoordinator.PluginHooks(
-                descriptor,
-                editorHooks,
-                logger,
-                observeAllowed
-            ));
+            editor.register(
+                    token, new EditorLifecycleCoordinator.PluginHooks(descriptor, editorHooks, logger, observeAllowed));
             if (compatibilityTokens.putIfAbsent(owner, token) != null) {
                 editor.unregister(descriptor.id(), token);
-                throw new IllegalStateException(
-                    "Editor compatibility hooks already registered for " + owner
-                );
+                throw new IllegalStateException("Editor compatibility hooks already registered for " + owner);
             }
             try {
                 scope.register(() -> unregisterCompatibility(owner, descriptor.id(), token));
@@ -257,176 +228,196 @@ public final class ProjectLifecycleHookRegistry {
     }
 
     private static void adaptEditor(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final int entrypointOrdinal,
-        final TurboismPlugin entrypoint,
-        final EditorLifecycleHooks hooks,
-        final PluginLogger logger,
-        final List<Registration> installed
-    ) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final int entrypointOrdinal,
+            final TurboismPlugin entrypoint,
+            final EditorLifecycleHooks hooks,
+            final PluginLogger logger,
+            final List<Registration> installed) {
         adaptEditorState(
-            broker, owner, entrypointOrdinal, 24, entrypoint,
-            "beforeEditorStartup", EditorStartupEvent.Before.class,
-            event -> hooks.beforeEditorStartup(event.editor()), logger, installed
-        );
+                broker,
+                owner,
+                entrypointOrdinal,
+                24,
+                entrypoint,
+                "beforeEditorStartup",
+                EditorStartupEvent.Before.class,
+                event -> hooks.beforeEditorStartup(event.editor()),
+                logger,
+                installed);
         adaptEditorState(
-            broker, owner, entrypointOrdinal, 25, entrypoint,
-            "onEditorStarted", EditorStartupEvent.On.class,
-            event -> hooks.onEditorStarted(event.editor()), logger, installed
-        );
+                broker,
+                owner,
+                entrypointOrdinal,
+                25,
+                entrypoint,
+                "onEditorStarted",
+                EditorStartupEvent.On.class,
+                event -> hooks.onEditorStarted(event.editor()),
+                logger,
+                installed);
         adaptEditorState(
-            broker, owner, entrypointOrdinal, 26, entrypoint,
-            "afterEditorStartup", EditorStartupEvent.After.class,
-            event -> hooks.afterEditorStartup(event.editor()), logger, installed
-        );
+                broker,
+                owner,
+                entrypointOrdinal,
+                26,
+                entrypoint,
+                "afterEditorStartup",
+                EditorStartupEvent.After.class,
+                event -> hooks.afterEditorStartup(event.editor()),
+                logger,
+                installed);
         adaptEditorState(
-            broker, owner, entrypointOrdinal, 27, entrypoint,
-            "beforeEditorExit", EditorExitEvent.Before.class,
-            event -> hooks.beforeEditorExit(event.editor()), logger, installed
-        );
+                broker,
+                owner,
+                entrypointOrdinal,
+                27,
+                entrypoint,
+                "beforeEditorExit",
+                EditorExitEvent.Before.class,
+                event -> hooks.beforeEditorExit(event.editor()),
+                logger,
+                installed);
         adaptEditorState(
-            broker, owner, entrypointOrdinal, 28, entrypoint,
-            "onEditorExiting", EditorExitEvent.On.class,
-            event -> hooks.onEditorExiting(event.editor()), logger, installed
-        );
+                broker,
+                owner,
+                entrypointOrdinal,
+                28,
+                entrypoint,
+                "onEditorExiting",
+                EditorExitEvent.On.class,
+                event -> hooks.onEditorExiting(event.editor()),
+                logger,
+                installed);
         adaptEditorState(
-            broker, owner, entrypointOrdinal, 29, entrypoint,
-            "afterEditorExit", EditorExitEvent.After.class,
-            event -> hooks.afterEditorExit(event.result()), logger, installed
-        );
+                broker,
+                owner,
+                entrypointOrdinal,
+                29,
+                entrypoint,
+                "afterEditorExit",
+                EditorExitEvent.After.class,
+                event -> hooks.afterEditorExit(event.result()),
+                logger,
+                installed);
     }
 
     private static <T extends dev.turboism.sdk.event.EventBus.TurboismEvent> void adaptEditorState(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final int entrypointOrdinal,
-        final int methodOrdinal,
-        final TurboismPlugin entrypoint,
-        final String methodName,
-        final Class<T> eventType,
-        final java.util.function.Consumer<T> callback,
-        final PluginLogger logger,
-        final List<Registration> installed
-    ) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final int entrypointOrdinal,
+            final int methodOrdinal,
+            final TurboismPlugin entrypoint,
+            final String methodName,
+            final Class<T> eventType,
+            final java.util.function.Consumer<T> callback,
+            final PluginLogger logger,
+            final List<Registration> installed) {
         if (!overridesEditor(entrypoint, methodName) || subscribes(entrypoint, eventType)) {
             return;
         }
         installed.add(broker.subscribeAdapter(
-            owner, eventType, entrypointOrdinal, methodOrdinal,
-            event -> invoke(logger, methodName, () -> callback.accept(event))
-        ));
+                owner,
+                eventType,
+                entrypointOrdinal,
+                methodOrdinal,
+                event -> invoke(logger, methodName, () -> callback.accept(event))));
     }
 
-    private static boolean overridesEditor(
-        final Object entrypoint,
-        final String methodName
-    ) {
+    private static boolean overridesEditor(final Object entrypoint, final String methodName) {
         final Class<?> parameterType = methodName.equals("afterEditorExit")
-            ? dev.turboism.sdk.cubism.EditorExitResult.class
-            : dev.turboism.sdk.cubism.EditorLifecycleSnapshot.class;
+                ? dev.turboism.sdk.cubism.EditorExitResult.class
+                : dev.turboism.sdk.cubism.EditorLifecycleSnapshot.class;
         try {
-            final java.lang.reflect.Method method = entrypoint.getClass()
-                .getMethod(methodName, parameterType);
+            final java.lang.reflect.Method method = entrypoint.getClass().getMethod(methodName, parameterType);
             return method.getDeclaringClass() != EditorLifecycleHooks.class
-                && method.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
+                    && method.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
         } catch (NoSuchMethodException failure) {
-            throw new IllegalStateException(
-                "Editor lifecycle hook contract is unavailable: " + methodName,
-                failure
-            );
+            throw new IllegalStateException("Editor lifecycle hook contract is unavailable: " + methodName, failure);
         }
     }
 
     private static void adaptModel(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final int entrypointOrdinal,
-        final TurboismPlugin entrypoint,
-        final ModelFileHooks hooks,
-        final PluginLogger logger,
-        final List<Registration> installed
-    ) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final int entrypointOrdinal,
+            final TurboismPlugin entrypoint,
+            final ModelFileHooks hooks,
+            final PluginLogger logger,
+            final List<Registration> installed) {
         adaptFile(
-            broker, owner, entrypointOrdinal, entrypoint, ProjectContentKind.MODEL,
-            hooks, null, logger, installed
-        );
+                broker, owner, entrypointOrdinal, entrypoint, ProjectContentKind.MODEL, hooks, null, logger, installed);
     }
 
     private static void adaptAnimation(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final int entrypointOrdinal,
-        final TurboismPlugin entrypoint,
-        final AnimationFileHooks hooks,
-        final PluginLogger logger,
-        final List<Registration> installed
-    ) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final int entrypointOrdinal,
+            final TurboismPlugin entrypoint,
+            final AnimationFileHooks hooks,
+            final PluginLogger logger,
+            final List<Registration> installed) {
         adaptFile(
-            broker, owner, entrypointOrdinal, entrypoint, ProjectContentKind.ANIMATION,
-            null, hooks, logger, installed
-        );
+                broker,
+                owner,
+                entrypointOrdinal,
+                entrypoint,
+                ProjectContentKind.ANIMATION,
+                null,
+                hooks,
+                logger,
+                installed);
     }
 
     private static void adaptFile(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final int entrypointOrdinal,
-        final TurboismPlugin entrypoint,
-        final ProjectContentKind kind,
-        final ModelFileHooks model,
-        final AnimationFileHooks animation,
-        final PluginLogger logger,
-        final List<Registration> installed
-    ) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final int entrypointOrdinal,
+            final TurboismPlugin entrypoint,
+            final ProjectContentKind kind,
+            final ModelFileHooks model,
+            final AnimationFileHooks animation,
+            final PluginLogger logger,
+            final List<Registration> installed) {
         final int base = kind == ProjectContentKind.MODEL ? 0 : 12;
         for (dev.turboism.sdk.cubism.ProjectFileOperationType operation :
-            dev.turboism.sdk.cubism.ProjectFileOperationType.values()) {
+                dev.turboism.sdk.cubism.ProjectFileOperationType.values()) {
             final int offset = operation.ordinal() * 3;
             final String before = methodName("before", operation, kind);
             final String on = methodName("on", operation, kind);
             final String after = methodName("after", operation, kind);
-            if (overrides(entrypoint, before)
-                && !subscribes(entrypoint, ProjectFileLifecycleEvent.Before.class)) {
+            if (overrides(entrypoint, before) && !subscribes(entrypoint, ProjectFileLifecycleEvent.Before.class)) {
                 installed.add(broker.subscribeAdapter(
-                    owner, ProjectFileLifecycleEvent.Before.class,
-                    entrypointOrdinal, base + offset, event -> {
-                        if (event.operation().kind() != kind
-                            || event.operation().operation() != operation) return;
-                        invoke(logger, before, () -> invokeBefore(model, animation, event));
-                    }
-                ));
+                        owner, ProjectFileLifecycleEvent.Before.class, entrypointOrdinal, base + offset, event -> {
+                            if (event.operation().kind() != kind
+                                    || event.operation().operation() != operation) return;
+                            invoke(logger, before, () -> invokeBefore(model, animation, event));
+                        }));
             }
-            if (overrides(entrypoint, on)
-                && !subscribes(entrypoint, ProjectFileLifecycleEvent.On.class)) {
+            if (overrides(entrypoint, on) && !subscribes(entrypoint, ProjectFileLifecycleEvent.On.class)) {
                 installed.add(broker.subscribeAdapter(
-                    owner, ProjectFileLifecycleEvent.On.class,
-                    entrypointOrdinal, base + offset + 1, event -> {
-                        if (event.operation().kind() != kind
-                            || event.operation().operation() != operation) return;
-                        invoke(logger, on, () -> invokeOn(model, animation, event));
-                    }
-                ));
+                        owner, ProjectFileLifecycleEvent.On.class, entrypointOrdinal, base + offset + 1, event -> {
+                            if (event.operation().kind() != kind
+                                    || event.operation().operation() != operation) return;
+                            invoke(logger, on, () -> invokeOn(model, animation, event));
+                        }));
             }
-            if (overrides(entrypoint, after)
-                && !subscribes(entrypoint, ProjectFileLifecycleEvent.After.class)) {
+            if (overrides(entrypoint, after) && !subscribes(entrypoint, ProjectFileLifecycleEvent.After.class)) {
                 installed.add(broker.subscribeAdapter(
-                    owner, ProjectFileLifecycleEvent.After.class,
-                    entrypointOrdinal, base + offset + 2, event -> {
-                        if (event.operation().kind() != kind
-                            || event.operation().operation() != operation) return;
-                        invoke(logger, after, () -> invokeAfter(model, animation, event));
-                    }
-                ));
+                        owner, ProjectFileLifecycleEvent.After.class, entrypointOrdinal, base + offset + 2, event -> {
+                            if (event.operation().kind() != kind
+                                    || event.operation().operation() != operation) return;
+                            invoke(logger, after, () -> invokeAfter(model, animation, event));
+                        }));
             }
         }
     }
 
     private static void invokeBefore(
-        final ModelFileHooks model,
-        final AnimationFileHooks animation,
-        final ProjectFileLifecycleEvent.Before event
-    ) {
+            final ModelFileHooks model,
+            final AnimationFileHooks animation,
+            final ProjectFileLifecycleEvent.Before event) {
         if (model != null) {
             switch (event.operation().operation()) {
                 case CREATE -> model.beforeCreateModel(event.operation());
@@ -445,10 +436,7 @@ public final class ProjectLifecycleHookRegistry {
     }
 
     private static void invokeOn(
-        final ModelFileHooks model,
-        final AnimationFileHooks animation,
-        final ProjectFileLifecycleEvent.On event
-    ) {
+            final ModelFileHooks model, final AnimationFileHooks animation, final ProjectFileLifecycleEvent.On event) {
         if (model != null) {
             switch (event.operation().operation()) {
                 case CREATE -> model.onModelCreated(event.content());
@@ -467,10 +455,9 @@ public final class ProjectLifecycleHookRegistry {
     }
 
     private static void invokeAfter(
-        final ModelFileHooks model,
-        final AnimationFileHooks animation,
-        final ProjectFileLifecycleEvent.After event
-    ) {
+            final ModelFileHooks model,
+            final AnimationFileHooks animation,
+            final ProjectFileLifecycleEvent.After event) {
         if (model != null) {
             switch (event.operation().operation()) {
                 case CREATE -> model.afterCreateModel(event.result());
@@ -489,24 +476,25 @@ public final class ProjectLifecycleHookRegistry {
     }
 
     private static String methodName(
-        final String phase,
-        final dev.turboism.sdk.cubism.ProjectFileOperationType operation,
-        final ProjectContentKind kind
-    ) {
-        final String action = switch (operation) {
-            case CREATE -> "Create";
-            case OPEN -> "Open";
-            case SAVE -> "Save";
-            case CLOSE -> "Close";
-        };
+            final String phase,
+            final dev.turboism.sdk.cubism.ProjectFileOperationType operation,
+            final ProjectContentKind kind) {
+        final String action =
+                switch (operation) {
+                    case CREATE -> "Create";
+                    case OPEN -> "Open";
+                    case SAVE -> "Save";
+                    case CLOSE -> "Close";
+                };
         final String content = kind == ProjectContentKind.MODEL ? "Model" : "Animation";
         if (phase.equals("on")) {
-            final String past = switch (operation) {
-                case CREATE -> "Created";
-                case OPEN -> "Opened";
-                case SAVE -> "Saved";
-                case CLOSE -> "Closed";
-            };
+            final String past =
+                    switch (operation) {
+                        case CREATE -> "Created";
+                        case OPEN -> "Opened";
+                        case SAVE -> "Saved";
+                        case CLOSE -> "Closed";
+                    };
             return "on" + content + past;
         }
         return phase + action + content;
@@ -516,40 +504,29 @@ public final class ProjectLifecycleHookRegistry {
         final boolean after = methodName.startsWith("after");
         final boolean on = methodName.startsWith("on");
         final Class<?> parameterType = after
-            ? dev.turboism.sdk.cubism.ProjectFileOperationResult.class
-            : on
-                ? dev.turboism.sdk.cubism.ProjectContentSnapshot.class
-                : dev.turboism.sdk.cubism.ProjectFileOperation.class;
+                ? dev.turboism.sdk.cubism.ProjectFileOperationResult.class
+                : on
+                        ? dev.turboism.sdk.cubism.ProjectContentSnapshot.class
+                        : dev.turboism.sdk.cubism.ProjectFileOperation.class;
         try {
-            final java.lang.reflect.Method method = entrypoint.getClass()
-                .getMethod(methodName, parameterType);
+            final java.lang.reflect.Method method = entrypoint.getClass().getMethod(methodName, parameterType);
             return method.getDeclaringClass() != ModelFileHooks.class
-                && method.getDeclaringClass() != AnimationFileHooks.class
-                && method.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
+                    && method.getDeclaringClass() != AnimationFileHooks.class
+                    && method.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
         } catch (NoSuchMethodException failure) {
-            throw new IllegalStateException(
-                "Project-file hook contract is unavailable: " + methodName,
-                failure
-            );
+            throw new IllegalStateException("Project-file hook contract is unavailable: " + methodName, failure);
         }
     }
 
     private static boolean subscribes(
-        final Object entrypoint,
-        final Class<? extends dev.turboism.sdk.event.EventBus.TurboismEvent> eventType
-    ) {
-        return java.util.Arrays.stream(entrypoint.getClass().getMethods()).anyMatch(method ->
-            method.isAnnotationPresent(dev.turboism.sdk.event.SubscribeEvent.class)
-                && method.getParameterCount() == 1
-                && method.getParameterTypes()[0].isAssignableFrom(eventType)
-        );
+            final Object entrypoint, final Class<? extends dev.turboism.sdk.event.EventBus.TurboismEvent> eventType) {
+        return java.util.Arrays.stream(entrypoint.getClass().getMethods())
+                .anyMatch(method -> method.isAnnotationPresent(dev.turboism.sdk.event.SubscribeEvent.class)
+                        && method.getParameterCount() == 1
+                        && method.getParameterTypes()[0].isAssignableFrom(eventType));
     }
 
-    private static void invoke(
-        final PluginLogger logger,
-        final String phase,
-        final Runnable invocation
-    ) {
+    private static void invoke(final PluginLogger logger, final String phase, final Runnable invocation) {
         try {
             invocation.run();
         } catch (ThreadDeath | VirtualMachineError fatal) {
@@ -580,11 +557,7 @@ public final class ProjectLifecycleHookRegistry {
         }
     }
 
-    private void unregisterCompatibility(
-        final PluginEventOwnerKey owner,
-        final String pluginId,
-        final Object token
-    ) {
+    private void unregisterCompatibility(final PluginEventOwnerKey owner, final String pluginId, final Object token) {
         synchronized (lifecycleLock) {
             if (compatibilityTokens.remove(owner, token)) {
                 editor.unregister(pluginId, token);
@@ -622,11 +595,8 @@ public final class ProjectLifecycleHookRegistry {
         }
     }
 
-    private static boolean hasPermission(
-        final PluginDescriptor descriptor,
-        final String permissionId
-    ) {
+    private static boolean hasPermission(final PluginDescriptor descriptor, final String permissionId) {
         return descriptor.permissions().stream()
-            .anyMatch(permission -> permission.id().equals(permissionId));
+                .anyMatch(permission -> permission.id().equals(permissionId));
     }
 }

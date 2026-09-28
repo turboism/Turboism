@@ -1,22 +1,21 @@
 package dev.turboism.adapter.cubism.editor.history;
 
-import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.mapping.verification.TestVerifiedResolvers;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.event.CubismOperation;
-import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
 import static dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserverTest.internal;
 import static dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserverTest.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.event.CubismOperation;
+import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 /**
  * Verifies the ingress session attaches, drains on the host event thread, and detaches without
@@ -42,7 +41,8 @@ public class NativeEditIngressSessionTest {
         fixture.runPosted();
 
         assertEquals(1, fixture.published.size());
-        assertEquals(CubismOperation.SET_HIERARCHY_PARENT, fixture.published.get(0).operation());
+        assertEquals(
+                CubismOperation.SET_HIERARCHY_PARENT, fixture.published.get(0).operation());
         assertEquals(CubismOperationOrigin.HOST_UI, fixture.published.get(0).origin());
         assertEquals(1, fixture.session.drainCount());
     }
@@ -99,9 +99,8 @@ public class NativeEditIngressSessionTest {
         assertFalse(fixture.session.isAttached());
 
         assertTrue(
-            fixture.session.bind(2L, fixture.resolver),
-            "safe-mode cleanup must not permanently disable observation"
-        );
+                fixture.session.bind(2L, fixture.resolver),
+                "safe-mode cleanup must not permanently disable observation");
         assertEquals(2, fixture.session.bindCount(), "the rebind is a real binding, not a no-op");
     }
 
@@ -155,10 +154,7 @@ public class NativeEditIngressSessionTest {
         fixture.makeEditorReady();
         Thread.sleep(300L);
 
-        assertFalse(
-            fixture.session.isAttached(),
-            "cleanup must not be undone by a retry that was already in flight"
-        );
+        assertFalse(fixture.session.isAttached(), "cleanup must not be undone by a retry that was already in flight");
         assertEquals(0, fixture.manager.listenerCount());
     }
 
@@ -227,11 +223,7 @@ public class NativeEditIngressSessionTest {
 
         fixture.makeEditorReady();
         fixture.session.retryBinding();
-        assertEquals(
-            1,
-            fixture.posted.size(),
-            "the latest request coalesces into the existing queue slot"
-        );
+        assertEquals(1, fixture.posted.size(), "the latest request coalesces into the existing queue slot");
 
         fixture.runPosted();
 
@@ -352,7 +344,8 @@ public class NativeEditIngressSessionTest {
 
         assertEquals(List.of(Optional.of("Add Part")), fixture.starts);
         assertEquals(1, fixture.published.size(), "the commit is published after the start");
-        assertEquals(CubismOperation.SET_HIERARCHY_PARENT, fixture.published.get(0).operation());
+        assertEquals(
+                CubismOperation.SET_HIERARCHY_PARENT, fixture.published.get(0).operation());
     }
 
     @Test
@@ -385,8 +378,7 @@ public class NativeEditIngressSessionTest {
         private final List<Published> published = new ArrayList<>();
         private final List<Optional<String>> starts = new ArrayList<>();
         private final NativeEditIngressSession session;
-        private NativeUndoIngressObserverTest.Manager manager =
-            new NativeUndoIngressObserverTest.Manager();
+        private NativeUndoIngressObserverTest.Manager manager = new NativeUndoIngressObserverTest.Manager();
         private VerifiedMemberResolver resolver = resolver(manager);
         private boolean failPublications;
 
@@ -396,14 +388,13 @@ public class NativeEditIngressSessionTest {
 
         Fixture(final NativeEditIngressSession.RetryPolicy retry) {
             this.session = new NativeEditIngressSession(
-                (operation, origin, subject, label) -> {
-                    if (failPublications) throw new IllegalStateException("publication failure");
-                    published.add(new Published(operation, origin, subject, label));
-                },
-                starts::add,
-                posted::add,
-                retry
-            );
+                    (operation, origin, subject, label) -> {
+                        if (failPublications) throw new IllegalStateException("publication failure");
+                        published.add(new Published(operation, origin, subject, label));
+                    },
+                    starts::add,
+                    posted::add,
+                    retry);
         }
 
         /** Simulates the Editor finishing its own startup and publishing its app controller. */
@@ -413,8 +404,7 @@ public class NativeEditIngressSessionTest {
 
         boolean retryStillRunning() {
             for (final Thread thread : Thread.getAllStackTraces().keySet()) {
-                if (thread.getName().equals("turboism-native-edit-ingress-bind")
-                    && thread.isAlive()) {
+                if (thread.getName().equals("turboism-native-edit-ingress-bind") && thread.isAlive()) {
                     return true;
                 }
             }
@@ -434,17 +424,15 @@ public class NativeEditIngressSessionTest {
 
         VerifiedMemberResolver resolverWithoutManager() {
             return TestVerifiedResolvers.create(
-                "5.3.02",
-                "adapter.editor-model.readwrite",
-                Set.of("cubism.editor-history.read"),
-                List.of(method(
-                    "cubism.editor-history.manager.entries",
-                    NativeUndoIngressObserverTest.Manager.class,
-                    "entries",
-                    "()Ljava/util/List;"
-                )),
-                NativeEditIngressSessionTest.class.getClassLoader()
-            );
+                    "5.3.02",
+                    "adapter.editor-model.readwrite",
+                    Set.of("cubism.editor-history.read"),
+                    List.of(method(
+                            "cubism.editor-history.manager.entries",
+                            NativeUndoIngressObserverTest.Manager.class,
+                            "entries",
+                            "()Ljava/util/List;")),
+                    NativeEditIngressSessionTest.class.getClassLoader());
         }
     }
 
@@ -452,164 +440,114 @@ public class NativeEditIngressSessionTest {
         return resolver(m);
     }
 
-    private static VerifiedMemberResolver resolver(
-        final NativeUndoIngressObserverTest.Manager manager
-    ) {
+    private static VerifiedMemberResolver resolver(final NativeUndoIngressObserverTest.Manager manager) {
         final ArrayList<StaticSelector> all = new ArrayList<>();
         all.add(method(
-            "cubism.editor-model.app-controller.current-document",
-            App.class,
-            "currentDocument",
-            "()L" + internal(Document.class) + ";"
-        ));
+                "cubism.editor-model.app-controller.current-document",
+                App.class,
+                "currentDocument",
+                "()L" + internal(Document.class) + ";"));
         all.add(method(
-            "cubism.editor-history.document.undo-manager",
-            Document.class,
-            "undoManager",
-            "()L" + internal(NativeUndoIngressObserverTest.Manager.class) + ";"
-        ));
+                "cubism.editor-history.document.undo-manager",
+                Document.class,
+                "undoManager",
+                "()L" + internal(NativeUndoIngressObserverTest.Manager.class) + ";"));
+        all.add(StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-model.modeling-document.class",
-            internal(Document.class)
-        ));
-        all.add(StaticSelector.classSelector(
-            "cubism.editor-history.manager.class",
-            internal(NativeUndoIngressObserverTest.Manager.class)
-        ));
+                "cubism.editor-history.manager.class", internal(NativeUndoIngressObserverTest.Manager.class)));
         all.add(StaticSelector.staticMethod(
-            "cubism.editor-model.app-controller.instance",
-            internal(App.class),
-            "instance",
-            "()L" + internal(App.class) + ";",
-            StaticSelector.ACCESS_PUBLIC
-        ));
+                "cubism.editor-model.app-controller.instance",
+                internal(App.class),
+                "instance",
+                "()L" + internal(App.class) + ";",
+                StaticSelector.ACCESS_PUBLIC));
         all.add(method(
-            "cubism.editor-history.manager.entries",
-            NativeUndoIngressObserverTest.Manager.class,
-            "entries",
-            "()Ljava/util/List;"
-        ));
+                "cubism.editor-history.manager.entries",
+                NativeUndoIngressObserverTest.Manager.class,
+                "entries",
+                "()Ljava/util/List;"));
         all.add(method(
-            "cubism.editor-history.manager.position",
-            NativeUndoIngressObserverTest.Manager.class,
-            "position",
-            "()I"
-        ));
+                "cubism.editor-history.manager.position",
+                NativeUndoIngressObserverTest.Manager.class,
+                "position",
+                "()I"));
         all.add(method(
-            "cubism.editor-history.entry.presentation-name",
-            NativeUndoIngressObserverTest.Entry.class,
-            "presentationName",
-            "()Ljava/lang/String;"
-        ));
+                "cubism.editor-history.entry.presentation-name",
+                NativeUndoIngressObserverTest.Entry.class,
+                "presentationName",
+                "()Ljava/lang/String;"));
         all.add(StaticSelector.classSelector(
-            NativeUndoIngressObserver.LISTENER_CLASS_ALIAS,
-            internal(NativeUndoIngressObserverTest.Listener.class)
-        ));
+                NativeUndoIngressObserver.LISTENER_CLASS_ALIAS,
+                internal(NativeUndoIngressObserverTest.Listener.class)));
         all.add(method(
-            NativeUndoIngressObserver.LISTENER_ADD_ALIAS,
-            NativeUndoIngressObserverTest.Manager.class,
-            "addUndoStateChangeListener",
-            "(L" + internal(NativeUndoIngressObserverTest.Listener.class) + ";)V"
-        ));
+                NativeUndoIngressObserver.LISTENER_ADD_ALIAS,
+                NativeUndoIngressObserverTest.Manager.class,
+                "addUndoStateChangeListener",
+                "(L" + internal(NativeUndoIngressObserverTest.Listener.class) + ";)V"));
         all.add(method(
-            NativeUndoIngressObserver.LISTENER_REMOVE_ALIAS,
-            NativeUndoIngressObserverTest.Manager.class,
-            "removeUndoStateChangeListener",
-            "(L" + internal(NativeUndoIngressObserverTest.Listener.class) + ";)V"
-        ));
+                NativeUndoIngressObserver.LISTENER_REMOVE_ALIAS,
+                NativeUndoIngressObserverTest.Manager.class,
+                "removeUndoStateChangeListener",
+                "(L" + internal(NativeUndoIngressObserverTest.Listener.class) + ";)V"));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-history.semantic.part-membership.class",
-            internal(PartMembershipEntry.class)
-        ));
+                "cubism.editor-history.semantic.part-membership.class", internal(PartMembershipEntry.class)));
         all.add(method(
-            "cubism.editor-history.semantic.part-membership.part",
-            PartMembershipEntry.class,
-            "getPart",
-            "()L" + internal(PartSourceDouble.class) + ";"
-        ));
+                "cubism.editor-history.semantic.part-membership.part",
+                PartMembershipEntry.class,
+                "getPart",
+                "()L" + internal(PartSourceDouble.class) + ";"));
         all.add(method(
-            "cubism.editor-history.semantic.part-membership.child",
-            PartMembershipEntry.class,
-            "getChild",
-            "()L" + internal(ArtMeshDouble.class) + ";"
-        ));
+                "cubism.editor-history.semantic.part-membership.child",
+                PartMembershipEntry.class,
+                "getChild",
+                "()L" + internal(ArtMeshDouble.class) + ";"));
         all.add(method(
-            "cubism.editor-history.semantic.part-membership.index",
-            PartMembershipEntry.class,
-            "getInsertIndex",
-            "()I"
-        ));
+                "cubism.editor-history.semantic.part-membership.index",
+                PartMembershipEntry.class,
+                "getInsertIndex",
+                "()I"));
         all.add(method(
-            "cubism.editor-history.semantic.part-membership.is-add",
-            PartMembershipEntry.class,
-            "isAdd",
-            "()Z"
-        ));
+                "cubism.editor-history.semantic.part-membership.is-add", PartMembershipEntry.class, "isAdd", "()Z"));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-model.part-source.class",
-            internal(PartSourceDouble.class)
-        ));
+                "cubism.editor-model.part-source.class", internal(PartSourceDouble.class)));
         all.add(method(
-            "cubism.editor-model.part-source.id",
-            PartSourceDouble.class,
-            "id",
-            "()L" + internal(PartId.class) + ";"
-        ));
-        all.add(method(
-            "cubism.editor-model.part-id.value",
-            PartId.class,
-            "value",
-            "()Ljava/lang/String;"
-        ));
+                "cubism.editor-model.part-source.id",
+                PartSourceDouble.class,
+                "id",
+                "()L" + internal(PartId.class) + ";"));
+        all.add(method("cubism.editor-model.part-id.value", PartId.class, "value", "()Ljava/lang/String;"));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-model.art-mesh-source.class",
-            internal(ArtMeshDouble.class)
-        ));
+                "cubism.editor-model.art-mesh-source.class", internal(ArtMeshDouble.class)));
+        all.add(StaticSelector.classSelector("cubism.editor-model.warp-source.class", internal(WarpDouble.class)));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-model.warp-source.class",
-            internal(WarpDouble.class)
-        ));
-        all.add(StaticSelector.classSelector(
-            "cubism.editor-model.rotation-source.class",
-            internal(RotationDouble.class)
-        ));
+                "cubism.editor-model.rotation-source.class", internal(RotationDouble.class)));
         all.add(method(
-            "cubism.editor-model.parameter-controllable-source.id",
-            ControllableSource.class,
-            "id",
-            "()L" + internal(SourceId.class) + ";"
-        ));
+                "cubism.editor-model.parameter-controllable-source.id",
+                ControllableSource.class,
+                "id",
+                "()L" + internal(SourceId.class) + ";"));
         all.add(method(
-            "cubism.editor-model.parameter-controllable-source.local-name",
-            SourceBase.class,
-            "getLocalName",
-            "()Ljava/lang/String;"
-        ));
-        all.add(method(
-            "cubism.editor-model.id.value",
-            SourceId.class,
-            "value",
-            "()Ljava/lang/String;"
-        ));
+                "cubism.editor-model.parameter-controllable-source.local-name",
+                SourceBase.class,
+                "getLocalName",
+                "()Ljava/lang/String;"));
+        all.add(method("cubism.editor-model.id.value", SourceId.class, "value", "()Ljava/lang/String;"));
         // The host double is wired to the resolver through a static entry point, exactly like the
         // real app controller, so the test exercises the same binding path production uses.
         new App(manager);
         return TestVerifiedResolvers.create(
-            "5.3.02",
-            "adapter.editor-model.readwrite",
-            Set.of("cubism.editor-history.read", "cubism.editor-history.semantic-read"),
-            all,
-            NativeEditIngressSessionTest.class.getClassLoader()
-        );
+                "5.3.02",
+                "adapter.editor-model.readwrite",
+                Set.of("cubism.editor-history.read", "cubism.editor-history.semantic-read"),
+                all,
+                NativeEditIngressSessionTest.class.getClassLoader());
     }
 
     private record Published(
-        CubismOperation operation,
-        CubismOperationOrigin origin,
-        Optional<String> subjectId,
-        Optional<String> label
-    ) {
-    }
+            CubismOperation operation,
+            CubismOperationOrigin origin,
+            Optional<String> subjectId,
+            Optional<String> label) {}
 
     /** Static host entry point double. */
     public static final class App {
@@ -724,9 +662,7 @@ public class NativeEditIngressSessionTest {
         }
     }
 
-    public record SourceId(String value) {
-    }
+    public record SourceId(String value) {}
 
-    public record PartId(String value) {
-    }
+    public record PartId(String value) {}
 }

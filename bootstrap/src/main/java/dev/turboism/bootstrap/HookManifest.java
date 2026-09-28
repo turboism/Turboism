@@ -26,8 +26,7 @@ final class HookManifest {
 
     static final String RESOURCE = "META-INF/turboism/hooks";
 
-    private HookManifest() {
-    }
+    private HookManifest() {}
 
     /**
      * Loads and instantiates every declared contributor.
@@ -62,9 +61,7 @@ final class HookManifest {
             if (stream == null) {
                 throw new HookManifestException("hook manifest is missing: " + RESOURCE);
             }
-            try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(stream, StandardCharsets.UTF_8)
-            )) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
                 String line;
                 int lineNumber = 0;
                 while ((line = reader.readLine()) != null) {
@@ -75,13 +72,10 @@ final class HookManifest {
                     }
                     if (!entry.matches("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)+")) {
                         throw new HookManifestException(
-                            "hook manifest line " + lineNumber + " is not a class name: " + entry
-                        );
+                                "hook manifest line " + lineNumber + " is not a class name: " + entry);
                     }
                     if (!classNames.add(entry)) {
-                        throw new HookManifestException(
-                            "hook manifest declares a duplicate contributor: " + entry
-                        );
+                        throw new HookManifestException("hook manifest declares a duplicate contributor: " + entry);
                     }
                 }
             }
@@ -94,10 +88,8 @@ final class HookManifest {
         return List.copyOf(classNames);
     }
 
-    private static HookContributor instantiate(
-        final ClassLoader loader,
-        final String className
-    ) throws HookManifestException {
+    private static HookContributor instantiate(final ClassLoader loader, final String className)
+            throws HookManifestException {
         final Class<?> type;
         try {
             type = Class.forName(className, false, loader);
@@ -106,26 +98,20 @@ final class HookManifest {
             throw new HookManifestException("hook contributor class is unavailable: " + className, failure);
         }
         if (!HookContributor.class.isAssignableFrom(type)) {
-            throw new HookManifestException(
-                "hook contributor does not implement HookContributor: " + className
-            );
+            throw new HookManifestException("hook contributor does not implement HookContributor: " + className);
         }
         final Constructor<?> constructor;
         try {
             constructor = type.getDeclaredConstructor();
         } catch (NoSuchMethodException failure) {
-            throw new HookManifestException(
-                "hook contributor lacks a no-arg constructor: " + className, failure
-            );
+            throw new HookManifestException("hook contributor lacks a no-arg constructor: " + className, failure);
         }
         try {
             constructor.setAccessible(true);
             return (HookContributor) constructor.newInstance();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-            throw new HookManifestException(
-                "hook contributor could not be instantiated: " + className, failure
-            );
+            throw new HookManifestException("hook contributor could not be instantiated: " + className, failure);
         }
     }
 

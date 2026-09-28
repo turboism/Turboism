@@ -10,16 +10,15 @@ import dev.turboism.plugin.uitheme.service.ThemeSelectionConfig;
 import dev.turboism.plugin.uitheme.service.ThemeSelectionService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceRestoreResult;
+import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.util.Locale;
 import java.util.function.Consumer;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.appearance.AppearanceService;
 
 /**
  * Plugin entrypoint for UI theming: contributes the theme-package status check, the theme manager,
@@ -51,36 +50,32 @@ public final class UiThemePlugin implements TurboismPlugin {
         this.context = context;
         this.logger = context.logger();
         this.themePackageStatusService = new ThemePackageStatusService(
-            () -> this.context.cubismRead().themeStatus(),
-            this.context.services().get(UiHostCapabilityService.class)
-        );
+                () -> this.context.cubismRead().themeStatus(),
+                this.context.services().get(UiHostCapabilityService.class));
         this.builtinThemeAppearanceService = new BuiltinThemeAppearanceService(
-            getClass().getClassLoader(),
-            this.context.services().get(AppearanceService.class),
-            this.context.services().get(UiHostCapabilityService.class),
-            this.context.localization()
-        );
+                getClass().getClassLoader(),
+                this.context.services().get(AppearanceService.class),
+                this.context.services().get(UiHostCapabilityService.class),
+                this.context.localization());
         final ThemeSelectionConfig selectionConfig = new ThemeSelectionConfig(this.context.config());
         selectionConfig.initialize().toCompletableFuture().join();
         final ThemePackageRepository repository = new ThemePackageRepository(this.context.storage());
         this.themeEditorService = new ThemeEditorService(
-            this.context.services().get(UiHostCapabilityService.class),
-            repository,
-            this.context.services().get(AppearanceService.class),
-            this.context.localization(),
-            logger
-        );
+                this.context.services().get(UiHostCapabilityService.class),
+                repository,
+                this.context.services().get(AppearanceService.class),
+                this.context.localization(),
+                logger);
         this.themeManagerService = new ThemeManagerService(
-            this.context.services().get(UiHostCapabilityService.class),
-            builtinThemeAppearanceService,
-            repository,
-            new ThemePackageTransferService(this.context.userFiles()),
-            new ThemeSelectionService(this.context.services().get(AppearanceService.class), selectionConfig),
-            selectionConfig,
-            logger,
-            this.context.localization(),
-            this.themeEditorService
-        );
+                this.context.services().get(UiHostCapabilityService.class),
+                builtinThemeAppearanceService,
+                repository,
+                new ThemePackageTransferService(this.context.userFiles()),
+                new ThemeSelectionService(this.context.services().get(AppearanceService.class), selectionConfig),
+                selectionConfig,
+                logger,
+                this.context.localization(),
+                this.themeEditorService);
         this.themeEditorService.setBackToManager(this.themeManagerService::open);
         this.themeEditorService.setOnSaved(this.themeManagerService::refreshCache);
         logger.info("UiThemePlugin initialized");
@@ -91,10 +86,9 @@ public final class UiThemePlugin implements TurboismPlugin {
         registerAction(STATUS_ACTION_ID, STATUS_ACTION_LABEL, ignored -> themePackageStatusService.checkThemeStatus());
         registerAction(MANAGER_ACTION_ID, MANAGER_ACTION_LABEL, ignored -> themeManagerService.open());
         registerAction(
-            APPLY_BUILTIN_ACTION_ID,
-            APPLY_BUILTIN_ACTION_LABEL,
-            ignored -> builtinThemeAppearanceService.applyDefault()
-        );
+                APPLY_BUILTIN_ACTION_ID,
+                APPLY_BUILTIN_ACTION_LABEL,
+                ignored -> builtinThemeAppearanceService.applyDefault());
         // The Turboism top-level menu keeps a single theme entry; all theme
         // workflows (apply/import/export/delete) live inside the manager window.
         registerMenu("Turboism/" + context.localization().text("menu.themeManager"), MANAGER_ACTION_ID, 40);
@@ -105,12 +99,15 @@ public final class UiThemePlugin implements TurboismPlugin {
 
     @Override
     public void disable() {
-        final AppearanceRestoreResult restored = context.services().get(AppearanceService.class).restoreOwnedAppearance()
-            .toCompletableFuture().join();
+        final AppearanceRestoreResult restored = context.services()
+                .get(AppearanceService.class)
+                .restoreOwnedAppearance()
+                .toCompletableFuture()
+                .join();
         if (restored.outcome() != AppearanceRestoreResult.Outcome.RESTORED
-            && restored.outcome() != AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE) {
+                && restored.outcome() != AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE) {
             logger.warn("UiThemePlugin disable could not restore owned appearance: "
-                + restored.outcome().name().toLowerCase(Locale.ROOT));
+                    + restored.outcome().name().toLowerCase(Locale.ROOT));
         }
         logger.info("UiThemePlugin disabled");
     }
@@ -122,22 +119,41 @@ public final class UiThemePlugin implements TurboismPlugin {
 
     private void registerMenu(final String path, final String actionId, final int order) {
         final Registration registration = context.menus().contribute(new MenuRegistry.MenuContribution() {
-            @Override public String menuPath() { return path; }
-            @Override public String actionId() { return actionId; }
-            @Override public int order() { return order; }
+            @Override
+            public String menuPath() {
+                return path;
+            }
+
+            @Override
+            public String actionId() {
+                return actionId;
+            }
+
+            @Override
+            public int order() {
+                return order;
+            }
         });
         context.disposableScope().register(registration);
     }
 
     private void registerAction(
-        final String id,
-        final String label,
-        final Consumer<ActionRegistry.ActionContext> handler
-    ) {
+            final String id, final String label, final Consumer<ActionRegistry.ActionContext> handler) {
         final Registration registration = context.actions().register(id, new ActionRegistry.Action() {
-            @Override public String id() { return id; }
-            @Override public String label() { return label; }
-            @Override public Consumer<ActionRegistry.ActionContext> handler() { return handler; }
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String label() {
+                return label;
+            }
+
+            @Override
+            public Consumer<ActionRegistry.ActionContext> handler() {
+                return handler;
+            }
         });
         context.disposableScope().register(registration);
     }

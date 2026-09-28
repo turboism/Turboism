@@ -2,7 +2,6 @@ package dev.turboism.permissions;
 
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -32,8 +31,7 @@ public interface PermissionChecker {
      * @return a checker that admits every permission
      */
     static PermissionChecker allowAll() {
-        return (permissionId, operation) -> {
-        };
+        return (permissionId, operation) -> {};
     }
 
     /**
@@ -61,9 +59,7 @@ public interface PermissionChecker {
             if (grantedPermissions.stream().anyMatch(permission -> permissionId.equals(permission.id()))) {
                 return;
             }
-            throw new CubismPermissionException(
-                "Missing required permission " + permissionId + " for " + operation
-            );
+            throw new CubismPermissionException("Missing required permission " + permissionId + " for " + operation);
         };
     }
 }

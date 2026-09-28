@@ -1,7 +1,6 @@
 package dev.turboism.preview;
 
 import dev.turboism.sdk.plugin.PluginContext;
-
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
@@ -55,23 +54,13 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 final class PluginGenerationGuard {
 
-    private static final Set<String> DIAGNOSTIC_ACCESSORS = Set.of(
-        "descriptor",
-        "logger",
-        "localization",
-        "permissions",
-        "diagnostics"
-    );
+    private static final Set<String> DIAGNOSTIC_ACCESSORS =
+            Set.of("descriptor", "logger", "localization", "permissions", "diagnostics");
 
     // Idempotent detach/release verbs used across the SDK surface (Registration.close,
     // FileChooserHistoryService.Registration.unregister, task cancel, handle release/dispose).
-    private static final Set<String> TERMINAL_OPERATIONS = Set.of(
-        "close",
-        "cancel",
-        "dispose",
-        "release",
-        "unregister"
-    );
+    private static final Set<String> TERMINAL_OPERATIONS =
+            Set.of("close", "cancel", "dispose", "release", "unregister");
 
     private final String pluginId;
     private final AtomicBoolean open = new AtomicBoolean(true);
@@ -79,8 +68,7 @@ final class PluginGenerationGuard {
     // Both sides must be weak: a strongly cached proxy retains its delegate through Handler,
     // and a strong map would retain every SDK handle ever returned for the plugin's lifetime.
     private final ReferenceQueue<Object> collectedDelegates = new ReferenceQueue<>();
-    private final Map<IdentityWeakReference, Map<Class<?>, WeakReference<Object>>> proxies =
-        new LinkedHashMap<>();
+    private final Map<IdentityWeakReference, Map<Class<?>, WeakReference<Object>>> proxies = new LinkedHashMap<>();
 
     PluginGenerationGuard(final String pluginId) {
         this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
@@ -88,10 +76,7 @@ final class PluginGenerationGuard {
 
     /** Returns the gated plugin-facing view of one plugin context. */
     PluginContext wrap(final PluginContext delegate) {
-        return (PluginContext) wrapInterface(
-            Objects.requireNonNull(delegate, "delegate"),
-            PluginContext.class
-        );
+        return (PluginContext) wrapInterface(Objects.requireNonNull(delegate, "delegate"), PluginContext.class);
     }
 
     /** Test seam mirroring CubismEditorApiAvailabilityInterceptor.wrapForTesting. */
@@ -140,9 +125,7 @@ final class PluginGenerationGuard {
     }
 
     private IllegalStateException fenced() {
-        return new IllegalStateException(
-            "Plugin generation is closed for new work: " + pluginId
-        );
+        return new IllegalStateException("Plugin generation is closed for new work: " + pluginId);
     }
 
     private Object wrapInterface(final Object value, final Class<?> sdkInterface) {
@@ -150,12 +133,12 @@ final class PluginGenerationGuard {
             return value;
         }
         if (Proxy.isProxyClass(value.getClass())
-            && Proxy.getInvocationHandler(value) instanceof Handler handler
-            && handler.owner == this) {
+                && Proxy.getInvocationHandler(value) instanceof Handler handler
+                && handler.owner == this) {
             return value;
         }
         synchronized (proxies) {
-            for (Reference<?> collected; (collected = collectedDelegates.poll()) != null;) {
+            for (Reference<?> collected; (collected = collectedDelegates.poll()) != null; ) {
                 proxies.remove(collected);
             }
             final IdentityWeakReference lookup = new IdentityWeakReference(value, null);
@@ -170,10 +153,7 @@ final class PluginGenerationGuard {
                 return existing;
             }
             final Object created = Proxy.newProxyInstance(
-                sdkInterface.getClassLoader(),
-                new Class<?>[] {sdkInterface},
-                new Handler(value, sdkInterface)
-            );
+                    sdkInterface.getClassLoader(), new Class<?>[] {sdkInterface}, new Handler(value, sdkInterface));
             byInterface.put(sdkInterface, new WeakReference<>(created));
             return created;
         }
@@ -198,8 +178,7 @@ final class PluginGenerationGuard {
                 return true;
             }
             final Object value = get();
-            return value != null && other instanceof IdentityWeakReference reference
-                && value == reference.get();
+            return value != null && other instanceof IdentityWeakReference reference && value == reference.get();
         }
     }
 
@@ -283,8 +262,8 @@ final class PluginGenerationGuard {
             return null;
         }
         if (Proxy.isProxyClass(value.getClass())
-            && Proxy.getInvocationHandler(value) instanceof Handler handler
-            && handler.owner == this) {
+                && Proxy.getInvocationHandler(value) instanceof Handler handler
+                && handler.owner == this) {
             return handler.delegate;
         }
         if (value instanceof Optional<?> optional) {
@@ -356,23 +335,20 @@ final class PluginGenerationGuard {
         }
 
         @Override
-        public Object invoke(final Object proxy, final Method method, final Object[] arguments)
-            throws Throwable {
+        public Object invoke(final Object proxy, final Method method, final Object[] arguments) throws Throwable {
             if (method.getDeclaringClass() == Object.class) {
                 return switch (method.getName()) {
                     case "equals" -> proxy == arguments[0];
                     case "hashCode" -> System.identityHashCode(proxy);
                     case "toString" -> "PluginGenerationGuard[" + sdkInterface.getName() + "]";
-                    default -> throw new IllegalStateException(
-                        "Unexpected Object method: " + method
-                    );
+                    default -> throw new IllegalStateException("Unexpected Object method: " + method);
                 };
             }
             // Diagnostic accessors stay available while fenced so cleanup and operator-visible
             // logging keep working.
             if (method.getDeclaringClass() == PluginContext.class
-                && DIAGNOSTIC_ACCESSORS.contains(method.getName())
-                && method.getParameterCount() == 0) {
+                    && DIAGNOSTIC_ACCESSORS.contains(method.getName())
+                    && method.getParameterCount() == 0) {
                 try {
                     return method.invoke(delegate, arguments);
                 } catch (InvocationTargetException failure) {
@@ -382,8 +358,7 @@ final class PluginGenerationGuard {
             // Terminal release operations bypass the fence: teardown must be able to detach and
             // close handles acquired before fencing, but they still count toward in-flight work
             // so retention waits for a blocking close to actually return.
-            final boolean terminal = TERMINAL_OPERATIONS.contains(method.getName())
-                && method.getParameterCount() == 0;
+            final boolean terminal = TERMINAL_OPERATIONS.contains(method.getName()) && method.getParameterCount() == 0;
             if (terminal) {
                 enterTerminal();
             } else {

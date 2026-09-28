@@ -3,16 +3,15 @@ package dev.turboism.plugin.protectedexport;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
+import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
 import java.util.Objects;
 import java.util.Optional;
-import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 
 /**
  * Registers the default-off protected-export option.
@@ -55,16 +54,15 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
         final Object callbackToken = new Object();
         try {
             final Registration candidate = Objects.requireNonNull(
-                activeContext.services().get(ExportSettingsContributionService.class).contribute(
-                    new ExportSettingsContribution(
-                        OPTION_ID,
-                        OPTION_LABEL_KEY,
-                        (selected, documentId, modelId) ->
-                            decide(callbackToken, selected, documentId, modelId)
-                    )
-                ),
-                "export settings registration"
-            );
+                    activeContext
+                            .services()
+                            .get(ExportSettingsContributionService.class)
+                            .contribute(new ExportSettingsContribution(
+                                    OPTION_ID,
+                                    OPTION_LABEL_KEY,
+                                    (selected, documentId, modelId) ->
+                                            decide(callbackToken, selected, documentId, modelId))),
+                    "export settings registration");
             registrationToken = callbackToken;
             registration = candidate;
             enabled = true;
@@ -73,9 +71,8 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
             registration = null;
             enabled = false;
             warnSafely(
-                activeContext,
-                "Protected export option registration is unavailable; protected export remains unavailable."
-            );
+                    activeContext,
+                    "Protected export option registration is unavailable; protected export remains unavailable.");
         }
     }
 
@@ -111,18 +108,13 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
     }
 
     private ExportSettingsDecision decide(
-        final Object callbackToken,
-        final boolean selected,
-        final String documentId,
-        final ModelId modelId
-    ) {
+            final Object callbackToken, final boolean selected, final String documentId, final ModelId modelId) {
         if (!selected) {
             return ExportSettingsDecision.proceedUnchanged();
         }
 
         final PluginContext activeContext = context;
-        if (!enabled || registration == null || callbackToken != registrationToken
-            || activeContext == null) {
+        if (!enabled || registration == null || callbackToken != registrationToken || activeContext == null) {
             return unavailable();
         }
 
@@ -135,17 +127,14 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
             final ProtectedExportPlan plan = new ProtectedExportPlanner().plan(activeModel);
             if (!plan.unresolvedConditions().isEmpty()) {
                 warnSafely(
-                    activeContext,
-                    "Protected export preflight has unresolved conditions; protected export remains unavailable."
-                );
+                        activeContext,
+                        "Protected export preflight has unresolved conditions; protected export remains unavailable.");
             }
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
         } catch (Throwable unavailable) {
             warnSafely(
-                activeContext,
-                "Protected export preflight is unavailable; protected export remains unavailable."
-            );
+                    activeContext, "Protected export preflight is unavailable; protected export remains unavailable.");
         }
 
         // A read-only plan is descriptive evidence, never execution authority.
@@ -153,12 +142,11 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
     }
 
     private static CubismModel currentModel(
-        final PluginContext context,
-        final String callbackDocumentId,
-        final ModelId callbackModelId
-    ) {
-        if (callbackDocumentId == null || callbackDocumentId.isBlank()
-            || callbackModelId == null || callbackModelId.value().isBlank()) {
+            final PluginContext context, final String callbackDocumentId, final ModelId callbackModelId) {
+        if (callbackDocumentId == null
+                || callbackDocumentId.isBlank()
+                || callbackModelId == null
+                || callbackModelId.value().isBlank()) {
             return null;
         }
 
@@ -172,9 +160,11 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
         }
         final DocumentSnapshot document = activeDocument.orElseThrow();
         if (!document.isModelDocument()
-            || !callbackDocumentId.equals(document.documentId())
-            || document.model().isEmpty()
-            || !callbackModelId.value().equals(document.model().orElseThrow().modelId())) {
+                || !callbackDocumentId.equals(document.documentId())
+                || document.model().isEmpty()
+                || !callbackModelId
+                        .value()
+                        .equals(document.model().orElseThrow().modelId())) {
             return null;
         }
 
@@ -183,8 +173,9 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
             return null;
         }
         final ModelId activeModelId = activeModel.id();
-        if (activeModelId == null || !callbackModelId.equals(activeModelId)
-            || activeModelId.value().isBlank()) {
+        if (activeModelId == null
+                || !callbackModelId.equals(activeModelId)
+                || activeModelId.value().isBlank()) {
             return null;
         }
         return activeModel;

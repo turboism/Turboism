@@ -14,9 +14,7 @@ public record HistoryEntryId(String value) {
             throw new IllegalArgumentException("value must not be blank");
         }
         if (value.length() > MAX_LENGTH) {
-            throw new IllegalArgumentException(
-                "value must not exceed " + MAX_LENGTH + " characters"
-            );
+            throw new IllegalArgumentException("value must not exceed " + MAX_LENGTH + " characters");
         }
         if (value.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("value must not contain control characters");

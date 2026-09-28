@@ -3,7 +3,6 @@ package dev.turboism.config;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Objects;
@@ -27,33 +26,23 @@ final class TypedConfigIoExecutor implements AutoCloseable {
     private final Set<Operation<?>> operations = new HashSet<>();
     private boolean active = true;
 
-    TypedConfigIoExecutor(
-        final String pluginId,
-        final RuntimePluginTaskScheduler tasks
-    ) {
+    TypedConfigIoExecutor(final String pluginId, final RuntimePluginTaskScheduler tasks) {
         this.tasks = Objects.requireNonNull(tasks, "tasks");
         this.executor = new ThreadPoolExecutor(
-            1,
-            1,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new LinkedBlockingQueue<>(64),
-            runnable -> {
-                final Thread thread = new Thread(
-                    runnable,
-                    "turboism-config-" + requireText(pluginId, "pluginId")
-                );
-                thread.setDaemon(true);
-                return thread;
-            },
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(64),
+                runnable -> {
+                    final Thread thread = new Thread(runnable, "turboism-config-" + requireText(pluginId, "pluginId"));
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
-    <T> CompletionStage<T> submit(
-        final Supplier<T> action,
-        final Supplier<T> unavailable
-    ) {
+    <T> CompletionStage<T> submit(final Supplier<T> action, final Supplier<T> unavailable) {
         final PluginCompletionFuture<T> completion = future();
         final Operation<T> operation = new Operation<>(action, unavailable, completion);
         synchronized (lifecycleLock) {
@@ -102,10 +91,7 @@ final class TypedConfigIoExecutor implements AutoCloseable {
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException(
-                "Interrupted while waiting for typed config I/O quiescence",
-                exception
-            );
+            throw new IllegalStateException("Interrupted while waiting for typed config I/O quiescence", exception);
         }
     }
 
@@ -139,10 +125,7 @@ final class TypedConfigIoExecutor implements AutoCloseable {
         private final AtomicBoolean settled = new AtomicBoolean(false);
 
         private Operation(
-            final Supplier<T> action,
-            final Supplier<T> unavailable,
-            final PluginCompletionFuture<T> completion
-        ) {
+                final Supplier<T> action, final Supplier<T> unavailable, final PluginCompletionFuture<T> completion) {
             this.action = Objects.requireNonNull(action, "action");
             this.unavailable = Objects.requireNonNull(unavailable, "unavailable");
             this.completion = completion;
@@ -162,9 +145,7 @@ final class TypedConfigIoExecutor implements AutoCloseable {
                 }
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
-                settleExceptionally(new IllegalStateException(
-                    "Typed config operation failed safely."
-                ));
+                settleExceptionally(new IllegalStateException("Typed config operation failed safely."));
             } finally {
                 remove(this);
             }

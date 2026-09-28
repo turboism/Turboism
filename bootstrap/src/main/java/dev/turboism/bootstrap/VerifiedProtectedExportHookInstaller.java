@@ -4,7 +4,6 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.exportsettings.ProtectedExportChooserProfile;
 import dev.turboism.exportsettings.ProtectedExportChooserRedirectTransformer;
 import dev.turboism.mapping.verification.StaticSelector;
-
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,10 +21,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
     /** Exact Cubism releases whose reviewed artifacts carry a chooser-redirect profile. */
     static final java.util.Set<String> SUPPORTED_CUBISM_VERSIONS = java.util.Set.of(
-        ProtectedExportChooserProfile.CUBISM_5_2_03.hostVersion(),
-        ProtectedExportChooserProfile.CUBISM_5_3_02.hostVersion(),
-        ProtectedExportChooserProfile.CUBISM_5_3_03.hostVersion()
-    );
+            ProtectedExportChooserProfile.CUBISM_5_2_03.hostVersion(),
+            ProtectedExportChooserProfile.CUBISM_5_3_02.hostVersion(),
+            ProtectedExportChooserProfile.CUBISM_5_3_03.hostVersion());
 
     private final Instrumentation instrumentation;
     private final String targetClassName;
@@ -35,31 +33,28 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
     private boolean transformerRemoved;
 
     VerifiedProtectedExportHookInstaller(
-        final Instrumentation instrumentation,
-        final StaticSelector exporterOwner,
-        final StaticSelector moc3Continuation,
-        final StaticSelector moc3Chooser,
-        final StaticSelector gatedContinuation,
-        final StaticSelector gatedChooser,
-        final ClassLoader hostClassLoader
-    ) {
+            final Instrumentation instrumentation,
+            final StaticSelector exporterOwner,
+            final StaticSelector moc3Continuation,
+            final StaticSelector moc3Chooser,
+            final StaticSelector gatedContinuation,
+            final StaticSelector gatedChooser,
+            final ClassLoader hostClassLoader) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.targetClassName = requireExactExporterShape(
-            exporterOwner, moc3Continuation, moc3Chooser, gatedContinuation, gatedChooser
-        );
+                exporterOwner, moc3Continuation, moc3Chooser, gatedContinuation, gatedChooser);
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.transformer = new ProtectedExportChooserRedirectTransformer(
-            exporterOwner.ownerInternalName(),
-            moc3Continuation.memberName(),
-            moc3Continuation.descriptor(),
-            moc3Chooser.memberName(),
-            moc3Chooser.descriptor(),
-            gatedContinuation.memberName(),
-            gatedContinuation.descriptor(),
-            gatedChooser.memberName(),
-            gatedChooser.descriptor(),
-            hostClassLoader
-        );
+                exporterOwner.ownerInternalName(),
+                moc3Continuation.memberName(),
+                moc3Continuation.descriptor(),
+                moc3Chooser.memberName(),
+                moc3Chooser.descriptor(),
+                gatedContinuation.memberName(),
+                gatedContinuation.descriptor(),
+                gatedChooser.memberName(),
+                gatedChooser.descriptor(),
+                hostClassLoader);
     }
 
     /**
@@ -69,35 +64,30 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
      * @throws IllegalArgumentException if the profile is not the exact supported release
      */
     static VerifiedProtectedExportHookInstaller fromHostProfile(
-        final Instrumentation instrumentation,
-        final ProtectedExportChooserProfile profile,
-        final ClassLoader hostClassLoader
-    ) {
-        final ProtectedExportChooserProfile requested =
-            Objects.requireNonNull(profile, "profile");
+            final Instrumentation instrumentation,
+            final ProtectedExportChooserProfile profile,
+            final ClassLoader hostClassLoader) {
+        final ProtectedExportChooserProfile requested = Objects.requireNonNull(profile, "profile");
         if (!SUPPORTED_CUBISM_VERSIONS.contains(requested.hostVersion())) {
             throw new IllegalArgumentException(
-                "protected export chooser hook requires exact Cubism " + SUPPORTED_CUBISM_VERSIONS
-            );
+                    "protected export chooser hook requires exact Cubism " + SUPPORTED_CUBISM_VERSIONS);
         }
         return new VerifiedProtectedExportHookInstaller(
-            instrumentation,
-            requested.exporterOwner(),
-            requested.moc3Continuation(),
-            requested.moc3Chooser(),
-            requested.gatedContinuation(),
-            requested.gatedChooser(),
-            Objects.requireNonNull(hostClassLoader, "hostClassLoader")
-        );
+                instrumentation,
+                requested.exporterOwner(),
+                requested.moc3Continuation(),
+                requested.moc3Chooser(),
+                requested.gatedContinuation(),
+                requested.gatedChooser(),
+                Objects.requireNonNull(hostClassLoader, "hostClassLoader"));
     }
 
     private static String requireExactExporterShape(
-        final StaticSelector exporterOwner,
-        final StaticSelector moc3Continuation,
-        final StaticSelector moc3Chooser,
-        final StaticSelector gatedContinuation,
-        final StaticSelector gatedChooser
-    ) {
+            final StaticSelector exporterOwner,
+            final StaticSelector moc3Continuation,
+            final StaticSelector moc3Chooser,
+            final StaticSelector gatedContinuation,
+            final StaticSelector gatedChooser) {
         Objects.requireNonNull(exporterOwner, "exporterOwner");
         Objects.requireNonNull(moc3Continuation, "moc3Continuation");
         Objects.requireNonNull(moc3Chooser, "moc3Chooser");
@@ -105,21 +95,24 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
         Objects.requireNonNull(gatedChooser, "gatedChooser");
         final String owner = exporterOwner.ownerInternalName();
         if (exporterOwner.kind() != StaticSelector.Kind.CLASS
-            || !isPrivateInstance(moc3Continuation) || !ownedBy(moc3Continuation, owner)
-            || !isPrivateInstance(moc3Chooser) || !ownedBy(moc3Chooser, owner)
-            || !isPrivateInstance(gatedContinuation) || !ownedBy(gatedContinuation, owner)
-            || !isPrivateInstance(gatedChooser) || !ownedBy(gatedChooser, owner)) {
+                || !isPrivateInstance(moc3Continuation)
+                || !ownedBy(moc3Continuation, owner)
+                || !isPrivateInstance(moc3Chooser)
+                || !ownedBy(moc3Chooser, owner)
+                || !isPrivateInstance(gatedContinuation)
+                || !ownedBy(gatedContinuation, owner)
+                || !isPrivateInstance(gatedChooser)
+                || !ownedBy(gatedChooser, owner)) {
             throw new IllegalArgumentException(
-                "Verified protected-export selectors do not match the exact exporter shape."
-            );
+                    "Verified protected-export selectors do not match the exact exporter shape.");
         }
         return owner.replace('/', '.');
     }
 
     private static boolean isPrivateInstance(final StaticSelector selector) {
         return selector.kind() == StaticSelector.Kind.METHOD
-            && (selector.requiredAccessFlags() & 0x0002) != 0
-            && (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) != 0;
+                && (selector.requiredAccessFlags() & 0x0002) != 0
+                && (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) != 0;
     }
 
     private static boolean ownedBy(final StaticSelector selector, final String owner) {
@@ -183,8 +176,8 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
         final List<Class<?>> targets = new ArrayList<>();
         for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
             if (loaded.getName().equals(targetClassName)
-                && loaded.getClassLoader() == hostClassLoader
-                && instrumentation.isModifiableClass(loaded)) {
+                    && loaded.getClassLoader() == hostClassLoader
+                    && instrumentation.isModifiableClass(loaded)) {
                 targets.add(loaded);
             }
         }

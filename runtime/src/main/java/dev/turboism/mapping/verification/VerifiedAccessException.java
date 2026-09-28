@@ -9,11 +9,7 @@ public final class VerifiedAccessException extends RuntimeException {
     private final FailureKind failureKind;
 
     public VerifiedAccessException(
-        final String alias,
-        final FailureKind failureKind,
-        final String message,
-        final Throwable cause
-    ) {
+            final String alias, final FailureKind failureKind, final String message, final Throwable cause) {
         super(requireText(message, "message"), cause);
         this.alias = requireText(alias, "alias");
         this.failureKind = Objects.requireNonNull(failureKind, "failureKind");

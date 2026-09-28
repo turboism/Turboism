@@ -17,7 +17,6 @@ import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
@@ -40,7 +39,7 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
     private final ThreadLocal<Boolean> lifecycleActive = ThreadLocal.withInitial(() -> false);
 
     public DeformerLifecycleCoordinator() {
-        this(new PluginWorkExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()));
+        this(new PluginWorkExecutorRegistry(1, 64, ignored -> {}, Clock.systemUTC()));
     }
 
     public DeformerLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
@@ -52,9 +51,7 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
         synchronized (registrationLock) {
             if (eventBroker != null && eventBroker != value) {
-                throw new IllegalStateException(
-                    "Deformer lifecycle already belongs to another Runtime event broker."
-                );
+                throw new IllegalStateException("Deformer lifecycle already belongs to another Runtime event broker.");
             }
             eventBroker = value;
         }
@@ -71,7 +68,11 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(value.descriptor().id()));
+            plugins.removeIf(registration -> registration
+                    .plugin()
+                    .descriptor()
+                    .id()
+                    .equals(value.descriptor().id()));
             callbacks.shutdown(value.descriptor().id());
             plugins.add(new Registration(token, value));
         }
@@ -79,10 +80,8 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
 
     void register(final Object token, final PluginHooks plugin) {
         synchronized (registrationLock) {
-            plugins.add(new Registration(
-                Objects.requireNonNull(token, "token"),
-                Objects.requireNonNull(plugin, "plugin")
-            ));
+            plugins.add(
+                    new Registration(Objects.requireNonNull(token, "token"), Objects.requireNonNull(plugin, "plugin")));
         }
     }
 
@@ -97,7 +96,8 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(id));
+            plugins.removeIf(
+                    registration -> registration.plugin().descriptor().id().equals(id));
             callbacks.shutdown(id);
         }
     }
@@ -106,13 +106,12 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         final String id = requireText(pluginId, "pluginId");
         final Object generation = Objects.requireNonNull(token, "token");
         synchronized (registrationLock) {
-            final boolean removed = plugins.removeIf(registration ->
-                registration.token() == generation
-                    && registration.plugin().descriptor().id().equals(id)
-            );
-            if (removed && plugins.stream().noneMatch(registration ->
-                registration.plugin().descriptor().id().equals(id)
-            )) {
+            final boolean removed = plugins.removeIf(registration -> registration.token() == generation
+                    && registration.plugin().descriptor().id().equals(id));
+            if (removed
+                    && plugins.stream()
+                            .noneMatch(registration ->
+                                    registration.plugin().descriptor().id().equals(id))) {
                 callbacks.shutdown(id);
             }
         }
@@ -138,37 +137,43 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
             float effective = requested;
             for (Registration registration : plugins) {
                 final PluginHooks plugin = registration.plugin();
-                if (plugin.interceptAllowed()) for (DeformerHooks hook : plugin.entrypoints()) {
-                    try {
-                        final float transformed = hook.beforeSetDeformerOpacity(deformer, effective);
-                        if (Float.isFinite(transformed)) effective = transformed;
-                        else plugin.logger().warn("Ignored non-finite beforeSetDeformerOpacity result for " + OPACITY_OPERATION_ID);
-                    } catch (Throwable failure) {
-                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeSetDeformerOpacity", failure); }
-                }
+                if (plugin.interceptAllowed())
+                    for (DeformerHooks hook : plugin.entrypoints()) {
+                        try {
+                            final float transformed = hook.beforeSetDeformerOpacity(deformer, effective);
+                            if (Float.isFinite(transformed)) effective = transformed;
+                            else
+                                plugin.logger()
+                                        .warn("Ignored non-finite beforeSetDeformerOpacity result for "
+                                                + OPACITY_OPERATION_ID);
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            logHookFailure(plugin, "beforeSetDeformerOpacity", failure);
+                        }
+                    }
             }
             final RuntimeEventBroker broker = eventBroker;
             if (broker != null) {
-                final Deformer detached = DetachedDeformer.capture(
-                    deformer, deformer.getOpacity()
-                );
+                final Deformer detached = DetachedDeformer.capture(deformer, deformer.getOpacity());
                 effective = broker.publishRuntimeTransform(
-                    DeformerOpacityEvent.Before.class,
-                    effective,
-                    candidate -> {
-                        final DeformerOpacityEvent.Before.Callback callback =
-                            DeformerOpacityEvent.Before.openCallback(
-                                detached, requested, candidate
-                            );
-                        return new RuntimeEventBroker.TransformCallback() {
-                            @Override public DeformerOpacityEvent.Before event() {
-                                return callback.event();
-                            }
-                            @Override public void close() { callback.close(); }
-                        };
-                    },
-                    event -> ((DeformerOpacityEvent.Before) event).opacity()
-                );
+                        DeformerOpacityEvent.Before.class,
+                        effective,
+                        candidate -> {
+                            final DeformerOpacityEvent.Before.Callback callback =
+                                    DeformerOpacityEvent.Before.openCallback(detached, requested, candidate);
+                            return new RuntimeEventBroker.TransformCallback() {
+                                @Override
+                                public DeformerOpacityEvent.Before event() {
+                                    return callback.event();
+                                }
+
+                                @Override
+                                public void close() {
+                                    callback.close();
+                                }
+                            };
+                        },
+                        event -> ((DeformerOpacityEvent.Before) event).opacity());
             }
             if (!Float.isFinite(effective)) throw new IllegalArgumentException("Deformer opacity must be finite.");
             final float oldValue = deformer.getOpacity();
@@ -181,9 +186,7 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
             if (broker != null) {
                 final Deformer detached = DetachedDeformer.capture(deformer, newValue);
                 if (Float.compare(oldValue, newValue) != 0) {
-                    broker.publishRuntime(new DeformerOpacityEvent.On(
-                        detached, oldValue, newValue
-                    ));
+                    broker.publishRuntime(new DeformerOpacityEvent.On(detached, oldValue, newValue));
                 }
                 broker.publishRuntime(new DeformerOpacityEvent.After(detached, newValue));
             }
@@ -205,35 +208,39 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
             boolean effective = requested;
             for (Registration registration : plugins) {
                 final PluginHooks plugin = registration.plugin();
-                if (plugin.interceptAllowed()) for (DeformerHooks hook : plugin.entrypoints()) {
-                    try { effective = hook.beforeSetDeformerVisible(deformer, effective); }
-                    catch (Throwable failure) {
-                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeSetDeformerVisible", failure); }
-                }
+                if (plugin.interceptAllowed())
+                    for (DeformerHooks hook : plugin.entrypoints()) {
+                        try {
+                            effective = hook.beforeSetDeformerVisible(deformer, effective);
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            logHookFailure(plugin, "beforeSetDeformerVisible", failure);
+                        }
+                    }
             }
             final RuntimeEventBroker broker = eventBroker;
             if (broker != null) {
-                final Deformer detached = DetachedDeformer.capture(
-                    deformer, deformer.getOpacity()
-                );
+                final Deformer detached = DetachedDeformer.capture(deformer, deformer.getOpacity());
                 effective = broker.publishRuntimeTransform(
-                    DeformerVisibilityEvent.Before.class,
-                    effective,
-                    candidate -> {
-                        final DeformerVisibilityEvent.Before.Callback callback =
-                            DeformerVisibilityEvent.Before.openCallback(
-                                detached, requested, candidate
-                            );
-                        return new RuntimeEventBroker.TransformCallback() {
-                            @Override public DeformerVisibilityEvent.Before event() {
-                                return callback.event();
-                            }
-                            @Override public void close() { callback.close(); }
-                        };
-                    },
-                    event -> ((DeformerVisibilityEvent.Before) event).visible(),
-                    ignored -> true
-                );
+                        DeformerVisibilityEvent.Before.class,
+                        effective,
+                        candidate -> {
+                            final DeformerVisibilityEvent.Before.Callback callback =
+                                    DeformerVisibilityEvent.Before.openCallback(detached, requested, candidate);
+                            return new RuntimeEventBroker.TransformCallback() {
+                                @Override
+                                public DeformerVisibilityEvent.Before event() {
+                                    return callback.event();
+                                }
+
+                                @Override
+                                public void close() {
+                                    callback.close();
+                                }
+                            };
+                        },
+                        event -> ((DeformerVisibilityEvent.Before) event).visible(),
+                        ignored -> true);
             }
             final boolean oldValue = deformer.visible();
             nativeOperation.accept(effective);
@@ -243,13 +250,9 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                 hook.afterSetDeformerVisible(deformer, newValue);
             });
             if (broker != null) {
-                final Deformer detached = DetachedDeformer.capture(
-                    deformer, deformer.getOpacity()
-                );
+                final Deformer detached = DetachedDeformer.capture(deformer, deformer.getOpacity());
                 if (oldValue != newValue) {
-                    broker.publishRuntime(new DeformerVisibilityEvent.On(
-                        detached, oldValue, newValue
-                    ));
+                    broker.publishRuntime(new DeformerVisibilityEvent.On(detached, oldValue, newValue));
                 }
                 broker.publishRuntime(new DeformerVisibilityEvent.After(detached, newValue));
             }
@@ -271,35 +274,39 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
             boolean effective = requested;
             for (Registration registration : plugins) {
                 final PluginHooks plugin = registration.plugin();
-                if (plugin.interceptAllowed()) for (DeformerHooks hook : plugin.entrypoints()) {
-                    try { effective = hook.beforeSetDeformerLocked(deformer, effective); }
-                    catch (Throwable failure) {
-                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeSetDeformerLocked", failure); }
-                }
+                if (plugin.interceptAllowed())
+                    for (DeformerHooks hook : plugin.entrypoints()) {
+                        try {
+                            effective = hook.beforeSetDeformerLocked(deformer, effective);
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            logHookFailure(plugin, "beforeSetDeformerLocked", failure);
+                        }
+                    }
             }
             final RuntimeEventBroker broker = eventBroker;
             if (broker != null) {
-                final Deformer detached = DetachedDeformer.capture(
-                    deformer, deformer.getOpacity()
-                );
+                final Deformer detached = DetachedDeformer.capture(deformer, deformer.getOpacity());
                 effective = broker.publishRuntimeTransform(
-                    DeformerLockEvent.Before.class,
-                    effective,
-                    candidate -> {
-                        final DeformerLockEvent.Before.Callback callback =
-                            DeformerLockEvent.Before.openCallback(
-                                detached, requested, candidate
-                            );
-                        return new RuntimeEventBroker.TransformCallback() {
-                            @Override public DeformerLockEvent.Before event() {
-                                return callback.event();
-                            }
-                            @Override public void close() { callback.close(); }
-                        };
-                    },
-                    event -> ((DeformerLockEvent.Before) event).locked(),
-                    ignored -> true
-                );
+                        DeformerLockEvent.Before.class,
+                        effective,
+                        candidate -> {
+                            final DeformerLockEvent.Before.Callback callback =
+                                    DeformerLockEvent.Before.openCallback(detached, requested, candidate);
+                            return new RuntimeEventBroker.TransformCallback() {
+                                @Override
+                                public DeformerLockEvent.Before event() {
+                                    return callback.event();
+                                }
+
+                                @Override
+                                public void close() {
+                                    callback.close();
+                                }
+                            };
+                        },
+                        event -> ((DeformerLockEvent.Before) event).locked(),
+                        ignored -> true);
             }
             final boolean oldValue = deformer.locked();
             nativeOperation.accept(effective);
@@ -309,13 +316,9 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                 hook.afterSetDeformerLocked(deformer, newValue);
             });
             if (broker != null) {
-                final Deformer detached = DetachedDeformer.capture(
-                    deformer, deformer.getOpacity()
-                );
+                final Deformer detached = DetachedDeformer.capture(deformer, deformer.getOpacity());
                 if (oldValue != newValue) {
-                    broker.publishRuntime(new DeformerLockEvent.On(
-                        detached, oldValue, newValue
-                    ));
+                    broker.publishRuntime(new DeformerLockEvent.On(detached, oldValue, newValue));
                 }
                 broker.publishRuntime(new DeformerLockEvent.After(detached, newValue));
             }
@@ -334,45 +337,47 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
      * @throws IllegalStateException when invoked from within another Deformer lifecycle operation
      */
     public void replaceGrid(
-        final WarpDeformer deformer, final WarpGrid requested, final Consumer<WarpGrid> nativeOperation
-    ) {
+            final WarpDeformer deformer, final WarpGrid requested, final Consumer<WarpGrid> nativeOperation) {
         runGuarded(WARP_GRID_OPERATION_ID, () -> {
             WarpGrid effective = Objects.requireNonNull(requested, "grid");
             for (Registration registration : plugins) {
                 final PluginHooks plugin = registration.plugin();
-                if (plugin.interceptAllowed()) for (DeformerHooks hook : plugin.entrypoints()) {
-                    try {
-                        effective = Objects.requireNonNull(
-                            hook.beforeReplaceWarpDeformerGrid(deformer, effective),
-                            "beforeReplaceWarpDeformerGrid result"
-                        );
-                    } catch (Throwable failure) {
-                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeReplaceWarpDeformerGrid", failure); }
-                }
+                if (plugin.interceptAllowed())
+                    for (DeformerHooks hook : plugin.entrypoints()) {
+                        try {
+                            effective = Objects.requireNonNull(
+                                    hook.beforeReplaceWarpDeformerGrid(deformer, effective),
+                                    "beforeReplaceWarpDeformerGrid result");
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            logHookFailure(plugin, "beforeReplaceWarpDeformerGrid", failure);
+                        }
+                    }
             }
             final RuntimeEventBroker broker = eventBroker;
             if (broker != null) {
-                final WarpDeformer detached = DetachedWarpDeformer.capture(
-                    deformer, deformer.getOpacity(), deformer.grid()
-                );
+                final WarpDeformer detached =
+                        DetachedWarpDeformer.capture(deformer, deformer.getOpacity(), deformer.grid());
                 effective = broker.publishRuntimeTransform(
-                    WarpDeformerGridEvent.Before.class,
-                    effective,
-                    candidate -> {
-                        final WarpDeformerGridEvent.Before.Callback callback =
-                            WarpDeformerGridEvent.Before.openCallback(
-                                detached, requested, candidate
-                            );
-                        return new RuntimeEventBroker.TransformCallback() {
-                            @Override public WarpDeformerGridEvent.Before event() {
-                                return callback.event();
-                            }
-                            @Override public void close() { callback.close(); }
-                        };
-                    },
-                    event -> ((WarpDeformerGridEvent.Before) event).grid(),
-                    Objects::nonNull
-                );
+                        WarpDeformerGridEvent.Before.class,
+                        effective,
+                        candidate -> {
+                            final WarpDeformerGridEvent.Before.Callback callback =
+                                    WarpDeformerGridEvent.Before.openCallback(detached, requested, candidate);
+                            return new RuntimeEventBroker.TransformCallback() {
+                                @Override
+                                public WarpDeformerGridEvent.Before event() {
+                                    return callback.event();
+                                }
+
+                                @Override
+                                public void close() {
+                                    callback.close();
+                                }
+                            };
+                        },
+                        event -> ((WarpDeformerGridEvent.Before) event).grid(),
+                        Objects::nonNull);
             }
             final WarpGrid oldValue = deformer.grid();
             nativeOperation.accept(effective);
@@ -382,13 +387,9 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                 hook.afterReplaceWarpDeformerGrid(deformer, newValue);
             });
             if (broker != null) {
-                final WarpDeformer detached = DetachedWarpDeformer.capture(
-                    deformer, deformer.getOpacity(), newValue
-                );
+                final WarpDeformer detached = DetachedWarpDeformer.capture(deformer, deformer.getOpacity(), newValue);
                 if (!oldValue.equals(newValue)) {
-                    broker.publishRuntime(new WarpDeformerGridEvent.On(
-                        detached, oldValue, newValue
-                    ));
+                    broker.publishRuntime(new WarpDeformerGridEvent.On(detached, oldValue, newValue));
                 }
                 broker.publishRuntime(new WarpDeformerGridEvent.After(detached, newValue));
             }
@@ -406,64 +407,67 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
      * @throws IllegalStateException when invoked from within another Deformer lifecycle operation
      */
     public void setBaseAngle(
-        final RotationDeformer deformer, final float requested, final Consumer<Float> nativeOperation
-    ) {
+            final RotationDeformer deformer, final float requested, final Consumer<Float> nativeOperation) {
         runGuarded(ROTATION_ANGLE_OPERATION_ID, () -> {
             float effective = requested;
             for (Registration registration : plugins) {
                 final PluginHooks plugin = registration.plugin();
-                if (plugin.interceptAllowed()) for (DeformerHooks hook : plugin.entrypoints()) {
-                    try {
-                        final float transformed = hook.beforeSetRotationDeformerBaseAngle(deformer, effective);
-                        if (Float.isFinite(transformed)) effective = transformed;
-                        else plugin.logger().warn("Ignored non-finite beforeSetRotationDeformerBaseAngle result for " + ROTATION_ANGLE_OPERATION_ID);
-                    } catch (Throwable failure) {
-                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeSetRotationDeformerBaseAngle", failure); }
-                }
+                if (plugin.interceptAllowed())
+                    for (DeformerHooks hook : plugin.entrypoints()) {
+                        try {
+                            final float transformed = hook.beforeSetRotationDeformerBaseAngle(deformer, effective);
+                            if (Float.isFinite(transformed)) effective = transformed;
+                            else
+                                plugin.logger()
+                                        .warn("Ignored non-finite beforeSetRotationDeformerBaseAngle result for "
+                                                + ROTATION_ANGLE_OPERATION_ID);
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            logHookFailure(plugin, "beforeSetRotationDeformerBaseAngle", failure);
+                        }
+                    }
             }
             final RuntimeEventBroker broker = eventBroker;
             if (broker != null) {
                 final RotationDeformer detached = DetachedRotationDeformer.capture(
-                    deformer, deformer.getOpacity(), deformer.baseAngle(), deformer.form()
-                );
+                        deformer, deformer.getOpacity(), deformer.baseAngle(), deformer.form());
                 effective = broker.publishRuntimeTransform(
-                    RotationDeformerBaseAngleEvent.Before.class,
-                    effective,
-                    candidate -> {
-                        final RotationDeformerBaseAngleEvent.Before.Callback callback =
-                            RotationDeformerBaseAngleEvent.Before.openCallback(
-                                detached, requested, candidate
-                            );
-                        return new RuntimeEventBroker.TransformCallback() {
-                            @Override public RotationDeformerBaseAngleEvent.Before event() {
-                                return callback.event();
-                            }
-                            @Override public void close() { callback.close(); }
-                        };
-                    },
-                    event -> ((RotationDeformerBaseAngleEvent.Before) event).angle()
-                );
+                        RotationDeformerBaseAngleEvent.Before.class,
+                        effective,
+                        candidate -> {
+                            final RotationDeformerBaseAngleEvent.Before.Callback callback =
+                                    RotationDeformerBaseAngleEvent.Before.openCallback(detached, requested, candidate);
+                            return new RuntimeEventBroker.TransformCallback() {
+                                @Override
+                                public RotationDeformerBaseAngleEvent.Before event() {
+                                    return callback.event();
+                                }
+
+                                @Override
+                                public void close() {
+                                    callback.close();
+                                }
+                            };
+                        },
+                        event -> ((RotationDeformerBaseAngleEvent.Before) event).angle());
             }
-            if (!Float.isFinite(effective)) throw new IllegalArgumentException("Rotation Deformer base angle must be finite.");
+            if (!Float.isFinite(effective))
+                throw new IllegalArgumentException("Rotation Deformer base angle must be finite.");
             final float oldValue = deformer.baseAngle();
             nativeOperation.accept(effective);
             final float newValue = deformer.baseAngle();
             publish(ROTATION_ANGLE_OPERATION_ID, hook -> {
-                if (Float.compare(oldValue, newValue) != 0) hook.onRotationDeformerBaseAngleChanged(deformer, oldValue, newValue);
+                if (Float.compare(oldValue, newValue) != 0)
+                    hook.onRotationDeformerBaseAngleChanged(deformer, oldValue, newValue);
                 hook.afterSetRotationDeformerBaseAngle(deformer, newValue);
             });
             if (broker != null) {
-                final RotationDeformer detached = DetachedRotationDeformer.capture(
-                    deformer, deformer.getOpacity(), newValue, deformer.form()
-                );
+                final RotationDeformer detached =
+                        DetachedRotationDeformer.capture(deformer, deformer.getOpacity(), newValue, deformer.form());
                 if (Float.compare(oldValue, newValue) != 0) {
-                    broker.publishRuntime(new RotationDeformerBaseAngleEvent.On(
-                        detached, oldValue, newValue
-                    ));
+                    broker.publishRuntime(new RotationDeformerBaseAngleEvent.On(detached, oldValue, newValue));
                 }
-                broker.publishRuntime(new RotationDeformerBaseAngleEvent.After(
-                    detached, newValue
-                ));
+                broker.publishRuntime(new RotationDeformerBaseAngleEvent.After(detached, newValue));
             }
         });
     }
@@ -480,47 +484,49 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
      * @throws IllegalStateException when invoked from within another Deformer lifecycle operation
      */
     public void replaceForm(
-        final RotationDeformer deformer,
-        final RotationDeformerForm requested,
-        final Consumer<RotationDeformerForm> nativeOperation
-    ) {
+            final RotationDeformer deformer,
+            final RotationDeformerForm requested,
+            final Consumer<RotationDeformerForm> nativeOperation) {
         runGuarded(ROTATION_FORM_OPERATION_ID, () -> {
             RotationDeformerForm effective = Objects.requireNonNull(requested, "form");
             for (Registration registration : plugins) {
                 final PluginHooks plugin = registration.plugin();
-                if (plugin.interceptAllowed()) for (DeformerHooks hook : plugin.entrypoints()) {
-                    try {
-                        effective = Objects.requireNonNull(
-                            hook.beforeReplaceRotationDeformerForm(deformer, effective),
-                            "beforeReplaceRotationDeformerForm result"
-                        );
-                    } catch (Throwable failure) {
-                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeReplaceRotationDeformerForm", failure); }
-                }
+                if (plugin.interceptAllowed())
+                    for (DeformerHooks hook : plugin.entrypoints()) {
+                        try {
+                            effective = Objects.requireNonNull(
+                                    hook.beforeReplaceRotationDeformerForm(deformer, effective),
+                                    "beforeReplaceRotationDeformerForm result");
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            logHookFailure(plugin, "beforeReplaceRotationDeformerForm", failure);
+                        }
+                    }
             }
             final RuntimeEventBroker broker = eventBroker;
             if (broker != null) {
                 final RotationDeformer detached = DetachedRotationDeformer.capture(
-                    deformer, deformer.getOpacity(), deformer.baseAngle(), deformer.form()
-                );
+                        deformer, deformer.getOpacity(), deformer.baseAngle(), deformer.form());
                 effective = broker.publishRuntimeTransform(
-                    RotationDeformerFormEvent.Before.class,
-                    effective,
-                    candidate -> {
-                        final RotationDeformerFormEvent.Before.Callback callback =
-                            RotationDeformerFormEvent.Before.openCallback(
-                                detached, requested, candidate
-                            );
-                        return new RuntimeEventBroker.TransformCallback() {
-                            @Override public RotationDeformerFormEvent.Before event() {
-                                return callback.event();
-                            }
-                            @Override public void close() { callback.close(); }
-                        };
-                    },
-                    event -> ((RotationDeformerFormEvent.Before) event).form(),
-                    Objects::nonNull
-                );
+                        RotationDeformerFormEvent.Before.class,
+                        effective,
+                        candidate -> {
+                            final RotationDeformerFormEvent.Before.Callback callback =
+                                    RotationDeformerFormEvent.Before.openCallback(detached, requested, candidate);
+                            return new RuntimeEventBroker.TransformCallback() {
+                                @Override
+                                public RotationDeformerFormEvent.Before event() {
+                                    return callback.event();
+                                }
+
+                                @Override
+                                public void close() {
+                                    callback.close();
+                                }
+                            };
+                        },
+                        event -> ((RotationDeformerFormEvent.Before) event).form(),
+                        Objects::nonNull);
             }
             final RotationDeformerForm oldValue = deformer.form();
             nativeOperation.accept(effective);
@@ -531,16 +537,11 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
             });
             if (broker != null) {
                 final RotationDeformer detached = DetachedRotationDeformer.capture(
-                    deformer, deformer.getOpacity(), deformer.baseAngle(), newValue
-                );
+                        deformer, deformer.getOpacity(), deformer.baseAngle(), newValue);
                 if (!oldValue.equals(newValue)) {
-                    broker.publishRuntime(new RotationDeformerFormEvent.On(
-                        detached, oldValue, newValue
-                    ));
+                    broker.publishRuntime(new RotationDeformerFormEvent.On(detached, oldValue, newValue));
                 }
-                broker.publishRuntime(new RotationDeformerFormEvent.After(
-                    detached, newValue
-                ));
+                broker.publishRuntime(new RotationDeformerFormEvent.After(detached, newValue));
             }
         });
     }
@@ -550,8 +551,11 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
             throw new IllegalStateException("Recursive Cubism Deformer lifecycle is not allowed: " + operationId);
         }
         lifecycleActive.set(true);
-        try { operation.run(); }
-        finally { lifecycleActive.remove(); }
+        try {
+            operation.run();
+        } finally {
+            lifecycleActive.remove();
+        }
     }
 
     private void publish(final String operationId, final HookCall call) {
@@ -561,9 +565,12 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
             final List<? extends DeformerHooks> hooks = plugin.entrypoints();
             submit(registration, operationId, () -> {
                 for (DeformerHooks hook : hooks) {
-                    try { call.invoke(hook); }
-                    catch (Throwable failure) {
-                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, operationId, failure); }
+                    try {
+                        call.invoke(hook);
+                    } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
+                        logHookFailure(plugin, operationId, failure);
+                    }
                 }
             });
         }
@@ -585,27 +592,21 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         }
     }
 
-    private void submit(
-        final Registration registration,
-        final String operationId,
-        final Runnable callback
-    ) {
+    private void submit(final Registration registration, final String operationId, final Runnable callback) {
         synchronized (registrationLock) {
             if (!plugins.contains(registration)) {
                 return;
             }
-            callbacks.submit(
-                registration.plugin().descriptor().id(),
-                operationId,
-                callback
-            );
+            callbacks.submit(registration.plugin().descriptor().id(), operationId, callback);
         }
     }
 
     private static void logHookFailure(final PluginHooks plugin, final String phase, final Throwable failure) {
-        try { plugin.logger().error("Cubism Deformer lifecycle hook failed safely: " + phase, failure); }
-        catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored); }
+        try {
+            plugin.logger().error("Cubism Deformer lifecycle hook failed safely: " + phase, failure);
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
+        }
     }
 
     private static String requireText(final String value, final String name) {
@@ -614,9 +615,12 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         return value;
     }
 
-    @FunctionalInterface private interface HookCall { void invoke(DeformerHooks hook); }
+    @FunctionalInterface
+    private interface HookCall {
+        void invoke(DeformerHooks hook);
+    }
 
-    private record Registration(Object token, PluginHooks plugin) { }
+    private record Registration(Object token, PluginHooks plugin) {}
 
     /**
      * One plugin's participation in the Deformer lifecycle.
@@ -628,12 +632,11 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
      * @param observeAllowed whether this plugin receives asynchronous {@code after*}/{@code on*} callbacks
      */
     public record PluginHooks(
-        PluginDescriptor descriptor,
-        List<? extends DeformerHooks> entrypoints,
-        PluginLogger logger,
-        boolean interceptAllowed,
-        boolean observeAllowed
-    ) {
+            PluginDescriptor descriptor,
+            List<? extends DeformerHooks> entrypoints,
+            PluginLogger logger,
+            boolean interceptAllowed,
+            boolean observeAllowed) {
         /**
          * Registers a plugin with both interception and observation permitted.
          *
@@ -642,10 +645,11 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
          * @param logger sink for hook failures raised by this plugin
          */
         public PluginHooks(
-            final PluginDescriptor descriptor,
-            final List<? extends DeformerHooks> entrypoints,
-            final PluginLogger logger
-        ) { this(descriptor, entrypoints, logger, true, true); }
+                final PluginDescriptor descriptor,
+                final List<? extends DeformerHooks> entrypoints,
+                final PluginLogger logger) {
+            this(descriptor, entrypoints, logger, true, true);
+        }
 
         public PluginHooks {
             descriptor = Objects.requireNonNull(descriptor, "descriptor");

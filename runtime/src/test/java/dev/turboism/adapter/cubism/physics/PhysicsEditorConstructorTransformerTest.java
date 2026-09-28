@@ -1,19 +1,19 @@
 package dev.turboism.adapter.cubism.physics;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 class PhysicsEditorConstructorTransformerTest {
 
     @Test
     void instrumentsOnlyTheExactPanelOwner() {
         final PhysicsEditorConstructorTransformer transformer =
-            new PhysicsEditorConstructorTransformer("fixture/Panel", null);
+                new PhysicsEditorConstructorTransformer("fixture/Panel", null);
 
         assertNull(transformer.transform(null, null, "fixture/Other", null, null, fixture("fixture/Other")));
         assertNotNull(transformer.transform(null, null, "fixture/Panel", null, null, fixture("fixture/Panel")));

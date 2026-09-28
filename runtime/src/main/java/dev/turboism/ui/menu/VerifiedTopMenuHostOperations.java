@@ -3,9 +3,6 @@ package dev.turboism.ui.menu;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.host.EdtDispatch;
-
-import javax.swing.JMenu;
-import javax.swing.JMenuBar;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -15,6 +12,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
 
 /** Exact-version top-menu operations restricted to pinned verified aliases. */
 public final class VerifiedTopMenuHostOperations implements TopMenuHostOperations {
@@ -42,10 +41,7 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
     }
 
     @Override
-    public Registration addMenu(
-        final TopMenuDescriptor descriptor,
-        final Consumer<TopMenuItemDescriptor> action
-    ) {
+    public Registration addMenu(final TopMenuDescriptor descriptor, final Consumer<TopMenuItemDescriptor> action) {
         Objects.requireNonNull(descriptor, "descriptor");
         Objects.requireNonNull(action, "action");
         return onEdt(() -> installMenu(descriptor, action));
@@ -54,18 +50,13 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
     @Override
     public Registration onRebuild(final Runnable reconcile) {
         Objects.requireNonNull(reconcile, "reconcile");
-        return () -> { };
+        return () -> {};
     }
 
-    private Registration installMenu(
-        final TopMenuDescriptor descriptor,
-        final Consumer<TopMenuItemDescriptor> action
-    ) {
+    private Registration installMenu(final TopMenuDescriptor descriptor, final Consumer<TopMenuItemDescriptor> action) {
         final Object menuBar = resolveMenuBar();
         final List<?> menus = menus(menuBar);
-        if (menus.stream().anyMatch(menu -> descriptor.menuId().equals(
-            resolver.invoke(WIDGET_NAME, menu)
-        ))) {
+        if (menus.stream().anyMatch(menu -> descriptor.menuId().equals(resolver.invoke(WIDGET_NAME, menu)))) {
             throw new IllegalStateException("plugin-owned top menu is already materialized");
         }
 
@@ -81,30 +72,17 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
                 Object submenu = submenus.get(key);
                 if (submenu == null) {
                     submenu = resolver.construct(MENU_CREATE, segment);
-                    resolver.invoke(
-                        WIDGET_SET_NAME,
-                        submenu,
-                        submenuId(descriptor.menuId(), key)
-                    );
+                    resolver.invoke(WIDGET_SET_NAME, submenu, submenuId(descriptor.menuId(), key));
                     resolver.invoke(MENU_ADD, parent, submenu);
                     submenus.put(key, submenu);
                 }
                 parent = submenu;
             }
-            final Object callback = resolver.createFunctionalConstructorArgumentProxy(
-                MENU_ITEM_CREATE,
-                2,
-                ignored -> {
-                    action.accept(item);
-                    return kotlinUnit();
-                }
-            );
-            final Object nativeItem = resolver.construct(
-                MENU_ITEM_CREATE,
-                item.label(),
-                null,
-                callback
-            );
+            final Object callback = resolver.createFunctionalConstructorArgumentProxy(MENU_ITEM_CREATE, 2, ignored -> {
+                action.accept(item);
+                return kotlinUnit();
+            });
+            final Object nativeItem = resolver.construct(MENU_ITEM_CREATE, item.label(), null, callback);
             resolver.invoke(WIDGET_SET_NAME, nativeItem, item.nativeItemId());
             resolver.invoke(MENU_ADD, parent, nativeItem);
         }
@@ -161,10 +139,9 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
 
     private void removeMenu(final Object menuBar, final Object menu) {
         cleanupMenu(
-            () -> removeFromHostList(menuBar, menu),
-            () -> removeFromSwingMenuBar(menuBar, menu),
-            () -> refresh(menuBar)
-        );
+                () -> removeFromHostList(menuBar, menu),
+                () -> removeFromSwingMenuBar(menuBar, menu),
+                () -> refresh(menuBar));
     }
 
     @SuppressWarnings("unchecked")
@@ -189,11 +166,7 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
 
     private Object kotlinUnit() {
         try {
-            final Class<?> unit = Class.forName(
-                "kotlin.Unit",
-                false,
-                resolver.hostClassLoader()
-            );
+            final Class<?> unit = Class.forName("kotlin.Unit", false, resolver.hostClassLoader());
             return unit.getField("INSTANCE").get(null);
         } catch (ReflectiveOperationException | LinkageError failure) {
             throw new IllegalStateException("Kotlin Unit is unavailable for top-menu callback", failure);
@@ -201,9 +174,9 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
     }
 
     private static String submenuId(final String menuId, final List<String> path) {
-        final String encodedPath = Base64.getUrlEncoder().withoutPadding().encodeToString(
-            String.join("\u0000", path).getBytes(StandardCharsets.UTF_8)
-        );
+        final String encodedPath = Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(String.join("\u0000", path).getBytes(StandardCharsets.UTF_8));
         return menuId + ".submenu." + encodedPath;
     }
 
@@ -212,11 +185,7 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
         resolver.invoke(WIDGET_REPAINT, menuBar);
     }
 
-    static void cleanupMenu(
-        final Runnable removeHostEntry,
-        final Runnable removeSwingEntry,
-        final Runnable refresh
-    ) {
+    static void cleanupMenu(final Runnable removeHostEntry, final Runnable removeSwingEntry, final Runnable refresh) {
         final Runnable[] operations = {
             Objects.requireNonNull(removeHostEntry, "removeHostEntry"),
             Objects.requireNonNull(removeSwingEntry, "removeSwingEntry"),

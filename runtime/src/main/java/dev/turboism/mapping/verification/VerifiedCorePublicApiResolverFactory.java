@@ -21,9 +21,7 @@ public final class VerifiedCorePublicApiResolverFactory implements SliceResolver
      * @throws IllegalArgumentException when the digest is not reviewed
      */
     public static String profileForArtifact(final Path verifiedArtifact) throws IOException {
-        return CorePublicApiVerificationManifest.profileFor(
-            HostArtifactDigest.from(verifiedArtifact)
-        );
+        return CorePublicApiVerificationManifest.profileFor(HostArtifactDigest.from(verifiedArtifact));
     }
 
     /**
@@ -40,16 +38,9 @@ public final class VerifiedCorePublicApiResolverFactory implements SliceResolver
      *     reviewed Cubism builds, or any pinned check fails
      */
     public VerifiedMemberResolver create(
-        final Path reviewedRecord,
-        final Path verifiedArtifact,
-        final ClassLoader hostClassLoader
-    ) throws IOException {
-        return create(
-            profileForArtifact(verifiedArtifact),
-            reviewedRecord,
-            verifiedArtifact,
-            hostClassLoader
-        );
+            final Path reviewedRecord, final Path verifiedArtifact, final ClassLoader hostClassLoader)
+            throws IOException {
+        return create(profileForArtifact(verifiedArtifact), reviewedRecord, verifiedArtifact, hostClassLoader);
     }
 
     /**
@@ -69,17 +60,13 @@ public final class VerifiedCorePublicApiResolverFactory implements SliceResolver
      *     pinned check fails
      */
     public VerifiedMemberResolver create(
-        final String profile,
-        final Path reviewedRecord,
-        final Path verifiedArtifact,
-        final ClassLoader hostClassLoader
-    ) throws IOException {
+            final String profile,
+            final Path reviewedRecord,
+            final Path verifiedArtifact,
+            final ClassLoader hostClassLoader)
+            throws IOException {
         return workflow.create(
-            reviewedRecord,
-            verifiedArtifact,
-            hostClassLoader,
-            CorePublicApiVerificationManifest.require(profile)
-        );
+                reviewedRecord, verifiedArtifact, hostClassLoader, CorePublicApiVerificationManifest.require(profile));
     }
     /**
      * Creates a resolver for a slice admitted by structural compatibility. The
@@ -96,17 +83,11 @@ public final class VerifiedCorePublicApiResolverFactory implements SliceResolver
      * @throws NullPointerException if any argument is {@code null}
      */
     public VerifiedMemberResolver createCompatible(
-        final Path reviewedRecord,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader,
-        final SliceContract contract
-    ) throws IOException {
-        return workflow.createCompatible(
-            reviewedRecord,
-            hostArtifact,
-            hostClassLoader,
-            contract
-        );
+            final Path reviewedRecord,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final SliceContract contract)
+            throws IOException {
+        return workflow.createCompatible(reviewedRecord, hostArtifact, hostClassLoader, contract);
     }
-
 }

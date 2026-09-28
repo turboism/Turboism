@@ -1,7 +1,6 @@
 package dev.turboism.ui.panel;
 
 import dev.turboism.sdk.ui.context.PanelTabSelection;
-
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -10,8 +9,7 @@ public final class NativePanelTabFloatingBridge {
 
     private static final AtomicReference<Handler> HANDLER = new AtomicReference<>();
 
-    private NativePanelTabFloatingBridge() {
-    }
+    private NativePanelTabFloatingBridge() {}
 
     /**
      * Installs the single process-wide handler that performs the float/dock toggle against the

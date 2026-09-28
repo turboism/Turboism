@@ -1,7 +1,6 @@
 package dev.turboism.ui.panel;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -116,9 +115,7 @@ public final class DockTreeTraversal {
             Objects.requireNonNull(child, "Cubism split child");
             if (isEmptyDockComponent(child)) {
                 dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                    "floating-panels",
-                    "Removing one empty dock component"
-                );
+                        "floating-panels", "Removing one empty dock component");
                 resolver.invoke(SPLIT_REMOVE, component, child);
             }
         }

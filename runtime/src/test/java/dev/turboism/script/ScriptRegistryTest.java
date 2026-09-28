@@ -1,20 +1,19 @@
 package dev.turboism.script;
 
-import dev.turboism.sdk.script.ScriptId;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.api.parallel.ResourceLock;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.script.ScriptId;
 import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 final class ScriptRegistryTest {
 
@@ -30,9 +29,10 @@ final class ScriptRegistryTest {
         final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
 
         assertEquals(
-            List.of(new ScriptId("a.example"), new ScriptId("z.example")),
-            registry.discover().stream().map(script -> script.descriptor().id()).toList()
-        );
+                List.of(new ScriptId("a.example"), new ScriptId("z.example")),
+                registry.discover().stream()
+                        .map(script -> script.descriptor().id())
+                        .toList());
         assertTrue(diagnostics.isEmpty());
     }
 
@@ -46,9 +46,10 @@ final class ScriptRegistryTest {
         final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
 
         assertEquals(
-            List.of(new ScriptId("other.example")),
-            registry.discover().stream().map(script -> script.descriptor().id()).toList()
-        );
+                List.of(new ScriptId("other.example")),
+                registry.discover().stream()
+                        .map(script -> script.descriptor().id())
+                        .toList());
         assertTrue(registry.find(new ScriptId("same.example")).isEmpty());
         assertTrue(diagnostics.stream().anyMatch(message -> message.equals("SCRIPT_DUPLICATE_ID: same.example")));
     }
@@ -101,11 +102,12 @@ final class ScriptRegistryTest {
         final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
 
         assertEquals(
-            java.util.stream.IntStream.range(0, 256)
-                .mapToObj(index -> new ScriptId("script-%03d".formatted(index)))
-                .toList(),
-            registry.discover().stream().map(script -> script.descriptor().id()).toList()
-        );
+                java.util.stream.IntStream.range(0, 256)
+                        .mapToObj(index -> new ScriptId("script-%03d".formatted(index)))
+                        .toList(),
+                registry.discover().stream()
+                        .map(script -> script.descriptor().id())
+                        .toList());
         assertTrue(diagnostics.stream().anyMatch(message -> message.startsWith("SCRIPT_LIMIT_REACHED:")));
     }
 
@@ -116,12 +118,13 @@ final class ScriptRegistryTest {
         final String originalOsName = System.getProperty("os.name");
         System.setProperty("os.name", "Windows 11");
         try {
-            final ScriptRegistry registry = new ScriptRegistry(home, ignored -> { });
+            final ScriptRegistry registry = new ScriptRegistry(home, ignored -> {});
 
             assertEquals(
-                List.of(new ScriptId("ordinary.example")),
-                registry.discover().stream().map(script -> script.descriptor().id()).toList()
-            );
+                    List.of(new ScriptId("ordinary.example")),
+                    registry.discover().stream()
+                            .map(script -> script.descriptor().id())
+                            .toList());
         } finally {
             if (originalOsName == null) {
                 System.clearProperty("os.name");
@@ -134,33 +137,33 @@ final class ScriptRegistryTest {
     @Test
     void rejectsLegacySchemaVersionWithoutDigestPinning() throws Exception {
         final Path root = writeScript("legacy", "legacy.example", "print('legacy');");
-        Files.writeString(root.resolve("script.json"), manifest(
-            "legacy.example", "print('legacy');"
-        ).replace("\"schemaVersion\": 2", "\"schemaVersion\": 1")
-            .replaceAll("(?m)^\\s*\"sourceSha256\".*\\R", ""));
+        Files.writeString(
+                root.resolve("script.json"),
+                manifest("legacy.example", "print('legacy');")
+                        .replace("\"schemaVersion\": 2", "\"schemaVersion\": 1")
+                        .replaceAll("(?m)^\\s*\"sourceSha256\".*\\R", ""));
         final List<String> diagnostics = new ArrayList<>();
 
         final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
 
         assertTrue(registry.discover().isEmpty());
-        assertTrue(diagnostics.stream().anyMatch(message -> message.contains(
-            "Only script schemaVersion 2 is supported"
-        )));
+        assertTrue(
+                diagnostics.stream().anyMatch(message -> message.contains("Only script schemaVersion 2 is supported")));
     }
 
     @Test
     void rejectsNonIntegralSchemaVersion() throws Exception {
         final Path root = writeScript("schema-fraction", "schema.example", "print('x');");
-        Files.writeString(root.resolve("script.json"), manifest("schema.example", "print('x');")
-            .replace("\"schemaVersion\": 2", "\"schemaVersion\": 2.9"));
+        Files.writeString(
+                root.resolve("script.json"),
+                manifest("schema.example", "print('x');").replace("\"schemaVersion\": 2", "\"schemaVersion\": 2.9"));
         final List<String> diagnostics = new ArrayList<>();
 
         final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
 
         assertTrue(registry.discover().isEmpty());
-        assertTrue(diagnostics.stream().anyMatch(message -> message.contains(
-            "Only script schemaVersion 2 is supported"
-        )));
+        assertTrue(
+                diagnostics.stream().anyMatch(message -> message.contains("Only script schemaVersion 2 is supported")));
     }
 
     @Test
@@ -168,10 +171,9 @@ final class ScriptRegistryTest {
         final Path root = writeScript("aba", "aba.example", "print('original');");
         final Path source = root.resolve("main.js");
         final var directoryModified = Files.getLastModifiedTime(root);
-        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> { });
-        final ScriptRegistry.InstalledScript script = registry.find(
-            new ScriptId("aba.example")
-        ).orElseThrow();
+        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> {});
+        final ScriptRegistry.InstalledScript script =
+                registry.find(new ScriptId("aba.example")).orElseThrow();
         final Path parkedOriginal = source.resolveSibling("parked-original.js");
         Files.move(source, parkedOriginal);
         Files.writeString(source, "print('replacement');");
@@ -193,7 +195,7 @@ final class ScriptRegistryTest {
             Assumptions.abort("symbolic links are not available on this filesystem");
         }
 
-        final ScriptRegistry registry = new ScriptRegistry(linkedHome, ignored -> { });
+        final ScriptRegistry registry = new ScriptRegistry(linkedHome, ignored -> {});
 
         assertTrue(registry.discover().isEmpty());
     }
@@ -211,12 +213,13 @@ final class ScriptRegistryTest {
         final Path configuredHome = linkedParent.resolve("turboism-home");
         writeScript(configuredHome, "script", "boundary.example", "print('safe');");
 
-        final ScriptRegistry registry = new ScriptRegistry(configuredHome, ignored -> { });
+        final ScriptRegistry registry = new ScriptRegistry(configuredHome, ignored -> {});
 
         assertEquals(
-            List.of(new ScriptId("boundary.example")),
-            registry.discover().stream().map(script -> script.descriptor().id()).toList()
-        );
+                List.of(new ScriptId("boundary.example")),
+                registry.discover().stream()
+                        .map(script -> script.descriptor().id())
+                        .toList());
     }
 
     @Test
@@ -249,21 +252,18 @@ final class ScriptRegistryTest {
         final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
 
         assertTrue(registry.discover().isEmpty());
-        assertTrue(diagnostics.stream().anyMatch(message ->
-            message.contains("SCRIPT_INVALID linked-entry")
-                && message.contains("symbolic link")
-        ));
+        assertTrue(diagnostics.stream()
+                .anyMatch(message ->
+                        message.contains("SCRIPT_INVALID linked-entry") && message.contains("symbolic link")));
     }
 
     @Test
     void discoveryDoesNotOpenEveryScriptSourceBody() throws Exception {
         final Path first = writeScript("first", "first.example", "print('first');");
         final Path second = writeScript("second", "second.example", "print('second');");
-        final java.util.Set<Path> sources = java.util.Set.of(
-            first.resolve("main.js"), second.resolve("main.js")
-        );
+        final java.util.Set<Path> sources = java.util.Set.of(first.resolve("main.js"), second.resolve("main.js"));
         final AtomicInteger sourceOpens = new AtomicInteger();
-        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> { }, path -> {
+        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> {}, path -> {
             if (sources.contains(path)) {
                 sourceOpens.incrementAndGet();
                 throw new AssertionError("discovery opened source " + path);
@@ -280,29 +280,27 @@ final class ScriptRegistryTest {
         final Path root = writeScript("same-size", "same-size.example", "print('before');");
         final Path source = root.resolve("main.js");
         final var modified = Files.getLastModifiedTime(source);
-        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> { });
-        final ScriptRegistry.InstalledScript script = registry.find(
-            new ScriptId("same-size.example")
-        ).orElseThrow();
+        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> {});
+        final ScriptRegistry.InstalledScript script =
+                registry.find(new ScriptId("same-size.example")).orElseThrow();
 
         Files.writeString(source, "print('after!');");
         Files.setLastModifiedTime(source, modified);
 
-        org.junit.jupiter.api.Assertions.assertThrows(
-            IllegalArgumentException.class,
-            script::source
-        );
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, script::source);
     }
 
     @Test
     void acceptsFileAtTheSourceSizeLimit() throws Exception {
         writeScript("limit", "limit.example", "x".repeat(384 * 1024));
 
-        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> { });
+        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> {});
 
-        assertEquals(List.of(new ScriptId("limit.example")), registry.discover().stream()
-            .map(script -> script.descriptor().id())
-            .toList());
+        assertEquals(
+                List.of(new ScriptId("limit.example")),
+                registry.discover().stream()
+                        .map(script -> script.descriptor().id())
+                        .toList());
     }
 
     @Test
@@ -312,13 +310,10 @@ final class ScriptRegistryTest {
 
         final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
 
-        final ScriptRegistry.InstalledScript script = registry.find(
-            new ScriptId("large.example")
-        ).orElseThrow();
-        final IllegalArgumentException failure = org.junit.jupiter.api.Assertions.assertThrows(
-            IllegalArgumentException.class,
-            script::source
-        );
+        final ScriptRegistry.InstalledScript script =
+                registry.find(new ScriptId("large.example")).orElseThrow();
+        final IllegalArgumentException failure =
+                org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, script::source);
         assertTrue(failure.getMessage().contains("exceeded 393216 bytes"));
     }
 
@@ -327,20 +322,17 @@ final class ScriptRegistryTest {
         final Path root = writeScript("growing", "growing.example", "print('old');");
         final Path source = root.resolve("main.js");
         final AtomicInteger opens = new AtomicInteger();
-        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> { }, path -> {
+        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> {}, path -> {
             if (!path.equals(source) || opens.getAndIncrement() != 0) {
                 return Files.newInputStream(path);
             }
-            return new ByteArrayInputStream("x".repeat(384 * 1024 + 1).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return new ByteArrayInputStream(
+                    "x".repeat(384 * 1024 + 1).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         });
 
-        final ScriptRegistry.InstalledScript script = registry.find(
-            new ScriptId("growing.example")
-        ).orElseThrow();
-        org.junit.jupiter.api.Assertions.assertThrows(
-            IllegalArgumentException.class,
-            script::source
-        );
+        final ScriptRegistry.InstalledScript script =
+                registry.find(new ScriptId("growing.example")).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, script::source);
     }
 
     @Test
@@ -348,7 +340,7 @@ final class ScriptRegistryTest {
         final Path root = writeScript("replaced", "replaced.example", "print('old');");
         final Path source = root.resolve("main.js");
         final AtomicInteger opens = new AtomicInteger();
-        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> { }, path -> {
+        final ScriptRegistry registry = new ScriptRegistry(home, ignored -> {}, path -> {
             if (!path.equals(source) || opens.getAndIncrement() != 0) {
                 return Files.newInputStream(path);
             }
@@ -358,29 +350,17 @@ final class ScriptRegistryTest {
             return new ByteArrayInputStream(current);
         });
 
-        final ScriptRegistry.InstalledScript script = registry.find(
-            new ScriptId("replaced.example")
-        ).orElseThrow();
-        org.junit.jupiter.api.Assertions.assertThrows(
-            IllegalArgumentException.class,
-            script::source
-        );
+        final ScriptRegistry.InstalledScript script =
+                registry.find(new ScriptId("replaced.example")).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, script::source);
     }
 
-    private Path writeScript(
-        final String directory,
-        final String id,
-        final String source
-    ) throws Exception {
+    private Path writeScript(final String directory, final String id, final String source) throws Exception {
         return writeScript(home, directory, id, source);
     }
 
-    private Path writeScript(
-        final Path scriptHome,
-        final String directory,
-        final String id,
-        final String source
-    ) throws Exception {
+    private Path writeScript(final Path scriptHome, final String directory, final String id, final String source)
+            throws Exception {
         final Path root = scriptHome.resolve("scripts").resolve(directory);
         Files.createDirectories(root);
         Files.writeString(root.resolve("main.js"), source);
@@ -405,11 +385,9 @@ final class ScriptRegistryTest {
 
     private static String sha256(final String source) {
         try {
-            return java.util.HexFormat.of().formatHex(
-                java.security.MessageDigest.getInstance("SHA-256").digest(
-                    source.getBytes(java.nio.charset.StandardCharsets.UTF_8)
-                )
-            );
+            return java.util.HexFormat.of()
+                    .formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                            .digest(source.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         } catch (java.security.NoSuchAlgorithmException unavailable) {
             throw new AssertionError(unavailable);
         }

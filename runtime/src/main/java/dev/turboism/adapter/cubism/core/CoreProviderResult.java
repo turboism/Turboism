@@ -4,10 +4,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Closed success/failure result that never carries raw Cubism Core objects. */
-public record CoreProviderResult<T>(
-    Optional<T> value,
-    Optional<CoreProviderFailure> failure
-) {
+public record CoreProviderResult<T>(Optional<T> value, Optional<CoreProviderFailure> failure) {
 
     public CoreProviderResult {
         value = Objects.requireNonNull(value, "value");
@@ -24,10 +21,7 @@ public record CoreProviderResult<T>(
      * @throws NullPointerException if {@code value} is null
      */
     public static <T> CoreProviderResult<T> success(final T value) {
-        return new CoreProviderResult<>(
-            Optional.of(Objects.requireNonNull(value, "value")),
-            Optional.empty()
-        );
+        return new CoreProviderResult<>(Optional.of(Objects.requireNonNull(value, "value")), Optional.empty());
     }
 
     /**
@@ -37,10 +31,7 @@ public record CoreProviderResult<T>(
      * @throws NullPointerException if {@code failure} is null
      */
     public static <T> CoreProviderResult<T> failed(final CoreProviderFailure failure) {
-        return new CoreProviderResult<>(
-            Optional.empty(),
-            Optional.of(Objects.requireNonNull(failure, "failure"))
-        );
+        return new CoreProviderResult<>(Optional.empty(), Optional.of(Objects.requireNonNull(failure, "failure")));
     }
 
     /**

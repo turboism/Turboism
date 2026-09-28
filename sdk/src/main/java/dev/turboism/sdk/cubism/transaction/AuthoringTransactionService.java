@@ -30,10 +30,7 @@ public interface AuthoringTransactionService {
      * @param <T> callback result type
      * @return typed terminal result and immutable history evidence
      */
-    <T> AuthoringTransactionResult<T> execute(
-        AuthoringTransactionOptions options,
-        AuthoringTransactionWork<T> work
-    );
+    <T> AuthoringTransactionResult<T> execute(AuthoringTransactionOptions options, AuthoringTransactionWork<T> work);
 
     /**
      * Returns the fail-closed implementation used when Runtime has no verified transaction backend.
@@ -50,14 +47,10 @@ public interface AuthoringTransactionService {
 
         @Override
         public <T> AuthoringTransactionResult<T> execute(
-            final AuthoringTransactionOptions options,
-            final AuthoringTransactionWork<T> work
-        ) {
+                final AuthoringTransactionOptions options, final AuthoringTransactionWork<T> work) {
             Objects.requireNonNull(options, "options");
             Objects.requireNonNull(work, "work");
-            return AuthoringTransactionResult.unavailable(
-                "cubism.authoring.transactions.unavailable"
-            );
+            return AuthoringTransactionResult.unavailable("cubism.authoring.transactions.unavailable");
         }
     }
 }

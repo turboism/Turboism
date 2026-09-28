@@ -21,22 +21,15 @@ final class McpRuntimeDiagnostics {
     static final int DEFAULT_CAPACITY = 128;
     static final int MAX_MESSAGE_CHARS = 512;
 
-    private static final Pattern TOKEN = Pattern.compile(
-        "(?i)\\b(authorization|api[_-]?key|access[_-]?token|auth[_-]?token|token)\\b"
-            + "\\s*(?:[:=]\\s*|\\s+)(?:bearer\\s+)?(?:\\\"[^\\\"]*\\\"|'[^']*'|[^\\s,;]+)"
-    );
-    private static final Pattern BEARER = Pattern.compile(
-        "(?i)\\bbearer\\s+[^\\s,;]+"
-    );
-    private static final Pattern SESSION = Pattern.compile(
-        "(?i)\\b(mcp[-_]?session[-_]?id|session[-_]?id)\\b"
-            + "\\s*(?:[:=]\\s*|\\s+)(?:\\\"[^\\\"]*\\\"|'[^']*'|[^\\s,;]+)"
-    );
+    private static final Pattern TOKEN =
+            Pattern.compile("(?i)\\b(authorization|api[_-]?key|access[_-]?token|auth[_-]?token|token)\\b"
+                    + "\\s*(?:[:=]\\s*|\\s+)(?:bearer\\s+)?(?:\\\"[^\\\"]*\\\"|'[^']*'|[^\\s,;]+)");
+    private static final Pattern BEARER = Pattern.compile("(?i)\\bbearer\\s+[^\\s,;]+");
+    private static final Pattern SESSION = Pattern.compile("(?i)\\b(mcp[-_]?session[-_]?id|session[-_]?id)\\b"
+            + "\\s*(?:[:=]\\s*|\\s+)(?:\\\"[^\\\"]*\\\"|'[^']*'|[^\\s,;]+)");
     private static final Pattern FILE_URI = Pattern.compile("(?i)file:(?://)?[^\\s]+");
     private static final Pattern WINDOWS_PATH = Pattern.compile("(?i)(?:[a-z]:\\\\|\\\\\\\\)[^\\s]+");
-    private static final Pattern UNIX_PATH = Pattern.compile(
-        "(?<![A-Za-z0-9_.-])/(?:[^\\s/]+/)*[^\\s]+"
-    );
+    private static final Pattern UNIX_PATH = Pattern.compile("(?<![A-Za-z0-9_.-])/(?:[^\\s/]+/)*[^\\s]+");
 
     private final Object lock = new Object();
     private final int capacity;
@@ -58,23 +51,16 @@ final class McpRuntimeDiagnostics {
     McpToolCatalog observe(final McpToolCatalog delegate) {
         final McpToolCatalog checked = Objects.requireNonNull(delegate, "delegate");
         return McpToolCatalog.of(checked.registrations().stream()
-            .map(registration -> registration.withHandlers(
-                arguments -> observeInvocation(
-                    registration.name(),
-                    () -> checked.call(registration.name(), arguments)
-                ),
-                arguments -> observeInvocation(
-                    registration.name(),
-                    () -> checked.callRaw(registration.name(), arguments)
-                )
-            ))
-            .toList());
+                .map(registration -> registration.withHandlers(
+                        arguments -> observeInvocation(
+                                registration.name(), () -> checked.call(registration.name(), arguments)),
+                        arguments -> observeInvocation(
+                                registration.name(), () -> checked.callRaw(registration.name(), arguments))))
+                .toList());
     }
 
     private Map<String, Object> observeInvocation(
-        final String name,
-        final java.util.function.Supplier<Map<String, Object>> invocation
-    ) {
+            final String name, final java.util.function.Supplier<Map<String, Object>> invocation) {
         try {
             final Map<String, Object> envelope = invocation.get();
             recordStructuredOutcomes(name, envelope.get("structuredContent"));
@@ -112,16 +98,7 @@ final class McpRuntimeDiagnostics {
         } else {
             kind = "RUNTIME_EXCEPTION";
         }
-        append(
-            kind,
-            provider,
-            null,
-            null,
-            null,
-            kind,
-            failure.getClass().getSimpleName(),
-            failureMessage(failure)
-        );
+        append(kind, provider, null, null, null, kind, failure.getClass().getSimpleName(), failureMessage(failure));
     }
 
     private void recordStructuredOutcomes(final String provider, final Object structured) {
@@ -129,24 +106,18 @@ final class McpRuntimeDiagnostics {
         collectKinds(structured, kinds, 0);
         for (String kind : kinds) {
             append(
-                kind,
-                provider,
-                findString(structured, "diagnosticId", 0),
-                findString(structured, "operation", 0),
-                kind.equals("OUTCOME_UNKNOWN") || kind.equals("APPLIED_WITH_READBACK_WARNING")
-                    ? kind : null,
-                findString(structured, "code", 0),
-                null,
-                structuredMessage(structured, kind)
-            );
+                    kind,
+                    provider,
+                    findString(structured, "diagnosticId", 0),
+                    findString(structured, "operation", 0),
+                    kind.equals("OUTCOME_UNKNOWN") || kind.equals("APPLIED_WITH_READBACK_WARNING") ? kind : null,
+                    findString(structured, "code", 0),
+                    null,
+                    structuredMessage(structured, kind));
         }
     }
 
-    private static void collectKinds(
-        final Object value,
-        final Set<String> kinds,
-        final int depth
-    ) {
+    private static void collectKinds(final Object value, final Set<String> kinds, final int depth) {
         if (value == null || depth > 32) return;
         if (value instanceof Map<?, ?> map) {
             for (Object item : map.values()) collectKinds(item, kinds, depth + 1);
@@ -164,8 +135,7 @@ final class McpRuntimeDiagnostics {
             kinds.add("APPLIED_WITH_READBACK_WARNING");
         } else if (normalized.contains("ROLLBACK") && normalized.contains("FAIL")) {
             kinds.add("ROLLBACK_FAILURE");
-        } else if (normalized.equals("TIMEOUT") || normalized.equals("TIMED_OUT")
-            || normalized.contains("TIMED OUT")) {
+        } else if (normalized.equals("TIMEOUT") || normalized.equals("TIMED_OUT") || normalized.contains("TIMED OUT")) {
             kinds.add("TIMEOUT");
         } else if (normalized.equals("INVALID_ARGUMENT")) {
             kinds.add("INVALID_REQUEST");
@@ -175,28 +145,24 @@ final class McpRuntimeDiagnostics {
     }
 
     private void append(
-        final String kind,
-        final String provider,
-        final String diagnosticId,
-        final String operation,
-        final String outcome,
-        final String errorCode,
-        final String exceptionType,
-        final String message
-    ) {
+            final String kind,
+            final String provider,
+            final String diagnosticId,
+            final String operation,
+            final String outcome,
+            final String errorCode,
+            final String exceptionType,
+            final String message) {
         final Event event = new Event(
-            clock.instant(),
-            diagnosticId == null
-                ? java.util.UUID.randomUUID().toString()
-                : optionalText(diagnosticId, 128),
-            requireText(kind, "kind", 64),
-            sanitizedProvider(provider),
-            optionalText(operation, 64),
-            optionalText(outcome, 64),
-            optionalText(errorCode, 64),
-            optionalText(exceptionType, 128),
-            sanitized(message, "message", MAX_MESSAGE_CHARS)
-        );
+                clock.instant(),
+                diagnosticId == null ? java.util.UUID.randomUUID().toString() : optionalText(diagnosticId, 128),
+                requireText(kind, "kind", 64),
+                sanitizedProvider(provider),
+                optionalText(operation, 64),
+                optionalText(outcome, 64),
+                optionalText(errorCode, 64),
+                optionalText(exceptionType, 128),
+                sanitized(message, "message", MAX_MESSAGE_CHARS));
         synchronized (lock) {
             if (events.size() == capacity) {
                 events.removeFirst();
@@ -247,7 +213,8 @@ final class McpRuntimeDiagnostics {
     private static boolean rollbackFailure(final Throwable failure) {
         for (Throwable current : chain(failure)) {
             final String evidence = (current.getClass().getSimpleName() + " "
-                + Objects.toString(current.getMessage(), "")).toUpperCase(Locale.ROOT);
+                            + Objects.toString(current.getMessage(), ""))
+                    .toUpperCase(Locale.ROOT);
             if (evidence.contains("ROLLBACK") && evidence.contains("FAIL")) return true;
         }
         return false;
@@ -257,11 +224,12 @@ final class McpRuntimeDiagnostics {
         for (Throwable current : chain(failure)) {
             if (current instanceof TimeoutException) return true;
             if (current instanceof McpResourceCatalog.ResourceFailure resourceFailure
-                && resourceFailure.kind() == McpResourceCatalog.ResourceFailure.Kind.TIMEOUT) {
+                    && resourceFailure.kind() == McpResourceCatalog.ResourceFailure.Kind.TIMEOUT) {
                 return true;
             }
             final String evidence = (current.getClass().getSimpleName() + " "
-                + Objects.toString(current.getMessage(), "")).toLowerCase(Locale.ROOT);
+                            + Objects.toString(current.getMessage(), ""))
+                    .toLowerCase(Locale.ROOT);
             if (evidence.contains("timeout") || evidence.contains("timed out")) return true;
         }
         return false;
@@ -281,15 +249,15 @@ final class McpRuntimeDiagnostics {
     private static String failureMessage(final RuntimeException failure) {
         final String message = failure.getMessage();
         return message == null || message.isBlank()
-            ? failure.getClass().getSimpleName()
-            : failure.getClass().getSimpleName() + ": " + message;
+                ? failure.getClass().getSimpleName()
+                : failure.getClass().getSimpleName() + ": " + message;
     }
 
     private static String sanitizedProvider(final String value) {
         String text = requireText(value, "provider", Integer.MAX_VALUE)
-            .replaceAll("[\\p{Cc}\\p{Cf}]+", " ")
-            .replaceAll("\\s+", " ")
-            .trim();
+                .replaceAll("[\\p{Cc}\\p{Cf}]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
         text = TOKEN.matcher(text).replaceAll("$1=[redacted-token]");
         text = BEARER.matcher(text).replaceAll("Bearer [redacted-token]");
         text = SESSION.matcher(text).replaceAll("$1=[redacted-session]");
@@ -298,9 +266,9 @@ final class McpRuntimeDiagnostics {
 
     static String sanitized(final String value, final String label, final int maximum) {
         String text = requireText(value, label, Integer.MAX_VALUE)
-            .replaceAll("[\\p{Cc}\\p{Cf}]+", " ")
-            .replaceAll("\\s+", " ")
-            .trim();
+                .replaceAll("[\\p{Cc}\\p{Cf}]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
         text = TOKEN.matcher(text).replaceAll("$1=[redacted-token]");
         text = BEARER.matcher(text).replaceAll("Bearer [redacted-token]");
         text = SESSION.matcher(text).replaceAll("$1=[redacted-session]");
@@ -311,9 +279,7 @@ final class McpRuntimeDiagnostics {
     }
 
     private static String truncate(final String value, final int maximum) {
-        return value.length() > maximum
-            ? value.substring(0, maximum - 1) + "…"
-            : value;
+        return value.length() > maximum ? value.substring(0, maximum - 1) + "…" : value;
     }
 
     private static String requireText(final String value, final String label, final int maximum) {
@@ -328,16 +294,15 @@ final class McpRuntimeDiagnostics {
     }
 
     record Event(
-        Instant observedAt,
-        String diagnosticId,
-        String kind,
-        String provider,
-        String operation,
-        String outcome,
-        String errorCode,
-        String exceptionType,
-        String message
-    ) {
+            Instant observedAt,
+            String diagnosticId,
+            String kind,
+            String provider,
+            String operation,
+            String outcome,
+            String errorCode,
+            String exceptionType,
+            String message) {
         Event {
             Objects.requireNonNull(observedAt, "observedAt");
             diagnosticId = requireText(diagnosticId, "diagnosticId", 128);

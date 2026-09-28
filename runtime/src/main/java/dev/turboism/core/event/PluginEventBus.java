@@ -5,7 +5,6 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -18,19 +17,17 @@ public final class PluginEventBus implements EventBus {
     private final ClassLoader pluginClassLoader;
 
     public PluginEventBus(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final PermissionChecker permissionChecker
-    ) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final PermissionChecker permissionChecker) {
         this(broker, owner, permissionChecker, null);
     }
 
     public PluginEventBus(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final PermissionChecker permissionChecker,
-        final ClassLoader pluginClassLoader
-    ) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final PermissionChecker permissionChecker,
+            final ClassLoader pluginClassLoader) {
         this.broker = Objects.requireNonNull(broker, "broker");
         this.owner = Objects.requireNonNull(owner, "owner");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
@@ -41,10 +38,7 @@ public final class PluginEventBus implements EventBus {
     }
 
     @Override
-    public <T extends TurboismEvent> Registration subscribe(
-        final Class<T> type,
-        final Consumer<T> listener
-    ) {
+    public <T extends TurboismEvent> Registration subscribe(final Class<T> type, final Consumer<T> listener) {
         permissionChecker.check(PermissionIds.TURBOISM_EVENT_SUBSCRIBE, "event.subscribe");
         EventSubscriptionPermissionCatalog.check(type, permissionChecker);
         final Consumer<T> callback = Objects.requireNonNull(listener, "listener");
@@ -52,9 +46,7 @@ public final class PluginEventBus implements EventBus {
             return broker.subscribe(owner, type, callback);
         }
         return broker.subscribe(owner, type, event -> {
-            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
-                pluginClassLoader
-            )) {
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(pluginClassLoader)) {
                 callback.accept(event);
             }
         });

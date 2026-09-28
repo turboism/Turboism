@@ -2,20 +2,18 @@ package dev.turboism.ui.toolbar;
 
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.ui.contribution.EditorUiContribution;
-
 import java.util.Objects;
 
 /** Normalized provider view over compatible and preferred main-toolbar contributions. */
 public record MainToolbarContributionDescriptor(
-    String pluginId,
-    String contributionId,
-    String actionId,
-    String label,
-    String tooltip,
-    MainToolbarRegistry.IconVariants icons,
-    MainToolbarRegistry.Placement placement,
-    int order
-) {
+        String pluginId,
+        String contributionId,
+        String actionId,
+        String label,
+        String tooltip,
+        MainToolbarRegistry.IconVariants icons,
+        MainToolbarRegistry.Placement placement,
+        int order) {
     public MainToolbarContributionDescriptor {
         pluginId = requireText(pluginId, "pluginId");
         contributionId = requireText(contributionId, "contributionId");
@@ -42,34 +40,30 @@ public record MainToolbarContributionDescriptor(
      *     compatible contribution names an anchor outside the list above, or if any required
      *     text field is blank
      */
-    public static MainToolbarContributionDescriptor from(
-        final EditorUiContribution<?> contribution
-    ) {
+    public static MainToolbarContributionDescriptor from(final EditorUiContribution<?> contribution) {
         Objects.requireNonNull(contribution, "contribution");
         final Object descriptor = contribution.descriptor();
         if (descriptor instanceof MainToolbarRegistry.MainToolbarButtonContribution button) {
             return new MainToolbarContributionDescriptor(
-                contribution.identity().pluginId(),
-                button.contributionId(),
-                button.actionId(),
-                button.labelKey(),
-                button.tooltipKey(),
-                button.icons(),
-                button.placement(),
-                contribution.order()
-            );
+                    contribution.identity().pluginId(),
+                    button.contributionId(),
+                    button.actionId(),
+                    button.labelKey(),
+                    button.tooltipKey(),
+                    button.icons(),
+                    button.placement(),
+                    contribution.order());
         }
         if (descriptor instanceof MainToolbarRegistry.MainToolbarContribution compatible) {
             return new MainToolbarContributionDescriptor(
-                contribution.identity().pluginId(),
-                compatible.contributionId(),
-                compatible.actionId(),
-                compatible.labelKey(),
-                compatible.labelKey(),
-                MainToolbarRegistry.IconVariants.normal(compatible.iconResourcePath()),
-                compatiblePlacement(compatible.anchor()),
-                contribution.order()
-            );
+                    contribution.identity().pluginId(),
+                    compatible.contributionId(),
+                    compatible.actionId(),
+                    compatible.labelKey(),
+                    compatible.labelKey(),
+                    MainToolbarRegistry.IconVariants.normal(compatible.iconResourcePath()),
+                    compatiblePlacement(compatible.anchor()),
+                    contribution.order());
         }
         throw new IllegalArgumentException("Unsupported main toolbar contribution descriptor");
     }
@@ -78,15 +72,11 @@ public record MainToolbarContributionDescriptor(
         return switch (requireText(anchor, "anchor")) {
             case "start", "first" -> MainToolbarRegistry.Placement.first();
             case "end", "last" -> MainToolbarRegistry.Placement.last();
-            case "before:host-home-entry" -> MainToolbarRegistry.Placement.before(
-                MainToolbarRegistry.Anchor.HOST_HOME_ENTRY
-            );
-            case "after:host-home-entry" -> MainToolbarRegistry.Placement.after(
-                MainToolbarRegistry.Anchor.HOST_HOME_ENTRY
-            );
-            default -> throw new IllegalArgumentException(
-                "Unsupported compatible main toolbar anchor: " + anchor
-            );
+            case "before:host-home-entry" ->
+                MainToolbarRegistry.Placement.before(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY);
+            case "after:host-home-entry" ->
+                MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY);
+            default -> throw new IllegalArgumentException("Unsupported compatible main toolbar anchor: " + anchor);
         };
     }
 

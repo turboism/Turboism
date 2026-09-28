@@ -1,12 +1,11 @@
 package dev.turboism.distribution.record;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class ProtocolRootAndCapabilitiesTest {
     private static final String VALID = """
@@ -18,24 +17,44 @@ class ProtocolRootAndCapabilitiesTest {
         "fileStoreId":"store-one"}
         """;
 
-    @Test void acceptsPortableAbsoluteRootForms() {
+    @Test
+    void acceptsPortableAbsoluteRootForms() {
         for (String path : Set.of("/", "/srv/turboism", "/é/模型", "C:/", "C:/Turboism", "Z:/data/root")) {
             assertTrue(parse(withRoot(path)).isValid(), path);
         }
     }
 
-    @Test void rejectsNonPortableRootForms() {
+    @Test
+    void rejectsNonPortableRootForms() {
         Set<String> invalid = Set.of(
-            "", "relative/root", "./root", "../root", "c:/root", "C:root", "C:\\root",
-            "//server/share", "\\\\server\\share", "//?/C:/root", "/a//b", "/a/./b", "/a/../b",
-            "/a:stream", "/CON", "/con.txt", "/Lpt9.log", "/name.", "/name ", "/line\nbreak"
-        );
+                "",
+                "relative/root",
+                "./root",
+                "../root",
+                "c:/root",
+                "C:root",
+                "C:\\root",
+                "//server/share",
+                "\\\\server\\share",
+                "//?/C:/root",
+                "/a//b",
+                "/a/./b",
+                "/a/../b",
+                "/a:stream",
+                "/CON",
+                "/con.txt",
+                "/Lpt9.log",
+                "/name.",
+                "/name ",
+                "/line\nbreak");
         for (String path : invalid) {
-            assertEquals("PROTOCOL_ROOT_PATH_INVALID", firstIssue(withRoot(path)).code(), path);
+            assertEquals(
+                    "PROTOCOL_ROOT_PATH_INVALID", firstIssue(withRoot(path)).code(), path);
         }
     }
 
-    @Test void acceptsAllThreeDirectorySyncValuesWithoutWarnings() {
+    @Test
+    void acceptsAllThreeDirectorySyncValuesWithoutWarnings() {
         for (String value : Set.of("SUPPORTED", "BEST_EFFORT", "UNSUPPORTED")) {
             ProtocolValidationResult result = parse(VALID.replace("SUPPORTED", value));
             assertTrue(result.isValid(), value);
@@ -43,14 +62,23 @@ class ProtocolRootAndCapabilitiesTest {
         }
     }
 
-    @Test void rejectsOtherDirectorySyncValuesAndFalseMandatoryCapabilities() {
-        assertEquals("PROTOCOL_VALUE_INVALID", firstIssue(VALID.replace("SUPPORTED", "UNKNOWN")).code());
-        assertEquals("PROTOCOL_VALUE_INVALID", firstIssue(VALID.replace("\"fileForce\":true", "\"fileForce\":false")).code());
-        assertEquals("PROTOCOL_VALUE_INVALID", firstIssue(VALID.replace(
-            "\"noFollowObjectIdentity\":true", "\"noFollowObjectIdentity\":false")).code());
+    @Test
+    void rejectsOtherDirectorySyncValuesAndFalseMandatoryCapabilities() {
+        assertEquals(
+                "PROTOCOL_VALUE_INVALID",
+                firstIssue(VALID.replace("SUPPORTED", "UNKNOWN")).code());
+        assertEquals(
+                "PROTOCOL_VALUE_INVALID",
+                firstIssue(VALID.replace("\"fileForce\":true", "\"fileForce\":false"))
+                        .code());
+        assertEquals(
+                "PROTOCOL_VALUE_INVALID",
+                firstIssue(VALID.replace("\"noFollowObjectIdentity\":true", "\"noFollowObjectIdentity\":false"))
+                        .code());
     }
 
-    @Test void mapsEveryValidationIssueToStableDiagnosticClassWithoutPersistenceFields() {
+    @Test
+    void mapsEveryValidationIssueToStableDiagnosticClassWithoutPersistenceFields() {
         ProtocolValidationIssue issue = firstIssue(VALID.replace("\"schemaVersion\":1", "\"schemaVersion\":2"));
         ProtocolDiagnosticMapping mapping = ProtocolDiagnosticMapping.forIssue(issue);
         assertEquals(issue.code(), mapping.code());

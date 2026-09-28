@@ -1,16 +1,11 @@
 package dev.turboism.sdk.ui.context;
 
-
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable, generation-bound selection supplied to an object context-menu action. */
 public record ContextMenuSelection(
-    long hostGeneration,
-    String documentId,
-    ContextMenuRegistry.Location location,
-    List<Item> items
-) {
+        long hostGeneration, String documentId, ContextMenuRegistry.Location location, List<Item> items) {
     public ContextMenuSelection {
         documentId = requireText(documentId, "documentId");
         location = Objects.requireNonNull(location, "location");
@@ -23,10 +18,7 @@ public record ContextMenuSelection(
      * @param kind what sort of object was selected
      * @param id the host's identifier for it; never blank
      */
-    public record Item(
-        ContextMenuRegistry.ObjectKind kind,
-        String id
-    ) {
+    public record Item(ContextMenuRegistry.ObjectKind kind, String id) {
         public Item {
             kind = Objects.requireNonNull(kind, "kind");
             id = requireText(id, "id");

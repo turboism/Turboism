@@ -1,14 +1,10 @@
 package dev.turboism.sdk.script;
 
-
 import java.util.Map;
 import java.util.Objects;
 
 /** Request to execute one installed script. */
-public record ScriptRunRequest(
-    ScriptId scriptId,
-    Map<String, String> arguments
-) {
+public record ScriptRunRequest(ScriptId scriptId, Map<String, String> arguments) {
 
     public ScriptRunRequest {
         scriptId = Objects.requireNonNull(scriptId, "scriptId");

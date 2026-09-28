@@ -12,7 +12,6 @@ import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,49 +46,39 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     private boolean localizationLocked;
 
     public RuntimePaletteToolbarRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final String pluginId
-    ) {
+            final PermissionChecker permissionChecker, final RuntimeScheduler scheduler, final String pluginId) {
         this(
-            permissionChecker,
-            scheduler,
-            pluginId,
-            null,
-            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
-        );
+                permissionChecker,
+                scheduler,
+                pluginId,
+                null,
+                new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
     }
 
     public RuntimePaletteToolbarRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final String pluginId,
-        final ToolbarVisibilitySink visibilitySink
-    ) {
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler,
+            final String pluginId,
+            final ToolbarVisibilitySink visibilitySink) {
         this(
-            permissionChecker,
-            scheduler,
-            pluginId,
-            visibilitySink,
-            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
-        );
+                permissionChecker,
+                scheduler,
+                pluginId,
+                visibilitySink,
+                new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
     }
 
     public RuntimePaletteToolbarRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final String pluginId,
-        final ToolbarVisibilitySink visibilitySink,
-        final EditorUiContributionAuthority contributionAuthority
-    ) {
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler,
+            final String pluginId,
+            final ToolbarVisibilitySink visibilitySink,
+            final EditorUiContributionAuthority contributionAuthority) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginId = requireText(pluginId, "pluginId");
         this.visibilitySink = Optional.ofNullable(visibilitySink);
-        this.contributionAuthority = Objects.requireNonNull(
-            contributionAuthority,
-            "contributionAuthority"
-        );
+        this.contributionAuthority = Objects.requireNonNull(contributionAuthority, "contributionAuthority");
     }
 
     /**
@@ -105,9 +94,7 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
      * @throws IllegalStateException if contributions exist and {@code authority} differs from the
      *     current one
      */
-    public synchronized void bindContributionAuthority(
-        final EditorUiContributionAuthority authority
-    ) {
+    public synchronized void bindContributionAuthority(final EditorUiContributionAuthority authority) {
         final EditorUiContributionAuthority requested = Objects.requireNonNull(authority, "authority");
         if (!contributions.isEmpty() && contributionAuthority != requested) {
             throw new IllegalStateException("palette toolbar contribution authority is already in use");
@@ -154,10 +141,9 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
         final Registration authorityRegistration;
         try {
             authorityRegistration = contributionAuthority.contribute(new EditorUiContribution<>(
-                new EditorUiContributionIdentity(pluginId, EditorUiFamily.PALETTE_TOOLBAR, id),
-                resolved.order(),
-                resolved
-            ));
+                    new EditorUiContributionIdentity(pluginId, EditorUiFamily.PALETTE_TOOLBAR, id),
+                    resolved.order(),
+                    resolved));
         } catch (RuntimeException | Error failure) {
             contributions.remove(id, stored);
             throw failure;
@@ -181,14 +167,13 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
             return contribution;
         }
         return new PaletteToolbarContribution(
-            contribution.contributionId(),
-            contribution.actionId(),
-            pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
-            contribution.iconResourcePath(),
-            contribution.paletteId(),
-            contribution.anchor(),
-            contribution.order()
-        );
+                contribution.contributionId(),
+                contribution.actionId(),
+                pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
+                contribution.iconResourcePath(),
+                contribution.paletteId(),
+                contribution.anchor(),
+                contribution.order());
     }
 
     private synchronized PluginLocalization lockLocalizationForContribution() {
@@ -198,8 +183,8 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
 
     private void dispatchVisibilityUpdate(final PaletteToolbarContribution contribution) {
         final List<PaletteToolbarContribution> snapshot = contributions.values().stream()
-            .map(StoredContribution::contribution)
-            .toList();
+                .map(StoredContribution::contribution)
+                .toList();
         scheduler.dispatch(task(contribution), () -> updateVisibility(snapshot));
     }
 
@@ -209,11 +194,10 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
 
     private PluginTask task(final PaletteToolbarContribution contribution) {
         return new PluginTask(
-            UI_TASK_TYPE,
-            pluginId,
-            "palette toolbar visibility for " + contribution.paletteId() + ":" + contribution.contributionId(),
-            DEFAULT_CAPABILITY
-        );
+                UI_TASK_TYPE,
+                pluginId,
+                "palette toolbar visibility for " + contribution.paletteId() + ":" + contribution.contributionId(),
+                DEFAULT_CAPABILITY);
     }
 
     private static String requireText(final String value, final String name) {

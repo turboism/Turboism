@@ -17,12 +17,7 @@ import java.util.Objects;
  *     for every other code
  */
 public record ParameterCsvError(
-    ParameterCsvErrorCode code,
-    int record,
-    int column,
-    String messageKey,
-    int firstRecord
-) {
+        ParameterCsvErrorCode code, int record, int column, String messageKey, int firstRecord) {
     public ParameterCsvError {
         code = Objects.requireNonNull(code, "code");
         messageKey = Objects.requireNonNull(messageKey, "messageKey");
@@ -47,8 +42,12 @@ public record ParameterCsvError(
      *     earlier occurrence as well as the later one
      */
     public static ParameterCsvError duplicate(int record, int column, int firstRecord) {
-        return new ParameterCsvError(ParameterCsvErrorCode.DUPLICATE_ID, record, column,
-            key(ParameterCsvErrorCode.DUPLICATE_ID), firstRecord);
+        return new ParameterCsvError(
+                ParameterCsvErrorCode.DUPLICATE_ID,
+                record,
+                column,
+                key(ParameterCsvErrorCode.DUPLICATE_ID),
+                firstRecord);
     }
 
     private static String key(ParameterCsvErrorCode code) {

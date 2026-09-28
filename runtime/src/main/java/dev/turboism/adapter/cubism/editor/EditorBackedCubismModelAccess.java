@@ -1,13 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.selector.EditorEditSelectionSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorWarpMirrorSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWriteSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
-import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
 import dev.turboism.adapter.cubism.edit.RuntimeEditSessionManager;
 import dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider;
 import dev.turboism.adapter.cubism.edit.RuntimeEditSessionService;
@@ -18,10 +12,16 @@ import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionService;
 import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
+import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
 import dev.turboism.adapter.cubism.warp.RuntimeWarpMirrorProvider;
 import dev.turboism.adapter.cubism.warp.WarpMirrorRuntimeService;
-import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorEditSelectionSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorWarpMirrorSelectorContract;
+import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
@@ -31,12 +31,12 @@ import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.mirror.WarpMirrorService;
-import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Canvas;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawables;
+import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
 import dev.turboism.sdk.cubism.model.ModelObjectKind;
@@ -45,18 +45,17 @@ import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations;
 import dev.turboism.sdk.cubism.model.ParameterBindingOperations;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
+import dev.turboism.sdk.cubism.model.ParameterDefinitions;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
+import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.model.RotationDeformers;
 import dev.turboism.sdk.cubism.model.WarpDeformers;
-import dev.turboism.sdk.cubism.model.FloatSequence;
-import dev.turboism.sdk.cubism.model.ParameterDefinitions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
-
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -66,10 +65,14 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Generation-bound natural model view over one verified Editor modeling document. */
-public final class EditorBackedCubismModelAccess implements CubismModelAccess,
-    NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider,
-    RuntimeAuthoringTransactionProvider, RuntimeEditSessionProvider,
-    RuntimeWarpMirrorProvider, dev.turboism.adapter.cubism.BorrowedModelRelease {
+public final class EditorBackedCubismModelAccess
+        implements CubismModelAccess,
+                NativeLabelColorAuthoring,
+                RuntimeModelObjectCreateProvider,
+                RuntimeAuthoringTransactionProvider,
+                RuntimeEditSessionProvider,
+                RuntimeWarpMirrorProvider,
+                dev.turboism.adapter.cubism.BorrowedModelRelease {
 
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
@@ -99,6 +102,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
      * result a different binding would produce anyway.
      */
     private WeakReference<Object> activeDocument;
+
     private WeakReference<Object> activeSource;
     private WeakReference<Object> activeModel;
     private long generation;
@@ -109,142 +113,70 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorTextureAccess textureAccess;
     private final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin;
 
-    public EditorBackedCubismModelAccess(
-        final VerifiedMemberResolver resolver,
-        final String sessionIdentity
-    ) {
+    public EditorBackedCubismModelAccess(final VerifiedMemberResolver resolver, final String sessionIdentity) {
         this(resolver, sessionIdentity, null);
     }
 
     public EditorBackedCubismModelAccess(
-        final VerifiedMemberResolver resolver,
-        final String sessionIdentity,
-        final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin
-    ) {
+            final VerifiedMemberResolver resolver,
+            final String sessionIdentity,
+            final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.sessionIdentity = requireText(sessionIdentity, "sessionIdentity");
         this.authoringHost = new VerifiedEditorAuthoringTransactionHost(
-            resolver,
-            this::authoringNativeBinding,
-            this::authoringGeneration
-        );
-        final java.util.concurrent.atomic.AtomicBoolean editScopeGate =
-            new java.util.concurrent.atomic.AtomicBoolean();
-        this.authoringCoordinator = new EditorAuthoringTransactionCoordinator(
-            authoringHost,
-            editScopeGate
-        );
-        this.editSessionHost = new VerifiedEditorEditSessionHost(
-            resolver,
-            this::authoringNativeBinding,
-            this::authoringGeneration
-        );
-        this.editSessionManager = new RuntimeEditSessionManager(
-            editSessionHost,
-            editScopeGate
-        );
+                resolver, this::authoringNativeBinding, this::authoringGeneration);
+        final java.util.concurrent.atomic.AtomicBoolean editScopeGate = new java.util.concurrent.atomic.AtomicBoolean();
+        this.authoringCoordinator = new EditorAuthoringTransactionCoordinator(authoringHost, editScopeGate);
+        this.editSessionHost =
+                new VerifiedEditorEditSessionHost(resolver, this::authoringNativeBinding, this::authoringGeneration);
+        this.editSessionManager = new RuntimeEditSessionManager(editSessionHost, editScopeGate);
         this.combinedAccess = new EditorParameterCombinedAccess(
-            resolver,
-            this::requireCurrent,
-            this::source,
-            this.authoringCoordinator
-        );
-        this.parameterStructureAccess = new EditorParameterStructureAccess(
-            resolver,
-            this::requireCurrent,
-            this.authoringCoordinator
-        );
-        this.parameterGroupsAccess = new EditorParameterGroupsAccess(
-            resolver,
-            this::requireCurrent,
-            this.parameterStructureAccess
-        );
-        this.defaultKeyformLockAccess = new EditorDefaultKeyformLockAccess(
-            resolver,
-            this::requireCurrent,
-            this.authoringCoordinator
-        );
-        this.editLevelAccess = new EditorModelEditLevelAccess(
-            resolver,
-            this::requireCurrent
-        );
-        this.partStructureAccess = new EditorPartStructureAccess(
-            resolver,
-            this::requireCurrent,
-            this.authoringCoordinator
-        );
-        this.morphTargetAccess = new EditorMorphTargetAccess(
-            resolver,
-            this::requireCurrent,
-            this.authoringCoordinator
-        );
+                resolver, this::requireCurrent, this::source, this.authoringCoordinator);
+        this.parameterStructureAccess =
+                new EditorParameterStructureAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+        this.parameterGroupsAccess =
+                new EditorParameterGroupsAccess(resolver, this::requireCurrent, this.parameterStructureAccess);
+        this.defaultKeyformLockAccess =
+                new EditorDefaultKeyformLockAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+        this.editLevelAccess = new EditorModelEditLevelAccess(resolver, this::requireCurrent);
+        this.partStructureAccess =
+                new EditorPartStructureAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+        this.morphTargetAccess = new EditorMorphTargetAccess(resolver, this::requireCurrent, this.authoringCoordinator);
         this.hierarchyEditAccess = new EditorObjectHierarchyEditAccess(
-            resolver,
-            this::requireCurrent,
-            this.authoringCoordinator,
-            this::authoringParticipationBinding
-        );
+                resolver, this::requireCurrent, this.authoringCoordinator, this::authoringParticipationBinding);
 
-        this.documentReadAccess = new EditorDocumentReadAccess(
-            resolver,
-            this::requireCurrent,
-            this.authoringCoordinator
-        );
-        this.modelInstanceAccess = new EditorModelInstanceAccess(
-            resolver,
-            this::requireCurrent
-        );
-        this.textureAccess = new EditorTextureAccess(
-            resolver,
-            this::requireCurrent,
-            this.authoringCoordinator
-        );
-        this.modelProfileAccess = new EditorModelProfileAccess(
-            resolver,
-            this::requireCurrent,
-            this.authoringCoordinator
-        );
+        this.documentReadAccess =
+                new EditorDocumentReadAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+        this.modelInstanceAccess = new EditorModelInstanceAccess(resolver, this::requireCurrent);
+        this.textureAccess = new EditorTextureAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+        this.modelProfileAccess =
+                new EditorModelProfileAccess(resolver, this::requireCurrent, this.authoringCoordinator);
         this.partOpacityAccess = new EditorPartOpacityAccess(
-            resolver,
-            this::requireCurrent,
-            this.partStructureAccess,
-            this.morphTargetAccess,
-            this.hierarchyEditAccess,
-            this.authoringCoordinator
-        );
+                resolver,
+                this::requireCurrent,
+                this.partStructureAccess,
+                this.morphTargetAccess,
+                this.hierarchyEditAccess,
+                this.authoringCoordinator);
         this.evaluatedJoin = evaluatedJoin;
         this.objectReadAccess = new EditorObjectReadAccess(
-            resolver,
-            this::requireCurrent,
-            this.morphTargetAccess,
-            this.evaluatedJoin,
-            this.hierarchyEditAccess,
-            this.authoringCoordinator,
-            this::authoringParticipationBinding
-        );
-        this.statisticsAccess = new EditorModelStatisticsAccess(
-            resolver,
-            this::requireCurrent
-        );
-        this.psdSnapshotAccess = new EditorPsdSnapshotAccess(
-            resolver,
-            this::requireCurrent
-        );
-        this.nativeControlAppearanceAccess = new EditorNativeControlAppearanceAccess(
-            resolver,
-            () -> binding(),
-            this.authoringCoordinator
-        );
+                resolver,
+                this::requireCurrent,
+                this.morphTargetAccess,
+                this.evaluatedJoin,
+                this.hierarchyEditAccess,
+                this.authoringCoordinator,
+                this::authoringParticipationBinding);
+        this.statisticsAccess = new EditorModelStatisticsAccess(resolver, this::requireCurrent);
+        this.psdSnapshotAccess = new EditorPsdSnapshotAccess(resolver, this::requireCurrent);
+        this.nativeControlAppearanceAccess =
+                new EditorNativeControlAppearanceAccess(resolver, () -> binding(), this.authoringCoordinator);
         this.selectionReadAccess = new EditorSelectionReadAccess(resolver);
-
     }
 
     @Override
     public AuthoringTransactionService authoringTransactions(final String pluginId) {
-        return new RuntimeAuthoringTransactionService(
-            authoringCoordinator,
-            () -> authoringHost.binding(pluginId)
-        );
+        return new RuntimeAuthoringTransactionService(authoringCoordinator, () -> authoringHost.binding(pluginId));
     }
 
     /**
@@ -263,9 +195,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
      */
     public dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection readHostSelection() {
         if (!selectionReadAuthorized()) {
-            throw new UnsupportedOperationException(
-                "Editor selection reads require exact verified host evidence."
-            );
+            throw new UnsupportedOperationException("Editor selection reads require exact verified host evidence.");
         }
         return EditorHostThread.dispatch("Cubism Selection", selectionReadAccess::currentSelection);
     }
@@ -277,47 +207,37 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             throw new IllegalArgumentException("pluginId must not be blank");
         }
         if (!resolver.authorizesFeature(
-            EditorWarpMirrorSelectorContract.ADAPTER_SLICE_ID,
-            EditorWarpMirrorSelectorContract.CAPABILITY_ID,
-            EditorWarpMirrorSelectorContract.REQUIRED_ALIASES
-        )) {
+                EditorWarpMirrorSelectorContract.ADAPTER_SLICE_ID,
+                EditorWarpMirrorSelectorContract.CAPABILITY_ID,
+                EditorWarpMirrorSelectorContract.REQUIRED_ALIASES)) {
             return WarpMirrorService.unavailable();
         }
         return new WarpMirrorRuntimeService(new EditorWarpMirrorAccess(
-            resolver,
-            objectReadAccess,
-            () -> {
-                final Binding value = binding();
-                return new EditorWarpMirrorAccess.NativeBinding(
-                    value.identity(), value.generation(), value.source(), value.model()
-                );
-            },
-            authoringCoordinator,
-            () -> authoringHost.binding(owner).orElseThrow(() ->
-                new IllegalStateException("Warp mirror authoring binding is unavailable."))
-        ));
+                resolver,
+                objectReadAccess,
+                () -> {
+                    final Binding value = binding();
+                    return new EditorWarpMirrorAccess.NativeBinding(
+                            value.identity(), value.generation(), value.source(), value.model());
+                },
+                authoringCoordinator,
+                () -> authoringHost
+                        .binding(owner)
+                        .orElseThrow(
+                                () -> new IllegalStateException("Warp mirror authoring binding is unavailable."))));
     }
 
     @Override
     public dev.turboism.sdk.cubism.edit.EditSessionService editSessions(
-        final String pluginId,
-        final java.util.function.Supplier<Optional<dev.turboism.sdk.cubism.id.DocumentId>>
-            activeDocumentId
-    ) {
-        return new RuntimeEditSessionService(
-            editSessionManager,
-            editSessionHost,
-            pluginId,
-            activeDocumentId
-        );
+            final String pluginId,
+            final java.util.function.Supplier<Optional<dev.turboism.sdk.cubism.id.DocumentId>> activeDocumentId) {
+        return new RuntimeEditSessionService(editSessionManager, editSessionHost, pluginId, activeDocumentId);
     }
 
     @Override
     public CubismModel active() {
         final Binding binding = binding();
-        return new EditorModel(
-            binding.identity(), binding.modelId(), binding.source(), binding.model()
-        );
+        return new EditorModel(binding.identity(), binding.modelId(), binding.source(), binding.model());
     }
 
     @Override
@@ -327,114 +247,85 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
 
     @Override
     public ModelObjectReference createModelObject(
-        final CubismModel activeModel,
-        final ModelObjectCreateRequest request
-    ) {
+            final CubismModel activeModel, final ModelObjectCreateRequest request) {
         hierarchyEditAccess.requireCreateSupported(request);
         if (!(activeModel instanceof EditorModel editorModel)) {
-            throw new IllegalStateException(
-                "Cubism model reference is stale for the active Editor model generation."
-            );
+            throw new IllegalStateException("Cubism model reference is stale for the active Editor model generation.");
         }
         editorModel.current();
         final CreateParent parent = createParent(editorModel, request.parent());
         final EditorObjectHierarchyEditAccess.CreatedSource created;
         if (request instanceof ModelObjectCreateRequest.Part part) {
             created = hierarchyEditAccess.createPartSource(
-                editorModel.identity,
-                editorModel.source,
-                editorModel.model,
-                part.name(),
-                parent.source(),
-                -1
-            );
+                    editorModel.identity, editorModel.source, editorModel.model, part.name(), parent.source(), -1);
         } else if (request instanceof ModelObjectCreateRequest.ArtMesh artMesh) {
             created = hierarchyEditAccess.createArtMeshSource(
-                editorModel.identity,
-                editorModel.source,
-                editorModel.model,
-                artMesh.name(),
-                parent.source(),
-                parent.deformer(),
-                -1,
-                artMesh.geometry()
-            );
+                    editorModel.identity,
+                    editorModel.source,
+                    editorModel.model,
+                    artMesh.name(),
+                    parent.source(),
+                    parent.deformer(),
+                    -1,
+                    artMesh.geometry());
         } else if (request instanceof ModelObjectCreateRequest.WarpDeformer warp) {
             created = hierarchyEditAccess.createWarpSource(
-                editorModel.identity,
-                editorModel.source,
-                editorModel.model,
-                warp.name(),
-                parent.source(),
-                parent.deformer(),
-                -1,
-                warp.grid()
-            );
+                    editorModel.identity,
+                    editorModel.source,
+                    editorModel.model,
+                    warp.name(),
+                    parent.source(),
+                    parent.deformer(),
+                    -1,
+                    warp.grid());
         } else if (request instanceof ModelObjectCreateRequest.RotationDeformer rotation) {
             created = hierarchyEditAccess.createRotationSource(
-                editorModel.identity,
-                editorModel.source,
-                editorModel.model,
-                rotation.name(),
-                parent.source(),
-                parent.deformer(),
-                -1,
-                rotation.form()
-            );
+                    editorModel.identity,
+                    editorModel.source,
+                    editorModel.model,
+                    rotation.name(),
+                    parent.source(),
+                    parent.deformer(),
+                    -1,
+                    rotation.form());
         } else {
-            throw new IllegalArgumentException(
-                "Unsupported model-object create request: " + request.getClass().getName()
-            );
+            throw new IllegalArgumentException("Unsupported model-object create request: "
+                    + request.getClass().getName());
         }
         editorModel.current();
         return new ModelObjectReference(request.kind(), created.id());
     }
 
-    private CreateParent createParent(
-        final EditorModel model,
-        final Optional<ModelObjectReference> requestedParent
-    ) {
+    private CreateParent createParent(final EditorModel model, final Optional<ModelObjectReference> requestedParent) {
         if (requestedParent.isEmpty()) return new CreateParent(null, false);
         final ModelObjectReference parent = requestedParent.orElseThrow();
-        final Object view = switch (parent.kind()) {
-            case PART -> model.parts().find(new PartId(parent.id()));
-            case ART_MESH -> throw new IllegalArgumentException(
-                "an ArtMesh cannot be used as a parent"
-            );
-            case WARP_DEFORMER -> model.warpDeformers().find(new DeformerId(parent.id()));
-            case ROTATION_DEFORMER -> model.rotationDeformers().find(
-                new DeformerId(parent.id())
-            );
-        };
+        final Object view =
+                switch (parent.kind()) {
+                    case PART -> model.parts().find(new PartId(parent.id()));
+                    case ART_MESH -> throw new IllegalArgumentException("an ArtMesh cannot be used as a parent");
+                    case WARP_DEFORMER -> model.warpDeformers().find(new DeformerId(parent.id()));
+                    case ROTATION_DEFORMER -> model.rotationDeformers().find(new DeformerId(parent.id()));
+                };
         if (!(view instanceof EditorNativeObjectRef nativeRef)) {
-            throw new IllegalStateException(
-                "The create parent is not bound to the active Editor model generation."
-            );
+            throw new IllegalStateException("The create parent is not bound to the active Editor model generation.");
         }
-        return new CreateParent(
-            nativeRef.nativeSource(),
-            parent.kind() != ModelObjectKind.PART
-        );
+        return new CreateParent(nativeRef.nativeSource(), parent.kind() != ModelObjectKind.PART);
     }
 
     private Binding binding() {
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = app == null ? null : resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
-        );
+        final Object document =
+                app == null ? null : resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
-            final String actualClass = document == null ? "null" : document.getClass().getName();
+            final String actualClass =
+                    document == null ? "null" : document.getClass().getName();
             throw unavailable(
-                "The active Cubism document is not a modeling document. [DEBUG-pb-admission] activeDocumentClass=" + actualClass
-                    + " thread=" + Thread.currentThread().getName()
-            );
+                    "The active Cubism document is not a modeling document. [DEBUG-pb-admission] activeDocumentClass="
+                            + actualClass + " thread=" + Thread.currentThread().getName());
         }
-        final Object source = resolver.invoke(
-            "cubism.editor-model.modeling-document.model-source", document
-        );
-        final Object model = source == null ? null : resolver.invoke(
-            "cubism.editor-model.model-source.current-instance", source
-        );
+        final Object source = resolver.invoke("cubism.editor-model.modeling-document.model-source", document);
+        final Object model =
+                source == null ? null : resolver.invoke("cubism.editor-model.model-source.current-instance", source);
         if (!resolver.isInstance("cubism.editor-model.model.class", model)) {
             throw unavailable("No verified active model is available.");
         }
@@ -445,32 +336,19 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         synchronized (generationLock) {
             currentGeneration = generation;
         }
-        return new Binding(
-            identity,
-            currentGeneration,
-            id,
-            document,
-            source,
-            model
-        );
+        return new Binding(identity, currentGeneration, id, document, source, model);
     }
 
     private EditorAuthoringTransactionCoordinator.Binding authoringParticipationBinding() {
-        return authoringHost.binding("runtime.editor-model")
-            .orElseThrow(() -> new IllegalStateException(
-                "Editor authoring binding is unavailable"
-            ));
+        return authoringHost
+                .binding("runtime.editor-model")
+                .orElseThrow(() -> new IllegalStateException("Editor authoring binding is unavailable"));
     }
 
     private VerifiedEditorAuthoringTransactionHost.NativeBinding authoringNativeBinding() {
         final Binding binding = binding();
         return new VerifiedEditorAuthoringTransactionHost.NativeBinding(
-            binding.identity(),
-            binding.generation(),
-            binding.document(),
-            binding.source(),
-            binding.model()
-        );
+                binding.identity(), binding.generation(), binding.document(), binding.source(), binding.model());
     }
 
     private long authoringGeneration() {
@@ -480,17 +358,13 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     }
 
     private String bindingIdentity(
-        final String modelId,
-        final Object document,
-        final Object source,
-        final Object model
-    ) {
+            final String modelId, final Object document, final Object source, final Object model) {
         final boolean changed;
         final String identity;
         synchronized (generationLock) {
             if (document != cachedIdentity(activeDocument)
-                || source != cachedIdentity(activeSource)
-                || model != cachedIdentity(activeModel)) {
+                    || source != cachedIdentity(activeSource)
+                    || model != cachedIdentity(activeModel)) {
                 changed = generation != 0;
                 activeDocument = new WeakReference<>(document);
                 activeSource = new WeakReference<>(source);
@@ -527,521 +401,349 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
 
     private dev.turboism.sdk.cubism.core.MocInfo mocInfo() {
         if (evaluatedJoin == null) {
-            throw new IllegalStateException(
-                "Cubism MOC metadata is unavailable: no Core evaluated join is installed."
-            );
+            throw new IllegalStateException("Cubism MOC metadata is unavailable: no Core evaluated join is installed.");
         }
         return evaluatedJoin.mocInfo();
     }
 
     private void setParameterValue(
-            final String expectedIdentity,
-            final Object expectedModel,
-            final ParameterId id,
-            final float value
-        ) {
-            if (!Float.isFinite(value)) {
-                throw new IllegalArgumentException("value must be finite");
-            }
-            if (!resolver.authorizesFeature(
+            final String expectedIdentity, final Object expectedModel, final ParameterId id, final float value) {
+        if (!Float.isFinite(value)) {
+            throw new IllegalArgumentException("value must be finite");
+        }
+        if (!resolver.authorizesFeature(
                 EditorParameterValueWriteSelectorContract.ADAPTER_SLICE_ID,
                 EditorParameterValueWriteSelectorContract.CAPABILITY_ID,
-                EditorParameterValueWriteSelectorContract.REQUIRED_ALIASES
-            )) {
-                throw new UnsupportedOperationException(
-                    "Parameter value editing is unavailable without exact verified host evidence."
-                );
-            }
-            final Binding currentBinding = binding();
-            if (!currentBinding.identity().equals(expectedIdentity)
-                || currentBinding.model() != expectedModel) {
-                throw new IllegalStateException(
-                    "Cubism model reference is stale for the active Editor model generation."
-                );
-            }
+                EditorParameterValueWriteSelectorContract.REQUIRED_ALIASES)) {
+            throw new UnsupportedOperationException(
+                    "Parameter value editing is unavailable without exact verified host evidence.");
+        }
+        final Binding currentBinding = binding();
+        if (!currentBinding.identity().equals(expectedIdentity) || currentBinding.model() != expectedModel) {
+            throw new IllegalStateException("Cubism model reference is stale for the active Editor model generation.");
+        }
 
-            final ParameterBinding parameterBinding = parameter(expectedModel, id);
-            final float oldValue = number(resolver.invoke(
-                "cubism.editor-model.parameter.value",
-                parameterBinding.parameter()
-            ));
-            final Object source = resolver.invoke(
-                "cubism.editor-model.parameter.source",
-                parameterBinding.parameter()
-            );
-            final float minimum = number(resolver.invoke(
-                "cubism.editor-model.parameter-source.minimum",
-                source
-            ));
-            final float maximum = number(resolver.invoke(
-                "cubism.editor-model.parameter-source.maximum",
-                source
-            ));
-            final float expectedValue = Math.max(minimum, Math.min(value, maximum));
-            if (Float.compare(oldValue, expectedValue) == 0) {
-                return;
-            }
+        final ParameterBinding parameterBinding = parameter(expectedModel, id);
+        final float oldValue =
+                number(resolver.invoke("cubism.editor-model.parameter.value", parameterBinding.parameter()));
+        final Object source = resolver.invoke("cubism.editor-model.parameter.source", parameterBinding.parameter());
+        final float minimum = number(resolver.invoke("cubism.editor-model.parameter-source.minimum", source));
+        final float maximum = number(resolver.invoke("cubism.editor-model.parameter-source.maximum", source));
+        final float expectedValue = Math.max(minimum, Math.min(value, maximum));
+        if (Float.compare(oldValue, expectedValue) == 0) {
+            return;
+        }
 
-            if (!resolver.authorizesFeature(
+        if (!resolver.authorizesFeature(
                 "adapter.editor-model.readwrite",
                 "cubism.editor-history.read",
-                EditorHistoryReadSelectorContract.REQUIRED_ALIASES
-            )) {
-                setParameterValueWithoutHistory(
-                    expectedIdentity,
-                    expectedModel,
-                    id,
-                    source,
-                    expectedValue
-                );
-                return;
-            }
+                EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+            setParameterValueWithoutHistory(expectedIdentity, expectedModel, id, source, expectedValue);
+            return;
+        }
 
-            final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-            final Object mainFrame = resolver.invoke(
-                "cubism.editor-model.app-controller.main-frame",
-                app
-            );
-            final Object palette = resolver.invoke(
-                "cubism.editor-model.main-frame.parameter-palette",
-                mainFrame
-            );
-            final Object paletteView = resolver.invoke(
-                "cubism.editor-model.parameter-palette.view",
-                palette
-            );
-            final Object operation = resolver.invoke(
-                "cubism.editor-model.parameter-palette-view.operation",
-                paletteView
-            );
-            final Object parameterSet = resolver.invoke(
-                "cubism.editor-model.model.parameter-set",
-                expectedModel
-            );
-            final EditorAuthoringTransactionCoordinator.Binding participation =
-                authoringParticipationBinding();
-            final String operationId = "cubism.parameter.set-value";
-            final String label = "Turboism: Set Parameter Value";
-            final HistoryEntryDetail detail = new HistoryEntryDetail(
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object mainFrame = resolver.invoke("cubism.editor-model.app-controller.main-frame", app);
+        final Object palette = resolver.invoke("cubism.editor-model.main-frame.parameter-palette", mainFrame);
+        final Object paletteView = resolver.invoke("cubism.editor-model.parameter-palette.view", palette);
+        final Object operation = resolver.invoke("cubism.editor-model.parameter-palette-view.operation", paletteView);
+        final Object parameterSet = resolver.invoke("cubism.editor-model.model.parameter-set", expectedModel);
+        final EditorAuthoringTransactionCoordinator.Binding participation = authoringParticipationBinding();
+        final String operationId = "cubism.parameter.set-value";
+        final String label = "Turboism: Set Parameter Value";
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
                 "Set parameter " + id.value(),
                 HistoryAction.DetailLevel.FULL,
                 HistoryOrigin.turboism(participation.pluginId(), operationId),
-                List.of(new HistoryTarget(
-                    "PARAMETER",
-                    Optional.of(id.value()),
-                    Optional.empty()
-                )),
-                List.of(HistoryChange.set(
-                    0,
-                    "value",
-                    Float.toString(oldValue),
-                    Float.toString(expectedValue)
-                )),
+                List.of(new HistoryTarget("PARAMETER", Optional.of(id.value()), Optional.empty())),
+                List.of(HistoryChange.set(0, "value", Float.toString(oldValue), Float.toString(expectedValue))),
                 Optional.empty(),
-                Optional.empty()
-            );
+                Optional.empty());
 
-            authoringCoordinator.mutate(
+        authoringCoordinator.mutate(
                 participation,
                 new EditorUndoContribution(
-                    operationId,
-                    currentBinding.identity() + ":parameter:" + id.value(),
-                    label,
-                    (edit, transactionLabel) -> {
-                        final Object parameterUndo = resolver.construct(
-                            "cubism.editor-model.simple-undo.create",
-                            transactionLabel,
-                            parameterSet,
-                            null
-                        );
-                        final Object accepted = resolver.invoke(
-                            "cubism.editor-model.undo.add",
-                            edit,
-                            parameterUndo,
-                            Boolean.TRUE
-                        );
-                        if (!(accepted instanceof Boolean admitted) || !admitted) {
-                            throw new IllegalStateException(
-                                "Cubism rejected the Editor Parameter Undo entry."
-                            );
-                        }
-                    },
-                    () -> resolver.invoke(
-                        "cubism.editor-model.parameter-operation.set-value",
-                        operation,
-                        source,
-                        Float.valueOf(expectedValue)
-                    ),
-                    () -> Float.compare(number(resolver.invoke(
-                        "cubism.editor-model.parameter.value",
-                        parameter(expectedModel, id).parameter()
-                    )), expectedValue) == 0,
-                    () -> resolver.invoke(
-                        "cubism.editor-model.parameter-operation.set-value",
-                        operation,
-                        source,
-                        Float.valueOf(oldValue)
-                    ),
-                    () -> Float.compare(number(resolver.invoke(
-                        "cubism.editor-model.parameter.value",
-                        parameter(expectedModel, id).parameter()
-                    )), oldValue) == 0,
-                    EnumSet.of(
-                        EditorRefreshRequirement.PARAMETER_PALETTE,
-                        EditorRefreshRequirement.CANVAS,
-                        EditorRefreshRequirement.MARK_DIRTY
-                    ),
-                    detail
-                ).withCaptureAfter(() -> {
-                    requireCurrent(expectedIdentity, expectedModel);
-                    final float actual = number(resolver.invoke(
-                        "cubism.editor-model.parameter.value", parameter(expectedModel, id).parameter()
-                    ));
-                    return new HistoryEntryDetail(
-                        detail.summary(), HistoryAction.DetailLevel.FULL, detail.origin(), detail.targets(),
-                        List.of(HistoryChange.set(0, "value", Float.toString(oldValue), Float.toString(actual))),
-                        Optional.empty(), Optional.empty()
-                    );
-                })
-            );
+                                operationId,
+                                currentBinding.identity() + ":parameter:" + id.value(),
+                                label,
+                                (edit, transactionLabel) -> {
+                                    final Object parameterUndo = resolver.construct(
+                                            "cubism.editor-model.simple-undo.create",
+                                            transactionLabel,
+                                            parameterSet,
+                                            null);
+                                    final Object accepted = resolver.invoke(
+                                            "cubism.editor-model.undo.add", edit, parameterUndo, Boolean.TRUE);
+                                    if (!(accepted instanceof Boolean admitted) || !admitted) {
+                                        throw new IllegalStateException(
+                                                "Cubism rejected the Editor Parameter Undo entry.");
+                                    }
+                                },
+                                () -> resolver.invoke(
+                                        "cubism.editor-model.parameter-operation.set-value",
+                                        operation,
+                                        source,
+                                        Float.valueOf(expectedValue)),
+                                () -> Float.compare(
+                                                number(resolver.invoke(
+                                                        "cubism.editor-model.parameter.value",
+                                                        parameter(expectedModel, id)
+                                                                .parameter())),
+                                                expectedValue)
+                                        == 0,
+                                () -> resolver.invoke(
+                                        "cubism.editor-model.parameter-operation.set-value",
+                                        operation,
+                                        source,
+                                        Float.valueOf(oldValue)),
+                                () -> Float.compare(
+                                                number(resolver.invoke(
+                                                        "cubism.editor-model.parameter.value",
+                                                        parameter(expectedModel, id)
+                                                                .parameter())),
+                                                oldValue)
+                                        == 0,
+                                EnumSet.of(
+                                        EditorRefreshRequirement.PARAMETER_PALETTE,
+                                        EditorRefreshRequirement.CANVAS,
+                                        EditorRefreshRequirement.MARK_DIRTY),
+                                detail)
+                        .withCaptureAfter(() -> {
+                            requireCurrent(expectedIdentity, expectedModel);
+                            final float actual = number(resolver.invoke(
+                                    "cubism.editor-model.parameter.value",
+                                    parameter(expectedModel, id).parameter()));
+                            return new HistoryEntryDetail(
+                                    detail.summary(),
+                                    HistoryAction.DetailLevel.FULL,
+                                    detail.origin(),
+                                    detail.targets(),
+                                    List.of(HistoryChange.set(
+                                            0, "value", Float.toString(oldValue), Float.toString(actual))),
+                                    Optional.empty(),
+                                    Optional.empty());
+                        }));
 
-            requireCurrent(expectedIdentity, expectedModel);
-            final float finalValue = number(resolver.invoke(
-                "cubism.editor-model.parameter.value",
-                parameter(expectedModel, id).parameter()
-            ));
-            if (Float.compare(finalValue, expectedValue) != 0) {
-                throw new IllegalStateException("Editor parameter value postcondition failed.");
-            }
-        }
-
-    private void setParameterValueWithoutHistory(
-        final String expectedIdentity,
-        final Object expectedModel,
-        final ParameterId id,
-        final Object source,
-        final float expectedValue
-    ) {
-        EditorHostThread.requireHostThread("Parameter.setValue");
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, "Parameter.setValue"
-        );
-        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document",
-            app
-        );
-        final Object parameterSet = resolver.invoke(
-            "cubism.editor-model.model.parameter-set",
-            expectedModel
-        );
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode",
-            document
-        );
-        final Object undo = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin",
-            editMode,
-            "Turboism: Set Parameter Value"
-        );
-        boolean completed = false;
-        try {
-            final Object parameterUndo = resolver.construct(
-                "cubism.editor-model.simple-undo.create",
-                "Turboism: Set Parameter Value",
-                parameterSet,
-                null
-            );
-            resolver.invoke(
-                "cubism.editor-model.undo.add",
-                undo,
-                parameterUndo,
-                Boolean.TRUE
-            );
-            final Object completePack = resolver.invoke(
-                "cubism.editor-model.app-controller.complete-pack",
-                app
-            );
-            final Object mainFrame = resolver.invoke(
-                "cubism.editor-model.app-controller.main-frame",
-                app
-            );
-            final Object palette = resolver.invoke(
-                "cubism.editor-model.main-frame.parameter-palette",
-                mainFrame
-            );
-            final Object paletteView = resolver.invoke(
-                "cubism.editor-model.parameter-palette.view",
-                palette
-            );
-            final Object operation = resolver.invoke(
-                "cubism.editor-model.parameter-palette-view.operation",
-                paletteView
-            );
-            resolver.invoke(
-                "cubism.editor-model.parameter-operation.set-value",
-                operation,
-                source,
-                Float.valueOf(expectedValue)
-            );
-            resolver.invoke(
-                "cubism.editor-model.complete-pack.update-parameter",
-                completePack,
-                Boolean.TRUE
-            );
-            resolver.invoke(
-                "cubism.editor-model.complete-pack.repaint-canvas",
-                completePack,
-                Boolean.TRUE
-            );
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke(
-                "cubism.editor-model.edit-mode.end",
-                editMode,
-                Boolean.valueOf(!completed),
-                null
-            );
-        }
         requireCurrent(expectedIdentity, expectedModel);
         final float finalValue = number(resolver.invoke(
-            "cubism.editor-model.parameter.value",
-            parameter(expectedModel, id).parameter()
-        ));
+                "cubism.editor-model.parameter.value",
+                parameter(expectedModel, id).parameter()));
         if (Float.compare(finalValue, expectedValue) != 0) {
             throw new IllegalStateException("Editor parameter value postcondition failed.");
         }
     }
 
-
-    private void updateParameterDefinition(
-        final String expectedIdentity,
-        final Object expectedModel,
-        final ParameterId currentId,
-        final ParameterDefinition definition
-    ) {
-        Objects.requireNonNull(definition, "definition");
-        if (!resolver.authorizesFeature(
-            EditorParameterDefinitionWriteSelectorContract.ADAPTER_SLICE_ID,
-            EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID,
-            EditorParameterDefinitionWriteSelectorContract.REQUIRED_ALIASES
-        )) {
-            throw new UnsupportedOperationException(
-                "Parameter definition editing is unavailable without exact verified host evidence."
-            );
+    private void setParameterValueWithoutHistory(
+            final String expectedIdentity,
+            final Object expectedModel,
+            final ParameterId id,
+            final Object source,
+            final float expectedValue) {
+        EditorHostThread.requireHostThread("Parameter.setValue");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Parameter.setValue");
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+        final Object parameterSet = resolver.invoke("cubism.editor-model.model.parameter-set", expectedModel);
+        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
+        final Object undo =
+                resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Turboism: Set Parameter Value");
+        boolean completed = false;
+        try {
+            final Object parameterUndo = resolver.construct(
+                    "cubism.editor-model.simple-undo.create", "Turboism: Set Parameter Value", parameterSet, null);
+            resolver.invoke("cubism.editor-model.undo.add", undo, parameterUndo, Boolean.TRUE);
+            final Object completePack = resolver.invoke("cubism.editor-model.app-controller.complete-pack", app);
+            final Object mainFrame = resolver.invoke("cubism.editor-model.app-controller.main-frame", app);
+            final Object palette = resolver.invoke("cubism.editor-model.main-frame.parameter-palette", mainFrame);
+            final Object paletteView = resolver.invoke("cubism.editor-model.parameter-palette.view", palette);
+            final Object operation =
+                    resolver.invoke("cubism.editor-model.parameter-palette-view.operation", paletteView);
+            resolver.invoke(
+                    "cubism.editor-model.parameter-operation.set-value",
+                    operation,
+                    source,
+                    Float.valueOf(expectedValue));
+            resolver.invoke("cubism.editor-model.complete-pack.update-parameter", completePack, Boolean.TRUE);
+            resolver.invoke("cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE);
+            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
+            completed = true;
+        } finally {
+            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
         }
         requireCurrent(expectedIdentity, expectedModel);
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, "Parameter.updateDefinition"
-        );
+        final float finalValue = number(resolver.invoke(
+                "cubism.editor-model.parameter.value",
+                parameter(expectedModel, id).parameter()));
+        if (Float.compare(finalValue, expectedValue) != 0) {
+            throw new IllegalStateException("Editor parameter value postcondition failed.");
+        }
+    }
+
+    private void updateParameterDefinition(
+            final String expectedIdentity,
+            final Object expectedModel,
+            final ParameterId currentId,
+            final ParameterDefinition definition) {
+        Objects.requireNonNull(definition, "definition");
+        if (!resolver.authorizesFeature(
+                EditorParameterDefinitionWriteSelectorContract.ADAPTER_SLICE_ID,
+                EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID,
+                EditorParameterDefinitionWriteSelectorContract.REQUIRED_ALIASES)) {
+            throw new UnsupportedOperationException(
+                    "Parameter definition editing is unavailable without exact verified host evidence.");
+        }
+        requireCurrent(expectedIdentity, expectedModel);
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Parameter.updateDefinition");
         final ParameterBinding parameterBinding = parameter(expectedModel, currentId);
-        final Object source = resolver.invoke(
-            "cubism.editor-model.parameter.source",
-            parameterBinding.parameter()
-        );
+        final Object source = resolver.invoke("cubism.editor-model.parameter.source", parameterBinding.parameter());
         final ParameterDefinition current = definition(source, currentId);
         if (current.equals(definition)) {
             return;
         }
         if (!(definition.minimumValue() < definition.maximumValue())) {
-            throw new IllegalArgumentException(
-                "Editor parameter definition requires minimum < maximum."
-            );
+            throw new IllegalArgumentException("Editor parameter definition requires minimum < maximum.");
         }
 
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object mainFrame = resolver.invoke(
-            "cubism.editor-model.app-controller.main-frame",
-            app
-        );
-        final Object palette = resolver.invoke(
-            "cubism.editor-model.main-frame.parameter-palette",
-            mainFrame
-        );
-        final Object paletteView = resolver.invoke(
-            "cubism.editor-model.parameter-palette.view",
-            palette
-        );
-        final Object operation = resolver.invoke(
-            "cubism.editor-model.parameter-palette-view.operation",
-            paletteView
-        );
-        final Object propertyEditor = resolver.invokeStatic(
-            "cubism.editor-model.parameter-operation.property-editor",
-            operation
-        );
-        final Object validator = resolver.invokeStatic(
-            "cubism.editor-model.parameter-operation.validator",
-            operation
-        );
-        final Object helper = resolver.readStaticField(
-            "cubism.editor-model.parameter-helper.instance"
-        );
+        final Object mainFrame = resolver.invoke("cubism.editor-model.app-controller.main-frame", app);
+        final Object palette = resolver.invoke("cubism.editor-model.main-frame.parameter-palette", mainFrame);
+        final Object paletteView = resolver.invoke("cubism.editor-model.parameter-palette.view", palette);
+        final Object operation = resolver.invoke("cubism.editor-model.parameter-palette-view.operation", paletteView);
+        final Object propertyEditor =
+                resolver.invokeStatic("cubism.editor-model.parameter-operation.property-editor", operation);
+        final Object validator = resolver.invokeStatic("cubism.editor-model.parameter-operation.validator", operation);
+        final Object helper = resolver.readStaticField("cubism.editor-model.parameter-helper.instance");
 
         if (!current.id().equals(definition.id())
-            && !booleanValue(resolver.invoke(
-                "cubism.editor-model.parameter-validator.valid-id",
-                validator,
-                definition.id().value()
-            ), "Editor parameter ID validation is unavailable.")) {
+                && !booleanValue(
+                        resolver.invoke(
+                                "cubism.editor-model.parameter-validator.valid-id",
+                                validator,
+                                definition.id().value()),
+                        "Editor parameter ID validation is unavailable.")) {
             throw new IllegalArgumentException(
-                "Editor rejected the parameter ID: " + definition.id().value()
-            );
+                    "Editor rejected the parameter ID: " + definition.id().value());
         }
-        final Object parameterGuid = resolver.invoke(
-            "cubism.editor-model.parameter-source.guid",
-            source
-        );
-        if (booleanValue(resolver.invoke(
-            "cubism.editor-model.parameter-validator.keys-outside-range",
-            validator,
-            parameterGuid,
-            Float.valueOf(definition.minimumValue()),
-            Float.valueOf(definition.maximumValue())
-        ), "Editor parameter range validation is unavailable.")) {
-            throw new IllegalStateException(
-                "The requested range would exclude existing parameter keys."
-            );
+        final Object parameterGuid = resolver.invoke("cubism.editor-model.parameter-source.guid", source);
+        if (booleanValue(
+                resolver.invoke(
+                        "cubism.editor-model.parameter-validator.keys-outside-range",
+                        validator,
+                        parameterGuid,
+                        Float.valueOf(definition.minimumValue()),
+                        Float.valueOf(definition.maximumValue())),
+                "Editor parameter range validation is unavailable.")) {
+            throw new IllegalStateException("The requested range would exclude existing parameter keys.");
         }
 
         final boolean desiredMorphTarget = definition.type() == ParameterType.BLEND_SHAPE;
         final boolean typeChanged = current.type() != definition.type();
         if (typeChanged) {
-            if (!booleanValue(resolver.invoke(
-                "cubism.editor-model.parameter-validator.supports-type",
-                validator,
-                Boolean.valueOf(desiredMorphTarget)
-            ), "Editor parameter type capability is unavailable.")) {
+            if (!booleanValue(
+                    resolver.invoke(
+                            "cubism.editor-model.parameter-validator.supports-type",
+                            validator,
+                            Boolean.valueOf(desiredMorphTarget)),
+                    "Editor parameter type capability is unavailable.")) {
                 throw new IllegalStateException(
-                    "The active Editor target does not support the requested parameter type."
-                );
+                        "The active Editor target does not support the requested parameter type.");
             }
             if (hasParameterBindings(source)) {
                 throw new IllegalStateException(
-                    "Cannot change Blend Shape because the parameter is bound to one or more model objects."
-                );
+                        "Cannot change Blend Shape because the parameter is bound to one or more model objects.");
             }
-            if (desiredMorphTarget && !booleanValue(resolver.invoke(
-                "cubism.editor-model.parameter-helper.morph-target-eligible",
-                helper,
-                source
-            ), "Editor morph-target eligibility is unavailable.")) {
-                throw new IllegalStateException(
-                    "The parameter's effect-group role blocks Blend Shape conversion."
-                );
+            if (desiredMorphTarget
+                    && !booleanValue(
+                            resolver.invoke(
+                                    "cubism.editor-model.parameter-helper.morph-target-eligible", helper, source),
+                            "Editor morph-target eligibility is unavailable.")) {
+                throw new IllegalStateException("The parameter's effect-group role blocks Blend Shape conversion.");
             }
-            if (booleanValue(resolver.invoke(
-                "cubism.editor-model.parameter-validator.reject-type-change",
-                validator,
-                source,
-                Boolean.valueOf(desiredMorphTarget),
-                Boolean.FALSE
-            ), "Editor parameter type validation is unavailable.")) {
-                throw new IllegalStateException(
-                    "The Editor rejected the requested parameter type change."
-                );
+            if (booleanValue(
+                    resolver.invoke(
+                            "cubism.editor-model.parameter-validator.reject-type-change",
+                            validator,
+                            source,
+                            Boolean.valueOf(desiredMorphTarget),
+                            Boolean.FALSE),
+                    "Editor parameter type validation is unavailable.")) {
+                throw new IllegalStateException("The Editor rejected the requested parameter type change.");
             }
         }
         if (current.repeat() != definition.repeat()) {
-            if (!booleanValue(resolver.invoke(
-                "cubism.editor-model.parameter-validator.allow-repeat",
-                validator,
-                source,
-                Boolean.valueOf(definition.repeat())
-            ), "Editor parameter repeat validation is unavailable.")) {
-                throw new IllegalStateException(
-                    "The Editor rejected the requested repeat setting."
-                );
+            if (!booleanValue(
+                    resolver.invoke(
+                            "cubism.editor-model.parameter-validator.allow-repeat",
+                            validator,
+                            source,
+                            Boolean.valueOf(definition.repeat())),
+                    "Editor parameter repeat validation is unavailable.")) {
+                throw new IllegalStateException("The Editor rejected the requested repeat setting.");
             }
         }
 
-        if (booleanValue(resolver.invoke(
-            "cubism.editor-model.parameter-validator.default-change-affects-morph-target",
-            validator,
-            source,
-            Float.valueOf(definition.defaultValue())
-        ), "Editor morph-target default validation is unavailable.")) {
-            throw new IllegalStateException(
-                "Changing this default would affect existing morph-target keyforms."
-            );
+        if (booleanValue(
+                resolver.invoke(
+                        "cubism.editor-model.parameter-validator.default-change-affects-morph-target",
+                        validator,
+                        source,
+                        Float.valueOf(definition.defaultValue())),
+                "Editor morph-target default validation is unavailable.")) {
+            throw new IllegalStateException("Changing this default would affect existing morph-target keyforms.");
         }
 
-        final Object refreshCallback = resolver.construct(
-            "cubism.editor-model.parameter-refresh-callback.create",
-            operation
-        );
+        final Object refreshCallback =
+                resolver.construct("cubism.editor-model.parameter-refresh-callback.create", operation);
         final Object updated = resolver.invoke(
-            "cubism.editor-model.parameter-property-editor.update-definition",
-            propertyEditor,
-            source,
-            definition.name(),
-            Float.valueOf(definition.minimumValue()),
-            Float.valueOf(definition.maximumValue()),
-            Float.valueOf(definition.defaultValue()),
-            definition.id().value(),
-            Boolean.valueOf(definition.repeat()),
-            Boolean.valueOf(typeChanged),
-            Boolean.valueOf(desiredMorphTarget),
-            refreshCallback
-        );
+                "cubism.editor-model.parameter-property-editor.update-definition",
+                propertyEditor,
+                source,
+                definition.name(),
+                Float.valueOf(definition.minimumValue()),
+                Float.valueOf(definition.maximumValue()),
+                Float.valueOf(definition.defaultValue()),
+                definition.id().value(),
+                Boolean.valueOf(definition.repeat()),
+                Boolean.valueOf(typeChanged),
+                Boolean.valueOf(desiredMorphTarget),
+                refreshCallback);
         if (!booleanValue(updated, "Editor parameter definition update is unavailable.")) {
             throw new IllegalStateException("The Editor rejected the parameter definition update.");
         }
-        resolver.invoke(
-            "cubism.editor-model.parameter-property-editor.rebuild-keep-value",
-            propertyEditor
-        );
+        resolver.invoke("cubism.editor-model.parameter-property-editor.rebuild-keep-value", propertyEditor);
         refreshDefinitionUi(operation);
         requireCurrent(expectedIdentity, expectedModel);
     }
 
     private Object source(final Object model, final ParameterId id) {
         return resolver.invoke(
-            "cubism.editor-model.parameter.source",
-            parameter(model, id).parameter()
-        );
+                "cubism.editor-model.parameter.source", parameter(model, id).parameter());
     }
 
     private ParameterDefinition definition(final Object source, final ParameterId id) {
-        final Object rawName = resolver.invoke(
-            "cubism.editor-model.parameter-source.name",
-            source
-        );
+        final Object rawName = resolver.invoke("cubism.editor-model.parameter-source.name", source);
         if (!(rawName instanceof String name) || name.isBlank()) {
             throw unavailable("Editor parameter name is invalid.");
         }
-        final boolean morphTarget = booleanValue(resolver.invoke(
-            "cubism.editor-model.parameter-source.morph-target",
-            source
-        ), "Editor parameter type is invalid.");
+        final boolean morphTarget = booleanValue(
+                resolver.invoke("cubism.editor-model.parameter-source.morph-target", source),
+                "Editor parameter type is invalid.");
         return new ParameterDefinition(
-            id,
-            name,
-            number(resolver.invoke("cubism.editor-model.parameter-source.minimum", source)),
-            number(resolver.invoke("cubism.editor-model.parameter-source.default", source)),
-            number(resolver.invoke("cubism.editor-model.parameter-source.maximum", source)),
-            morphTarget ? ParameterType.BLEND_SHAPE : ParameterType.NORMAL,
-            booleanValue(resolver.invoke(
-                "cubism.editor-model.parameter-source.repeat",
-                source
-            ), "Editor parameter repeat flag is invalid.")
-        );
+                id,
+                name,
+                number(resolver.invoke("cubism.editor-model.parameter-source.minimum", source)),
+                number(resolver.invoke("cubism.editor-model.parameter-source.default", source)),
+                number(resolver.invoke("cubism.editor-model.parameter-source.maximum", source)),
+                morphTarget ? ParameterType.BLEND_SHAPE : ParameterType.NORMAL,
+                booleanValue(
+                        resolver.invoke("cubism.editor-model.parameter-source.repeat", source),
+                        "Editor parameter repeat flag is invalid."));
     }
 
     private boolean hasParameterBindings(final Object source) {
-        final Object modelSource = resolver.invoke(
-            "cubism.editor-model.parameter-source.model-source",
-            source
-        );
-        final Object parameterGuid = resolver.invoke(
-            "cubism.editor-model.parameter-source.guid",
-            source
-        );
-        final Object rawObjects = resolver.invoke(
-            "cubism.editor-model.model-source.all-objects",
-            modelSource
-        );
+        final Object modelSource = resolver.invoke("cubism.editor-model.parameter-source.model-source", source);
+        final Object parameterGuid = resolver.invoke("cubism.editor-model.parameter-source.guid", source);
+        final Object rawObjects = resolver.invoke("cubism.editor-model.model-source.all-objects", modelSource);
         if (!(rawObjects instanceof Iterable<?> objects)) {
             throw unavailable("Editor parameter binding collection is unavailable.");
         }
@@ -1049,26 +751,19 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             if (!resolver.isInstance("cubism.editor-model.parameter-controllable.class", object)) {
                 throw unavailable("Editor parameter binding object is invalid.");
             }
-            final Object keyformGrid = resolver.invoke(
-                "cubism.editor-model.parameter-controllable.keyform-grid",
-                object
-            );
-            if (booleanValue(resolver.invoke(
-                "cubism.editor-model.keyform-grid.contains-parameter",
-                keyformGrid,
-                parameterGuid
-            ), "Editor keyform binding state is unavailable.")) {
+            final Object keyformGrid =
+                    resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", object);
+            if (booleanValue(
+                    resolver.invoke("cubism.editor-model.keyform-grid.contains-parameter", keyformGrid, parameterGuid),
+                    "Editor keyform binding state is unavailable.")) {
                 return true;
             }
-            final Object morphTargetSet = resolver.invoke(
-                "cubism.editor-model.parameter-controllable.morph-target-set",
-                object
-            );
-            if (booleanValue(resolver.invoke(
-                "cubism.editor-model.morph-target-set.contains-parameter",
-                morphTargetSet,
-                parameterGuid
-            ), "Editor morph-target binding state is unavailable.")) {
+            final Object morphTargetSet =
+                    resolver.invoke("cubism.editor-model.parameter-controllable.morph-target-set", object);
+            if (booleanValue(
+                    resolver.invoke(
+                            "cubism.editor-model.morph-target-set.contains-parameter", morphTargetSet, parameterGuid),
+                    "Editor morph-target binding state is unavailable.")) {
                 return true;
             }
         }
@@ -1076,19 +771,13 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     }
 
     private void refreshDefinitionUi(final Object operation) {
-        resolver.invoke(
-            "cubism.editor-model.parameter-operation.refresh",
-            operation,
-            Boolean.TRUE
-        );
+        resolver.invoke("cubism.editor-model.parameter-operation.refresh", operation, Boolean.TRUE);
     }
 
     private void requireCurrent(final String expectedIdentity, final Object expectedModel) {
         final Binding current = binding();
         if (!current.identity().equals(expectedIdentity) || current.model() != expectedModel) {
-            throw new IllegalStateException(
-                "Cubism model reference is stale for the active Editor model generation."
-            );
+            throw new IllegalStateException("Cubism model reference is stale for the active Editor model generation.");
         }
     }
 
@@ -1119,24 +808,22 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private ParameterDefinitions parameterDefinitions(final String identity, final Object model) {
         requireCurrent(identity, model);
         return new ParameterDefinitions() {
-            @Override public List<ParameterDefinition> all() {
+            @Override
+            public List<ParameterDefinition> all() {
                 requireCurrent(identity, model);
                 return parameters(model).stream()
-                    .map(value -> definition(
-                        resolver.invoke("cubism.editor-model.parameter.source", value.parameter()),
-                        new ParameterId(value.id())
-                    ))
-                    .toList();
+                        .map(value -> definition(
+                                resolver.invoke("cubism.editor-model.parameter.source", value.parameter()),
+                                new ParameterId(value.id())))
+                        .toList();
             }
 
-            @Override public ParameterDefinition find(final ParameterId id) {
+            @Override
+            public ParameterDefinition find(final ParameterId id) {
                 Objects.requireNonNull(id, "id");
                 requireCurrent(identity, model);
                 final ParameterBinding value = parameter(model, id);
-                return definition(
-                    resolver.invoke("cubism.editor-model.parameter.source", value.parameter()),
-                    id
-                );
+                return definition(resolver.invoke("cubism.editor-model.parameter.source", value.parameter()), id);
             }
         };
     }
@@ -1169,33 +856,35 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     }
 
     @Override
-    public void setNativeLabelColor(
-        final NativeLabelColorTarget target,
-        final NativeLabelColor color
-    ) {
+    public void setNativeLabelColor(final NativeLabelColorTarget target, final NativeLabelColor color) {
         nativeControlAppearanceAccess.setNativeLabelColor(target, color);
     }
-
 
     private final class EditorModel implements CubismModel {
         private final String identity;
         private final String modelId;
         private final Object source;
         private final Object model;
-        private EditorModel(
-            final String identity,
-            final String modelId,
-            final Object source,
-            final Object model
-        ) {
+
+        private EditorModel(final String identity, final String modelId, final Object source, final Object model) {
             this.identity = identity;
             this.modelId = modelId;
             this.source = source;
             this.model = model;
         }
-        private void current() { requireCurrent(identity, model); }
-        @Override public ModelId id() { current(); return new ModelId(modelId); }
-        @Override public String name() {
+
+        private void current() {
+            requireCurrent(identity, model);
+        }
+
+        @Override
+        public ModelId id() {
+            current();
+            return new ModelId(modelId);
+        }
+
+        @Override
+        public String name() {
             current();
             final Object value = resolver.invoke("cubism.editor-model.model-source.name", source);
             if (value == null) return modelId;
@@ -1205,132 +894,186 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             return text.isBlank() ? modelId : text;
         }
 
-        @Override public void setName(final String name) {
+        @Override
+        public void setName(final String name) {
             modelProfileAccess.setName(identity, source, model, name);
         }
 
-        @Override public dev.turboism.sdk.cubism.model.ModelProfile profile() {
+        @Override
+        public dev.turboism.sdk.cubism.model.ModelProfile profile() {
             return modelProfileAccess.profile(identity, source, model);
         }
-        @Override public ParameterDefinitions parameterDefinitions() {
+
+        @Override
+        public ParameterDefinitions parameterDefinitions() {
             return EditorBackedCubismModelAccess.this.parameterDefinitions(identity, model);
         }
-        @Override public dev.turboism.sdk.cubism.model.ModelStatistics statistics() {
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ModelStatistics statistics() {
             current();
             return statisticsAccess.statistics(identity, source, model);
         }
-        @Override public java.util.List<dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot> psdDocuments() {
+
+        @Override
+        public java.util.List<dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot> psdDocuments() {
             current();
             return psdSnapshotAccess.snapshots(identity, source, model);
         }
-        @Override public boolean defaultKeyformLocked() {
+
+        @Override
+        public boolean defaultKeyformLocked() {
             return defaultKeyformLockAccess.locked(identity, source, model);
         }
-        @Override public void setDefaultKeyformLocked(final boolean locked) {
+
+        @Override
+        public void setDefaultKeyformLocked(final boolean locked) {
             defaultKeyformLockAccess.setLocked(identity, source, model, locked);
         }
-        @Override public dev.turboism.sdk.cubism.model.ModelEditLevel editLevel() {
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ModelEditLevel editLevel() {
             return editLevelAccess.level(identity, model);
         }
-        @Override public void setEditLevel(
-            final dev.turboism.sdk.cubism.model.ModelEditLevel level
-        ) {
+
+        @Override
+        public void setEditLevel(final dev.turboism.sdk.cubism.model.ModelEditLevel level) {
             editLevelAccess.setLevel(identity, model, level);
         }
 
-        @Override public dev.turboism.sdk.cubism.core.MocInfo mocInfo() {
+        @Override
+        public dev.turboism.sdk.cubism.core.MocInfo mocInfo() {
             current();
             return EditorBackedCubismModelAccess.this.mocInfo();
         }
 
-        @Override public dev.turboism.sdk.cubism.model.PhysicsSettings physicsSettings() {
+        @Override
+        public dev.turboism.sdk.cubism.model.PhysicsSettings physicsSettings() {
             return documentReadAccess.physicsSettings(identity, source, model);
         }
 
-        @Override public dev.turboism.sdk.cubism.model.AutoYure autoYure() {
+        @Override
+        public dev.turboism.sdk.cubism.model.AutoYure autoYure() {
             return documentReadAccess.autoYure(identity, source, model);
         }
 
-        @Override public List<dev.turboism.sdk.cubism.model.AnimationDocument> animationDocuments() {
+        @Override
+        public List<dev.turboism.sdk.cubism.model.AnimationDocument> animationDocuments() {
             return documentReadAccess.animationDocuments(identity, source, model);
         }
 
-        @Override public List<dev.turboism.sdk.cubism.model.ModelInstance> modelInstances() {
+        @Override
+        public List<dev.turboism.sdk.cubism.model.ModelInstance> modelInstances() {
             return modelInstanceAccess.modelInstances(identity, source, model);
         }
 
-        @Override public java.util.Optional<dev.turboism.sdk.cubism.model.ModelInstance> currentModelInstance() {
+        @Override
+        public java.util.Optional<dev.turboism.sdk.cubism.model.ModelInstance> currentModelInstance() {
             return modelInstanceAccess.currentModelInstance(identity, source, model);
         }
 
-        @Override public boolean modelEditing() {
+        @Override
+        public boolean modelEditing() {
             return modelInstanceAccess.modelEditing(identity, source, model);
         }
 
-        @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
+        @Override
+        public dev.turboism.sdk.cubism.model.ModelTextures textures() {
             return textureAccess.textures(identity, source, model);
         }
-        @Override public Parameters parameters() { current(); return new EditorParameters(identity, source, model); }
-        @Override public ParameterGroups parameterGroups() {
+
+        @Override
+        public Parameters parameters() {
+            current();
+            return new EditorParameters(identity, source, model);
+        }
+
+        @Override
+        public ParameterGroups parameterGroups() {
             current();
             return parameterGroupsAccess.groups(identity, source, model);
         }
-        @Override public ParameterBindingOperations parameterBindings(final ParameterId parameterId) {
+
+        @Override
+        public ParameterBindingOperations parameterBindings(final ParameterId parameterId) {
             current();
             parameter(model, Objects.requireNonNull(parameterId, "parameterId"));
             return new EditorParameterBindingAccess(
-                resolver,
-                identity,
-                source,
-                model,
-                parameterId,
-                EditorBackedCubismModelAccess.this::requireCurrent,
-                objectReadAccess::parameterBindings,
-                objectReadAccess::bindingTargetSource,
-                EditorBackedCubismModelAccess.this::source,
-                authoringCoordinator
-            );
+                    resolver,
+                    identity,
+                    source,
+                    model,
+                    parameterId,
+                    EditorBackedCubismModelAccess.this::requireCurrent,
+                    objectReadAccess::parameterBindings,
+                    objectReadAccess::bindingTargetSource,
+                    EditorBackedCubismModelAccess.this::source,
+                    authoringCoordinator);
         }
-        @Override public ParameterBindingBatchOperations parameterBindingBatch() {
+
+        @Override
+        public ParameterBindingBatchOperations parameterBindingBatch() {
             current();
             return new EditorParameterBindingBatchAccess(
-                resolver,
-                identity,
-                source,
-                model,
-                EditorBackedCubismModelAccess.this::requireCurrent,
-                objectReadAccess::bindingTargetSource,
-                EditorBackedCubismModelAccess.this::source,
-                authoringCoordinator
-            );
+                    resolver,
+                    identity,
+                    source,
+                    model,
+                    EditorBackedCubismModelAccess.this::requireCurrent,
+                    objectReadAccess::bindingTargetSource,
+                    EditorBackedCubismModelAccess.this::source,
+                    authoringCoordinator);
         }
-        @Override public Canvas canvas() { return modelProfileAccess.canvas(identity, source, model); }
-        @Override public Parts parts() {
+
+        @Override
+        public Canvas canvas() {
+            return modelProfileAccess.canvas(identity, source, model);
+        }
+
+        @Override
+        public Parts parts() {
             current();
             return partOpacityAccess.parts(identity, source, model);
         }
-        @Override public Drawables drawables() {
+
+        @Override
+        public Drawables drawables() {
             current();
             return objectReadAccess.drawables(identity, source, model);
         }
-        @Override public Deformers deformers() {
+
+        @Override
+        public Deformers deformers() {
             current();
             return objectReadAccess.deformers(identity, source, model);
         }
-        @Override public WarpDeformers warpDeformers() {
+
+        @Override
+        public WarpDeformers warpDeformers() {
             current();
             return objectReadAccess.warpDeformers(identity, source, model);
         }
-        @Override public RotationDeformers rotationDeformers() {
+
+        @Override
+        public RotationDeformers rotationDeformers() {
             current();
             return objectReadAccess.rotationDeformers(identity, source, model);
         }
-        @Override public Glues glues() { current(); return objectReadAccess.glues(identity, source, model); }
-        @Override public void replaceArtMeshClipMasks(final List<ClipMaskReplacement> replacements) {
+
+        @Override
+        public Glues glues() {
+            current();
+            return objectReadAccess.glues(identity, source, model);
+        }
+
+        @Override
+        public void replaceArtMeshClipMasks(final List<ClipMaskReplacement> replacements) {
             current();
             objectReadAccess.replaceArtMeshClipMasks(identity, source, model, replacements);
         }
-        @Override public void update() {
+
+        @Override
+        public void update() {
             current();
             resolver.invoke("cubism.editor-model.model-source.update-instances", source);
             current();
@@ -1341,54 +1084,62 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         private final String identity;
         private final Object source;
         private final Object model;
+
         private EditorParameters(final String identity, final Object source, final Object model) {
             this.identity = identity;
             this.source = source;
             this.model = model;
         }
-        private void current() { requireCurrent(identity, model); }
-        @Override public List<Parameter> all() {
+
+        private void current() {
+            requireCurrent(identity, model);
+        }
+
+        @Override
+        public List<Parameter> all() {
             current();
             final java.util.Map<String, ParameterBinding> firstById = new java.util.HashMap<>();
             return parameters(model).stream()
-                .map(value -> (Parameter) new EditorParameter(identity, model,
-                    firstById.computeIfAbsent(value.id(), ignored -> value)))
-                .toList();
+                    .map(value -> (Parameter) new EditorParameter(
+                            identity, model, firstById.computeIfAbsent(value.id(), ignored -> value)))
+                    .toList();
         }
-        @Override public Parameter find(final ParameterId id) {
+
+        @Override
+        public Parameter find(final ParameterId id) {
             current();
             return new EditorParameter(identity, model, parameter(model, Objects.requireNonNull(id, "id")));
         }
 
-        @Override public Parameter create(final ParameterDefinition definition) {
+        @Override
+        public Parameter create(final ParameterDefinition definition) {
             current();
             return create(definition, java.util.Optional.empty());
         }
 
-        @Override public Parameter create(
-            final ParameterDefinition definition,
-            final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
-        ) {
+        @Override
+        public Parameter create(
+                final ParameterDefinition definition,
+                final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId) {
             return EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
-                final ParameterId created = parameterStructureAccess.create(
-                    identity, source, model, definition, folderId
-                );
+                final ParameterId created =
+                        parameterStructureAccess.create(identity, source, model, definition, folderId);
                 return new EditorParameter(identity, model, created);
             });
         }
 
-        @Override public Parameter copy(final ParameterId id) {
+        @Override
+        public Parameter copy(final ParameterId id) {
             return EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
-                final ParameterId copied = parameterStructureAccess.copy(
-                    identity, source, model, id
-                );
+                final ParameterId copied = parameterStructureAccess.copy(identity, source, model, id);
                 return new EditorParameter(identity, model, copied);
             });
         }
 
-        @Override public void remove(final ParameterId id) {
+        @Override
+        public void remove(final ParameterId id) {
             EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
                 parameterStructureAccess.remove(identity, source, model, id);
@@ -1396,27 +1147,28 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             });
         }
 
-        @Override public List<Parameter> createMany(final List<ParameterDefinition> definitions) {
+        @Override
+        public List<Parameter> createMany(final List<ParameterDefinition> definitions) {
             current();
             return createMany(definitions, java.util.Optional.empty());
         }
 
-        @Override public List<Parameter> createMany(
-            final List<ParameterDefinition> definitions,
-            final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
-        ) {
+        @Override
+        public List<Parameter> createMany(
+                final List<ParameterDefinition> definitions,
+                final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId) {
             return EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
-                final List<ParameterId> created = parameterStructureAccess.createMany(
-                    identity, source, model, definitions, folderId
-                );
+                final List<ParameterId> created =
+                        parameterStructureAccess.createMany(identity, source, model, definitions, folderId);
                 return created.stream()
-                    .map(id -> (Parameter) new EditorParameter(identity, model, id))
-                    .toList();
+                        .map(id -> (Parameter) new EditorParameter(identity, model, id))
+                        .toList();
             });
         }
 
-        @Override public void removeMany(final List<ParameterId> ids) {
+        @Override
+        public void removeMany(final List<ParameterId> ids) {
             EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
                 parameterStructureAccess.removeMany(identity, source, model, ids);
@@ -1431,6 +1183,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         private final ParameterId id;
         private ParameterBinding binding;
         private Object authoringSource;
+
         private EditorParameter(final String identity, final Object model, final ParameterId id) {
             // Creation returns a stable identity without rescanning the collection for every
             // item in a native batch. Bind its source on the first live-state read.
@@ -1438,11 +1191,13 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this.model = model;
             this.id = id;
         }
+
         private EditorParameter(final String identity, final Object model, final ParameterBinding binding) {
             this(identity, model, new ParameterId(binding.id()));
             this.binding = binding;
             this.authoringSource = resolver.invoke("cubism.editor-model.parameter.source", binding.parameter());
         }
+
         private synchronized ParameterBinding current() {
             requireCurrent(identity, model);
             if (binding == null) {
@@ -1479,18 +1234,37 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             }
             return binding;
         }
+
         private boolean sameAuthoringSource(final Object candidate) {
-            return authoringSource != null && candidate != null
-                && resolver.invoke("cubism.editor-model.parameter.source", candidate) == authoringSource;
+            return authoringSource != null
+                    && candidate != null
+                    && resolver.invoke("cubism.editor-model.parameter.source", candidate) == authoringSource;
         }
+
         private Object source() {
             current();
             return authoringSource;
         }
-        @Override public ParameterId id() { requireCurrent(identity, model); return id; }
-        @Override public int index() { return current().index(); }
-        @Override public FloatSequence keyValues() { current(); return Parameter.super.keyValues(); }
-        @Override public Optional<String> name() {
+
+        @Override
+        public ParameterId id() {
+            requireCurrent(identity, model);
+            return id;
+        }
+
+        @Override
+        public int index() {
+            return current().index();
+        }
+
+        @Override
+        public FloatSequence keyValues() {
+            current();
+            return Parameter.super.keyValues();
+        }
+
+        @Override
+        public Optional<String> name() {
             final Object value = resolver.invoke("cubism.editor-model.parameter-source.name", source());
             if (value == null) {
                 return Optional.empty();
@@ -1500,48 +1274,83 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             }
             return text.isBlank() ? Optional.empty() : Optional.of(text);
         }
-        @Override public ParameterType type() {
-            return booleanValue(resolver.invoke(
-                "cubism.editor-model.parameter-source.morph-target", source()
-            ), "Editor parameter type is invalid.")
-                ? ParameterType.BLEND_SHAPE
-                : ParameterType.NORMAL;
+
+        @Override
+        public ParameterType type() {
+            return booleanValue(
+                            resolver.invoke("cubism.editor-model.parameter-source.morph-target", source()),
+                            "Editor parameter type is invalid.")
+                    ? ParameterType.BLEND_SHAPE
+                    : ParameterType.NORMAL;
         }
-        @Override public Optional<Boolean> repeat() {
-            return Optional.of(booleanValue(resolver.invoke(
-                "cubism.editor-model.parameter-source.repeat", source()
-            ), "Editor parameter repeat flag is invalid."));
+
+        @Override
+        public Optional<Boolean> repeat() {
+            return Optional.of(booleanValue(
+                    resolver.invoke("cubism.editor-model.parameter-source.repeat", source()),
+                    "Editor parameter repeat flag is invalid."));
         }
-        @Override public Optional<Boolean> combined() {
-            return Optional.of(booleanValue(resolver.invoke(
-                "cubism.editor-model.parameter-source.combined", source()
-            ), "Editor parameter combined flag is invalid."));
+
+        @Override
+        public Optional<Boolean> combined() {
+            return Optional.of(booleanValue(
+                    resolver.invoke("cubism.editor-model.parameter-source.combined", source()),
+                    "Editor parameter combined flag is invalid."));
         }
-        @Override public Optional<ParameterId> combinedWith() {
+
+        @Override
+        public Optional<ParameterId> combinedWith() {
             return combinedAccess.partner(identity, model, id);
         }
-        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+
+        @Override
+        public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
             current();
             return objectReadAccess.parameterBindings(identity, binding().source(), model, id);
         }
-        @Override public void combineWith(final ParameterId partnerId) {
+
+        @Override
+        public void combineWith(final ParameterId partnerId) {
             combinedAccess.combine(identity, model, id, partnerId);
         }
-        @Override public void uncombine() {
+
+        @Override
+        public void uncombine() {
             combinedAccess.uncombine(identity, model, id);
         }
-        @Override public float getValue() { return number(resolver.invoke("cubism.editor-model.parameter.value", current().parameter())); }
-        @Override public float getMinimumValue() { return number(resolver.invoke("cubism.editor-model.parameter-source.minimum", source())); }
-        @Override public float getMaximumValue() { return number(resolver.invoke("cubism.editor-model.parameter-source.maximum", source())); }
-        @Override public float getDefaultValue() { return number(resolver.invoke("cubism.editor-model.parameter-source.default", source())); }
-        @Override public void setValue(final float value) {
+
+        @Override
+        public float getValue() {
+            return number(resolver.invoke(
+                    "cubism.editor-model.parameter.value", current().parameter()));
+        }
+
+        @Override
+        public float getMinimumValue() {
+            return number(resolver.invoke("cubism.editor-model.parameter-source.minimum", source()));
+        }
+
+        @Override
+        public float getMaximumValue() {
+            return number(resolver.invoke("cubism.editor-model.parameter-source.maximum", source()));
+        }
+
+        @Override
+        public float getDefaultValue() {
+            return number(resolver.invoke("cubism.editor-model.parameter-source.default", source()));
+        }
+
+        @Override
+        public void setValue(final float value) {
             EditorHostThread.dispatch("Cubism Parameter", () -> {
                 current();
                 setParameterValue(identity, model, id, value);
                 return null;
             });
         }
-        @Override public void updateDefinition(final ParameterDefinition definition) {
+
+        @Override
+        public void updateDefinition(final ParameterDefinition definition) {
             EditorHostThread.dispatch("Cubism Parameter", () -> {
                 current();
                 updateParameterDefinition(identity, model, id, definition);
@@ -1581,49 +1390,40 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
      */
     public List<String> selectedObjectIds() {
         if (!resolver.authorizesFeature(
-            EditorEditSelectionSelectorContract.ADAPTER_SLICE_ID,
-            EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_CAPABILITY_ID,
-            EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_REQUIRED_ALIASES
-        )) {
+                EditorEditSelectionSelectorContract.ADAPTER_SLICE_ID,
+                EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_CAPABILITY_ID,
+                EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_REQUIRED_ALIASES)) {
             return List.of();
         }
         try {
-            final Object app = resolver.invokeStatic(
-                "cubism.editor-model.app-controller.instance");
-            final Object document = app == null ? null : resolver.invoke(
-                "cubism.editor-model.app-controller.current-document", app);
-            if (!resolver.isInstance(
-                "cubism.editor-model.modeling-document.class", document)) {
+            final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+            final Object document =
+                    app == null ? null : resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+            if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
                 return List.of();
             }
-            final Object source = resolver.invoke(
-                "cubism.editor-model.modeling-document.model-source", document);
-            final Object updateManager = resolver.invoke(
-                "cubism.editor-model.app-controller.update-manager", app);
+            final Object source = resolver.invoke("cubism.editor-model.modeling-document.model-source", document);
+            final Object updateManager = resolver.invoke("cubism.editor-model.app-controller.update-manager", app);
             if (source == null || updateManager == null) {
                 return List.of();
             }
-            final Object raw = resolver.invoke(
-                "cubism.editor-model.update-manager.selection-guid-list", updateManager);
+            final Object raw = resolver.invoke("cubism.editor-model.update-manager.selection-guid-list", updateManager);
             final java.util.Map<String, String> idByGuid = new java.util.HashMap<>();
-            for (final Object object : iterable(
-                resolver.invoke("cubism.editor-model.model-source.all-objects", source))) {
+            for (final Object object :
+                    iterable(resolver.invoke("cubism.editor-model.model-source.all-objects", source))) {
                 final String guid = nullableText(resolver.invoke(
-                    "cubism.editor-model.guid.value",
-                    resolver.invoke(
-                        "cubism.editor-model.parameter-controllable-source.guid", object)));
+                        "cubism.editor-model.guid.value",
+                        resolver.invoke("cubism.editor-model.parameter-controllable-source.guid", object)));
                 final String id = nullableText(resolver.invoke(
-                    "cubism.editor-model.id.value",
-                    resolver.invoke(
-                        "cubism.editor-model.parameter-controllable-source.id", object)));
+                        "cubism.editor-model.id.value",
+                        resolver.invoke("cubism.editor-model.parameter-controllable-source.id", object)));
                 if (guid != null && id != null) {
                     idByGuid.put(guid, id);
                 }
             }
             final ArrayList<String> ids = new ArrayList<>();
             for (final Object guid : iterable(raw)) {
-                final String id = idByGuid.get(
-                    nullableText(resolver.invoke("cubism.editor-model.guid.value", guid)));
+                final String id = idByGuid.get(nullableText(resolver.invoke("cubism.editor-model.guid.value", guid)));
                 if (id != null) {
                     ids.add(id);
                 }
@@ -1642,14 +1442,9 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         return value instanceof String text && !text.isBlank() ? text : null;
     }
 
-    record Binding(
-        String identity,
-        long generation,
-        String modelId,
-        Object document,
-        Object source,
-        Object model
-    ) { }
-    private record ParameterBinding(String id, Object parameter, int index) { }
-    private record CreateParent(Object source, boolean deformer) { }
+    record Binding(String identity, long generation, String modelId, Object document, Object source, Object model) {}
+
+    private record ParameterBinding(String id, Object parameter, int index) {}
+
+    private record CreateParent(Object source, boolean deformer) {}
 }

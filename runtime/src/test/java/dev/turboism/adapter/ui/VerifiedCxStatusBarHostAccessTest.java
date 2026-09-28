@@ -1,5 +1,12 @@
 package dev.turboism.adapter.ui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
@@ -7,18 +14,10 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.CanvasHintPosition;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 public class VerifiedCxStatusBarHostAccessTest {
 
@@ -36,18 +35,14 @@ public class VerifiedCxStatusBarHostAccessTest {
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(null));
         assertNull(access.contentRoot(), "missing main frame means not ready");
 
-        SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticMainFrameCtrl(new SyntheticFrame(null))
-        );
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(new SyntheticFrame(null)));
         assertNull(access.contentRoot(), "missing content pane means not ready");
     }
 
     @Test
     void contentRootWalksTheVerifiedRootChain() {
         SyntheticContainer contentPane = new SyntheticContainer();
-        SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticMainFrameCtrl(new SyntheticFrame(contentPane))
-        );
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(new SyntheticFrame(contentPane)));
 
         assertSame(contentPane, access().contentRoot());
     }
@@ -57,9 +52,8 @@ public class VerifiedCxStatusBarHostAccessTest {
         SyntheticViewContext viewContext = new SyntheticViewContext();
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(null), viewContext);
 
-        Registration registration = access().showCanvasHint(
-            new CanvasHintNotification("screen-color", "Incompatible", 2.5f)
-        );
+        Registration registration =
+                access().showCanvasHint(new CanvasHintNotification("screen-color", "Incompatible", 2.5f));
 
         assertEquals("Incompatible", viewContext.message);
         assertEquals(2.5f, viewContext.durationSeconds);
@@ -75,9 +69,8 @@ public class VerifiedCxStatusBarHostAccessTest {
         SyntheticViewContext viewContext = new SyntheticViewContext();
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(null), viewContext);
 
-        Registration registration = access().showCanvasHint(
-            new CanvasHintNotification("screen-color", "Persistent", CanvasHintNotification.UNTIL_DISMISSED)
-        );
+        Registration registration = access().showCanvasHint(new CanvasHintNotification(
+                "screen-color", "Persistent", CanvasHintNotification.UNTIL_DISMISSED));
 
         assertTrue(Float.isFinite(viewContext.durationSeconds));
         assertTrue(viewContext.durationSeconds > 0.0f);
@@ -90,11 +83,9 @@ public class VerifiedCxStatusBarHostAccessTest {
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(null), viewContext);
         List<String> clicks = new ArrayList<>();
 
-        Registration registration = access().showCanvasHint(new CanvasHintNotification(
-            "screen-color",
-            "Incompatible",
-            2.5f
-        ).withOnClick(() -> clicks.add("clicked")));
+        Registration registration = access().showCanvasHint(
+                        new CanvasHintNotification("screen-color", "Incompatible", 2.5f)
+                                .withOnClick(() -> clicks.add("clicked")));
 
         assertEquals("Incompatible", viewContext.message);
         assertEquals(2.5f, viewContext.durationSeconds);
@@ -113,14 +104,13 @@ public class VerifiedCxStatusBarHostAccessTest {
         SyntheticViewContext viewContext = new SyntheticViewContext();
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(null), viewContext);
 
-        access().showCanvasHint(
-            new CanvasHintNotification("screen-color", "Incompatible", 2.5f)
-                .withPosition(new CanvasHintPosition(120.0f, 340.0f))
-        );
+        access().showCanvasHint(new CanvasHintNotification("screen-color", "Incompatible", 2.5f)
+                .withPosition(new CanvasHintPosition(120.0f, 340.0f)));
 
         assertNull(viewContext.action, "a position-only hint must not register a click action");
-        assertTrue(viewContext.position instanceof SyntheticPosition,
-            "the verified GVector2 constructor must produce the position argument");
+        assertTrue(
+                viewContext.position instanceof SyntheticPosition,
+                "the verified GVector2 constructor must produce the position argument");
         assertEquals(120.0f, ((SyntheticPosition) viewContext.position).x);
         assertEquals(340.0f, ((SyntheticPosition) viewContext.position).y);
     }
@@ -150,8 +140,8 @@ public class VerifiedCxStatusBarHostAccessTest {
                 return null;
             }
         };
-        assertThrows(IllegalStateException.class, () -> access.children(broken),
-            "a null children result must fail closed");
+        assertThrows(
+                IllegalStateException.class, () -> access.children(broken), "a null children result must fail closed");
     }
 
     @Test
@@ -205,8 +195,7 @@ public class VerifiedCxStatusBarHostAccessTest {
         access.setSeverityAppearance(label, "ERROR");
         assertEquals("[X] [I] legacy", label.text, "message prefix content must be preserved");
 
-        assertThrows(IllegalArgumentException.class,
-            () -> access.setSeverityAppearance(label, "DEBUG"));
+        assertThrows(IllegalArgumentException.class, () -> access.setSeverityAppearance(label, "DEBUG"));
     }
 
     @Test
@@ -245,59 +234,127 @@ public class VerifiedCxStatusBarHostAccessTest {
         String memoryViewer = name(SyntheticMemoryViewer.class);
         String viewContext = name(SyntheticViewContext.class);
         return TestVerifiedResolvers.create(
-            StatusBarVerificationManifest.ADAPTER_SLICE_ID,
-            StatusBarVerificationManifest.CAPABILITY_IDS,
-            List.of(
-                StaticSelector.classSelector("cubism.ui-status-bar.app-controller.class", appCtrl),
-                StaticSelector.staticMethod("cubism.ui-status-bar.app-controller.instance", appCtrl,
-                    "instance", "()L" + appCtrl + ";", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-status-bar.app-controller.main-frame", appCtrl,
-                    "getMainFrameCtrl", "()L" + mainFrameCtrl + ";", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.classSelector("cubism.ui-status-bar.main-frame-controller.class", mainFrameCtrl),
-                StaticSelector.method("cubism.ui-status-bar.main-frame-controller.frame", mainFrameCtrl,
-                    "getMainFrame", "()L" + frame + ";", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.classSelector("cubism.ui-status-bar.frame.class", frame),
-                StaticSelector.method("cubism.ui-status-bar.frame.content-pane", frame,
-                    "getContentPane", "()L" + container + ";", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.classSelector("cubism.ui-status-bar.widget.class", widget),
-                StaticSelector.method("cubism.ui-status-bar.widget.set-name", widget,
-                    "setName", "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-status-bar.widget.set-tooltip", widget,
-                    "setToolTipText", "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-status-bar.widget.revalidate", widget,
-                    "revalidate", "()V", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-status-bar.widget.repaint", widget,
-                    "repaint", "()V", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.classSelector("cubism.ui-status-bar.container.class", container),
-                StaticSelector.method("cubism.ui-status-bar.container.children", container,
-                    "getChildren", "()Ljava/util/List;", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-status-bar.container.add", container,
-                    "add", "(Ljava/lang/Object;I)V", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-status-bar.container.remove", container,
-                    "remove", "(Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.classSelector("cubism.ui-status-bar.label.class", label),
-                StaticSelector.constructor("cubism.ui-status-bar.label.create", label,
-                    "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-status-bar.label.text", label,
-                    "getText", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-status-bar.label.set-text", label,
-                    "setText", "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.classSelector("cubism.ui-status-bar.memory-viewer.class", memoryViewer),
-                StaticSelector.method("cubism.ui-canvas-hint.app-controller.current-view-context", appCtrl,
-                    "getCurrentViewContext", "()L" + viewContext + ";", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.classSelector("cubism.ui-canvas-hint.view-context.class", viewContext),
-                StaticSelector.method("cubism.ui-canvas-hint.view-context.show-hint", viewContext,
-                    "showHint", "(Ljava/lang/String;FLjava/lang/String;)V", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method("cubism.ui-canvas-hint.view-context.show-hint-with-action", viewContext,
-                    "showHintWithFunc", "(Ljava/lang/String;FLjava/lang/String;L" + name(SyntheticHintAction.class)
-                        + ";Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.classSelector("cubism.ui-canvas-hint.position.class",
-                    name(SyntheticPosition.class)),
-                StaticSelector.constructor("cubism.ui-canvas-hint.position.create",
-                    name(SyntheticPosition.class), "(FF)V", StaticSelector.ACCESS_PUBLIC)
-            ),
-            VerifiedCxStatusBarHostAccessTest.class.getClassLoader()
-        );
+                StatusBarVerificationManifest.ADAPTER_SLICE_ID,
+                StatusBarVerificationManifest.CAPABILITY_IDS,
+                List.of(
+                        StaticSelector.classSelector("cubism.ui-status-bar.app-controller.class", appCtrl),
+                        StaticSelector.staticMethod(
+                                "cubism.ui-status-bar.app-controller.instance",
+                                appCtrl,
+                                "instance",
+                                "()L" + appCtrl + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.app-controller.main-frame",
+                                appCtrl,
+                                "getMainFrameCtrl",
+                                "()L" + mainFrameCtrl + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.classSelector("cubism.ui-status-bar.main-frame-controller.class", mainFrameCtrl),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.main-frame-controller.frame",
+                                mainFrameCtrl,
+                                "getMainFrame",
+                                "()L" + frame + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.classSelector("cubism.ui-status-bar.frame.class", frame),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.frame.content-pane",
+                                frame,
+                                "getContentPane",
+                                "()L" + container + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.classSelector("cubism.ui-status-bar.widget.class", widget),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.widget.set-name",
+                                widget,
+                                "setName",
+                                "(Ljava/lang/String;)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.widget.set-tooltip",
+                                widget,
+                                "setToolTipText",
+                                "(Ljava/lang/String;)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.widget.revalidate",
+                                widget,
+                                "revalidate",
+                                "()V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.widget.repaint",
+                                widget,
+                                "repaint",
+                                "()V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.classSelector("cubism.ui-status-bar.container.class", container),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.container.children",
+                                container,
+                                "getChildren",
+                                "()Ljava/util/List;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.container.add",
+                                container,
+                                "add",
+                                "(Ljava/lang/Object;I)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.container.remove",
+                                container,
+                                "remove",
+                                "(Ljava/lang/Object;)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.classSelector("cubism.ui-status-bar.label.class", label),
+                        StaticSelector.constructor(
+                                "cubism.ui-status-bar.label.create",
+                                label,
+                                "(Ljava/lang/String;)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.label.text",
+                                label,
+                                "getText",
+                                "()Ljava/lang/String;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-status-bar.label.set-text",
+                                label,
+                                "setText",
+                                "(Ljava/lang/String;)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.classSelector("cubism.ui-status-bar.memory-viewer.class", memoryViewer),
+                        StaticSelector.method(
+                                "cubism.ui-canvas-hint.app-controller.current-view-context",
+                                appCtrl,
+                                "getCurrentViewContext",
+                                "()L" + viewContext + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.classSelector("cubism.ui-canvas-hint.view-context.class", viewContext),
+                        StaticSelector.method(
+                                "cubism.ui-canvas-hint.view-context.show-hint",
+                                viewContext,
+                                "showHint",
+                                "(Ljava/lang/String;FLjava/lang/String;)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-canvas-hint.view-context.show-hint-with-action",
+                                viewContext,
+                                "showHintWithFunc",
+                                "(Ljava/lang/String;FLjava/lang/String;L" + name(SyntheticHintAction.class)
+                                        + ";Ljava/lang/Object;)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.classSelector(
+                                "cubism.ui-canvas-hint.position.class", name(SyntheticPosition.class)),
+                        StaticSelector.constructor(
+                                "cubism.ui-canvas-hint.position.create",
+                                name(SyntheticPosition.class),
+                                "(FF)V",
+                                StaticSelector.ACCESS_PUBLIC)),
+                VerifiedCxStatusBarHostAccessTest.class.getClassLoader());
     }
 
     private static String name(final Class<?> type) {
@@ -335,12 +392,11 @@ public class VerifiedCxStatusBarHostAccessTest {
         }
 
         public void showHintWithFunc(
-            final String message,
-            final float durationSeconds,
-            final String key,
-            final SyntheticHintAction action,
-            final Object position
-        ) {
+                final String message,
+                final float durationSeconds,
+                final String key,
+                final SyntheticHintAction action,
+                final Object position) {
             this.message = message;
             this.durationSeconds = durationSeconds;
             this.key = key;
@@ -358,10 +414,7 @@ public class VerifiedCxStatusBarHostAccessTest {
             this(mainFrameCtrl, new SyntheticViewContext());
         }
 
-        SyntheticAppCtrl(
-            final SyntheticMainFrameCtrl mainFrameCtrl,
-            final SyntheticViewContext viewContext
-        ) {
+        SyntheticAppCtrl(final SyntheticMainFrameCtrl mainFrameCtrl, final SyntheticViewContext viewContext) {
             this.mainFrameCtrl = mainFrameCtrl;
             this.viewContext = viewContext;
         }
@@ -458,6 +511,5 @@ public class VerifiedCxStatusBarHostAccessTest {
         }
     }
 
-    public static final class SyntheticMemoryViewer extends SyntheticWidget {
-    }
+    public static final class SyntheticMemoryViewer extends SyntheticWidget {}
 }

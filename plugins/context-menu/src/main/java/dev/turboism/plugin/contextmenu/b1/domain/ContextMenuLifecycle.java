@@ -15,20 +15,20 @@ import java.util.List;
 public final class ContextMenuLifecycle {
 
     private static final List<ContextMenuContribution> INVENTORY = List.of(
-        new ContextMenuContribution(
-            "turboism.context-menu.parts.dispatch", ContextKind.PARTS, "context-menu.parts.label", 0
-        ),
-        new ContextMenuContribution(
-            "turboism.context-menu.deformer.dispatch", ContextKind.DEFORMER, "context-menu.deformer.label", 1
-        ),
-        new ContextMenuContribution(
-            "turboism.context-menu.parameter.dispatch", ContextKind.PARAMETER, "context-menu.parameter.label", 2
-        ),
-        new ContextMenuContribution(
-            "turboism.context-menu.workspace-object.dispatch", ContextKind.WORKSPACE_OBJECT,
-            "context-menu.workspace-object.label", 3
-        )
-    );
+            new ContextMenuContribution(
+                    "turboism.context-menu.parts.dispatch", ContextKind.PARTS, "context-menu.parts.label", 0),
+            new ContextMenuContribution(
+                    "turboism.context-menu.deformer.dispatch", ContextKind.DEFORMER, "context-menu.deformer.label", 1),
+            new ContextMenuContribution(
+                    "turboism.context-menu.parameter.dispatch",
+                    ContextKind.PARAMETER,
+                    "context-menu.parameter.label",
+                    2),
+            new ContextMenuContribution(
+                    "turboism.context-menu.workspace-object.dispatch",
+                    ContextKind.WORKSPACE_OBJECT,
+                    "context-menu.workspace-object.label",
+                    3));
 
     private ContextMenuLifecycleState state = ContextMenuLifecycleState.DISABLED;
 

@@ -18,13 +18,11 @@ public class f {
         if (sb instanceof DataBufferInt && db instanceof DataBufferInt) {
             int[] s = ((DataBufferInt) sb).getData();
             int[] d = ((DataBufferInt) db).getData();
-            for (int r = 0; r < h; r++)
-                System.arraycopy(s, r * src.getWidth(), d, r * dst.getWidth(), w);
+            for (int r = 0; r < h; r++) System.arraycopy(s, r * src.getWidth(), d, r * dst.getWidth(), w);
         } else if (sb instanceof DataBufferByte && db instanceof DataBufferByte) {
             byte[] s = ((DataBufferByte) sb).getData();
             byte[] d = ((DataBufferByte) db).getData();
-            for (int r = 0; r < h; r++)
-                System.arraycopy(s, r * src.getWidth(), d, r * dst.getWidth(), w);
+            for (int r = 0; r < h; r++) System.arraycopy(s, r * src.getWidth(), d, r * dst.getWidth(), w);
         }
     }
 

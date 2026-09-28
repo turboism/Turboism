@@ -1,7 +1,6 @@
 package dev.turboism.distribution.record;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
 import java.nio.charset.CharacterCodingException;
 
 final class ProtocolRecordParser {

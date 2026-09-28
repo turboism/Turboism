@@ -4,10 +4,9 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.util.Objects;
 import java.util.function.Consumer;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 /**
  * SDK-only PSD clip-mask import plugin. All action and panel registrations
@@ -24,10 +23,7 @@ public final class PsdClipMaskImportPlugin implements TurboismPlugin {
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
         this.importService = new PsdClipMaskImportService(
-            context.cubism().model(),
-            context,
-            context.services().get(UiHostCapabilityService.class)
-        );
+                context.cubism().model(), context, context.services().get(UiHostCapabilityService.class));
         context.logger().info("PSD Clip Mask Import initialized");
     }
 
@@ -64,31 +60,29 @@ public final class PsdClipMaskImportPlugin implements TurboismPlugin {
     }
 
     private Registration registerImportAction() {
-        return context.actions().register(
-            PsdClipMaskImportService.ACTION_ID,
-            new ActionRegistry.Action() {
-                @Override public String id() {
-                    return PsdClipMaskImportService.ACTION_ID;
-                }
-
-                @Override public String label() {
-                    return context.localization().text("psd.clip-mask-import.button.import");
-                }
-
-                @Override public Consumer<ActionRegistry.ActionContext> handler() {
-                    return ignored -> importService.requestImport();
-                }
+        return context.actions().register(PsdClipMaskImportService.ACTION_ID, new ActionRegistry.Action() {
+            @Override
+            public String id() {
+                return PsdClipMaskImportService.ACTION_ID;
             }
-        );
+
+            @Override
+            public String label() {
+                return context.localization().text("psd.clip-mask-import.button.import");
+            }
+
+            @Override
+            public Consumer<ActionRegistry.ActionContext> handler() {
+                return ignored -> importService.requestImport();
+            }
+        });
     }
 
     private void closeScopeQuietly() {
         try {
             context.disposableScope().close();
         } catch (Exception closeFailure) {
-            context.logger().warn(
-                "PSD Clip Mask Import enable rollback close failed: " + closeFailure.getMessage()
-            );
+            context.logger().warn("PSD Clip Mask Import enable rollback close failed: " + closeFailure.getMessage());
         }
     }
 

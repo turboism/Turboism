@@ -1,17 +1,17 @@
 package dev.turboism.tests.distribution;
 
-import dev.turboism.distribution.FrameworkPackageInspector;
-import dev.turboism.distribution.LocalFrameworkPackageInspector;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import dev.turboism.distribution.FrameworkPackageInspector;
+import dev.turboism.distribution.LocalFrameworkPackageInspector;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.io.TempDir;
+
 abstract class DistributionRegressionSupport {
-    @TempDir Path tempDir;
+    @TempDir
+    Path tempDir;
 
     byte[] validRuntime() throws Exception {
         return FrameworkPackageFixtures.jar("dev/turboism/bootstrap/Agent.class", "runtime");
@@ -29,14 +29,14 @@ abstract class DistributionRegressionSupport {
 
     void assertRejected(Path input, String code, String path) {
         FrameworkPackageInspector.Rejected rejected = assertInstanceOf(
-            FrameworkPackageInspector.Rejected.class, new LocalFrameworkPackageInspector().inspect(input));
+                FrameworkPackageInspector.Rejected.class, new LocalFrameworkPackageInspector().inspect(input));
         assertEquals(code, rejected.problems().get(0).code());
         assertEquals(path, rejected.problems().get(0).path());
     }
 
     static byte[] corruptEntryData(byte[] zip) {
         byte[] copy = zip.clone();
-        int local = indexOf(copy, new byte[]{0x50, 0x4b, 0x03, 0x04});
+        int local = indexOf(copy, new byte[] {0x50, 0x4b, 0x03, 0x04});
         int nameLength = unsignedShort(copy, local + 26);
         int extraLength = unsignedShort(copy, local + 28);
         copy[local + 30 + nameLength + extraLength] ^= 0x40;
@@ -44,7 +44,8 @@ abstract class DistributionRegressionSupport {
     }
 
     private static int indexOf(byte[] bytes, byte[] pattern) {
-        outer: for (int i = 0; i <= bytes.length - pattern.length; i++) {
+        outer:
+        for (int i = 0; i <= bytes.length - pattern.length; i++) {
             for (int j = 0; j < pattern.length; j++) if (bytes[i + j] != pattern[j]) continue outer;
             return i;
         }

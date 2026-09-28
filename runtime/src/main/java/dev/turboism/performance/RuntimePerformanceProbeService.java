@@ -1,20 +1,17 @@
 package dev.turboism.performance;
 
 import com.sun.management.OperatingSystemMXBean;
-
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
-import dev.turboism.sdk.permission.CubismPermissionException;
-import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.panel.ChartDataRegistry;
-
-import java.lang.management.ManagementFactory;
 import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.time.Clock;
@@ -25,7 +22,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -51,8 +47,7 @@ import java.util.function.Consumer;
  * tick baseline and publishes the per-window pause (ms) as the GC Pause
  * series. Disk I/O stays unbound this phase.
  */
-public final class RuntimePerformanceProbeService
-    implements PerformanceProbeService, AutoCloseable {
+public final class RuntimePerformanceProbeService implements PerformanceProbeService, AutoCloseable {
 
     public static final String CHART_CPU = "cpu";
     public static final String CHART_FPS = "fps";
@@ -97,29 +92,21 @@ public final class RuntimePerformanceProbeService
     private long lastCpuSampleNanos = -1L;
 
     public RuntimePerformanceProbeService(
-        final String pluginId,
-        final PermissionChecker permissionChecker,
-        final Clock clock
-    ) {
-        this(
-            pluginId,
-            permissionChecker,
-            clock,
-            ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class)
-        );
+            final String pluginId, final PermissionChecker permissionChecker, final Clock clock) {
+        this(pluginId, permissionChecker, clock, ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class));
     }
 
     RuntimePerformanceProbeService(
-        final String pluginId,
-        final PermissionChecker permissionChecker,
-        final Clock clock,
-        final OperatingSystemMXBean osBean
-    ) {
+            final String pluginId,
+            final PermissionChecker permissionChecker,
+            final Clock clock,
+            final OperatingSystemMXBean osBean) {
         this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.osBean = Objects.requireNonNull(osBean, "osBean");
-        for (String series : List.of(SERIES_CPU, SERIES_FPS, SERIES_HEAP, SERIES_NONHEAP, SERIES_FRAMES, SERIES_GC_PAUSE)) {
+        for (String series :
+                List.of(SERIES_CPU, SERIES_FPS, SERIES_HEAP, SERIES_NONHEAP, SERIES_FRAMES, SERIES_GC_PAUSE)) {
             buffers.put(series, new RollingSeries(BUFFER_CAPACITY));
         }
     }
@@ -135,10 +122,7 @@ public final class RuntimePerformanceProbeService
     }
 
     @Override
-    public Registration sample(
-        final Duration interval,
-        final Consumer<PerformanceSnapshot> consumer
-    ) {
+    public Registration sample(final Duration interval, final Consumer<PerformanceSnapshot> consumer) {
         checkPermission();
         Objects.requireNonNull(interval, "interval");
         Objects.requireNonNull(consumer, "consumer");
@@ -189,7 +173,8 @@ public final class RuntimePerformanceProbeService
         lastGcCollections = gc[0];
         lastGcPauseMillis = gc[1];
         captureCpuBaseline();
-        final PerformanceFpsHook published = PerformanceFpsHookRegistry.installed().orElse(null);
+        final PerformanceFpsHook published =
+                PerformanceFpsHookRegistry.installed().orElse(null);
         if (published != null) {
             try {
                 published.install();
@@ -197,10 +182,7 @@ public final class RuntimePerformanceProbeService
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                    "performance",
-                    "Performance FPS hook disabled safely",
-                    failure
-                );
+                        "performance", "Performance FPS hook disabled safely", failure);
             }
         }
         sampler = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -213,16 +195,17 @@ public final class RuntimePerformanceProbeService
 
     /** Changes collection cadence without changing the mounted hook's ownership. */
     private void updateCadence() {
-        final long period = consumers.stream().mapToLong(value -> value.intervalNanos).min().orElseThrow();
+        final long period =
+                consumers.stream().mapToLong(value -> value.intervalNanos).min().orElseThrow();
         if (samplingTask != null && period == samplingPeriodNanos) return;
         final long generation = samplingGeneration + 1;
         final long now = System.nanoTime();
         final long initialDelay = consumers.stream()
-            .mapToLong(value -> Math.max(0L, value.nextDeliveryNanos - now))
-            .min().orElseThrow();
-        final ScheduledFuture<?> replacement = sampler.scheduleAtFixedRate(
-            () -> tick(generation), initialDelay, period, TimeUnit.NANOSECONDS
-        );
+                .mapToLong(value -> Math.max(0L, value.nextDeliveryNanos - now))
+                .min()
+                .orElseThrow();
+        final ScheduledFuture<?> replacement =
+                sampler.scheduleAtFixedRate(() -> tick(generation), initialDelay, period, TimeUnit.NANOSECONDS);
         if (samplingTask != null) samplingTask.cancel(false);
         samplingTask = replacement;
         samplingPeriodNanos = period;
@@ -260,10 +243,7 @@ public final class RuntimePerformanceProbeService
         }
         if (failure instanceof Error fatal) throw fatal;
         if (failure != null) {
-            throw new IllegalStateException(
-                "performance sampling stopped but FPS hook restoration failed",
-                failure
-            );
+            throw new IllegalStateException("performance sampling stopped but FPS hook restoration failed", failure);
         }
     }
 
@@ -282,8 +262,8 @@ public final class RuntimePerformanceProbeService
                     // Keep the subscriber's phase instead of accumulating timer jitter.
                     // Missed periods are coalesced, never replayed as a callback burst.
                     final long lateness = monotonicNow - subscription.nextDeliveryNanos;
-                    subscription.nextDeliveryNanos = monotonicNow + subscription.intervalNanos
-                        - lateness % subscription.intervalNanos;
+                    subscription.nextDeliveryNanos =
+                            monotonicNow + subscription.intervalNanos - lateness % subscription.intervalNanos;
                     due.add(subscription);
                 }
             }
@@ -291,8 +271,8 @@ public final class RuntimePerformanceProbeService
             lastTickEpochMs = now;
             lastRenderCalls = snapshot.renderedFrames();
             gcPauseWindowMillis = lastGcPauseMillis < 0L
-                ? 0.0
-                : Math.max(0.0, (double) (snapshot.gcPauseMillis() - lastGcPauseMillis));
+                    ? 0.0
+                    : Math.max(0.0, (double) (snapshot.gcPauseMillis() - lastGcPauseMillis));
             lastGcCollections = snapshot.gcCollections();
             lastGcPauseMillis = snapshot.gcPauseMillis();
             // Publication belongs to the same generation as collection and cannot race close.
@@ -307,10 +287,7 @@ public final class RuntimePerformanceProbeService
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                    "performance",
-                    "Performance sampling consumer failed safely",
-                    failure
-                );
+                        "performance", "Performance sampling consumer failed safely", failure);
             }
         }
     }
@@ -340,10 +317,16 @@ public final class RuntimePerformanceProbeService
             this.consumer = consumer;
         }
 
-        private synchronized Consumer<PerformanceSnapshot> admit() { return consumer; }
-        private synchronized void cancel() { consumer = null; }
+        private synchronized Consumer<PerformanceSnapshot> admit() {
+            return consumer;
+        }
 
-        @Override public void close() {
+        private synchronized void cancel() {
+            consumer = null;
+        }
+
+        @Override
+        public void close() {
             synchronized (lifecycle) {
                 if (!consumers.remove(this)) return;
                 cancel();
@@ -371,17 +354,7 @@ public final class RuntimePerformanceProbeService
         final MemoryUsage nonHeap = ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage();
         final long[] gc = gcCounters();
         return new PerformanceSnapshot(
-            now,
-            processCpuPercent(),
-            heap.getUsed(),
-            nonHeap.getUsed(),
-            fps,
-            renderedFrames,
-            0L,
-            0L,
-            gc[0],
-            gc[1]
-        );
+                now, processCpuPercent(), heap.getUsed(), nonHeap.getUsed(), fps, renderedFrames, 0L, 0L, gc[0], gc[1]);
     }
 
     /**
@@ -398,7 +371,7 @@ public final class RuntimePerformanceProbeService
             collections += count < 0L ? 0L : count;
             pauseMillis += time < 0L ? 0L : time;
         }
-        return new long[] { collections, pauseMillis };
+        return new long[] {collections, pauseMillis};
     }
 
     /**
@@ -441,10 +414,9 @@ public final class RuntimePerformanceProbeService
             return 0.0;
         }
         return cpuPercentFromDeltas(
-            cpuTimeNanos - previousCpuTime,
-            nowNanos - previousSample,
-            Runtime.getRuntime().availableProcessors()
-        );
+                cpuTimeNanos - previousCpuTime,
+                nowNanos - previousSample,
+                Runtime.getRuntime().availableProcessors());
     }
 
     /** Process CPU percent from a CPU-time delta over an elapsed window. Package-private for focused tests. */
@@ -480,12 +452,8 @@ public final class RuntimePerformanceProbeService
     }
 
     private ChartDataRegistry.ChartData chartData(final String seriesName) {
-        return new ChartDataRegistry.ChartData(List.of(
-            new ChartDataRegistry.ChartSeriesData(
-                seriesName,
-                buffers.get(seriesName).snapshot()
-            )
-        ));
+        return new ChartDataRegistry.ChartData(List.of(new ChartDataRegistry.ChartSeriesData(
+                seriesName, buffers.get(seriesName).snapshot())));
     }
 
     private static double bytesToMebibytes(final long bytes) {

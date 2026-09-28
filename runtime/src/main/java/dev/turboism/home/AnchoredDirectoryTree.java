@@ -10,8 +10,7 @@ import java.util.Objects;
 /** Anchors and lazily creates one missing directory below an existing parent. */
 public final class AnchoredDirectoryTree {
 
-    private AnchoredDirectoryTree() {
-    }
+    private AnchoredDirectoryTree() {}
 
     /**
      * Canonicalizes an existing directory or its existing parent. The returned
@@ -25,16 +24,14 @@ public final class AnchoredDirectoryTree {
     public static Path anchor(final Path directory) throws IOException {
         final Path target = normalize(directory);
         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-            if (Files.isSymbolicLink(target)
-                || !Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.isSymbolicLink(target) || !Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)) {
                 throw new UnsafeDirectoryTreeException();
             }
             return target.toRealPath();
         }
         final Path parent = target.getParent();
         final Path name = target.getFileName();
-        if (parent == null || name == null
-            || !Files.exists(parent, LinkOption.NOFOLLOW_LINKS)) {
+        if (parent == null || name == null || !Files.exists(parent, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("lazy directory parent must already exist");
         }
         final Path parentReal = parent.toRealPath();
@@ -70,15 +67,13 @@ public final class AnchoredDirectoryTree {
     }
 
     private static Path normalize(final Path directory) {
-        return Objects.requireNonNull(directory, "directory")
-            .toAbsolutePath()
-            .normalize();
+        return Objects.requireNonNull(directory, "directory").toAbsolutePath().normalize();
     }
 
     private static void verifyCanonicalDirectory(final Path directory) throws IOException {
         if (Files.isSymbolicLink(directory)
-            || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)
-            || !directory.toRealPath().equals(directory)) {
+                || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)
+                || !directory.toRealPath().equals(directory)) {
             throw new UnsafeDirectoryTreeException();
         }
     }

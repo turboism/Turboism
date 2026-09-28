@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 /**
  * Version-neutral Cubism drawable color-composition (color blending) mode.
  *

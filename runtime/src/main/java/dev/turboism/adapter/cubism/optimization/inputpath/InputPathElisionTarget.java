@@ -30,9 +30,7 @@ import java.util.Optional;
  * digests admit the experiment; the per-artifact {@code ReviewedMethodShape}
  * gate still pins the exact body before any rewrite.</p>
  */
-public record InputPathElisionTarget(
-        HostArtifactDigest digest,
-        String version) {
+public record InputPathElisionTarget(HostArtifactDigest digest, String version) {
 
     /** The widget base class both call chains dispatch to. */
     public static final String OWNER = "com/live2d/ui/CWidget";
@@ -61,11 +59,11 @@ public record InputPathElisionTarget(
     }
 
     private static final InputPathElisionTarget CUBISM_5203 =
-        new InputPathElisionTarget(ReviewedHostArtifacts.CUBISM_5_2_03, "5.2.03");
+            new InputPathElisionTarget(ReviewedHostArtifacts.CUBISM_5_2_03, "5.2.03");
     private static final InputPathElisionTarget CUBISM_5302 =
-        new InputPathElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02");
+            new InputPathElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02");
     private static final InputPathElisionTarget CUBISM_5303 =
-        new InputPathElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03");
+            new InputPathElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03");
 
     /** The reviewed target for a host artifact digest, or empty when unsupported. */
     public static Optional<InputPathElisionTarget> of(final HostArtifactDigest digest) {

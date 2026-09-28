@@ -17,6 +17,7 @@ public final class FloatArrayParseBridge implements AutoCloseable {
     public static final String CALLBACK_PROPERTY = "turboism.float-array-parse-cache.callback";
     /** Payload-free diagnostic supplier. */
     public static final String STATS_PROPERTY = "turboism.float-array-parse-cache.stats";
+
     private final FloatArrayParseCache cache = new FloatArrayParseCache(8192, 262144);
     private final AtomicBoolean active = new AtomicBoolean();
     private final LongAdder fallback = new LongAdder();
@@ -73,14 +74,16 @@ public final class FloatArrayParseBridge implements AutoCloseable {
     }
 
     /** Stops callbacks, releases numeric strings and identity-removes only this instance's slots. */
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         active.set(false);
         Properties properties = installedProperties;
         installedProperties = null;
-        if (properties != null) synchronized (properties) {
-            properties.remove(CALLBACK_PROPERTY, callback);
-            properties.remove(STATS_PROPERTY, statistics);
-        }
+        if (properties != null)
+            synchronized (properties) {
+                properties.remove(CALLBACK_PROPERTY, callback);
+                properties.remove(STATS_PROPERTY, statistics);
+            }
         cache.clear();
     }
 }

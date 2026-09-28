@@ -1,27 +1,26 @@
 package dev.turboism.sdk.ui;
 
-import javax.imageio.ImageIO;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import javax.imageio.ImageIO;
 
 /** Immutable, toolkit-neutral panel content rendered and owned by the runtime. */
-public sealed interface PanelView permits
-    PanelView.Column,
-    PanelView.Row,
-    PanelView.Text,
-    PanelView.Image,
-    PanelView.Button,
-    PanelView.TextInput,
-    PanelView.Select,
-    PanelView.Toggle,
-    PanelView.Chart,
-    PanelView.CollapsibleSection,
-    PanelView.Separator,
-    PanelView.Scroll {
+public sealed interface PanelView
+        permits PanelView.Column,
+                PanelView.Row,
+                PanelView.Text,
+                PanelView.Image,
+                PanelView.Button,
+                PanelView.TextInput,
+                PanelView.Select,
+                PanelView.Toggle,
+                PanelView.Chart,
+                PanelView.CollapsibleSection,
+                PanelView.Separator,
+                PanelView.Scroll {
 
     /** Creates a vertical stack of the given children. */
     static Column column(final PanelView... children) {
@@ -59,12 +58,7 @@ public sealed interface PanelView permits
     }
 
     /** Creates a labeled text field whose edits dispatch {@code actionId}. */
-    static TextInput textInput(
-        final String id,
-        final String label,
-        final String value,
-        final String actionId
-    ) {
+    static TextInput textInput(final String id, final String label, final String value, final String actionId) {
         return new TextInput(id, label, value, actionId);
     }
 
@@ -75,33 +69,22 @@ public sealed interface PanelView permits
 
     /** Creates a labeled single-select control whose changes dispatch {@code actionId}. */
     static Select select(
-        final String id,
-        final String label,
-        final List<Option> options,
-        final String selectedValue,
-        final String actionId
-    ) {
+            final String id,
+            final String label,
+            final List<Option> options,
+            final String selectedValue,
+            final String actionId) {
         return new Select(id, label, options, selectedValue, actionId);
     }
 
     /** Creates a labeled toggle whose changes dispatch {@code actionId}. */
-    static Toggle toggle(
-        final String id,
-        final String label,
-        final boolean selected,
-        final String actionId
-    ) {
+    static Toggle toggle(final String id, final String label, final boolean selected, final String actionId) {
         return new Toggle(id, label, selected, false, actionId);
     }
 
     /** Creates a labeled toggle with an explicit grayed (disabled-looking) style. */
     static Toggle toggle(
-        final String id,
-        final String label,
-        final boolean selected,
-        final boolean grayed,
-        final String actionId
-    ) {
+            final String id, final String label, final boolean selected, final boolean grayed, final String actionId) {
         return new Toggle(id, label, selected, grayed, actionId);
     }
 
@@ -109,23 +92,17 @@ public sealed interface PanelView permits
      * Creates a selectable row whose label may place typed icons between literal text runs.
      * Missing icons are rendered with the fallback text embedded in {@code label}.
      */
-    static Toggle toggle(
-        final String id,
-        final UiInlineLabel label,
-        final boolean selected,
-        final String actionId
-    ) {
+    static Toggle toggle(final String id, final UiInlineLabel label, final boolean selected, final String actionId) {
         return new Toggle(id, label, selected, false, actionId);
     }
 
     /** Creates an icon-capable selectable row with an independent gray presentation flag. */
     static Toggle toggle(
-        final String id,
-        final UiInlineLabel label,
-        final boolean selected,
-        final boolean grayed,
-        final String actionId
-    ) {
+            final String id,
+            final UiInlineLabel label,
+            final boolean selected,
+            final boolean grayed,
+            final String actionId) {
         return new Toggle(id, label, selected, grayed, actionId);
     }
 
@@ -155,10 +132,7 @@ public sealed interface PanelView permits
 
     /** Creates a titled collapsible section containing the given children. */
     static CollapsibleSection collapsibleSection(
-        final String title,
-        final boolean expandedByDefault,
-        final PanelView... children
-    ) {
+            final String title, final boolean expandedByDefault, final PanelView... children) {
         return new CollapsibleSection(title, expandedByDefault, List.of(children));
     }
 
@@ -265,13 +239,8 @@ public sealed interface PanelView permits
     }
 
     /** Labeled single-select dropdown; {@code selectedValue} must identify one option. */
-    record Select(
-        String id,
-        String label,
-        List<Option> options,
-        String selectedValue,
-        String actionId
-    ) implements PanelView {
+    record Select(String id, String label, List<Option> options, String selectedValue, String actionId)
+            implements PanelView {
         public Select {
             id = requireText(id, "id");
             label = requireText(label, "label");
@@ -295,14 +264,8 @@ public sealed interface PanelView permits
     }
 
     /** Checkbox node; changes dispatch {@code actionId}. */
-    record Toggle(
-        String id,
-        String label,
-        boolean selected,
-        boolean grayed,
-        String actionId,
-        UiInlineLabel inlineLabel
-    ) implements PanelView {
+    record Toggle(String id, String label, boolean selected, boolean grayed, String actionId, UiInlineLabel inlineLabel)
+            implements PanelView {
         public Toggle {
             id = requireText(id, "id");
             label = requireText(label, "label");
@@ -319,41 +282,27 @@ public sealed interface PanelView permits
 
         /** Backwards-compatible construction for callers with a grayed flag. */
         public Toggle(
-            final String id,
-            final String label,
-            final boolean selected,
-            final boolean grayed,
-            final String actionId
-        ) {
+                final String id,
+                final String label,
+                final boolean selected,
+                final boolean grayed,
+                final String actionId) {
             this(id, label, selected, grayed, actionId, null);
         }
 
         /** Constructs an icon-capable toggle without requiring a duplicate fallback string. */
-        public Toggle(
-            final String id,
-            final UiInlineLabel inlineLabel,
-            final boolean selected,
-            final String actionId
-        ) {
+        public Toggle(final String id, final UiInlineLabel inlineLabel, final boolean selected, final String actionId) {
             this(id, requireInlineLabel(inlineLabel).fallbackText(), selected, false, actionId, inlineLabel);
         }
 
         /** Constructs an icon-capable toggle with an independent gray presentation flag. */
         public Toggle(
-            final String id,
-            final UiInlineLabel inlineLabel,
-            final boolean selected,
-            final boolean grayed,
-            final String actionId
-        ) {
-            this(
-                id,
-                requireInlineLabel(inlineLabel).fallbackText(),
-                selected,
-                grayed,
-                actionId,
-                inlineLabel
-            );
+                final String id,
+                final UiInlineLabel inlineLabel,
+                final boolean selected,
+                final boolean grayed,
+                final String actionId) {
+            this(id, requireInlineLabel(inlineLabel).fallbackText(), selected, grayed, actionId, inlineLabel);
         }
 
         private static UiInlineLabel requireInlineLabel(final UiInlineLabel value) {
@@ -362,11 +311,7 @@ public sealed interface PanelView permits
     }
 
     /** Titled collapsible section containing child nodes. */
-    record CollapsibleSection(
-        String title,
-        boolean expandedByDefault,
-        List<PanelView> children
-    ) implements PanelView {
+    record CollapsibleSection(String title, boolean expandedByDefault, List<PanelView> children) implements PanelView {
         public CollapsibleSection {
             title = requireText(title, "title");
             children = immutableChildren(children);
@@ -374,7 +319,7 @@ public sealed interface PanelView permits
     }
 
     /** Horizontal separator line. */
-    record Separator() implements PanelView { }
+    record Separator() implements PanelView {}
 
     /** Scrollable viewport around one child node. */
     record Scroll(PanelView child) implements PanelView {

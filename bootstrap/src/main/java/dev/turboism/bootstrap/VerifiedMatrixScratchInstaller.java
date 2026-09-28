@@ -37,22 +37,26 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private Properties properties;
     private boolean installed, closed, restored;
 
-    private record Body(String name, String descriptor, List<String> shape) { }
+    private record Body(String name, String descriptor, List<String> shape) {}
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-        ReviewedHostContract.candidates(
-            MatrixScratchTransformer.reviewedClassSha256(), version -> HOOK_ID);
+            ReviewedHostContract.candidates(MatrixScratchTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
     static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvm) {
-        return requested && jvm >= 17 && config != null && config.hookEnabled(HOOK_ID)
-            && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        return requested
+                && jvm >= 17
+                && config != null
+                && config.hookEnabled(HOOK_ID)
+                && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
-    VerifiedMatrixScratchInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader) throws Exception {
+    VerifiedMatrixScratchInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)
+            throws Exception {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        Path source = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
-        final var contract = ReviewedHostContract.requireBound(
-            ReviewedHostContract.resolve(source, CANDIDATES), "matrix scratch");
+        Path source =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        final var contract =
+                ReviewedHostContract.requireBound(ReviewedHostContract.resolve(source, CANDIDATES), "matrix scratch");
         if (Runtime.version().feature() < 17 || !instrumentation.isRetransformClassesSupported()) {
             throw new IllegalStateException("matrix scratch requires JVM17+ retransformation");
         }
@@ -61,7 +65,14 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
         Class<?> product = Class.forName("com.live2d.graphics3d.type.a", false, loader);
         Map<Class<?>, byte[]> captured = new LinkedHashMap<>();
         try (JarFile jar = new JarFile(source.toFile())) {
-            require(jar, source, loader, target, MatrixScratchTransformer.METHOD, MatrixScratchTransformer.DESCRIPTOR, captured);
+            require(
+                    jar,
+                    source,
+                    loader,
+                    target,
+                    MatrixScratchTransformer.METHOD,
+                    MatrixScratchTransformer.DESCRIPTOR,
+                    captured);
             require(jar, source, loader, target.getMethod("getLocalToParentMatrix"), captured);
             Method entity = target.getMethod("getEntity");
             require(jar, source, loader, entity, captured);
@@ -76,8 +87,14 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
             originalTargetSha = sha256(captured.get(target));
         }
         dependencyGuard = new ClassFileTransformer() {
-            @Override public byte[] transform(Module module, ClassLoader definingLoader, String name,
-                    Class<?> redefined, ProtectionDomain domain, byte[] bytes) {
+            @Override
+            public byte[] transform(
+                    Module module,
+                    ClassLoader definingLoader,
+                    String name,
+                    Class<?> redefined,
+                    ProtectionDomain domain,
+                    byte[] bytes) {
                 List<Body> bodies = dependencies.get(redefined);
                 if (bodies == null) return null;
                 try {
@@ -93,18 +110,36 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
         contract.requireUnchanged(source);
     }
 
-    private void require(JarFile jar, Path source, ClassLoader loader, Method method,
-            Map<Class<?>, byte[]> captured) throws Exception {
-        require(jar, source, loader, method.getDeclaringClass(), method.getName(),
-            MethodType.methodType(method.getReturnType(), method.getParameterTypes()).descriptorString(), captured);
+    private void require(JarFile jar, Path source, ClassLoader loader, Method method, Map<Class<?>, byte[]> captured)
+            throws Exception {
+        require(
+                jar,
+                source,
+                loader,
+                method.getDeclaringClass(),
+                method.getName(),
+                MethodType.methodType(method.getReturnType(), method.getParameterTypes())
+                        .descriptorString(),
+                captured);
     }
 
-    private void require(JarFile jar, Path source, ClassLoader loader, Class<?> type, String name,
-            String descriptor, Map<Class<?>, byte[]> captured) throws Exception {
+    private void require(
+            JarFile jar,
+            Path source,
+            ClassLoader loader,
+            Class<?> type,
+            String name,
+            String descriptor,
+            Map<Class<?>, byte[]> captured)
+            throws Exception {
         attest(type, loader, source);
         byte[] actual = captured.get(type);
-        if (actual == null) { actual = capture(type); captured.put(type, actual); }
-        List<String> expected = ReviewedMethodShape.read(reference(jar, type), type.getName().replace('.', '/'), name, descriptor);
+        if (actual == null) {
+            actual = capture(type);
+            captured.put(type, actual);
+        }
+        List<String> expected =
+                ReviewedMethodShape.read(reference(jar, type), type.getName().replace('.', '/'), name, descriptor);
         Body body = new Body(name, descriptor, expected);
         verifyBodies(type, actual, List.of(body));
         dependencies.computeIfAbsent(type, ignored -> new ArrayList<>()).add(body);
@@ -113,15 +148,23 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private static void verifyBodies(Class<?> type, byte[] actual, List<Body> bodies) {
         String owner = type.getName().replace('.', '/');
         for (Body body : bodies) {
-            if (body.shape() == null || !body.shape().equals(ReviewedMethodShape.read(actual, owner, body.name(), body.descriptor()))) {
-                throw new IllegalStateException("matrix dependency body mismatch: " + owner + "." + body.name() + body.descriptor());
+            if (body.shape() == null
+                    || !body.shape().equals(ReviewedMethodShape.read(actual, owner, body.name(), body.descriptor()))) {
+                throw new IllegalStateException(
+                        "matrix dependency body mismatch: " + owner + "." + body.name() + body.descriptor());
             }
         }
     }
 
     private static void attest(Class<?> type, ClassLoader loader, Path source) throws Exception {
-        if (type.getClassLoader() != loader || type.getProtectionDomain().getCodeSource() == null
-            || !source.equals(Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI()).toAbsolutePath().normalize())) {
+        if (type.getClassLoader() != loader
+                || type.getProtectionDomain().getCodeSource() == null
+                || !source.equals(Path.of(type.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI())
+                        .toAbsolutePath()
+                        .normalize())) {
             throw new IllegalArgumentException("matrix dependency loader/source mismatch: " + type.getName());
         }
     }
@@ -129,23 +172,34 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private static byte[] reference(JarFile jar, Class<?> type) throws Exception {
         var entry = jar.getJarEntry(type.getName().replace('.', '/') + ".class");
         if (entry == null) throw new IllegalArgumentException("matrix reference class missing: " + type.getName());
-        try (var input = jar.getInputStream(entry)) { return input.readAllBytes(); }
+        try (var input = jar.getInputStream(entry)) {
+            return input.readAllBytes();
+        }
     }
 
     private byte[] capture(Class<?> type) throws Exception {
-        if (!instrumentation.isModifiableClass(type)) throw new IllegalStateException("matrix dependency is not modifiable: " + type.getName());
+        if (!instrumentation.isModifiableClass(type))
+            throw new IllegalStateException("matrix dependency is not modifiable: " + type.getName());
         AtomicReference<byte[]> bytes = new AtomicReference<>();
         ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override public byte[] transform(Module module, ClassLoader loader, String name,
-                    Class<?> redefined, ProtectionDomain domain, byte[] value) {
+            @Override
+            public byte[] transform(
+                    Module module,
+                    ClassLoader loader,
+                    String name,
+                    Class<?> redefined,
+                    ProtectionDomain domain,
+                    byte[] value) {
                 if (redefined == type && value != null) bytes.set(value.clone());
                 return null;
             }
         };
         instrumentation.addTransformer(observer, true);
-        try { instrumentation.retransformClasses(type); }
-        finally {
-            if (!instrumentation.removeTransformer(observer)) throw new IllegalStateException("matrix inspection observer removal failed");
+        try {
+            instrumentation.retransformClasses(type);
+        } finally {
+            if (!instrumentation.removeTransformer(observer))
+                throw new IllegalStateException("matrix inspection observer removal failed");
         }
         if (bytes.get() == null) throw new IllegalStateException("matrix class capture missing: " + type.getName());
         return bytes.get();
@@ -167,7 +221,8 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
         }
         try {
             // Preparation can precede installation. Recheck all live dependencies at admission.
-            for (var dependency : dependencies.entrySet()) verifyBodies(dependency.getKey(), capture(dependency.getKey()), dependency.getValue());
+            for (var dependency : dependencies.entrySet())
+                verifyBodies(dependency.getKey(), capture(dependency.getKey()), dependency.getValue());
             instrumentation.addTransformer(dependencyGuard, true);
             registered.add(dependencyGuard);
             instrumentation.addTransformer(transformer, true);
@@ -181,8 +236,7 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
                 // AtomicBoolean instance (see put above), so reference inequality means another
                 // installation claimed the admission slot.
                 @SuppressWarnings("ReferenceEquality")
-                boolean ownershipChanged =
-                    System.getProperties() != properties
+                boolean ownershipChanged = System.getProperties() != properties
                         || properties.get(MatrixScratchTransformer.ADMISSION_PROPERTY) != admission;
                 if (ownershipChanged) {
                     throw new IllegalStateException("matrix admission ownership changed");
@@ -196,18 +250,24 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
             }
             installed = true;
         } catch (Exception | Error failed) {
-            try { close(); } catch (Exception | Error cleanup) { failed.addSuppressed(cleanup); }
+            try {
+                close();
+            } catch (Exception | Error cleanup) {
+                failed.addSuppressed(cleanup);
+            }
             throw failed;
         }
     }
 
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         admission.set(false);
         installed = false;
         closed = true;
         if (properties != null) {
             synchronized (properties) {
-                if (properties.get(MatrixScratchTransformer.ADMISSION_PROPERTY) == admission) properties.remove(MatrixScratchTransformer.ADMISSION_PROPERTY);
+                if (properties.get(MatrixScratchTransformer.ADMISSION_PROPERTY) == admission)
+                    properties.remove(MatrixScratchTransformer.ADMISSION_PROPERTY);
             }
         }
         if (registered.isEmpty()) return;
@@ -215,7 +275,8 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
         IllegalStateException failure = null;
         for (ClassFileTransformer owned : List.copyOf(registered)) {
             try {
-                if (!instrumentation.removeTransformer(owned)) throw new IllegalStateException("matrix transformer removal not proven");
+                if (!instrumentation.removeTransformer(owned))
+                    throw new IllegalStateException("matrix transformer removal not proven");
                 registered.remove(owned);
             } catch (RuntimeException problem) {
                 if (failure == null) failure = new IllegalStateException("matrix restoration failed");
@@ -224,7 +285,8 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
         }
         if (registered.isEmpty()) {
             try {
-                if (!originalTargetSha.equals(sha256(capture(target)))) throw new IllegalStateException("matrix original class restoration mismatch");
+                if (!originalTargetSha.equals(sha256(capture(target))))
+                    throw new IllegalStateException("matrix original class restoration mismatch");
                 restored = failure == null;
             } catch (Exception problem) {
                 if (failure == null) failure = new IllegalStateException("matrix restoration failed");
@@ -234,5 +296,7 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
         if (failure != null) throw failure;
     }
 
-    boolean restored() { return restored; }
+    boolean restored() {
+        return restored;
+    }
 }

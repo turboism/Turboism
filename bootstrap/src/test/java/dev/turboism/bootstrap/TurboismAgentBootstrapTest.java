@@ -1,10 +1,10 @@
 package dev.turboism.bootstrap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.instrument.ClassFileTransformer;
@@ -15,10 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class TurboismAgentBootstrapTest {
 
@@ -42,8 +40,8 @@ class TurboismAgentBootstrapTest {
         });
         registry.enroll(sibling, () -> closed.add("sibling"));
         try {
-            final var bind = TurboismAgent.class.getDeclaredMethod("bindRuntimeHook",
-                HookContributor.class, HookEnvironment.class);
+            final var bind = TurboismAgent.class.getDeclaredMethod(
+                    "bindRuntimeHook", HookContributor.class, HookEnvironment.class);
             bind.setAccessible(true);
             // No premain installer exists, so the real contributor refuses binding.
             bind.invoke(null, failed, HookEnvironment.builder().build());
@@ -53,7 +51,7 @@ class TurboismAgentBootstrapTest {
             assertFalse(registry.contains(failed.id()));
             assertTrue(registry.contains(sibling.id()));
         } finally {
-            registry.closeAll(ignored -> { }, ignored -> { });
+            registry.closeAll(ignored -> {}, ignored -> {});
             slot.set(previous);
         }
     }
@@ -67,23 +65,29 @@ class TurboismAgentBootstrapTest {
         final List<String> actions = new ArrayList<>();
 
         TurboismAgent.prepareEarlyHooks(
-            List.of(absent, premain, host, runtime), List.of(premain, host),
-            hook -> actions.add("unavailable:" + hook.id()),
-            hook -> actions.add("pending:" + hook.id()),
-            hook -> actions.add("bind:" + hook.id()));
+                List.of(absent, premain, host, runtime),
+                List.of(premain, host),
+                hook -> actions.add("unavailable:" + hook.id()),
+                hook -> actions.add("pending:" + hook.id()),
+                hook -> actions.add("bind:" + hook.id()));
 
-        assertEquals(List.of(
-            "unavailable:" + absent.id(), "pending:" + premain.id(), "bind:" + host.id()), actions);
+        assertEquals(List.of("unavailable:" + absent.id(), "pending:" + premain.id(), "bind:" + host.id()), actions);
     }
 
     @Test
     void missingPremainWarpHookIsExplicitlyWithdrawn() {
         final HookContributor warp = new WarpAltMirrorHookContributor();
         final List<String> withdrawn = new ArrayList<>();
-        TurboismAgent.prepareEarlyHooks(List.of(warp), List.of(),
-            hook -> withdrawn.addAll(hook.runtimeHookIds()),
-            hook -> { throw new AssertionError("missing hook cannot become pending"); },
-            hook -> { throw new AssertionError("missing hook cannot bind"); });
+        TurboismAgent.prepareEarlyHooks(
+                List.of(warp),
+                List.of(),
+                hook -> withdrawn.addAll(hook.runtimeHookIds()),
+                hook -> {
+                    throw new AssertionError("missing hook cannot become pending");
+                },
+                hook -> {
+                    throw new AssertionError("missing hook cannot bind");
+                });
         assertEquals(List.of("warp-alt-mirror"), withdrawn);
     }
 
@@ -92,20 +96,14 @@ class TurboismAgentBootstrapTest {
         final AtomicInteger hookRegistrations = new AtomicInteger();
 
         TurboismAgent.requestStartForTesting(
-            StartupSuppressionInstaller.AttachmentMode.PREMAIN,
-            "unsafe=true",
-            null,
-            hook -> hookRegistrations.incrementAndGet()
-        );
-        TurboismAgent.requestStartForTesting(
-            StartupSuppressionInstaller.AttachmentMode.PREMAIN,
-            null,
-            null,
-            hook -> {
-                hookRegistrations.incrementAndGet();
-                throw new SecurityException("test rejection");
-            }
-        );
+                StartupSuppressionInstaller.AttachmentMode.PREMAIN,
+                "unsafe=true",
+                null,
+                hook -> hookRegistrations.incrementAndGet());
+        TurboismAgent.requestStartForTesting(StartupSuppressionInstaller.AttachmentMode.PREMAIN, null, null, hook -> {
+            hookRegistrations.incrementAndGet();
+            throw new SecurityException("test rejection");
+        });
 
         assertEquals(1, hookRegistrations.get());
     }
@@ -118,18 +116,8 @@ class TurboismAgentBootstrapTest {
             throw new SecurityException("test rejection");
         };
 
-        TurboismAgent.requestStartForTesting(
-            StartupSuppressionInstaller.AttachmentMode.PREMAIN,
-            null,
-            null,
-            rejected
-        );
-        TurboismAgent.requestStartForTesting(
-            StartupSuppressionInstaller.AttachmentMode.PREMAIN,
-            null,
-            null,
-            rejected
-        );
+        TurboismAgent.requestStartForTesting(StartupSuppressionInstaller.AttachmentMode.PREMAIN, null, null, rejected);
+        TurboismAgent.requestStartForTesting(StartupSuppressionInstaller.AttachmentMode.PREMAIN, null, null, rejected);
 
         assertEquals(2, hookRegistrations.get());
     }
@@ -139,16 +127,9 @@ class TurboismAgentBootstrapTest {
         // A null instrumentation reaches the real JvmShims.install and fails
         // inside the synchronous start segment; nothing may reach the caller.
         final String diagnostics = captureErr(() -> TurboismAgent.requestStartForTesting(
-            StartupSuppressionInstaller.AttachmentMode.PREMAIN,
-            "home=" + tempDir,
-            null,
-            hook -> { }
-        ));
+                StartupSuppressionInstaller.AttachmentMode.PREMAIN, "home=" + tempDir, null, hook -> {}));
 
-        assertTrue(
-            diagnostics.contains("Turboism agent start failed safely"),
-            diagnostics
-        );
+        assertTrue(diagnostics.contains("Turboism agent start failed safely"), diagnostics);
         assertTrue(diagnostics.contains("NullPointerException"), diagnostics);
         assertNoBootstrapThread();
     }
@@ -165,17 +146,9 @@ class TurboismAgentBootstrapTest {
         });
 
         final String first = captureErr(() -> TurboismAgent.requestStartForTesting(
-            StartupSuppressionInstaller.AttachmentMode.PREMAIN,
-            "home=" + tempDir,
-            instrumentation,
-            hook -> { }
-        ));
+                StartupSuppressionInstaller.AttachmentMode.PREMAIN, "home=" + tempDir, instrumentation, hook -> {}));
         final String second = captureErr(() -> TurboismAgent.requestStartForTesting(
-            StartupSuppressionInstaller.AttachmentMode.PREMAIN,
-            "home=" + tempDir,
-            instrumentation,
-            hook -> { }
-        ));
+                StartupSuppressionInstaller.AttachmentMode.PREMAIN, "home=" + tempDir, instrumentation, hook -> {}));
 
         assertTrue(first.contains("Turboism agent start failed safely"), first);
         assertTrue(first.contains("AssertionError"), first);
@@ -188,34 +161,32 @@ class TurboismAgentBootstrapTest {
     void failedStartRollsBackInstalledTransformersAndStartsNoThread() {
         final List<ClassFileTransformer> added = new ArrayList<>();
         final List<ClassFileTransformer> removed = new ArrayList<>();
-        final Instrumentation instrumentation = instrumentation((proxy, method, arguments) ->
-            switch (method.getName()) {
-                case "isRetransformClassesSupported" -> true;
-                case "addTransformer" -> {
-                    added.add((ClassFileTransformer) arguments[0]);
-                    yield null;
-                }
-                case "getAllLoadedClasses" -> new Class<?>[0];
-                case "isModifiableClass" -> true;
-                case "removeTransformer" -> {
-                    removed.add((ClassFileTransformer) arguments[0]);
-                    yield true;
-                }
-                default -> defaultValue(method.getReturnType());
-            }
-        );
+        final Instrumentation instrumentation =
+                instrumentation((proxy, method, arguments) -> switch (method.getName()) {
+                    case "isRetransformClassesSupported" -> true;
+                    case "addTransformer" -> {
+                        added.add((ClassFileTransformer) arguments[0]);
+                        yield null;
+                    }
+                    case "getAllLoadedClasses" -> new Class<?>[0];
+                    case "isModifiableClass" -> true;
+                    case "removeTransformer" -> {
+                        removed.add((ClassFileTransformer) arguments[0]);
+                        yield true;
+                    }
+                    default -> defaultValue(method.getReturnType());
+                });
         final AtomicInteger threadStarts = new AtomicInteger();
 
         final String diagnostics = captureErr(() -> TurboismAgent.requestStartForTesting(
-            StartupSuppressionInstaller.AttachmentMode.PREMAIN,
-            "home=" + tempDir,
-            instrumentation,
-            hook -> { },
-            action -> {
-                threadStarts.incrementAndGet();
-                throw new IllegalStateException("injected bootstrap thread failure");
-            }
-        ));
+                StartupSuppressionInstaller.AttachmentMode.PREMAIN,
+                "home=" + tempDir,
+                instrumentation,
+                hook -> {},
+                action -> {
+                    threadStarts.incrementAndGet();
+                    throw new IllegalStateException("injected bootstrap thread failure");
+                }));
 
         assertEquals(1, threadStarts.get());
         assertFalse(added.isEmpty(), "expected at least the pipe shim transformer to install");
@@ -240,20 +211,14 @@ class TurboismAgentBootstrapTest {
     private static void assertNoBootstrapThread() {
         for (Thread thread : Thread.getAllStackTraces().keySet()) {
             assertFalse(
-                thread.isAlive() && "turboism-bootstrap".equals(thread.getName()),
-                "bootstrap thread must not be running"
-            );
+                    thread.isAlive() && "turboism-bootstrap".equals(thread.getName()),
+                    "bootstrap thread must not be running");
         }
     }
 
-    private static Instrumentation instrumentation(
-        final java.lang.reflect.InvocationHandler handler
-    ) {
+    private static Instrumentation instrumentation(final java.lang.reflect.InvocationHandler handler) {
         return (Instrumentation) java.lang.reflect.Proxy.newProxyInstance(
-            TurboismAgentBootstrapTest.class.getClassLoader(),
-            new Class<?>[] {Instrumentation.class},
-            handler
-        );
+                TurboismAgentBootstrapTest.class.getClassLoader(), new Class<?>[] {Instrumentation.class}, handler);
     }
 
     private static Object defaultValue(final Class<?> type) {

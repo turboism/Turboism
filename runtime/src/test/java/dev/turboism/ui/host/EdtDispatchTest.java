@@ -1,10 +1,11 @@
 package dev.turboism.ui.host;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import javax.swing.SwingUtilities;
 import java.awt.GraphicsEnvironment;
 import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
@@ -14,12 +15,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Deterministic coverage of {@link EdtDispatch}: inline EDT execution, bounded acceptance
@@ -68,12 +67,11 @@ class EdtDispatchTest {
         try {
             final AtomicBoolean ran = new AtomicBoolean();
             final EdtDispatchException failure = assertThrows(
-                EdtDispatchException.class,
-                () -> EdtDispatch.call("abandon", SHORT_ACCEPT, () -> {
-                    ran.set(true);
-                    return null;
-                })
-            );
+                    EdtDispatchException.class,
+                    () -> EdtDispatch.call("abandon", SHORT_ACCEPT, () -> {
+                        ran.set(true);
+                        return null;
+                    }));
             assertEquals(EdtDispatchException.Reason.ACCEPT_TIMEOUT, failure.reason());
             assertEquals("abandon", failure.label());
             release.countDown();
@@ -97,18 +95,20 @@ class EdtDispatchTest {
             final AtomicBoolean ran = new AtomicBoolean();
             final CountDownLatch callerDone = new CountDownLatch(1);
             final AtomicReference<Throwable> outcome = new AtomicReference<>();
-            final Thread caller = new Thread(() -> {
-                try {
-                    EdtDispatch.call("interrupted", Duration.ofSeconds(30), () -> {
-                        ran.set(true);
-                        return null;
-                    });
-                } catch (Throwable failure) {
-                    outcome.set(failure);
-                } finally {
-                    callerDone.countDown();
-                }
-            }, "edt-dispatch-test-caller");
+            final Thread caller = new Thread(
+                    () -> {
+                        try {
+                            EdtDispatch.call("interrupted", Duration.ofSeconds(30), () -> {
+                                ran.set(true);
+                                return null;
+                            });
+                        } catch (Throwable failure) {
+                            outcome.set(failure);
+                        } finally {
+                            callerDone.countDown();
+                        }
+                    },
+                    "edt-dispatch-test-caller");
             caller.setDaemon(true);
             caller.start();
             // Interrupting before or during the acceptance wait is equivalent:
@@ -117,10 +117,7 @@ class EdtDispatchTest {
             assertTrue(callerDone.await(5, TimeUnit.SECONDS));
             final Throwable failure = outcome.get();
             assertTrue(failure instanceof EdtDispatchException);
-            assertEquals(
-                EdtDispatchException.Reason.INTERRUPTED,
-                ((EdtDispatchException) failure).reason()
-            );
+            assertEquals(EdtDispatchException.Reason.INTERRUPTED, ((EdtDispatchException) failure).reason());
             release.countDown();
             drainEdt();
             assertFalse(ran.get(), "interrupted caller's queued task must skip its body");
@@ -135,17 +132,19 @@ class EdtDispatchTest {
         final CountDownLatch releaseBody = new CountDownLatch(1);
         final CountDownLatch callerDone = new CountDownLatch(1);
         final AtomicReference<Object> outcome = new AtomicReference<>();
-        final Thread caller = new Thread(() -> {
-            try {
-                outcome.set(EdtDispatch.call("slow-body", SHORT_ACCEPT, () -> {
-                    bodyStarted.countDown();
-                    await(releaseBody);
-                    return "finished";
-                }));
-            } finally {
-                callerDone.countDown();
-            }
-        }, "edt-dispatch-test-slow");
+        final Thread caller = new Thread(
+                () -> {
+                    try {
+                        outcome.set(EdtDispatch.call("slow-body", SHORT_ACCEPT, () -> {
+                            bodyStarted.countDown();
+                            await(releaseBody);
+                            return "finished";
+                        }));
+                    } finally {
+                        callerDone.countDown();
+                    }
+                },
+                "edt-dispatch-test-slow");
         caller.setDaemon(true);
         caller.start();
         try {
@@ -153,9 +152,8 @@ class EdtDispatchTest {
             // The accept bound has long expired but the caller must keep waiting once the
             // body has started: no timeout is legal after RUNNING.
             assertFalse(
-                callerDone.await(4 * SHORT_ACCEPT.toMillis(), TimeUnit.MILLISECONDS),
-                "caller must not time out after the task started"
-            );
+                    callerDone.await(4 * SHORT_ACCEPT.toMillis(), TimeUnit.MILLISECONDS),
+                    "caller must not time out after the task started");
             releaseBody.countDown();
             assertTrue(callerDone.await(5, TimeUnit.SECONDS));
             assertEquals("finished", outcome.get());
@@ -171,34 +169,32 @@ class EdtDispatchTest {
         final CountDownLatch callerDone = new CountDownLatch(1);
         final AtomicReference<Object> outcome = new AtomicReference<>();
         final AtomicBoolean interruptRestored = new AtomicBoolean();
-        final Thread caller = new Thread(() -> {
-            try {
-                outcome.set(EdtDispatch.call("deferred-interrupt", Duration.ofSeconds(30), () -> {
-                    bodyStarted.countDown();
-                    await(releaseBody);
-                    return "delivered";
-                }));
-            } finally {
-                interruptRestored.set(Thread.currentThread().isInterrupted());
-                callerDone.countDown();
-            }
-        }, "edt-dispatch-test-defer");
+        final Thread caller = new Thread(
+                () -> {
+                    try {
+                        outcome.set(EdtDispatch.call("deferred-interrupt", Duration.ofSeconds(30), () -> {
+                            bodyStarted.countDown();
+                            await(releaseBody);
+                            return "delivered";
+                        }));
+                    } finally {
+                        interruptRestored.set(Thread.currentThread().isInterrupted());
+                        callerDone.countDown();
+                    }
+                },
+                "edt-dispatch-test-defer");
         caller.setDaemon(true);
         caller.start();
         try {
             assertTrue(bodyStarted.await(5, TimeUnit.SECONDS));
             caller.interrupt();
             assertFalse(
-                callerDone.await(300, TimeUnit.MILLISECONDS),
-                "post-start interrupt must not abandon a running task"
-            );
+                    callerDone.await(300, TimeUnit.MILLISECONDS),
+                    "post-start interrupt must not abandon a running task");
             releaseBody.countDown();
             assertTrue(callerDone.await(5, TimeUnit.SECONDS));
             assertEquals("delivered", outcome.get());
-            assertTrue(
-                interruptRestored.get(),
-                "the deferred interrupt must be restored on the caller thread"
-            );
+            assertTrue(interruptRestored.get(), "the deferred interrupt must be restored on the caller thread");
         } finally {
             releaseBody.countDown();
         }
@@ -206,8 +202,8 @@ class EdtDispatchTest {
 
     @Test
     void postStartInterruptWithCompensationReleasesTheCaller() throws Exception {
-        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(),
-            "modal dialog handoff requires a visible AWT display");
+        Assumptions.assumeFalse(
+                GraphicsEnvironment.isHeadless(), "modal dialog handoff requires a visible AWT display");
         // A real modal Dialog blocks the EDT in a nested event pump that still dispatches
         // invokeLater work — the faithful stand-in for RuntimeChoiceDialogs.show(). A raw
         // latch wait would block the pump too and is the documented unrecoverable case.
@@ -230,27 +226,27 @@ class EdtDispatchTest {
                 }
             }
         };
-        final Thread caller = new Thread(() -> {
-            try {
-                EdtDispatch.call(
-                    "modal",
-                    Duration.ofSeconds(30),
-                    (Callable<Object>) () -> {
-                        final java.awt.Dialog modal =
-                            new java.awt.Dialog((java.awt.Frame) null, true);
-                        dialog.set(modal);
-                        bodyStarted.countDown();
-                        modal.setVisible(true);
-                        return "answer";
-                    },
-                    compensation
-                );
-            } catch (Throwable failure) {
-                outcome.set(failure);
-            } finally {
-                callerDone.countDown();
-            }
-        }, "edt-dispatch-test-modal");
+        final Thread caller = new Thread(
+                () -> {
+                    try {
+                        EdtDispatch.call(
+                                "modal",
+                                Duration.ofSeconds(30),
+                                (Callable<Object>) () -> {
+                                    final java.awt.Dialog modal = new java.awt.Dialog((java.awt.Frame) null, true);
+                                    dialog.set(modal);
+                                    bodyStarted.countDown();
+                                    modal.setVisible(true);
+                                    return "answer";
+                                },
+                                compensation);
+                    } catch (Throwable failure) {
+                        outcome.set(failure);
+                    } finally {
+                        callerDone.countDown();
+                    }
+                },
+                "edt-dispatch-test-modal");
         caller.setDaemon(true);
         caller.start();
         try {
@@ -259,14 +255,9 @@ class EdtDispatchTest {
             assertTrue(callerDone.await(10, TimeUnit.SECONDS));
             final Throwable failure = outcome.get();
             assertTrue(failure instanceof EdtDispatchException);
-            assertEquals(
-                EdtDispatchException.Reason.INTERRUPTED,
-                ((EdtDispatchException) failure).reason()
-            );
+            assertEquals(EdtDispatchException.Reason.INTERRUPTED, ((EdtDispatchException) failure).reason());
             assertTrue(
-                compensationThread.get().getName().contains("AWT-EventQueue"),
-                "compensation must run on the EDT"
-            );
+                    compensationThread.get().getName().contains("AWT-EventQueue"), "compensation must run on the EDT");
         } finally {
             final java.awt.Dialog modal = dialog.get();
             if (modal != null) {
@@ -279,19 +270,22 @@ class EdtDispatchTest {
     void taskFailuresPropagateUnchanged() {
         final IllegalArgumentException runtime = new IllegalArgumentException("boom");
         final IllegalArgumentException thrown = assertThrows(
-            IllegalArgumentException.class,
-            () -> EdtDispatch.call("runtime-failure", () -> { throw runtime; })
-        );
+                IllegalArgumentException.class,
+                () -> EdtDispatch.call("runtime-failure", () -> {
+                    throw runtime;
+                }));
         assertSame(runtime, thrown);
         final AssertionError error = new AssertionError("broken");
         assertThrows(
-            AssertionError.class,
-            () -> EdtDispatch.call("error-failure", () -> { throw error; })
-        );
+                AssertionError.class,
+                () -> EdtDispatch.call("error-failure", () -> {
+                    throw error;
+                }));
         assertThrows(
-            IllegalStateException.class,
-            () -> EdtDispatch.call("checked-failure", () -> { throw new Exception("checked"); })
-        );
+                IllegalStateException.class,
+                () -> EdtDispatch.call("checked-failure", () -> {
+                    throw new Exception("checked");
+                }));
     }
 
     @Test
@@ -304,17 +298,13 @@ class EdtDispatchTest {
         });
         assertTrue(wedged.await(5, TimeUnit.SECONDS));
         try {
-            assertThrows(
-                EdtDispatchException.class,
-                () -> EdtDispatch.call("first-timeout", SHORT_ACCEPT, () -> null)
-            );
+            assertThrows(EdtDispatchException.class, () -> EdtDispatch.call("first-timeout", SHORT_ACCEPT, () -> null));
             assertTrue(EdtDispatch.edtUnresponsiveForTesting(), "circuit must be tripped");
             // A second call while the EDT is still wedged uses the short unresponsive bound
             // and reports a distinguishable reason.
             final EdtDispatchException second = assertThrows(
-                EdtDispatchException.class,
-                () -> EdtDispatch.call("second-timeout", Duration.ofSeconds(30), () -> null)
-            );
+                    EdtDispatchException.class,
+                    () -> EdtDispatch.call("second-timeout", Duration.ofSeconds(30), () -> null));
             assertEquals(EdtDispatchException.Reason.EDT_UNRESPONSIVE, second.reason());
             release.countDown();
             drainEdt(); // lets the probe runnable execute and clear the circuit
@@ -338,20 +328,20 @@ class EdtDispatchTest {
             EdtDispatch.enterExitModeForTesting();
             final AtomicBoolean cleanupRan = new AtomicBoolean();
             final CountDownLatch cleanupCallerDone = new CountDownLatch(1);
-            final Thread cleaner = new Thread(() -> {
-                EdtDispatch.runEventually("exit-cleanup", () -> cleanupRan.set(true));
-                cleanupCallerDone.countDown();
-            }, "edt-dispatch-test-exit-cleanup");
+            final Thread cleaner = new Thread(
+                    () -> {
+                        EdtDispatch.runEventually("exit-cleanup", () -> cleanupRan.set(true));
+                        cleanupCallerDone.countDown();
+                    },
+                    "edt-dispatch-test-exit-cleanup");
             cleaner.setDaemon(true);
             cleaner.start();
             assertTrue(
-                cleanupCallerDone.await(5, TimeUnit.SECONDS),
-                "cleanup dispatch must not block during process exit"
-            );
+                    cleanupCallerDone.await(5, TimeUnit.SECONDS),
+                    "cleanup dispatch must not block during process exit");
             final EdtDispatchException failure = assertThrows(
-                EdtDispatchException.class,
-                () -> EdtDispatch.call("exit-call", Duration.ofSeconds(30), () -> null)
-            );
+                    EdtDispatchException.class,
+                    () -> EdtDispatch.call("exit-call", Duration.ofSeconds(30), () -> null));
             assertEquals(EdtDispatchException.Reason.EDT_UNRESPONSIVE, failure.reason());
             release.countDown();
             drainEdt();
@@ -373,10 +363,12 @@ class EdtDispatchTest {
         try {
             final AtomicInteger executions = new AtomicInteger();
             final CountDownLatch callerDone = new CountDownLatch(1);
-            final Thread caller = new Thread(() -> {
-                EdtDispatch.runEventually("cleanup", SHORT_ACCEPT, executions::incrementAndGet);
-                callerDone.countDown();
-            }, "edt-dispatch-test-eventual");
+            final Thread caller = new Thread(
+                    () -> {
+                        EdtDispatch.runEventually("cleanup", SHORT_ACCEPT, executions::incrementAndGet);
+                        callerDone.countDown();
+                    },
+                    "edt-dispatch-test-eventual");
             caller.setDaemon(true);
             caller.start();
             assertTrue(callerDone.await(5, TimeUnit.SECONDS), "caller must return on timeout");
@@ -393,32 +385,33 @@ class EdtDispatchTest {
     void runEventuallyPropagatesFailuresWhenTheCallerStillWaits() {
         final IllegalStateException failure = new IllegalStateException("cleanup broke");
         final IllegalStateException thrown = assertThrows(
-            IllegalStateException.class,
-            () -> EdtDispatch.runEventually("failing-cleanup", () -> { throw failure; })
-        );
+                IllegalStateException.class,
+                () -> EdtDispatch.runEventually("failing-cleanup", () -> {
+                    throw failure;
+                }));
         assertSame(failure, thrown);
     }
 
     @Test
     void abandonedTransitionOnlyAppliesToQueuedTasks() {
         final java.util.concurrent.atomic.AtomicInteger state =
-            new java.util.concurrent.atomic.AtomicInteger(EdtDispatch.QUEUED);
+                new java.util.concurrent.atomic.AtomicInteger(EdtDispatch.QUEUED);
         assertTrue(EdtDispatch.tryAbandon(state));
         assertEquals(EdtDispatch.ABANDONED, state.get());
 
         final java.util.concurrent.atomic.AtomicInteger running =
-            new java.util.concurrent.atomic.AtomicInteger(EdtDispatch.RUNNING);
+                new java.util.concurrent.atomic.AtomicInteger(EdtDispatch.RUNNING);
         assertFalse(EdtDispatch.tryAbandon(running), "a running task can never be abandoned");
         assertEquals(EdtDispatch.RUNNING, running.get());
 
         final java.util.concurrent.atomic.AtomicInteger done =
-            new java.util.concurrent.atomic.AtomicInteger(EdtDispatch.DONE);
+                new java.util.concurrent.atomic.AtomicInteger(EdtDispatch.DONE);
         assertFalse(EdtDispatch.tryAbandon(done));
         assertEquals(EdtDispatch.DONE, done.get());
     }
 
     private static void drainEdt() throws InterruptedException, InvocationTargetException {
-        SwingUtilities.invokeAndWait(() -> { });
+        SwingUtilities.invokeAndWait(() -> {});
     }
 
     private static void await(final CountDownLatch latch) {

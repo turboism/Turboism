@@ -1,9 +1,6 @@
 package dev.turboism.ui.panel;
 
 import dev.turboism.sdk.ui.PanelView;
-
-import javax.swing.JComponent;
-import javax.swing.Timer;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -13,6 +10,8 @@ import java.awt.RenderingHints;
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Optional;
+import javax.swing.JComponent;
+import javax.swing.Timer;
 
 /**
  * Runtime-owned Swing rendering of a {@link PanelView.Chart}: a compact
@@ -97,7 +96,8 @@ final class ChartComponent extends JComponent {
             if (showTitle) {
                 g.drawString(chart.title(), 4, bandInset + metrics.getAscent());
             }
-            final ChartDataRegistry.ChartData data = ChartDataRegistry.find(chart.id()).orElse(null);
+            final ChartDataRegistry.ChartData data =
+                    ChartDataRegistry.find(chart.id()).orElse(null);
             if (data == null || !hasAnyValues(data)) {
                 g.drawString("no data", plotLeft + 4, valueBaseline);
                 return;
@@ -116,11 +116,13 @@ final class ChartComponent extends JComponent {
             }
             if (drewSeries) {
                 g.setColor(ChartSeriesColors.colorFor(chart.id(), 0));
-                final List<Double> first = seriesValues(
-                    data, chart.series().get(0), 0).orElse(List.of());
+                final List<Double> first =
+                        seriesValues(data, chart.series().get(0), 0).orElse(List.of());
                 if (!first.isEmpty()) {
-                    g.drawString(formatSeriesValue(chart.series().get(0), first.get(first.size() - 1)),
-                        plotLeft + 4, valueBaseline);
+                    g.drawString(
+                            formatSeriesValue(chart.series().get(0), first.get(first.size() - 1)),
+                            plotLeft + 4,
+                            valueBaseline);
                 }
             }
         } finally {
@@ -144,10 +146,7 @@ final class ChartComponent extends JComponent {
      * the published data so localized display names still resolve.
      */
     static Optional<List<Double>> seriesValues(
-        final ChartDataRegistry.ChartData data,
-        final PanelView.SeriesSpec spec,
-        final int index
-    ) {
+            final ChartDataRegistry.ChartData data, final PanelView.SeriesSpec spec, final int index) {
         for (ChartDataRegistry.ChartSeriesData series : data.series()) {
             if (series.name().equals(spec.name())) {
                 return Optional.of(series.values());
@@ -160,14 +159,13 @@ final class ChartComponent extends JComponent {
     }
 
     private void drawSeries(
-        final Graphics2D g,
-        final int left,
-        final int top,
-        final int right,
-        final int bottom,
-        final PanelView.SeriesSpec spec,
-        final List<Double> values
-    ) {
+            final Graphics2D g,
+            final int left,
+            final int top,
+            final int right,
+            final int bottom,
+            final PanelView.SeriesSpec spec,
+            final List<Double> values) {
         double max = 1.0;
         final int window = Math.min(spec.maxPoints(), values.size());
         for (int i = values.size() - window; i < values.size(); i++) {

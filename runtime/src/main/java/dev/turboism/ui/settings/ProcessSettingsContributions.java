@@ -7,8 +7,7 @@ import java.util.WeakHashMap;
 public final class ProcessSettingsContributions {
     private static final Map<Object, SettingsContributionStore> STORES = new WeakHashMap<>();
 
-    private ProcessSettingsContributions() {
-    }
+    private ProcessSettingsContributions() {}
 
     /**
      * Returns the process-shared contribution store for one host session.

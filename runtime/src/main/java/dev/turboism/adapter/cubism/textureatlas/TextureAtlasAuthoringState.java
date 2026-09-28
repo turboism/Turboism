@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.textureatlas;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -11,14 +10,13 @@ import java.util.Set;
 
 /** Runtime/provider boundary state; no raw host object crosses it. */
 public record TextureAtlasAuthoringState(
-    String documentId,
-    String modelId,
-    String atlasId,
-    long revision,
-    TextureAtlasLayoutConstraints constraints,
-    List<TextureAtlasLayoutItem> items,
-    TextureAtlasLayoutPlan currentPlan
-) {
+        String documentId,
+        String modelId,
+        String atlasId,
+        long revision,
+        TextureAtlasLayoutConstraints constraints,
+        List<TextureAtlasLayoutItem> items,
+        TextureAtlasLayoutPlan currentPlan) {
     public TextureAtlasAuthoringState {
         documentId = requireText(documentId, "documentId");
         modelId = requireText(modelId, "modelId");

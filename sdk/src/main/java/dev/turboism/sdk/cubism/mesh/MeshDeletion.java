@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-
 import java.util.List;
 import java.util.Objects;
 
@@ -13,11 +12,7 @@ import java.util.Objects;
  * never request override resolution.</p>
  */
 public record MeshDeletion(
-    List<MeshPointRef> points,
-    List<MeshEdgeRef> edges,
-    MirrorAxisState mirrorAxis,
-    MeshSnapshot mesh
-) {
+        List<MeshPointRef> points, List<MeshEdgeRef> edges, MirrorAxisState mirrorAxis, MeshSnapshot mesh) {
 
     public MeshDeletion {
         points = List.copyOf(Objects.requireNonNull(points, "points"));

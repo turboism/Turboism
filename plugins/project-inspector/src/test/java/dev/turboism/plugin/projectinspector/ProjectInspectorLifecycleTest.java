@@ -1,5 +1,11 @@
 package dev.turboism.plugin.projectinspector;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.hostread.AsyncHostReadError;
@@ -17,9 +23,6 @@ import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.WindowConstants;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.time.Instant;
@@ -31,12 +34,8 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.WindowConstants;
+import org.junit.jupiter.api.Test;
 
 class ProjectInspectorLifecycleTest {
 
@@ -213,10 +212,7 @@ class ProjectInspectorLifecycleTest {
         final Fixture fixture = new Fixture();
         fixture.ui.invokeAndWaitFailure = new InterruptedException("private interruption");
 
-        final IllegalStateException failure = assertThrows(
-            IllegalStateException.class,
-            fixture.plugin::disable
-        );
+        final IllegalStateException failure = assertThrows(IllegalStateException.class, fixture.plugin::disable);
 
         assertEquals("Project Inspector window disposal failed.", failure.getMessage());
         assertTrue(Thread.currentThread().isInterrupted());
@@ -226,14 +222,10 @@ class ProjectInspectorLifecycleTest {
     @Test
     void invocationFailurePropagatesStableFailureThroughDisposableScope() {
         final Fixture fixture = new Fixture();
-        fixture.ui.invokeAndWaitFailure = new InvocationTargetException(
-            new IllegalStateException("private /home/user selector")
-        );
+        fixture.ui.invokeAndWaitFailure =
+                new InvocationTargetException(new IllegalStateException("private /home/user selector"));
 
-        final IllegalStateException failure = assertThrows(
-            IllegalStateException.class,
-            fixture.scope::close
-        );
+        final IllegalStateException failure = assertThrows(IllegalStateException.class, fixture.scope::close);
 
         assertEquals("Project Inspector window disposal failed.", failure.getMessage());
         assertTrue(failure.getCause() instanceof InvocationTargetException);
@@ -263,11 +255,10 @@ class ProjectInspectorLifecycleTest {
         fixture.ui.runNext();
         assertSame(real, fixture.ui.view.snapshot);
         assertFalse(fixture.logger.infos.stream().anyMatch(message -> message.contains(secret)));
-        assertTrue(fixture.logger.infos.stream().anyMatch(message ->
-            message.contains("projectPresent=true")
-                && message.contains("workspacePresent=true")
-                && message.contains("documents=0")
-        ));
+        assertTrue(fixture.logger.infos.stream()
+                .anyMatch(message -> message.contains("projectPresent=true")
+                        && message.contains("workspacePresent=true")
+                        && message.contains("documents=0")));
 
         final ControlledHandle failure = fixture.host.accepted();
         fixture.ui.view.refresh();
@@ -280,14 +271,10 @@ class ProjectInspectorLifecycleTest {
     }
 
     private static ProjectWorkspaceSnapshot snapshot(
-        final String projectId,
-        final String projectName,
-        final String workspaceName
-    ) {
+            final String projectId, final String projectName, final String workspaceName) {
         return new ProjectWorkspaceSnapshot(
-            Optional.of(new ProjectSnapshot(projectId, projectName, Optional.empty(), List.of())),
-            Optional.of(new WorkspaceSnapshot("workspace-id", workspaceName, "workspace", List.of(projectId)))
-        );
+                Optional.of(new ProjectSnapshot(projectId, projectName, Optional.empty(), List.of())),
+                Optional.of(new WorkspaceSnapshot("workspace-id", workspaceName, "workspace", List.of(projectId))));
     }
 
     private static final class Fixture {
@@ -300,18 +287,17 @@ class ProjectInspectorLifecycleTest {
         private Fixture() {
             final PluginLocalization localization = new FakeLocalization();
             final PluginContext context = (PluginContext) Proxy.newProxyInstance(
-                PluginContext.class.getClassLoader(),
-                new Class<?>[] {PluginContext.class},
-                (proxy, method, args) -> switch (method.getName()) {
-                    case "hostReads" -> host;
-                    case "localization" -> localization;
-                    case "logger" -> logger;
-                    case "disposableScope" -> scope;
-                    case "permissions" -> List.of();
-                    case "toString" -> "FakePluginContext";
-                    default -> null;
-                }
-            );
+                    PluginContext.class.getClassLoader(),
+                    new Class<?>[] {PluginContext.class},
+                    (proxy, method, args) -> switch (method.getName()) {
+                        case "hostReads" -> host;
+                        case "localization" -> localization;
+                        case "logger" -> logger;
+                        case "disposableScope" -> scope;
+                        case "permissions" -> List.of();
+                        case "toString" -> "FakePluginContext";
+                        default -> null;
+                    });
             plugin.init(context);
         }
     }
@@ -336,8 +322,7 @@ class ProjectInspectorLifecycleTest {
         }
 
         @Override
-        public void invokeAndWait(final Runnable action)
-            throws InterruptedException, InvocationTargetException {
+        public void invokeAndWait(final Runnable action) throws InterruptedException, InvocationTargetException {
             invokeAndWaitCount++;
             if (invokeAndWaitFailure instanceof InterruptedException interrupted) {
                 throw interrupted;
@@ -353,9 +338,7 @@ class ProjectInspectorLifecycleTest {
 
         @Override
         public ProjectInspectorPlugin.InspectorView create(
-            final PluginLocalization localization,
-            final Runnable refreshAction
-        ) {
+                final PluginLocalization localization, final Runnable refreshAction) {
             createCount++;
             view.refreshAction = refreshAction;
             view.localization = localization;
@@ -387,22 +370,33 @@ class ProjectInspectorLifecycleTest {
             refreshAction.run();
         }
 
-        @Override public void showAndFront() {}
-        @Override public void showReading() {}
-        @Override public void showSnapshot(final ProjectWorkspaceSnapshot value, final Instant refreshedAt) {
+        @Override
+        public void showAndFront() {}
+
+        @Override
+        public void showReading() {}
+
+        @Override
+        public void showSnapshot(final ProjectWorkspaceSnapshot value, final Instant refreshedAt) {
             snapshot = value;
         }
-        @Override public void showUnavailable(final Instant refreshedAt) {
+
+        @Override
+        public void showUnavailable(final Instant refreshedAt) {
             unavailableCount++;
             unavailableText = localization.text("status.unavailable");
         }
-        @Override public void dispose() { disposed = true; }
+
+        @Override
+        public void dispose() {
+            disposed = true;
+        }
     }
 
     private static final class FakeHostReads implements AsyncHostReadService {
         private final Queue<AsyncHostReadSubmission> submissions = new ArrayDeque<>();
         private final List<AsyncHostReadRequest> requests = new ArrayList<>();
-        private Runnable afterSubmit = () -> { };
+        private Runnable afterSubmit = () -> {};
 
         private ControlledHandle accepted() {
             return handle(AsyncHostReadSubmissionStatus.ACCEPTED);
@@ -414,10 +408,7 @@ class ProjectInspectorLifecycleTest {
 
         private void coalesceWith(final ControlledHandle handle) {
             submissions.add(new AsyncHostReadSubmission(
-                AsyncHostReadSubmissionStatus.COALESCED,
-                Optional.of(handle),
-                Optional.empty()
-            ));
+                    AsyncHostReadSubmissionStatus.COALESCED, Optional.of(handle), Optional.empty()));
         }
 
         private ControlledHandle handle(final AsyncHostReadSubmissionStatus status) {
@@ -428,10 +419,9 @@ class ProjectInspectorLifecycleTest {
 
         private void rejected(final AsyncHostReadErrorCode code) {
             submissions.add(new AsyncHostReadSubmission(
-                AsyncHostReadSubmissionStatus.REJECTED,
-                Optional.empty(),
-                Optional.of(new AsyncHostReadError(code, "rejected"))
-            ));
+                    AsyncHostReadSubmissionStatus.REJECTED,
+                    Optional.empty(),
+                    Optional.of(new AsyncHostReadError(code, "rejected"))));
         }
 
         @Override
@@ -453,36 +443,82 @@ class ProjectInspectorLifecycleTest {
 
         private void completeFailure(final AsyncHostReadErrorCode code) {
             completion.complete(new AsyncHostReadResult(
-                intent(),
-                AsyncHostReadStatus.FAILED,
-                Optional.empty(),
-                Optional.of(new AsyncHostReadError(code, "failed"))
-            ));
+                    intent(),
+                    AsyncHostReadStatus.FAILED,
+                    Optional.empty(),
+                    Optional.of(new AsyncHostReadError(code, "failed"))));
         }
 
-        @Override public AsyncHostReadIntent intent() { return AsyncHostReadIntent.PROJECT_WORKSPACE_SNAPSHOT; }
-        @Override public AsyncHostReadStatus status() { return AsyncHostReadStatus.QUEUED; }
-        @Override public boolean cancel() { canceled = true; return true; }
-        @Override public CompletionStage<AsyncHostReadResult> completion() { return completion; }
-        @Override public void close() { cancel(); }
+        @Override
+        public AsyncHostReadIntent intent() {
+            return AsyncHostReadIntent.PROJECT_WORKSPACE_SNAPSHOT;
+        }
+
+        @Override
+        public AsyncHostReadStatus status() {
+            return AsyncHostReadStatus.QUEUED;
+        }
+
+        @Override
+        public boolean cancel() {
+            canceled = true;
+            return true;
+        }
+
+        @Override
+        public CompletionStage<AsyncHostReadResult> completion() {
+            return completion;
+        }
+
+        @Override
+        public void close() {
+            cancel();
+        }
     }
 
     private static final class FakeLocalization implements PluginLocalization {
-        @Override public Locale locale() { return Locale.ENGLISH; }
-        @Override public String text(final String key) {
+        @Override
+        public Locale locale() {
+            return Locale.ENGLISH;
+        }
+
+        @Override
+        public String text(final String key) {
             return key.equals("status.unavailable") ? "Unavailable" : key;
         }
-        @Override public String format(final String key, final Object... arguments) { return text(key); }
-        @Override public boolean contains(final String key) { return true; }
+
+        @Override
+        public String format(final String key, final Object... arguments) {
+            return text(key);
+        }
+
+        @Override
+        public boolean contains(final String key) {
+            return true;
+        }
     }
 
     private static final class RecordingLogger implements PluginLogger {
         private final List<String> infos = new ArrayList<>();
         private final List<String> warns = new ArrayList<>();
-        @Override public void debug(final String message) {}
-        @Override public void info(final String message) { infos.add(message); }
-        @Override public void warn(final String message) { warns.add(message); }
-        @Override public void error(final String message) {}
-        @Override public void error(final String message, final Throwable throwable) {}
+
+        @Override
+        public void debug(final String message) {}
+
+        @Override
+        public void info(final String message) {
+            infos.add(message);
+        }
+
+        @Override
+        public void warn(final String message) {
+            warns.add(message);
+        }
+
+        @Override
+        public void error(final String message) {}
+
+        @Override
+        public void error(final String message, final Throwable throwable) {}
     }
 }

@@ -28,44 +28,40 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
     private boolean installed;
     private boolean bound;
     private boolean closed;
-    private Runnable capabilityRevocation = () -> { };
+    private Runnable capabilityRevocation = () -> {};
 
     VerifiedWarpAltMirrorHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final Path hostArtifact,
-        final WarpAltMirrorHostProfile profile
-    ) {
-        this(instrumentation, hostClassLoader, hostArtifact, profile, ignored -> { });
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final Path hostArtifact,
+            final WarpAltMirrorHostProfile profile) {
+        this(instrumentation, hostClassLoader, hostArtifact, profile, ignored -> {});
     }
 
     VerifiedWarpAltMirrorHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final Path hostArtifact,
-        final WarpAltMirrorHostProfile profile,
-        final Consumer<String> diagnostic
-    ) {
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final Path hostArtifact,
+            final WarpAltMirrorHostProfile profile,
+            final Consumer<String> diagnostic) {
         this(instrumentation, hostClassLoader, hostArtifact, profile, Map.of(), diagnostic);
     }
 
     VerifiedWarpAltMirrorHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final Path hostArtifact,
-        final WarpAltMirrorHostProfile profile,
-        final Map<String, String> pinnedClassSha256,
-        final Consumer<String> diagnostic
-    ) {
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final Path hostArtifact,
+            final WarpAltMirrorHostProfile profile,
+            final Map<String, String> pinnedClassSha256,
+            final Consumer<String> diagnostic) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
         this.transformer = new WarpAltMirrorNativeMethodTransformer(
-            profile,
-            hostClassLoader,
-            hostArtifact == null ? null : hostArtifact.toAbsolutePath().normalize(),
-            pinnedClassSha256,
-            this::report
-        );
+                profile,
+                hostClassLoader,
+                hostArtifact == null ? null : hostArtifact.toAbsolutePath().normalize(),
+                pinnedClassSha256,
+                this::report);
         this.pointMoveClassName = profile.pointMoveOwner().replace('/', '.');
         this.dragTickClassName = profile.dragTickOwner().replace('/', '.');
     }
@@ -122,21 +118,21 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                     currentName = name;
                     final Class<?> defined = Class.forName(name, false, loader);
                     if (defined.getClassLoader() != loader) {
-                        throw new IllegalStateException(
-                            "warp alt mirror lazy target loader mismatch: " + name);
+                        throw new IllegalStateException("warp alt mirror lazy target loader mismatch: " + name);
                     }
                 }
             } catch (ClassNotFoundException | LinkageError failure) {
                 throw new IllegalStateException(
-                    "warp alt mirror lazy target definition failed for " + currentName, failure);
+                        "warp alt mirror lazy target definition failed for " + currentName, failure);
             }
             if (transformer.admittedClassLoader() == null) {
                 throw new IllegalStateException("warp alt mirror host loader is not admitted");
             }
-            if (!transformer.transformedOwners().containsAll(List.of(
-                pointMoveClassName.replace('.', '/'), dragTickClassName.replace('.', '/')))) {
+            if (!transformer
+                    .transformedOwners()
+                    .containsAll(List.of(pointMoveClassName.replace('.', '/'), dragTickClassName.replace('.', '/')))) {
                 throw new IllegalStateException(
-                    "warp alt mirror required targets were not transformed: outcome=" + transformer.outcome());
+                        "warp alt mirror required targets were not transformed: outcome=" + transformer.outcome());
             }
         }
     }
@@ -185,15 +181,21 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             closed = true;
             transformer.deactivate();
             final List<Throwable> failures = new ArrayList<>();
-            try { capabilityRevocation.run(); }
-            catch (Throwable failure) {
-                FatalErrors.rethrowIfFatal(failure); failures.add(failure); }
-            capabilityRevocation = () -> { };
+            try {
+                capabilityRevocation.run();
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                failures.add(failure);
+            }
+            capabilityRevocation = () -> {};
             if (bound) {
                 bound = false;
-                try { NativeWarpAltMirrorBridge.uninstall(); }
-                catch (Throwable failure) {
-                    FatalErrors.rethrowIfFatal(failure); failures.add(failure); }
+                try {
+                    NativeWarpAltMirrorBridge.uninstall();
+                } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
+                    failures.add(failure);
+                }
             }
             if (installed) {
                 installed = false;
@@ -202,7 +204,9 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                         failures.add(new IllegalStateException("warp transformer removal was not confirmed"));
                     }
                 } catch (Throwable failure) {
-                    FatalErrors.rethrowIfFatal(failure); failures.add(failure); }
+                    FatalErrors.rethrowIfFatal(failure);
+                    failures.add(failure);
+                }
                 restoreLoadedTargets(failures);
             }
             report("WARP_ALT_MIRROR_DIAG stage=HOOK_CLOSED");
@@ -220,7 +224,8 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
         if (owner == null || transformed.isEmpty()) return;
         try {
             for (final Class<?> type : instrumentation.getAllLoadedClasses()) {
-                if (type.getClassLoader() != owner || !transformed.contains(type.getName().replace('.', '/'))) {
+                if (type.getClassLoader() != owner
+                        || !transformed.contains(type.getName().replace('.', '/'))) {
                     continue;
                 }
                 try {
@@ -246,8 +251,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
         for (final String name : List.of(pointMoveClassName, dragTickClassName)) {
             for (final Class<?> type : instrumentation.getAllLoadedClasses()) {
                 if (name.equals(type.getName())) {
-                    throw new IllegalStateException(
-                        "warp alt mirror target is already loaded: " + name);
+                    throw new IllegalStateException("warp alt mirror target is already loaded: " + name);
                 }
             }
         }

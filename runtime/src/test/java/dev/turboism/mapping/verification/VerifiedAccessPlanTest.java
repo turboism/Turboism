@@ -1,40 +1,25 @@
 package dev.turboism.mapping.verification;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
 
 class VerifiedAccessPlanTest {
 
     @Test
     void exposesOnlyAliasesBackedByAnAllVerifiedReport() {
         StaticSelector selector = StaticSelector.method(
-            "fixture.value",
-            "fixture/Host",
-            "value",
-            "()Ljava/lang/String;",
-            StaticSelector.ACCESS_PUBLIC
-        );
-        HostArtifactFingerprint fingerprint = new HostArtifactFingerprint(
-            "5.3.02",
-            100,
-            "a".repeat(64)
-        );
+                "fixture.value", "fixture/Host", "value", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC);
+        HostArtifactFingerprint fingerprint = new HostArtifactFingerprint("5.3.02", 100, "a".repeat(64));
         StaticVerificationRecord record = record(fingerprint, selector);
         StaticVerificationReport report = new StaticVerificationReport(
-            fingerprint,
-            fingerprint,
-            true,
-            List.of(new StaticSelectorResult(
-                selector,
-                StaticVerificationStatus.VERIFIED_STATIC,
-                "verified"
-            ))
-        );
+                fingerprint,
+                fingerprint,
+                true,
+                List.of(new StaticSelectorResult(selector, StaticVerificationStatus.VERIFIED_STATIC, "verified")));
 
         VerifiedAccessPlan plan = VerifiedAccessPlan.from(record, report);
 
@@ -45,31 +30,17 @@ class VerifiedAccessPlanTest {
     @Test
     void rejectsSameAliasWhenSelectorTupleWasSubstituted() {
         StaticSelector verifiedSelector = StaticSelector.method(
-            "fixture.value",
-            "verified/Host",
-            "value",
-            "()Ljava/lang/String;",
-            StaticSelector.ACCESS_PUBLIC
-        );
+                "fixture.value", "verified/Host", "value", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC);
         StaticSelector substitutedSelector = StaticSelector.method(
-            "fixture.value",
-            "other/Host",
-            "otherValue",
-            "()Ljava/lang/String;",
-            StaticSelector.ACCESS_PUBLIC
-        );
+                "fixture.value", "other/Host", "otherValue", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC);
         HostArtifactFingerprint fingerprint = new HostArtifactFingerprint("5.3.02", 100, "a".repeat(64));
         StaticVerificationRecord record = record(fingerprint, substitutedSelector);
         StaticVerificationReport report = new StaticVerificationReport(
-            fingerprint,
-            new HostArtifactFingerprint("artifact-version-unattested", 100, "a".repeat(64)),
-            true,
-            List.of(new StaticSelectorResult(
-                verifiedSelector,
-                StaticVerificationStatus.VERIFIED_STATIC,
-                "verified"
-            ))
-        );
+                fingerprint,
+                new HostArtifactFingerprint("artifact-version-unattested", 100, "a".repeat(64)),
+                true,
+                List.of(new StaticSelectorResult(
+                        verifiedSelector, StaticVerificationStatus.VERIFIED_STATIC, "verified")));
 
         assertThrows(IllegalArgumentException.class, () -> VerifiedAccessPlan.from(record, report));
     }
@@ -81,37 +52,29 @@ class VerifiedAccessPlanTest {
         HostArtifactFingerprint actual = new HostArtifactFingerprint("5.3.02", 100, "b".repeat(64));
         StaticVerificationRecord record = record(expected, selector);
         StaticVerificationReport report = new StaticVerificationReport(
-            expected,
-            actual,
-            false,
-            List.of(new StaticSelectorResult(
-                selector,
-                StaticVerificationStatus.ARTIFACT_MISMATCH,
-                "mismatch"
-            ))
-        );
+                expected,
+                actual,
+                false,
+                List.of(new StaticSelectorResult(selector, StaticVerificationStatus.ARTIFACT_MISMATCH, "mismatch")));
 
         assertThrows(IllegalArgumentException.class, () -> VerifiedAccessPlan.from(record, report));
     }
 
     private static StaticVerificationRecord record(
-        final HostArtifactFingerprint fingerprint,
-        final StaticSelector selector
-    ) {
+            final HostArtifactFingerprint fingerprint, final StaticSelector selector) {
         return new StaticVerificationRecord(
-            "fixture.static",
-            "adapter.project-workspace.readonly",
-            List.of("cubism.project.read"),
-            java.util.Map.of("cubism.project.read", java.util.List.of("structure")),
-            "5.3.02",
-            "cubism-5.3.02",
-            fingerprint,
-            "docs/migration/verification/static/fixture.json",
-            "runtime-adapter",
-            "test",
-            Instant.parse("2026-07-10T00:00:00Z"),
-            "Fail closed.",
-            List.of(selector)
-        );
+                "fixture.static",
+                "adapter.project-workspace.readonly",
+                List.of("cubism.project.read"),
+                java.util.Map.of("cubism.project.read", java.util.List.of("structure")),
+                "5.3.02",
+                "cubism-5.3.02",
+                fingerprint,
+                "docs/migration/verification/static/fixture.json",
+                "runtime-adapter",
+                "test",
+                Instant.parse("2026-07-10T00:00:00Z"),
+                "Fail closed.",
+                List.of(selector));
     }
 }

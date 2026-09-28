@@ -2,16 +2,15 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
-import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterBindingTargetType;
 import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
-
-import java.util.EnumSet;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,30 +47,25 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorParameterBindingBatchAccess(
-        final VerifiedMemberResolver resolver,
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final CurrentGuard currentGuard,
-        final TargetLookup targetLookup,
-        final ParameterSourceLookup parameterSourceLookup
-    ) {
-        this(
-            resolver, identity, modelSource, model,
-            currentGuard, targetLookup, parameterSourceLookup, null
-        );
+            final VerifiedMemberResolver resolver,
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final CurrentGuard currentGuard,
+            final TargetLookup targetLookup,
+            final ParameterSourceLookup parameterSourceLookup) {
+        this(resolver, identity, modelSource, model, currentGuard, targetLookup, parameterSourceLookup, null);
     }
 
     EditorParameterBindingBatchAccess(
-        final VerifiedMemberResolver resolver,
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final CurrentGuard currentGuard,
-        final TargetLookup targetLookup,
-        final ParameterSourceLookup parameterSourceLookup,
-        final EditorAuthoringTransactionCoordinator authoringCoordinator
-    ) {
+            final VerifiedMemberResolver resolver,
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final CurrentGuard currentGuard,
+            final TargetLookup targetLookup,
+            final ParameterSourceLookup parameterSourceLookup,
+            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.identity = Objects.requireNonNull(identity, "identity");
         this.modelSource = Objects.requireNonNull(modelSource, "modelSource");
@@ -93,9 +87,8 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     private void invertOnEdt(final List<ParameterBindingTarget> targets) {
         final List<ParameterBindingTarget> selected = targets(targets);
         requireAuthorized(
-            EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
-            EditorParameterBindingBatchWriteSelectorContract.INVERT_MUTATION_REQUIRED_ALIASES
-        );
+                EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
+                EditorParameterBindingBatchWriteSelectorContract.INVERT_MUTATION_REQUIRED_ALIASES);
         final Map<ParameterBindingTarget, List<Object>> guids = new LinkedHashMap<>();
         for (ParameterBindingTarget target : selected) {
             final Object source = targetLookup.find(identity, modelSource, model, target);
@@ -103,26 +96,20 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
             guids.put(target, boundParameterGuids(grid));
         }
         if (guids.values().stream().allMatch(List::isEmpty)) return;
-        final Map<ParameterBindingTarget, List<String>> beforeKeyformOrders =
-            tracedInvertKeyformOrders(selected);
+        final Map<ParameterBindingTarget, List<String>> beforeKeyformOrders = tracedInvertKeyformOrders(selected);
         mutate("Invert Parameter Bindings", selected, (grid, target) -> {
             for (Object guid : guids.get(target)) {
                 resolver.invoke("cubism.editor-model.keyform-grid.reverse-parameter", grid, guid);
             }
         });
-        final Map<ParameterBindingTarget, List<String>> afterKeyformOrders =
-            tracedInvertKeyformOrders(selected);
+        final Map<ParameterBindingTarget, List<String>> afterKeyformOrders = tracedInvertKeyformOrders(selected);
         traceInvertOrders(beforeKeyformOrders, afterKeyformOrders);
     }
 
-    Map<ParameterBindingTarget, List<String>> keyformOrders(
-        final List<ParameterBindingTarget> targets
-    ) {
+    Map<ParameterBindingTarget, List<String>> keyformOrders(final List<ParameterBindingTarget> targets) {
         requireAuthorized(
-            EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
-            EditorParameterBindingBatchWriteSelectorContract
-                .INVERT_VALIDATION_OBSERVATION_ALIASES
-        );
+                EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
+                EditorParameterBindingBatchWriteSelectorContract.INVERT_VALIDATION_OBSERVATION_ALIASES);
         return keyformOrdersUnchecked(targets(targets));
     }
 
@@ -145,8 +132,7 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
             final Object grid = resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", source);
             requireTransferAllowed(grid, sourceGuid, targetGuid);
         }
-        final Map<ParameterBindingTarget, List<String>> beforeBindings =
-            tracedTransferBindings(selected);
+        final Map<ParameterBindingTarget, List<String>> beforeBindings = tracedTransferBindings(selected);
         mutate("Transfer Parameter Bindings", selected, (grid, ignored) -> {
             resolver.invoke("cubism.editor-model.keyform-grid.change-parameter", grid, sourceGuid, targetGuid);
             if (plan.invertAfterTransfer()) {
@@ -156,32 +142,22 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         traceTransferBindings(beforeBindings, tracedTransferBindings(selected));
     }
 
-    Map<ParameterBindingTarget, List<String>> bindingParameterIds(
-        final List<ParameterBindingTarget> targets
-    ) {
+    Map<ParameterBindingTarget, List<String>> bindingParameterIds(final List<ParameterBindingTarget> targets) {
         requireAuthorized(EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID);
         return bindingParameterIdsUnchecked(targets(targets));
     }
 
-    Map<ParameterBindingTarget, List<String>> keyformOrdersForTransfer(
-        final List<ParameterBindingTarget> targets
-    ) {
+    Map<ParameterBindingTarget, List<String>> keyformOrdersForTransfer(final List<ParameterBindingTarget> targets) {
         requireAuthorized(
-            EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
-            EditorParameterBindingBatchWriteSelectorContract
-                .CLAMPED_TRANSFER_VALIDATION_OBSERVATION_ALIASES
-        );
+                EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+                EditorParameterBindingBatchWriteSelectorContract.CLAMPED_TRANSFER_VALIDATION_OBSERVATION_ALIASES);
         return keyformOrdersUnchecked(targets(targets));
     }
 
-    Map<ParameterBindingTarget, List<String>> morphOrdersForTransfer(
-        final List<ParameterBindingTarget> targets
-    ) {
+    Map<ParameterBindingTarget, List<String>> morphOrdersForTransfer(final List<ParameterBindingTarget> targets) {
         requireAuthorized(
-            EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
-            EditorParameterBindingBatchWriteSelectorContract
-                .MORPH_TRANSFER_VALIDATION_OBSERVATION_ALIASES
-        );
+                EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+                EditorParameterBindingBatchWriteSelectorContract.MORPH_TRANSFER_VALIDATION_OBSERVATION_ALIASES);
         return morphOrdersUnchecked(targets(targets));
     }
 
@@ -196,7 +172,9 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     private void transferClampedOnEdt(final ParameterBindingTransferPlan plan) {
         Objects.requireNonNull(plan, "plan");
         final List<ParameterBindingTarget> selected = targets(plan.targets());
-        requireAuthorized(EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID, EditorParameterBindingBatchWriteSelectorContract.REQUIRED_ALIASES);
+        requireAuthorized(
+                EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+                EditorParameterBindingBatchWriteSelectorContract.REQUIRED_ALIASES);
         currentGuard.requireCurrent(identity, model);
         final Object sourceGuid = parameterGuid(plan.sourceParameterId());
         final Object targetGuid = parameterGuid(plan.targetParameterId());
@@ -212,21 +190,18 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         for (ParameterBindingTarget target : selected) {
             final Object source = targetLookup.find(identity, modelSource, model, target);
             final Object grid = resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", source);
-            final Object sourceBinding = resolver.invoke(
-                "cubism.editor-model.keyform-grid.find-binding", grid, sourceGuid
-            );
+            final Object sourceBinding =
+                    resolver.invoke("cubism.editor-model.keyform-grid.find-binding", grid, sourceGuid);
             if (sourceBinding == null) {
                 throw new IllegalStateException("The target is not bound to the source parameter.");
             }
-            final Object targetBinding = resolver.invoke(
-                "cubism.editor-model.keyform-grid.find-binding", grid, targetGuid
-            );
+            final Object targetBinding =
+                    resolver.invoke("cubism.editor-model.keyform-grid.find-binding", grid, targetGuid);
             if (targetBinding != null) {
                 throw new IllegalStateException("The target is already bound to the destination parameter.");
             }
-            final List<Float> before = keyValues(resolver.invoke(
-                "cubism.editor-model.keyform-binding.keys", sourceBinding
-            ));
+            final List<Float> before =
+                    keyValues(resolver.invoke("cubism.editor-model.keyform-binding.keys", sourceBinding));
             if (before.isEmpty()) {
                 throw new IllegalStateException("The source binding has no keyform values.");
             }
@@ -234,18 +209,14 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
             final ArrayList<Float> mapped = new ArrayList<>(before.size());
             for (float value : before) {
                 final float requested = plan.invertAfterTransfer()
-                    ? sourceRange.minimum() + sourceRange.maximum() - value + 0.0F
-                    : value;
+                        ? sourceRange.minimum() + sourceRange.maximum() - value + 0.0F
+                        : value;
                 final float mappedValue;
                 if (remaps) {
                     // Linear remap from the source range into the destination range, then clamp.
                     final float ratio = (requested - sourceRange.minimum()) / sourceSpan;
                     final float targetSpan = range.maximum() - range.minimum();
-                    mappedValue = clamp(
-                        range.minimum() + ratio * targetSpan,
-                        range.minimum(),
-                        range.maximum()
-                    );
+                    mappedValue = clamp(range.minimum() + ratio * targetSpan, range.minimum(), range.maximum());
                 } else {
                     mappedValue = requested;
                 }
@@ -261,26 +232,21 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
             transfers.put(target, new ClampedTransfer(before, List.copyOf(mapped)));
         }
 
-        final Map<ParameterBindingTarget, List<String>> beforeBindings =
-            tracedTransferBindings(selected);
+        final Map<ParameterBindingTarget, List<String>> beforeBindings = tracedTransferBindings(selected);
         final Map<ParameterBindingTarget, List<String>> beforeKeyformOrders =
-            tracedClampedTransferKeyformOrders(selected);
+                tracedClampedTransferKeyformOrders(selected);
         mutate("Transfer Parameter Bindings", selected, (grid, target) -> {
             final ClampedTransfer transfer = Objects.requireNonNull(transfers.get(target), "transfer");
             resolver.invoke("cubism.editor-model.keyform-grid.change-parameter", grid, sourceGuid, targetGuid);
             resolver.invoke(
-                "cubism.editor-model.keyform-grid.rearrange-keys",
-                grid,
-                targetGuid,
-                transfer.before(),
-                transfer.mapped()
-            );
+                    "cubism.editor-model.keyform-grid.rearrange-keys",
+                    grid,
+                    targetGuid,
+                    transfer.before(),
+                    transfer.mapped());
         });
         traceTransferBindings(beforeBindings, tracedTransferBindings(selected));
-        traceClampedTransferOrders(
-            beforeKeyformOrders,
-            tracedClampedTransferKeyformOrders(selected)
-        );
+        traceClampedTransferOrders(beforeKeyformOrders, tracedClampedTransferKeyformOrders(selected));
     }
 
     @Override
@@ -295,9 +261,8 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         Objects.requireNonNull(plan, "plan");
         final List<ParameterBindingTarget> selected = targets(plan.targets());
         requireAuthorized(
-            EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
-            EditorParameterBindingBatchWriteSelectorContract.MORPH_TRANSFER_REQUIRED_ALIASES
-        );
+                EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+                EditorParameterBindingBatchWriteSelectorContract.MORPH_TRANSFER_REQUIRED_ALIASES);
         currentGuard.requireCurrent(identity, model);
         requireMorphParameter(plan.sourceParameterId(), "source");
         requireMorphParameter(plan.targetParameterId(), "destination");
@@ -311,21 +276,17 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         // Read and validate every Morph Target before opening the single Editor edit.
         for (ParameterBindingTarget target : selected) {
             final Object objectSource = targetLookup.find(identity, modelSource, model, target);
-            final Object keyformGrid = resolver.invoke(
-                "cubism.editor-model.parameter-controllable.keyform-grid", objectSource
-            );
+            final Object keyformGrid =
+                    resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", objectSource);
             if (resolver.invoke("cubism.editor-model.keyform-grid.find-binding", keyformGrid, targetGuid) != null) {
                 throw new IllegalStateException("The target is already bound to the destination parameter.");
             }
-            final Object morphSet = resolver.invoke(
-                "cubism.editor-model.parameter-controllable.morph-target-set", objectSource
-            );
+            final Object morphSet =
+                    resolver.invoke("cubism.editor-model.parameter-controllable.morph-target-set", objectSource);
             if (!resolver.isInstance("cubism.editor-model.morph-target-set.class", morphSet)) {
                 throw new IllegalStateException("Editor Morph Target set is unavailable.");
             }
-            final Object rawTargets = resolver.invoke(
-                "cubism.editor-model.morph-target-set.morph-targets", morphSet
-            );
+            final Object rawTargets = resolver.invoke("cubism.editor-model.morph-target-set.morph-targets", morphSet);
             if (!(rawTargets instanceof List<?> morphTargets)) {
                 throw new IllegalStateException("Editor Morph Target collection is unavailable.");
             }
@@ -361,112 +322,99 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
             transfers.put(target, List.copyOf(mapped));
         }
 
-        final Map<ParameterBindingTarget, List<String>> beforeMorphOrders =
-            tracedMorphTransferOrders(selected);
-        final int admittedUndoCount = mutateMorph(
-            "Transfer Morph Target Bindings", selected, transfers
-        );
-        traceMorphTransferOrders(
-            beforeMorphOrders,
-            tracedMorphTransferOrders(selected),
-            admittedUndoCount
-        );
+        final Map<ParameterBindingTarget, List<String>> beforeMorphOrders = tracedMorphTransferOrders(selected);
+        final int admittedUndoCount = mutateMorph("Transfer Morph Target Bindings", selected, transfers);
+        traceMorphTransferOrders(beforeMorphOrders, tracedMorphTransferOrders(selected), admittedUndoCount);
     }
 
     private int mutateMorph(
-        final String action,
-        final List<ParameterBindingTarget> targets,
-        final Map<ParameterBindingTarget, List<MorphTransfer>> transfers
-    ) {
+            final String action,
+            final List<ParameterBindingTarget> targets,
+            final Map<ParameterBindingTarget, List<MorphTransfer>> transfers) {
         EditorHostThread.requireHostThread("Cubism parameter binding batch write");
         currentGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         final boolean traceMorphTransfer = "Transfer Morph Target Bindings".equals(action)
-            && Boolean.getBoolean("turboism.validation.editorParameterBindingMorphTrace");
+                && Boolean.getBoolean("turboism.validation.editorParameterBindingMorphTrace");
         final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
         if (ambientJoin.isPresent()) {
             final int[] admitted = {0};
-            ambientJoin.orElseThrow().admit(
-                "cubism.parameter-binding.mutate-morph",
-                "binding-batch:morph:" + action,
-                "Turboism: " + action,
-                (edit, transactionLabel) -> {
-                    final Object listener = resolver.createFunctionalProxy(
-                        "cubism.editor-model.undo-listener.class",
-                        ignored -> {
-                            resolver.invoke(
-                                "cubism.editor-model.model-source.update-instances", modelSource);
-                            refresh(app, targets);
-                            return null;
-                        });
-                    final Object listenerAccepted = resolver.invoke(
-                        "cubism.editor-model.undo.add-listener", edit, listener);
-                    if (!(listenerAccepted instanceof Boolean lv) || !lv) {
-                        throw new IllegalStateException(
-                            "Cubism rejected the Morph Target group Undo listener.");
-                    }
-                    final Object utils = resolver.readStaticField(
-                        "cubism.editor-model.morph-target-utils.instance");
-                    for (ParameterBindingTarget target : targets) {
-                        for (MorphTransfer transfer : Objects.requireNonNull(
-                            transfers.get(target), "transfer")) {
-                            // Construct-and-redo: applies the binding change and returns the Undo.
-                            final Object undo = resolver.invoke(
-                                "cubism.editor-model.morph-target.change-parameter",
-                                utils, transfer.morphTarget(), transfer.targetGuid(),
-                                Float.valueOf(transfer.mapped()));
-                            HostUndoMutationScope.requireUndoAccepted(
-                                resolver.invoke("cubism.editor-model.undo.add", edit, undo,
-                                    Boolean.TRUE), "Morph Target");
-                            admitted[0]++;
-                        }
-                    }
-                },
-                () -> { },
-                () -> true,
-                batchRequirements(targets)
-            );
+            ambientJoin
+                    .orElseThrow()
+                    .admit(
+                            "cubism.parameter-binding.mutate-morph",
+                            "binding-batch:morph:" + action,
+                            "Turboism: " + action,
+                            (edit, transactionLabel) -> {
+                                final Object listener = resolver.createFunctionalProxy(
+                                        "cubism.editor-model.undo-listener.class", ignored -> {
+                                            resolver.invoke(
+                                                    "cubism.editor-model.model-source.update-instances", modelSource);
+                                            refresh(app, targets);
+                                            return null;
+                                        });
+                                final Object listenerAccepted =
+                                        resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener);
+                                if (!(listenerAccepted instanceof Boolean lv) || !lv) {
+                                    throw new IllegalStateException(
+                                            "Cubism rejected the Morph Target group Undo listener.");
+                                }
+                                final Object utils =
+                                        resolver.readStaticField("cubism.editor-model.morph-target-utils.instance");
+                                for (ParameterBindingTarget target : targets) {
+                                    for (MorphTransfer transfer :
+                                            Objects.requireNonNull(transfers.get(target), "transfer")) {
+                                        // Construct-and-redo: applies the binding change and returns the Undo.
+                                        final Object undo = resolver.invoke(
+                                                "cubism.editor-model.morph-target.change-parameter",
+                                                utils,
+                                                transfer.morphTarget(),
+                                                transfer.targetGuid(),
+                                                Float.valueOf(transfer.mapped()));
+                                        HostUndoMutationScope.requireUndoAccepted(
+                                                resolver.invoke(
+                                                        "cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
+                                                "Morph Target");
+                                        admitted[0]++;
+                                    }
+                                }
+                            },
+                            () -> {},
+                            () -> true,
+                            batchRequirements(targets));
             currentGuard.requireCurrent(identity, model);
             return admitted[0];
         }
         EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, "Parameter binding batch " + action
-        );
+                authoringCoordinator, "Parameter binding batch " + action);
         final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
         final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Turboism: " + action);
         boolean completed = false;
         int admittedUndoCount = 0;
         try {
-            final Object listener = resolver.createFunctionalProxy(
-                "cubism.editor-model.undo-listener.class",
-                ignored -> {
-                    resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
-                    refresh(app, targets);
-                    if (traceMorphTransfer) {
-                        traceMorphTransferSnapshot(morphOrdersUnchecked(targets));
-                    }
-                    return null;
-                }
-            );
-            final Object listenerAccepted = resolver.invoke(
-                "cubism.editor-model.undo.add-listener", edit, listener
-            );
+            final Object listener =
+                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                        resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+                        refresh(app, targets);
+                        if (traceMorphTransfer) {
+                            traceMorphTransferSnapshot(morphOrdersUnchecked(targets));
+                        }
+                        return null;
+                    });
+            final Object listenerAccepted = resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener);
             if (!(listenerAccepted instanceof Boolean listenerValue) || !listenerValue) {
-                throw new IllegalStateException(
-                    "Cubism rejected the Morph Target group Undo listener."
-                );
+                throw new IllegalStateException("Cubism rejected the Morph Target group Undo listener.");
             }
             final Object utils = resolver.readStaticField("cubism.editor-model.morph-target-utils.instance");
             for (ParameterBindingTarget target : targets) {
                 for (MorphTransfer transfer : Objects.requireNonNull(transfers.get(target), "transfer")) {
                     final Object undo = resolver.invoke(
-                        "cubism.editor-model.morph-target.change-parameter",
-                        utils,
-                        transfer.morphTarget(),
-                        transfer.targetGuid(),
-                        Float.valueOf(transfer.mapped())
-                    );
+                            "cubism.editor-model.morph-target.change-parameter",
+                            utils,
+                            transfer.morphTarget(),
+                            transfer.targetGuid(),
+                            Float.valueOf(transfer.mapped()));
                     final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
                     if (!(accepted instanceof Boolean value) || !value) {
                         throw new IllegalStateException("Cubism rejected the Morph Target Undo entry.");
@@ -479,18 +427,14 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
         } finally {
-            resolver.invoke(
-                "cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null
-            );
+            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
         }
         currentGuard.requireCurrent(identity, model);
         return admittedUndoCount;
     }
 
     private Object parameterSourceSet() {
-        final Object set = resolver.invoke(
-            "cubism.editor-model.model-source.parameter-source-set", modelSource
-        );
+        final Object set = resolver.invoke("cubism.editor-model.model-source.parameter-source-set", modelSource);
         if (!resolver.isInstance("cubism.editor-model.parameter-source-set.class", set)) {
             throw new IllegalStateException("Editor parameter source collection is unavailable.");
         }
@@ -498,15 +442,12 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     }
 
     private ParameterId morphParameterId(final Object parameterSources, final Object morphTarget) {
-        final Object parameterGuid = resolver.invoke(
-            "cubism.editor-model.morph-target.parameter-guid", morphTarget
-        );
+        final Object parameterGuid = resolver.invoke("cubism.editor-model.morph-target.parameter-guid", morphTarget);
         if (parameterGuid == null) {
             throw new IllegalStateException("Editor Morph Target parameter is unavailable.");
         }
-        final Object parameterSource = resolver.invoke(
-            "cubism.editor-model.parameter-source-set.get", parameterSources, parameterGuid
-        );
+        final Object parameterSource =
+                resolver.invoke("cubism.editor-model.parameter-source-set.get", parameterSources, parameterGuid);
         if (parameterSource == null) {
             throw new IllegalStateException("Editor Morph Target parameter is outside the active model.");
         }
@@ -531,114 +472,99 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     }
 
     private void requireTransferAllowed(final Object grid, final Object sourceGuid, final Object targetGuid) {
-        final Object sourceBinding = resolver.invoke(
-            "cubism.editor-model.keyform-grid.find-binding", grid, sourceGuid
-        );
+        final Object sourceBinding = resolver.invoke("cubism.editor-model.keyform-grid.find-binding", grid, sourceGuid);
         if (sourceBinding == null) {
             throw new IllegalStateException("The target is not bound to the source parameter.");
         }
-        final Object targetBinding = resolver.invoke(
-            "cubism.editor-model.keyform-grid.find-binding", grid, targetGuid
-        );
+        final Object targetBinding = resolver.invoke("cubism.editor-model.keyform-grid.find-binding", grid, targetGuid);
         if (targetBinding != null) {
             throw new IllegalStateException("The target is already bound to the destination parameter.");
         }
     }
 
-    private void mutate(
-        final String action,
-        final List<ParameterBindingTarget> targets,
-        final Mutation mutation
-    ) {
+    private void mutate(final String action, final List<ParameterBindingTarget> targets, final Mutation mutation) {
         EditorHostThread.requireHostThread("Cubism parameter binding batch write");
         currentGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         final boolean traceInvert = "Invert Parameter Bindings".equals(action)
-            && Boolean.getBoolean("turboism.editorObjectValidation.trace");
+                && Boolean.getBoolean("turboism.editorObjectValidation.trace");
         final boolean traceTransfer = "Transfer Parameter Bindings".equals(action)
-            && Boolean.getBoolean("turboism.editorObjectValidation.trace");
-        final boolean traceClampedTransfer = traceTransfer
-            && Boolean.getBoolean("turboism.validation.editorParameterBindingClampedTrace");
+                && Boolean.getBoolean("turboism.editorObjectValidation.trace");
+        final boolean traceClampedTransfer =
+                traceTransfer && Boolean.getBoolean("turboism.validation.editorParameterBindingClampedTrace");
         final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
         if (ambientJoin.isPresent()) {
             final Map<ParameterBindingTarget, Object> grids = new java.util.LinkedHashMap<>();
-            ambientJoin.orElseThrow().admit(
-                "cubism.parameter-binding.mutate-batch",
-                "binding-batch:" + action,
-                "Turboism: " + action,
-                (edit, transactionLabel) -> {
-                    for (ParameterBindingTarget target : targets) {
-                        final Object source = targetLookup.find(
-                            identity, modelSource, model, target);
-                        grids.put(target, resolver.invoke(
-                            "cubism.editor-model.parameter-controllable.keyform-grid", source));
-                        final Object handler = resolver.invoke(
-                            "cubism.editor-model.parameter-controllable-source.handler", source);
-                        final Object undo = resolver.invoke(
-                            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-                            handler, "Turboism: " + action);
-                        HostUndoMutationScope.requireUndoAccepted(
-                            resolver.invoke("cubism.editor-model.undo.add", edit, undo,
-                                Boolean.TRUE), "parameter-binding");
-                        final Object listener = resolver.createFunctionalProxy(
-                            "cubism.editor-model.undo-listener.class",
-                            ignored -> {
-                                refresh(app, targets);
-                                return null;
-                            });
-                        resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-                    }
-                },
-                () -> targets.forEach(target -> mutation.apply(grids.get(target), target)),
-                () -> true,
-                batchRequirements(targets)
-            );
+            ambientJoin
+                    .orElseThrow()
+                    .admit(
+                            "cubism.parameter-binding.mutate-batch",
+                            "binding-batch:" + action,
+                            "Turboism: " + action,
+                            (edit, transactionLabel) -> {
+                                for (ParameterBindingTarget target : targets) {
+                                    final Object source = targetLookup.find(identity, modelSource, model, target);
+                                    grids.put(
+                                            target,
+                                            resolver.invoke(
+                                                    "cubism.editor-model.parameter-controllable.keyform-grid", source));
+                                    final Object handler = resolver.invoke(
+                                            "cubism.editor-model.parameter-controllable-source.handler", source);
+                                    final Object undo = resolver.invoke(
+                                            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                                            handler,
+                                            "Turboism: " + action);
+                                    HostUndoMutationScope.requireUndoAccepted(
+                                            resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
+                                            "parameter-binding");
+                                    final Object listener = resolver.createFunctionalProxy(
+                                            "cubism.editor-model.undo-listener.class", ignored -> {
+                                                refresh(app, targets);
+                                                return null;
+                                            });
+                                    resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                                }
+                            },
+                            () -> targets.forEach(target -> mutation.apply(grids.get(target), target)),
+                            () -> true,
+                            batchRequirements(targets));
             currentGuard.requireCurrent(identity, model);
             return;
         }
         EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, "Parameter binding batch " + action
-        );
+                authoringCoordinator, "Parameter binding batch " + action);
         final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
         final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Turboism: " + action);
         boolean completed = false;
         try {
             for (ParameterBindingTarget target : targets) {
                 final Object source = targetLookup.find(identity, modelSource, model, target);
-                final Object grid = resolver.invoke(
-                    "cubism.editor-model.parameter-controllable.keyform-grid", source
-                );
-                final Object handler = resolver.invoke(
-                    "cubism.editor-model.parameter-controllable-source.handler", source
-                );
+                final Object grid = resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", source);
+                final Object handler =
+                        resolver.invoke("cubism.editor-model.parameter-controllable-source.handler", source);
                 final Object undo = resolver.invoke(
-                    "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-                    handler,
-                    "Turboism: " + action
-                );
-                final Object accepted = resolver.invoke(
-                    "cubism.editor-model.undo.add", edit, undo, Boolean.TRUE
-                );
+                        "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                        handler,
+                        "Turboism: " + action);
+                final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
                 if (!(accepted instanceof Boolean value) || !value) {
                     throw new IllegalStateException("Cubism rejected the parameter-binding Undo entry.");
                 }
-                final Object listener = resolver.createFunctionalProxy(
-                    "cubism.editor-model.undo-listener.class",
-                    ignored -> {
-                        refresh(app, targets);
-                        if (traceInvert) {
-                            traceInvertSnapshot(keyformOrdersUnchecked(targets));
-                        }
-                        if (traceTransfer) {
-                            traceTransferSnapshot(bindingParameterIdsUnchecked(targets));
-                        }
-                        if (traceClampedTransfer) {
-                            traceClampedTransferSnapshot(keyformOrdersUnchecked(targets));
-                        }
-                        return null;
-                    }
-                );
+                final Object listener =
+                        resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                            refresh(app, targets);
+                            if (traceInvert) {
+                                traceInvertSnapshot(keyformOrdersUnchecked(targets));
+                            }
+                            if (traceTransfer) {
+                                traceTransferSnapshot(bindingParameterIdsUnchecked(targets));
+                            }
+                            if (traceClampedTransfer) {
+                                traceClampedTransferSnapshot(keyformOrdersUnchecked(targets));
+                            }
+                            return null;
+                        });
                 resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
                 mutation.apply(grid, target);
             }
@@ -646,9 +572,7 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
         } finally {
-            resolver.invoke(
-                "cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null
-            );
+            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
         }
         currentGuard.requireCurrent(identity, model);
     }
@@ -658,28 +582,24 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         if (!(value instanceof List<?> bindings)) {
             throw new IllegalStateException("Editor parameter bindings are not a list.");
         }
-        return bindings.stream().map(binding -> resolver.invoke(
-            "cubism.editor-model.keyform-binding.parameter-guid", binding
-        )).toList();
+        return bindings.stream()
+                .map(binding -> resolver.invoke("cubism.editor-model.keyform-binding.parameter-guid", binding))
+                .toList();
     }
 
     private Map<ParameterBindingTarget, List<String>> tracedInvertKeyformOrders(
-        final List<ParameterBindingTarget> targets
-    ) {
+            final List<ParameterBindingTarget> targets) {
         if (!Boolean.getBoolean("turboism.editorObjectValidation.trace")) {
             return Map.of();
         }
         requireAuthorized(
-            EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
-            EditorParameterBindingBatchWriteSelectorContract
-                .INVERT_VALIDATION_OBSERVATION_ALIASES
-        );
+                EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
+                EditorParameterBindingBatchWriteSelectorContract.INVERT_VALIDATION_OBSERVATION_ALIASES);
         return keyformOrdersUnchecked(targets);
     }
 
     private Map<ParameterBindingTarget, List<String>> tracedTransferBindings(
-        final List<ParameterBindingTarget> targets
-    ) {
+            final List<ParameterBindingTarget> targets) {
         if (!Boolean.getBoolean("turboism.editorObjectValidation.trace")) {
             return Map.of();
         }
@@ -687,8 +607,7 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     }
 
     private Map<ParameterBindingTarget, List<String>> tracedClampedTransferKeyformOrders(
-        final List<ParameterBindingTarget> targets
-    ) {
+            final List<ParameterBindingTarget> targets) {
         if (!Boolean.getBoolean("turboism.validation.editorParameterBindingClampedTrace")) {
             return Map.of();
         }
@@ -696,54 +615,41 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     }
 
     private Map<ParameterBindingTarget, List<String>> tracedMorphTransferOrders(
-        final List<ParameterBindingTarget> targets
-    ) {
+            final List<ParameterBindingTarget> targets) {
         if (!Boolean.getBoolean("turboism.validation.editorParameterBindingMorphTrace")) {
             return Map.of();
         }
         return morphOrdersUnchecked(targets);
     }
 
-    private Map<ParameterBindingTarget, List<String>> morphOrdersUnchecked(
-        final List<ParameterBindingTarget> targets
-    ) {
+    private Map<ParameterBindingTarget, List<String>> morphOrdersUnchecked(final List<ParameterBindingTarget> targets) {
         final Object parameterSources = parameterSourceSet();
         final LinkedHashMap<ParameterBindingTarget, List<String>> orders = new LinkedHashMap<>();
         for (ParameterBindingTarget target : targets) {
             final Object objectSource = targetLookup.find(identity, modelSource, model, target);
-            final Object morphSet = resolver.invoke(
-                "cubism.editor-model.parameter-controllable.morph-target-set", objectSource
-            );
+            final Object morphSet =
+                    resolver.invoke("cubism.editor-model.parameter-controllable.morph-target-set", objectSource);
             if (!resolver.isInstance("cubism.editor-model.morph-target-set.class", morphSet)) {
                 throw new IllegalStateException("Editor Morph Target set is unavailable.");
             }
-            final Object rawTargets = resolver.invoke(
-                "cubism.editor-model.morph-target-set.morph-targets", morphSet
-            );
+            final Object rawTargets = resolver.invoke("cubism.editor-model.morph-target-set.morph-targets", morphSet);
             if (!(rawTargets instanceof List<?> morphTargets)) {
                 throw new IllegalStateException("Editor Morph Target collection is unavailable.");
             }
             final ArrayList<String> order = new ArrayList<>(morphTargets.size());
             for (Object morphTarget : morphTargets) {
                 if (!resolver.isInstance("cubism.editor-model.morph-target.class", morphTarget)) {
-                    throw new IllegalStateException(
-                        "Editor Morph Target collection contains an invalid value."
-                    );
+                    throw new IllegalStateException("Editor Morph Target collection contains an invalid value.");
                 }
-                final Object keyformGuid = resolver.invoke(
-                    "cubism.editor-model.morph-target.keyform-guid", morphTarget
-                );
-                final Object keyformText = resolver.invoke(
-                    "cubism.editor-model.form-guid.value", keyformGuid
-                );
+                final Object keyformGuid =
+                        resolver.invoke("cubism.editor-model.morph-target.keyform-guid", morphTarget);
+                final Object keyformText = resolver.invoke("cubism.editor-model.form-guid.value", keyformGuid);
                 if (!(keyformText instanceof String keyform) || keyform.isBlank()) {
                     throw new IllegalStateException("Editor Morph Target keyform GUID is unavailable.");
                 }
                 final ParameterId parameterId = morphParameterId(parameterSources, morphTarget);
-                order.add(
-                    keyform + "|" + parameterId.value() + "|"
-                        + Integer.toUnsignedString(Float.floatToRawIntBits(morphKeyValue(morphTarget)))
-                );
+                order.add(keyform + "|" + parameterId.value() + "|"
+                        + Integer.toUnsignedString(Float.floatToRawIntBits(morphKeyValue(morphTarget))));
             }
             orders.put(target, List.copyOf(order));
         }
@@ -751,17 +657,13 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     }
 
     private Map<ParameterBindingTarget, List<String>> bindingParameterIdsUnchecked(
-        final List<ParameterBindingTarget> targets
-    ) {
+            final List<ParameterBindingTarget> targets) {
         final LinkedHashMap<ParameterBindingTarget, List<String>> bindings = new LinkedHashMap<>();
         for (ParameterBindingTarget target : targets) {
             final Object source = targetLookup.find(identity, modelSource, model, target);
-            final Object grid = resolver.invoke(
-                "cubism.editor-model.parameter-controllable.keyform-grid", source
-            );
-            final List<String> parameterIds = boundParameterGuids(grid).stream()
-                .map(this::guidValue)
-                .toList();
+            final Object grid = resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", source);
+            final List<String> parameterIds =
+                    boundParameterGuids(grid).stream().map(this::guidValue).toList();
             bindings.put(target, parameterIds);
         }
         return Map.copyOf(bindings);
@@ -776,31 +678,24 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     }
 
     private Map<ParameterBindingTarget, List<String>> keyformOrdersUnchecked(
-        final List<ParameterBindingTarget> targets
-    ) {
+            final List<ParameterBindingTarget> targets) {
         final LinkedHashMap<ParameterBindingTarget, List<String>> orders = new LinkedHashMap<>();
         for (ParameterBindingTarget target : targets) {
             final Object source = targetLookup.find(identity, modelSource, model, target);
-            final Object grid = resolver.invoke(
-                "cubism.editor-model.parameter-controllable.keyform-grid", source
-            );
+            final Object grid = resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", source);
             orders.put(target, keyformOrder(grid));
         }
         return Map.copyOf(orders);
     }
 
     private List<String> keyformOrder(final Object grid) {
-        final Object value = resolver.invoke(
-            "cubism.editor-model.keyform-grid.keyforms-on-grid", grid
-        );
+        final Object value = resolver.invoke("cubism.editor-model.keyform-grid.keyforms-on-grid", grid);
         if (!(value instanceof List<?> keyforms)) {
             throw new IllegalStateException("Editor native keyform order is not a list.");
         }
         final ArrayList<String> order = new ArrayList<>(keyforms.size());
         for (Object keyform : keyforms) {
-            final Object guid = resolver.invoke(
-                "cubism.editor-model.keyform-on-grid.form-guid", keyform
-            );
+            final Object guid = resolver.invoke("cubism.editor-model.keyform-on-grid.form-guid", keyform);
             final Object text = resolver.invoke("cubism.editor-model.form-guid.value", guid);
             if (!(text instanceof String valueAsString) || valueAsString.isBlank()) {
                 throw new IllegalStateException("Editor native keyform GUID is unavailable.");
@@ -811,23 +706,14 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     }
 
     private static void traceInvertOrders(
-        final Map<ParameterBindingTarget, List<String>> before,
-        final Map<ParameterBindingTarget, List<String>> after
-    ) {
+            final Map<ParameterBindingTarget, List<String>> before,
+            final Map<ParameterBindingTarget, List<String>> after) {
         writeInvertTrace(
-            "before=" + before + System.lineSeparator()
-                + "after=" + after + System.lineSeparator(),
-            false
-        );
+                "before=" + before + System.lineSeparator() + "after=" + after + System.lineSeparator(), false);
     }
 
-    private static void traceInvertSnapshot(
-        final Map<ParameterBindingTarget, List<String>> snapshot
-    ) {
-        writeInvertTrace(
-            "snapshot=" + snapshot + System.lineSeparator(),
-            true
-        );
+    private static void traceInvertSnapshot(final Map<ParameterBindingTarget, List<String>> snapshot) {
+        writeInvertTrace("snapshot=" + snapshot + System.lineSeparator(), true);
     }
 
     private static void writeInvertTrace(final String evidence, final boolean append) {
@@ -835,24 +721,15 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     }
 
     private static void traceTransferBindings(
-        final Map<ParameterBindingTarget, List<String>> before,
-        final Map<ParameterBindingTarget, List<String>> after
-    ) {
+            final Map<ParameterBindingTarget, List<String>> before,
+            final Map<ParameterBindingTarget, List<String>> after) {
         if (before.isEmpty() && after.isEmpty()) return;
         writeTransferTrace(
-            "before=" + before + System.lineSeparator()
-                + "after=" + after + System.lineSeparator(),
-            false
-        );
+                "before=" + before + System.lineSeparator() + "after=" + after + System.lineSeparator(), false);
     }
 
-    private static void traceTransferSnapshot(
-        final Map<ParameterBindingTarget, List<String>> snapshot
-    ) {
-        writeTransferTrace(
-            "snapshot=" + snapshot + System.lineSeparator(),
-            true
-        );
+    private static void traceTransferSnapshot(final Map<ParameterBindingTarget, List<String>> snapshot) {
+        writeTransferTrace("snapshot=" + snapshot + System.lineSeparator(), true);
     }
 
     private static void writeTransferTrace(final String evidence, final boolean append) {
@@ -860,92 +737,60 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     }
 
     private static void traceClampedTransferOrders(
-        final Map<ParameterBindingTarget, List<String>> before,
-        final Map<ParameterBindingTarget, List<String>> after
-    ) {
+            final Map<ParameterBindingTarget, List<String>> before,
+            final Map<ParameterBindingTarget, List<String>> after) {
         if (before.isEmpty() && after.isEmpty()) return;
         writeClampedTransferTrace(
-            "before=" + before + System.lineSeparator()
-                + "after=" + after + System.lineSeparator(),
-            false
-        );
+                "before=" + before + System.lineSeparator() + "after=" + after + System.lineSeparator(), false);
     }
 
-    private static void traceClampedTransferSnapshot(
-        final Map<ParameterBindingTarget, List<String>> snapshot
-    ) {
-        writeClampedTransferTrace(
-            "snapshot=" + snapshot + System.lineSeparator(),
-            true
-        );
+    private static void traceClampedTransferSnapshot(final Map<ParameterBindingTarget, List<String>> snapshot) {
+        writeClampedTransferTrace("snapshot=" + snapshot + System.lineSeparator(), true);
     }
 
-    private static void writeClampedTransferTrace(
-        final String evidence,
-        final boolean append
-    ) {
-        writeValidationTrace(
-            "parameter-binding-clamped-transfer-native-order.txt",
-            evidence,
-            append
-        );
+    private static void writeClampedTransferTrace(final String evidence, final boolean append) {
+        writeValidationTrace("parameter-binding-clamped-transfer-native-order.txt", evidence, append);
     }
 
     private static void traceMorphTransferOrders(
-        final Map<ParameterBindingTarget, List<String>> before,
-        final Map<ParameterBindingTarget, List<String>> after,
-        final int admittedUndoCount
-    ) {
+            final Map<ParameterBindingTarget, List<String>> before,
+            final Map<ParameterBindingTarget, List<String>> after,
+            final int admittedUndoCount) {
         if (before.isEmpty() && after.isEmpty()) return;
         writeMorphTransferTrace(
-            "before=" + before + System.lineSeparator()
-                + "after=" + after + System.lineSeparator()
-                + "admittedUndoCount=" + admittedUndoCount + System.lineSeparator(),
-            false
-        );
+                "before=" + before + System.lineSeparator()
+                        + "after=" + after + System.lineSeparator()
+                        + "admittedUndoCount=" + admittedUndoCount + System.lineSeparator(),
+                false);
     }
 
-    private static void traceMorphTransferSnapshot(
-        final Map<ParameterBindingTarget, List<String>> snapshot
-    ) {
-        writeMorphTransferTrace(
-            "snapshot=" + snapshot + System.lineSeparator(),
-            true
-        );
+    private static void traceMorphTransferSnapshot(final Map<ParameterBindingTarget, List<String>> snapshot) {
+        writeMorphTransferTrace("snapshot=" + snapshot + System.lineSeparator(), true);
     }
 
     private static void writeMorphTransferTrace(final String evidence, final boolean append) {
         writeValidationTrace("parameter-binding-morph-transfer-native-order.txt", evidence, append);
     }
 
-    private static void writeValidationTrace(
-        final String fileName,
-        final String evidence,
-        final boolean append
-    ) {
+    private static void writeValidationTrace(final String fileName, final String evidence, final boolean append) {
         EditorObjectValidationTrace.writeArtifact(fileName, evidence, append);
     }
 
     private Object parameterGuid(final ParameterId parameterId) {
         return resolver.invoke(
-            "cubism.editor-model.parameter-source.guid",
-            parameterSourceLookup.find(model, parameterId)
-        );
+                "cubism.editor-model.parameter-source.guid", parameterSourceLookup.find(model, parameterId));
     }
 
     private void requireOrdinaryParameter(final ParameterId parameterId) {
         final Object source = parameterSourceLookup.find(model, parameterId);
         if (source == null) throw new IllegalStateException("The parameter source is unavailable.");
-        final Object morph = resolver.invoke(
-            "cubism.editor-model.parameter-source.morph-target", source
-        );
+        final Object morph = resolver.invoke("cubism.editor-model.parameter-source.morph-target", source);
         if (!(morph instanceof Boolean isMorphTarget)) {
             throw new IllegalStateException("The parameter type is unavailable.");
         }
         if (isMorphTarget) {
             throw new IllegalStateException(
-                "Clamped ordinary binding transfer cannot target a Morph Target parameter."
-            );
+                    "Clamped ordinary binding transfer cannot target a Morph Target parameter.");
         }
     }
 
@@ -954,28 +799,21 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         if (source == null) {
             throw new IllegalStateException("The Morph Target " + role + " parameter is unavailable.");
         }
-        final Object morph = resolver.invoke(
-            "cubism.editor-model.parameter-source.morph-target", source
-        );
+        final Object morph = resolver.invoke("cubism.editor-model.parameter-source.morph-target", source);
         if (!(morph instanceof Boolean isMorphTarget)) {
             throw new IllegalStateException("The Morph Target " + role + " type is unavailable.");
         }
         if (!isMorphTarget) {
             throw new IllegalStateException(
-                "Morph Target binding transfer requires a Morph Target " + role + " parameter."
-            );
+                    "Morph Target binding transfer requires a Morph Target " + role + " parameter.");
         }
     }
 
     private ParameterRange parameterRange(final ParameterId parameterId) {
         final Object source = parameterSourceLookup.find(model, parameterId);
         if (source == null) throw new IllegalStateException("The parameter source is unavailable.");
-        final float minimum = number(resolver.invoke(
-            "cubism.editor-model.parameter-source.minimum", source
-        ));
-        final float maximum = number(resolver.invoke(
-            "cubism.editor-model.parameter-source.maximum", source
-        ));
+        final float minimum = number(resolver.invoke("cubism.editor-model.parameter-source.minimum", source));
+        final float maximum = number(resolver.invoke("cubism.editor-model.parameter-source.maximum", source));
         if (!Float.isFinite(minimum) || !Float.isFinite(maximum) || minimum > maximum) {
             throw new IllegalStateException("The parameter range is invalid.");
         }
@@ -1035,20 +873,17 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     }
 
     private static java.util.Set<EditorRefreshRequirement> batchRequirements(
-        final List<ParameterBindingTarget> targets
-    ) {
+            final List<ParameterBindingTarget> targets) {
         final EnumSet<EditorRefreshRequirement> requirements = EnumSet.of(
-            EditorRefreshRequirement.MODEL_INSTANCES,
-            EditorRefreshRequirement.PARAMETER_PALETTE,
-            EditorRefreshRequirement.CANVAS,
-            EditorRefreshRequirement.MARK_DIRTY
-        );
+                EditorRefreshRequirement.MODEL_INSTANCES,
+                EditorRefreshRequirement.PARAMETER_PALETTE,
+                EditorRefreshRequirement.CANVAS,
+                EditorRefreshRequirement.MARK_DIRTY);
         for (ParameterBindingTarget target : targets) {
             requirements.add(
-                target.type() == ParameterBindingTargetType.ART_MESH
-                    ? EditorRefreshRequirement.PART_PALETTE
-                    : EditorRefreshRequirement.DEFORMER_PALETTE
-            );
+                    target.type() == ParameterBindingTargetType.ART_MESH
+                            ? EditorRefreshRequirement.PART_PALETTE
+                            : EditorRefreshRequirement.DEFORMER_PALETTE);
         }
         return requirements;
     }
@@ -1067,29 +902,22 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     }
 
     private void requireAuthorized(final String capabilityId) {
-        requireAuthorized(
-            capabilityId,
-            EditorParameterBindingBatchWriteSelectorContract.TRANSFER_REQUIRED_ALIASES
-        );
+        requireAuthorized(capabilityId, EditorParameterBindingBatchWriteSelectorContract.TRANSFER_REQUIRED_ALIASES);
     }
 
     private void requireAuthorized(final String capabilityId, final Set<String> aliases) {
         if (!resolver.authorizesFeature(
-            EditorParameterBindingBatchWriteSelectorContract.ADAPTER_SLICE_ID,
-            capabilityId,
-            aliases
-        )) {
+                EditorParameterBindingBatchWriteSelectorContract.ADAPTER_SLICE_ID, capabilityId, aliases)) {
             throw new UnsupportedOperationException(
-                "Editor parameter-binding batch writes require exact verified host evidence."
-            );
+                    "Editor parameter-binding batch writes require exact verified host evidence.");
         }
     }
 
-    private record ParameterRange(float minimum, float maximum) { }
+    private record ParameterRange(float minimum, float maximum) {}
 
-    private record ClampedTransfer(List<Float> before, List<Float> mapped) { }
+    private record ClampedTransfer(List<Float> before, List<Float> mapped) {}
 
-    private record MorphTransfer(Object morphTarget, Object targetGuid, float mapped) { }
+    private record MorphTransfer(Object morphTarget, Object targetGuid, float mapped) {}
 
     @FunctionalInterface
     private interface Mutation {

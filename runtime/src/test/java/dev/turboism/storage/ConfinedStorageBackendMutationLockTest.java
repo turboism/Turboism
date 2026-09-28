@@ -1,14 +1,16 @@
 package dev.turboism.storage;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.sdk.storage.StorageErrorCode;
 import dev.turboism.sdk.storage.StorageMutationResult;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.storage.StorageWriteResult;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -18,11 +20,8 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class ConfinedStorageBackendMutationLockTest {
 
@@ -35,11 +34,8 @@ class ConfinedStorageBackendMutationLockTest {
     void canonicalAliasesShareOneMutationLock() throws Exception {
         final Path sharedData = Files.createDirectory(temporary.resolve("data"));
         final Roots firstRoots = roots(sharedData);
-        final Roots secondRoots = new Roots(
-            sharedData.resolve(".").toAbsolutePath().normalize(),
-            firstRoots.state(),
-            firstRoots.cache()
-        );
+        final Roots secondRoots =
+                new Roots(sharedData.resolve(".").toAbsolutePath().normalize(), firstRoots.state(), firstRoots.cache());
         final CountDownLatch writeEnteredMover = new CountDownLatch(1);
         final CountDownLatch releaseWrite = new CountDownLatch(1);
         final ConfinedStorageBackend first = backend(firstRoots, (source, target, replaceExisting) -> {
@@ -51,15 +47,13 @@ class ConfinedStorageBackendMutationLockTest {
         final AtomicReference<StorageWriteResult> write = new AtomicReference<>();
         final AtomicReference<StorageWriteResult> aliasWrite = new AtomicReference<>();
 
-        final Thread writer = new Thread(
-            () -> write.set(first.writeBytesAtomic(path("first.txt"), bytes("first"), true))
-        );
+        final Thread writer =
+                new Thread(() -> write.set(first.writeBytesAtomic(path("first.txt"), bytes("first"), true)));
         writer.start();
         assertTrue(writeEnteredMover.await(2, TimeUnit.SECONDS));
 
-        final Thread aliasWriter = new Thread(
-            () -> aliasWrite.set(alias.writeBytesAtomic(path("second.txt"), bytes("second"), true))
-        );
+        final Thread aliasWriter =
+                new Thread(() -> aliasWrite.set(alias.writeBytesAtomic(path("second.txt"), bytes("second"), true)));
         aliasWriter.start();
         assertBlocked(aliasWriter, "canonical root alias must wait for the same lock");
 
@@ -89,18 +83,14 @@ class ConfinedStorageBackendMutationLockTest {
         final AtomicReference<StorageMutationResult> move = new AtomicReference<>();
         final AtomicReference<StorageMutationResult> delete = new AtomicReference<>();
 
-        final Thread writer = new Thread(
-            () -> write.set(first.writeBytesAtomic(path("target.txt"), bytes("written"), true))
-        );
+        final Thread writer =
+                new Thread(() -> write.set(first.writeBytesAtomic(path("target.txt"), bytes("written"), true)));
         writer.start();
         assertTrue(writeEnteredMover.await(2, TimeUnit.SECONDS));
 
-        final Thread mover = new Thread(
-            () -> move.set(second.moveAtomic(path("source.txt"), path("moved.txt"), false))
-        );
-        final Thread deleter = new Thread(
-            () -> delete.set(second.delete(path("source.txt"), false))
-        );
+        final Thread mover =
+                new Thread(() -> move.set(second.moveAtomic(path("source.txt"), path("moved.txt"), false)));
+        final Thread deleter = new Thread(() -> delete.set(second.delete(path("source.txt"), false)));
         mover.start();
         deleter.start();
         assertBlocked(mover, "competing move must wait for A's checkpoint lock");
@@ -120,28 +110,22 @@ class ConfinedStorageBackendMutationLockTest {
         final Roots roots = roots();
         final CountDownLatch cleanupEntered = new CountDownLatch(1);
         final CountDownLatch releaseCleanup = new CountDownLatch(1);
-        final ConfinedStorageBackend first = backend(
-            roots,
-            unsupportedMover(),
-            temporary -> {
-                cleanupEntered.countDown();
-                await(releaseCleanup);
-                return Files.deleteIfExists(temporary);
-            }
-        );
+        final ConfinedStorageBackend first = backend(roots, unsupportedMover(), temporary -> {
+            cleanupEntered.countDown();
+            await(releaseCleanup);
+            return Files.deleteIfExists(temporary);
+        });
         final ConfinedStorageBackend second = backend(roots, StorageAtomicMover::move);
         final AtomicReference<StorageWriteResult> failedWrite = new AtomicReference<>();
         final AtomicReference<StorageWriteResult> competingWrite = new AtomicReference<>();
 
-        final Thread writer = new Thread(
-            () -> failedWrite.set(first.writeBytesAtomic(path("failed.txt"), bytes("first"), true))
-        );
+        final Thread writer =
+                new Thread(() -> failedWrite.set(first.writeBytesAtomic(path("failed.txt"), bytes("first"), true)));
         writer.start();
         assertTrue(cleanupEntered.await(2, TimeUnit.SECONDS));
 
         final Thread contender = new Thread(
-            () -> competingWrite.set(second.writeBytesAtomic(path("second.txt"), bytes("second"), true))
-        );
+                () -> competingWrite.set(second.writeBytesAtomic(path("second.txt"), bytes("second"), true)));
         contender.start();
         assertBlocked(contender, "competing mutation entered before temporary cleanup completed");
 
@@ -150,9 +134,8 @@ class ConfinedStorageBackendMutationLockTest {
         join(contender);
 
         assertEquals(
-            StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE,
-            failedWrite.get().error().orElseThrow().code()
-        );
+                StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE,
+                failedWrite.get().error().orElseThrow().code());
         assertTrue(competingWrite.get().written());
         assertFalse(Files.exists(roots.data().resolve("failed.txt")));
         assertEquals("second", Files.readString(roots.data().resolve("second.txt")));
@@ -164,30 +147,21 @@ class ConfinedStorageBackendMutationLockTest {
         Files.writeString(roots.data().resolve("source.txt"), "source");
         final CountDownLatch cleanupEntered = new CountDownLatch(1);
         final CountDownLatch releaseCleanup = new CountDownLatch(1);
-        final ConfinedStorageBackend first = backend(
-            roots,
-            unsupportedMover(),
-            temporary -> {
-                cleanupEntered.countDown();
-                await(releaseCleanup);
-                return Files.deleteIfExists(temporary);
-            }
-        );
+        final ConfinedStorageBackend first = backend(roots, unsupportedMover(), temporary -> {
+            cleanupEntered.countDown();
+            await(releaseCleanup);
+            return Files.deleteIfExists(temporary);
+        });
         final ConfinedStorageBackend second = backend(roots, StorageAtomicMover::move);
         final AtomicReference<StorageMutationResult> failedCopy = new AtomicReference<>();
         final AtomicReference<StorageMutationResult> competingDelete = new AtomicReference<>();
 
-        final Thread copier = new Thread(() -> failedCopy.set(first.copy(
-            path("source.txt"),
-            path("failed.txt"),
-            true
-        )));
+        final Thread copier =
+                new Thread(() -> failedCopy.set(first.copy(path("source.txt"), path("failed.txt"), true)));
         copier.start();
         assertTrue(cleanupEntered.await(2, TimeUnit.SECONDS));
 
-        final Thread deleter = new Thread(
-            () -> competingDelete.set(second.delete(path("source.txt"), false))
-        );
+        final Thread deleter = new Thread(() -> competingDelete.set(second.delete(path("source.txt"), false)));
         deleter.start();
         assertBlocked(deleter, "competing mutation entered before temporary cleanup completed");
 
@@ -196,9 +170,8 @@ class ConfinedStorageBackendMutationLockTest {
         join(deleter);
 
         assertEquals(
-            StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE,
-            failedCopy.get().error().orElseThrow().code()
-        );
+                StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE,
+                failedCopy.get().error().orElseThrow().code());
         assertTrue(competingDelete.get().changed());
         assertFalse(Files.exists(roots.data().resolve("failed.txt")));
     }
@@ -214,9 +187,7 @@ class ConfinedStorageBackendMutationLockTest {
             StorageAtomicMover.move(source, target, replaceExisting);
         });
         final ConfinedStorageBackend waiter = backend(roots, StorageAtomicMover::move);
-        final Thread holderThread = new Thread(
-            () -> holder.writeBytesAtomic(path("held.txt"), new byte[] {1}, true)
-        );
+        final Thread holderThread = new Thread(() -> holder.writeBytesAtomic(path("held.txt"), new byte[] {1}, true));
         holderThread.start();
         assertTrue(writeEnteredMover.await(2, TimeUnit.SECONDS));
 
@@ -234,7 +205,8 @@ class ConfinedStorageBackendMutationLockTest {
         join(holderThread);
 
         assertNotNull(result.get());
-        assertEquals(StorageErrorCode.CANCELED, result.get().error().orElseThrow().code());
+        assertEquals(
+                StorageErrorCode.CANCELED, result.get().error().orElseThrow().code());
         assertTrue(interruptedStatus.get(), "interrupted status must be restored");
         assertFalse(Files.exists(roots.data().resolve("canceled.txt")));
     }
@@ -256,19 +228,17 @@ class ConfinedStorageBackendMutationLockTest {
                 ready.countDown();
                 await(start);
                 dataToState.set(first.copy(
-                    storagePath(StorageRoot.DATA, "data-source.txt"),
-                    storagePath(StorageRoot.STATE, "data-copy.txt"),
-                    false
-                ));
+                        storagePath(StorageRoot.DATA, "data-source.txt"),
+                        storagePath(StorageRoot.STATE, "data-copy.txt"),
+                        false));
             });
             final Thread reverse = new Thread(() -> {
                 ready.countDown();
                 await(start);
                 stateToData.set(second.copy(
-                    storagePath(StorageRoot.STATE, "state-source.txt"),
-                    storagePath(StorageRoot.DATA, "state-copy.txt"),
-                    false
-                ));
+                        storagePath(StorageRoot.STATE, "state-source.txt"),
+                        storagePath(StorageRoot.DATA, "state-copy.txt"),
+                        false));
             });
             forward.start();
             reverse.start();
@@ -277,14 +247,8 @@ class ConfinedStorageBackendMutationLockTest {
             join(forward);
             join(reverse);
 
-            assertTrue(
-                dataToState.get().changed(),
-                "forward copy failed at iteration " + iteration
-            );
-            assertTrue(
-                stateToData.get().changed(),
-                "reverse copy failed at iteration " + iteration
-            );
+            assertTrue(dataToState.get().changed(), "forward copy failed at iteration " + iteration);
+            assertTrue(stateToData.get().changed(), "reverse copy failed at iteration " + iteration);
         }
     }
 
@@ -293,55 +257,44 @@ class ConfinedStorageBackendMutationLockTest {
     }
 
     private Roots roots(final String prefix) throws IOException {
-        final Path parent = prefix.isEmpty()
-            ? temporary
-            : Files.createDirectory(temporary.resolve(prefix));
+        final Path parent = prefix.isEmpty() ? temporary : Files.createDirectory(temporary.resolve(prefix));
         return new Roots(
-            Files.createDirectory(parent.resolve("data")),
-            Files.createDirectory(parent.resolve("state")),
-            Files.createDirectory(parent.resolve("cache"))
-        );
+                Files.createDirectory(parent.resolve("data")),
+                Files.createDirectory(parent.resolve("state")),
+                Files.createDirectory(parent.resolve("cache")));
     }
 
     private Roots roots(final Path data) throws IOException {
         return new Roots(
-            data,
-            Files.createDirectory(temporary.resolve("state")),
-            Files.createDirectory(temporary.resolve("cache"))
-        );
+                data,
+                Files.createDirectory(temporary.resolve("state")),
+                Files.createDirectory(temporary.resolve("cache")));
     }
 
-    private ConfinedStorageBackend backend(
-        final Roots roots,
-        final ConfinedStorageBackend.AtomicMover mover
-    ) throws IOException {
+    private ConfinedStorageBackend backend(final Roots roots, final ConfinedStorageBackend.AtomicMover mover)
+            throws IOException {
         return backend(roots, mover, Files::deleteIfExists);
     }
 
     private ConfinedStorageBackend backend(
-        final Roots roots,
-        final ConfinedStorageBackend.AtomicMover mover,
-        final ConfinedStorageBackend.TemporaryFileDeleter deleter
-    ) throws IOException {
+            final Roots roots,
+            final ConfinedStorageBackend.AtomicMover mover,
+            final ConfinedStorageBackend.TemporaryFileDeleter deleter)
+            throws IOException {
         return new ConfinedStorageBackend(
-            Map.of(
-                StorageRoot.DATA, roots.data(),
-                StorageRoot.STATE, roots.state(),
-                StorageRoot.CACHE, roots.cache()
-            ),
-            new CleanupEvidenceCollector(),
-            mover,
-            deleter
-        );
+                Map.of(
+                        StorageRoot.DATA, roots.data(),
+                        StorageRoot.STATE, roots.state(),
+                        StorageRoot.CACHE, roots.cache()),
+                new CleanupEvidenceCollector(),
+                mover,
+                deleter);
     }
 
     private static ConfinedStorageBackend.AtomicMover unsupportedMover() {
         return (source, target, replaceExisting) -> {
             throw new AtomicMoveNotSupportedException(
-                source.toString(),
-                target.toString(),
-                "simulated unsupported atomic move"
-            );
+                    source.toString(), target.toString(), "simulated unsupported atomic move");
         };
     }
 
@@ -349,10 +302,7 @@ class ConfinedStorageBackendMutationLockTest {
         return storagePath(StorageRoot.DATA, relativePath);
     }
 
-    private static StoragePath storagePath(
-        final StorageRoot root,
-        final String relativePath
-    ) {
+    private static StoragePath storagePath(final StorageRoot root, final String relativePath) {
         return new StoragePath(root, relativePath);
     }
 
@@ -360,10 +310,7 @@ class ConfinedStorageBackendMutationLockTest {
         return value.getBytes(StandardCharsets.UTF_8);
     }
 
-    private static void assertOneMutationWon(
-        final StorageMutationResult move,
-        final StorageMutationResult delete
-    ) {
+    private static void assertOneMutationWon(final StorageMutationResult move, final StorageMutationResult delete) {
         assertNotNull(move);
         assertNotNull(delete);
         assertTrue(move.changed() || delete.changed());
@@ -371,14 +318,12 @@ class ConfinedStorageBackendMutationLockTest {
             assertEquals(StorageErrorCode.NOT_FOUND, move.error().orElseThrow().code());
         }
         if (!delete.changed()) {
-            assertEquals(StorageErrorCode.NOT_FOUND, delete.error().orElseThrow().code());
+            assertEquals(
+                    StorageErrorCode.NOT_FOUND, delete.error().orElseThrow().code());
         }
     }
 
-    private static void assertBlocked(
-        final Thread thread,
-        final String message
-    ) throws Exception {
+    private static void assertBlocked(final Thread thread, final String message) throws Exception {
         Thread.sleep(100L);
         assertTrue(thread.isAlive(), message);
     }
@@ -399,6 +344,5 @@ class ConfinedStorageBackendMutationLockTest {
         }
     }
 
-    private record Roots(Path data, Path state, Path cache) {
-    }
+    private record Roots(Path data, Path state, Path cache) {}
 }

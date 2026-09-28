@@ -2,7 +2,6 @@ package dev.turboism.core.runtime.sidecar;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.PluginTask;
-
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -36,10 +35,9 @@ public final class SidecarSupervisor implements SidecarDispatcher {
     private final AtomicReference<SidecarHealth> health = new AtomicReference<>(SidecarHealth.HEALTHY);
 
     public SidecarSupervisor(
-        final SidecarDispatcher dispatcher,
-        final int maxRestartCount,
-        final Consumer<PluginWorkBudgetEvent> diagnosticSink
-    ) {
+            final SidecarDispatcher dispatcher,
+            final int maxRestartCount,
+            final Consumer<PluginWorkBudgetEvent> diagnosticSink) {
         this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
         if (maxRestartCount < 0) {
             throw new IllegalArgumentException("maxRestartCount must not be negative");
@@ -83,7 +81,11 @@ public final class SidecarSupervisor implements SidecarDispatcher {
         final CompletableFuture<SidecarResult> supervised = new CompletableFuture<>();
         dispatcher.dispatch(task, callback).whenComplete((result, failure) -> {
             if (failure != null) {
-                handleCrash(task, callback, supervised, SidecarResult.error("SIDECAR_DISPATCH_FAILED", failure.getMessage()));
+                handleCrash(
+                        task,
+                        callback,
+                        supervised,
+                        SidecarResult.error("SIDECAR_DISPATCH_FAILED", failure.getMessage()));
                 return;
             }
             if (isCrash(result)) {
@@ -97,11 +99,10 @@ public final class SidecarSupervisor implements SidecarDispatcher {
     }
 
     private void handleCrash(
-        final PluginTask task,
-        final Runnable callback,
-        final CompletableFuture<SidecarResult> supervised,
-        final SidecarResult crash
-    ) {
+            final PluginTask task,
+            final Runnable callback,
+            final CompletableFuture<SidecarResult> supervised,
+            final SidecarResult crash) {
         final int crashes = crashCount.incrementAndGet();
         emit(task, PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Severity.WARNING);
         if (crashes > maxRestartCount) {
@@ -122,17 +123,11 @@ public final class SidecarSupervisor implements SidecarDispatcher {
     }
 
     private void emit(
-        final PluginTask task,
-        final PluginWorkBudgetEvent.Phase phase,
-        final PluginWorkBudgetEvent.Severity severity
-    ) {
+            final PluginTask task,
+            final PluginWorkBudgetEvent.Phase phase,
+            final PluginWorkBudgetEvent.Severity severity) {
         diagnosticSink.accept(new PluginWorkBudgetEvent(
-            task.pluginId(),
-            task.taskType(),
-            phase,
-            PluginWorkBudgetEvent.Decision.SIDECAR,
-            severity
-        ));
+                task.pluginId(), task.taskType(), phase, PluginWorkBudgetEvent.Decision.SIDECAR, severity));
     }
 
     private static boolean isCrash(final SidecarResult result) {

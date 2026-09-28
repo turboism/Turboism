@@ -2,7 +2,6 @@ package dev.turboism.ui.appearance.control;
 
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
-
 import java.awt.Component;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -13,7 +12,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class NativeParameterAppearanceBridge {
     private static final AtomicReference<Installed> INSTALLED = new AtomicReference<>();
 
-    private NativeParameterAppearanceBridge() { }
+    private NativeParameterAppearanceBridge() {}
 
     /**
      * Entry point the instrumented host parameter-row constructor calls once the row is built, binding
@@ -26,7 +25,9 @@ public final class NativeParameterAppearanceBridge {
      *
      * @param row the newly constructed host parameter row
      */
-    public static void afterParameterRow(final Object row) { after(row, false); }
+    public static void afterParameterRow(final Object row) {
+        after(row, false);
+    }
     /**
      * Entry point the instrumented host parameter-folder constructor calls once the folder row is
      * built, binding its label so it can be styled.
@@ -36,7 +37,9 @@ public final class NativeParameterAppearanceBridge {
      *
      * @param row the newly constructed host parameter folder row
      */
-    public static void afterParameterFolder(final Object row) { after(row, true); }
+    public static void afterParameterFolder(final Object row) {
+        after(row, true);
+    }
 
     // INSTALLED holds the live bridge; a different instance means the binding was revoked.
     @SuppressWarnings("ReferenceEquality")
@@ -71,14 +74,9 @@ public final class NativeParameterAppearanceBridge {
      * @throws IllegalStateException if a bridge is already installed
      * @throws NullPointerException if {@code selectors} or {@code provider} is {@code null}
      */
-    public static void install(
-        final Selectors selectors,
-        final ParameterControlAppearanceProvider provider
-    ) {
+    public static void install(final Selectors selectors, final ParameterControlAppearanceProvider provider) {
         final Installed value = new Installed(
-            Objects.requireNonNull(selectors, "selectors"),
-            Objects.requireNonNull(provider, "provider")
-        );
+                Objects.requireNonNull(selectors, "selectors"), Objects.requireNonNull(provider, "provider"));
         if (!INSTALLED.compareAndSet(null, value)) {
             throw new IllegalStateException("native parameter appearance bridge is already installed");
         }
@@ -95,7 +93,9 @@ public final class NativeParameterAppearanceBridge {
         if (installed != null) installed.provider().close();
     }
 
-    static void clearForTesting() { uninstall(); }
+    static void clearForTesting() {
+        uninstall();
+    }
 
     // INSTALLED holds the live bridge; a different instance means the binding was revoked.
     /** Replays exact host row widgets supplied by the verified palette-operation selector. */
@@ -118,9 +118,17 @@ public final class NativeParameterAppearanceBridge {
     private record Installed(Selectors selectors, ParameterControlAppearanceProvider provider) {
         void bindParameter(final Object row) throws ReflectiveOperationException {
             if (!selectors.parameterRow(row)) return;
-            bind(row, selectors.parameterSourceMethod(), selectors.parameterLabelField(), ParameterControlAppearanceProvider.Kind.PARAMETER);
+            bind(
+                    row,
+                    selectors.parameterSourceMethod(),
+                    selectors.parameterLabelField(),
+                    ParameterControlAppearanceProvider.Kind.PARAMETER);
             if (row.getClass().getName().equals(selectors.doubleRowOwner().replace('/', '.'))) {
-                bind(row, selectors.secondaryParameterSourceMethod(), selectors.secondaryParameterLabelField(), ParameterControlAppearanceProvider.Kind.PARAMETER);
+                bind(
+                        row,
+                        selectors.secondaryParameterSourceMethod(),
+                        selectors.secondaryParameterLabelField(),
+                        ParameterControlAppearanceProvider.Kind.PARAMETER);
             }
         }
 
@@ -130,13 +138,16 @@ public final class NativeParameterAppearanceBridge {
             final String id = selectors.id(source, selectors.folderIdMethod());
             final Object cLabel = invoke(row, selectors.folderLabelMethod());
             final Component component = selectors.swingLabel(cLabel);
-            if (id != null && component != null) provider.bind(ParameterControlAppearanceProvider.Kind.FOLDER, id, component);
+            if (id != null && component != null)
+                provider.bind(ParameterControlAppearanceProvider.Kind.FOLDER, id, component);
         }
 
         private void bind(
-            final Object row, final String sourceMethod, final String labelField,
-            final ParameterControlAppearanceProvider.Kind kind
-        ) throws ReflectiveOperationException {
+                final Object row,
+                final String sourceMethod,
+                final String labelField,
+                final ParameterControlAppearanceProvider.Kind kind)
+                throws ReflectiveOperationException {
             final Object source = invoke(row, sourceMethod);
             final String id = selectors.id(source, selectors.parameterIdMethod());
             final Component component = selectors.swingLabel(field(row, labelField));
@@ -177,56 +188,75 @@ public final class NativeParameterAppearanceBridge {
      * @throws NullPointerException if any component is {@code null}
      */
     public record Selectors(
-        String singleRowOwner,
-        String doubleRowOwner,
-        String folderRowOwner,
-        String parameterSourceMethod,
-        String secondaryParameterSourceMethod,
-        String folderSourceMethod,
-        String parameterLabelField,
-        String secondaryParameterLabelField,
-        String folderLabelMethod,
-        String parameterSourceOwner,
-        String folderSourceOwner,
-        String parameterIdMethod,
-        String folderIdMethod,
-        String idStringMethod,
-        String cLabelOwner,
-        String cLabelSwingMethod,
-        ClassLoader hostClassLoader
-    ) {
+            String singleRowOwner,
+            String doubleRowOwner,
+            String folderRowOwner,
+            String parameterSourceMethod,
+            String secondaryParameterSourceMethod,
+            String folderSourceMethod,
+            String parameterLabelField,
+            String secondaryParameterLabelField,
+            String folderLabelMethod,
+            String parameterSourceOwner,
+            String folderSourceOwner,
+            String parameterIdMethod,
+            String folderIdMethod,
+            String idStringMethod,
+            String cLabelOwner,
+            String cLabelSwingMethod,
+            ClassLoader hostClassLoader) {
         public Selectors {
-            for (String value : new String[]{singleRowOwner, doubleRowOwner, folderRowOwner, parameterSourceMethod,
-                secondaryParameterSourceMethod, folderSourceMethod, parameterLabelField, secondaryParameterLabelField,
-                folderLabelMethod, parameterSourceOwner, folderSourceOwner, parameterIdMethod, folderIdMethod,
-                idStringMethod, cLabelOwner, cLabelSwingMethod}) requireText(value);
+            for (String value : new String[] {
+                singleRowOwner,
+                doubleRowOwner,
+                folderRowOwner,
+                parameterSourceMethod,
+                secondaryParameterSourceMethod,
+                folderSourceMethod,
+                parameterLabelField,
+                secondaryParameterLabelField,
+                folderLabelMethod,
+                parameterSourceOwner,
+                folderSourceOwner,
+                parameterIdMethod,
+                folderIdMethod,
+                idStringMethod,
+                cLabelOwner,
+                cLabelSwingMethod
+            }) requireText(value);
             Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         }
 
         boolean parameterRow(final Object row) {
             return exact(row, singleRowOwner) || exact(row, doubleRowOwner);
         }
-        boolean folderRow(final Object row) { return exact(row, folderRowOwner); }
+
+        boolean folderRow(final Object row) {
+            return exact(row, folderRowOwner);
+        }
 
         String id(final Object source, final String idMethod) throws ReflectiveOperationException {
-            if (source == null || source.getClass().getClassLoader() != hostClassLoader
-                || !(isTypeOrSuper(source.getClass(), parameterSourceOwner.replace('/', '.'))
-                || isTypeOrSuper(source.getClass(), folderSourceOwner.replace('/', '.')))) return null;
+            if (source == null
+                    || source.getClass().getClassLoader() != hostClassLoader
+                    || !(isTypeOrSuper(source.getClass(), parameterSourceOwner.replace('/', '.'))
+                            || isTypeOrSuper(source.getClass(), folderSourceOwner.replace('/', '.')))) return null;
             final Object id = invoke(source, idMethod);
             final Object value = id == null ? null : invoke(id, idStringMethod);
             return value instanceof String text && !text.isBlank() ? text : null;
         }
 
         Component swingLabel(final Object cLabel) throws ReflectiveOperationException {
-            if (cLabel == null || cLabel.getClass().getClassLoader() != hostClassLoader
-                || !isTypeOrSuper(cLabel.getClass(), cLabelOwner.replace('/', '.'))) return null;
+            if (cLabel == null
+                    || cLabel.getClass().getClassLoader() != hostClassLoader
+                    || !isTypeOrSuper(cLabel.getClass(), cLabelOwner.replace('/', '.'))) return null;
             final Object value = invoke(cLabel, cLabelSwingMethod);
             return value instanceof Component component ? component : null;
         }
 
         private boolean exact(final Object value, final String owner) {
-            return value != null && value.getClass().getClassLoader() == hostClassLoader
-                && value.getClass().getName().equals(owner.replace('/', '.'));
+            return value != null
+                    && value.getClass().getClassLoader() == hostClassLoader
+                    && value.getClass().getName().equals(owner.replace('/', '.'));
         }
 
         private static boolean isTypeOrSuper(final Class<?> type, final String expected) {

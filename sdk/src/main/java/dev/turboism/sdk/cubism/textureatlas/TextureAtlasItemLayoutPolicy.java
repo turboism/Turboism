@@ -14,12 +14,7 @@ import java.util.Objects;
  * Turboism-side configuration keyed by model and texture id.</p>
  */
 public record TextureAtlasItemLayoutPolicy(
-    String textureId,
-    boolean participate,
-    boolean preserveAngle,
-    boolean preserveScale,
-    boolean preservePosition
-) {
+        String textureId, boolean participate, boolean preserveAngle, boolean preserveScale, boolean preservePosition) {
 
     public TextureAtlasItemLayoutPolicy {
         Objects.requireNonNull(textureId, "textureId");

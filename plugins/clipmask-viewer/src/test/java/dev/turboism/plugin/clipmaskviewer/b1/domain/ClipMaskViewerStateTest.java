@@ -1,14 +1,13 @@
 package dev.turboism.plugin.clipmaskviewer.b1.domain;
 
-import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
-import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class ClipMaskViewerStateTest {
 
@@ -16,11 +15,10 @@ class ClipMaskViewerStateTest {
     void refreshDataBuildsRecordsIndexUsersAndDupeBuckets() {
         final ClipMaskViewerState state = new ClipMaskViewerState();
         state.refreshData(service(
-            record("user-1", "A", false, "mask-1", "mask-2"),
-            record("user-2", "B", false, "mask-2", "mask-1"),
-            record("user-3", "C", false, "mask-9"),
-            record("user-4", "D", false)
-        ));
+                record("user-1", "A", false, "mask-1", "mask-2"),
+                record("user-2", "B", false, "mask-2", "mask-1"),
+                record("user-3", "C", false, "mask-9"),
+                record("user-4", "D", false)));
 
         assertEquals(4, state.records().size());
         assertEquals(4, state.byGuid().size());
@@ -34,10 +32,7 @@ class ClipMaskViewerStateTest {
     @Test
     void filterRelatedKeepsOnlyMasksAndUsers() {
         final ClipMaskViewerState state = new ClipMaskViewerState();
-        state.refreshData(service(
-            record("mask-only", "M", false),
-            record("user-1", "A", false, "mask-only")
-        ));
+        state.refreshData(service(record("mask-only", "M", false), record("user-1", "A", false, "mask-only")));
 
         final List<ClipMaskRecord> related = state.filterRelated();
 
@@ -65,12 +60,7 @@ class ClipMaskViewerStateTest {
         final java.util.ArrayList<ClipMaskRecord> records = new java.util.ArrayList<>();
         for (int index = 0; index < 5_000; index++) {
             records.add(record(
-                "user-" + index,
-                "ArtMesh" + index,
-                false,
-                "mask-" + (index % 250),
-                "mask-" + ((index + 1) % 250)
-            ));
+                    "user-" + index, "ArtMesh" + index, false, "mask-" + (index % 250), "mask-" + ((index + 1) % 250)));
         }
 
         final ClipMaskViewerState.Snapshot snapshot = ClipMaskViewerState.analyze(records);
@@ -81,9 +71,8 @@ class ClipMaskViewerStateTest {
         assertEquals(5_000, snapshot.countWithMasks());
         assertEquals(250, snapshot.countUniqueMasks());
         assertTrue(snapshot.records() != records);
-        assertThrows(UnsupportedOperationException.class, () -> snapshot.records().add(
-            record("extra", "extra", false)
-        ));
+        assertThrows(
+                UnsupportedOperationException.class, () -> snapshot.records().add(record("extra", "extra", false)));
     }
 
     @Test
@@ -105,11 +94,7 @@ class ClipMaskViewerStateTest {
     }
 
     private static ClipMaskRecord record(
-        final String guid,
-        final String id,
-        final boolean inverted,
-        final String... masks
-    ) {
+            final String guid, final String id, final boolean inverted, final String... masks) {
         return new ClipMaskRecord(guid, id, guid, inverted, List.of(masks));
     }
 }

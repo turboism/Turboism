@@ -11,8 +11,7 @@ public final class FakeCubismSelection {
 
     private String kind;
     private final ObservableSelectedIds selectedIds = new ObservableSelectedIds();
-    private Runnable changeListener = () -> {
-    };
+    private Runnable changeListener = () -> {};
 
     public FakeCubismSelection() {
         this.kind = "";

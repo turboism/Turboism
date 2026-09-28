@@ -1,20 +1,19 @@
 package dev.turboism.ui.menu;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class TopMenuContributionProviderTest {
 
@@ -23,29 +22,25 @@ class TopMenuContributionProviderTest {
         RecordingHost host = new RecordingHost();
         List<String> actions = new ArrayList<>();
         TopMenuContributionProvider provider = new TopMenuContributionProvider(
-            admission(7),
-            host,
-            (pluginId, actionId) -> actions.add(pluginId + ":" + actionId),
-            "Plugins"
-        );
+                admission(7), host, (pluginId, actionId) -> actions.add(pluginId + ":" + actionId), "Plugins");
 
-        Registration registration = provider.apply(7, List.of(
-            contribution("plugin-a", "png", "My Tools/Export/PNG", 20),
-            contribution("plugin-b", "run", "Workspace/Run", 0),
-            contribution("plugin-a", "psd", "My Tools/Import/PSD", 10)
-        ));
+        Registration registration = provider.apply(
+                7,
+                List.of(
+                        contribution("plugin-a", "png", "My Tools/Export/PNG", 20),
+                        contribution("plugin-b", "run", "Workspace/Run", 0),
+                        contribution("plugin-a", "psd", "My Tools/Import/PSD", 10)));
 
-        assertEquals(List.of("Workspace", "My Tools"), host.installed.stream()
-            .map(TopMenuDescriptor::label)
-            .toList());
+        assertEquals(
+                List.of("Workspace", "My Tools"),
+                host.installed.stream().map(TopMenuDescriptor::label).toList());
         TopMenuDescriptor myTools = host.installed.get(1);
         assertTrue(myTools.menuId().contains("plugin-a"));
         assertEquals(
-            List.of("Import/PSD", "Export/PNG"),
-            myTools.items().stream()
-                .map(item -> String.join("/", item.submenuPath()) + "/" + item.label())
-                .toList()
-        );
+                List.of("Import/PSD", "Export/PNG"),
+                myTools.items().stream()
+                        .map(item -> String.join("/", item.submenuPath()) + "/" + item.label())
+                        .toList());
 
         host.actions.get(1).accept(myTools.items().get(1));
         assertEquals(List.of("plugin-a:action.png"), actions);
@@ -57,16 +52,11 @@ class TopMenuContributionProviderTest {
     @Test
     void rebuildReplacesTheSingleOwnedMenuWithoutDuplicates() {
         RecordingHost host = new RecordingHost();
-        TopMenuContributionProvider provider = new TopMenuContributionProvider(
-            admission(7),
-            host,
-            (pluginId, actionId) -> { },
-            "Plugins"
-        );
+        TopMenuContributionProvider provider =
+                new TopMenuContributionProvider(admission(7), host, (pluginId, actionId) -> {}, "Plugins");
 
-        Registration registration = provider.apply(7, List.of(
-            contribution("plugin-a", "settings", "Turboism/Settings", 0)
-        ));
+        Registration registration =
+                provider.apply(7, List.of(contribution("plugin-a", "settings", "Turboism/Settings", 0)));
         host.rebuild.run();
 
         assertEquals(2, host.installed.size());
@@ -78,38 +68,24 @@ class TopMenuContributionProviderTest {
     @Test
     void staleAdmissionFailsClosedBeforeHostMutation() {
         RecordingHost host = new RecordingHost();
-        TopMenuContributionProvider provider = new TopMenuContributionProvider(
-            admission(7),
-            host,
-            (pluginId, actionId) -> { },
-            "Plugins"
-        );
+        TopMenuContributionProvider provider =
+                new TopMenuContributionProvider(admission(7), host, (pluginId, actionId) -> {}, "Plugins");
 
         assertThrows(
-            IllegalStateException.class,
-            () -> provider.apply(8, List.of(
-                contribution("plugin-a", "settings", "Turboism/Settings", 0)
-            ))
-        );
+                IllegalStateException.class,
+                () -> provider.apply(8, List.of(contribution("plugin-a", "settings", "Turboism/Settings", 0))));
         assertEquals(List.of(), host.installed);
     }
 
     @Test
     void pathWithoutTopLevelAndLeafFailsBeforeHostMutation() {
         RecordingHost host = new RecordingHost();
-        TopMenuContributionProvider provider = new TopMenuContributionProvider(
-            admission(7),
-            host,
-            (pluginId, actionId) -> { },
-            "Plugins"
-        );
+        TopMenuContributionProvider provider =
+                new TopMenuContributionProvider(admission(7), host, (pluginId, actionId) -> {}, "Plugins");
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> provider.apply(7, List.of(
-                contribution("plugin-a", "broken", "OnlyRoot", 0)
-            ))
-        );
+                IllegalArgumentException.class,
+                () -> provider.apply(7, List.of(contribution("plugin-a", "broken", "OnlyRoot", 0))));
         assertEquals(List.of(), host.installed);
     }
 
@@ -118,37 +94,30 @@ class TopMenuContributionProviderTest {
         final RecordingHost host = new RecordingHost();
         final List<String> actions = new ArrayList<>();
         final TopMenuContributionProvider provider = new TopMenuContributionProvider(
-            admission(7),
-            host,
-            (pluginId, actionId) -> actions.add(pluginId + ":" + actionId),
-            "插件"
-        );
+                admission(7), host, (pluginId, actionId) -> actions.add(pluginId + ":" + actionId), "插件");
 
-        final Registration registration = provider.apply(7, List.of(
-            contribution("plugin-a", "settings", "Turboism/Settings", 10),
-            contribution("plugin-b", "monitor", "Turboism/Performance Monitor", 20)
-        ));
+        final Registration registration = provider.apply(
+                7,
+                List.of(
+                        contribution("plugin-a", "settings", "Turboism/Settings", 10),
+                        contribution("plugin-b", "monitor", "Turboism/Performance Monitor", 20)));
 
         assertEquals(
-            List.of("插件"),
-            host.installed.stream().map(TopMenuDescriptor::label).toList(),
-            "the shared root displays the framework-localized label, not the route key"
-        );
+                List.of("插件"),
+                host.installed.stream().map(TopMenuDescriptor::label).toList(),
+                "the shared root displays the framework-localized label, not the route key");
         final TopMenuDescriptor turboism = host.installed.get(0);
-        assertTrue(turboism.menuId().contains("shared"),
-            "the merged root must use the shared menu-id owner");
+        assertTrue(turboism.menuId().contains("shared"), "the merged root must use the shared menu-id owner");
         assertEquals(
-            List.of("Settings", "Performance Monitor"),
-            turboism.items().stream().map(TopMenuItemDescriptor::label).toList()
-        );
+                List.of("Settings", "Performance Monitor"),
+                turboism.items().stream().map(TopMenuItemDescriptor::label).toList());
 
         host.actions.get(0).accept(turboism.items().get(0));
         host.actions.get(0).accept(turboism.items().get(1));
         assertEquals(
-            List.of("plugin-a:action.settings", "plugin-b:action.monitor"),
-            actions,
-            "merged items must route with their originating plugin id"
-        );
+                List.of("plugin-a:action.settings", "plugin-b:action.monitor"),
+                actions,
+                "merged items must route with their originating plugin id");
 
         registration.close();
         assertEquals(1, host.closeCount);
@@ -158,57 +127,43 @@ class TopMenuContributionProviderTest {
     void sharedRootLabelResolvesAtApplyTimeSoHostVerifiedLocaleSupersedesStartup() {
         final RecordingHost host = new RecordingHost();
         final java.util.concurrent.atomic.AtomicReference<String> label =
-            new java.util.concurrent.atomic.AtomicReference<>("Plugins");
-        final TopMenuContributionProvider provider = new TopMenuContributionProvider(
-            admission(7),
-            host,
-            (pluginId, actionId) -> { },
-            label::get
-        );
+                new java.util.concurrent.atomic.AtomicReference<>("Plugins");
+        final TopMenuContributionProvider provider =
+                new TopMenuContributionProvider(admission(7), host, (pluginId, actionId) -> {}, label::get);
 
         // The host-verified locale is settled after provider construction, before
         // menu contributions are applied — mirroring the startup re-resolution window.
         label.set("プラグイン");
-        provider.apply(7, List.of(
-            contribution("plugin-a", "settings", "Turboism/Settings", 10)
-        ));
+        provider.apply(7, List.of(contribution("plugin-a", "settings", "Turboism/Settings", 10)));
         assertEquals(
-            List.of("プラグイン"),
-            host.installed.stream().map(TopMenuDescriptor::label).toList(),
-            "the shared root must resolve its label at apply time, not at construction"
-        );
+                List.of("プラグイン"),
+                host.installed.stream().map(TopMenuDescriptor::label).toList(),
+                "the shared root must resolve its label at apply time, not at construction");
 
         label.set("插件");
-        provider.apply(7, List.of(
-            contribution("plugin-a", "settings", "Turboism/Settings", 10)
-        ));
+        provider.apply(7, List.of(contribution("plugin-a", "settings", "Turboism/Settings", 10)));
         assertEquals(
-            "插件",
-            host.installed.get(host.installed.size() - 1).label(),
-            "each apply re-resolves the label from the current effective locale"
-        );
+                "插件",
+                host.installed.get(host.installed.size() - 1).label(),
+                "each apply re-resolves the label from the current effective locale");
     }
 
     @Test
     void sameLabelRootsFromUnrelatedPluginsRemainPluginOwned() {
         final RecordingHost host = new RecordingHost();
-        final TopMenuContributionProvider provider = new TopMenuContributionProvider(
-            admission(7),
-            host,
-            (pluginId, actionId) -> { },
-            "Plugins"
-        );
+        final TopMenuContributionProvider provider =
+                new TopMenuContributionProvider(admission(7), host, (pluginId, actionId) -> {}, "Plugins");
 
-        final Registration registration = provider.apply(7, List.of(
-            contribution("plugin-a", "export", "File/Export", 0),
-            contribution("plugin-b", "import", "File/Import", 0)
-        ));
+        final Registration registration = provider.apply(
+                7,
+                List.of(
+                        contribution("plugin-a", "export", "File/Export", 0),
+                        contribution("plugin-b", "import", "File/Import", 0)));
 
         assertEquals(
-            List.of("File", "File"),
-            host.installed.stream().map(TopMenuDescriptor::label).toList(),
-            "non-reserved roots must stay plugin-owned even when labels collide"
-        );
+                List.of("File", "File"),
+                host.installed.stream().map(TopMenuDescriptor::label).toList(),
+                "non-reserved roots must stay plugin-owned even when labels collide");
         assertTrue(host.installed.get(0).menuId().contains("plugin-a"));
         assertTrue(host.installed.get(1).menuId().contains("plugin-b"));
 
@@ -217,47 +172,44 @@ class TopMenuContributionProviderTest {
     }
 
     private static EditorUiContribution<MenuRegistry.MenuContribution> contribution(
-        final String pluginId,
-        final String contributionId,
-        final String menuPath,
-        final int order
-    ) {
+            final String pluginId, final String contributionId, final String menuPath, final int order) {
         return new EditorUiContribution<>(
-            new EditorUiContributionIdentity(pluginId, EditorUiFamily.MENU, contributionId),
-            order,
-            new MenuRegistry.MenuContribution() {
-                @Override public String menuPath() { return menuPath; }
-                @Override public String actionId() { return "action." + contributionId; }
-                @Override public int order() { return order; }
-            }
-        );
+                new EditorUiContributionIdentity(pluginId, EditorUiFamily.MENU, contributionId),
+                order,
+                new MenuRegistry.MenuContribution() {
+                    @Override
+                    public String menuPath() {
+                        return menuPath;
+                    }
+
+                    @Override
+                    public String actionId() {
+                        return "action." + contributionId;
+                    }
+
+                    @Override
+                    public int order() {
+                        return order;
+                    }
+                });
     }
 
     private static EditorUiProviderAdmission admission(final long generation) {
         return EditorUiProviderAdmission.admitted(
-            EditorUiFamily.MENU,
-            generation,
-            new EditorUiProviderAdmission.VerificationEvidence(
-                "5.3.02",
-                42,
-                "a".repeat(64),
-                "adapter.editor-ui.top-menu",
-                "b".repeat(64)
-            )
-        );
+                EditorUiFamily.MENU,
+                generation,
+                new EditorUiProviderAdmission.VerificationEvidence(
+                        "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.top-menu", "b".repeat(64)));
     }
 
     private static final class RecordingHost implements TopMenuHostOperations {
         private final List<TopMenuDescriptor> installed = new ArrayList<>();
         private final List<Consumer<TopMenuItemDescriptor>> actions = new ArrayList<>();
         private int closeCount;
-        private Runnable rebuild = () -> { };
+        private Runnable rebuild = () -> {};
 
         @Override
-        public Registration addMenu(
-            final TopMenuDescriptor menu,
-            final Consumer<TopMenuItemDescriptor> action
-        ) {
+        public Registration addMenu(final TopMenuDescriptor menu, final Consumer<TopMenuItemDescriptor> action) {
             installed.add(menu);
             actions.add(action);
             return () -> closeCount++;
@@ -266,7 +218,7 @@ class TopMenuContributionProviderTest {
         @Override
         public Registration onRebuild(final Runnable reconcile) {
             rebuild = reconcile;
-            return () -> rebuild = () -> { };
+            return () -> rebuild = () -> {};
         }
     }
 }

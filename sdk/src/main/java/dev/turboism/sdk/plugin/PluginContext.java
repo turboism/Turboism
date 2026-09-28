@@ -1,58 +1,56 @@
 package dev.turboism.sdk.plugin;
 
 import dev.turboism.sdk.Incubating;
-
-import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
-import dev.turboism.sdk.cubism.recentfile.RecentFileService;
-import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
-import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
-import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
-import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
-import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
-import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshEditService;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
-import dev.turboism.sdk.cubism.command.EditorCommandService;
+import dev.turboism.sdk.cubism.recentfile.RecentFileService;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
+import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
+import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
+import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.hostread.AsyncHostReadService;
-import dev.turboism.sdk.menu.MenuRegistry;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.mcp.McpConnectionService;
+import dev.turboism.sdk.menu.MenuRegistry;
+import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.permission.PluginPermission;
-import dev.turboism.sdk.storage.PluginStorage;
-import dev.turboism.sdk.script.ScriptService;
-import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.runtime.CubismLogService;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
+import dev.turboism.sdk.script.ScriptService;
+import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UiScheduler;
-import dev.turboism.sdk.ui.dialog.HostDialogAutomationService;
+import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
+import dev.turboism.sdk.ui.dialog.HostDialogAutomationService;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
+import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
-
 import java.util.List;
-import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 
 /**
  * Runtime context provided to a plugin during {@link TurboismPlugin#init(PluginContext)}.
@@ -366,7 +364,6 @@ public interface PluginContext {
         return AppearanceService.unavailable();
     }
 
-
     /** Returns the workspace arrangement service.      * @deprecated superseded by the service directory: {@code services().get(WorkspaceService.class)}
      */
     @Deprecated
@@ -393,7 +390,6 @@ public interface PluginContext {
         return PluginConfigRegistry.unavailable();
     }
 
-
     /** Returns the Cubism log stream service.      * @deprecated superseded by the service directory: {@code services().get(CubismLogService.class)}
      */
     @Deprecated
@@ -416,7 +412,7 @@ public interface PluginContext {
      * carries no credentials or authorization material.</p>
      *
      * @return the current plugin's MCP connection service
-          * @deprecated superseded by the service directory: {@code services().get(McpConnectionService.class)}
+     * @deprecated superseded by the service directory: {@code services().get(McpConnectionService.class)}
      */
     @Deprecated
     default McpConnectionService mcpConnections() {

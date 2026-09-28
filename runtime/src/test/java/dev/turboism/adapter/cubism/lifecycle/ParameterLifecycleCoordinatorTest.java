@@ -1,6 +1,10 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
-import dev.turboism.sdk.cubism.CubismPlugin;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -8,34 +12,28 @@ import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
-import dev.turboism.sdk.event.EventPriority;
-import dev.turboism.sdk.event.SubscribeEvent;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.event.EventPriority;
+import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class ParameterLifecycleCoordinatorTest {
 
@@ -44,14 +42,12 @@ class ParameterLifecycleCoordinatorTest {
         final List<String> transforms = new ArrayList<>();
         final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
         coordinator.register(plugin(
-            "plugin-a",
-            List.of(new TransformingHook("a1", transforms, value -> value * 0.5F),
-                new TransformingHook("a2", transforms, value -> value + 3.0F))
-        ));
+                "plugin-a",
+                List.of(
+                        new TransformingHook("a1", transforms, value -> value * 0.5F),
+                        new TransformingHook("a2", transforms, value -> value + 3.0F))));
         coordinator.register(plugin(
-            "plugin-b",
-            List.of(new TransformingHook("b1", transforms, value -> Math.min(value, 20.0F)))
-        ));
+                "plugin-b", List.of(new TransformingHook("b1", transforms, value -> Math.min(value, 20.0F)))));
         final MutableParameter parameter = new MutableParameter(0.0F);
 
         coordinator.setValue(parameter, 100.0F, parameter::write);
@@ -64,12 +60,13 @@ class ParameterLifecycleCoordinatorTest {
     void failingAndNonFiniteBeforeHooksPreserveThePriorEffectiveValue() {
         final List<String> transforms = new ArrayList<>();
         final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
-        coordinator.register(plugin("plugin-a", List.of(
-            new TransformingHook("first", transforms, value -> value * 0.5F),
-            new ThrowingBeforeHook(),
-            new NonFiniteBeforeHook(),
-            new TransformingHook("last", transforms, value -> value + 1.0F)
-        )));
+        coordinator.register(plugin(
+                "plugin-a",
+                List.of(
+                        new TransformingHook("first", transforms, value -> value * 0.5F),
+                        new ThrowingBeforeHook(),
+                        new NonFiniteBeforeHook(),
+                        new TransformingHook("last", transforms, value -> value + 1.0F))));
         final MutableParameter parameter = new MutableParameter(0.0F);
 
         coordinator.setValue(parameter, 8.0F, parameter::write);
@@ -105,12 +102,10 @@ class ParameterLifecycleCoordinatorTest {
         final RuntimeEventBroker.Owner secondOwner = broker.admit("annotated-b");
         final List<String> callbacks = new ArrayList<>();
         final AtomicReference<ParameterValueEvent.Before> retained = new AtomicReference<>();
-        firstOwner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
-            new AnnotatedBeforeSubscriber(callbacks, retained)
-        )));
-        secondOwner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
-            new LaterAnnotatedBeforeSubscriber(callbacks)
-        )));
+        firstOwner.registerAnnotated(
+                new EntrypointSubscriberCatalog().inspect(List.of(new AnnotatedBeforeSubscriber(callbacks, retained))));
+        secondOwner.registerAnnotated(
+                new EntrypointSubscriberCatalog().inspect(List.of(new LaterAnnotatedBeforeSubscriber(callbacks))));
         firstOwner.activate();
         secondOwner.activate();
         final MutableParameter parameter = new MutableParameter(0.0F);
@@ -133,9 +128,8 @@ class ParameterLifecycleCoordinatorTest {
         final CountDownLatch deliveries = new CountDownLatch(3);
         final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
         final AtomicReference<Parameter> observed = new AtomicReference<>();
-        observer.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
-            new AnnotatedCompletionSubscriber(events, observed, deliveries)
-        )));
+        observer.registerAnnotated(new EntrypointSubscriberCatalog()
+                .inspect(List.of(new AnnotatedCompletionSubscriber(events, observed, deliveries))));
         observer.activate();
         final MutableParameter parameter = new MutableParameter(5.0F);
 
@@ -157,11 +151,11 @@ class ParameterLifecycleCoordinatorTest {
         coordinator.register(plugin("plugin-a", List.of(new RecordingHook("a", events))));
         final MutableParameter parameter = new MutableParameter(5.0F);
 
-        assertThrows(IllegalStateException.class, () ->
-            coordinator.setValue(parameter, 9.0F, ignored -> {
-                throw new IllegalStateException("native failed");
-            })
-        );
+        assertThrows(
+                IllegalStateException.class,
+                () -> coordinator.setValue(parameter, 9.0F, ignored -> {
+                    throw new IllegalStateException("native failed");
+                }));
         coordinator.awaitIdle();
 
         assertEquals(5.0F, parameter.getValue());
@@ -172,10 +166,8 @@ class ParameterLifecycleCoordinatorTest {
     void callbackFailuresDoNotPreventLaterCallbacksOrSuccessfulWrites() {
         final List<String> events = new ArrayList<>();
         final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
-        coordinator.register(plugin("plugin-a", List.of(
-            new ThrowingCallbackHook(),
-            new RecordingHook("survives", events)
-        )));
+        coordinator.register(
+                plugin("plugin-a", List.of(new ThrowingCallbackHook(), new RecordingHook("survives", events))));
         final MutableParameter parameter = new MutableParameter(0.0F);
 
         coordinator.setValue(parameter, 7.0F, parameter::write);
@@ -189,11 +181,9 @@ class ParameterLifecycleCoordinatorTest {
     void isolatesBadBeforeHooksRejectsRecursionAndRemovesUnregisteredPlugins() {
         final List<String> events = new ArrayList<>();
         final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
-        coordinator.register(plugin("plugin-a", List.of(
-            new ThrowingBeforeHook(),
-            new NonFiniteBeforeHook(),
-            new RecordingHook("a", events)
-        )));
+        coordinator.register(plugin(
+                "plugin-a",
+                List.of(new ThrowingBeforeHook(), new NonFiniteBeforeHook(), new RecordingHook("a", events))));
         final MutableParameter parameter = new MutableParameter(0.0F);
 
         coordinator.setValue(parameter, 8.0F, parameter::write);
@@ -201,11 +191,10 @@ class ParameterLifecycleCoordinatorTest {
         assertEquals(8.0F, parameter.getValue());
         assertEquals(List.of("a:on:0.0->8.0", "a:after:8.0"), events);
 
-        assertThrows(IllegalStateException.class, () -> coordinator.setValue(
-            parameter,
-            9.0F,
-            value -> coordinator.setValue(parameter, value, parameter::write)
-        ));
+        assertThrows(
+                IllegalStateException.class,
+                () -> coordinator.setValue(
+                        parameter, 9.0F, value -> coordinator.setValue(parameter, value, parameter::write)));
         assertEquals(8.0F, parameter.getValue());
 
         events.clear();
@@ -218,22 +207,15 @@ class ParameterLifecycleCoordinatorTest {
     @Test
     void callbackQueueSaturationDoesNotFailOrInlineTheNativeWrite() throws Exception {
         final List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> diagnostics =
-            new java.util.concurrent.CopyOnWriteArrayList<>();
-        final PluginWorkExecutorRegistry executors = new PluginWorkExecutorRegistry(
-            1,
-            1,
-            diagnostics::add,
-            Clock.systemUTC()
-        );
-        final ParameterLifecycleCoordinator coordinator =
-            new ParameterLifecycleCoordinator(executors);
+                new java.util.concurrent.CopyOnWriteArrayList<>();
+        final PluginWorkExecutorRegistry executors =
+                new PluginWorkExecutorRegistry(1, 1, diagnostics::add, Clock.systemUTC());
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator(executors);
         final CountDownLatch callbackStarted = new CountDownLatch(1);
         final CountDownLatch releaseCallback = new CountDownLatch(1);
         coordinator.register(plugin("plugin-a", List.of(new CubismPlugin() {
-            @Override public void afterSetParameterValue(
-                final Parameter parameter,
-                final float value
-            ) {
+            @Override
+            public void afterSetParameterValue(final Parameter parameter, final float value) {
                 callbackStarted.countDown();
                 try {
                     releaseCallback.await();
@@ -250,9 +232,9 @@ class ParameterLifecycleCoordinatorTest {
         coordinator.setValue(parameter, 3.0F, parameter::write);
 
         assertEquals(3.0F, parameter.getValue());
-        org.junit.jupiter.api.Assertions.assertTrue(diagnostics.stream().anyMatch(event ->
-            event.phase() == dev.turboism.core.diagnostics.PluginWorkBudgetEvent.Phase.REJECTED
-        ));
+        org.junit.jupiter.api.Assertions.assertTrue(diagnostics.stream()
+                .anyMatch(
+                        event -> event.phase() == dev.turboism.core.diagnostics.PluginWorkBudgetEvent.Phase.REJECTED));
         releaseCallback.countDown();
         coordinator.close();
     }
@@ -263,10 +245,8 @@ class ParameterLifecycleCoordinatorTest {
         final CountDownLatch callbackStarted = new CountDownLatch(1);
         final CountDownLatch releaseCallback = new CountDownLatch(1);
         coordinator.register(plugin("plugin-a", List.of(new CubismPlugin() {
-            @Override public void afterSetParameterValue(
-                final Parameter parameter,
-                final float value
-            ) {
+            @Override
+            public void afterSetParameterValue(final Parameter parameter, final float value) {
                 callbackStarted.countDown();
                 try {
                     releaseCallback.await();
@@ -286,9 +266,8 @@ class ParameterLifecycleCoordinatorTest {
         });
         unregister.start();
         org.junit.jupiter.api.Assertions.assertFalse(
-            unregisterFinished.await(100, TimeUnit.MILLISECONDS),
-            "unregister must wait for the in-flight callback executor to quiesce"
-        );
+                unregisterFinished.await(100, TimeUnit.MILLISECONDS),
+                "unregister must wait for the in-flight callback executor to quiesce");
 
         releaseCallback.countDown();
         org.junit.jupiter.api.Assertions.assertTrue(unregisterFinished.await(5, TimeUnit.SECONDS));
@@ -300,43 +279,42 @@ class ParameterLifecycleCoordinatorTest {
         coordinator.close();
     }
 
-
     @Test
     void hookPermissionsSeparateInterceptionFromObservation() {
         final List<String> events = new ArrayList<>();
         final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
         coordinator.register(new ParameterLifecycleCoordinator.PluginHooks(
-            descriptor("observe-only"),
-            List.of(new CubismPlugin() {
-                @Override public float beforeSetParameterValue(
-                    final Parameter parameter,
-                    final float value
-                ) { return value * 0.5F; }
-                @Override public void afterSetParameterValue(
-                    final Parameter parameter,
-                    final float value
-                ) { events.add("observe:" + value); }
-            }),
-            logger(),
-            false,
-            true
-        ));
+                descriptor("observe-only"),
+                List.of(new CubismPlugin() {
+                    @Override
+                    public float beforeSetParameterValue(final Parameter parameter, final float value) {
+                        return value * 0.5F;
+                    }
+
+                    @Override
+                    public void afterSetParameterValue(final Parameter parameter, final float value) {
+                        events.add("observe:" + value);
+                    }
+                }),
+                logger(),
+                false,
+                true));
         coordinator.register(new ParameterLifecycleCoordinator.PluginHooks(
-            descriptor("intercept-only"),
-            List.of(new CubismPlugin() {
-                @Override public float beforeSetParameterValue(
-                    final Parameter parameter,
-                    final float value
-                ) { return value * 0.5F; }
-                @Override public void afterSetParameterValue(
-                    final Parameter parameter,
-                    final float value
-                ) { events.add("unexpected"); }
-            }),
-            logger(),
-            true,
-            false
-        ));
+                descriptor("intercept-only"),
+                List.of(new CubismPlugin() {
+                    @Override
+                    public float beforeSetParameterValue(final Parameter parameter, final float value) {
+                        return value * 0.5F;
+                    }
+
+                    @Override
+                    public void afterSetParameterValue(final Parameter parameter, final float value) {
+                        events.add("unexpected");
+                    }
+                }),
+                logger(),
+                true,
+                false));
         final MutableParameter parameter = new MutableParameter(0.0F);
 
         coordinator.setValue(parameter, 8.0F, parameter::write);
@@ -347,21 +325,13 @@ class ParameterLifecycleCoordinatorTest {
     }
 
     private static ParameterLifecycleCoordinator.PluginHooks plugin(
-        final String id,
-        final List<? extends ParameterHooks> entrypoints
-    ) {
-        return new ParameterLifecycleCoordinator.PluginHooks(
-            descriptor(id),
-            List.copyOf(entrypoints),
-            logger()
-        );
+            final String id, final List<? extends ParameterHooks> entrypoints) {
+        return new ParameterLifecycleCoordinator.PluginHooks(descriptor(id), List.copyOf(entrypoints), logger());
     }
 
     private record TransformingHook(
-        String name,
-        List<String> transforms,
-        java.util.function.UnaryOperator<Float> transformation
-    ) implements CubismPlugin {
+            String name, List<String> transforms, java.util.function.UnaryOperator<Float> transformation)
+            implements CubismPlugin {
         @Override
         public float beforeSetParameterValue(final Parameter parameter, final float value) {
             transforms.add(name + ":" + value);
@@ -371,11 +341,7 @@ class ParameterLifecycleCoordinatorTest {
 
     private static final class ThrowingCallbackHook implements CubismPlugin {
         @Override
-        public void onParameterValueChanged(
-            final Parameter parameter,
-            final float oldValue,
-            final float newValue
-        ) {
+        public void onParameterValueChanged(final Parameter parameter, final float oldValue, final float newValue) {
             throw new IllegalStateException("on callback failed");
         }
 
@@ -401,11 +367,7 @@ class ParameterLifecycleCoordinatorTest {
 
     private record RecordingHook(String name, List<String> events) implements CubismPlugin {
         @Override
-        public void onParameterValueChanged(
-            final Parameter parameter,
-            final float oldValue,
-            final float newValue
-        ) {
+        public void onParameterValueChanged(final Parameter parameter, final float oldValue, final float newValue) {
             events.add(name + ":on:" + oldValue + "->" + newValue);
         }
 
@@ -420,9 +382,7 @@ class ParameterLifecycleCoordinatorTest {
         private final AtomicReference<ParameterValueEvent.Before> retained;
 
         private AnnotatedBeforeSubscriber(
-            final List<String> callbacks,
-            final AtomicReference<ParameterValueEvent.Before> retained
-        ) {
+                final List<String> callbacks, final AtomicReference<ParameterValueEvent.Before> retained) {
             this.callbacks = callbacks;
             this.retained = retained;
         }
@@ -468,10 +428,7 @@ class ParameterLifecycleCoordinatorTest {
         private final CountDownLatch deliveries;
 
         private AnnotatedCompletionSubscriber(
-            final List<String> events,
-            final AtomicReference<Parameter> observed,
-            final CountDownLatch deliveries
-        ) {
+                final List<String> events, final AtomicReference<Parameter> observed, final CountDownLatch deliveries) {
             this.events = events;
             this.observed = observed;
             this.deliveries = deliveries;
@@ -494,24 +451,16 @@ class ParameterLifecycleCoordinatorTest {
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(
-                1,
-                8,
-                ignored -> { },
-                Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC)
-            ),
-            new NoOpSidecarDispatcher(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(
+                        1, 8, ignored -> {}, Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC)),
+                new NoOpSidecarDispatcher(),
+                ignored -> {});
     }
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
         @Override
-        public CompletionStage<SidecarResult> dispatch(
-            final PluginTask task,
-            final Runnable callback
-        ) {
+        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
             return CompletableFuture.completedFuture(SidecarResult.success(""));
         }
     }
@@ -527,47 +476,152 @@ class ParameterLifecycleCoordinatorTest {
             this.value = value;
         }
 
-        @Override public ParameterId id() { return new ParameterId("ParamAngleX"); }
-        @Override public float getValue() { return value; }
-        @Override public float getMinimumValue() { return -30.0F; }
-        @Override public float getMaximumValue() { return 30.0F; }
-        @Override public float getDefaultValue() { return 0.0F; }
-        @Override public void setValue(final float value) { write(value); }
+        @Override
+        public ParameterId id() {
+            return new ParameterId("ParamAngleX");
+        }
+
+        @Override
+        public float getValue() {
+            return value;
+        }
+
+        @Override
+        public float getMinimumValue() {
+            return -30.0F;
+        }
+
+        @Override
+        public float getMaximumValue() {
+            return 30.0F;
+        }
+
+        @Override
+        public float getDefaultValue() {
+            return 0.0F;
+        }
+
+        @Override
+        public void setValue(final float value) {
+            write(value);
+        }
     }
 
     private static PluginDescriptor descriptor(final String id) {
         return new PluginDescriptor() {
-            @Override public String id() { return id; }
-            @Override public String name() { return id; }
-            @Override public String version() { return "1.0.0"; }
-            @Override public String description() { return "test"; }
-            @Override public List<String> entrypoints() { return List.of(); }
-            @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
-            @Override public List<Author> authors() { return List.of(); }
-            @Override public String license() { return "UNLICENSED"; }
-            @Override public Optional<String> website() { return Optional.empty(); }
-            @Override public List<String> resources() { return List.of(); }
-            @Override public I18n i18n() { return new I18n() {
-                @Override public String baseName() { return "messages"; }
-                @Override public List<String> locales() { return List.of(); }
-            }; }
-            @Override public List<DependencyRef> dependencies() { return List.of(); }
-            @Override public List<PermissionRef> permissions() { return List.of(); }
-            @Override public List<String> capabilities() { return List.of(); }
-            @Override public Environment environment() { return new Environment() {
-                @Override public boolean requiresCubism() { return false; }
-                @Override public String ui() { return "none"; }
-            }; }
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String name() {
+                return id;
+            }
+
+            @Override
+            public String version() {
+                return "1.0.0";
+            }
+
+            @Override
+            public String description() {
+                return "test";
+            }
+
+            @Override
+            public List<String> entrypoints() {
+                return List.of();
+            }
+
+            @Override
+            public String turboismApi() {
+                return "[0.1.0,0.2.0)";
+            }
+
+            @Override
+            public List<Author> authors() {
+                return List.of();
+            }
+
+            @Override
+            public String license() {
+                return "UNLICENSED";
+            }
+
+            @Override
+            public Optional<String> website() {
+                return Optional.empty();
+            }
+
+            @Override
+            public List<String> resources() {
+                return List.of();
+            }
+
+            @Override
+            public I18n i18n() {
+                return new I18n() {
+                    @Override
+                    public String baseName() {
+                        return "messages";
+                    }
+
+                    @Override
+                    public List<String> locales() {
+                        return List.of();
+                    }
+                };
+            }
+
+            @Override
+            public List<DependencyRef> dependencies() {
+                return List.of();
+            }
+
+            @Override
+            public List<PermissionRef> permissions() {
+                return List.of();
+            }
+
+            @Override
+            public List<String> capabilities() {
+                return List.of();
+            }
+
+            @Override
+            public Environment environment() {
+                return new Environment() {
+                    @Override
+                    public boolean requiresCubism() {
+                        return false;
+                    }
+
+                    @Override
+                    public String ui() {
+                        return "none";
+                    }
+                };
+            }
         };
     }
 
     private static PluginLogger logger() {
         return new PluginLogger() {
-            @Override public void debug(final String message) { }
-            @Override public void info(final String message) { }
-            @Override public void warn(final String message) { }
-            @Override public void error(final String message) { }
-            @Override public void error(final String message, final Throwable throwable) { }
+            @Override
+            public void debug(final String message) {}
+
+            @Override
+            public void info(final String message) {}
+
+            @Override
+            public void warn(final String message) {}
+
+            @Override
+            public void error(final String message) {}
+
+            @Override
+            public void error(final String message, final Throwable throwable) {}
         };
     }
 }

@@ -1,37 +1,37 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.cubism.id.ArtMeshId;
-import dev.turboism.sdk.cubism.id.DeformerId;
-import org.junit.jupiter.api.Test;
-
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.id.DeformerId;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class EditorObjectModelApiContractTest {
 
     @Test
     void modelExposesStronglyTypedEditorObjectFamilies() throws Exception {
         assertEquals(Drawables.class, CubismModel.class.getMethod("drawables").getReturnType());
-        assertEquals(WarpDeformers.class, CubismModel.class.getMethod("warpDeformers").getReturnType());
         assertEquals(
-            RotationDeformers.class,
-            CubismModel.class.getMethod("rotationDeformers").getReturnType()
-        );
+                WarpDeformers.class,
+                CubismModel.class.getMethod("warpDeformers").getReturnType());
+        assertEquals(
+                RotationDeformers.class,
+                CubismModel.class.getMethod("rotationDeformers").getReturnType());
 
-        assertEquals(Drawable.class, Drawables.class.getMethod("find", ArtMeshId.class).getReturnType());
         assertEquals(
-            WarpDeformer.class,
-            WarpDeformers.class.getMethod("find", DeformerId.class).getReturnType()
-        );
+                Drawable.class,
+                Drawables.class.getMethod("find", ArtMeshId.class).getReturnType());
         assertEquals(
-            RotationDeformer.class,
-            RotationDeformers.class.getMethod("find", DeformerId.class).getReturnType()
-        );
+                WarpDeformer.class,
+                WarpDeformers.class.getMethod("find", DeformerId.class).getReturnType());
+        assertEquals(
+                RotationDeformer.class,
+                RotationDeformers.class.getMethod("find", DeformerId.class).getReturnType());
     }
 
     @Test
@@ -69,52 +69,109 @@ class EditorObjectModelApiContractTest {
         assertMethod(RotationDeformer.class, "baseAngle");
         assertMethod(RotationDeformer.class, "setBaseAngle", float.class);
         assertMethod(RotationDeformer.class, "form");
-        assertMethod(
-            RotationDeformer.class,
-            "replaceForm",
-            RotationDeformerForm.class
-        );
+        assertMethod(RotationDeformer.class, "replaceForm", RotationDeformerForm.class);
     }
 
     @Test
     void drawableGuidDefaultsToUnavailableUntilHostImplementsIt() {
-        final Drawable drawable = new StubDrawable() { };
+        final Drawable drawable = new StubDrawable() {};
         assertThrows(UnsupportedOperationException.class, drawable::guid);
     }
 
     /** 除默认方法外全部抛出：验证 default 语义（guid 未实现时不可用）。 */
     private abstract static class StubDrawable implements Drawable {
-        @Override public ArtMeshId id() { throw new UnsupportedOperationException(); }
-        @Override public byte constantFlag() { throw new UnsupportedOperationException(); }
-        @Override public byte dynamicFlag() { throw new UnsupportedOperationException(); }
-        @Override public BlendMode blendMode() { throw new UnsupportedOperationException(); }
-        @Override public int textureIndex() { throw new UnsupportedOperationException(); }
-        @Override public int drawOrder() { throw new UnsupportedOperationException(); }
-        @Override public int renderOrder() { throw new UnsupportedOperationException(); }
-        @Override public float getOpacity() { throw new UnsupportedOperationException(); }
-        @Override public IntSequence masks() { throw new UnsupportedOperationException(); }
-        @Override public FloatSequence vertexPositions() { throw new UnsupportedOperationException(); }
-        @Override public FloatSequence vertexUvs() { throw new UnsupportedOperationException(); }
-        @Override public IntSequence indices() { throw new UnsupportedOperationException(); }
-        @Override public Color multiplyColor() { throw new UnsupportedOperationException(); }
-        @Override public Color screenColor() { throw new UnsupportedOperationException(); }
-        @Override public int parentPartIndex() { throw new UnsupportedOperationException(); }
-        @Override public int parentDeformerIndex() { throw new UnsupportedOperationException(); }
-        @Override public IntSequence parameters() { throw new UnsupportedOperationException(); }
+        @Override
+        public ArtMeshId id() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public byte constantFlag() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public byte dynamicFlag() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public BlendMode blendMode() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int textureIndex() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int drawOrder() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int renderOrder() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public float getOpacity() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public IntSequence masks() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public FloatSequence vertexPositions() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public FloatSequence vertexUvs() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public IntSequence indices() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Color multiplyColor() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Color screenColor() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int parentPartIndex() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int parentDeformerIndex() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public IntSequence parameters() {
+            throw new UnsupportedOperationException();
+        }
     }
 
     @Test
     void artMeshGeometryIsDeeplyImmutableAndValidatesTopology() {
-        final ArrayList<Point2> positions = new ArrayList<>(List.of(
-            new Point2(0.0f, 0.0f),
-            new Point2(1.0f, 0.0f),
-            new Point2(0.0f, 1.0f)
-        ));
-        final ArrayList<Point2> uvs = new ArrayList<>(List.of(
-            new Point2(0.0f, 0.0f),
-            new Point2(1.0f, 0.0f),
-            new Point2(0.0f, 1.0f)
-        ));
+        final ArrayList<Point2> positions =
+                new ArrayList<>(List.of(new Point2(0.0f, 0.0f), new Point2(1.0f, 0.0f), new Point2(0.0f, 1.0f)));
+        final ArrayList<Point2> uvs =
+                new ArrayList<>(List.of(new Point2(0.0f, 0.0f), new Point2(1.0f, 0.0f), new Point2(0.0f, 1.0f)));
         final ArrayList<Integer> indices = new ArrayList<>(List.of(0, 1, 2));
 
         final ArtMeshGeometry geometry = new ArtMeshGeometry(positions, uvs, indices);
@@ -126,29 +183,21 @@ class EditorObjectModelApiContractTest {
         assertEquals(3, geometry.uvs().size());
         assertEquals(List.of(0, 1, 2), geometry.triangleIndices());
         assertThrows(
-            UnsupportedOperationException.class,
-            () -> geometry.positions().add(new Point2(2.0f, 2.0f))
-        );
+                UnsupportedOperationException.class, () -> geometry.positions().add(new Point2(2.0f, 2.0f)));
 
         final ArtMeshGeometry moved = geometry.withVertexPosition(1, 2.0f, 3.0f);
         assertEquals(new Point2(2.0f, 3.0f), moved.positions().get(1));
         assertEquals(new Point2(1.0f, 0.0f), geometry.positions().get(1));
 
-        assertThrows(IllegalArgumentException.class, () -> new ArtMeshGeometry(
-            List.of(new Point2(0.0f, 0.0f)),
-            List.of(),
-            List.of()
-        ));
-        assertThrows(IllegalArgumentException.class, () -> new ArtMeshGeometry(
-            geometry.positions(),
-            geometry.uvs(),
-            List.of(0, 1)
-        ));
-        assertThrows(IllegalArgumentException.class, () -> new ArtMeshGeometry(
-            geometry.positions(),
-            geometry.uvs(),
-            List.of(0, 1, 3)
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ArtMeshGeometry(List.of(new Point2(0.0f, 0.0f)), List.of(), List.of()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ArtMeshGeometry(geometry.positions(), geometry.uvs(), List.of(0, 1)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ArtMeshGeometry(geometry.positions(), geometry.uvs(), List.of(0, 1, 3)));
     }
 
     @Test
@@ -162,48 +211,30 @@ class EditorObjectModelApiContractTest {
 
         assertEquals(12, grid.controlPoints().size());
         assertThrows(
-            UnsupportedOperationException.class,
-            () -> grid.controlPoints().add(new Point2(0.0f, 0.0f))
-        );
+                UnsupportedOperationException.class, () -> grid.controlPoints().add(new Point2(0.0f, 0.0f)));
         final WarpGrid moved = grid.withControlPoint(4, -2.0f, 8.0f);
         assertEquals(new Point2(-2.0f, 8.0f), moved.controlPoints().get(4));
         assertEquals(new Point2(4.0f, 4.5f), grid.controlPoints().get(4));
 
         assertThrows(IllegalArgumentException.class, () -> new WarpGrid(0, 3, false, List.of()));
-        assertThrows(IllegalArgumentException.class, () -> new WarpGrid(
-            2,
-            3,
-            false,
-            List.of(new Point2(0.0f, 0.0f))
-        ));
+        assertThrows(IllegalArgumentException.class, () -> new WarpGrid(2, 3, false, List.of(new Point2(0.0f, 0.0f))));
     }
 
     @Test
     void rotationFormRejectsNonFiniteOrNonPositiveScale() {
-        final RotationDeformerForm form = new RotationDeformerForm(
-            15.0f,
-            2.0f,
-            3.0f,
-            1.25f,
-            true,
-            false
-        );
+        final RotationDeformerForm form = new RotationDeformerForm(15.0f, 2.0f, 3.0f, 1.25f, true, false);
         assertEquals(15.0f, form.angle());
         assertEquals(new Point2(2.0f, 3.0f), form.origin());
 
-        assertThrows(IllegalArgumentException.class, () -> new RotationDeformerForm(
-            Float.NaN, 0.0f, 0.0f, 1.0f, false, false
-        ));
-        assertThrows(IllegalArgumentException.class, () -> new RotationDeformerForm(
-            0.0f, 0.0f, 0.0f, 0.0f, false, false
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new RotationDeformerForm(Float.NaN, 0.0f, 0.0f, 1.0f, false, false));
+        assertThrows(
+                IllegalArgumentException.class, () -> new RotationDeformerForm(0.0f, 0.0f, 0.0f, 0.0f, false, false));
     }
 
-    private static Method assertMethod(
-        final Class<?> owner,
-        final String name,
-        final Class<?>... parameterTypes
-    ) throws Exception {
+    private static Method assertMethod(final Class<?> owner, final String name, final Class<?>... parameterTypes)
+            throws Exception {
         final Method method = owner.getMethod(name, parameterTypes);
         assertTrue(method.getDeclaringClass().isAssignableFrom(owner));
         return method;

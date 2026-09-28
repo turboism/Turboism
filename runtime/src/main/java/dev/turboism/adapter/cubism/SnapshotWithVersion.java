@@ -12,5 +12,4 @@ import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
  * @param snapshot the observed runtime state
  * @param version  the host revision the snapshot was read at; monotonically increasing
  */
-public record SnapshotWithVersion(CubismRuntimeSnapshot snapshot, long version) {
-}
+public record SnapshotWithVersion(CubismRuntimeSnapshot snapshot, long version) {}

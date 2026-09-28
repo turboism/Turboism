@@ -1,39 +1,37 @@
 package dev.turboism.core.event;
 
-import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.permissions.PermissionChecker;
-import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.action.ActionInvocationEvent;
+import dev.turboism.sdk.appearance.AppearanceChangedEvent;
+import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
+import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
+import dev.turboism.sdk.cubism.event.DeformerLockEvent;
+import dev.turboism.sdk.cubism.event.DeformerOpacityEvent;
+import dev.turboism.sdk.cubism.event.DeformerVisibilityEvent;
 import dev.turboism.sdk.cubism.event.DrawableGeometryEvent;
 import dev.turboism.sdk.cubism.event.DrawableLockEvent;
 import dev.turboism.sdk.cubism.event.DrawableOpacityEvent;
-import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.cubism.event.DrawableVisibilityEvent;
 import dev.turboism.sdk.cubism.event.EditorExitEvent;
 import dev.turboism.sdk.cubism.event.EditorStartupEvent;
 import dev.turboism.sdk.cubism.event.ModelUpdateEvent;
-import dev.turboism.sdk.cubism.event.DeformerLockEvent;
-import dev.turboism.sdk.cubism.event.DeformerOpacityEvent;
-import dev.turboism.sdk.cubism.event.DeformerVisibilityEvent;
 import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.cubism.event.PartNameEvent;
 import dev.turboism.sdk.cubism.event.PartOpacityEvent;
 import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.cubism.event.RotationDeformerBaseAngleEvent;
 import dev.turboism.sdk.cubism.event.RotationDeformerFormEvent;
-import dev.turboism.sdk.cubism.event.WarpDeformerGridEvent;
-import dev.turboism.sdk.action.ActionInvocationEvent;
-import dev.turboism.sdk.appearance.AppearanceChangedEvent;
-import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
+import dev.turboism.sdk.cubism.event.WarpDeformerGridEvent;
+import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.performance.PerformanceSampleEvent;
+import dev.turboism.sdk.permission.PermissionIds;
+import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.sdk.runtime.CubismLogBatchEvent;
+import dev.turboism.sdk.runtime.PluginLifecycleEvent;
 import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
 import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
-import dev.turboism.sdk.permission.PermissionIds;
-import dev.turboism.sdk.runtime.CubismLogBatchEvent;
-import dev.turboism.sdk.runtime.PluginLifecycleEvent;
-import dev.turboism.sdk.performance.PerformanceSampleEvent;
-import dev.turboism.sdk.plugin.PluginDescriptor;
-
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -42,21 +40,14 @@ import java.util.Set;
 /** Domain permissions required by event subscription types. */
 public final class EventSubscriptionPermissionCatalog {
 
-    private EventSubscriptionPermissionCatalog() { }
+    private EventSubscriptionPermissionCatalog() {}
 
     /** Checks every permission required to subscribe to the requested event type. */
     public static void check(
-        final Class<? extends EventBus.TurboismEvent> subscriptionType,
-        final PermissionChecker permissionChecker
-    ) {
-        final Class<? extends EventBus.TurboismEvent> type = Objects.requireNonNull(
-            subscriptionType,
-            "subscriptionType"
-        );
-        final PermissionChecker checker = Objects.requireNonNull(
-            permissionChecker,
-            "permissionChecker"
-        );
+            final Class<? extends EventBus.TurboismEvent> subscriptionType, final PermissionChecker permissionChecker) {
+        final Class<? extends EventBus.TurboismEvent> type =
+                Objects.requireNonNull(subscriptionType, "subscriptionType");
+        final PermissionChecker checker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         for (String permission : requiredPermissions(type)) {
             checker.check(permission, "event.subscribe." + type.getName());
         }
@@ -72,16 +63,9 @@ public final class EventSubscriptionPermissionCatalog {
      * @return true when every required domain permission is granted
      */
     public static boolean isPermitted(
-        final Class<? extends EventBus.TurboismEvent> concreteType,
-        final PermissionChecker permissionChecker
-    ) {
-        final PermissionChecker checker = Objects.requireNonNull(
-            permissionChecker,
-            "permissionChecker"
-        );
-        for (String permission : requiredPermissions(
-            Objects.requireNonNull(concreteType, "concreteType")
-        )) {
+            final Class<? extends EventBus.TurboismEvent> concreteType, final PermissionChecker permissionChecker) {
+        final PermissionChecker checker = Objects.requireNonNull(permissionChecker, "permissionChecker");
+        for (String permission : requiredPermissions(Objects.requireNonNull(concreteType, "concreteType"))) {
             try {
                 checker.check(permission, "event.deliver." + concreteType.getName());
             } catch (dev.turboism.sdk.permission.CubismPermissionException denied) {
@@ -93,51 +77,42 @@ public final class EventSubscriptionPermissionCatalog {
 
     /** Validates that a descriptor declares permissions required by its subscribers. */
     public static void requireDeclared(
-        final PluginDescriptor descriptor,
-        final List<EventSubscriberDescriptor> subscribers
-    ) {
+            final PluginDescriptor descriptor, final List<EventSubscriberDescriptor> subscribers) {
         final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
         final Set<String> declared = plugin.permissions().stream()
-            .map(PluginDescriptor.PermissionRef::id)
-            .collect(java.util.stream.Collectors.toUnmodifiableSet());
-        for (EventSubscriberDescriptor subscriber : Objects.requireNonNull(
-            subscribers,
-            "subscribers"
-        )) {
+                .map(PluginDescriptor.PermissionRef::id)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        for (EventSubscriberDescriptor subscriber : Objects.requireNonNull(subscribers, "subscribers")) {
             for (String permission : requiredPermissions(subscriber.eventType())) {
                 if (!declared.contains(permission)) {
-                    throw new IllegalArgumentException(
-                        "@SubscribeEvent for " + subscriber.eventType().getName()
-                            + " requires " + permission + ": " + plugin.id()
-                    );
+                    throw new IllegalArgumentException("@SubscribeEvent for "
+                            + subscriber.eventType().getName() + " requires " + permission + ": " + plugin.id());
                 }
             }
         }
     }
 
-    static Set<String> requiredPermissions(
-        final Class<? extends EventBus.TurboismEvent> subscriptionType
-    ) {
+    static Set<String> requiredPermissions(final Class<? extends EventBus.TurboismEvent> subscriptionType) {
         if (subscriptionType == EventBus.TurboismEvent.class
-            || subscriptionType == dev.turboism.sdk.event.TurboismEvent.class) {
+                || subscriptionType == dev.turboism.sdk.event.TurboismEvent.class) {
             return Set.of();
         }
         final Set<String> permissions = new LinkedHashSet<>();
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.Before.class)
-            || subscriptionType.isAssignableFrom(PartOpacityEvent.Before.class)
-            || subscriptionType.isAssignableFrom(PartNameEvent.Before.class)
-            || subscriptionType.isAssignableFrom(DrawableOpacityEvent.Before.class)
-            || subscriptionType.isAssignableFrom(DrawableVisibilityEvent.Before.class)
-            || subscriptionType.isAssignableFrom(DrawableLockEvent.Before.class)
-            || subscriptionType.isAssignableFrom(DrawableGeometryEvent.Before.class)
-            || subscriptionType.isAssignableFrom(DeformerOpacityEvent.Before.class)
-            || subscriptionType.isAssignableFrom(DeformerVisibilityEvent.Before.class)
-            || subscriptionType.isAssignableFrom(DeformerLockEvent.Before.class)
-            || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.Before.class)
-            || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.Before.class)
-            || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.Before.class)
-            || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.Before.class)
-            || subscriptionType.isAssignableFrom(ModelUpdateEvent.Before.class)) {
+                || subscriptionType.isAssignableFrom(PartOpacityEvent.Before.class)
+                || subscriptionType.isAssignableFrom(PartNameEvent.Before.class)
+                || subscriptionType.isAssignableFrom(DrawableOpacityEvent.Before.class)
+                || subscriptionType.isAssignableFrom(DrawableVisibilityEvent.Before.class)
+                || subscriptionType.isAssignableFrom(DrawableLockEvent.Before.class)
+                || subscriptionType.isAssignableFrom(DrawableGeometryEvent.Before.class)
+                || subscriptionType.isAssignableFrom(DeformerOpacityEvent.Before.class)
+                || subscriptionType.isAssignableFrom(DeformerVisibilityEvent.Before.class)
+                || subscriptionType.isAssignableFrom(DeformerLockEvent.Before.class)
+                || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.Before.class)
+                || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.Before.class)
+                || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.Before.class)
+                || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.Before.class)
+                || subscriptionType.isAssignableFrom(ModelUpdateEvent.Before.class)) {
             permissions.add(PermissionIds.TURBOISM_CUBISM_MODEL_INTERCEPT);
         }
         if (subscriptionType.isAssignableFrom(AppearanceChangedEvent.class)) {
@@ -150,8 +125,8 @@ public final class EventSubscriptionPermissionCatalog {
             permissions.add(PermissionIds.TURBOISM_CUBISM_SELECTION_OBSERVE);
         }
         if (subscriptionType.isAssignableFrom(SceneTableHeaderClickEvent.class)
-            || subscriptionType.isAssignableFrom(SceneTableSnapshotEvent.class)
-            || subscriptionType.isAssignableFrom(SceneTableItemOrderEvent.class)) {
+                || subscriptionType.isAssignableFrom(SceneTableSnapshotEvent.class)
+                || subscriptionType.isAssignableFrom(SceneTableItemOrderEvent.class)) {
             permissions.add(PermissionIds.TURBOISM_UI_SCENE_TABLE_OBSERVE);
         }
         if (subscriptionType.isAssignableFrom(CubismLogBatchEvent.class)) {
@@ -167,44 +142,44 @@ public final class EventSubscriptionPermissionCatalog {
             permissions.add(PermissionIds.TURBOISM_PLUGIN_LIFECYCLE_OBSERVE);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
-            || subscriptionType.isAssignableFrom(ParameterValueEvent.After.class)
-            || subscriptionType.isAssignableFrom(PartOpacityEvent.On.class)
-            || subscriptionType.isAssignableFrom(PartOpacityEvent.After.class)
-            || subscriptionType.isAssignableFrom(PartNameEvent.On.class)
-            || subscriptionType.isAssignableFrom(PartNameEvent.After.class)
-            || subscriptionType.isAssignableFrom(DrawableOpacityEvent.On.class)
-            || subscriptionType.isAssignableFrom(DrawableOpacityEvent.After.class)
-            || subscriptionType.isAssignableFrom(DrawableVisibilityEvent.On.class)
-            || subscriptionType.isAssignableFrom(DrawableVisibilityEvent.After.class)
-            || subscriptionType.isAssignableFrom(DrawableLockEvent.On.class)
-            || subscriptionType.isAssignableFrom(DrawableLockEvent.After.class)
-            || subscriptionType.isAssignableFrom(DrawableGeometryEvent.On.class)
-            || subscriptionType.isAssignableFrom(DrawableGeometryEvent.After.class)
-            || subscriptionType.isAssignableFrom(DeformerOpacityEvent.On.class)
-            || subscriptionType.isAssignableFrom(DeformerOpacityEvent.After.class)
-            || subscriptionType.isAssignableFrom(DeformerVisibilityEvent.On.class)
-            || subscriptionType.isAssignableFrom(DeformerVisibilityEvent.After.class)
-            || subscriptionType.isAssignableFrom(DeformerLockEvent.On.class)
-            || subscriptionType.isAssignableFrom(DeformerLockEvent.After.class)
-            || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.On.class)
-            || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.After.class)
-            || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.On.class)
-            || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.After.class)
-            || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.On.class)
-            || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.After.class)
-            || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.On.class)
-            || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.After.class)
-            || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.Before.class)
-            || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.On.class)
-            || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.After.class)
-            || subscriptionType.isAssignableFrom(EditorStartupEvent.Before.class)
-            || subscriptionType.isAssignableFrom(EditorStartupEvent.On.class)
-            || subscriptionType.isAssignableFrom(EditorStartupEvent.After.class)
-            || subscriptionType.isAssignableFrom(EditorExitEvent.Before.class)
-            || subscriptionType.isAssignableFrom(EditorExitEvent.On.class)
-            || subscriptionType.isAssignableFrom(EditorExitEvent.After.class)
-            || subscriptionType.isAssignableFrom(ModelUpdateEvent.On.class)
-            || subscriptionType.isAssignableFrom(ModelUpdateEvent.After.class)) {
+                || subscriptionType.isAssignableFrom(ParameterValueEvent.After.class)
+                || subscriptionType.isAssignableFrom(PartOpacityEvent.On.class)
+                || subscriptionType.isAssignableFrom(PartOpacityEvent.After.class)
+                || subscriptionType.isAssignableFrom(PartNameEvent.On.class)
+                || subscriptionType.isAssignableFrom(PartNameEvent.After.class)
+                || subscriptionType.isAssignableFrom(DrawableOpacityEvent.On.class)
+                || subscriptionType.isAssignableFrom(DrawableOpacityEvent.After.class)
+                || subscriptionType.isAssignableFrom(DrawableVisibilityEvent.On.class)
+                || subscriptionType.isAssignableFrom(DrawableVisibilityEvent.After.class)
+                || subscriptionType.isAssignableFrom(DrawableLockEvent.On.class)
+                || subscriptionType.isAssignableFrom(DrawableLockEvent.After.class)
+                || subscriptionType.isAssignableFrom(DrawableGeometryEvent.On.class)
+                || subscriptionType.isAssignableFrom(DrawableGeometryEvent.After.class)
+                || subscriptionType.isAssignableFrom(DeformerOpacityEvent.On.class)
+                || subscriptionType.isAssignableFrom(DeformerOpacityEvent.After.class)
+                || subscriptionType.isAssignableFrom(DeformerVisibilityEvent.On.class)
+                || subscriptionType.isAssignableFrom(DeformerVisibilityEvent.After.class)
+                || subscriptionType.isAssignableFrom(DeformerLockEvent.On.class)
+                || subscriptionType.isAssignableFrom(DeformerLockEvent.After.class)
+                || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.On.class)
+                || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.After.class)
+                || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.On.class)
+                || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.After.class)
+                || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.On.class)
+                || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.After.class)
+                || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.On.class)
+                || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.After.class)
+                || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.Before.class)
+                || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.On.class)
+                || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.After.class)
+                || subscriptionType.isAssignableFrom(EditorStartupEvent.Before.class)
+                || subscriptionType.isAssignableFrom(EditorStartupEvent.On.class)
+                || subscriptionType.isAssignableFrom(EditorStartupEvent.After.class)
+                || subscriptionType.isAssignableFrom(EditorExitEvent.Before.class)
+                || subscriptionType.isAssignableFrom(EditorExitEvent.On.class)
+                || subscriptionType.isAssignableFrom(EditorExitEvent.After.class)
+                || subscriptionType.isAssignableFrom(ModelUpdateEvent.On.class)
+                || subscriptionType.isAssignableFrom(ModelUpdateEvent.After.class)) {
             permissions.add(PermissionIds.TURBOISM_CUBISM_MODEL_OBSERVE);
         }
         return Set.copyOf(permissions);

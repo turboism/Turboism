@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.serialization;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
@@ -8,15 +10,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 
 class FloatArrayParseBridgeTest {
-    @Test void closeCannotBeFollowedByInFlightCallbackRepopulatingKeys() throws Exception {
+    @Test
+    void closeCannotBeFollowedByInFlightCallbackRepopulatingKeys() throws Exception {
         Properties original = System.getProperties();
         CountDownLatch admitted = new CountDownLatch(1), resume = new CountDownLatch(1);
         AtomicBoolean pauseOnce = new AtomicBoolean(true);
         Properties controlled = new Properties() {
-            @Override public String getProperty(String key) {
+            @Override
+            public String getProperty(String key) {
                 String value = super.getProperty(key);
                 if (FloatArrayParseBridge.ENABLE_PROPERTY.equals(key) && pauseOnce.compareAndSet(true, false)) {
                     admitted.countDown();
@@ -38,13 +41,16 @@ class FloatArrayParseBridgeTest {
             System.setProperties(controlled);
             bridge.install();
             @SuppressWarnings("unchecked")
-            BiFunction<Object, Object, Object> callback = (BiFunction<Object, Object, Object>)
-                controlled.get(FloatArrayParseBridge.CALLBACK_PROPERTY);
+            BiFunction<Object, Object, Object> callback =
+                    (BiFunction<Object, Object, Object>) controlled.get(FloatArrayParseBridge.CALLBACK_PROPERTY);
             FutureTask<Object> parse = new FutureTask<>(() -> callback.apply(2, List.of("1.25", "-0.0")));
             parser = new Thread(parse, "float-parse-race");
             parser.start();
             assertTrue(admitted.await(5, TimeUnit.SECONDS));
-            FutureTask<Void> close = new FutureTask<>(() -> { bridge.close(); return null; });
+            FutureTask<Void> close = new FutureTask<>(() -> {
+                bridge.close();
+                return null;
+            });
             closer = new Thread(close, "float-close-race");
             closer.start();
             // Old close completes here. A quiescing close blocks on the active callback.

@@ -1,5 +1,10 @@
 package dev.turboism.plugin.recentpreview.cache;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
@@ -11,19 +16,13 @@ import dev.turboism.sdk.storage.StorageMutationResult;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageReadResult;
 import dev.turboism.sdk.storage.StorageWriteResult;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class PreviewCacheIndexTest {
 
@@ -72,16 +71,19 @@ final class PreviewCacheIndexTest {
         final PreviewCacheIndex index = new PreviewCacheIndex(storage);
 
         final PreviewCacheWriteResult result = index.store(
-            new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3"),
-            new ScreenshotImage(1, 1, png()),
-            allowed::get
-        ).toCompletableFuture().join();
+                        new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3"),
+                        new ScreenshotImage(1, 1, png()),
+                        allowed::get)
+                .toCompletableFuture()
+                .join();
 
         assertEquals(PreviewCacheWriteResult.DISABLED, result);
         assertTrue(storage.operations.stream().noneMatch(operation -> operation.startsWith("move:")));
-        assertEquals(2, storage.operations.stream()
-            .filter(operation -> operation.startsWith("delete:recent-preview/staging/"))
-            .count());
+        assertEquals(
+                2,
+                storage.operations.stream()
+                        .filter(operation -> operation.startsWith("delete:recent-preview/staging/"))
+                        .count());
     }
 
     @Test
@@ -107,7 +109,9 @@ final class PreviewCacheIndexTest {
         final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
 
         final Map<RecentFileId, byte[]> loaded = new PreviewCacheIndex(storage)
-            .loadPng(List.of(file)).toCompletableFuture().join();
+                .loadPng(List.of(file))
+                .toCompletableFuture()
+                .join();
 
         assertArrayEquals(png(), loaded.get(file.id()));
         assertEquals(1_048_576, storage.lastMaxBytes);
@@ -117,11 +121,14 @@ final class PreviewCacheIndexTest {
     @Test
     void ignoresCorruptCachedPng() {
         final RecordingStorage storage = new RecordingStorage();
-        storage.readBytes = new byte[]{1, 2, 3};
+        storage.readBytes = new byte[] {1, 2, 3};
         final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
 
-        assertTrue(new PreviewCacheIndex(storage).loadPng(List.of(file))
-            .toCompletableFuture().join().isEmpty());
+        assertTrue(new PreviewCacheIndex(storage)
+                .loadPng(List.of(file))
+                .toCompletableFuture()
+                .join()
+                .isEmpty());
     }
 
     @Test
@@ -129,26 +136,22 @@ final class PreviewCacheIndexTest {
         assertEquals(64, PreviewCacheIndex.key("recent-1").length());
         assertTrue(PreviewCacheIndex.key("recent-1").matches("[0-9a-f]{64}"));
         assertEquals(
-            "recent-preview/images/" + PreviewCacheIndex.key("recent-1") + ".png",
-            PreviewCacheIndex.imageRelativePath("recent-1")
-        );
-        assertEquals(
-            PreviewCacheIndex.key("recent-1"),
-            PreviewCacheIndex.key(new RecentFileId("recent-1").value())
-        );
+                "recent-preview/images/" + PreviewCacheIndex.key("recent-1") + ".png",
+                PreviewCacheIndex.imageRelativePath("recent-1"));
+        assertEquals(PreviewCacheIndex.key("recent-1"), PreviewCacheIndex.key(new RecentFileId("recent-1").value()));
     }
 
     private static PreviewCacheWriteResult store(final PreviewCacheIndex index) {
         return index.store(
-            new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3"),
-            new ScreenshotImage(1, 1, png())
-        ).toCompletableFuture().join();
+                        new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3"),
+                        new ScreenshotImage(1, 1, png()))
+                .toCompletableFuture()
+                .join();
     }
 
     private static byte[] png() {
-        return java.util.Base64.getDecoder().decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-        );
+        return java.util.Base64.getDecoder()
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
     }
 
     private static final class RecordingStorage implements PluginStorage {
@@ -158,7 +161,7 @@ final class PreviewCacheIndexTest {
         private byte[] readBytes;
         private int lastMaxBytes;
         private String lastIndexEntry;
-        private Runnable afterImageWrite = () -> { };
+        private Runnable afterImageWrite = () -> {};
 
         @Override
         public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) {
@@ -185,8 +188,7 @@ final class PreviewCacheIndexTest {
             operations.add("read:" + path.relativePath());
             lastMaxBytes = maxBytes;
             return CompletableFuture.completedStage(
-                new StorageReadResult<>(Optional.ofNullable(readBytes), Optional.empty(), false)
-            );
+                    new StorageReadResult<>(Optional.ofNullable(readBytes), Optional.empty(), false));
         }
 
         @Override
@@ -196,15 +198,13 @@ final class PreviewCacheIndexTest {
 
         @Override
         public CompletionStage<StorageMutationResult> copy(
-            StoragePath source, StoragePath target, boolean replaceExisting
-        ) {
+                StoragePath source, StoragePath target, boolean replaceExisting) {
             throw new UnsupportedOperationException();
         }
 
         @Override
         public CompletionStage<StorageMutationResult> moveAtomic(
-            StoragePath source, StoragePath target, boolean replaceExisting
-        ) {
+                StoragePath source, StoragePath target, boolean replaceExisting) {
             operations.add("move:" + source.relativePath() + "->" + target.relativePath());
             return CompletableFuture.completedStage(new StorageMutationResult(true, Optional.empty()));
         }
@@ -220,9 +220,8 @@ final class PreviewCacheIndexTest {
         }
 
         private static StorageWriteResult failedWrite(final StoragePath path) {
-            return new StorageWriteResult(false, Optional.of(new StorageError(
-                StorageErrorCode.IO_FAILURE, "failed", path
-            )));
+            return new StorageWriteResult(
+                    false, Optional.of(new StorageError(StorageErrorCode.IO_FAILURE, "failed", path)));
         }
     }
 }
