@@ -14,7 +14,7 @@ import java.util.Set;
 @Incubating
 public final class PluginServices {
 
-    private PluginServices() { }
+    private PluginServices() {}
 
     /**
      * Builds a directory that resolves services through {@code context}'s optional accessors.

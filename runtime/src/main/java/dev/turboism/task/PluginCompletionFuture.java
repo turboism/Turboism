@@ -7,8 +7,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -25,10 +25,7 @@ public final class PluginCompletionFuture<T> {
         this(dispatcher, () -> true);
     }
 
-    public PluginCompletionFuture(
-        final Consumer<Runnable> dispatcher,
-        final BooleanSupplier continuationAdmission
-    ) {
+    public PluginCompletionFuture(final Consumer<Runnable> dispatcher, final BooleanSupplier continuationAdmission) {
         this.stage = new ControlledFuture<>(dispatcher, continuationAdmission);
     }
 
@@ -72,15 +69,9 @@ public final class PluginCompletionFuture<T> {
         private final BooleanSupplier continuationAdmission;
         private final Executor executor;
 
-        private ControlledFuture(
-            final Consumer<Runnable> dispatcher,
-            final BooleanSupplier continuationAdmission
-        ) {
+        private ControlledFuture(final Consumer<Runnable> dispatcher, final BooleanSupplier continuationAdmission) {
             this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
-            this.continuationAdmission = Objects.requireNonNull(
-                continuationAdmission,
-                "continuationAdmission"
-            );
+            this.continuationAdmission = Objects.requireNonNull(continuationAdmission, "continuationAdmission");
             this.executor = dispatcher::accept;
         }
 
@@ -133,10 +124,7 @@ public final class PluginCompletionFuture<T> {
         }
 
         @Override
-        public CompletableFuture<T> completeAsync(
-            final Supplier<? extends T> supplier,
-            final Executor ignored
-        ) {
+        public CompletableFuture<T> completeAsync(final Supplier<? extends T> supplier, final Executor ignored) {
             throw readOnly();
         }
 
@@ -146,35 +134,25 @@ public final class PluginCompletionFuture<T> {
         }
 
         @Override
-        public CompletableFuture<T> completeOnTimeout(
-            final T value,
-            final long timeout,
-            final TimeUnit unit
-        ) {
+        public CompletableFuture<T> completeOnTimeout(final T value, final long timeout, final TimeUnit unit) {
             throw readOnly();
         }
 
         @Override
-        public <U> CompletableFuture<U> thenApply(
-            final Function<? super T, ? extends U> action
-        ) {
+        public <U> CompletableFuture<U> thenApply(final Function<? super T, ? extends U> action) {
+            requireContinuationAdmission();
+            return super.thenApplyAsync(action, executor);
+        }
+
+        @Override
+        public <U> CompletableFuture<U> thenApplyAsync(final Function<? super T, ? extends U> action) {
             requireContinuationAdmission();
             return super.thenApplyAsync(action, executor);
         }
 
         @Override
         public <U> CompletableFuture<U> thenApplyAsync(
-            final Function<? super T, ? extends U> action
-        ) {
-            requireContinuationAdmission();
-            return super.thenApplyAsync(action, executor);
-        }
-
-        @Override
-        public <U> CompletableFuture<U> thenApplyAsync(
-            final Function<? super T, ? extends U> action,
-            final Executor ignored
-        ) {
+                final Function<? super T, ? extends U> action, final Executor ignored) {
             requireContinuationAdmission();
             return super.thenApplyAsync(action, executor);
         }
@@ -192,10 +170,7 @@ public final class PluginCompletionFuture<T> {
         }
 
         @Override
-        public CompletableFuture<Void> thenAcceptAsync(
-            final Consumer<? super T> action,
-            final Executor ignored
-        ) {
+        public CompletableFuture<Void> thenAcceptAsync(final Consumer<? super T> action, final Executor ignored) {
             requireContinuationAdmission();
             return super.thenAcceptAsync(action, executor);
         }
@@ -213,303 +188,231 @@ public final class PluginCompletionFuture<T> {
         }
 
         @Override
-        public CompletableFuture<Void> thenRunAsync(
-            final Runnable action,
-            final Executor ignored
-        ) {
+        public CompletableFuture<Void> thenRunAsync(final Runnable action, final Executor ignored) {
             requireContinuationAdmission();
             return super.thenRunAsync(action, executor);
         }
 
         @Override
         public <U, V> CompletableFuture<V> thenCombine(
-            final CompletionStage<? extends U> other,
-            final BiFunction<? super T, ? super U, ? extends V> action
-        ) {
+                final CompletionStage<? extends U> other, final BiFunction<? super T, ? super U, ? extends V> action) {
             requireContinuationAdmission();
             return super.thenCombineAsync(other, action, executor);
         }
 
         @Override
         public <U, V> CompletableFuture<V> thenCombineAsync(
-            final CompletionStage<? extends U> other,
-            final BiFunction<? super T, ? super U, ? extends V> action
-        ) {
+                final CompletionStage<? extends U> other, final BiFunction<? super T, ? super U, ? extends V> action) {
             requireContinuationAdmission();
             return super.thenCombineAsync(other, action, executor);
         }
 
         @Override
         public <U, V> CompletableFuture<V> thenCombineAsync(
-            final CompletionStage<? extends U> other,
-            final BiFunction<? super T, ? super U, ? extends V> action,
-            final Executor ignored
-        ) {
+                final CompletionStage<? extends U> other,
+                final BiFunction<? super T, ? super U, ? extends V> action,
+                final Executor ignored) {
             requireContinuationAdmission();
             return super.thenCombineAsync(other, action, executor);
         }
 
         @Override
         public <U> CompletableFuture<Void> thenAcceptBoth(
-            final CompletionStage<? extends U> other,
-            final BiConsumer<? super T, ? super U> action
-        ) {
+                final CompletionStage<? extends U> other, final BiConsumer<? super T, ? super U> action) {
             requireContinuationAdmission();
             return super.thenAcceptBothAsync(other, action, executor);
         }
 
         @Override
         public <U> CompletableFuture<Void> thenAcceptBothAsync(
-            final CompletionStage<? extends U> other,
-            final BiConsumer<? super T, ? super U> action
-        ) {
+                final CompletionStage<? extends U> other, final BiConsumer<? super T, ? super U> action) {
             requireContinuationAdmission();
             return super.thenAcceptBothAsync(other, action, executor);
         }
 
         @Override
         public <U> CompletableFuture<Void> thenAcceptBothAsync(
-            final CompletionStage<? extends U> other,
-            final BiConsumer<? super T, ? super U> action,
-            final Executor ignored
-        ) {
+                final CompletionStage<? extends U> other,
+                final BiConsumer<? super T, ? super U> action,
+                final Executor ignored) {
             requireContinuationAdmission();
             return super.thenAcceptBothAsync(other, action, executor);
         }
 
         @Override
-        public CompletableFuture<Void> runAfterBoth(
-            final CompletionStage<?> other,
-            final Runnable action
-        ) {
+        public CompletableFuture<Void> runAfterBoth(final CompletionStage<?> other, final Runnable action) {
+            requireContinuationAdmission();
+            return super.runAfterBothAsync(other, action, executor);
+        }
+
+        @Override
+        public CompletableFuture<Void> runAfterBothAsync(final CompletionStage<?> other, final Runnable action) {
             requireContinuationAdmission();
             return super.runAfterBothAsync(other, action, executor);
         }
 
         @Override
         public CompletableFuture<Void> runAfterBothAsync(
-            final CompletionStage<?> other,
-            final Runnable action
-        ) {
-            requireContinuationAdmission();
-            return super.runAfterBothAsync(other, action, executor);
-        }
-
-        @Override
-        public CompletableFuture<Void> runAfterBothAsync(
-            final CompletionStage<?> other,
-            final Runnable action,
-            final Executor ignored
-        ) {
+                final CompletionStage<?> other, final Runnable action, final Executor ignored) {
             requireContinuationAdmission();
             return super.runAfterBothAsync(other, action, executor);
         }
 
         @Override
         public <U> CompletableFuture<U> applyToEither(
-            final CompletionStage<? extends T> other,
-            final Function<? super T, U> action
-        ) {
+                final CompletionStage<? extends T> other, final Function<? super T, U> action) {
             requireContinuationAdmission();
             return super.applyToEitherAsync(other, action, executor);
         }
 
         @Override
         public <U> CompletableFuture<U> applyToEitherAsync(
-            final CompletionStage<? extends T> other,
-            final Function<? super T, U> action
-        ) {
+                final CompletionStage<? extends T> other, final Function<? super T, U> action) {
             requireContinuationAdmission();
             return super.applyToEitherAsync(other, action, executor);
         }
 
         @Override
         public <U> CompletableFuture<U> applyToEitherAsync(
-            final CompletionStage<? extends T> other,
-            final Function<? super T, U> action,
-            final Executor ignored
-        ) {
+                final CompletionStage<? extends T> other, final Function<? super T, U> action, final Executor ignored) {
             requireContinuationAdmission();
             return super.applyToEitherAsync(other, action, executor);
         }
 
         @Override
         public CompletableFuture<Void> acceptEither(
-            final CompletionStage<? extends T> other,
-            final Consumer<? super T> action
-        ) {
+                final CompletionStage<? extends T> other, final Consumer<? super T> action) {
             requireContinuationAdmission();
             return super.acceptEitherAsync(other, action, executor);
         }
 
         @Override
         public CompletableFuture<Void> acceptEitherAsync(
-            final CompletionStage<? extends T> other,
-            final Consumer<? super T> action
-        ) {
+                final CompletionStage<? extends T> other, final Consumer<? super T> action) {
             requireContinuationAdmission();
             return super.acceptEitherAsync(other, action, executor);
         }
 
         @Override
         public CompletableFuture<Void> acceptEitherAsync(
-            final CompletionStage<? extends T> other,
-            final Consumer<? super T> action,
-            final Executor ignored
-        ) {
+                final CompletionStage<? extends T> other, final Consumer<? super T> action, final Executor ignored) {
             requireContinuationAdmission();
             return super.acceptEitherAsync(other, action, executor);
         }
 
         @Override
-        public CompletableFuture<Void> runAfterEither(
-            final CompletionStage<?> other,
-            final Runnable action
-        ) {
+        public CompletableFuture<Void> runAfterEither(final CompletionStage<?> other, final Runnable action) {
+            requireContinuationAdmission();
+            return super.runAfterEitherAsync(other, action, executor);
+        }
+
+        @Override
+        public CompletableFuture<Void> runAfterEitherAsync(final CompletionStage<?> other, final Runnable action) {
             requireContinuationAdmission();
             return super.runAfterEitherAsync(other, action, executor);
         }
 
         @Override
         public CompletableFuture<Void> runAfterEitherAsync(
-            final CompletionStage<?> other,
-            final Runnable action
-        ) {
+                final CompletionStage<?> other, final Runnable action, final Executor ignored) {
             requireContinuationAdmission();
             return super.runAfterEitherAsync(other, action, executor);
         }
 
         @Override
-        public CompletableFuture<Void> runAfterEitherAsync(
-            final CompletionStage<?> other,
-            final Runnable action,
-            final Executor ignored
-        ) {
-            requireContinuationAdmission();
-            return super.runAfterEitherAsync(other, action, executor);
-        }
-
-        @Override
-        public <U> CompletableFuture<U> thenCompose(
-            final Function<? super T, ? extends CompletionStage<U>> action
-        ) {
+        public <U> CompletableFuture<U> thenCompose(final Function<? super T, ? extends CompletionStage<U>> action) {
             requireContinuationAdmission();
             return super.thenComposeAsync(action, executor);
         }
 
         @Override
         public <U> CompletableFuture<U> thenComposeAsync(
-            final Function<? super T, ? extends CompletionStage<U>> action
-        ) {
+                final Function<? super T, ? extends CompletionStage<U>> action) {
             requireContinuationAdmission();
             return super.thenComposeAsync(action, executor);
         }
 
         @Override
         public <U> CompletableFuture<U> thenComposeAsync(
-            final Function<? super T, ? extends CompletionStage<U>> action,
-            final Executor ignored
-        ) {
+                final Function<? super T, ? extends CompletionStage<U>> action, final Executor ignored) {
             requireContinuationAdmission();
             return super.thenComposeAsync(action, executor);
         }
 
         @Override
-        public CompletableFuture<T> whenComplete(
-            final BiConsumer<? super T, ? super Throwable> action
-        ) {
+        public CompletableFuture<T> whenComplete(final BiConsumer<? super T, ? super Throwable> action) {
+            requireContinuationAdmission();
+            return super.whenCompleteAsync(action, executor);
+        }
+
+        @Override
+        public CompletableFuture<T> whenCompleteAsync(final BiConsumer<? super T, ? super Throwable> action) {
             requireContinuationAdmission();
             return super.whenCompleteAsync(action, executor);
         }
 
         @Override
         public CompletableFuture<T> whenCompleteAsync(
-            final BiConsumer<? super T, ? super Throwable> action
-        ) {
+                final BiConsumer<? super T, ? super Throwable> action, final Executor ignored) {
             requireContinuationAdmission();
             return super.whenCompleteAsync(action, executor);
         }
 
         @Override
-        public CompletableFuture<T> whenCompleteAsync(
-            final BiConsumer<? super T, ? super Throwable> action,
-            final Executor ignored
-        ) {
+        public <U> CompletableFuture<U> handle(final BiFunction<? super T, Throwable, ? extends U> action) {
             requireContinuationAdmission();
-            return super.whenCompleteAsync(action, executor);
+            return super.handleAsync(action, executor);
         }
 
         @Override
-        public <U> CompletableFuture<U> handle(
-            final BiFunction<? super T, Throwable, ? extends U> action
-        ) {
+        public <U> CompletableFuture<U> handleAsync(final BiFunction<? super T, Throwable, ? extends U> action) {
             requireContinuationAdmission();
             return super.handleAsync(action, executor);
         }
 
         @Override
         public <U> CompletableFuture<U> handleAsync(
-            final BiFunction<? super T, Throwable, ? extends U> action
-        ) {
+                final BiFunction<? super T, Throwable, ? extends U> action, final Executor ignored) {
             requireContinuationAdmission();
             return super.handleAsync(action, executor);
         }
 
         @Override
-        public <U> CompletableFuture<U> handleAsync(
-            final BiFunction<? super T, Throwable, ? extends U> action,
-            final Executor ignored
-        ) {
+        public CompletableFuture<T> exceptionally(final Function<Throwable, ? extends T> action) {
             requireContinuationAdmission();
-            return super.handleAsync(action, executor);
+            return super.exceptionallyAsync(action, executor);
         }
 
         @Override
-        public CompletableFuture<T> exceptionally(
-            final Function<Throwable, ? extends T> action
-        ) {
+        public CompletableFuture<T> exceptionallyAsync(final Function<Throwable, ? extends T> action) {
             requireContinuationAdmission();
             return super.exceptionallyAsync(action, executor);
         }
 
         @Override
         public CompletableFuture<T> exceptionallyAsync(
-            final Function<Throwable, ? extends T> action
-        ) {
-            requireContinuationAdmission();
-            return super.exceptionallyAsync(action, executor);
-        }
-
-        @Override
-        public CompletableFuture<T> exceptionallyAsync(
-            final Function<Throwable, ? extends T> action,
-            final Executor ignored
-        ) {
+                final Function<Throwable, ? extends T> action, final Executor ignored) {
             requireContinuationAdmission();
             return super.exceptionallyAsync(action, executor);
         }
 
         @Override
         public CompletableFuture<T> exceptionallyCompose(
-            final Function<Throwable, ? extends CompletionStage<T>> action
-        ) {
+                final Function<Throwable, ? extends CompletionStage<T>> action) {
             requireContinuationAdmission();
             return super.exceptionallyComposeAsync(action, executor);
         }
 
         @Override
         public CompletableFuture<T> exceptionallyComposeAsync(
-            final Function<Throwable, ? extends CompletionStage<T>> action
-        ) {
+                final Function<Throwable, ? extends CompletionStage<T>> action) {
             requireContinuationAdmission();
             return super.exceptionallyComposeAsync(action, executor);
         }
 
         @Override
         public CompletableFuture<T> exceptionallyComposeAsync(
-            final Function<Throwable, ? extends CompletionStage<T>> action,
-            final Executor ignored
-        ) {
+                final Function<Throwable, ? extends CompletionStage<T>> action, final Executor ignored) {
             requireContinuationAdmission();
             return super.exceptionallyComposeAsync(action, executor);
         }
@@ -522,16 +425,12 @@ public final class PluginCompletionFuture<T> {
 
         private void requireContinuationAdmission() {
             if (!continuationAdmission.getAsBoolean()) {
-                throw new IllegalStateException(
-                    "Plugin continuation registration is unavailable during scope close."
-                );
+                throw new IllegalStateException("Plugin continuation registration is unavailable during scope close.");
             }
         }
 
         private static UnsupportedOperationException readOnly() {
-            return new UnsupportedOperationException(
-                "Plugin task completion is runtime-owned and read-only"
-            );
+            return new UnsupportedOperationException("Plugin task completion is runtime-owned and read-only");
         }
     }
 }

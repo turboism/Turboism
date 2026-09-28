@@ -1,6 +1,8 @@
 package dev.turboism.plugin.historypanel;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,35 +12,30 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /** Key parity and fallback coverage for every History Panel locale catalog. */
 class HistoryPanelI18nTest {
     private static final Map<String, String> CATALOGS = Map.of(
-        "messages", "META-INF/turboism/i18n/messages.properties",
-        "en", "META-INF/turboism/i18n/messages_en.properties",
-        "ja", "META-INF/turboism/i18n/messages_ja.properties",
-        "ko", "META-INF/turboism/i18n/messages_ko.properties",
-        "zh_Hans", "META-INF/turboism/i18n/messages_zh_Hans.properties",
-        "zh_Hant", "META-INF/turboism/i18n/messages_zh_Hant.properties"
-    );
+            "messages", "META-INF/turboism/i18n/messages.properties",
+            "en", "META-INF/turboism/i18n/messages_en.properties",
+            "ja", "META-INF/turboism/i18n/messages_ja.properties",
+            "ko", "META-INF/turboism/i18n/messages_ko.properties",
+            "zh_Hans", "META-INF/turboism/i18n/messages_zh_Hans.properties",
+            "zh_Hant", "META-INF/turboism/i18n/messages_zh_Hant.properties");
 
     private static final Set<String> RICH_ROW_KEYS = Set.of(
-        "history.entry.action.set",
-        "history.entry.action.add",
-        "history.entry.action.remove",
-        "history.icon.art-mesh",
-        "history.icon.part",
-        "history.icon.rotation-deformer",
-        "history.icon.warp-deformer",
-        "history.relation.deformer-parent.detach",
-        "history.relation.deformer-parent.set",
-        "history.relation.part-membership.detach",
-        "history.relation.part-membership.join"
-    );
+            "history.entry.action.set",
+            "history.entry.action.add",
+            "history.entry.action.remove",
+            "history.icon.art-mesh",
+            "history.icon.part",
+            "history.icon.rotation-deformer",
+            "history.icon.warp-deformer",
+            "history.relation.deformer-parent.detach",
+            "history.relation.deformer-parent.set",
+            "history.relation.part-membership.detach",
+            "history.relation.part-membership.join");
 
     @Test
     void everyLocaleCatalogCarriesTheSameKeysAndRichRowKeys() throws IOException {
@@ -47,7 +44,8 @@ class HistoryPanelI18nTest {
         assertTrue(expected.containsAll(RICH_ROW_KEYS), "base catalog must define rich-row keys");
 
         for (final Map.Entry<String, String> catalog : CATALOGS.entrySet()) {
-            final Set<String> actual = new HashSet<>(readCatalog(catalog.getKey()).stringPropertyNames());
+            final Set<String> actual =
+                    new HashSet<>(readCatalog(catalog.getKey()).stringPropertyNames());
             assertEquals(expected, actual, "key set mismatch in " + catalog.getKey());
         }
     }
@@ -66,9 +64,7 @@ class HistoryPanelI18nTest {
             final Properties properties = readCatalog(catalog.getKey());
             for (final String key : properties.stringPropertyNames()) {
                 assertFalse(
-                    properties.getProperty(key).isBlank(),
-                    "blank value for " + key + " in " + catalog.getKey()
-                );
+                        properties.getProperty(key).isBlank(), "blank value for " + key + " in " + catalog.getKey());
             }
         }
     }
@@ -83,11 +79,7 @@ class HistoryPanelI18nTest {
                 }
                 final String value = properties.getProperty(key);
                 assertTrue(value.contains("{0}"), key + " must carry the particle marker");
-                assertEquals(
-                    1,
-                    value.split("\\{1\\}", -1).length - 1,
-                    key + " must carry exactly one parent marker"
-                );
+                assertEquals(1, value.split("\\{1\\}", -1).length - 1, key + " must carry exactly one parent marker");
             }
         }
     }
@@ -107,7 +99,9 @@ class HistoryPanelI18nTest {
         try (InputStream stream = HistoryPanelI18nTest.class.getClassLoader().getResourceAsStream(resource)) {
             assertTrue(stream != null, "missing baseline resource " + resource);
             final Set<String> keys = new HashSet<>();
-            for (final String line : new String(stream.readAllBytes(), StandardCharsets.UTF_8).lines().toList()) {
+            for (final String line : new String(stream.readAllBytes(), StandardCharsets.UTF_8)
+                    .lines()
+                    .toList()) {
                 if (!line.isBlank()) {
                     keys.add(line.strip());
                 }

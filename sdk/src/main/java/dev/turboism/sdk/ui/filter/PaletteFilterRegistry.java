@@ -14,6 +14,7 @@ public interface PaletteFilterRegistry {
 
     /** Palette tab identifiers understood by the runtime palette filter host. */
     String PALETTE_PARAMETER = "PARAMETER";
+
     String PALETTE_DEFORMER = "DEFORMER";
     String PALETTE_SCENE = "SCENE";
     String PALETTE_LOG = "LOG";
@@ -48,16 +49,17 @@ public interface PaletteFilterRegistry {
     enum Unavailable implements PaletteFilterRegistry {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration contribute(final PaletteFilterContribution contribution) {
+        @Override
+        public Registration contribute(final PaletteFilterContribution contribution) {
             java.util.Objects.requireNonNull(contribution, "contribution");
             throw new UnsupportedOperationException("paletteFilter registry is not available");
         }
     }
-
 
     /**
      * Descriptor of one palette filter-box contribution.
@@ -67,10 +69,5 @@ public interface PaletteFilterRegistry {
      * @param placeholderKey localization key for the filter box's placeholder text
      * @param order ordering position relative to other contributions on the same tab
      */
-    record PaletteFilterContribution(
-        String contributionId,
-        String paletteId,
-        String placeholderKey,
-        int order
-    ) {}
+    record PaletteFilterContribution(String contributionId, String paletteId, String placeholderKey, int order) {}
 }

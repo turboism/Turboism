@@ -2,10 +2,8 @@ package dev.turboism.adapter.ui;
 
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.CanvasHintNotification;
-
-import javax.swing.SwingUtilities;
+import dev.turboism.sdk.ui.StatusNotification;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -18,6 +16,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import javax.swing.SwingUtilities;
 
 /**
  * Exact-version host operations for the platform-owned CX bottom status region.
@@ -32,6 +31,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
 
     /** Bounds the CX tree walk; identity-deduped nodes beyond this fail closed. */
     private static final int MAX_TRAVERSAL_BUDGET = 4096;
+
     private static final String LATEST_NOTIFICATION_SLOT = "notification:latest";
 
     private final String hostVersion;
@@ -40,16 +40,12 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
     private final Map<String, Entry> entries = new HashMap<>();
     private final Map<String, CanvasHintEntry> canvasHintEntries = new HashMap<>();
 
-    CxStatusBarHostOperations(
-        final String hostVersion,
-        final CxStatusBarHostAccess access
-    ) {
+    CxStatusBarHostOperations(final String hostVersion, final CxStatusBarHostAccess access) {
         this(hostVersion, hostVersion, access);
     }
 
     CxStatusBarHostOperations(
-        final String hostVersion, final String contractVersion, final CxStatusBarHostAccess access
-    ) {
+            final String hostVersion, final String contractVersion, final CxStatusBarHostAccess access) {
         this.hostVersion = requireText(hostVersion, "hostVersion");
         this.contractVersion = requireText(contractVersion, "contractVersion");
         this.access = Objects.requireNonNull(access, "access");
@@ -60,14 +56,15 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         return hostVersion;
     }
 
-    @Override public String contractVersion() {
+    @Override
+    public String contractVersion() {
         return contractVersion;
     }
 
     @Override
     public boolean supports(final StatusToolbarAdapter.Capability capability) {
         return capability == StatusToolbarAdapter.Capability.STATUS_NOTIFY
-            || capability == StatusToolbarAdapter.Capability.CANVAS_HINT;
+                || capability == StatusToolbarAdapter.Capability.CANVAS_HINT;
     }
 
     @Override
@@ -117,9 +114,9 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         final String slot = slot(notification);
         final Entry current = entries.get(slot);
         final Entry sameIdentity = entries.values().stream()
-            .filter(entry -> entry.notificationId().equals(notification.id()))
-            .findFirst()
-            .orElse(null);
+                .filter(entry -> entry.notificationId().equals(notification.id()))
+                .findFirst()
+                .orElse(null);
         if (current == null) {
             if (sameIdentity != null) {
                 access.remove(sameIdentity.parent(), sameIdentity.widget());
@@ -134,19 +131,10 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         return update(slot, current, notification);
     }
 
-    private Registration update(
-        final String slot,
-        final Entry current,
-        final StatusNotification notification
-    ) {
+    private Registration update(final String slot, final Entry current, final StatusNotification notification) {
         // Every install/update creates a fresh Entry instance; registrations
         // capture that instance so a stale close can never match a later one.
-        final Entry entry = new Entry(
-            slot,
-            notification.id(),
-            current.parent(),
-            current.widget()
-        );
+        final Entry entry = new Entry(slot, notification.id(), current.parent(), current.widget());
         access.setName(current.widget(), notification.id());
         access.setText(current.widget(), notification.message());
         applySeverityAppearance(notification, current.widget());
@@ -155,10 +143,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         return closeRegistration(entry);
     }
 
-    private Registration installNew(
-        final String slot,
-        final StatusNotification notification
-    ) {
+    private Registration installNew(final String slot, final StatusNotification notification) {
         final Object root = access.contentRoot();
         if (root == null) {
             throw new IllegalStateException("CX status-region content root is not ready");
@@ -196,8 +181,8 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
 
     private static String slot(final StatusNotification notification) {
         return notification.presentation() == StatusNotification.Presentation.COMPACT_METRIC
-            ? notification.id()
-            : LATEST_NOTIFICATION_SLOT;
+                ? notification.id()
+                : LATEST_NOTIFICATION_SLOT;
     }
 
     /**
@@ -251,9 +236,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
             }
             if (visited.size() > MAX_TRAVERSAL_BUDGET) {
                 throw new IllegalStateException(
-                    "CX status-region tree traversal exceeded the budget of "
-                        + MAX_TRAVERSAL_BUDGET + " nodes"
-                );
+                        "CX status-region tree traversal exceeded the budget of " + MAX_TRAVERSAL_BUDGET + " nodes");
             }
             final List<?> children = childrenOf(node);
             if (!children.isEmpty()) {
@@ -262,8 +245,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
                     if (access.isCMemoryViewerPanel(child)) {
                         if (memoryViewer != null) {
                             throw new IllegalStateException(
-                                "CX status-region anchor parent contains multiple CMemoryViewerPanel children"
-                            );
+                                    "CX status-region anchor parent contains multiple CMemoryViewerPanel children");
                         }
                         memoryViewer = child;
                     }
@@ -278,9 +260,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         }
         if (candidates.size() != 1) {
             throw new IllegalStateException(
-                "CX status-region anchor is missing or ambiguous: " + candidates.size()
-                    + " candidate parents"
-            );
+                    "CX status-region anchor is missing or ambiguous: " + candidates.size() + " candidate parents");
         }
         return candidates.get(0);
     }
@@ -295,15 +275,11 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
      * never a fixed index. An inconsistent tree fails closed.
      */
     private int insertionIndex(
-        final List<?> children,
-        final Anchor anchor,
-        final StatusNotification.Presentation presentation
-    ) {
+            final List<?> children, final Anchor anchor, final StatusNotification.Presentation presentation) {
         final int memoryViewerIndex = children.indexOf(anchor.memoryViewer());
         if (memoryViewerIndex < 0) {
             throw new IllegalStateException(
-                "CX status-region tree is inconsistent: memory viewer is not a child of its parent"
-            );
+                    "CX status-region tree is inconsistent: memory viewer is not a child of its parent");
         }
         if (presentation == StatusNotification.Presentation.COMPACT_METRIC) {
             return memoryViewerIndex;
@@ -337,10 +313,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
      * Severity prefix and tooltip apply to ordinary notifications only.
      * Compact metrics show the raw message without severity appearance.
      */
-    private void applySeverityAppearance(
-        final StatusNotification notification,
-        final Object widget
-    ) {
+    private void applySeverityAppearance(final StatusNotification notification, final Object widget) {
         if (notification.presentation() != StatusNotification.Presentation.COMPACT_METRIC) {
             access.setSeverityAppearance(widget, notification.severity());
         }
@@ -376,7 +349,8 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         if (failure[0] != null) {
             throw new IllegalStateException("CX status-region EDT operation failed", failure[0]);
         }
-        @SuppressWarnings("unchecked") final T value = (T) result[0];
+        @SuppressWarnings("unchecked")
+        final T value = (T) result[0];
         return value;
     }
 
@@ -395,9 +369,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         }
     }
 
-    private record Entry(String slot, String notificationId, Object parent, Object widget) {
-    }
+    private record Entry(String slot, String notificationId, Object parent, Object widget) {}
 
-    private record CanvasHintEntry(String id, Registration nativeRegistration) {
-    }
+    private record CanvasHintEntry(String id, Registration nativeRegistration) {}
 }

@@ -2,7 +2,6 @@ package dev.turboism.ui.panel;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
-
 import java.util.Objects;
 
 /** Serial runtime owner for generation-bound embedded-panel activation. */
@@ -27,10 +26,7 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
         if (hostGeneration <= 0) {
             throw new IllegalArgumentException("hostGeneration must be positive");
         }
-        final Binding requested = new Binding(
-            hostGeneration,
-            Objects.requireNonNull(target, "target")
-        );
+        final Binding requested = new Binding(hostGeneration, Objects.requireNonNull(target, "target"));
         synchronized (monitor) {
             requireOpen();
             // A new contribution batch replaces the previous activation target
@@ -127,8 +123,7 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
         return value;
     }
 
-    private record Binding(long hostGeneration, ActivationTarget target) {
-    }
+    private record Binding(long hostGeneration, ActivationTarget target) {}
 
     /** Host seam that activates one installed embedded panel. */
     @FunctionalInterface

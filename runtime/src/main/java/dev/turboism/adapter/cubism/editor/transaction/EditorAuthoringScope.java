@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.editor.transaction;
 
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
-
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -18,7 +17,7 @@ final class EditorAuthoringScope {
     private final HistorySnapshot historyBefore;
     private final List<EditorUndoContribution> contributions = new ArrayList<>();
     private final EnumSet<EditorRefreshRequirement> refreshRequirements =
-        EnumSet.noneOf(EditorRefreshRequirement.class);
+            EnumSet.noneOf(EditorRefreshRequirement.class);
     private Object edit;
     private boolean editEndAttempted;
     private boolean editClosed;
@@ -26,11 +25,10 @@ final class EditorAuthoringScope {
     private boolean groupUndoApplied;
 
     EditorAuthoringScope(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final AuthoringTransactionOptions options,
-        final String transactionId,
-        final HistorySnapshot historyBefore
-    ) {
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final AuthoringTransactionOptions options,
+            final String transactionId,
+            final HistorySnapshot historyBefore) {
         this.binding = Objects.requireNonNull(binding, "binding");
         this.options = Objects.requireNonNull(options, "options");
         this.transactionId = Objects.requireNonNull(transactionId, "transactionId");
@@ -104,9 +102,7 @@ final class EditorAuthoringScope {
     }
 
     Set<EditorRefreshRequirement> refreshRequirements() {
-        return refreshRequirements.isEmpty()
-            ? Set.of()
-            : Set.copyOf(EnumSet.copyOf(refreshRequirements));
+        return refreshRequirements.isEmpty() ? Set.of() : Set.copyOf(EnumSet.copyOf(refreshRequirements));
     }
 
     boolean editEndAttempted() {

@@ -10,8 +10,8 @@ public final class PluginPackageIdentity {
     private final String rawArchiveSha256;
     private final long rawArchiveSize;
 
-    PluginPackageIdentity(String packageHash, String packageId, String version,
-                          String rawArchiveSha256, long rawArchiveSize) {
+    PluginPackageIdentity(
+            String packageHash, String packageId, String version, String rawArchiveSha256, long rawArchiveSize) {
         this.packageHash = hash(packageHash, "packageHash");
         this.packageId = text(packageId, "packageId");
         this.version = text(version, "version");
@@ -25,19 +25,29 @@ public final class PluginPackageIdentity {
      *         This is the package's claim about itself and is deliberately kept distinct from
      *         {@link #rawArchiveSha256()}, which is what the inspector actually read.
      */
-    public String packageHash() { return packageHash; }
+    public String packageHash() {
+        return packageHash;
+    }
 
     /** @return the package identifier declared in the manifest, cross-checked against the plugin descriptor id */
-    public String packageId() { return packageId; }
+    public String packageId() {
+        return packageId;
+    }
 
     /** @return the version declared in the manifest, cross-checked against the plugin descriptor version */
-    public String version() { return version; }
+    public String version() {
+        return version;
+    }
 
     /** @return SHA-256 of the raw archive bytes as observed by the inspector, 64 lowercase hex characters */
-    public String rawArchiveSha256() { return rawArchiveSha256; }
+    public String rawArchiveSha256() {
+        return rawArchiveSha256;
+    }
 
     /** @return byte length of the raw archive as observed by the inspector; never negative */
-    public long rawArchiveSize() { return rawArchiveSize; }
+    public long rawArchiveSize() {
+        return rawArchiveSize;
+    }
 
     private static String hash(String value, String name) {
         value = text(value, name);

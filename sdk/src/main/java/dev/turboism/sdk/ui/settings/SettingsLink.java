@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.settings;
 
-
 import java.net.URI;
 import java.util.Locale;
 import java.util.Objects;
@@ -10,9 +9,7 @@ public record SettingsLink(String label, URI uri, String openFailureMessage) {
     public SettingsLink {
         label = requireText(label, "label", 64);
         uri = Objects.requireNonNull(uri, "uri");
-        final String scheme = uri.getScheme() == null
-            ? ""
-            : uri.getScheme().toLowerCase(Locale.ROOT);
+        final String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
         if (!"https".equals(scheme) || uri.getHost() == null || uri.getHost().isBlank()) {
             throw new IllegalArgumentException("settings links must use an absolute HTTPS URI");
         }

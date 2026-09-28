@@ -5,24 +5,22 @@ import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
+import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.resource.UiRasterImage;
-
+import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
 import java.awt.AWTEvent;
 import java.awt.Toolkit;
 import java.awt.event.AWTEventListener;
 import java.awt.event.MouseEvent;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.List;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
-import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
 
 /**
  * Extends the native bounding-box Alt symmetric semantics to Warp Deformer
@@ -64,11 +62,9 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     private final AtomicBoolean applying = new AtomicBoolean(false);
 
     /** One Warp Deformer grid captured on mouse press. */
-    private record GridSnapshot(String id, int rows, int columns, List<Point2> points) {
-    }
+    private record GridSnapshot(String id, int rows, int columns, List<Point2> points) {}
 
-    private record ArmedGesture(AltAxisMirrorPlanner.Axis axis, List<GridSnapshot> snapshots) {
-    }
+    private record ArmedGesture(AltAxisMirrorPlanner.Axis axis, List<GridSnapshot> snapshots) {}
 
     private volatile ArmedGesture armed;
 
@@ -88,16 +84,18 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         // horizontal, Ctrl+Alt+O off. The AWT-level diff fallback stays armed for
         // the press path when the hook is not active.
         try {
-            context.disposableScope().register(context.services().get(WarpAltMirrorParticipation.class).participate());
+            context.disposableScope()
+                    .register(context.services()
+                            .get(WarpAltMirrorParticipation.class)
+                            .participate());
         } catch (RuntimeException | Error unsupported) {
             logger.warn("warpAltMirrorParticipation unavailable: "
-                + unsupported.getClass().getSimpleName());
+                    + unsupported.getClass().getSimpleName());
         }
-        Toolkit.getDefaultToolkit().addAWTEventListener(
-            listener, AWTEvent.MOUSE_EVENT_MASK | AWTEvent.KEY_EVENT_MASK);
+        Toolkit.getDefaultToolkit().addAWTEventListener(listener, AWTEvent.MOUSE_EVENT_MASK | AWTEvent.KEY_EVENT_MASK);
         contributeStripButton();
         logger.info("Warp deformer Alt axis-symmetry installed:"
-            + " Ctrl+Alt+V vertical mirror, Ctrl+Alt+H horizontal, Ctrl+Alt+O off");
+                + " Ctrl+Alt+V vertical mirror, Ctrl+Alt+H horizontal, Ctrl+Alt+O off");
     }
 
     private static final String AXIS_BUTTON_ID = "warp-deformer-alt-symmetry.axis";
@@ -106,26 +104,22 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     private void contributeStripButton() {
         try {
             final dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry registry =
-                context.services().get(ViewContextMenuRegistry.class);
+                    context.services().get(ViewContextMenuRegistry.class);
             final Map<Integer, UiRasterImage> icons = new java.util.LinkedHashMap<>();
             icons.put(1, loadIcon("Vertical.png"));
             icons.put(2, loadIcon("Horizon.png"));
             icons.put(0, loadIcon("Off.png"));
             registry.contributeStateButtons(
-                new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry
-                    .StateButtonContribution(
-                    AXIS_BUTTON_ID, icons, armedAxis,
-                    ignored -> cycleArmedAxis()));
+                    new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.StateButtonContribution(
+                            AXIS_BUTTON_ID, icons, armedAxis, ignored -> cycleArmedAxis()));
             logger.info("Warp deformer Alt axis-symmetry strip button contributed");
         } catch (RuntimeException | Error unsupported) {
-            logger.warn("viewContextMenu unavailable: "
-                + unsupported.getClass().getSimpleName());
+            logger.warn("viewContextMenu unavailable: " + unsupported.getClass().getSimpleName());
         }
     }
 
     private UiRasterImage loadIcon(final String name) {
-        try (final var stream = getClass().getResourceAsStream(
-            "/META-INF/turboism/icons/" + name)) {
+        try (final var stream = getClass().getResourceAsStream("/META-INF/turboism/icons/" + name)) {
             if (stream == null) {
                 logger.warn("mirror icon missing: " + name);
                 return new UiRasterImage(96, 96, new int[96 * 96]);
@@ -134,15 +128,15 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             if (raw == null) {
                 throw new java.io.IOException("unsupported icon image");
             }
-            return new UiRasterImage(raw.getWidth(), raw.getHeight(),
-                raw.getRGB(0, 0, raw.getWidth(), raw.getHeight(), null, 0, raw.getWidth()));
+            return new UiRasterImage(
+                    raw.getWidth(),
+                    raw.getHeight(),
+                    raw.getRGB(0, 0, raw.getWidth(), raw.getHeight(), null, 0, raw.getWidth()));
         } catch (java.io.IOException failure) {
             logger.warn("mirror icon load failed: " + name);
             return new UiRasterImage(96, 96, new int[96 * 96]);
         }
     }
-
-
 
     /**
      * Shows/clears the bottom status hint that mirrors the armed axis, in the
@@ -159,10 +153,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             return;
         }
         showArmedHint(axis);
-        logger.info("WARP_ALT_AXIS armed="
-            + (axis == 1 ? "vertical" : axis == 2 ? "horizontal" : "off"));
+        logger.info("WARP_ALT_AXIS armed=" + (axis == 1 ? "vertical" : axis == 2 ? "horizontal" : "off"));
     }
-
 
     private void cycleArmedAxis() {
         applyArmedAxis((armedAxis + 1) % 3);
@@ -178,22 +170,21 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         dev.turboism.sdk.ui.CanvasHintHandle next = null;
         try {
             if (axis != 0) {
-                next = context.services().get(UiHostCapabilityService.class).notifyCanvasHint(
-                    new dev.turboism.sdk.ui.CanvasHintNotification(
-                        "warp-deformer-alt-symmetry.hint",
-                        // Text convention (operator feedback): armed state 1
-                        // moves the counterpart vertically (across the
-                        // horizontal line) → "水平镜像中"; state 2 → "垂直镜像中".
-                        axis == 1
-                            ? context.localization()
-                                .text("warp-alt-symmetry.hint.horizontal")
-                            : context.localization()
-                                .text("warp-alt-symmetry.hint.vertical"),
-                        dev.turboism.sdk.ui.CanvasHintNotification.UNTIL_DISMISSED));
+                next = context.services()
+                        .get(UiHostCapabilityService.class)
+                        .notifyCanvasHint(new dev.turboism.sdk.ui.CanvasHintNotification(
+                                "warp-deformer-alt-symmetry.hint",
+                                // Text convention (operator feedback): armed state 1
+                                // moves the counterpart vertically (across the
+                                // horizontal line) → "水平镜像中"; state 2 → "垂直镜像中".
+                                axis == 1
+                                        ? context.localization().text("warp-alt-symmetry.hint.horizontal")
+                                        : context.localization().text("warp-alt-symmetry.hint.vertical"),
+                                dev.turboism.sdk.ui.CanvasHintNotification.UNTIL_DISMISSED));
             }
         } catch (RuntimeException | Error unsupported) {
-            logger.warn("notifyCanvasHint unavailable: "
-                + unsupported.getClass().getSimpleName());
+            logger.warn(
+                    "notifyCanvasHint unavailable: " + unsupported.getClass().getSimpleName());
         }
         final dev.turboism.sdk.ui.CanvasHintHandle previous = armedHint;
         armedHint = next;
@@ -205,7 +196,6 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             }
         }
     }
-
 
     @Override
     public void disable() {
@@ -222,10 +212,10 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
 
     private void onAwtEvent(final AWTEvent event) {
         if (event instanceof final java.awt.event.KeyEvent keyEvent
-            && event.getID() == java.awt.event.KeyEvent.KEY_PRESSED
-            && keyEvent.isControlDown()
-            && keyEvent.isAltDown()
-            && !keyEvent.isShiftDown()) {
+                && event.getID() == java.awt.event.KeyEvent.KEY_PRESSED
+                && keyEvent.isControlDown()
+                && keyEvent.isAltDown()
+                && !keyEvent.isShiftDown()) {
             handleToggle(keyEvent);
             return;
         }
@@ -241,7 +231,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         } catch (RuntimeException | Error failure) {
             armed = null;
             logger.warn("WARP_ALT_MIRROR gesture handling failed: "
-                + failure.getClass().getSimpleName());
+                    + failure.getClass().getSimpleName());
         }
     }
 
@@ -252,14 +242,11 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             return;
         }
         if (nativeMirrorActive()) {
-            logger.info("WARP_ALT_FB press alt=" + alt + " shift=" + shift
-                + " -> deferred to native hook");
+            logger.info("WARP_ALT_FB press alt=" + alt + " shift=" + shift + " -> deferred to native hook");
             return; // the reviewed native drag-tick hook owns the mirroring.
         }
-        logger.info("WARP_ALT_FB press alt=" + alt + " shift=" + shift
-            + " -> fallback armed (native inactive)");
-        final AltAxisMirrorPlanner.Axis axis =
-            (event.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0
+        logger.info("WARP_ALT_FB press alt=" + alt + " shift=" + shift + " -> fallback armed (native inactive)");
+        final AltAxisMirrorPlanner.Axis axis = (event.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0
                 ? AltAxisMirrorPlanner.Axis.HORIZONTAL
                 : AltAxisMirrorPlanner.Axis.VERTICAL;
         final List<GridSnapshot> snapshots = snapshotWarps();
@@ -317,8 +304,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             final WarpGrid grid = warp.grid();
             if (!grid.controlPoints().isEmpty()) {
                 snapshots.add(new GridSnapshot(
-                    warp.id().value(), grid.rows(), grid.columns(),
-                    List.copyOf(grid.controlPoints())));
+                        warp.id().value(), grid.rows(), grid.columns(), List.copyOf(grid.controlPoints())));
             }
         }
         return snapshots;
@@ -328,43 +314,41 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         final CubismModel model = context.cubism().model().active();
         boolean anyApplied = false;
         for (WarpDeformer warp : model.warpDeformers().all()) {
-            final GridSnapshot snapshot = findSnapshot(gesture.snapshots(), warp.id().value());
+            final GridSnapshot snapshot =
+                    findSnapshot(gesture.snapshots(), warp.id().value());
             if (snapshot == null) {
                 continue;
             }
             final WarpGrid after = warp.grid();
             if (after.rows() != snapshot.rows()
-                || after.columns() != snapshot.columns()
-                || after.controlPoints().size() != snapshot.points().size()) {
+                    || after.columns() != snapshot.columns()
+                    || after.controlPoints().size() != snapshot.points().size()) {
                 continue;
             }
             final Map<Integer, Point2> assignments = AltAxisMirrorPlanner.planMirror(
-                snapshot.rows(), snapshot.columns(),
-                snapshot.points(), after.controlPoints(), gesture.axis());
+                    snapshot.rows(), snapshot.columns(), snapshot.points(), after.controlPoints(), gesture.axis());
             if (assignments.isEmpty()) {
-                logger.info("WARP_ALT_FB release deformer=" + warp.id().value()
-                    + " axis=" + gesture.axis() + " -> no counterpart motion to apply");
+                logger.info("WARP_ALT_FB release deformer=" + warp.id().value() + " axis=" + gesture.axis()
+                        + " -> no counterpart motion to apply");
                 continue;
             }
             WarpGrid mirrored = after;
             for (final Map.Entry<Integer, Point2> entry : assignments.entrySet()) {
                 mirrored = mirrored.withControlPoint(
-                    entry.getKey(), entry.getValue().x(), entry.getValue().y());
+                        entry.getKey(), entry.getValue().x(), entry.getValue().y());
             }
             warp.replaceGrid(mirrored);
             anyApplied = true;
             logger.info("WARP_ALT_MIRROR applied deformer=" + warp.id().value()
-                + " axis=" + gesture.axis()
-                + " mirrored=" + assignments.size());
+                    + " axis=" + gesture.axis()
+                    + " mirrored=" + assignments.size());
         }
         if (anyApplied) {
             logger.info("WARP_ALT_MIRROR committed; undo needs two steps for v1");
         }
     }
 
-    private static GridSnapshot findSnapshot(
-        final List<GridSnapshot> snapshots, final String id
-    ) {
+    private static GridSnapshot findSnapshot(final List<GridSnapshot> snapshots, final String id) {
         for (GridSnapshot snapshot : snapshots) {
             if (snapshot.id().equals(id)) {
                 return snapshot;

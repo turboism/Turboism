@@ -4,6 +4,7 @@ import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
 import dev.turboism.plugin.clipmaskviewer.ui.ClipMaskViewerWindow;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
 import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -23,15 +24,13 @@ import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.ui.CollapsibleSectionContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
-
-import javax.swing.SwingUtilities;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.awt.GraphicsEnvironment;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
+import javax.swing.SwingUtilities;
 
 /**
  * 剪贴蒙版检查器（clipmask-viewer）官方插件。
@@ -100,8 +99,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
             throw failure;
         }
         logger.info(
-            "ClipMaskViewerPlugin enabled: open-viewer action, Turboism tab section and menu enrolled in disposable scope"
-        );
+                "ClipMaskViewerPlugin enabled: open-viewer action, Turboism tab section and menu enrolled in disposable scope");
     }
 
     /** Applies the latest detached Cubism selection to the open viewer window. */
@@ -136,29 +134,26 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
     }
 
     private void registerAction() {
-        final Registration registration = context.actions().register(
-            OPEN_VIEWER_ACTION_ID,
-            ActionRegistry.Action.of(
-                OPEN_VIEWER_ACTION_ID,
-                localization.text("button.open"),
-                ignored -> openViewer()
-            )
-        );
+        final Registration registration = context.actions()
+                .register(
+                        OPEN_VIEWER_ACTION_ID,
+                        ActionRegistry.Action.of(
+                                OPEN_VIEWER_ACTION_ID, localization.text("button.open"), ignored -> openViewer()));
         context.disposableScope().register(registration);
     }
 
     private Registration contributeSection() {
-        final PanelView content = PanelView.column(
-            PanelView.button(BUTTON_ID, localization.text("button.open"), OPEN_VIEWER_ACTION_ID)
-        );
-        return context.services().get(UiHostCapabilityService.class).contributeCollapsibleSection(new CollapsibleSectionContribution(
-            EmbeddedPanelId.of(TURBOISM_PANEL_ID),
-            SECTION_ID,
-            localization.text("section.title"),
-            SECTION_ORDER,
-            true,
-            content
-        ));
+        final PanelView content =
+                PanelView.column(PanelView.button(BUTTON_ID, localization.text("button.open"), OPEN_VIEWER_ACTION_ID));
+        return context.services()
+                .get(UiHostCapabilityService.class)
+                .contributeCollapsibleSection(new CollapsibleSectionContribution(
+                        EmbeddedPanelId.of(TURBOISM_PANEL_ID),
+                        SECTION_ID,
+                        localization.text("section.title"),
+                        SECTION_ORDER,
+                        true,
+                        content));
     }
 
     private Registration contributeMenu() {
@@ -204,12 +199,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
             return;
         }
         final WindowView[] created = new WindowView[1];
-        created[0] = ui.create(
-            localization,
-            context,
-            () -> requestRefresh(created[0]),
-            () -> windowClosed(created[0])
-        );
+        created[0] = ui.create(localization, context, () -> requestRefresh(created[0]), () -> windowClosed(created[0]));
         final WindowView view = created[0];
         synchronized (lifecycleLock) {
             if (!enabled || generation != openGeneration || !window.compareAndSet(null, view)) {
@@ -236,16 +226,14 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         ui.invokeLater(() -> captureRecords(requestGeneration, expectedView));
     }
 
-    private void captureRecords(
-        final long requestGeneration,
-        final WindowView expectedView
-    ) {
+    private void captureRecords(final long requestGeneration, final WindowView expectedView) {
         if (!isCurrent(requestGeneration, expectedView)) {
             return;
         }
         final List<ClipMaskRecord> records;
         try {
-            records = List.copyOf(context.services().get(CubismClipMaskService.class).collectClipMaskRecords());
+            records = List.copyOf(
+                    context.services().get(CubismClipMaskService.class).collectClipMaskRecords());
         } catch (RuntimeException failure) {
             logger.warn("Clip Mask Viewer host snapshot failed safely: " + failure.getMessage());
             applyFailure(requestGeneration, expectedView);
@@ -255,24 +243,21 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
     }
 
     private void submitAnalysis(
-        final long requestGeneration,
-        final WindowView expectedView,
-        final List<ClipMaskRecord> records
-    ) {
+            final long requestGeneration, final WindowView expectedView, final List<ClipMaskRecord> records) {
         final AtomicReference<ClipMaskViewerState.Snapshot> result = new AtomicReference<>();
-        final TaskSubmission submission = context.tasks().submit(new PluginTaskRequest(
-            new TaskId("clipmask-viewer-refresh-" + requestGeneration),
-            PluginTaskKind.COMPUTE,
-            PluginTaskPriority.NORMAL,
-            token -> {
-                token.checkCanceled();
-                result.set(ClipMaskViewerState.analyze(records));
-                token.checkCanceled();
-            }
-        ));
+        final TaskSubmission submission = context.tasks()
+                .submit(new PluginTaskRequest(
+                        new TaskId("clipmask-viewer-refresh-" + requestGeneration),
+                        PluginTaskKind.COMPUTE,
+                        PluginTaskPriority.NORMAL,
+                        token -> {
+                            token.checkCanceled();
+                            result.set(ClipMaskViewerState.analyze(records));
+                            token.checkCanceled();
+                        }));
         if (!submission.accepted()) {
             logger.warn("Clip Mask Viewer analysis rejected safely: "
-                + submission.rejectionReason().map(Enum::name).orElse("UNKNOWN"));
+                    + submission.rejectionReason().map(Enum::name).orElse("UNKNOWN"));
             applyFailure(requestGeneration, expectedView);
             return;
         }
@@ -282,32 +267,30 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
             return;
         }
         currentRefresh.set(handle);
-        handle.completion().whenComplete((outcome, failure) -> ui.invokeLater(
-            () -> applyAnalysis(requestGeneration, expectedView, handle, result.get(), outcome, failure)
-        ));
+        handle.completion()
+                .whenComplete((outcome, failure) -> ui.invokeLater(
+                        () -> applyAnalysis(requestGeneration, expectedView, handle, result.get(), outcome, failure)));
     }
 
     private void applyAnalysis(
-        final long requestGeneration,
-        final WindowView expectedView,
-        final TaskHandle handle,
-        final ClipMaskViewerState.Snapshot snapshot,
-        final TaskOutcome outcome,
-        final Throwable failure
-    ) {
+            final long requestGeneration,
+            final WindowView expectedView,
+            final TaskHandle handle,
+            final ClipMaskViewerState.Snapshot snapshot,
+            final TaskOutcome outcome,
+            final Throwable failure) {
         currentRefresh.compareAndSet(handle, null);
         if (!isCurrent(requestGeneration, expectedView)) {
             return;
         }
-        if (failure != null || outcome == null || outcome.status() != TaskOutcomeStatus.SUCCEEDED
-            || snapshot == null) {
+        if (failure != null || outcome == null || outcome.status() != TaskOutcomeStatus.SUCCEEDED || snapshot == null) {
             logger.warn("Clip Mask Viewer analysis failed safely");
             expectedView.showUnavailable();
             return;
         }
         expectedView.showSnapshot(snapshot);
-        logger.info("Clip Mask Viewer refreshed: records=" + snapshot.records().size()
-            + ", masks=" + snapshot.countUniqueMasks());
+        logger.info("Clip Mask Viewer refreshed: records=" + snapshot.records().size() + ", masks="
+                + snapshot.countUniqueMasks());
     }
 
     private void applyFailure(final long requestGeneration, final WindowView expectedView) {
@@ -406,11 +389,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
          * @return the created window
          */
         WindowView create(
-            PluginLocalization localization,
-            PluginContext context,
-            Runnable refreshAction,
-            Runnable onClosed
-        );
+                PluginLocalization localization, PluginContext context, Runnable refreshAction, Runnable onClosed);
     }
 
     /**
@@ -460,8 +439,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         }
 
         @Override
-        public void invokeAndWait(final Runnable action)
-            throws InterruptedException, InvocationTargetException {
+        public void invokeAndWait(final Runnable action) throws InterruptedException, InvocationTargetException {
             if (SwingUtilities.isEventDispatchThread()) {
                 action.run();
             } else {
@@ -471,11 +449,10 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
 
         @Override
         public WindowView create(
-            final PluginLocalization localization,
-            final PluginContext context,
-            final Runnable refreshAction,
-            final Runnable onClosed
-        ) {
+                final PluginLocalization localization,
+                final PluginContext context,
+                final Runnable refreshAction,
+                final Runnable onClosed) {
             return new ClipMaskViewerWindow(localization, context, refreshAction, onClosed);
         }
     }

@@ -34,7 +34,6 @@ public record EditLabelColor(EditLabelColorType type, Optional<String> customCol
     /** Returns a custom label color with the given hex value. */
     public static EditLabelColor custom(final String customColor) {
         return new EditLabelColor(
-            EditLabelColorType.CUSTOM,
-            Optional.of(Objects.requireNonNull(customColor, "customColor")));
+                EditLabelColorType.CUSTOM, Optional.of(Objects.requireNonNull(customColor, "customColor")));
     }
 }

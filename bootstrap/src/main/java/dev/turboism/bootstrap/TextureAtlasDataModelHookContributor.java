@@ -5,32 +5,36 @@ import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasDataModelHoo
 /** Declarative contributor for the verified texture-atlas data-model hook. */
 final class TextureAtlasDataModelHookContributor implements HookContributor {
 
-    @Override public String id() {
+    @Override
+    public String id() {
         return "TURBOISM_TEXTURE_ATLAS_DATA_MODEL_HOOK";
     }
 
-    @Override public Phase phase() {
+    @Override
+    public Phase phase() {
         return Phase.RUNTIME_STARTED;
     }
 
-    @Override public boolean closesOnProcessExit() {
+    @Override
+    public boolean closesOnProcessExit() {
         return true;
     }
 
-    @Override public boolean admitted(final HookEnvironment environment) {
+    @Override
+    public boolean admitted(final HookEnvironment environment) {
         return environment.hookRuntimeAdmitted();
     }
 
-    @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
+    @Override
+    public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
         final VerifiedTextureAtlasDataModelHookInstaller installer =
-            VerifiedTextureAtlasDataModelHookInstaller.fromVerifiedResolver(
-                environment.instrumentation(),
-                runtime.editorModelResolver(),
-                host.classLoader(),
-                runtime.textureAtlasDataModelCapture()
-            );
+                VerifiedTextureAtlasDataModelHookInstaller.fromVerifiedResolver(
+                        environment.instrumentation(),
+                        runtime.editorModelResolver(),
+                        host.classLoader(),
+                        runtime.textureAtlasDataModelCapture());
         installer.install();
         // runtime.info("bootstrap", id() + " installation=COMPLETE");
         return installer;

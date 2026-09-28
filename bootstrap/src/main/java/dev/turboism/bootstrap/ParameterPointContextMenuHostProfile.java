@@ -2,7 +2,6 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-
 import java.util.Objects;
 import java.util.Optional;
 

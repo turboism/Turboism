@@ -1,7 +1,6 @@
 package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -48,7 +47,7 @@ public final class ThemeStatusAdapterImpl implements ThemeStatusAdapter {
     private AdapterResult<Optional<ThemeStatusSnapshot>> callIfSupported(final HostOperations operations) {
         try {
             final Optional<SafeModeDiagnostic> versionDiagnostic =
-                HostUiVersionCheck.diagnosticFor(CAPABILITY_ID, operations.hostVersion());
+                    HostUiVersionCheck.diagnosticFor(CAPABILITY_ID, operations.hostVersion());
             if (versionDiagnostic.isPresent()) {
                 return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
             }
@@ -60,9 +59,7 @@ public final class ThemeStatusAdapterImpl implements ThemeStatusAdapter {
             return AdapterResult.unavailable(exception.diagnostic());
         } catch (RuntimeException exception) {
             return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
-                CAPABILITY_ID,
-                "Host theme-status adapter call failed safely."
-            ));
+                    CAPABILITY_ID, "Host theme-status adapter call failed safely."));
         }
     }
 

@@ -6,7 +6,12 @@ import dev.turboism.sdk.ui.ChoiceDialogRequest;
 import dev.turboism.sdk.ui.ChoiceDialogResultListener;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import dev.turboism.ui.host.EdtDispatch;
-
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.Frame;
+import java.awt.Window;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
@@ -17,19 +22,11 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Frame;
-import java.awt.Window;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 
 /** Runtime-owned Swing rendering for bounded SDK choice dialogs. */
 final class RuntimeChoiceDialogs {
 
-    private RuntimeChoiceDialogs() {
-    }
+    private RuntimeChoiceDialogs() {}
 
     static Optional<String> choose(final ChoiceDialogRequest request) {
         if (java.awt.GraphicsEnvironment.isHeadless()) {
@@ -39,24 +36,18 @@ final class RuntimeChoiceDialogs {
         final DialogResult result;
         try {
             result = EdtDispatch.call(
-                "choice dialog",
-                EdtDispatch.DEFAULT_ACCEPT_TIMEOUT,
-                () -> show(request, active),
-                () -> {
-                    // Post-start interrupt: dispose releases the modal pump so the caller
-                    // stops waiting and no orphaned dialog is left on screen.
-                    final JDialog dialog = active.get();
-                    if (dialog != null) {
-                        dialog.dispose();
-                    }
-                }
-            );
+                    "choice dialog", EdtDispatch.DEFAULT_ACCEPT_TIMEOUT, () -> show(request, active), () -> {
+                        // Post-start interrupt: dispose releases the modal pump so the caller
+                        // stops waiting and no orphaned dialog is left on screen.
+                        final JDialog dialog = active.get();
+                        if (dialog != null) {
+                            dialog.dispose();
+                        }
+                    });
         } catch (RuntimeException failure) {
             return Optional.empty();
         }
-        return result.actionId() == null
-            ? Optional.ofNullable(result.optionId())
-            : Optional.empty();
+        return result.actionId() == null ? Optional.ofNullable(result.optionId()) : Optional.empty();
     }
 
     /**
@@ -64,10 +55,7 @@ final class RuntimeChoiceDialogs {
      * receives {@code (optionId, actionId)} when the user acts. Accept and
      * cancel pass a {@code null} actionId; cancel passes a {@code null} optionId.
      */
-    static void openAsync(
-        final ChoiceDialogRequest request,
-        final ChoiceDialogResultListener listener
-    ) {
+    static void openAsync(final ChoiceDialogRequest request, final ChoiceDialogResultListener listener) {
         if (java.awt.GraphicsEnvironment.isHeadless()) {
             listener.onResult(null, null);
             return;
@@ -83,10 +71,7 @@ final class RuntimeChoiceDialogs {
         }
     }
 
-    private static DialogResult show(
-        final ChoiceDialogRequest request,
-        final AtomicReference<JDialog> active
-    ) {
+    private static DialogResult show(final ChoiceDialogRequest request, final AtomicReference<JDialog> active) {
         final Window owner = activeOwner();
         final JDialog dialog = TurboismWindowFactory.dialog(owner, request.title(), true);
         if (dialog == null) {
@@ -163,13 +148,11 @@ final class RuntimeChoiceDialogs {
             selected.set(new DialogResult(null, null).encode());
         });
         request.refresher().ifPresent(refresher -> {
-            final JButton reload = new JButton(
-                request.reloadLabel().isBlank() ? "Reload" : request.reloadLabel()
-            );
+            final JButton reload = new JButton(request.reloadLabel().isBlank() ? "Reload" : request.reloadLabel());
             reload.addActionListener(ignored -> {
                 final String previousId = ((ChoiceDialogOption) choices.getSelectedItem()) == null
-                    ? null
-                    : ((ChoiceDialogOption) choices.getSelectedItem()).id();
+                        ? null
+                        : ((ChoiceDialogOption) choices.getSelectedItem()).id();
                 model.removeAllElements();
                 refresher.refresh().forEach(model::addElement);
                 if (previousId != null) {
@@ -187,10 +170,7 @@ final class RuntimeChoiceDialogs {
             button.addActionListener(ignored -> {
                 final ChoiceDialogOption option = (ChoiceDialogOption) choices.getSelectedItem();
                 dialog.dispose();
-                selected.set(new DialogResult(
-                    option == null ? null : option.id(),
-                    action.id()
-                ).encode());
+                selected.set(new DialogResult(option == null ? null : option.id(), action.id()).encode());
             });
             buttons.add(button);
             buttons.add(javax.swing.Box.createVerticalStrut(4));
@@ -265,19 +245,15 @@ final class RuntimeChoiceDialogs {
             }
             final String option = encoded.substring(0, separator);
             final String action = encoded.substring(separator + 1);
-            return new DialogResult(
-                "\n".equals(option) ? null : option,
-                action.isEmpty() ? null : action
-            );
+            return new DialogResult("\n".equals(option) ? null : option, action.isEmpty() ? null : action);
         }
     }
 
     private static JPanel detailRows(final java.util.List<dev.turboism.sdk.ui.ChoiceDialogDetailRow> rows) {
         final JPanel panel = new JPanel(new java.awt.GridBagLayout());
         panel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
-            javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0xCCCCCC)),
-            javax.swing.BorderFactory.createEmptyBorder(8, 10, 8, 10)
-        ));
+                javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0xCCCCCC)),
+                javax.swing.BorderFactory.createEmptyBorder(8, 10, 8, 10)));
         final java.awt.GridBagConstraints gbc = new java.awt.GridBagConstraints();
         gbc.insets = new java.awt.Insets(3, 4, 3, 8);
         gbc.anchor = java.awt.GridBagConstraints.NORTHWEST;
@@ -344,7 +320,8 @@ final class RuntimeChoiceDialogs {
     }
 
     private static Window activeOwner() {
-        final Window active = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+        final Window active =
+                java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
         if (active != null && active.isShowing()) {
             return active;
         }

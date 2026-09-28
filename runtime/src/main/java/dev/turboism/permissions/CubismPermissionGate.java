@@ -4,7 +4,6 @@ import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
-
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
@@ -27,11 +26,10 @@ public final class CubismPermissionGate {
     private final Clock clock;
 
     public CubismPermissionGate(
-        final String pluginId,
-        final List<PluginPermission> grantedPermissions,
-        final Consumer<CubismFacadeAuditEvent> auditSink,
-        final Clock clock
-    ) {
+            final String pluginId,
+            final List<PluginPermission> grantedPermissions,
+            final Consumer<CubismFacadeAuditEvent> auditSink,
+            final Clock clock) {
         this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
         this.grantedPermissions = List.copyOf(Objects.requireNonNull(grantedPermissions, "grantedPermissions"));
         this.auditSink = Objects.requireNonNull(auditSink, "auditSink");
@@ -78,11 +76,7 @@ public final class CubismPermissionGate {
      * @throws CubismPermissionException if the permission is not granted
      * @throws IllegalArgumentException if any supplied argument is blank
      */
-    public void require(
-        final String permissionId,
-        final String operationId,
-        final String capabilityId
-    ) {
+    public void require(final String permissionId, final String operationId, final String capabilityId) {
         requireText(permissionId, "permissionId");
         requireText(operationId, "operationId");
         if (capabilityId != null) {
@@ -92,16 +86,9 @@ public final class CubismPermissionGate {
             return;
         }
         auditSink.accept(new CubismFacadeAuditEvent(
-            pluginId,
-            permissionId,
-            operationId,
-            capabilityId,
-            DiagnosticReport.Severity.WARNING,
-            clock.instant()
-        ));
-        throw new CubismPermissionException(
-            "Plugin " + pluginId + " is missing required Cubism permission " + permissionId + " for " + operationId
-        );
+                pluginId, permissionId, operationId, capabilityId, DiagnosticReport.Severity.WARNING, clock.instant()));
+        throw new CubismPermissionException("Plugin " + pluginId + " is missing required Cubism permission "
+                + permissionId + " for " + operationId);
     }
 
     private static String requireText(final String value, final String name) {

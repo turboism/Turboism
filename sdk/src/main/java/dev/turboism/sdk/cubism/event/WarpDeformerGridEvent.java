@@ -3,14 +3,11 @@ package dev.turboism.sdk.cubism.event;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.Objects;
 
 /** Typed states of the semantic Warp Deformer grid replacement event family. */
 public sealed interface WarpDeformerGridEvent extends TurboismEvent
-    permits WarpDeformerGridEvent.Before,
-            WarpDeformerGridEvent.On,
-            WarpDeformerGridEvent.After {
+        permits WarpDeformerGridEvent.Before, WarpDeformerGridEvent.On, WarpDeformerGridEvent.After {
 
     /** Returns the detached Warp Deformer projection participating in the operation. */
     WarpDeformer deformer();
@@ -22,20 +19,15 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
         private final CallbackScope callbackScope;
         private WarpGrid grid;
 
-        public Before(
-            final WarpDeformer deformer,
-            final WarpGrid requestedGrid,
-            final WarpGrid grid
-        ) {
+        public Before(final WarpDeformer deformer, final WarpGrid requestedGrid, final WarpGrid grid) {
             this(deformer, requestedGrid, grid, null);
         }
 
         private Before(
-            final WarpDeformer deformer,
-            final WarpGrid requestedGrid,
-            final WarpGrid grid,
-            final CallbackScope callbackScope
-        ) {
+                final WarpDeformer deformer,
+                final WarpGrid requestedGrid,
+                final WarpGrid grid,
+                final CallbackScope callbackScope) {
             this.deformer = Objects.requireNonNull(deformer, "deformer");
             this.requestedGrid = Objects.requireNonNull(requestedGrid, "requestedGrid");
             this.grid = Objects.requireNonNull(grid, "grid");
@@ -44,18 +36,22 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
 
         /** Opens a callback-scoped mutable candidate for the intercepted grid edit. */
         public static Callback openCallback(
-            final WarpDeformer deformer,
-            final WarpGrid requestedGrid,
-            final WarpGrid grid
-        ) {
+                final WarpDeformer deformer, final WarpGrid requestedGrid, final WarpGrid grid) {
             return new Callback(deformer, requestedGrid, grid);
         }
 
-        @Override public WarpDeformer deformer() { return deformer; }
+        @Override
+        public WarpDeformer deformer() {
+            return deformer;
+        }
         /** Returns the grid value originally requested by the write call. */
-        public WarpGrid requestedGrid() { return requestedGrid; }
+        public WarpGrid requestedGrid() {
+            return requestedGrid;
+        }
         /** Returns the candidate grid value that will be applied. */
-        public WarpGrid grid() { return grid; }
+        public WarpGrid grid() {
+            return grid;
+        }
 
         /** Replaces the candidate grid value for the current callback. */
         public void setGrid(final WarpGrid grid) {
@@ -68,11 +64,7 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
 
-            private Callback(
-                final WarpDeformer deformer,
-                final WarpGrid requestedGrid,
-                final WarpGrid grid
-            ) {
+            private Callback(final WarpDeformer deformer, final WarpGrid requestedGrid, final WarpGrid grid) {
                 event = new Before(deformer, requestedGrid, grid, scope);
             }
 
@@ -82,20 +74,23 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
                 return event;
             }
 
-            @Override public void close() { scope.close(); }
+            @Override
+            public void close() {
+                scope.close();
+            }
         }
 
         private static final class CallbackScope {
             private final Thread ownerThread;
             private boolean open = true;
 
-            private CallbackScope(final Thread ownerThread) { this.ownerThread = ownerThread; }
+            private CallbackScope(final Thread ownerThread) {
+                this.ownerThread = ownerThread;
+            }
 
             private void requireOpen() {
                 if (!open || Thread.currentThread() != ownerThread) {
-                    throw new IllegalStateException(
-                        "Warp grid before-event mutation is outside its callback scope."
-                    );
+                    throw new IllegalStateException("Warp grid before-event mutation is outside its callback scope.");
                 }
             }
 
@@ -107,8 +102,7 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
     }
 
     /** State published after a successful grid replacement that changed the value. */
-    record On(WarpDeformer deformer, WarpGrid oldGrid, WarpGrid newGrid)
-        implements WarpDeformerGridEvent {
+    record On(WarpDeformer deformer, WarpGrid oldGrid, WarpGrid newGrid) implements WarpDeformerGridEvent {
         public On {
             deformer = Objects.requireNonNull(deformer, "deformer");
             oldGrid = Objects.requireNonNull(oldGrid, "oldGrid");
@@ -117,8 +111,7 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
     }
 
     /** State published after every successful grid replacement. */
-    record After(WarpDeformer deformer, WarpGrid finalGrid)
-        implements WarpDeformerGridEvent {
+    record After(WarpDeformer deformer, WarpGrid finalGrid) implements WarpDeformerGridEvent {
         public After {
             deformer = Objects.requireNonNull(deformer, "deformer");
             finalGrid = Objects.requireNonNull(finalGrid, "finalGrid");

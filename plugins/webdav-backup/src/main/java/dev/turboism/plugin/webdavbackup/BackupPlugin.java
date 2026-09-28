@@ -23,7 +23,6 @@ import dev.turboism.sdk.task.PluginTaskPriority;
 import dev.turboism.sdk.task.PluginTaskRequest;
 import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.task.TaskSubmission;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,8 +30,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -78,8 +77,9 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                     refreshTarget();
                 }
             } else {
-                context.logger().warn("WebDAV backup sync binding unavailable: "
-                    + (failure == null ? result : failure.getClass().getSimpleName()));
+                context.logger()
+                        .warn("WebDAV backup sync binding unavailable: "
+                                + (failure == null ? result : failure.getClass().getSimpleName()));
             }
         });
     }
@@ -138,7 +138,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                 target = null;
                 if (failure != null) {
                     logger.warn("WEBDAV_TARGET_UNAVAILABLE reason="
-                        + failure.getClass().getSimpleName());
+                            + failure.getClass().getSimpleName());
                     return;
                 }
                 scheduleTargetRetry(logger);
@@ -147,8 +147,8 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             targetRetryAttempts = 0;
             target = buildTarget(config);
             logger.info("WEBDAV_TARGET_READY url=" + sanitizedUrl(config)
-                + " remotePath=" + config.remotePath()
-                + " enabled=" + config.enabled());
+                    + " remotePath=" + config.remotePath()
+                    + " enabled=" + config.enabled());
             syncTriggerMode(config);
         });
     }
@@ -162,9 +162,11 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         Objects.requireNonNull(config, "config");
         lastSavedConfig = config;
         target = buildTarget(config);
-        requireContext().logger().info("WEBDAV_TARGET_READY url=" + sanitizedUrl(config)
-            + " remotePath=" + config.remotePath()
-            + " enabled=" + config.enabled());
+        requireContext()
+                .logger()
+                .info("WEBDAV_TARGET_READY url=" + sanitizedUrl(config)
+                        + " remotePath=" + config.remotePath()
+                        + " enabled=" + config.enabled());
         syncTriggerMode(config);
     }
 
@@ -191,7 +193,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
 
     private volatile int targetRetryAttempts;
     private final java.util.concurrent.atomic.AtomicBoolean targetRetryPending =
-        new java.util.concurrent.atomic.AtomicBoolean();
+            new java.util.concurrent.atomic.AtomicBoolean();
 
     private void scheduleTargetRetry(final PluginLogger logger) {
         if (!targetRetryPending.compareAndSet(false, true)) {
@@ -204,22 +206,24 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             return;
         }
         targetRetryAttempts = attempt + 1;
-        logger.info("WEBDAV_TARGET_RETRY attempt=" + (attempt + 1)
-            + " backoffMs=" + TARGET_RETRY_BACKOFF_MILLIS[attempt]);
-        final Thread retry = new Thread(() -> {
-            try {
-                Thread.sleep(TARGET_RETRY_BACKOFF_MILLIS[attempt]);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                targetRetryPending.set(false);
-                return;
-            }
-            targetRetryPending.set(false);
-            if (!enabled || context == null) {
-                return; // cancelled by disable()/shutdown()
-            }
-            refreshTarget();
-        }, "turboism-webdav-target-retry");
+        logger.info(
+                "WEBDAV_TARGET_RETRY attempt=" + (attempt + 1) + " backoffMs=" + TARGET_RETRY_BACKOFF_MILLIS[attempt]);
+        final Thread retry = new Thread(
+                () -> {
+                    try {
+                        Thread.sleep(TARGET_RETRY_BACKOFF_MILLIS[attempt]);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        targetRetryPending.set(false);
+                        return;
+                    }
+                    targetRetryPending.set(false);
+                    if (!enabled || context == null) {
+                        return; // cancelled by disable()/shutdown()
+                    }
+                    refreshTarget();
+                },
+                "turboism-webdav-target-retry");
         retry.setDaemon(true);
         retry.start();
     }
@@ -255,43 +259,53 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
      * throws into the hook dispatcher.
      */
     private void backupAfterSave(final ProjectContentSnapshot saved) {
-        if (context == null || !enabled
-            || triggerMode != WebDavConfig.RemoteTrigger.SAVE_TRIGGERED) {
+        if (context == null || !enabled || triggerMode != WebDavConfig.RemoteTrigger.SAVE_TRIGGERED) {
             return; // AUTO_BACKUP_SYNC: the scanner owns the upload path
         }
         try {
             final PluginContext callbackContext = context;
-            callbackContext.services().get(EditorAutoBackupService.class).backupAfterSave(saved).whenComplete((event, failure) -> {
-                if (!enabled || context != callbackContext) {
-                    return;
-                }
-                if (failure != null) {
-                    final Throwable cause = failure instanceof java.util.concurrent.CompletionException ce
-                        && ce.getCause() != null ? ce.getCause() : failure;
-                    callbackContext.logger().warn(
-                        "SAVE_BACKUP_FAILED " + cause.getClass().getSimpleName()
-                            + " doc=" + saved.name()
-                            + " path=" + saved.filePath().map(Path::toString).orElse("")
-                            + " message=" + (cause.getMessage() == null ? "" : cause.getMessage())
-                    );
-                } else if (event != null) {
-                    for (File file : event.newBackupFiles()) {
-                        if (isTempBackupFile(file)) {
-                            pendingTempFiles.add(file);
+            callbackContext
+                    .services()
+                    .get(EditorAutoBackupService.class)
+                    .backupAfterSave(saved)
+                    .whenComplete((event, failure) -> {
+                        if (!enabled || context != callbackContext) {
+                            return;
                         }
-                    }
-                    submitUpload(callbackContext, event.newBackupFiles());
-                    callbackContext.logger().info(
-                        "BACKUP_AFTER_SAVE_OK files=" + event.newBackupFiles().size()
-                    );
-                }
-            });
+                        if (failure != null) {
+                            final Throwable cause = failure instanceof java.util.concurrent.CompletionException ce
+                                            && ce.getCause() != null
+                                    ? ce.getCause()
+                                    : failure;
+                            callbackContext
+                                    .logger()
+                                    .warn("SAVE_BACKUP_FAILED "
+                                            + cause.getClass().getSimpleName()
+                                            + " doc=" + saved.name()
+                                            + " path="
+                                            + saved.filePath()
+                                                    .map(Path::toString)
+                                                    .orElse("")
+                                            + " message=" + (cause.getMessage() == null ? "" : cause.getMessage()));
+                        } else if (event != null) {
+                            for (File file : event.newBackupFiles()) {
+                                if (isTempBackupFile(file)) {
+                                    pendingTempFiles.add(file);
+                                }
+                            }
+                            submitUpload(callbackContext, event.newBackupFiles());
+                            callbackContext
+                                    .logger()
+                                    .info("BACKUP_AFTER_SAVE_OK files="
+                                            + event.newBackupFiles().size());
+                        }
+                    });
         } catch (RuntimeException | Error failure) {
             final PluginContext activeContext = context;
             if (activeContext != null) {
-                activeContext.logger().warn(
-                    "SAVE_BACKUP_UNAVAILABLE " + failure.getClass().getSimpleName()
-                );
+                activeContext
+                        .logger()
+                        .warn("SAVE_BACKUP_UNAVAILABLE " + failure.getClass().getSimpleName());
             }
         }
     }
@@ -306,27 +320,25 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     }
 
     private void registerMenuAndAction() {
-        final Registration action = requireContext().actions().register(
-            OPEN_SETTINGS_ACTION_ID,
-            new ActionRegistry.Action() {
-                @Override
-                public String id() {
-                    return OPEN_SETTINGS_ACTION_ID;
-                }
+        final Registration action = requireContext()
+                .actions()
+                .register(OPEN_SETTINGS_ACTION_ID, new ActionRegistry.Action() {
+                    @Override
+                    public String id() {
+                        return OPEN_SETTINGS_ACTION_ID;
+                    }
 
-                @Override
-                public String label() {
-                    return menuLabel();
-                }
+                    @Override
+                    public String label() {
+                        return menuLabel();
+                    }
 
-                @Override
-                public Consumer<ActionRegistry.ActionContext> handler() {
-                    return ignored -> WebDavSettingsDialog.open(
-                        requireContext(), binding, BackupPlugin.this::applySavedConfig
-                    );
-                }
-            }
-        );
+                    @Override
+                    public Consumer<ActionRegistry.ActionContext> handler() {
+                        return ignored -> WebDavSettingsDialog.open(
+                                requireContext(), binding, BackupPlugin.this::applySavedConfig);
+                    }
+                });
         final Registration menu = requireContext().menus().contribute(new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
@@ -362,9 +374,9 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     @SubscribeEvent
     public void onBackupCompleted(final BackupCompletedEvent event) {
         if (triggerMode == WebDavConfig.RemoteTrigger.SAVE_TRIGGERED) {
-            requireContext().logger().info(
-                "BACKUP_COMPLETED artifacts=" + event.artifacts().size()
-            );
+            requireContext()
+                    .logger()
+                    .info("BACKUP_COMPLETED artifacts=" + event.artifacts().size());
         }
     }
 
@@ -374,15 +386,16 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
      */
     private void submitUpload(final PluginContext active, final List<File> files) {
         final List<File> artifacts = List.copyOf(files);
-        final TaskSubmission submission = active.tasks().submit(new PluginTaskRequest(
-            new TaskId("webdav-upload-" + uploadSequence.incrementAndGet()),
-            PluginTaskKind.LONG_RUNNING,
-            PluginTaskPriority.NORMAL,
-            token -> syncCompletedArtifacts(artifacts)
-        ));
+        final TaskSubmission submission = active.tasks()
+                .submit(new PluginTaskRequest(
+                        new TaskId("webdav-upload-" + uploadSequence.incrementAndGet()),
+                        PluginTaskKind.LONG_RUNNING,
+                        PluginTaskPriority.NORMAL,
+                        token -> syncCompletedArtifacts(artifacts)));
         if (!submission.accepted()) {
-            active.logger().warn("WEBDAV_SYNC_REJECTED reason="
-                + submission.rejectionReason().map(Enum::name).orElse("UNKNOWN"));
+            active.logger()
+                    .warn("WEBDAV_SYNC_REJECTED reason="
+                            + submission.rejectionReason().map(Enum::name).orElse("UNKNOWN"));
             cleanupTempFiles(artifacts);
         }
     }
@@ -393,10 +406,12 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             synchronized (this) {
                 if (target == null) {
                     target = buildTarget(lastSavedConfig);
-                    requireContext().logger().info("WEBDAV_TARGET_LAZY_REBUILT url="
-                        + sanitizedUrl(lastSavedConfig)
-                        + " remotePath=" + lastSavedConfig.remotePath()
-                        + " enabled=" + lastSavedConfig.enabled());
+                    requireContext()
+                            .logger()
+                            .info("WEBDAV_TARGET_LAZY_REBUILT url="
+                                    + sanitizedUrl(lastSavedConfig)
+                                    + " remotePath=" + lastSavedConfig.remotePath()
+                                    + " enabled=" + lastSavedConfig.enabled());
                 }
                 active = target;
             }
@@ -413,9 +428,9 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             active.sync(files);
             requireContext().logger().info("WEBDAV_SYNC_COMPLETED files=" + files.size());
         } catch (RuntimeException | Error failure) {
-            requireContext().logger().warn(
-                "WEBDAV_SYNC_FAILED " + failure.getClass().getSimpleName()
-            );
+            requireContext()
+                    .logger()
+                    .warn("WEBDAV_SYNC_FAILED " + failure.getClass().getSimpleName());
         } finally {
             cleanupTempFiles(files);
         }
@@ -423,8 +438,9 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
 
     /** True when the artifact comes from the save-triggered temp flow. */
     private static boolean isTempBackupFile(final File file) {
-        return file != null && file.getParentFile() != null
-            && file.getParentFile().getName().startsWith(TEMP_DIR_PREFIX);
+        return file != null
+                && file.getParentFile() != null
+                && file.getParentFile().getName().startsWith(TEMP_DIR_PREFIX);
     }
 
     private void cleanupTempFiles(final List<File> files) {
@@ -491,9 +507,9 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             try {
                 scanOnce();
             } catch (RuntimeException | Error failure) {
-                requireContext().logger().warn(
-                    "WEBDAV_AUTO_SCAN_FAILED " + failure.getClass().getSimpleName()
-                );
+                requireContext()
+                        .logger()
+                        .warn("WEBDAV_AUTO_SCAN_FAILED " + failure.getClass().getSimpleName());
             }
             try {
                 Thread.sleep(AUTO_BACKUP_SCAN_INTERVAL_MILLIS);
@@ -510,7 +526,8 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         if (active == null || context == null) {
             return;
         }
-        final EditorAutoBackupSettings settings = requireContext().services().get(EditorAutoBackupService.class).settings();
+        final EditorAutoBackupSettings settings =
+                requireContext().services().get(EditorAutoBackupService.class).settings();
         final String backupDirPath = settings.backupDir();
         if (backupDirPath == null) {
             return;
@@ -520,21 +537,20 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             return;
         }
         try (var stream = Files.list(backupDir)) {
-            final List<File> fresh = stream
-                .filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().contains("_backup"))
-                .filter(path -> path.getFileName().toString().endsWith(".cmo3"))
-                .filter(path -> {
-                    try {
-                        return Files.size(path) > 0
-                            && scannedArtifacts.add(path.getFileName() + ":" + Files.size(path));
-                    } catch (IOException failure) {
-                        return false;
-                    }
-                })
-                .map(Path::toFile)
-                .sorted(java.util.Comparator.comparing(File::getName))
-                .toList();
+            final List<File> fresh = stream.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().contains("_backup"))
+                    .filter(path -> path.getFileName().toString().endsWith(".cmo3"))
+                    .filter(path -> {
+                        try {
+                            return Files.size(path) > 0
+                                    && scannedArtifacts.add(path.getFileName() + ":" + Files.size(path));
+                        } catch (IOException failure) {
+                            return false;
+                        }
+                    })
+                    .map(Path::toFile)
+                    .sorted(java.util.Comparator.comparing(File::getName))
+                    .toList();
             for (File file : fresh) {
                 requireContext().logger().info("WEBDAV_SYNC_UPLOAD file=" + file.getName());
             }

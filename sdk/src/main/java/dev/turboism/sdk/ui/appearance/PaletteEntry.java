@@ -1,7 +1,6 @@
 package dev.turboism.sdk.ui.appearance;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Optional;
 
 /** One model-owned projection of a verified Cubism palette entry. */
@@ -45,31 +44,38 @@ public interface PaletteEntry {
     /** Returns a fail-closed entry: overrides throw and no state is reported. */
     static PaletteEntry unavailable() {
         return new PaletteEntry() {
-            @Override public Registration overrideFontSize(final float points) {
+            @Override
+            public Registration overrideFontSize(final float points) {
                 throw unavailableOperation();
             }
 
-            @Override public Registration overrideBold(final boolean bold) {
+            @Override
+            public Registration overrideBold(final boolean bold) {
                 throw unavailableOperation();
             }
 
-            @Override public Registration overrideItalic(final boolean italic) {
+            @Override
+            public Registration overrideItalic(final boolean italic) {
                 throw unavailableOperation();
             }
 
-            @Override public Registration overrideTextColor(final UiColor color) {
+            @Override
+            public Registration overrideTextColor(final UiColor color) {
                 throw unavailableOperation();
             }
 
-            @Override public Registration overrideBackgroundColor(final UiColor color) {
+            @Override
+            public Registration overrideBackgroundColor(final UiColor color) {
                 throw unavailableOperation();
             }
 
-            @Override public PaletteEntryState resolved() {
+            @Override
+            public PaletteEntryState resolved() {
                 return PaletteEntryState.empty();
             }
 
-            @Override public Optional<PaletteEntryState> actual() {
+            @Override
+            public Optional<PaletteEntryState> actual() {
                 return Optional.empty();
             }
         };

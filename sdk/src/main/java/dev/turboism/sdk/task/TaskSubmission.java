@@ -15,10 +15,7 @@ import java.util.Optional;
  *     {@link TaskSubmissionStatus#REJECTED}
  */
 public record TaskSubmission(
-    TaskSubmissionStatus status,
-    TaskHandle handle,
-    Optional<TaskRejectionReason> rejectionReason
-) {
+        TaskSubmissionStatus status, TaskHandle handle, Optional<TaskRejectionReason> rejectionReason) {
     /**
      * Validates the record components.
      *
@@ -32,9 +29,7 @@ public record TaskSubmission(
         rejectionReason = TaskContracts.requireOptional(rejectionReason, "rejectionReason");
         final boolean rejected = status == TaskSubmissionStatus.REJECTED;
         if (rejectionReason.isPresent() != rejected) {
-            throw new IllegalArgumentException(
-                "rejectionReason presence does not match submission status " + status
-            );
+            throw new IllegalArgumentException("rejectionReason presence does not match submission status " + status);
         }
     }
 

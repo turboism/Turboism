@@ -1,13 +1,15 @@
 package dev.turboism.tests.preview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.preview.LocalPluginRuntime;
 import dev.turboism.preview.PreviewLog;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,14 +18,10 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /** Exercises the real fixture JAR against the preview PluginContext service graph. */
 final class PreviewContextServicesScenario {
 
-    private PreviewContextServicesScenario() {
-    }
+    private PreviewContextServicesScenario() {}
 
     static void verify(final Path temporaryDirectory) throws Exception {
         final Path home = temporaryDirectory.resolve("preview-context-services-home");
@@ -38,17 +36,12 @@ final class PreviewContextServicesScenario {
         }
     }
 
-    private static void loadAndAssert(
-        final Path home,
-        final Path markerDirectory,
-        final Path temporaryDirectory
-    ) throws Exception {
+    private static void loadAndAssert(final Path home, final Path markerDirectory, final Path temporaryDirectory)
+            throws Exception {
         final PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"));
         final RuntimeScheduler scheduler = scheduler();
         final HostRuntimeIngress hostIngress = new HostRuntimeIngress();
-        final LocalPluginRuntime runtime = new LocalPluginRuntime(
-            home, scheduler, hostIngress.adapterAccess(), log
-        );
+        final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, hostIngress.adapterAccess(), log);
         try {
             PreviewContextServicesPluginJarFixture.write(home.resolve("plugins"), temporaryDirectory);
             assertResults(runtime.loadAll(), PreviewContextServicesPluginJarFixture.readyFile(markerDirectory));
@@ -57,29 +50,29 @@ final class PreviewContextServicesScenario {
         }
     }
 
-    private static void assertResults(
-        final LocalPluginRuntime.LoadReport report,
-        final Path ready
-    ) throws Exception {
+    private static void assertResults(final LocalPluginRuntime.LoadReport report, final Path ready) throws Exception {
         awaitReady(ready);
-        final String diagnostics = " marker=" + readMarker(ready)
-            + " loaded=" + report.loaded()
-            + " failures=" + report.failures();
+        final String diagnostics =
+                " marker=" + readMarker(ready) + " loaded=" + report.loaded() + " failures=" + report.failures();
         assertTrue(report.failures().isEmpty(), "failures must be empty;" + diagnostics);
         assertEquals(1, report.loaded().size(), "exactly one loaded plugin;" + diagnostics);
-        assertEquals(PreviewContextServicesPluginJarFixture.PLUGIN_ID,
-            report.loaded().get(0).id(), "plugin id;" + diagnostics);
+        assertEquals(
+                PreviewContextServicesPluginJarFixture.PLUGIN_ID,
+                report.loaded().get(0).id(),
+                "plugin id;" + diagnostics);
         assertEquals("ENABLED", report.loaded().get(0).state().name(), "plugin state;" + diagnostics);
-        assertEquals(PreviewContextServicesPluginJarFixture.EXPECTED_MARKER_VALUES, readMarker(ready),
-            "marker values;" + diagnostics);
+        assertEquals(
+                PreviewContextServicesPluginJarFixture.EXPECTED_MARKER_VALUES,
+                readMarker(ready),
+                "marker values;" + diagnostics);
     }
 
     private static void close(
-        final LocalPluginRuntime runtime,
-        final HostRuntimeIngress hostIngress,
-        final RuntimeScheduler scheduler,
-        final PreviewLog log
-    ) throws IOException {
+            final LocalPluginRuntime runtime,
+            final HostRuntimeIngress hostIngress,
+            final RuntimeScheduler scheduler,
+            final PreviewLog log)
+            throws IOException {
         try {
             runtime.close();
         } finally {
@@ -95,9 +88,10 @@ final class PreviewContextServicesScenario {
         while (!Files.isRegularFile(ready) && System.nanoTime() < deadline) {
             Thread.sleep(10L);
         }
-        assertTrue(Files.isRegularFile(ready),
-            "fixture plugin did not publish its ready marker at " + ready
-                + " within 60s; marker directory contents: " + listMarkerDirectory(ready));
+        assertTrue(
+                Files.isRegularFile(ready),
+                "fixture plugin did not publish its ready marker at " + ready
+                        + " within 60s; marker directory contents: " + listMarkerDirectory(ready));
     }
 
     private static String listMarkerDirectory(final Path ready) throws IOException {
@@ -106,8 +100,9 @@ final class PreviewContextServicesScenario {
             return "<missing marker directory>";
         }
         try (java.util.stream.Stream<Path> entries = Files.list(directory)) {
-            return entries.map(path -> path.getFileName().toString()).sorted()
-                .collect(java.util.stream.Collectors.joining(", "));
+            return entries.map(path -> path.getFileName().toString())
+                    .sorted()
+                    .collect(java.util.stream.Collectors.joining(", "));
         }
     }
 
@@ -137,9 +132,9 @@ final class PreviewContextServicesScenario {
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 16, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(), ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 }

@@ -1,6 +1,8 @@
 package dev.turboism.mapping.verification;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -8,10 +10,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class StaticSelectorVerifierTest {
 
@@ -20,20 +19,14 @@ class StaticSelectorVerifierTest {
         Path artifact = jarContaining(SampleTarget.class);
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
         StaticSelector selector = StaticSelector.method(
-            "sample.greet",
-            internalName(SampleTarget.class),
-            "greet",
-            "(Ljava/lang/String;)Ljava/lang/String;"
-        );
+                "sample.greet", internalName(SampleTarget.class), "greet", "(Ljava/lang/String;)Ljava/lang/String;");
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            fingerprint,
-            List.of(selector)
-        );
+        StaticVerificationReport report = new StaticSelectorVerifier().verify(artifact, fingerprint, List.of(selector));
 
         assertTrue(report.artifactMatched());
-        assertEquals(StaticVerificationStatus.VERIFIED_STATIC, report.results().get(0).status());
+        assertEquals(
+                StaticVerificationStatus.VERIFIED_STATIC,
+                report.results().get(0).status());
         assertEquals("sample.greet", report.results().get(0).alias());
     }
 
@@ -42,18 +35,16 @@ class StaticSelectorVerifierTest {
         Path artifact = jarContaining(SampleTarget.class);
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            fingerprint,
-            List.of(StaticSelector.constructor(
-                "sample.constructor",
-                internalName(SampleTarget.class),
-                "(Ljava/lang/String;)V",
-                0
-            ))
-        );
+        StaticVerificationReport report = new StaticSelectorVerifier()
+                .verify(
+                        artifact,
+                        fingerprint,
+                        List.of(StaticSelector.constructor(
+                                "sample.constructor", internalName(SampleTarget.class), "(Ljava/lang/String;)V", 0)));
 
-        assertEquals(StaticVerificationStatus.VERIFIED_STATIC, report.results().get(0).status());
+        assertEquals(
+                StaticVerificationStatus.VERIFIED_STATIC,
+                report.results().get(0).status());
     }
 
     @Test
@@ -61,18 +52,16 @@ class StaticSelectorVerifierTest {
         Path artifact = jarContaining(SampleTarget.class);
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            fingerprint,
-            List.of(StaticSelector.method(
-                "sample.greet",
-                internalName(SampleTarget.class),
-                "greet",
-                "()Ljava/lang/String;"
-            ))
-        );
+        StaticVerificationReport report = new StaticSelectorVerifier()
+                .verify(
+                        artifact,
+                        fingerprint,
+                        List.of(StaticSelector.method(
+                                "sample.greet", internalName(SampleTarget.class), "greet", "()Ljava/lang/String;")));
 
-        assertEquals(StaticVerificationStatus.DESCRIPTOR_MISMATCH, report.results().get(0).status());
+        assertEquals(
+                StaticVerificationStatus.DESCRIPTOR_MISMATCH,
+                report.results().get(0).status());
     }
 
     @Test
@@ -80,44 +69,43 @@ class StaticSelectorVerifierTest {
         Path artifact = jarContaining(SampleTarget.class);
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            fingerprint,
-            List.of(StaticSelector.staticMethod(
-                "sample.greet.static",
-                internalName(SampleTarget.class),
-                "greet",
-                "(Ljava/lang/String;)Ljava/lang/String;",
-                0
-            ))
-        );
+        StaticVerificationReport report = new StaticSelectorVerifier()
+                .verify(
+                        artifact,
+                        fingerprint,
+                        List.of(StaticSelector.staticMethod(
+                                "sample.greet.static",
+                                internalName(SampleTarget.class),
+                                "greet",
+                                "(Ljava/lang/String;)Ljava/lang/String;",
+                                0)));
 
-        assertEquals(StaticVerificationStatus.ACCESS_MISMATCH, report.results().get(0).status());
+        assertEquals(
+                StaticVerificationStatus.ACCESS_MISMATCH,
+                report.results().get(0).status());
     }
 
     @Test
     void rejectsSelectorsBeforeParsingWhenArtifactHashDiffers() throws Exception {
         Path artifact = jarContaining(SampleTarget.class);
         HostArtifactFingerprint actual = HostArtifactFingerprint.from("5.3.02", artifact);
-        HostArtifactFingerprint wrong = new HostArtifactFingerprint(
-            actual.cubismVersion(),
-            actual.size(),
-            "0".repeat(64)
-        );
+        HostArtifactFingerprint wrong =
+                new HostArtifactFingerprint(actual.cubismVersion(), actual.size(), "0".repeat(64));
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            wrong,
-            List.of(StaticSelector.method(
-                "sample.greet",
-                internalName(SampleTarget.class),
-                "greet",
-                "(Ljava/lang/String;)Ljava/lang/String;"
-            ))
-        );
+        StaticVerificationReport report = new StaticSelectorVerifier()
+                .verify(
+                        artifact,
+                        wrong,
+                        List.of(StaticSelector.method(
+                                "sample.greet",
+                                internalName(SampleTarget.class),
+                                "greet",
+                                "(Ljava/lang/String;)Ljava/lang/String;")));
 
         assertFalse(report.artifactMatched());
-        assertEquals(StaticVerificationStatus.ARTIFACT_MISMATCH, report.results().get(0).status());
+        assertEquals(
+                StaticVerificationStatus.ARTIFACT_MISMATCH,
+                report.results().get(0).status());
     }
 
     @Test
@@ -125,13 +113,14 @@ class StaticSelectorVerifierTest {
         Path artifact = jarContaining(SampleTarget.class);
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            fingerprint,
-            List.of(StaticSelector.classSelector("missing.class", "missing/HostClass"))
-        );
+        StaticVerificationReport report = new StaticSelectorVerifier()
+                .verify(
+                        artifact,
+                        fingerprint,
+                        List.of(StaticSelector.classSelector("missing.class", "missing/HostClass")));
 
-        assertEquals(StaticVerificationStatus.CLASS_MISSING, report.results().get(0).status());
+        assertEquals(
+                StaticVerificationStatus.CLASS_MISSING, report.results().get(0).status());
     }
 
     @Test
@@ -140,16 +129,12 @@ class StaticSelectorVerifierTest {
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
         StaticSelector selector = StaticSelector.classSelector("duplicate.alias", internalName(SampleTarget.class));
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            fingerprint,
-            List.of(selector, selector)
-        );
+        StaticVerificationReport report =
+                new StaticSelectorVerifier().verify(artifact, fingerprint, List.of(selector, selector));
 
         assertEquals(2, report.results().size());
-        assertTrue(report.results().stream().allMatch(
-            result -> result.status() == StaticVerificationStatus.DUPLICATE_ALIAS
-        ));
+        assertTrue(report.results().stream()
+                .allMatch(result -> result.status() == StaticVerificationStatus.DUPLICATE_ALIAS));
     }
 
     @Test
@@ -157,18 +142,19 @@ class StaticSelectorVerifierTest {
         Path artifact = jarContaining(DerivedTarget.class);
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            fingerprint,
-            List.of(StaticSelector.inheritsFrom(
-                "sample.mapping.inherits-superclass",
-                "sample.inherits.superclass",
-                internalName(DerivedTarget.class),
-                internalName(SampleTarget.class)
-            ))
-        );
+        StaticVerificationReport report = new StaticSelectorVerifier()
+                .verify(
+                        artifact,
+                        fingerprint,
+                        List.of(StaticSelector.inheritsFrom(
+                                "sample.mapping.inherits-superclass",
+                                "sample.inherits.superclass",
+                                internalName(DerivedTarget.class),
+                                internalName(SampleTarget.class))));
 
-        assertEquals(StaticVerificationStatus.VERIFIED_STATIC, report.results().get(0).status());
+        assertEquals(
+                StaticVerificationStatus.VERIFIED_STATIC,
+                report.results().get(0).status());
     }
 
     @Test
@@ -176,18 +162,19 @@ class StaticSelectorVerifierTest {
         Path artifact = jarContaining(DerivedTarget.class);
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            fingerprint,
-            List.of(StaticSelector.inheritsFrom(
-                "sample.mapping.inherits-interface",
-                "sample.inherits.interface",
-                internalName(DerivedTarget.class),
-                internalName(SampleContract.class)
-            ))
-        );
+        StaticVerificationReport report = new StaticSelectorVerifier()
+                .verify(
+                        artifact,
+                        fingerprint,
+                        List.of(StaticSelector.inheritsFrom(
+                                "sample.mapping.inherits-interface",
+                                "sample.inherits.interface",
+                                internalName(DerivedTarget.class),
+                                internalName(SampleContract.class))));
 
-        assertEquals(StaticVerificationStatus.VERIFIED_STATIC, report.results().get(0).status());
+        assertEquals(
+                StaticVerificationStatus.VERIFIED_STATIC,
+                report.results().get(0).status());
     }
 
     @Test
@@ -195,18 +182,19 @@ class StaticSelectorVerifierTest {
         Path artifact = jarContaining(DerivedTarget.class);
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            fingerprint,
-            List.of(StaticSelector.inheritsFrom(
-                "sample.mapping.inherits-wrong-superclass",
-                "sample.inherits.wrong-superclass",
-                internalName(DerivedTarget.class),
-                "java/lang/String"
-            ))
-        );
+        StaticVerificationReport report = new StaticSelectorVerifier()
+                .verify(
+                        artifact,
+                        fingerprint,
+                        List.of(StaticSelector.inheritsFrom(
+                                "sample.mapping.inherits-wrong-superclass",
+                                "sample.inherits.wrong-superclass",
+                                internalName(DerivedTarget.class),
+                                "java/lang/String")));
 
-        assertEquals(StaticVerificationStatus.SUPERTYPE_MISMATCH, report.results().get(0).status());
+        assertEquals(
+                StaticVerificationStatus.SUPERTYPE_MISMATCH,
+                report.results().get(0).status());
     }
 
     @Test
@@ -214,18 +202,19 @@ class StaticSelectorVerifierTest {
         Path artifact = jarContaining(DerivedTarget.class);
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            fingerprint,
-            List.of(StaticSelector.inheritsFrom(
-                "sample.mapping.inherits-missing-interface",
-                "sample.inherits.missing-interface",
-                internalName(DerivedTarget.class),
-                "java/io/Closeable"
-            ))
-        );
+        StaticVerificationReport report = new StaticSelectorVerifier()
+                .verify(
+                        artifact,
+                        fingerprint,
+                        List.of(StaticSelector.inheritsFrom(
+                                "sample.mapping.inherits-missing-interface",
+                                "sample.inherits.missing-interface",
+                                internalName(DerivedTarget.class),
+                                "java/io/Closeable")));
 
-        assertEquals(StaticVerificationStatus.SUPERTYPE_MISMATCH, report.results().get(0).status());
+        assertEquals(
+                StaticVerificationStatus.SUPERTYPE_MISMATCH,
+                report.results().get(0).status());
     }
 
     @Test
@@ -233,25 +222,25 @@ class StaticSelectorVerifierTest {
         Path artifact = jarContaining(DerivedTarget.class);
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
 
-        StaticVerificationReport report = new StaticSelectorVerifier().verify(
-            artifact,
-            fingerprint,
-            List.of(StaticSelector.inheritsFrom(
-                "sample.mapping.inherits-missing-owner",
-                "sample.inherits.missing-owner",
-                "missing/HostClass",
-                internalName(SampleTarget.class)
-            ))
-        );
+        StaticVerificationReport report = new StaticSelectorVerifier()
+                .verify(
+                        artifact,
+                        fingerprint,
+                        List.of(StaticSelector.inheritsFrom(
+                                "sample.mapping.inherits-missing-owner",
+                                "sample.inherits.missing-owner",
+                                "missing/HostClass",
+                                internalName(SampleTarget.class))));
 
-        assertEquals(StaticVerificationStatus.CLASS_MISSING, report.results().get(0).status());
+        assertEquals(
+                StaticVerificationStatus.CLASS_MISSING, report.results().get(0).status());
     }
 
     private static Path jarContaining(final Class<?> type) throws Exception {
         Path jar = Files.createTempFile("turboism-selector-fixture", ".jar");
         String entryName = internalName(type) + ".class";
         try (InputStream input = type.getClassLoader().getResourceAsStream(entryName);
-             JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+                JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             output.putNextEntry(new JarEntry(entryName));
             input.transferTo(output);
             output.closeEntry();
@@ -264,8 +253,7 @@ class StaticSelectorVerifierTest {
     }
 
     static class SampleTarget {
-        SampleTarget(final String ignored) {
-        }
+        SampleTarget(final String ignored) {}
 
         String greet(final String name) {
             return "Hello " + name;

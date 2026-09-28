@@ -2,7 +2,6 @@ package dev.turboism.sdk.mcp;
 
 import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Optional;
 
 /**
@@ -48,7 +47,8 @@ public interface McpConnectionService {
     enum Unavailable implements McpConnectionService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 

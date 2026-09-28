@@ -29,8 +29,7 @@ public final class HostUiVersionCheck {
      */
     private static final Map<String, Set<String>> CAPABILITY_VERSION_OVERRIDES = Map.of();
 
-    private HostUiVersionCheck() {
-    }
+    private HostUiVersionCheck() {}
 
     /**
      * Checks {@code hostVersion} against the exact versions reviewed for {@code capabilityId}.
@@ -46,16 +45,11 @@ public final class HostUiVersionCheck {
      *     {@link SafeModeDiagnostic.Code#HOST_VERSION_UNSUPPORTED} diagnostic
      * @throws NullPointerException if either argument is null
      */
-    public static Optional<SafeModeDiagnostic> diagnosticFor(
-        final String capabilityId,
-        final String hostVersion
-    ) {
+    public static Optional<SafeModeDiagnostic> diagnosticFor(final String capabilityId, final String hostVersion) {
         Objects.requireNonNull(capabilityId, "capabilityId");
         Objects.requireNonNull(hostVersion, "hostVersion");
-        final Set<String> reviewedVersions = CAPABILITY_VERSION_OVERRIDES.getOrDefault(
-            capabilityId,
-            REVIEWED_HOST_VERSIONS
-        );
+        final Set<String> reviewedVersions =
+                CAPABILITY_VERSION_OVERRIDES.getOrDefault(capabilityId, REVIEWED_HOST_VERSIONS);
         if (reviewedVersions.contains(hostVersion)) {
             return Optional.empty();
         }
@@ -73,11 +67,11 @@ public final class HostUiVersionCheck {
      * @return empty when the bound contract generation supports this capability
      */
     public static Optional<SafeModeDiagnostic> diagnosticFor(
-        final String capabilityId, final String hostVersion, final String contractVersion
-    ) {
+            final String capabilityId, final String hostVersion, final String contractVersion) {
         Objects.requireNonNull(hostVersion, "hostVersion");
-        return diagnosticFor(capabilityId, contractVersion).isEmpty() ? Optional.empty()
-            : Optional.of(SafeModeDiagnostic.hostVersionUnsupported(capabilityId, hostVersion));
+        return diagnosticFor(capabilityId, contractVersion).isEmpty()
+                ? Optional.empty()
+                : Optional.of(SafeModeDiagnostic.hostVersionUnsupported(capabilityId, hostVersion));
     }
 
     /** @deprecated pass the affected capability ID explicitly. */

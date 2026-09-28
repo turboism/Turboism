@@ -11,8 +11,6 @@ import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
 import dev.turboism.ui.workspace.WorkspaceCoordinator;
 import dev.turboism.ui.workspace.WorkspaceHostProvider;
 import dev.turboism.ui.workspace.WorkspaceHostProviderFactory;
-
-import javax.swing.SwingUtilities;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.instrument.Instrumentation;
@@ -31,6 +29,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
+import javax.swing.SwingUtilities;
 
 /**
  * Disposable validation javaagent for the exact-host Workspace control run.
@@ -61,17 +60,11 @@ public final class WorkspaceValidationAgent {
     private static final String DISCONNECT_MARKER = "validation-agent.disconnect";
     private static final String EVIDENCE_FILE = "validation-agent.txt";
 
-    private WorkspaceValidationAgent() {
-    }
+    private WorkspaceValidationAgent() {}
 
     /** Agent options; mirrors the production {@code AgentOptions} grammar. */
     record Options(
-        Path home,
-        String hostClassName,
-        Duration timeout,
-        Path recordOverride,
-        boolean allowDegradedRuntime
-    ) {
+            Path home, String hostClassName, Duration timeout, Path recordOverride, boolean allowDegradedRuntime) {
 
         private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(180);
 
@@ -91,9 +84,11 @@ public final class WorkspaceValidationAgent {
                     if (value.isBlank()) {
                         throw new IllegalArgumentException("Agent option value must not be blank: " + key);
                     }
-                    if (!key.equals("home") && !key.equals("hostClass") && !key.equals("timeoutSeconds")
-                        && !key.equals("workspaceControlRecord")
-                        && !key.equals("allowDegradedRuntime")) {
+                    if (!key.equals("home")
+                            && !key.equals("hostClass")
+                            && !key.equals("timeoutSeconds")
+                            && !key.equals("workspaceControlRecord")
+                            && !key.equals("allowDegradedRuntime")) {
                         throw new IllegalArgumentException("Unknown validation agent option: " + key);
                     }
                     if (values.putIfAbsent(key, value) != null) {
@@ -102,16 +97,16 @@ public final class WorkspaceValidationAgent {
                 }
             }
             final Path home = Path.of(values.getOrDefault("home", defaultHome.toString()))
-                .toAbsolutePath().normalize();
+                    .toAbsolutePath()
+                    .normalize();
             final String hostClass = values.getOrDefault("hostClass", HOST_CLASS_NAME);
             if (hostClass.isBlank()) {
                 throw new IllegalArgumentException("hostClass must not be blank");
             }
             final long timeoutSeconds;
             try {
-                timeoutSeconds = Long.parseLong(values.getOrDefault(
-                    "timeoutSeconds", Long.toString(DEFAULT_TIMEOUT.toSeconds())
-                ));
+                timeoutSeconds = Long.parseLong(
+                        values.getOrDefault("timeoutSeconds", Long.toString(DEFAULT_TIMEOUT.toSeconds())));
             } catch (NumberFormatException exception) {
                 throw new IllegalArgumentException("timeoutSeconds must be an integer", exception);
             }
@@ -119,8 +114,10 @@ public final class WorkspaceValidationAgent {
                 throw new IllegalArgumentException("timeoutSeconds must be between 1 and 600");
             }
             final Path record = values.containsKey("workspaceControlRecord")
-                ? Path.of(values.get("workspaceControlRecord")).toAbsolutePath().normalize()
-                : null;
+                    ? Path.of(values.get("workspaceControlRecord"))
+                            .toAbsolutePath()
+                            .normalize()
+                    : null;
             final boolean allowDegradedRuntime;
             if (values.containsKey("allowDegradedRuntime")) {
                 final String raw = values.get("allowDegradedRuntime");
@@ -129,22 +126,18 @@ public final class WorkspaceValidationAgent {
                 } else if (raw.equals("false")) {
                     allowDegradedRuntime = false;
                 } else {
-                    throw new IllegalArgumentException(
-                        "allowDegradedRuntime must be true or false: " + raw);
+                    throw new IllegalArgumentException("allowDegradedRuntime must be true or false: " + raw);
                 }
             } else {
                 allowDegradedRuntime = false;
             }
-            return new Options(
-                home, hostClass, Duration.ofSeconds(timeoutSeconds), record, allowDegradedRuntime
-            );
+            return new Options(home, hostClass, Duration.ofSeconds(timeoutSeconds), record, allowDegradedRuntime);
         }
     }
 
     /** Pure host-state admission decision for the validation run; never relabels the state. */
     /** Pure host-state admission decision; {@code degraded} is true only when FAILED was admitted. */
-    record HostAdmission(boolean allowed, boolean degraded, String reason) {
-    }
+    record HostAdmission(boolean allowed, boolean degraded, String reason) {}
 
     /**
      * Default behavior requires ACTIVE. Only an explicit {@code allowDegradedRuntime=true} may
@@ -153,17 +146,14 @@ public final class WorkspaceValidationAgent {
      * ACTIVE run with the option enabled is recorded as normal.
      */
     static HostAdmission admitHostState(
-        final dev.turboism.adapter.host.HostSession.State state,
-        final boolean allowDegradedRuntime
-    ) {
+            final dev.turboism.adapter.host.HostSession.State state, final boolean allowDegradedRuntime) {
         return switch (state) {
             case ACTIVE -> new HostAdmission(true, false, "host=ACTIVE");
-            case FAILED -> allowDegradedRuntime
-                ? new HostAdmission(true, true, "degraded mode: host=FAILED")
-                : new HostAdmission(false, false,
-                    "host=FAILED requires allowDegradedRuntime=true");
-            case SAFE_MODE, CLOSED -> new HostAdmission(
-                false, false, "host state " + state + " is never admissible");
+            case FAILED ->
+                allowDegradedRuntime
+                        ? new HostAdmission(true, true, "degraded mode: host=FAILED")
+                        : new HostAdmission(false, false, "host=FAILED requires allowDegradedRuntime=true");
+            case SAFE_MODE, CLOSED -> new HostAdmission(false, false, "host state " + state + " is never admissible");
         };
     }
 
@@ -179,21 +169,16 @@ public final class WorkspaceValidationAgent {
         try {
             options = Options.parse(rawOptions, defaultHome);
         } catch (RuntimeException exception) {
-            System.err.println("Turboism workspace validation agent options rejected: "
-                + exception.getMessage());
+            System.err.println("Turboism workspace validation agent options rejected: " + exception.getMessage());
             return;
         }
-        final Thread worker = new Thread(
-            () -> run(options, instrumentation),
-            "turboism-workspace-validation-agent"
-        );
+        final Thread worker = new Thread(() -> run(options, instrumentation), "turboism-workspace-validation-agent");
         worker.setDaemon(true);
         worker.start();
     }
 
     /** The exact runtime/state pair that passed admission; the state is never re-read later. */
-    private record AdmittedRuntime(PreviewRuntime runtime, dev.turboism.adapter.host.HostSession.State state) {
-    }
+    private record AdmittedRuntime(PreviewRuntime runtime, dev.turboism.adapter.host.HostSession.State state) {}
 
     private static void run(final Options options, final Instrumentation instrumentation) {
         final Evidence evidence = new Evidence(options.home().resolve("state"), EVIDENCE_FILE);
@@ -217,28 +202,30 @@ public final class WorkspaceValidationAgent {
             final String profile = EditorModelVerificationManifest.resourceProfileForArtifact(digest);
             final Path record = resolveRecord(options, profile);
             evidence.recordIdentity(profile, host, digest, record, admittedState, degraded);
-            final VerifiedMemberResolver resolver = new VerifiedWorkspaceControlResolverFactory()
-                .create(record, host.artifact(), host.classLoader());
+            final VerifiedMemberResolver resolver =
+                    new VerifiedWorkspaceControlResolverFactory().create(record, host.artifact(), host.classLoader());
             final CountingWorkspaceHostProvider provider =
-                new CountingWorkspaceHostProvider(WorkspaceHostProviderFactory.create(resolver));
+                    new CountingWorkspaceHostProvider(WorkspaceHostProviderFactory.create(resolver));
             final WorkspaceCoordinator coordinator = runtime.hostAccess().workspaceCoordinator();
 
             if ("matrix".equals(System.getProperty("turboism.workspaceValidation.mode"))) {
                 WorkspaceValidationUi.prepare(
-                    WorkspaceHostProviderFactory.create(resolver), options.home().resolve("state")
-                );
+                        WorkspaceHostProviderFactory.create(resolver),
+                        options.home().resolve("state"));
             }
 
-            evidence.event("provider=" + provider.description()
-                + " coordinator=" + coordinator.getClass().getName());
+            evidence.event("provider=" + provider.description() + " coordinator="
+                    + coordinator.getClass().getName());
             // Deterministic baseline: the provider is created READY but DISCONNECTED. No host
             // mutation is possible until the operator places the explicit connect marker, so
             // pre-connect probe commands deterministically observe typed UNAVAILABLE.
             provider.markConnected(false);
-            evidence.write(Evidence.State.DISCONNECTED, degraded
-                ? "DEGRADED mode: production hostState=" + admittedState
-                    + "; provider ready; awaiting explicit connect marker"
-                : "provider ready; awaiting explicit connect marker");
+            evidence.write(
+                    Evidence.State.DISCONNECTED,
+                    degraded
+                            ? "DEGRADED mode: production hostState=" + admittedState
+                                    + "; provider ready; awaiting explicit connect marker"
+                            : "provider ready; awaiting explicit connect marker");
             awaitMarkers(options.home(), coordinator, provider, evidence);
         } catch (Throwable failure) {
             evidence.fail(failure.getClass().getName() + ": " + failure.getMessage());
@@ -252,7 +239,7 @@ public final class WorkspaceValidationAgent {
      * records the last observed state without relabeling it.
      */
     private static AdmittedRuntime awaitRuntime(final Options options, final Evidence evidence)
-        throws InterruptedException {
+            throws InterruptedException {
         final long deadline = System.nanoTime() + options.timeout().toNanos();
         dev.turboism.adapter.host.HostSession.State lastObserved = null;
         do {
@@ -273,8 +260,8 @@ public final class WorkspaceValidationAgent {
             Thread.sleep(POLL_INTERVAL_MILLIS);
         } while (System.nanoTime() < deadline);
         evidence.fail("Turboism runtime did not reach an admissible host state within "
-            + options.timeout().toSeconds() + " seconds; lastObserved=" + lastObserved
-            + " allowDegradedRuntime=" + options.allowDegradedRuntime());
+                + options.timeout().toSeconds() + " seconds; lastObserved=" + lastObserved
+                + " allowDegradedRuntime=" + options.allowDegradedRuntime());
         return null;
     }
 
@@ -288,14 +275,11 @@ public final class WorkspaceValidationAgent {
             final java.lang.reflect.Field field = agentClass.getDeclaredField("RUNTIME");
             field.setAccessible(true);
             @SuppressWarnings("unchecked")
-            final AtomicReference<PreviewRuntime> holder =
-                (AtomicReference<PreviewRuntime>) field.get(null);
+            final AtomicReference<PreviewRuntime> holder = (AtomicReference<PreviewRuntime>) field.get(null);
             return holder.get();
         } catch (ReflectiveOperationException | ClassCastException exception) {
             throw new IllegalStateException(
-                "Turboism runtime holder is not readable: " + exception.getMessage(),
-                exception
-            );
+                    "Turboism runtime holder is not readable: " + exception.getMessage(), exception);
         }
     }
 
@@ -310,9 +294,12 @@ public final class WorkspaceValidationAgent {
             }
             final Path artifact;
             try {
-                artifact = Path.of(
-                    loaded.getProtectionDomain().getCodeSource().getLocation().toURI()
-                ).toAbsolutePath().normalize();
+                artifact = Path.of(loaded.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI())
+                        .toAbsolutePath()
+                        .normalize();
             } catch (Exception exception) {
                 throw new IllegalStateException("Cubism host artifact path is invalid", exception);
             }
@@ -326,8 +313,10 @@ public final class WorkspaceValidationAgent {
             return options.recordOverride();
         }
         final String resource = VERIFICATION_RESOURCE_DIRECTORY + "cubism-" + profile + "-workspace-control.json";
-        final Path target = options.home().resolve("state").resolve("verification")
-            .resolve("cubism-" + profile + "-workspace-control.json");
+        final Path target = options.home()
+                .resolve("state")
+                .resolve("verification")
+                .resolve("cubism-" + profile + "-workspace-control.json");
         Files.createDirectories(target.getParent());
         try (InputStream source = WorkspaceValidationAgent.class.getResourceAsStream(resource)) {
             if (source == null) {
@@ -339,18 +328,18 @@ public final class WorkspaceValidationAgent {
     }
 
     private static void awaitMarkers(
-        final Path home,
-        final WorkspaceCoordinator coordinator,
-        final CountingWorkspaceHostProvider provider,
-        final Evidence evidence
-    ) throws Exception {
+            final Path home,
+            final WorkspaceCoordinator coordinator,
+            final CountingWorkspaceHostProvider provider,
+            final Evidence evidence)
+            throws Exception {
         final Path state = home.resolve("state");
         long refreshCounter = 0;
         try {
             while (!Thread.currentThread().isInterrupted()) {
                 if ("matrix".equals(System.getProperty("turboism.workspaceValidation.mode"))
-                    && provider.isConnected()
-                    && Files.deleteIfExists(state.resolve("validation-agent.perturb-layout"))) {
+                        && provider.isConnected()
+                        && Files.deleteIfExists(state.resolve("validation-agent.perturb-layout"))) {
                     WorkspaceValidationUi.perturbLayout(state);
                     Files.writeString(state.resolve("validation-agent.perturbed-layout"), "DONE\n");
                 }
@@ -389,9 +378,8 @@ public final class WorkspaceValidationAgent {
                     }
                 } else if (refreshCounter++ % 10 == 0) {
                     evidence.write(
-                        provider.isConnected() ? Evidence.State.CONNECTED : Evidence.State.DISCONNECTED,
-                        "counts=" + provider.counts()
-                    );
+                            provider.isConnected() ? Evidence.State.CONNECTED : Evidence.State.DISCONNECTED,
+                            "counts=" + provider.counts());
                 }
                 Thread.sleep(MARKER_INTERVAL_MILLIS);
             }
@@ -403,8 +391,7 @@ public final class WorkspaceValidationAgent {
         }
     }
 
-    private record LocatedHost(ClassLoader classLoader, Path artifact) {
-    }
+    private record LocatedHost(ClassLoader classLoader, Path artifact) {}
 
     /** Wraps the exact provider to count calls and record the executing thread and EDT status. */
     static final class CountingWorkspaceHostProvider implements WorkspaceHostProvider {
@@ -473,13 +460,13 @@ public final class WorkspaceValidationAgent {
 
         String counts() {
             return "read=" + readCalls.get()
-                + " switch=" + switchCalls.get()
-                + " update=" + updateCalls.get()
-                + " reset=" + resetCalls.get()
-                + " onEdt=" + onEdtCalls.get()
-                + " offEdt=" + offEdtCalls.get()
-                + " lastThread=" + lastCallThread.get()
-                + " lastOnEdt=" + lastCallOnEdt;
+                    + " switch=" + switchCalls.get()
+                    + " update=" + updateCalls.get()
+                    + " reset=" + resetCalls.get()
+                    + " onEdt=" + onEdtCalls.get()
+                    + " offEdt=" + offEdtCalls.get()
+                    + " lastThread=" + lastCallThread.get()
+                    + " lastOnEdt=" + lastCallOnEdt;
         }
 
         String description() {
@@ -491,7 +478,10 @@ public final class WorkspaceValidationAgent {
     static final class Evidence {
 
         enum State {
-            WAITING, CONNECTED, DISCONNECTED, FAILED
+            WAITING,
+            CONNECTED,
+            DISCONNECTED,
+            FAILED
         }
 
         private static final Pattern SAFE_VALUE = Pattern.compile("[\\x20-\\x7E]{0,2000}");
@@ -505,7 +495,11 @@ public final class WorkspaceValidationAgent {
         }
 
         void event(final String line) {
-            eventLog.append("time=").append(Instant.now()).append(" ").append(line).append('\n');
+            eventLog.append("time=")
+                    .append(Instant.now())
+                    .append(" ")
+                    .append(line)
+                    .append('\n');
         }
 
         void write(final State state, final String detail) throws IOException {
@@ -521,8 +515,12 @@ public final class WorkspaceValidationAgent {
             }
             Files.createDirectories(target.getParent());
             final Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
-            Files.writeString(temporary, text, StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.writeString(
+                    temporary,
+                    text,
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
             Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
         }
 
@@ -535,13 +533,13 @@ public final class WorkspaceValidationAgent {
         }
 
         void recordIdentity(
-            final String profile,
-            final LocatedHost host,
-            final HostArtifactDigest digest,
-            final Path record,
-            final dev.turboism.adapter.host.HostSession.State hostState,
-            final boolean degradedMode
-        ) throws IOException {
+                final String profile,
+                final LocatedHost host,
+                final HostArtifactDigest digest,
+                final Path record,
+                final dev.turboism.adapter.host.HostSession.State hostState,
+                final boolean degradedMode)
+                throws IOException {
             final StringBuilder identity = new StringBuilder();
             identity.append("profile=cubism-").append(profile).append('\n');
             identity.append("artifact=").append(host.artifact()).append('\n');
@@ -549,7 +547,9 @@ public final class WorkspaceValidationAgent {
             identity.append("artifactSha256=").append(digest.sha256()).append('\n');
             identity.append("record=").append(record).append('\n');
             identity.append("recordSha256=").append(sha256(record)).append('\n');
-            identity.append("hostClassLoader=").append(host.classLoader().toString()).append('\n');
+            identity.append("hostClassLoader=")
+                    .append(host.classLoader().toString())
+                    .append('\n');
             // Loud, durable host-state record: a FAILED run must never be mistaken for
             // production readiness. These lines persist in every evidence rewrite.
             identity.append("hostState=").append(hostState).append('\n');
@@ -558,7 +558,8 @@ public final class WorkspaceValidationAgent {
         }
 
         private static String sanitize(final String value) {
-            final String sanitized = value == null ? "" : value.replace('\n', ' ').replace('\r', ' ');
+            final String sanitized =
+                    value == null ? "" : value.replace('\n', ' ').replace('\r', ' ');
             return SAFE_VALUE.matcher(sanitized).matches() ? sanitized : "unprintable-detail-redacted";
         }
 

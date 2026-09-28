@@ -11,10 +11,7 @@ import java.util.Objects;
  */
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditParameterGroupNode(
-        ParameterGroupId id,
-        String name,
-        EditLabelColor labelColor,
-        List<EditParameterStructureEntry> children)
+        ParameterGroupId id, String name, EditLabelColor labelColor, List<EditParameterStructureEntry> children)
         implements EditParameterStructureEntry {
 
     public EditParameterGroupNode {

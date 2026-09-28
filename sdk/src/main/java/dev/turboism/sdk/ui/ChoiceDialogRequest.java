@@ -1,23 +1,21 @@
 package dev.turboism.sdk.ui;
 
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Bounded single-choice dialog descriptor without host widget exposure. */
 public record ChoiceDialogRequest(
-    String id,
-    String title,
-    String notice,
-    List<ChoiceDialogOption> options,
-    Optional<String> selectedOptionId,
-    String acceptLabel,
-    String cancelLabel,
-    List<ChoiceDialogAction> actions,
-    Optional<ChoiceDialogRefresher> refresher,
-    String reloadLabel
-) {
+        String id,
+        String title,
+        String notice,
+        List<ChoiceDialogOption> options,
+        Optional<String> selectedOptionId,
+        String acceptLabel,
+        String cancelLabel,
+        List<ChoiceDialogAction> actions,
+        Optional<ChoiceDialogRefresher> refresher,
+        String reloadLabel) {
     public ChoiceDialogRequest {
         id = requireText(id, "id", 128);
         title = requireText(title, "title", 256);
@@ -63,27 +61,25 @@ public record ChoiceDialogRequest(
     }
 
     public ChoiceDialogRequest(
-        final String id,
-        final String title,
-        final String notice,
-        final List<ChoiceDialogOption> options,
-        final Optional<String> selectedOptionId,
-        final String acceptLabel,
-        final String cancelLabel,
-        final List<ChoiceDialogAction> actions
-    ) {
+            final String id,
+            final String title,
+            final String notice,
+            final List<ChoiceDialogOption> options,
+            final Optional<String> selectedOptionId,
+            final String acceptLabel,
+            final String cancelLabel,
+            final List<ChoiceDialogAction> actions) {
         this(id, title, notice, options, selectedOptionId, acceptLabel, cancelLabel, actions, Optional.empty(), "");
     }
 
     public ChoiceDialogRequest(
-        final String id,
-        final String title,
-        final String notice,
-        final List<ChoiceDialogOption> options,
-        final Optional<String> selectedOptionId,
-        final String acceptLabel,
-        final String cancelLabel
-    ) {
+            final String id,
+            final String title,
+            final String notice,
+            final List<ChoiceDialogOption> options,
+            final Optional<String> selectedOptionId,
+            final String acceptLabel,
+            final String cancelLabel) {
         this(id, title, notice, options, selectedOptionId, acceptLabel, cancelLabel, List.of());
     }
 

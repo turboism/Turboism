@@ -3,7 +3,6 @@ package dev.turboism.plugin.turboismwithfx;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import dev.turboism.protocol.json.StrictJson;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -18,7 +17,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
@@ -43,14 +41,13 @@ final class FxOpenAiAdapter implements AutoCloseable {
     private final AtomicBoolean closed = new AtomicBoolean();
 
     private FxOpenAiAdapter(
-        final HttpServer server,
-        final ExecutorService executor,
-        final HttpClient client,
-        final FxCustomEndpointSettings settings,
-        final URI baseEndpoint,
-        final URI endpoint,
-        final List<String> configuredModels
-    ) {
+            final HttpServer server,
+            final ExecutorService executor,
+            final HttpClient client,
+            final FxCustomEndpointSettings settings,
+            final URI baseEndpoint,
+            final URI endpoint,
+            final List<String> configuredModels) {
         this.server = server;
         this.executor = executor;
         this.client = client;
@@ -65,40 +62,31 @@ final class FxOpenAiAdapter implements AutoCloseable {
         return start(settings, List.of());
     }
 
-    static FxOpenAiAdapter start(
-        final FxCustomEndpointSettings settings,
-        final List<String> configuredModels
-    ) throws IOException {
+    static FxOpenAiAdapter start(final FxCustomEndpointSettings settings, final List<String> configuredModels)
+            throws IOException {
         final FxCustomEndpointSettings checked = Objects.requireNonNull(settings, "settings");
-        final List<String> models = List.copyOf(Objects.requireNonNull(
-            configuredModels, "configuredModels"
-        ));
+        final List<String> models = List.copyOf(Objects.requireNonNull(configuredModels, "configuredModels"));
         if (!checked.enabled()) throw new IllegalArgumentException("custom endpoint is disabled");
         final URI base = normalizedBase(checked.endpoint());
-        final HttpServer server = HttpServer.create(new InetSocketAddress(
-            InetAddress.getByName("127.0.0.1"), 0
-        ), 0);
+        final HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), 0);
         final ExecutorService executor = Executors.newFixedThreadPool(2, runnable -> {
             final Thread thread = new Thread(runnable, "turboism-fx-openai-adapter");
             thread.setDaemon(true);
             return thread;
         });
         server.setExecutor(executor);
-        final URI local = URI.create(
-            "http://127.0.0.1:" + server.getAddress().getPort()
-        );
+        final URI local = URI.create("http://127.0.0.1:" + server.getAddress().getPort());
         final FxOpenAiAdapter adapter = new FxOpenAiAdapter(
-            server,
-            executor,
-            HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(20))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build(),
-            checked,
-            base,
-            local,
-            models
-        );
+                server,
+                executor,
+                HttpClient.newBuilder()
+                        .connectTimeout(Duration.ofSeconds(20))
+                        .followRedirects(HttpClient.Redirect.NEVER)
+                        .build(),
+                checked,
+                base,
+                local,
+                models);
         server.createContext("/v3/ai/language-model", adapter::generate);
         server.createContext("/coding-agent/v1/models", adapter::models);
         server.start();
@@ -109,19 +97,17 @@ final class FxOpenAiAdapter implements AutoCloseable {
         return endpoint;
     }
 
-    static List<String> discoverModels(
-        final FxCustomEndpointSettings settings
-    ) throws IOException {
+    static List<String> discoverModels(final FxCustomEndpointSettings settings) throws IOException {
         final FxCustomEndpointSettings checked = Objects.requireNonNull(settings, "settings");
         if (!checked.enabled()) throw new IllegalArgumentException("custom endpoint is disabled");
         final URI base = normalizedBase(checked.endpoint());
         final HttpClient client = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(20))
-            .followRedirects(HttpClient.Redirect.NEVER)
-            .build();
+                .connectTimeout(Duration.ofSeconds(20))
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
         final HttpRequest.Builder request = HttpRequest.newBuilder(resolve(base, MODELS_PATH))
-            .timeout(Duration.ofSeconds(30))
-            .header("Accept", "application/json");
+                .timeout(Duration.ofSeconds(30))
+                .header("Accept", "application/json");
         final String key = checked.resolveApiKey();
         if (!key.isBlank()) request.header("Authorization", "Bearer " + key);
         final HttpResponse<byte[]> response;
@@ -145,10 +131,12 @@ final class FxOpenAiAdapter implements AutoCloseable {
 
     Map<String, String> fxEnvironment() {
         return Map.of(
-            "AI_GATEWAY_API_KEY", "turboism-loopback-adapter",
-            "FX_GATEWAY_CHAT_URL", endpoint + "/v3/ai/language-model",
-            "FX_GATEWAY_BASE_URL", endpoint.toString()
-        );
+                "AI_GATEWAY_API_KEY",
+                "turboism-loopback-adapter",
+                "FX_GATEWAY_CHAT_URL",
+                endpoint + "/v3/ai/language-model",
+                "FX_GATEWAY_BASE_URL",
+                endpoint.toString());
     }
 
     boolean hasModel(final String model) {
@@ -171,10 +159,7 @@ final class FxOpenAiAdapter implements AutoCloseable {
             }
             final Map<String, Object> request;
             try {
-                request = openAiRequest(
-                    parsed,
-                    exchange.getRequestHeaders().getFirst("ai-language-model-id")
-                );
+                request = openAiRequest(parsed, exchange.getRequestHeaders().getFirst("ai-language-model-id"));
             } catch (IllegalArgumentException failure) {
                 sendError(exchange, 400, "unsupported_request", failure.getMessage());
                 return;
@@ -198,16 +183,11 @@ final class FxOpenAiAdapter implements AutoCloseable {
                 return;
             }
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                response.headers().firstValue("Retry-After").ifPresent(value ->
-                    exchange.getResponseHeaders().set("Retry-After", value)
-                );
+                response.headers()
+                        .firstValue("Retry-After")
+                        .ifPresent(value -> exchange.getResponseHeaders().set("Retry-After", value));
                 response.body().close();
-                sendError(
-                    exchange,
-                    response.statusCode(),
-                    "upstream_error",
-                    "Custom endpoint rejected the request"
-                );
+                sendError(exchange, response.statusCode(), "upstream_error", "Custom endpoint rejected the request");
                 return;
             }
             exchange.getResponseHeaders().set("Content-Type", "text/event-stream; charset=utf-8");
@@ -226,10 +206,8 @@ final class FxOpenAiAdapter implements AutoCloseable {
             }
             final ArrayList<Object> data = new ArrayList<>();
             try {
-                final HttpResponse<byte[]> response = client.send(
-                    upstreamRequest(MODELS_PATH, "GET", null),
-                    HttpResponse.BodyHandlers.ofByteArray()
-                );
+                final HttpResponse<byte[]> response =
+                        client.send(upstreamRequest(MODELS_PATH, "GET", null), HttpResponse.BodyHandlers.ofByteArray());
                 if (response.statusCode() >= 200 && response.statusCode() < 300) {
                     final Map<String, Object> catalog = object(StrictJson.parse(response.body()));
                     for (Object value : array(catalog.get("data"))) {
@@ -249,7 +227,9 @@ final class FxOpenAiAdapter implements AutoCloseable {
                 }
             }
             if (!settings.model().isBlank()
-                && data.stream().noneMatch(value -> settings.model().equals(object(value).get("id")))) {
+                    && data.stream()
+                            .noneMatch(value ->
+                                    settings.model().equals(object(value).get("id")))) {
                 data.add(gatewayModel(settings.model()));
             }
             final java.util.LinkedHashSet<String> published = new java.util.LinkedHashSet<>();
@@ -259,10 +239,7 @@ final class FxOpenAiAdapter implements AutoCloseable {
         }
     }
 
-    private Map<String, Object> openAiRequest(
-        final Object parsed,
-        final String requestedModel
-    ) {
+    private Map<String, Object> openAiRequest(final Object parsed, final String requestedModel) {
         final Map<String, Object> gateway = object(parsed);
         rejectNonEmpty(gateway, "responseFormat");
         rejectNonEmpty(gateway, "providerOptions");
@@ -287,14 +264,8 @@ final class FxOpenAiAdapter implements AutoCloseable {
             final Map<String, Object> message = object(raw);
             final String role = text(message.get("role"), "message role");
             switch (role) {
-                case "system" -> messages.add(Map.of(
-                    "role", "system",
-                    "content", contentText(message.get("content"))
-                ));
-                case "user" -> messages.add(Map.of(
-                    "role", "user",
-                    "content", contentText(message.get("content"))
-                ));
+                case "system" -> messages.add(Map.of("role", "system", "content", contentText(message.get("content"))));
+                case "user" -> messages.add(Map.of("role", "user", "content", contentText(message.get("content"))));
                 case "assistant" -> messages.add(assistant(message));
                 case "tool" -> messages.addAll(toolResults(message));
                 default -> throw new IllegalArgumentException("Unsupported Gateway message role");
@@ -315,13 +286,12 @@ final class FxOpenAiAdapter implements AutoCloseable {
                 text.append(text(part.get("text"), "assistant text"));
             } else if ("tool-call".equals(type)) {
                 calls.add(Map.of(
-                    "id", text(part.get("toolCallId"), "tool call id"),
-                    "type", "function",
-                    "function", Map.of(
-                        "name", text(part.get("toolName"), "tool name"),
-                        "arguments", StrictJson.stringify(part.get("input"))
-                    )
-                ));
+                        "id", text(part.get("toolCallId"), "tool call id"),
+                        "type", "function",
+                        "function",
+                                Map.of(
+                                        "name", text(part.get("toolName"), "tool name"),
+                                        "arguments", StrictJson.stringify(part.get("input")))));
             } else {
                 throw new IllegalArgumentException("Unsupported assistant content");
             }
@@ -344,10 +314,9 @@ final class FxOpenAiAdapter implements AutoCloseable {
                 throw new IllegalArgumentException("Unsupported tool result output");
             }
             results.add(Map.of(
-                "role", "tool",
-                "tool_call_id", text(part.get("toolCallId"), "tool call id"),
-                "content", text(output.get("value"), "tool output")
-            ));
+                    "role", "tool",
+                    "tool_call_id", text(part.get("toolCallId"), "tool call id"),
+                    "content", text(output.get("value"), "tool output")));
         }
         return results;
     }
@@ -381,22 +350,18 @@ final class FxOpenAiAdapter implements AutoCloseable {
         };
     }
 
-    private void stream(final java.io.InputStream input, final HttpExchange exchange)
-        throws IOException {
+    private void stream(final java.io.InputStream input, final HttpExchange exchange) throws IOException {
         final java.io.OutputStream output = exchange.getResponseBody();
         final LinkedHashMap<Integer, ToolBuffer> calls = new LinkedHashMap<>();
         String finishReason = null;
         Map<String, Object> usage = null;
-        try (input; BufferedReader reader = new BufferedReader(new InputStreamReader(
-            input, StandardCharsets.UTF_8
-        ))) {
-            for (String line; (line = reader.readLine()) != null;) {
+        try (input;
+                BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
+            for (String line; (line = reader.readLine()) != null; ) {
                 if (!line.startsWith("data:")) continue;
                 final String data = line.substring("data:".length()).strip();
                 if (data.isEmpty() || "[DONE]".equals(data)) continue;
-                final Map<String, Object> event = object(StrictJson.parse(
-                    data.getBytes(StandardCharsets.UTF_8)
-                ));
+                final Map<String, Object> event = object(StrictJson.parse(data.getBytes(StandardCharsets.UTF_8)));
                 final Object usageValue = event.get("usage");
                 if (usageValue instanceof Map<?, ?>) usage = usage(object(usageValue));
                 for (Object rawChoice : arrayOrEmpty(event.get("choices"))) {
@@ -408,20 +373,19 @@ final class FxOpenAiAdapter implements AutoCloseable {
                     final Map<String, Object> delta = object(deltaValue);
                     final Object content = delta.get("content");
                     if (content instanceof String text && !text.isEmpty()) {
-                        sendEvent(output, ordered(
-                            "type", "text-delta",
-                            "id", "text-1",
-                            "delta", text
-                        ));
+                        sendEvent(
+                                output,
+                                ordered(
+                                        "type", "text-delta",
+                                        "id", "text-1",
+                                        "delta", text));
                     }
                     for (Object rawCall : arrayOrEmpty(delta.get("tool_calls"))) {
                         final Map<String, Object> call = object(rawCall);
-                        final int index = ((Number) Objects.requireNonNullElse(
-                            call.get("index"), Integer.valueOf(calls.size())
-                        )).intValue();
-                        final ToolBuffer buffer = calls.computeIfAbsent(index, ignored ->
-                            new ToolBuffer()
-                        );
+                        final int index = ((Number)
+                                        Objects.requireNonNullElse(call.get("index"), Integer.valueOf(calls.size())))
+                                .intValue();
+                        final ToolBuffer buffer = calls.computeIfAbsent(index, ignored -> new ToolBuffer());
                         if (call.get("id") instanceof String id) buffer.id = id;
                         if (call.get("function") instanceof Map<?, ?>) {
                             final Map<String, Object> function = object(call.get("function"));
@@ -434,12 +398,15 @@ final class FxOpenAiAdapter implements AutoCloseable {
                 }
             }
             for (ToolBuffer call : calls.values()) {
-                sendEvent(output, ordered(
-                    "type", "tool-call",
-                    "toolCallId", requireStreamText(call.id, "tool call id"),
-                    "toolName", requireStreamText(call.name, "tool name"),
-                    "input", StrictJson.parse(call.arguments.toString().getBytes(StandardCharsets.UTF_8))
-                ));
+                sendEvent(
+                        output,
+                        ordered(
+                                "type", "tool-call",
+                                "toolCallId", requireStreamText(call.id, "tool call id"),
+                                "toolName", requireStreamText(call.name, "tool name"),
+                                "input",
+                                        StrictJson.parse(
+                                                call.arguments.toString().getBytes(StandardCharsets.UTF_8))));
             }
             final LinkedHashMap<String, Object> finish = new LinkedHashMap<>();
             finish.put("type", "finish");
@@ -449,28 +416,21 @@ final class FxOpenAiAdapter implements AutoCloseable {
             done(output);
         } catch (RuntimeException | IOException failure) {
             sendEvent(output, ordered("type", "error", "error", "Custom endpoint stream failed"));
-            sendEvent(output, ordered(
-                "type", "finish",
-                "finishReason", Map.of("unified", "error")
-            ));
+            sendEvent(output, ordered("type", "finish", "finishReason", Map.of("unified", "error")));
             done(output);
         }
     }
 
-    private HttpRequest upstreamRequest(
-        final String path,
-        final String method,
-        final byte[] body
-    ) {
+    private HttpRequest upstreamRequest(final String path, final String method, final byte[] body) {
         final String key = settings.resolveApiKey();
         final HttpRequest.Builder request = HttpRequest.newBuilder(resolve(baseEndpoint, path))
-            .timeout(Duration.ofMinutes(5))
-            .header("Accept", "application/json, text/event-stream");
+                .timeout(Duration.ofMinutes(5))
+                .header("Accept", "application/json, text/event-stream");
         if (!key.isBlank()) request.header("Authorization", "Bearer " + key);
         if (body == null) return request.GET().build();
         return request.header("Content-Type", "application/json")
-            .method(method, HttpRequest.BodyPublishers.ofByteArray(body))
-            .build();
+                .method(method, HttpRequest.BodyPublishers.ofByteArray(body))
+                .build();
     }
 
     private String selectedModel(final String requestedModel) {
@@ -529,11 +489,7 @@ final class FxOpenAiAdapter implements AutoCloseable {
         return result;
     }
 
-    private static void putUsage(
-        final Map<String, Object> target,
-        final String name,
-        final Object value
-    ) {
+    private static void putUsage(final Map<String, Object> target, final String name, final Object value) {
         if (value instanceof Number number && number.longValue() >= 0L) {
             target.put(name, Map.of("total", number.longValue()));
         }
@@ -589,10 +545,8 @@ final class FxOpenAiAdapter implements AutoCloseable {
         return bytes;
     }
 
-    private static void sendEvent(final java.io.OutputStream output, final Object value)
-        throws IOException {
-        output.write(("data: " + StrictJson.stringify(value) + "\n\n")
-            .getBytes(StandardCharsets.UTF_8));
+    private static void sendEvent(final java.io.OutputStream output, final Object value) throws IOException {
+        output.write(("data: " + StrictJson.stringify(value) + "\n\n").getBytes(StandardCharsets.UTF_8));
         output.flush();
     }
 
@@ -602,21 +556,14 @@ final class FxOpenAiAdapter implements AutoCloseable {
     }
 
     private static void sendError(
-        final HttpExchange exchange,
-        final int status,
-        final String code,
-        final String message
-    ) throws IOException {
-        sendJson(exchange, status, Map.of(
-            "error", Map.of("message", message, "type", "turboism_adapter", "code", code)
-        ));
+            final HttpExchange exchange, final int status, final String code, final String message) throws IOException {
+        sendJson(
+                exchange,
+                status,
+                Map.of("error", Map.of("message", message, "type", "turboism_adapter", "code", code)));
     }
 
-    private static void sendJson(
-        final HttpExchange exchange,
-        final int status,
-        final Object value
-    ) throws IOException {
+    private static void sendJson(final HttpExchange exchange, final int status, final Object value) throws IOException {
         final byte[] bytes = StrictJson.bytes(value);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.sendResponseHeaders(status, bytes.length);

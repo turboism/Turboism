@@ -5,10 +5,7 @@ import java.util.Objects;
 
 /** Active durable fx session identity plus the latest fx-owned configuration catalog. */
 record FxAcpSession(
-    String sessionId,
-    List<FxAcpConfigOption> configOptions,
-    FxAcpClient.FxAcpCapabilities capabilities
-) {
+        String sessionId, List<FxAcpConfigOption> configOptions, FxAcpClient.FxAcpCapabilities capabilities) {
     FxAcpSession {
         sessionId = Objects.requireNonNull(sessionId, "sessionId");
         if (sessionId.isBlank() || sessionId.length() > 512) {
@@ -18,10 +15,7 @@ record FxAcpSession(
         capabilities = Objects.requireNonNull(capabilities, "capabilities");
     }
 
-    FxAcpSession(
-        final String sessionId,
-        final List<FxAcpConfigOption> configOptions
-    ) {
+    FxAcpSession(final String sessionId, final List<FxAcpConfigOption> configOptions) {
         this(sessionId, configOptions, FxAcpClient.FxAcpCapabilities.NONE);
     }
 
@@ -30,6 +24,9 @@ record FxAcpSession(
     }
 
     FxAcpConfigOption option(final String id) {
-        return configOptions.stream().filter(option -> option.id().equals(id)).findFirst().orElse(null);
+        return configOptions.stream()
+                .filter(option -> option.id().equals(id))
+                .findFirst()
+                .orElse(null);
     }
 }

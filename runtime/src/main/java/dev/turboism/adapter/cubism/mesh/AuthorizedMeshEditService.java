@@ -8,7 +8,6 @@ import dev.turboism.sdk.cubism.mesh.MeshPointPosition;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
 import dev.turboism.sdk.cubism.mesh.MeshSnapshot;
 import dev.turboism.sdk.permission.PermissionIds;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -18,10 +17,7 @@ public final class AuthorizedMeshEditService implements MeshEditService {
     private final RuntimeMeshEditService delegate;
     private final PermissionChecker permissions;
 
-    public AuthorizedMeshEditService(
-        final RuntimeMeshEditService delegate,
-        final PermissionChecker permissions
-    ) {
+    public AuthorizedMeshEditService(final RuntimeMeshEditService delegate, final PermissionChecker permissions) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.permissions = Objects.requireNonNull(permissions, "permissions");
     }

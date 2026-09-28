@@ -3,14 +3,6 @@ package dev.turboism.tests.validation;
 import dev.turboism.sdk.ui.workspace.WorkspaceInfo;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
 import dev.turboism.ui.workspace.WorkspaceHostProvider;
-
-import javax.swing.AbstractButton;
-import javax.swing.JDialog;
-import javax.swing.JLabel;
-import javax.swing.JMenu;
-import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Window;
@@ -22,21 +14,32 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
+import javax.swing.AbstractButton;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 /** Native UI setup confined to the disposable validation JVM; no Cubism reflection. */
 final class WorkspaceValidationUi {
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
 
-    private WorkspaceValidationUi() { }
+    private WorkspaceValidationUi() {}
 
     static void perturbLayout(final Path state) throws Exception {
         final AbstractButton palette = await(() -> {
             final List<Component> toggles = allWindows().stream()
-                .filter(component -> component instanceof javax.swing.JCheckBoxMenuItem).toList();
+                    .filter(component -> component instanceof javax.swing.JCheckBoxMenuItem)
+                    .toList();
             return button(toggles, "参数", "Parameter", "Parameters");
         });
         final boolean selected = onEdt(palette::isSelected);
-        onEdt(() -> { palette.doClick(0); return null; });
+        onEdt(() -> {
+            palette.doClick(0);
+            return null;
+        });
         await(() -> palette.isSelected() != selected ? Boolean.TRUE : null);
         append(state.resolve("workspace-native-ui.txt"), "parameterPaletteToggled=" + !selected);
     }
@@ -59,7 +62,8 @@ final class WorkspaceValidationUi {
         final var original = before.current().orElseThrow().id();
         append(evidence, "original=" + before);
         final String name = "Turboism-validation-" + System.getProperty("turboism.validation.runId", "task");
-        final AbstractButton settings = await(() -> button(allWindows(), "工作区设置", "Workspace settings", "Workspace Settings"));
+        final AbstractButton settings =
+                await(() -> button(allWindows(), "工作区设置", "Workspace settings", "Workspace Settings"));
         click(settings);
         final JDialog dialog = await(() -> showingDialog("工作区设置", "Workspace settings", "Workspace Settings"));
         append(evidence, "settings=" + onEdt(() -> describe(components(dialog))));
@@ -68,29 +72,39 @@ final class WorkspaceValidationUi {
         append(evidence, "afterAdd=" + onEdt(() -> describe(components(dialog))));
         final JTextField field = await(() -> {
             final List<JTextField> fields = components(dialog).stream()
-                .filter(component -> component.isShowing() && component instanceof JTextField)
-                .map(component -> (JTextField) component).filter(JTextField::isEditable).toList();
+                    .filter(component -> component.isShowing() && component instanceof JTextField)
+                    .map(component -> (JTextField) component)
+                    .filter(JTextField::isEditable)
+                    .toList();
             return fields.size() == 1 ? fields.get(0) : null;
         });
-        onEdt(() -> { field.setText(name); field.postActionEvent(); return null; });
+        onEdt(() -> {
+            field.setText(name);
+            field.postActionEvent();
+            return null;
+        });
         append(evidence, "named=" + onEdt(() -> describe(components(dialog))));
         click(await(() -> button(components(dialog), "OK", "确定", "确认")));
         await(() -> !dialog.isShowing() ? Boolean.TRUE : null);
         final WorkspaceInfo custom = await(() -> provider.readStatus().available().stream()
-            .filter(info -> info.displayName().equals(name))
-            .filter(info -> before.available().stream().noneMatch(old -> old.id().equals(info.id())))
-            .findFirst().orElse(null));
+                .filter(info -> info.displayName().equals(name))
+                .filter(info ->
+                        before.available().stream().noneMatch(old -> old.id().equals(info.id())))
+                .findFirst()
+                .orElse(null));
         append(evidence, "restoreOutcome=" + onEdt(() -> provider.switchTo(original)));
         append(evidence, "afterRestore=" + onEdt(provider::readStatus));
-        await(() -> provider.readStatus().current().filter(info -> info.id().equals(original))
-            .map(info -> Boolean.TRUE).orElse(null));
+        await(() -> provider.readStatus()
+                .current()
+                .filter(info -> info.id().equals(original))
+                .map(info -> Boolean.TRUE)
+                .orElse(null));
         System.setProperty("turboism.workspaceValidation.customId", custom.id().value());
         System.setProperty("turboism.workspaceValidation.customName", custom.displayName());
         append(evidence, "customId=" + custom.id().value() + "\ncustomName=" + name);
         onEdt(() -> {
-            final java.util.Set<Window> observed = java.util.Collections.newSetFromMap(
-                new java.util.IdentityHashMap<>()
-            );
+            final java.util.Set<Window> observed =
+                    java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
             final Timer confirmations = new Timer(100, ignored -> {
                 if (java.util.Arrays.stream(Window.getWindows()).noneMatch(Window::isShowing)) {
                     ((Timer) ignored.getSource()).stop();
@@ -121,8 +135,8 @@ final class WorkspaceValidationUi {
             if (value != null) return value;
             Thread.sleep(100);
         }
-        throw new IllegalStateException("Native workspace UI prerequisite timed out: "
-            + onEdt(WorkspaceValidationUi::describeWindows));
+        throw new IllegalStateException(
+                "Native workspace UI prerequisite timed out: " + onEdt(WorkspaceValidationUi::describeWindows));
     }
 
     private static <T> T onEdt(final Callable<T> read) throws Exception {
@@ -137,18 +151,18 @@ final class WorkspaceValidationUi {
 
     private static JDialog showingDialog(final String... titles) {
         for (Window window : Window.getWindows()) {
-            if (window instanceof JDialog dialog && dialog.isShowing()
-                && matches(dialog.getTitle(), titles)) return dialog;
+            if (window instanceof JDialog dialog && dialog.isShowing() && matches(dialog.getTitle(), titles))
+                return dialog;
         }
         return null;
     }
 
     private static AbstractButton button(final List<Component> components, final String... labels) {
         final List<AbstractButton> matches = components.stream()
-            .filter(component -> component instanceof AbstractButton && component.isEnabled())
-            .map(component -> (AbstractButton) component)
-            .filter(button -> matches(button.getText(), labels) || matches(button.getToolTipText(), labels))
-            .toList();
+                .filter(component -> component instanceof AbstractButton && component.isEnabled())
+                .map(component -> (AbstractButton) component)
+                .filter(button -> matches(button.getText(), labels) || matches(button.getToolTipText(), labels))
+                .toList();
         return matches.size() == 1 ? matches.get(0) : null;
     }
 
@@ -183,20 +197,29 @@ final class WorkspaceValidationUi {
     }
 
     private static String describe(final List<Component> components) {
-        return components.stream().map(component -> {
-            if (component instanceof AbstractButton button) return "button[" + button.getText() + "/" + button.getToolTipText() + "]";
-            if (component instanceof JLabel label) return "label[" + label.getText() + "]";
-            if (component instanceof JTextField field) return "input[" + field.getText() + "]";
-            return "";
-        }).filter(text -> !text.isEmpty()).limit(180).collect(java.util.stream.Collectors.joining("; "));
+        return components.stream()
+                .map(component -> {
+                    if (component instanceof AbstractButton button)
+                        return "button[" + button.getText() + "/" + button.getToolTipText() + "]";
+                    if (component instanceof JLabel label) return "label[" + label.getText() + "]";
+                    if (component instanceof JTextField field) return "input[" + field.getText() + "]";
+                    return "";
+                })
+                .filter(text -> !text.isEmpty())
+                .limit(180)
+                .collect(java.util.stream.Collectors.joining("; "));
     }
 
     private static String describeWindows() {
         final StringBuilder description = new StringBuilder();
         for (Window window : Window.getWindows()) {
             if (!(window instanceof JDialog) || !window.isShowing()) continue;
-            description.append("window[").append(window.getClass().getName()).append("] ")
-                .append(describe(components(window))).append('\n');
+            description
+                    .append("window[")
+                    .append(window.getClass().getName())
+                    .append("] ")
+                    .append(describe(components(window)))
+                    .append('\n');
         }
         return description.toString();
     }

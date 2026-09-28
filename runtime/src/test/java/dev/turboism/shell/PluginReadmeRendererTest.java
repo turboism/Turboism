@@ -1,9 +1,9 @@
 package dev.turboism.shell;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 class PluginReadmeRendererTest {
 
@@ -84,9 +84,7 @@ class PluginReadmeRendererTest {
 
     @Test
     void preservesMarkdownDelimitersInsideHttpsLinkDestinations() {
-        final String html = PluginReadmeRenderer.render(
-            "[Docs](https://example.test/**segment**/guide)"
-        );
+        final String html = PluginReadmeRenderer.render("[Docs](https://example.test/**segment**/guide)");
 
         assertTrue(html.contains("href=\"https://example.test/**segment**/guide\""));
         assertFalse(html.contains("href=\"https://example.test/&lt;strong&gt;"));

@@ -14,7 +14,7 @@ package dev.turboism.core.runtime.work;
  */
 public final class FatalErrors {
 
-    private FatalErrors() { }
+    private FatalErrors() {}
 
     /**
      * Rethrows {@code failure} when it is a fatal JVM condition — a

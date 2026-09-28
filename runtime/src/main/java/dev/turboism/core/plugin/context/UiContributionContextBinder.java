@@ -14,17 +14,15 @@ import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
 
 final class UiContributionContextBinder {
 
-    private UiContributionContextBinder() {
-    }
+    private UiContributionContextBinder() {}
 
     static void bind(
-        final MenuRegistry menus,
-        final MainToolbarRegistry mainToolbar,
-        final PaletteToolbarRegistry paletteToolbar,
-        final PaletteFilterRegistry paletteFilter,
-        final ContextMenuRegistry contextMenu,
-        final EditorUiContributionAuthority authority
-    ) {
+            final MenuRegistry menus,
+            final MainToolbarRegistry mainToolbar,
+            final PaletteToolbarRegistry paletteToolbar,
+            final PaletteFilterRegistry paletteFilter,
+            final ContextMenuRegistry contextMenu,
+            final EditorUiContributionAuthority authority) {
         if (menus instanceof RuntimeMenuRegistry runtimeMenus) {
             runtimeMenus.bindContributionAuthority(authority);
         }

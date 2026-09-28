@@ -3,12 +3,11 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.model.Parameter;
-import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
@@ -28,7 +27,7 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
     private final ThreadLocal<NativeInvocation> nativeInvocation = new ThreadLocal<>();
 
     public ParameterLifecycleCoordinator() {
-        this(new PluginWorkExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()));
+        this(new PluginWorkExecutorRegistry(1, 64, ignored -> {}, Clock.systemUTC()));
     }
 
     public ParameterLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
@@ -40,9 +39,7 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
         synchronized (registrationLock) {
             if (eventBroker != null && eventBroker != value) {
-                throw new IllegalStateException(
-                    "Parameter lifecycle already belongs to another Runtime event broker."
-                );
+                throw new IllegalStateException("Parameter lifecycle already belongs to another Runtime event broker.");
             }
             eventBroker = value;
         }
@@ -59,7 +56,11 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(value.descriptor().id()));
+            plugins.removeIf(registration -> registration
+                    .plugin()
+                    .descriptor()
+                    .id()
+                    .equals(value.descriptor().id()));
             callbacks.shutdown(value.descriptor().id());
             plugins.add(new Registration(token, value));
         }
@@ -67,10 +68,8 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
 
     void register(final Object token, final PluginHooks plugin) {
         synchronized (registrationLock) {
-            plugins.add(new Registration(
-                Objects.requireNonNull(token, "token"),
-                Objects.requireNonNull(plugin, "plugin")
-            ));
+            plugins.add(
+                    new Registration(Objects.requireNonNull(token, "token"), Objects.requireNonNull(plugin, "plugin")));
         }
     }
 
@@ -85,7 +84,8 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(id));
+            plugins.removeIf(
+                    registration -> registration.plugin().descriptor().id().equals(id));
             callbacks.shutdown(id);
         }
     }
@@ -94,13 +94,12 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         final String id = requireText(pluginId, "pluginId");
         final Object generation = Objects.requireNonNull(token, "token");
         synchronized (registrationLock) {
-            final boolean removed = plugins.removeIf(registration ->
-                registration.token() == generation
-                    && registration.plugin().descriptor().id().equals(id)
-            );
-            if (removed && plugins.stream().noneMatch(registration ->
-                registration.plugin().descriptor().id().equals(id)
-            )) {
+            final boolean removed = plugins.removeIf(registration -> registration.token() == generation
+                    && registration.plugin().descriptor().id().equals(id));
+            if (removed
+                    && plugins.stream()
+                            .noneMatch(registration ->
+                                    registration.plugin().descriptor().id().equals(id))) {
                 callbacks.shutdown(id);
             }
         }
@@ -121,17 +120,11 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
      * @throws NullPointerException when {@code parameter} or {@code nativeOperation} is null
      * @throws IllegalStateException when invoked from within another parameter write on this thread
      */
-    public void setValue(
-        final Parameter parameter,
-        final float requestedValue,
-        final Consumer<Float> nativeOperation
-    ) {
+    public void setValue(final Parameter parameter, final float requestedValue, final Consumer<Float> nativeOperation) {
         Objects.requireNonNull(parameter, "parameter");
         Objects.requireNonNull(nativeOperation, "nativeOperation");
         if (parameterWriteActive.get()) {
-            throw new IllegalStateException(
-                "Recursive Cubism parameter set-value lifecycle is not allowed."
-            );
+            throw new IllegalStateException("Recursive Cubism parameter set-value lifecycle is not allowed.");
         }
         parameterWriteActive.set(true);
         try {
@@ -144,12 +137,8 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
     NativeInvocation beginNative(final Parameter parameter, final float requestedValue) {
         Objects.requireNonNull(parameter, "parameter");
         if (parameterWriteActive.get()) {
-            final NativeInvocation correlated = new NativeInvocation(
-                parameter,
-                requestedValue,
-                parameter.getValue(),
-                true
-            );
+            final NativeInvocation correlated =
+                    new NativeInvocation(parameter, requestedValue, parameter.getValue(), true);
             nativeInvocation.set(correlated);
             return correlated;
         }
@@ -157,12 +146,8 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
             throw new IllegalStateException("Recursive native parameter lifecycle is not allowed.");
         }
         final float effectiveValue = transformBefore(parameter, requestedValue);
-        final NativeInvocation invocation = new NativeInvocation(
-            parameter,
-            effectiveValue,
-            parameter.getValue(),
-            false
-        );
+        final NativeInvocation invocation =
+                new NativeInvocation(parameter, effectiveValue, parameter.getValue(), false);
         nativeInvocation.set(invocation);
         return invocation;
     }
@@ -178,17 +163,13 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
             return;
         }
         publishCompletion(
-            invocation.parameter(),
-            invocation.oldValue(),
-            invocation.parameter().getValue()
-        );
+                invocation.parameter(),
+                invocation.oldValue(),
+                invocation.parameter().getValue());
     }
 
     private void setValueGuarded(
-        final Parameter parameter,
-        final float requestedValue,
-        final Consumer<Float> nativeOperation
-    ) {
+            final Parameter parameter, final float requestedValue, final Consumer<Float> nativeOperation) {
         final float effectiveValue = transformBefore(parameter, requestedValue);
         final float oldValue = parameter.getValue();
         nativeOperation.accept(effectiveValue);
@@ -196,10 +177,7 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         publishCompletion(parameter, oldValue, finalValue);
     }
 
-    private float transformBefore(
-        final Parameter parameter,
-        final float requestedValue
-    ) {
+    private float transformBefore(final Parameter parameter, final float requestedValue) {
         float effectiveValue = requestedValue;
         for (Registration registration : plugins) {
             final PluginHooks plugin = registration.plugin();
@@ -212,9 +190,7 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
                     if (Float.isFinite(transformed)) {
                         effectiveValue = transformed;
                     } else {
-                        plugin.logger().warn(
-                            "Ignored non-finite beforeSetParameterValue result for " + OPERATION_ID
-                        );
+                        plugin.logger().warn("Ignored non-finite beforeSetParameterValue result for " + OPERATION_ID);
                     }
                 } catch (ThreadDeath | VirtualMachineError fatal) {
                     throw fatal;
@@ -229,33 +205,27 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         }
         final Parameter detached = DetachedParameter.capture(parameter, parameter.getValue());
         return broker.publishRuntimeTransform(
-            ParameterValueEvent.Before.class,
-            effectiveValue,
-            candidate -> {
-                final ParameterValueEvent.Before.Callback callback =
-                    ParameterValueEvent.Before.openCallback(
-                        detached,
-                        requestedValue,
-                        candidate
-                    );
-                return new RuntimeEventBroker.TransformCallback() {
-                    @Override public ParameterValueEvent.Before event() {
-                        return callback.event();
-                    }
-                    @Override public void close() {
-                        callback.close();
-                    }
-                };
-            },
-            event -> ((ParameterValueEvent.Before) event).value()
-        );
+                ParameterValueEvent.Before.class,
+                effectiveValue,
+                candidate -> {
+                    final ParameterValueEvent.Before.Callback callback =
+                            ParameterValueEvent.Before.openCallback(detached, requestedValue, candidate);
+                    return new RuntimeEventBroker.TransformCallback() {
+                        @Override
+                        public ParameterValueEvent.Before event() {
+                            return callback.event();
+                        }
+
+                        @Override
+                        public void close() {
+                            callback.close();
+                        }
+                    };
+                },
+                event -> ((ParameterValueEvent.Before) event).value());
     }
 
-    private void publishCompletion(
-        final Parameter parameter,
-        final float oldValue,
-        final float finalValue
-    ) {
+    private void publishCompletion(final Parameter parameter, final float oldValue, final float finalValue) {
         final boolean changed = Float.compare(oldValue, finalValue) != 0;
         publishLegacyCompletion(parameter, oldValue, finalValue, changed);
         final RuntimeEventBroker broker = eventBroker;
@@ -270,11 +240,7 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
     }
 
     private void publishLegacyCompletion(
-        final Parameter parameter,
-        final float oldValue,
-        final float finalValue,
-        final boolean changed
-    ) {
+            final Parameter parameter, final float oldValue, final float finalValue, final boolean changed) {
         for (Registration registration : plugins) {
             final PluginHooks plugin = registration.plugin();
             if (!plugin.observeAllowed()) {
@@ -320,31 +286,20 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
             if (!plugins.contains(registration)) {
                 return;
             }
-            callbacks.submit(
-                registration.plugin().descriptor().id(),
-                OPERATION_ID,
-                callback
-            );
+            callbacks.submit(registration.plugin().descriptor().id(), OPERATION_ID, callback);
         }
     }
 
-    private static void logHookFailure(
-        final PluginHooks plugin,
-        final String phase,
-        final Throwable failure
-    ) {
+    private static void logHookFailure(final PluginHooks plugin, final String phase, final Throwable failure) {
         try {
-            plugin.logger().error(
-                "Cubism parameter lifecycle hook failed safely: " + phase,
-                failure
-            );
+            plugin.logger().error("Cubism parameter lifecycle hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             // Hook and diagnostic failures must not escape into the Cubism operation.
         }
     }
 
-    private record Registration(Object token, PluginHooks plugin) { }
+    private record Registration(Object token, PluginHooks plugin) {}
 
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);
@@ -364,12 +319,11 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
      * @param observeAllowed whether this plugin receives asynchronous {@code after*}/{@code on*} callbacks
      */
     public record PluginHooks(
-        PluginDescriptor descriptor,
-        List<? extends ParameterHooks> entrypoints,
-        PluginLogger logger,
-        boolean interceptAllowed,
-        boolean observeAllowed
-    ) {
+            PluginDescriptor descriptor,
+            List<? extends ParameterHooks> entrypoints,
+            PluginLogger logger,
+            boolean interceptAllowed,
+            boolean observeAllowed) {
         /**
          * Registers a plugin with both interception and observation permitted.
          *
@@ -378,10 +332,9 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
          * @param logger sink for hook failures raised by this plugin
          */
         public PluginHooks(
-            final PluginDescriptor descriptor,
-            final List<? extends ParameterHooks> entrypoints,
-            final PluginLogger logger
-        ) {
+                final PluginDescriptor descriptor,
+                final List<? extends ParameterHooks> entrypoints,
+                final PluginLogger logger) {
             this(descriptor, entrypoints, logger, true, true);
         }
 
@@ -392,12 +345,7 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         }
     }
 
-    record NativeInvocation(
-        Parameter parameter,
-        float effectiveValue,
-        float oldValue,
-        boolean correlated
-    ) {
+    record NativeInvocation(Parameter parameter, float effectiveValue, float oldValue, boolean correlated) {
         NativeInvocation {
             parameter = Objects.requireNonNull(parameter, "parameter");
         }

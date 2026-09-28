@@ -1,39 +1,35 @@
 package dev.turboism.preview;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.adapter.host.HostInstanceDescriptor;
-import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.adapter.host.HostVerificationEvidence;
+import dev.turboism.bootstrap.HostRuntimeIngress;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.home.LegacyHomeMigration;
+import dev.turboism.home.TurboismHomeLayout;
 import dev.turboism.mapping.verification.CompatibilityResolution;
 import dev.turboism.mapping.verification.CubismEditorReleaseDeclaration;
 import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.mapping.verification.SliceContract;
-import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.home.LegacyHomeMigration;
-import dev.turboism.home.TurboismHomeLayout;
 import dev.turboism.preview.report.PreviewReportSnapshotFactory;
 import dev.turboism.preview.report.PreviewReportType;
 import dev.turboism.preview.report.PreviewReportWriter;
-
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import dev.turboism.core.runtime.work.FatalErrors;
-
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Owns the complete Turboism 0.1 runtime inside one Cubism process. */
@@ -62,36 +58,42 @@ public final class PreviewRuntime implements AutoCloseable {
 
     /** Package-private test composition seam; production startup uses {@link #start}. */
     PreviewRuntime(
-        final Path home,
-        final PreviewLog log,
-        final RuntimeScheduler scheduler,
-        final HostRuntimeIngress hostIngress,
-        final LocalPluginRuntime pluginRuntime,
-        final LocalPluginRuntime.LoadReport loadReport,
-        final PreviewReportWriter reportWriter,
-        final String runtimeId,
-        final Path verificationRecord,
-        final Path hostArtifact
-    ) {
+            final Path home,
+            final PreviewLog log,
+            final RuntimeScheduler scheduler,
+            final HostRuntimeIngress hostIngress,
+            final LocalPluginRuntime pluginRuntime,
+            final LocalPluginRuntime.LoadReport loadReport,
+            final PreviewReportWriter reportWriter,
+            final String runtimeId,
+            final Path verificationRecord,
+            final Path hostArtifact) {
         this(
-            home, log, scheduler, hostIngress, pluginRuntime, loadReport, reportWriter,
-            runtimeId, verificationRecord, hostArtifact, java.util.Locale.getDefault()
-        );
+                home,
+                log,
+                scheduler,
+                hostIngress,
+                pluginRuntime,
+                loadReport,
+                reportWriter,
+                runtimeId,
+                verificationRecord,
+                hostArtifact,
+                java.util.Locale.getDefault());
     }
 
     PreviewRuntime(
-        final Path home,
-        final PreviewLog log,
-        final RuntimeScheduler scheduler,
-        final HostRuntimeIngress hostIngress,
-        final LocalPluginRuntime pluginRuntime,
-        final LocalPluginRuntime.LoadReport loadReport,
-        final PreviewReportWriter reportWriter,
-        final String runtimeId,
-        final Path verificationRecord,
-        final Path hostArtifact,
-        final java.util.Locale effectiveLocale
-    ) {
+            final Path home,
+            final PreviewLog log,
+            final RuntimeScheduler scheduler,
+            final HostRuntimeIngress hostIngress,
+            final LocalPluginRuntime pluginRuntime,
+            final LocalPluginRuntime.LoadReport loadReport,
+            final PreviewReportWriter reportWriter,
+            final String runtimeId,
+            final Path verificationRecord,
+            final Path hostArtifact,
+            final java.util.Locale effectiveLocale) {
         this.home = home;
         this.log = log;
         this.scheduler = scheduler;
@@ -131,18 +133,13 @@ public final class PreviewRuntime implements AutoCloseable {
 
             @Override
             public boolean writeFinalReport(
-                final HostSession.State observedHostState,
-                final boolean shutdownAttempted
-            ) {
+                    final HostSession.State observedHostState, final boolean shutdownAttempted) {
                 return writeReportsOnce(observedHostState, true, shutdownAttempted);
             }
 
             @Override
             public void logDegradedShutdown() {
-                log.warn(
-                    "runtime",
-                    "RUNTIME_SHUTDOWN_DEGRADED: one or more shutdown stages failed safely."
-                );
+                log.warn("runtime", "RUNTIME_SHUTDOWN_DEGRADED: one or more shutdown stages failed safely.");
             }
 
             @Override
@@ -187,33 +184,32 @@ public final class PreviewRuntime implements AutoCloseable {
      * @throws IOException if the home directory or its log and report files cannot be prepared
      */
     public static PreviewRuntime start(
-        final Path requestedHome,
-        final Path verificationRecord,
-        final Path editorModelVerificationRecord,
-        final Path mainToolbarVerificationRecord,
-        final Path embeddedPanelVerificationRecord,
-        final Path topMenuVerificationRecord,
-        final Path boundingBoxOverlayVerificationRecord,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader
-    ) throws IOException {
+            final Path requestedHome,
+            final Path verificationRecord,
+            final Path editorModelVerificationRecord,
+            final Path mainToolbarVerificationRecord,
+            final Path embeddedPanelVerificationRecord,
+            final Path topMenuVerificationRecord,
+            final Path boundingBoxOverlayVerificationRecord,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader)
+            throws IOException {
         return start(
-            requestedHome,
-            verificationRecord,
-            editorModelVerificationRecord,
-            null,
-            mainToolbarVerificationRecord,
-            embeddedPanelVerificationRecord,
-            topMenuVerificationRecord,
-            boundingBoxOverlayVerificationRecord,
-            Optional.empty(),
-            Optional.empty(),
-            null,
-            Optional.empty(),
-            hostArtifact,
-            null,
-            hostClassLoader
-        );
+                requestedHome,
+                verificationRecord,
+                editorModelVerificationRecord,
+                null,
+                mainToolbarVerificationRecord,
+                embeddedPanelVerificationRecord,
+                topMenuVerificationRecord,
+                boundingBoxOverlayVerificationRecord,
+                Optional.empty(),
+                Optional.empty(),
+                null,
+                Optional.empty(),
+                hostArtifact,
+                null,
+                hostClassLoader);
     }
 
     /**
@@ -221,42 +217,41 @@ public final class PreviewRuntime implements AutoCloseable {
      * The status slice is only connected when the record is present.
      */
     public static PreviewRuntime start(
-        final Path requestedHome,
-        final Path verificationRecord,
-        final Path editorModelVerificationRecord,
-        final Path coreRuntimeVerificationRecord,
-        final Path mainToolbarVerificationRecord,
-        final Path embeddedPanelVerificationRecord,
-        final Path topMenuVerificationRecord,
-        final Path boundingBoxOverlayVerificationRecord,
-        final Optional<Path> statusBarVerificationRecord,
-        final Optional<Path> clipMaskVerificationRecord,
-        final Path autoBackupVerificationRecord,
-        final Optional<Path> protectedExportVerificationRecord,
-        final Path hostArtifact,
-        final Path coreArtifact,
-        final ClassLoader hostClassLoader
-    ) throws IOException {
+            final Path requestedHome,
+            final Path verificationRecord,
+            final Path editorModelVerificationRecord,
+            final Path coreRuntimeVerificationRecord,
+            final Path mainToolbarVerificationRecord,
+            final Path embeddedPanelVerificationRecord,
+            final Path topMenuVerificationRecord,
+            final Path boundingBoxOverlayVerificationRecord,
+            final Optional<Path> statusBarVerificationRecord,
+            final Optional<Path> clipMaskVerificationRecord,
+            final Path autoBackupVerificationRecord,
+            final Optional<Path> protectedExportVerificationRecord,
+            final Path hostArtifact,
+            final Path coreArtifact,
+            final ClassLoader hostClassLoader)
+            throws IOException {
         return start(
-            requestedHome,
-            verificationRecord,
-            editorModelVerificationRecord,
-            coreRuntimeVerificationRecord,
-            mainToolbarVerificationRecord,
-            embeddedPanelVerificationRecord,
-            topMenuVerificationRecord,
-            boundingBoxOverlayVerificationRecord,
-            statusBarVerificationRecord,
-            clipMaskVerificationRecord,
-            autoBackupVerificationRecord,
-            protectedExportVerificationRecord,
-            hostArtifact,
-            coreArtifact,
-            hostClassLoader,
-            null,
-            runtime -> { },
-            runtime -> { }
-        );
+                requestedHome,
+                verificationRecord,
+                editorModelVerificationRecord,
+                coreRuntimeVerificationRecord,
+                mainToolbarVerificationRecord,
+                embeddedPanelVerificationRecord,
+                topMenuVerificationRecord,
+                boundingBoxOverlayVerificationRecord,
+                statusBarVerificationRecord,
+                clipMaskVerificationRecord,
+                autoBackupVerificationRecord,
+                protectedExportVerificationRecord,
+                hostArtifact,
+                coreArtifact,
+                hostClassLoader,
+                null,
+                runtime -> {},
+                runtime -> {});
     }
 
     /**
@@ -272,31 +267,39 @@ public final class PreviewRuntime implements AutoCloseable {
      * so callers cannot smuggle unadmitted adapters into a degraded host.</p>
      */
     public static PreviewRuntime start(
-        final Path requestedHome,
-        final Path verificationRecord,
-        final Path editorModelVerificationRecord,
-        final Path coreRuntimeVerificationRecord,
-        final Path mainToolbarVerificationRecord,
-        final Path embeddedPanelVerificationRecord,
-        final Path topMenuVerificationRecord,
-        final Path boundingBoxOverlayVerificationRecord,
-        final Optional<Path> statusBarVerificationRecord,
-        final Optional<Path> clipMaskVerificationRecord,
-        final Path autoBackupVerificationRecord,
-        final Path hostArtifact,
-        final Path coreArtifact,
-        final ClassLoader hostClassLoader,
-        final CompatibilityResolution hostResolution
-    ) throws IOException {
+            final Path requestedHome,
+            final Path verificationRecord,
+            final Path editorModelVerificationRecord,
+            final Path coreRuntimeVerificationRecord,
+            final Path mainToolbarVerificationRecord,
+            final Path embeddedPanelVerificationRecord,
+            final Path topMenuVerificationRecord,
+            final Path boundingBoxOverlayVerificationRecord,
+            final Optional<Path> statusBarVerificationRecord,
+            final Optional<Path> clipMaskVerificationRecord,
+            final Path autoBackupVerificationRecord,
+            final Path hostArtifact,
+            final Path coreArtifact,
+            final ClassLoader hostClassLoader,
+            final CompatibilityResolution hostResolution)
+            throws IOException {
         return start(
-            requestedHome, verificationRecord, editorModelVerificationRecord,
-            coreRuntimeVerificationRecord, mainToolbarVerificationRecord,
-            embeddedPanelVerificationRecord, topMenuVerificationRecord,
-            boundingBoxOverlayVerificationRecord, statusBarVerificationRecord,
-            clipMaskVerificationRecord, autoBackupVerificationRecord,
-            hostArtifact, coreArtifact,
-            hostClassLoader, hostResolution, runtime -> { }
-        );
+                requestedHome,
+                verificationRecord,
+                editorModelVerificationRecord,
+                coreRuntimeVerificationRecord,
+                mainToolbarVerificationRecord,
+                embeddedPanelVerificationRecord,
+                topMenuVerificationRecord,
+                boundingBoxOverlayVerificationRecord,
+                statusBarVerificationRecord,
+                clipMaskVerificationRecord,
+                autoBackupVerificationRecord,
+                hostArtifact,
+                coreArtifact,
+                hostClassLoader,
+                hostResolution,
+                runtime -> {});
     }
 
     /**
@@ -325,28 +328,42 @@ public final class PreviewRuntime implements AutoCloseable {
      * @throws IOException if runtime files cannot be prepared
      */
     public static PreviewRuntime start(
-        final Path requestedHome,
-        final Path verificationRecord,
-        final Path editorModelVerificationRecord,
-        final Path coreRuntimeVerificationRecord,
-        final Path mainToolbarVerificationRecord,
-        final Path embeddedPanelVerificationRecord,
-        final Path topMenuVerificationRecord,
-        final Path boundingBoxOverlayVerificationRecord,
-        final Optional<Path> statusBarVerificationRecord,
-        final Optional<Path> clipMaskVerificationRecord,
-        final Path autoBackupVerificationRecord,
-        final Path hostArtifact,
-        final Path coreArtifact,
-        final ClassLoader hostClassLoader,
-        final CompatibilityResolution hostResolution,
-        final java.util.function.Consumer<PreviewRuntime> beforePlugins
-    ) throws IOException {
-        return start(requestedHome, verificationRecord, editorModelVerificationRecord,
-            coreRuntimeVerificationRecord, mainToolbarVerificationRecord, embeddedPanelVerificationRecord,
-            topMenuVerificationRecord, boundingBoxOverlayVerificationRecord, statusBarVerificationRecord,
-            clipMaskVerificationRecord, autoBackupVerificationRecord, Optional.empty(),
-            hostArtifact, coreArtifact, hostClassLoader, hostResolution, beforePlugins, runtime -> { });
+            final Path requestedHome,
+            final Path verificationRecord,
+            final Path editorModelVerificationRecord,
+            final Path coreRuntimeVerificationRecord,
+            final Path mainToolbarVerificationRecord,
+            final Path embeddedPanelVerificationRecord,
+            final Path topMenuVerificationRecord,
+            final Path boundingBoxOverlayVerificationRecord,
+            final Optional<Path> statusBarVerificationRecord,
+            final Optional<Path> clipMaskVerificationRecord,
+            final Path autoBackupVerificationRecord,
+            final Path hostArtifact,
+            final Path coreArtifact,
+            final ClassLoader hostClassLoader,
+            final CompatibilityResolution hostResolution,
+            final java.util.function.Consumer<PreviewRuntime> beforePlugins)
+            throws IOException {
+        return start(
+                requestedHome,
+                verificationRecord,
+                editorModelVerificationRecord,
+                coreRuntimeVerificationRecord,
+                mainToolbarVerificationRecord,
+                embeddedPanelVerificationRecord,
+                topMenuVerificationRecord,
+                boundingBoxOverlayVerificationRecord,
+                statusBarVerificationRecord,
+                clipMaskVerificationRecord,
+                autoBackupVerificationRecord,
+                Optional.empty(),
+                hostArtifact,
+                coreArtifact,
+                hostClassLoader,
+                hostResolution,
+                beforePlugins,
+                runtime -> {});
     }
 
     /**
@@ -355,34 +372,33 @@ public final class PreviewRuntime implements AutoCloseable {
      * Deferred capabilities must remain unavailable until their runtime binding succeeds.
      */
     public static PreviewRuntime start(
-        final Path requestedHome,
-        final Path verificationRecord,
-        final Path editorModelVerificationRecord,
-        final Path coreRuntimeVerificationRecord,
-        final Path mainToolbarVerificationRecord,
-        final Path embeddedPanelVerificationRecord,
-        final Path topMenuVerificationRecord,
-        final Path boundingBoxOverlayVerificationRecord,
-        final Optional<Path> statusBarVerificationRecord,
-        final Optional<Path> clipMaskVerificationRecord,
-        final Path autoBackupVerificationRecord,
-        final Optional<Path> protectedExportVerificationRecord,
-        final Path hostArtifact,
-        final Path coreArtifact,
-        final ClassLoader hostClassLoader,
-        final CompatibilityResolution hostResolution,
-        final java.util.function.Consumer<PreviewRuntime> beforePlugins,
-        final java.util.function.Consumer<PreviewRuntime> afterPlugins
-    ) throws IOException {
+            final Path requestedHome,
+            final Path verificationRecord,
+            final Path editorModelVerificationRecord,
+            final Path coreRuntimeVerificationRecord,
+            final Path mainToolbarVerificationRecord,
+            final Path embeddedPanelVerificationRecord,
+            final Path topMenuVerificationRecord,
+            final Path boundingBoxOverlayVerificationRecord,
+            final Optional<Path> statusBarVerificationRecord,
+            final Optional<Path> clipMaskVerificationRecord,
+            final Path autoBackupVerificationRecord,
+            final Optional<Path> protectedExportVerificationRecord,
+            final Path hostArtifact,
+            final Path coreArtifact,
+            final ClassLoader hostClassLoader,
+            final CompatibilityResolution hostResolution,
+            final java.util.function.Consumer<PreviewRuntime> beforePlugins,
+            final java.util.function.Consumer<PreviewRuntime> afterPlugins)
+            throws IOException {
         Objects.requireNonNull(beforePlugins, "beforePlugins");
         Objects.requireNonNull(afterPlugins, "afterPlugins");
         Objects.requireNonNull(statusBarVerificationRecord, "statusBarVerificationRecord");
         Objects.requireNonNull(clipMaskVerificationRecord, "clipMaskVerificationRecord");
         Objects.requireNonNull(protectedExportVerificationRecord, "protectedExportVerificationRecord");
-        final Path normalizedHostArtifact = Objects.requireNonNull(
-            hostArtifact,
-            "hostArtifact"
-        ).toAbsolutePath().normalize();
+        final Path normalizedHostArtifact = Objects.requireNonNull(hostArtifact, "hostArtifact")
+                .toAbsolutePath()
+                .normalize();
         requireAdmittedEditorRelease(normalizedHostArtifact, hostResolution);
         final TurboismHomeLayout layout = TurboismHomeLayout.create(requestedHome);
         final Path home = layout.home();
@@ -392,16 +408,12 @@ public final class PreviewRuntime implements AutoCloseable {
             throw new IOException(pendingPlugins.code());
         }
 
-        final ClassLoader verifiedHostClassLoader = Objects.requireNonNull(
-            hostClassLoader,
-            "hostClassLoader"
-        );
+        final ClassLoader verifiedHostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         final PreviewLog log = PreviewLog.openSession(
-            layout.runtimeLogsDir(),
-            Clock.systemUTC(),
-            ProcessHandle.current().pid(),
-            PreviewLog.Sink.NONE
-        );
+                layout.runtimeLogsDir(),
+                Clock.systemUTC(),
+                ProcessHandle.current().pid(),
+                PreviewLog.Sink.NONE);
         dev.turboism.runtime.log.RuntimeDiagnostics.install((level, component, message, failure) -> {
             switch (level) {
                 case TRACE -> log.trace(component, message);
@@ -417,165 +429,136 @@ public final class PreviewRuntime implements AutoCloseable {
         final StartupPhaseTimer startupTimer = new StartupPhaseTimer(System::nanoTime);
         try {
             final var runtimeConfig = new dev.turboism.config.RuntimeConfigRepository(
-                home,
-                diagnostic -> log.warn("config", diagnostic)
-            ).read();
+                            home, diagnostic -> log.warn("config", diagnostic))
+                    .read();
             // Provisional: Cubism writes the Environment Settings language onto the
             // process default locale as the editor starts, which is later than this
             // first resolution. Re-resolved once the host is verified and ACTIVE.
             java.util.concurrent.atomic.AtomicReference<java.util.Locale> effectiveLocale =
-                new java.util.concurrent.atomic.AtomicReference<>(resolveEffectiveLocale(
-                    runtimeConfig,
-                    message -> log.warn("i18n", message)
-                ));
+                    new java.util.concurrent.atomic.AtomicReference<>(
+                            resolveEffectiveLocale(runtimeConfig, message -> log.warn("i18n", message)));
             log.info("i18n", "Using startup locale " + effectiveLocale.get().toLanguageTag());
             log.setMinimumLevel(runtimeConfig.path("logLevel").asText("INFO"));
-            log.setMaxStorageMiB(runtimeConfig.path("maxLogStorageMiB").asInt(
-                dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB
-            ));
+            log.setMaxStorageMiB(runtimeConfig
+                    .path("maxLogStorageMiB")
+                    .asInt(dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB));
             log.info("runtime", "Starting Turboism 0.1 Developer Preview at " + home);
             startupTimer.completed("configuration", message -> log.info("startup", message));
             // Inject the persisted theme before the Cubism GL scene initializes so
             // the off-canvas background color (cached in a singleton Lazy) takes
             // effect on restart, matching the legacy hook agent's startup timing.
             new dev.turboism.ui.appearance.EarlyThemeAppearanceBootstrap(
-                home,
-                verifiedHostClassLoader,
-                () -> log.info("runtime", "Early theme appearance injected from persisted selection")
-            ).start();
+                            home,
+                            verifiedHostClassLoader,
+                            () -> log.info("runtime", "Early theme appearance injected from persisted selection"))
+                    .start();
             // One-shot L&F readiness repair: hosts like Cubism 5.3.02 construct
             // windows on the EDT before FlatLaf's UI defaults are installed, so
             // early components get no ComponentUI and stay blank; once FlatLaf is
             // ready, updateUI() reinstalls every already-built component's UI.
             // No colors or themes are injected; version-neutral and fail-open.
             new dev.turboism.ui.appearance.LafReadinessRepair(
-                verifiedHostClassLoader,
-                message -> log.info("appearance", message)
-            ).start();
+                            verifiedHostClassLoader, message -> log.info("appearance", message))
+                    .start();
             scheduler = createScheduler(log);
             RecentPreviewDiagnostics.install(message -> log.warn("recent-preview", message));
             ingress = new HostRuntimeIngress(
-                effectiveLocale::get,
-                new dev.turboism.config.ConfigTextureAtlasSelectionStore(
-                    home,
-                    diagnostic -> log.warn("config", diagnostic)
-                )
-            );
+                    effectiveLocale::get,
+                    new dev.turboism.config.ConfigTextureAtlasSelectionStore(
+                            home, diagnostic -> log.warn("config", diagnostic)));
             startupTimer.completed("appearance-and-services", message -> log.info("startup", message));
 
-            final Path normalizedVerificationRecord = Objects.requireNonNull(
-                verificationRecord,
-                "verificationRecord"
-            ).toAbsolutePath().normalize();
-            final Path normalizedCoreArtifact = coreArtifact == null
-                ? null
-                : coreArtifact.toAbsolutePath().normalize();
+            final Path normalizedVerificationRecord = Objects.requireNonNull(verificationRecord, "verificationRecord")
+                    .toAbsolutePath()
+                    .normalize();
+            final Path normalizedCoreArtifact =
+                    coreArtifact == null ? null : coreArtifact.toAbsolutePath().normalize();
             final HostVerificationEvidence.Slice projectWorkspace = editorSlice(
-                normalizedVerificationRecord,
-                normalizedHostArtifact,
-                verifiedHostClassLoader,
-                hostResolution,
-                "project-workspace"
-            );
+                    normalizedVerificationRecord,
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "project-workspace");
             final HostVerificationEvidence.Slice editorModel = editorSlice(
-                Objects.requireNonNull(editorModelVerificationRecord, "editorModelVerificationRecord")
-                    .toAbsolutePath().normalize(),
-                normalizedHostArtifact,
-                verifiedHostClassLoader,
-                hostResolution,
-                "editor-model"
-            );
+                    Objects.requireNonNull(editorModelVerificationRecord, "editorModelVerificationRecord")
+                            .toAbsolutePath()
+                            .normalize(),
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "editor-model");
             // Compatibility-bound hosts admit slices individually: a record is
             // only present when the slice's full contract was verified, so
             // optional slices accumulate conditionally instead of requiring
             // every record path up front.
-            HostVerificationEvidence evidence = HostVerificationEvidence
-                .withEditorModel(projectWorkspace, editorModel);
+            HostVerificationEvidence evidence = HostVerificationEvidence.withEditorModel(projectWorkspace, editorModel);
             if (coreRuntimeVerificationRecord != null && normalizedCoreArtifact != null) {
                 evidence = evidence.addingCoreRuntime(editorSlice(
-                    coreRuntimeVerificationRecord.toAbsolutePath().normalize(),
-                    normalizedCoreArtifact,
-                    verifiedHostClassLoader,
-                    hostResolution,
-                    "core-model-read"
-                ));
+                        coreRuntimeVerificationRecord.toAbsolutePath().normalize(),
+                        normalizedCoreArtifact,
+                        verifiedHostClassLoader,
+                        hostResolution,
+                        "core-model-read"));
             }
             if (mainToolbarVerificationRecord != null) {
                 evidence = evidence.addingMainToolbar(editorSlice(
-                    mainToolbarVerificationRecord.toAbsolutePath().normalize(),
-                    normalizedHostArtifact,
-                    verifiedHostClassLoader,
-                    hostResolution,
-                    "ui-main-toolbar"
-                ));
+                        mainToolbarVerificationRecord.toAbsolutePath().normalize(),
+                        normalizedHostArtifact,
+                        verifiedHostClassLoader,
+                        hostResolution,
+                        "ui-main-toolbar"));
             }
             if (embeddedPanelVerificationRecord != null) {
                 evidence = evidence.addingEmbeddedPanel(editorSlice(
-                    embeddedPanelVerificationRecord.toAbsolutePath().normalize(),
-                    normalizedHostArtifact,
-                    verifiedHostClassLoader,
-                    hostResolution,
-                    "ui-embedded-panel"
-                ));
+                        embeddedPanelVerificationRecord.toAbsolutePath().normalize(),
+                        normalizedHostArtifact,
+                        verifiedHostClassLoader,
+                        hostResolution,
+                        "ui-embedded-panel"));
             }
             if (topMenuVerificationRecord != null) {
                 evidence = evidence.addingTopMenu(editorSlice(
-                    topMenuVerificationRecord.toAbsolutePath().normalize(),
-                    normalizedHostArtifact,
-                    verifiedHostClassLoader,
-                    hostResolution,
-                    "ui-top-menu"
-                ));
+                        topMenuVerificationRecord.toAbsolutePath().normalize(),
+                        normalizedHostArtifact,
+                        verifiedHostClassLoader,
+                        hostResolution,
+                        "ui-top-menu"));
             }
             if (boundingBoxOverlayVerificationRecord != null) {
                 evidence = evidence.addingBoundingBoxOverlayButton(editorSlice(
-                    boundingBoxOverlayVerificationRecord.toAbsolutePath().normalize(),
-                    normalizedHostArtifact,
-                    verifiedHostClassLoader,
-                    hostResolution,
-                    "ui-bounding-box-overlay"
-                ));
+                        boundingBoxOverlayVerificationRecord.toAbsolutePath().normalize(),
+                        normalizedHostArtifact,
+                        verifiedHostClassLoader,
+                        hostResolution,
+                        "ui-bounding-box-overlay"));
             }
             final HostVerificationEvidence evidenceWithCore = evidence;
             final HostVerificationEvidence evidenceWithStatus = statusBarVerificationRecord
-                .map(record -> record.toAbsolutePath().normalize())
-                .map(record -> evidenceWithCore.addingStatusBar(editorSlice(
-                    record,
-                    normalizedHostArtifact,
-                    verifiedHostClassLoader,
-                    hostResolution,
-                    "ui-status-bar"
-                )))
-                .orElse(evidenceWithCore);
+                    .map(record -> record.toAbsolutePath().normalize())
+                    .map(record -> evidenceWithCore.addingStatusBar(editorSlice(
+                            record, normalizedHostArtifact, verifiedHostClassLoader, hostResolution, "ui-status-bar")))
+                    .orElse(evidenceWithCore);
             final HostVerificationEvidence evidenceWithClipMask = clipMaskVerificationRecord
-                .map(record -> record.toAbsolutePath().normalize())
-                .map(record -> evidenceWithStatus.addingClipMask(editorSlice(
-                    record,
-                    normalizedHostArtifact,
-                    verifiedHostClassLoader,
-                    hostResolution,
-                    "clipmask"
-                )))
-                .orElse(evidenceWithStatus);
+                    .map(record -> record.toAbsolutePath().normalize())
+                    .map(record -> evidenceWithStatus.addingClipMask(editorSlice(
+                            record, normalizedHostArtifact, verifiedHostClassLoader, hostResolution, "clipmask")))
+                    .orElse(evidenceWithStatus);
             final HostVerificationEvidence evidenceWithAutoBackup = autoBackupVerificationRecord == null
-                ? evidenceWithClipMask
-                : evidenceWithClipMask.addingAutoBackup(editorSlice(
-                    autoBackupVerificationRecord.toAbsolutePath().normalize(),
-                    normalizedHostArtifact,
-                    verifiedHostClassLoader,
-                    hostResolution,
-                    "autobackup"
-                ));
+                    ? evidenceWithClipMask
+                    : evidenceWithClipMask.addingAutoBackup(editorSlice(
+                            autoBackupVerificationRecord.toAbsolutePath().normalize(),
+                            normalizedHostArtifact,
+                            verifiedHostClassLoader,
+                            hostResolution,
+                            "autobackup"));
             final HostSession.State hostState = ingress.publish(new HostInstanceDescriptor(
-                "cubism-" + ProcessHandle.current().pid(),
-                evidenceWithAutoBackup
-            ));
+                    "cubism-" + ProcessHandle.current().pid(), evidenceWithAutoBackup));
             if (hostState == HostSession.State.ACTIVE) {
                 log.info("host", "Verified Cubism project/workspace adapter connected");
             } else {
                 final String failure = ingress.lastFailure()
-                    .map(value -> value.code() + ": " + value.message())
-                    .orElse("No detailed failure");
+                        .map(value -> value.code() + ": " + value.message())
+                        .orElse("No detailed failure");
                 log.warn("host", "Host adapter entered " + hostState + ": " + failure);
             }
             if (hostState != HostSession.State.ACTIVE) {
@@ -590,88 +573,81 @@ public final class PreviewRuntime implements AutoCloseable {
             // user actually sees; an explicit -Dturboism.locale or config locale still
             // outranks the host in resolveStartup. The first resolution already
             // reported operator/config diagnostics, hence the silent sink here.
-            final java.util.Locale hostVerifiedLocale = resolveEffectiveLocale(runtimeConfig, message -> { });
+            final java.util.Locale hostVerifiedLocale = resolveEffectiveLocale(runtimeConfig, message -> {});
             if (!hostVerifiedLocale.equals(effectiveLocale.get())) {
-                log.info("i18n", "Host locale " + hostVerifiedLocale.toLanguageTag()
-                    + " supersedes the startup locale " + effectiveLocale.get().toLanguageTag());
+                log.info(
+                        "i18n",
+                        "Host locale " + hostVerifiedLocale.toLanguageTag() + " supersedes the startup locale "
+                                + effectiveLocale.get().toLanguageTag());
                 effectiveLocale.set(hostVerifiedLocale);
             }
 
             final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory =
-                createFileChooserHistoryService(home, log);
+                    createFileChooserHistoryService(home, log);
             plugins = new LocalPluginRuntime(
-                home,
-                scheduler,
-                ingress.adapterAccess(),
-                log,
-                ingress.adapterAccess().parameterLifecycle(),
-                fileChooserHistory,
-                effectiveLocale.get(),
-                CoreShellRuntime.frameworkAdmission()
-            );
+                    home,
+                    scheduler,
+                    ingress.adapterAccess(),
+                    log,
+                    ingress.adapterAccess().parameterLifecycle(),
+                    fileChooserHistory,
+                    effectiveLocale.get(),
+                    CoreShellRuntime.frameworkAdmission());
             // Host-level export-settings policy. It is created before plugin loading so every
             // plugin's contribution registry is reachable from the native dialog, and identity is
             // read from the same live host snapshots the rest of the runtime uses.
             final dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettings =
-                new dev.turboism.exportsettings.RuntimeExportSettingsAuthority(
-                    new dev.turboism.exportsettings.HostDocumentExportSettingsIdentitySource(
-                        dev.turboism.adapter.host.HostSessionSnapshotSource.forSession(
-                            ingress.adapterAccess().adapters().projectWorkspace()
-                        )
-                    )
-                );
+                    new dev.turboism.exportsettings.RuntimeExportSettingsAuthority(
+                            new dev.turboism.exportsettings.HostDocumentExportSettingsIdentitySource(
+                                    dev.turboism.adapter.host.HostSessionSnapshotSource.forSession(
+                                            ingress.adapterAccess().adapters().projectWorkspace())));
             plugins.bindExportSettingsAuthority(exportSettings);
             // The user-visible veto surface: every rejected/failed protected-export
             // confirmation names its bounded reason instead of dying silently.
-            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic>
-                vetoSurface = dev.turboism.exportsettings.ExportSettingsVetoDialog::present;
+            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic> vetoSurface =
+                    dev.turboism.exportsettings.ExportSettingsVetoDialog::present;
             exportSettings.vetoReporter(vetoSurface);
             // The orchestrator is a degraded-capability seam: when the record is absent or the
             // pinned chain fails, no orchestrator is bound and checked export stays rejected.
             final dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExport =
-                createProtectedExportOrchestrator(
-                    protectedExportVerificationRecord,
-                    normalizedHostArtifact,
-                    verifiedHostClassLoader,
-                    exportSettings,
-                    ingress,
-                    layout,
-                    log,
-                    vetoSurface
-                );
+                    createProtectedExportOrchestrator(
+                            protectedExportVerificationRecord,
+                            normalizedHostArtifact,
+                            verifiedHostClassLoader,
+                            exportSettings,
+                            ingress,
+                            layout,
+                            log,
+                            vetoSurface);
             if (protectedExport != null) {
                 exportSettings.protectedExportOrchestrator(protectedExport);
             }
             final PreviewReportWriter reportWriter = new PreviewReportWriter(
-                layout.runtimeStateDir(),
-                diagnostic -> log.warn(
-                    "preview-report",
-                    diagnostic.code() + " " + diagnostic.reportType() + ": "
-                        + diagnostic.message()
-                )
-            );
+                    layout.runtimeStateDir(),
+                    diagnostic -> log.warn(
+                            "preview-report",
+                            diagnostic.code() + " " + diagnostic.reportType() + ": " + diagnostic.message()));
             final PreviewRuntime runtime = new PreviewRuntime(
-                home,
-                log,
-                scheduler,
-                ingress,
-                plugins,
-                new LocalPluginRuntime.LoadReport(List.of(), List.of(), List.of()),
-                reportWriter,
-                "runtime-" + UUID.randomUUID(),
-                normalizedVerificationRecord,
-                normalizedHostArtifact,
-                effectiveLocale.get()
-            );
+                    home,
+                    log,
+                    scheduler,
+                    ingress,
+                    plugins,
+                    new LocalPluginRuntime.LoadReport(List.of(), List.of(), List.of()),
+                    reportWriter,
+                    "runtime-" + UUID.randomUUID(),
+                    normalizedVerificationRecord,
+                    normalizedHostArtifact,
+                    effectiveLocale.get());
             runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.bindExportSettingsAuthority(exportSettings);
             runtime.bindProtectedExportOrchestrator(protectedExport);
             runtime.loadPluginsAfterBootstrap(beforePlugins, afterPlugins);
             startupTimer.completed("plugin-loading", message -> log.info("startup", message));
             // Only publish startup after the hooks and plugin listeners are ready.
-            ingress.adapterAccess().editorLifecycleEvents().publishStartup(
-                startupHostVersion(normalizedHostArtifact, hostResolution)
-            );
+            ingress.adapterAccess()
+                    .editorLifecycleEvents()
+                    .publishStartup(startupHostVersion(normalizedHostArtifact, hostResolution));
             runtime.writeInitialReports(hostState);
             runtime.publishStartupBanner(verifiedHostClassLoader);
             publishNativeStartupNotice(verifiedHostClassLoader, log);
@@ -686,13 +662,12 @@ public final class PreviewRuntime implements AutoCloseable {
 
     /** The same startup barrier is used by production and plugin-initialization tests. */
     void loadPluginsAfterBootstrap(final java.util.function.Consumer<PreviewRuntime> beforePlugins) {
-        loadPluginsAfterBootstrap(beforePlugins, runtime -> { });
+        loadPluginsAfterBootstrap(beforePlugins, runtime -> {});
     }
 
     void loadPluginsAfterBootstrap(
-        final java.util.function.Consumer<PreviewRuntime> beforePlugins,
-        final java.util.function.Consumer<PreviewRuntime> afterPlugins
-    ) {
+            final java.util.function.Consumer<PreviewRuntime> beforePlugins,
+            final java.util.function.Consumer<PreviewRuntime> afterPlugins) {
         Objects.requireNonNull(beforePlugins, "beforePlugins");
         Objects.requireNonNull(afterPlugins, "afterPlugins");
         if (closed.get() || !pluginsStarted.compareAndSet(false, true)) {
@@ -710,23 +685,19 @@ public final class PreviewRuntime implements AutoCloseable {
      * {@code COMPATIBLE} hosts are admitted on their structurally verified
      * contracts instead, and {@code REJECTED} verdicts always fail closed.
      */
-    static String requireAdmittedEditorRelease(
-        final Path hostArtifact,
-        final CompatibilityResolution hostResolution
-    ) throws IOException {
+    static String requireAdmittedEditorRelease(final Path hostArtifact, final CompatibilityResolution hostResolution)
+            throws IOException {
         if (hostResolution == null) {
             return requireReviewedEditorRelease(hostArtifact);
         }
         if (hostResolution.mode() == CompatibilityResolution.Mode.REJECTED) {
-            throw new IllegalStateException(
-                "Cubism host identity rejected: " + hostResolution.detail()
-            );
+            throw new IllegalStateException("Cubism host identity rejected: " + hostResolution.detail());
         }
         if (!hostResolution.runtimeAdmitted()) {
             throw new IllegalStateException("Cubism admission resolved no base runtime capability");
         }
         if (!dev.turboism.mapping.verification.HostArtifactDigest.from(hostArtifact)
-            .equals(hostResolution.identity().orElseThrow().artifact())) {
+                .equals(hostResolution.identity().orElseThrow().artifact())) {
             throw new IllegalStateException("Cubism host artifact changed since compatibility probing");
         }
         if (hostResolution.mode() == CompatibilityResolution.Mode.COMPATIBLE) {
@@ -741,16 +712,12 @@ public final class PreviewRuntime implements AutoCloseable {
      * exact reviewed profile lookup.
      */
     private static String startupHostVersion(
-        final Path normalizedHostArtifact,
-        final CompatibilityResolution hostResolution
-    ) throws IOException {
+            final Path normalizedHostArtifact, final CompatibilityResolution hostResolution) throws IOException {
         if (hostResolution != null) {
             return hostResolution.declaredVersion();
         }
-        return dev.turboism.mapping.verification.EditorModelVerificationManifest
-            .resourceProfileForArtifact(
-                dev.turboism.mapping.verification.HostArtifactDigest.from(normalizedHostArtifact)
-            );
+        return dev.turboism.mapping.verification.EditorModelVerificationManifest.resourceProfileForArtifact(
+                dev.turboism.mapping.verification.HostArtifactDigest.from(normalizedHostArtifact));
     }
 
     /**
@@ -760,58 +727,44 @@ public final class PreviewRuntime implements AutoCloseable {
      * caller cannot bypass per-feature admission by passing a record anyway.
      */
     private static HostVerificationEvidence.Slice editorSlice(
-        final Path record,
-        final Path artifact,
-        final ClassLoader hostClassLoader,
-        final CompatibilityResolution hostResolution,
-        final String sliceId
-    ) {
+            final Path record,
+            final Path artifact,
+            final ClassLoader hostClassLoader,
+            final CompatibilityResolution hostResolution,
+            final String sliceId) {
         if (hostResolution == null) {
             return new HostVerificationEvidence.Slice(record, artifact, hostClassLoader);
         }
         final CompatibilityResolution.SliceResolution slice = hostResolution.slice(sliceId);
         if (hostResolution.mode() == CompatibilityResolution.Mode.COMPATIBLE
-            && slice.contract().isEmpty()) {
+                && slice.contract().isEmpty()) {
             throw new IllegalStateException(
-                "record passed for slice " + sliceId + " that compatibility admission rejected"
-            );
+                    "record passed for slice " + sliceId + " that compatibility admission rejected");
         }
-        return new HostVerificationEvidence.Slice(
-            record,
-            artifact,
-            hostClassLoader,
-            slice.contract()
-        );
+        return new HostVerificationEvidence.Slice(record, artifact, hostClassLoader, slice.contract());
     }
 
     /** Package-private exact release/artifact agreement seam for focused admission tests. */
     static String requireReviewedEditorRelease(final Path hostArtifact) throws IOException {
         final Path normalized = Objects.requireNonNull(hostArtifact, "hostArtifact")
-            .toAbsolutePath().normalize();
-        final CubismEditorReleaseDeclaration declaration = CubismEditorReleaseDetector
-            .detect(normalized)
-            .orElseThrow(() -> new IllegalStateException(
-                "Cubism host release declaration missing or ambiguous; admission failed closed"
-            ));
+                .toAbsolutePath()
+                .normalize();
+        final CubismEditorReleaseDeclaration declaration = CubismEditorReleaseDetector.detect(normalized)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Cubism host release declaration missing or ambiguous; admission failed closed"));
         final String reviewedVersion = ReviewedHostArtifacts.cubismVersionOf(
-            dev.turboism.mapping.verification.HostArtifactDigest.from(normalized)
-        ).orElseThrow(() -> new IllegalStateException(
-            "Cubism host artifact is not an exact reviewed identity; admission failed closed"
-        ));
+                        dev.turboism.mapping.verification.HostArtifactDigest.from(normalized))
+                .orElseThrow(() -> new IllegalStateException(
+                        "Cubism host artifact is not an exact reviewed identity; admission failed closed"));
         return requireReleaseAgreement(reviewedVersion, declaration.version());
     }
 
     /** Package-private semantic release and exact-artifact agreement seam for focused tests. */
-    static String requireReleaseAgreement(
-        final String reviewedVersion,
-        final String declaredVersion
-    ) {
+    static String requireReleaseAgreement(final String reviewedVersion, final String declaredVersion) {
         final String reviewed = Objects.requireNonNull(reviewedVersion, "reviewedVersion");
         final String declared = Objects.requireNonNull(declaredVersion, "declaredVersion");
         if (!reviewed.equals(declared)) {
-            throw new IllegalStateException(
-                "Cubism host release/artifact mismatch; admission failed closed"
-            );
+            throw new IllegalStateException("Cubism host release/artifact mismatch; admission failed closed");
         }
         return reviewed;
     }
@@ -835,15 +788,12 @@ public final class PreviewRuntime implements AutoCloseable {
      * @return the resolved locale, never {@code null}
      */
     private static java.util.Locale resolveEffectiveLocale(
-        final ObjectNode runtimeConfig,
-        final java.util.function.Consumer<String> diagnostics
-    ) {
+            final ObjectNode runtimeConfig, final java.util.function.Consumer<String> diagnostics) {
         return dev.turboism.i18n.PluginLocaleResolver.resolveStartup(
-            runtimeConfig.path("locale").asText(""),
-            dev.turboism.i18n.CubismHostLocale.resolve(),
-            java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
-            diagnostics
-        );
+                runtimeConfig.path("locale").asText(""),
+                dev.turboism.i18n.CubismHostLocale.resolve(),
+                java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
+                diagnostics);
     }
 
     /**
@@ -893,19 +843,15 @@ public final class PreviewRuntime implements AutoCloseable {
         log.error(component, message, failure);
     }
 
-    private static void publishNativeStartupNotice(
-        final ClassLoader hostClassLoader,
-        final PreviewLog log
-    ) {
+    private static void publishNativeStartupNotice(final ClassLoader hostClassLoader, final PreviewLog log) {
         CubismLoggerBridge bridge = null;
         try {
             bridge = CubismLoggerBridge.connect(hostClassLoader);
             bridge.write(
-                PreviewLog.Level.INFO,
-                "runtime",
-                "Turboism started. Open Turboism Logs for framework details.",
-                null
-            );
+                    PreviewLog.Level.INFO,
+                    "runtime",
+                    "Turboism started. Open Turboism Logs for framework details.",
+                    null);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
             log.debug("runtime", "Native startup notice was unavailable");
         } finally {
@@ -920,27 +866,22 @@ public final class PreviewRuntime implements AutoCloseable {
     }
 
     private void publishStartupBanner(final ClassLoader hostClassLoader) {
-        final LocalPluginRuntime.StartupEnvironment environment =
-            pluginRuntime.startupEnvironment();
-        final dev.turboism.graal.GraalHostConfiguration graal =
-            environment.graalConfiguration();
+        final LocalPluginRuntime.StartupEnvironment environment = pluginRuntime.startupEnvironment();
+        final dev.turboism.graal.GraalHostConfiguration graal = environment.graalConfiguration();
         final String graalVm = graal.enabled()
-            ? dev.turboism.graal.ManagedGraalRuntimeService.GRAAL_VERSION
-                + " (" + sourceLabel(graal.source()) + ")"
-            : "unavailable (standard JVM)";
-        final String graalJs = environment.discoveredScriptCount()
-            + " discovered; host " + (graal.enabled() ? "available" : "unavailable");
+                ? dev.turboism.graal.ManagedGraalRuntimeService.GRAAL_VERSION + " (" + sourceLabel(graal.source()) + ")"
+                : "unavailable (standard JVM)";
+        final String graalJs = environment.discoveredScriptCount() + " discovered; host "
+                + (graal.enabled() ? "available" : "unavailable");
         STARTUP_BANNER.publish(
-            List.of(log::banner, rendered -> publishHostBanner(hostClassLoader, rendered)),
-            new StartupBanner.Details(
-                StartupBanner.frameworkDisplayVersion(),
-                System.getProperty("java.version", "unavailable"),
-                graalVm,
-                hostAccess().cubismEditorVersion().orElse("unavailable"),
-                loadReport.loaded().size(),
-                graalJs
-            )
-        );
+                List.of(log::banner, rendered -> publishHostBanner(hostClassLoader, rendered)),
+                new StartupBanner.Details(
+                        StartupBanner.frameworkDisplayVersion(),
+                        System.getProperty("java.version", "unavailable"),
+                        graalVm,
+                        hostAccess().cubismEditorVersion().orElse("unavailable"),
+                        loadReport.loaded().size(),
+                        graalJs));
     }
 
     private void publishHostBanner(final ClassLoader hostClassLoader, final String banner) {
@@ -963,9 +904,7 @@ public final class PreviewRuntime implements AutoCloseable {
         }
     }
 
-    private static String sourceLabel(
-        final dev.turboism.graal.GraalHostConfiguration.Source source
-    ) {
+    private static String sourceLabel(final dev.turboism.graal.GraalHostConfiguration.Source source) {
         return switch (source) {
             case MANAGED -> "managed";
             case LEGACY_PACKAGED -> "legacy packaged";
@@ -1004,9 +943,7 @@ public final class PreviewRuntime implements AutoCloseable {
     }
 
     /** Binds the shared singleton created during {@link #start}; a no-op when already bound. */
-    void bindFileChooserHistoryService(
-        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service
-    ) {
+    void bindFileChooserHistoryService(final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service) {
         synchronized (this) {
             if (fileChooserHistoryService == null) {
                 fileChooserHistoryService = java.util.Objects.requireNonNull(service, "service");
@@ -1025,8 +962,7 @@ public final class PreviewRuntime implements AutoCloseable {
      * @throws IllegalStateException if no authority was bound
      */
     public dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettingsAuthority() {
-        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority =
-            exportSettingsAuthority;
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority = exportSettingsAuthority;
         if (authority == null) {
             throw new IllegalStateException("export settings authority is not bound");
         }
@@ -1034,9 +970,7 @@ public final class PreviewRuntime implements AutoCloseable {
     }
 
     /** Binds the shared authority created during {@link #start}; a no-op when already bound. */
-    void bindExportSettingsAuthority(
-        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority
-    ) {
+    void bindExportSettingsAuthority(final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority) {
         synchronized (this) {
             if (exportSettingsAuthority == null) {
                 exportSettingsAuthority = java.util.Objects.requireNonNull(authority, "authority");
@@ -1045,9 +979,7 @@ public final class PreviewRuntime implements AutoCloseable {
     }
 
     /** Keeps the orchestrator reachable for shutdown; a no-op for an unwired capability. */
-    void bindProtectedExportOrchestrator(
-        final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator
-    ) {
+    void bindProtectedExportOrchestrator(final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator) {
         if (orchestrator == null) {
             return;
         }
@@ -1066,8 +998,7 @@ public final class PreviewRuntime implements AutoCloseable {
      * <p>Any failure degrades to no orchestrator: the authority keeps serving the native dialog
      * and a checked option stays rejected, never silently downgraded to an unchecked export.</p>
      */
-    private static dev.turboism.exportsettings.ProtectedExportOrchestrator
-        createProtectedExportOrchestrator(
+    private static dev.turboism.exportsettings.ProtectedExportOrchestrator createProtectedExportOrchestrator(
             final Optional<Path> protectedExportVerificationRecord,
             final Path normalizedHostArtifact,
             final ClassLoader verifiedHostClassLoader,
@@ -1075,114 +1006,104 @@ public final class PreviewRuntime implements AutoCloseable {
             final HostRuntimeIngress ingress,
             final TurboismHomeLayout layout,
             final PreviewLog log,
-            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic>
-                vetoSurface
-    ) {
+            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic> vetoSurface) {
         if (protectedExportVerificationRecord.isEmpty()) {
             return null;
         }
         try {
             final dev.turboism.mapping.verification.VerifiedMemberResolver resolver =
-                new dev.turboism.mapping.verification.VerifiedProtectedExportResolverFactory()
-                    .create(
-                        protectedExportVerificationRecord.orElseThrow(),
-                        normalizedHostArtifact,
-                        verifiedHostClassLoader
-                    );
+                    new dev.turboism.mapping.verification.VerifiedProtectedExportResolverFactory()
+                            .create(
+                                    protectedExportVerificationRecord.orElseThrow(),
+                                    normalizedHostArtifact,
+                                    verifiedHostClassLoader);
             final String orchestratedPluginId = "dev.turboism.plugin.protected-export";
             final dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher edt =
-                new dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher() {
-                    @Override
-                    public <T> T call(final java.util.concurrent.Callable<T> action)
-                        throws Exception {
-                        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
-                            return action.call();
+                    new dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher() {
+                        @Override
+                        public <T> T call(final java.util.concurrent.Callable<T> action) throws Exception {
+                            if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+                                return action.call();
+                            }
+                            final java.util.concurrent.FutureTask<T> task =
+                                    new java.util.concurrent.FutureTask<>(action);
+                            javax.swing.SwingUtilities.invokeAndWait(task);
+                            return task.get();
                         }
-                        final java.util.concurrent.FutureTask<T> task =
-                            new java.util.concurrent.FutureTask<>(action);
-                        javax.swing.SwingUtilities.invokeAndWait(task);
-                        return task.get();
-                    }
 
-                    @Override
-                    public void submit(final Runnable task) {
-                        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
-                            task.run();
-                            return;
+                        @Override
+                        public void submit(final Runnable task) {
+                            if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+                                task.run();
+                                return;
+                            }
+                            javax.swing.SwingUtilities.invokeLater(task);
                         }
-                        javax.swing.SwingUtilities.invokeLater(task);
-                    }
-                };
+                    };
             final dev.turboism.sdk.cubism.core.MocLoader ownedMocLoader =
-                ingress.adapterAccess().coreRuntimeInfo().mocLoader();
+                    ingress.adapterAccess().coreRuntimeInfo().mocLoader();
             final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator =
-                new dev.turboism.exportsettings.ProtectedExportOrchestrator(
-                    new dev.turboism.exportsettings.VerifiedProtectedExportHostOperations(resolver),
-                    new dev.turboism.exportsettings.ProtectedExportStaging(
-                        ownedMocLoader::load,
-                        ownedMocLoader instanceof
-                                dev.turboism.adapter.cubism.core.OwnedModelParameterWriter writer
-                            ? writer::writeParameterValue
-                            : null
-                    ),
-                    layout.runtimeStateDir().resolve("protected-export"),
-                    orchestratedPluginId,
-                    "protected-export",
-                    exportSettings::protectedExportRedirectSeamInstalled,
-                    () -> exportSettings.pluginBindingLive(orchestratedPluginId),
-                    exportSettings::hostGeneration,
-                    edt,
-                    report -> {
-                        log.info(
+                    new dev.turboism.exportsettings.ProtectedExportOrchestrator(
+                            new dev.turboism.exportsettings.VerifiedProtectedExportHostOperations(resolver),
+                            new dev.turboism.exportsettings.ProtectedExportStaging(
+                                    ownedMocLoader::load,
+                                    ownedMocLoader
+                                                    instanceof
+                                                    dev.turboism.adapter.cubism.core.OwnedModelParameterWriter writer
+                                            ? writer::writeParameterValue
+                                            : null),
+                            layout.runtimeStateDir().resolve("protected-export"),
+                            orchestratedPluginId,
                             "protected-export",
-                            "session=" + report.sessionId()
-                                + " reached=" + report.reached()
-                                + " published=" + report.published()
-                                + " failure=" + report.failureKey()
-                                + (report.failureDetail() == null
-                                    ? "" : " detail=" + report.failureDetail())
-                        );
-                        // A user-initiated chooser cancel explains itself; every other
-                        // non-published terminal report must surface visibly.
-                        if (!report.published()
-                            && !dev.turboism.exportsettings.ProtectedExportOrchestrator
-                                .EXPORT_CANCELLED_KEY.equals(report.failureKey())) {
-                            vetoSurface.accept(
-                                new dev.turboism.exportsettings.ExportSettingsVetoDiagnostic(
-                                    report.failureKey() != null
-                                        ? report.failureKey()
-                                        : "protected-export.failed",
-                                    report.failureDetail()
-                                )
-                            );
-                        }
-                    },
-                    10_000L,
-                    600_000L
-                );
+                            exportSettings::protectedExportRedirectSeamInstalled,
+                            () -> exportSettings.pluginBindingLive(orchestratedPluginId),
+                            exportSettings::hostGeneration,
+                            edt,
+                            report -> {
+                                log.info(
+                                        "protected-export",
+                                        "session=" + report.sessionId()
+                                                + " reached=" + report.reached()
+                                                + " published=" + report.published()
+                                                + " failure=" + report.failureKey()
+                                                + (report.failureDetail() == null
+                                                        ? ""
+                                                        : " detail=" + report.failureDetail()));
+                                // A user-initiated chooser cancel explains itself; every other
+                                // non-published terminal report must surface visibly.
+                                if (!report.published()
+                                        && !dev.turboism.exportsettings.ProtectedExportOrchestrator.EXPORT_CANCELLED_KEY
+                                                .equals(report.failureKey())) {
+                                    vetoSurface.accept(new dev.turboism.exportsettings.ExportSettingsVetoDiagnostic(
+                                            report.failureKey() != null
+                                                    ? report.failureKey()
+                                                    : "protected-export.failed",
+                                            report.failureDetail()));
+                                }
+                            },
+                            10_000L,
+                            600_000L);
             orchestrator.refusalReporter(vetoSurface);
             return orchestrator;
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             log.warn(
-                "protected-export",
-                "Protected-export orchestration unavailable: " + failure.getClass().getName()
-            );
+                    "protected-export",
+                    "Protected-export orchestration unavailable: "
+                            + failure.getClass().getName());
             return null;
         }
     }
 
-    private static dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService
-        createFileChooserHistoryService(final Path home, final PreviewLog log) {
+    private static dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService createFileChooserHistoryService(
+            final Path home, final PreviewLog log) {
         final dev.turboism.config.RuntimeConfigRepository config =
-            new dev.turboism.config.RuntimeConfigRepository(
-                home,
-                diagnostic -> log.warn("config", diagnostic)
-            );
-        return new dev.turboism.filechooser.RuntimeFileChooserHistoryService(
-            () -> config.read().path("hooks").path("startup")
-                .path("separateExportSaveDirectory").asBoolean(false)
-        );
+                new dev.turboism.config.RuntimeConfigRepository(home, diagnostic -> log.warn("config", diagnostic));
+        return new dev.turboism.filechooser.RuntimeFileChooserHistoryService(() -> config.read()
+                .path("hooks")
+                .path("startup")
+                .path("separateExportSaveDirectory")
+                .asBoolean(false));
     }
 
     /**
@@ -1218,38 +1139,32 @@ public final class PreviewRuntime implements AutoCloseable {
      * @return the texture-atlas data-model capture of the active verified connection
      * @throws IllegalStateException when no verified connection is active
      */
-    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
-        textureAtlasDataModelCapture() {
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture textureAtlasDataModelCapture() {
         return hostIngress.textureAtlasDataModelCapture();
     }
 
     private static RuntimeScheduler createScheduler(final PreviewLog log) {
         final Clock clock = Clock.systemUTC();
-        final java.util.function.Consumer<PluginWorkBudgetEvent> diagnosticSink = event ->
-            log.warn(
-                "scheduler",
-                event.pluginId() + " " + event.taskId() + " " + event.phase() + " " + event.decision()
-            );
+        final java.util.function.Consumer<PluginWorkBudgetEvent> diagnosticSink = event -> log.warn(
+                "scheduler", event.pluginId() + " " + event.taskId() + " " + event.phase() + " " + event.decision());
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            // Plugin actions are dispatched asynchronously and commonly invoke
-            // host operations (undo/redo, menu work) that legitimately take longer
-            // than the 500ms registry default; a too-tight timeout timed the
-            // history panel's undo/redo actions out and tripped the circuit
-            // breaker (CIRCUIT_OPEN rejected every later action).
-            new PluginWorkExecutorRegistry(5_000L, 1, 64, diagnosticSink, clock),
-            SidecarDispatcher.noop(),
-            diagnosticSink
-        );
+                new DefaultWorkBudgetPolicy(),
+                // Plugin actions are dispatched asynchronously and commonly invoke
+                // host operations (undo/redo, menu work) that legitimately take longer
+                // than the 500ms registry default; a too-tight timeout timed the
+                // history panel's undo/redo actions out and tripped the circuit
+                // breaker (CIRCUIT_OPEN rejected every later action).
+                new PluginWorkExecutorRegistry(5_000L, 1, 64, diagnosticSink, clock),
+                SidecarDispatcher.noop(),
+                diagnosticSink);
     }
 
     private static void closeAfterFailedStart(
-        final LocalPluginRuntime plugins,
-        final HostRuntimeIngress ingress,
-        final RuntimeScheduler scheduler,
-        final PreviewLog log,
-        final Throwable failure
-    ) {
+            final LocalPluginRuntime plugins,
+            final HostRuntimeIngress ingress,
+            final RuntimeScheduler scheduler,
+            final PreviewLog log,
+            final Throwable failure) {
         log.error("runtime", "Turboism preview startup failed", failure);
         if (plugins != null) {
             plugins.close();
@@ -1273,71 +1188,58 @@ public final class PreviewRuntime implements AutoCloseable {
             writeReportsStrict(observedHostState, false);
         } catch (RuntimeException failure) {
             try {
-                log.warn(
-                    "preview-report",
-                    "PREVIEW_REPORT_SNAPSHOT_FAILED: report snapshot failed safely."
-                );
+                log.warn("preview-report", "PREVIEW_REPORT_SNAPSHOT_FAILED: report snapshot failed safely.");
             } catch (RuntimeException ignored) {
             }
         }
     }
 
-    private void writeReportsStrict(
-        final HostSession.State observedHostState,
-        final boolean stopped
-    ) {
+    private void writeReportsStrict(final HostSession.State observedHostState, final boolean stopped) {
         if (!writeReportsOnce(observedHostState, stopped, stopped)) {
             throw new IllegalStateException("Preview report persistence failed safely");
         }
     }
 
     private boolean writeReportsOnce(
-        final HostSession.State observedHostState,
-        final boolean stopped,
-        final boolean shutdownAttempted
-    ) {
+            final HostSession.State observedHostState, final boolean stopped, final boolean shutdownAttempted) {
         final LocalPluginRuntimeReportSnapshot snapshot = pluginRuntime.reportSnapshot();
         final Map<PreviewReportType, ObjectNode> reports = PreviewReportSnapshotFactory.create(
-            runtimeId,
-            Instant.now(),
-            home,
-            observedHostState,
-            hostArtifact,
-            verificationRecord,
-            loadReport,
-            snapshot.pluginSummaries(),
-            snapshot.failures(),
-            stopped,
-            shutdownAttempted
-        );
+                runtimeId,
+                Instant.now(),
+                home,
+                observedHostState,
+                hostArtifact,
+                verificationRecord,
+                loadReport,
+                snapshot.pluginSummaries(),
+                snapshot.failures(),
+                stopped,
+                shutdownAttempted);
         final Map<?, Boolean> results = reportWriter.writeAll(reports);
         return results.values().stream().allMatch(Boolean.TRUE::equals);
     }
 
-    static ShutdownReportCounts shutdownReportCounts(
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries
-    ) {
+    static ShutdownReportCounts shutdownReportCounts(final List<LocalPluginRuntime.LoadedPluginSummary> summaries) {
         final long succeeded = summaries.stream()
-            .filter(summary -> summary.unloadState().equals("SUCCEEDED"))
-            .count();
+                .filter(summary -> summary.unloadState().equals("SUCCEEDED"))
+                .count();
         final long scopesClosed = summaries.stream()
-            .filter(summary -> summary.scopeCleanupState().equals("SUCCEEDED"))
-            .count();
+                .filter(summary -> summary.scopeCleanupState().equals("SUCCEEDED"))
+                .count();
         final long classloadersClosed = summaries.stream()
-            .filter(summary -> summary.classloaderCleanupState().equals("SUCCEEDED"))
-            .count();
-        final long cleanupFailures = summaries.stream().mapToLong(summary ->
-            (summary.scopeCleanupState().equals("FAILED") ? 1 : 0)
-                + (summary.classloaderCleanupState().equals("FAILED") ? 1 : 0)
-        ).sum();
+                .filter(summary -> summary.classloaderCleanupState().equals("SUCCEEDED"))
+                .count();
+        final long cleanupFailures = summaries.stream()
+                .mapToLong(summary -> (summary.scopeCleanupState().equals("FAILED") ? 1 : 0)
+                        + (summary.classloaderCleanupState().equals("FAILED") ? 1 : 0))
+                .sum();
         return new ShutdownReportCounts(
-            summaries.size(),
-            succeeded,
-            summaries.size() - succeeded,
-            scopesClosed,
-            classloadersClosed,
-            cleanupFailures
-        );
+                summaries.size(),
+                succeeded,
+                summaries.size() - succeeded,
+                scopesClosed,
+                classloadersClosed,
+                cleanupFailures);
     }
 
     /**
@@ -1384,33 +1286,21 @@ public final class PreviewRuntime implements AutoCloseable {
         final HostSession.State finalObservedHostState = observedHostState;
         if (cleanHostResources) {
             failures.addAll(runShutdownStages(List.of(
-                new ShutdownStage(
-                    "PLUGIN_RUNTIME_CLOSE_FAILED", "plugin-runtime", shutdownLifecycle::closePluginRuntime
-                ),
-                new ShutdownStage(
-                    "EXPORT_SETTINGS_AUTHORITY_CLOSE_FAILED",
-                    "export-settings-authority",
-                    this::closeExportSettingsAuthority
-                ),
-                new ShutdownStage(
-                    "HOST_INGRESS_CLOSE_FAILED", "host-ingress", shutdownLifecycle::closeHostIngress
-                ),
-                new ShutdownStage(
-                    "SCHEDULER_SHUTDOWN_FAILED", "scheduler", shutdownLifecycle::shutdownScheduler
-                )
-            )));
+                    new ShutdownStage(
+                            "PLUGIN_RUNTIME_CLOSE_FAILED", "plugin-runtime", shutdownLifecycle::closePluginRuntime),
+                    new ShutdownStage(
+                            "EXPORT_SETTINGS_AUTHORITY_CLOSE_FAILED",
+                            "export-settings-authority",
+                            this::closeExportSettingsAuthority),
+                    new ShutdownStage("HOST_INGRESS_CLOSE_FAILED", "host-ingress", shutdownLifecycle::closeHostIngress),
+                    new ShutdownStage(
+                            "SCHEDULER_SHUTDOWN_FAILED", "scheduler", shutdownLifecycle::shutdownScheduler))));
         }
-        failures.addAll(runShutdownStages(List.of(
-            new ShutdownStage(
-                "FINAL_REPORT_WRITE_FAILED",
-                "final-report",
-                () -> {
-                    if (!shutdownLifecycle.writeFinalReport(finalObservedHostState, cleanHostResources)) {
-                        throw new IllegalStateException("Preview report persistence failed safely");
-                    }
-                }
-            )
-        )));
+        failures.addAll(runShutdownStages(List.of(new ShutdownStage("FINAL_REPORT_WRITE_FAILED", "final-report", () -> {
+            if (!shutdownLifecycle.writeFinalReport(finalObservedHostState, cleanHostResources)) {
+                throw new IllegalStateException("Preview report persistence failed safely");
+            }
+        }))));
 
         if (!failures.isEmpty()) {
             try {
@@ -1421,9 +1311,8 @@ public final class PreviewRuntime implements AutoCloseable {
             }
         }
 
-        failures.addAll(runShutdownStages(List.of(
-            new ShutdownStage("LOG_CLOSE_FAILED", "log", shutdownLifecycle::closeLog)
-        )));
+        failures.addAll(
+                runShutdownStages(List.of(new ShutdownStage("LOG_CLOSE_FAILED", "log", shutdownLifecycle::closeLog))));
         RecentPreviewDiagnostics.uninstall();
         shutdownFailures = List.copyOf(failures);
         if (failures.stream().anyMatch(failure -> failure.code().equals("LOG_CLOSE_FAILED"))) {
@@ -1439,8 +1328,7 @@ public final class PreviewRuntime implements AutoCloseable {
      * are still allocated.</p>
      */
     private void closeExportSettingsAuthority() {
-        final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator =
-            protectedExportOrchestrator;
+        final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator = protectedExportOrchestrator;
         protectedExportOrchestrator = null;
         if (orchestrator != null) {
             try {
@@ -1450,8 +1338,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 // A stuck armed session must not block the authority teardown below.
             }
         }
-        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority =
-            exportSettingsAuthority;
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority = exportSettingsAuthority;
         exportSettingsAuthority = null;
         if (authority != null) {
             authority.close();
@@ -1476,14 +1363,12 @@ public final class PreviewRuntime implements AutoCloseable {
     }
 
     record ShutdownReportCounts(
-        long shutdownAttempted,
-        long shutdownSucceeded,
-        long shutdownFailed,
-        long scopesClosed,
-        long classloadersClosed,
-        long cleanupFailures
-    ) {
-    }
+            long shutdownAttempted,
+            long shutdownSucceeded,
+            long shutdownFailed,
+            long scopesClosed,
+            long classloadersClosed,
+            long cleanupFailures) {}
 
     /**
      * One shutdown stage that did not complete. Shutdown is best-effort: a stage failure is
@@ -1494,11 +1379,9 @@ public final class PreviewRuntime implements AutoCloseable {
      * @param message fixed, report-safe description; deliberately not derived from the underlying
      *     throwable, so host detail cannot leak into a report
      */
-    public record ShutdownFailure(String code, String phase, String message) {
-    }
+    public record ShutdownFailure(String code, String phase, String message) {}
 
-    record ShutdownStage(String code, String phase, ShutdownAction action) {
-    }
+    record ShutdownStage(String code, String phase, ShutdownAction action) {}
 
     @FunctionalInterface
     interface ShutdownAction {

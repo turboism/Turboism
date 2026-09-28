@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 
-
 /** Runtime-owned generation state used by the verified mesh-mirror hook path. */
 public final class RuntimeMeshMirrorAxisService implements MeshMirrorAxisService {
     private volatile float angleDegrees;
@@ -32,11 +31,7 @@ public final class RuntimeMeshMirrorAxisService implements MeshMirrorAxisService
     }
 
     synchronized void observeAxis(
-        final float axisValue,
-        final boolean vertical,
-        final float pivotX,
-        final float pivotY
-    ) {
+            final float axisValue, final boolean vertical, final float pivotX, final float pivotY) {
         if (!Float.isFinite(axisValue) || !Float.isFinite(pivotX) || !Float.isFinite(pivotY)) return;
         final AxisState next = new AxisState(axisValue, vertical, pivotX, pivotY);
         if (!next.equals(axisState)) {
@@ -49,8 +44,8 @@ public final class RuntimeMeshMirrorAxisService implements MeshMirrorAxisService
         if (!Float.isFinite(pivotX) || !Float.isFinite(pivotY)) return;
         final AxisState current = axisState;
         final AxisState next = current == null
-            ? new AxisState(0.0f, true, pivotX, pivotY)
-            : new AxisState(current.axisValue(), current.vertical(), pivotX, pivotY);
+                ? new AxisState(0.0f, true, pivotX, pivotY)
+                : new AxisState(current.axisValue(), current.vertical(), pivotX, pivotY);
         if (!next.equals(current)) {
             axisState = next;
             generation++;
@@ -68,12 +63,7 @@ public final class RuntimeMeshMirrorAxisService implements MeshMirrorAxisService
         if (axisState == null || angleDegrees == 0.0f) return null;
         if (generation != cachedGeneration) {
             cachedLine = MeshMirrorGeometry.rotatedAxis(
-                axisState.axisValue(),
-                axisState.pivotX(),
-                axisState.pivotY(),
-                axisState.vertical(),
-                angleDegrees
-            );
+                    axisState.axisValue(), axisState.pivotX(), axisState.pivotY(), axisState.vertical(), angleDegrees);
             cachedGeneration = generation;
         }
         return cachedLine;
@@ -96,6 +86,5 @@ public final class RuntimeMeshMirrorAxisService implements MeshMirrorAxisService
         generation++;
     }
 
-
-    private record AxisState(float axisValue, boolean vertical, float pivotX, float pivotY) { }
+    private record AxisState(float axisValue, boolean vertical, float pivotX, float pivotY) {}
 }

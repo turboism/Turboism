@@ -1,6 +1,5 @@
 package dev.turboism.sdk.script;
 
-
 import java.util.Objects;
 import java.util.regex.Pattern;
 

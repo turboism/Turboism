@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -12,15 +11,14 @@ import java.util.Optional;
  * invent enum names or clamp the current value.</p>
  */
 public record OwnedParameter(
-    String id,
-    int typeNumber,
-    float minimumValue,
-    float maximumValue,
-    float defaultValue,
-    float currentValue,
-    List<Float> keyValues,
-    Optional<Boolean> repeat
-) {
+        String id,
+        int typeNumber,
+        float minimumValue,
+        float maximumValue,
+        float defaultValue,
+        float currentValue,
+        List<Float> keyValues,
+        Optional<Boolean> repeat) {
 
     public OwnedParameter {
         Objects.requireNonNull(id, "id");

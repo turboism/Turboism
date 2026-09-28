@@ -3,7 +3,6 @@ package dev.turboism.plugin.projectpanel;
 import dev.turboism.plugin.projectpanel.b1.application.ProjectPanelStateBinding;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
 import java.util.Objects;
 
 /** SDK-only migration shell; it intentionally contributes no host capability or UI. */

@@ -5,7 +5,6 @@ import dev.turboism.internal.core.ShellAdmission;
 import dev.turboism.internal.core.ShellHandle;
 import dev.turboism.internal.core.ShellServices;
 import dev.turboism.sdk.plugin.DisposableScope;
-
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -47,17 +46,16 @@ final class CoreShellRuntime implements AutoCloseable {
     private final ShellLoad state;
 
     private CoreShellRuntime(
-        final ShellHandle shell,
-        final DisposableScope scope,
-        final PluginContextBundle bundle,
-        final URLClassLoader resources,
-        final PreviewPluginShutdown hookCleanup,
-        final PluginLifecyclePolicy policy,
-        final PluginLifecycleLane lane,
-        final RetainedPluginGenerations retention,
-        final PreviewLog log,
-        final ShellLoad state
-    ) {
+            final ShellHandle shell,
+            final DisposableScope scope,
+            final PluginContextBundle bundle,
+            final URLClassLoader resources,
+            final PreviewPluginShutdown hookCleanup,
+            final PluginLifecyclePolicy policy,
+            final PluginLifecycleLane lane,
+            final RetainedPluginGenerations retention,
+            final PreviewLog log,
+            final ShellLoad state) {
         this.shell = shell;
         this.scope = scope;
         this.bundle = bundle;
@@ -81,35 +79,31 @@ final class CoreShellRuntime implements AutoCloseable {
     }
 
     static CoreShellRuntime start(
-        final PreviewPluginContextFactory contexts,
-        final PreviewPluginShutdown hookCleanup,
-        final ShellAdmission admission,
-        final ShellServices services,
-        final PluginLifecyclePolicy policy,
-        final PluginLifecycleLane lane,
-        final RetainedPluginGenerations retention,
-        final PreviewLog log
-    ) throws Exception {
+            final PreviewPluginContextFactory contexts,
+            final PreviewPluginShutdown hookCleanup,
+            final ShellAdmission admission,
+            final ShellServices services,
+            final PluginLifecyclePolicy policy,
+            final PluginLifecycleLane lane,
+            final RetainedPluginGenerations retention,
+            final PreviewLog log)
+            throws Exception {
         final ShellLoad state = new ShellLoad();
         final PluginLifecycleLease lease = new PluginLifecycleLease(ShellManifest.ID);
         final PluginLifecycleLane.Invocation<CoreShellRuntime> invocation =
-            lane.submit(ShellManifest.ID, "load", () -> {
-                try {
-                    return startOnLane(
-                        contexts, hookCleanup, admission, services,
-                        policy, lane, retention, log, state, lease
-                    );
-                } catch (Throwable failure) {
-                    FatalErrors.rethrowIfFatal(failure);
-                    state.cleanupComplete = cleanupShell(
-                        state, hookCleanup, log, policy, true,
-                        () -> retention.drainedExcept(ShellManifest.ID)
-                    );
-                    throw failure;
-                }
-            });
+                lane.submit(ShellManifest.ID, "load", () -> {
+                    try {
+                        return startOnLane(
+                                contexts, hookCleanup, admission, services, policy, lane, retention, log, state, lease);
+                    } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
+                        state.cleanupComplete = cleanupShell(
+                                state, hookCleanup, log, policy, true, () -> retention.drainedExcept(ShellManifest.ID));
+                        throw failure;
+                    }
+                });
         final PluginLifecycleLane.AwaitResult<CoreShellRuntime> result =
-            lane.await(invocation, policy.loadTimeout(), lease);
+                lane.await(invocation, policy.loadTimeout(), lease);
         switch (result.outcome) {
             case SUCCEEDED -> {
                 if (result.value != null) {
@@ -120,9 +114,8 @@ final class CoreShellRuntime implements AutoCloseable {
                 fence(state, log);
                 retainIfIncomplete(state, hookCleanup, log, policy, retention, invocation);
                 throw new IllegalStateException(
-                    "Shell startup exceeded " + policy.loadTimeout(),
-                    new TimeoutException("shell lifecycle deadline expired")
-                );
+                        "Shell startup exceeded " + policy.loadTimeout(),
+                        new TimeoutException("shell lifecycle deadline expired"));
             }
             case FAILED -> {
                 retainIfIncomplete(state, hookCleanup, log, policy, retention, invocation);
@@ -130,17 +123,14 @@ final class CoreShellRuntime implements AutoCloseable {
             }
             case REJECTED -> {
                 fence(state, log);
-                throw new IllegalStateException(
-                    "Shell admission rejected: lifecycle lane is saturated or closed"
-                );
+                throw new IllegalStateException("Shell admission rejected: lifecycle lane is saturated or closed");
             }
             default -> {
                 fence(state, log);
                 retainIfIncomplete(state, hookCleanup, log, policy, retention, invocation);
                 throw new IllegalStateException(
-                    "Shell startup exceeded " + policy.loadTimeout(),
-                    new TimeoutException("shell lifecycle deadline expired")
-                );
+                        "Shell startup exceeded " + policy.loadTimeout(),
+                        new TimeoutException("shell lifecycle deadline expired"));
             }
         }
     }
@@ -154,50 +144,46 @@ final class CoreShellRuntime implements AutoCloseable {
      * generation retained.
      */
     static void retainIfIncomplete(
-        final ShellLoad state,
-        final PreviewPluginShutdown hookCleanup,
-        final PreviewLog log,
-        final PluginLifecyclePolicy policy,
-        final RetainedPluginGenerations retention,
-        final PluginLifecycleLane.Invocation<?> invocation
-    ) {
+            final ShellLoad state,
+            final PreviewPluginShutdown hookCleanup,
+            final PreviewLog log,
+            final PluginLifecyclePolicy policy,
+            final RetainedPluginGenerations retention,
+            final PluginLifecycleLane.Invocation<?> invocation) {
         if (state.cleanupComplete) {
             return;
         }
         retention.retain(new RetainedPluginGenerations.RetainedGeneration(
-            ShellManifest.ID,
-            invocation == null ? null : invocation.workerDone,
-            state.context == null ? null : state.context.eventOwner(),
-            state.guard,
-            // Dormant once every destructive stage has been attempted; the drain barrier
-            // excludes this id anyway, but a shell generation retained alongside external
-            // plugins should still report its pending stages honestly.
-            () -> state.shellCloseAttempted
-                && state.scopeAttempted
-                && state.eventOwnerCloseAttempted
-                && state.resourcesAttempted,
-            () -> cleanupShell(state, hookCleanup, log, policy, false,
-                () -> retention.drainedExcept(ShellManifest.ID))
-        ));
+                ShellManifest.ID,
+                invocation == null ? null : invocation.workerDone,
+                state.context == null ? null : state.context.eventOwner(),
+                state.guard,
+                // Dormant once every destructive stage has been attempted; the drain barrier
+                // excludes this id anyway, but a shell generation retained alongside external
+                // plugins should still report its pending stages honestly.
+                () -> state.shellCloseAttempted
+                        && state.scopeAttempted
+                        && state.eventOwnerCloseAttempted
+                        && state.resourcesAttempted,
+                () -> cleanupShell(
+                        state, hookCleanup, log, policy, false, () -> retention.drainedExcept(ShellManifest.ID))));
     }
 
     private static CoreShellRuntime startOnLane(
-        final PreviewPluginContextFactory contexts,
-        final PreviewPluginShutdown hookCleanup,
-        final ShellAdmission admission,
-        final ShellServices services,
-        final PluginLifecyclePolicy policy,
-        final PluginLifecycleLane lane,
-        final RetainedPluginGenerations retention,
-        final PreviewLog log,
-        final ShellLoad state,
-        final PluginLifecycleLease lease
-    ) throws Exception {
+            final PreviewPluginContextFactory contexts,
+            final PreviewPluginShutdown hookCleanup,
+            final ShellAdmission admission,
+            final ShellServices services,
+            final PluginLifecyclePolicy policy,
+            final PluginLifecycleLane lane,
+            final RetainedPluginGenerations retention,
+            final PreviewLog log,
+            final ShellLoad state,
+            final PluginLifecycleLease lease)
+            throws Exception {
         state.resources = shellResourceLoader();
         state.scope = new DisposableScope();
-        state.context = contexts.create(
-            ShellManifest.descriptor(), state.resources, state.scope
-        );
+        state.context = contexts.create(ShellManifest.descriptor(), state.resources, state.scope);
         state.guard = new PluginGenerationGuard(ShellManifest.ID);
         log.info(ShellManifest.ID, "Shell startup: begin");
         state.context.eventOwner().beginInitializing();
@@ -214,9 +200,16 @@ final class CoreShellRuntime implements AutoCloseable {
             state.context.eventOwner().activate();
             log.info(ShellManifest.ID, "Shell startup: ready");
             return new CoreShellRuntime(
-                state.shell, state.scope, state.context, state.resources, hookCleanup,
-                policy, lane, retention, log, state
-            );
+                    state.shell,
+                    state.scope,
+                    state.context,
+                    state.resources,
+                    hookCleanup,
+                    policy,
+                    lane,
+                    retention,
+                    log,
+                    state);
         });
     }
 
@@ -276,14 +269,11 @@ final class CoreShellRuntime implements AutoCloseable {
         // retained until its worker exits and cleanup re-drives.
         fence(state, log);
         final PluginLifecycleLane.Invocation<Boolean> invocation = lane.submit(
-            ShellManifest.ID, "close",
-            () -> cleanupShell(
-                state, hookCleanup, log, policy, true,
-                () -> retention.drainedExcept(ShellManifest.ID)
-            )
-        );
-        final PluginLifecycleLane.AwaitResult<Boolean> result =
-            lane.await(invocation, policy.closeTimeout(), null);
+                ShellManifest.ID,
+                "close",
+                () -> cleanupShell(
+                        state, hookCleanup, log, policy, true, () -> retention.drainedExcept(ShellManifest.ID)));
+        final PluginLifecycleLane.AwaitResult<Boolean> result = lane.await(invocation, policy.closeTimeout(), null);
         switch (result.outcome) {
             case SUCCEEDED -> {
                 if (Boolean.TRUE.equals(result.value)) {
@@ -292,34 +282,26 @@ final class CoreShellRuntime implements AutoCloseable {
                 } else {
                     // The worker finished but some stage stayed incomplete; the retention
                     // log inside cleanupShell already explains which.
-                    retainIfIncomplete(
-                        state, hookCleanup, log, policy, retention, invocation
-                    );
+                    retainIfIncomplete(state, hookCleanup, log, policy, retention, invocation);
                 }
             }
             case FAILED -> {
-                log.error(
-                    ShellManifest.ID,
-                    "Shell close failed; generation retained",
-                    result.failure
-                );
+                log.error(ShellManifest.ID, "Shell close failed; generation retained", result.failure);
                 retainIfIncomplete(state, hookCleanup, log, policy, retention, invocation);
             }
             case TIMED_OUT -> {
                 log.error(
-                    ShellManifest.ID,
-                    "Shell close exceeded " + policy.closeTimeout()
-                        + "; generation retained until its worker exits",
-                    new TimeoutException("shell close deadline expired")
-                );
+                        ShellManifest.ID,
+                        "Shell close exceeded " + policy.closeTimeout()
+                                + "; generation retained until its worker exits",
+                        new TimeoutException("shell close deadline expired"));
                 retainIfIncomplete(state, hookCleanup, log, policy, retention, invocation);
             }
             case REJECTED -> {
                 log.error(
-                    ShellManifest.ID,
-                    "Shell close admission rejected; generation retained",
-                    new IllegalStateException("lifecycle lane is saturated or closed")
-                );
+                        ShellManifest.ID,
+                        "Shell close admission rejected; generation retained",
+                        new IllegalStateException("lifecycle lane is saturated or closed"));
                 retainIfIncomplete(state, hookCleanup, log, policy, retention, invocation);
             }
         }
@@ -339,13 +321,12 @@ final class CoreShellRuntime implements AutoCloseable {
      *     shell-contributed services
      */
     static boolean cleanupShell(
-        final ShellLoad state,
-        final PreviewPluginShutdown hookCleanup,
-        final PreviewLog log,
-        final PluginLifecyclePolicy policy,
-        final boolean awaitEvents,
-        final java.util.function.BooleanSupplier externalGenerationsDrained
-    ) {
+            final ShellLoad state,
+            final PreviewPluginShutdown hookCleanup,
+            final PreviewLog log,
+            final PluginLifecyclePolicy policy,
+            final boolean awaitEvents,
+            final java.util.function.BooleanSupplier externalGenerationsDrained) {
         // Every torn-down shell generation is fenced first, so its guarded context stops
         // admitting work before rollback runs.
         fence(state, log);
@@ -353,9 +334,7 @@ final class CoreShellRuntime implements AutoCloseable {
             if (state.context == null) {
                 state.eventOwnerQuiesced = true;
             } else {
-                final Duration bound = awaitEvents && policy != null
-                    ? policy.eventQuiescenceTimeout()
-                    : Duration.ZERO;
+                final Duration bound = awaitEvents && policy != null ? policy.eventQuiescenceTimeout() : Duration.ZERO;
                 final boolean quiesced;
                 try {
                     quiesced = state.context.eventOwner().awaitQuiescence(bound);
@@ -459,27 +438,23 @@ final class CoreShellRuntime implements AutoCloseable {
             state.resourcesClosed = closeResources(state.resources, log);
         }
         final boolean complete = state.eventOwnerQuiesced
-            && state.hooksUnregistered
-            && state.backupQuiesced
-            && state.shellClosed
-            && state.scopeClosed
-            && state.eventOwnerClosed
-            && state.resourcesClosed;
+                && state.hooksUnregistered
+                && state.backupQuiesced
+                && state.shellClosed
+                && state.scopeClosed
+                && state.eventOwnerClosed
+                && state.resourcesClosed;
         if (!complete && !state.retentionLogged) {
             state.retentionLogged = true;
             log.error(
-                ShellManifest.ID,
-                "Shell generation retained because cleanup did not quiesce",
-                new IllegalStateException("Shell cleanup is incomplete")
-            );
+                    ShellManifest.ID,
+                    "Shell generation retained because cleanup did not quiesce",
+                    new IllegalStateException("Shell cleanup is incomplete"));
         }
         return complete;
     }
 
-    private static boolean closeScope(
-        final DisposableScope scope,
-        final PreviewLog log
-    ) {
+    private static boolean closeScope(final DisposableScope scope, final PreviewLog log) {
         if (scope == null) {
             return true;
         }
@@ -493,10 +468,7 @@ final class CoreShellRuntime implements AutoCloseable {
         }
     }
 
-    private static boolean closeResources(
-        final URLClassLoader resources,
-        final PreviewLog log
-    ) {
+    private static boolean closeResources(final URLClassLoader resources, final PreviewLog log) {
         if (resources == null) {
             return true;
         }
@@ -510,11 +482,7 @@ final class CoreShellRuntime implements AutoCloseable {
         }
     }
 
-    private static void logFailure(
-        final PreviewLog log,
-        final String code,
-        final Throwable failure
-    ) {
+    private static void logFailure(final PreviewLog log, final String code, final Throwable failure) {
         log.error(ShellManifest.ID, "Shell close stage failed safely: " + code, failure);
     }
 
@@ -529,9 +497,8 @@ final class CoreShellRuntime implements AutoCloseable {
     private static URLClassLoader shellResourceLoader() {
         final ClassLoader parent = CoreShellRuntime.class.getClassLoader();
         final java.util.List<URL> roots = new java.util.ArrayList<>(2);
-        final URL anchor = parent != null
-            ? parent.getResource(CATALOG_ANCHOR)
-            : ClassLoader.getSystemResource(CATALOG_ANCHOR);
+        final URL anchor =
+                parent != null ? parent.getResource(CATALOG_ANCHOR) : ClassLoader.getSystemResource(CATALOG_ANCHOR);
         if (anchor != null) {
             try {
                 roots.add(anchorSource(anchor));
@@ -540,10 +507,8 @@ final class CoreShellRuntime implements AutoCloseable {
             }
         }
         final java.security.CodeSource codeSource =
-            CoreShellRuntime.class.getProtectionDomain().getCodeSource();
-        if (codeSource != null
-            && codeSource.getLocation() != null
-            && !roots.contains(codeSource.getLocation())) {
+                CoreShellRuntime.class.getProtectionDomain().getCodeSource();
+        if (codeSource != null && codeSource.getLocation() != null && !roots.contains(codeSource.getLocation())) {
             roots.add(codeSource.getLocation());
         }
         if (roots.isEmpty()) {
@@ -566,8 +531,10 @@ final class CoreShellRuntime implements AutoCloseable {
             return anchor;
         }
         if ("file".equals(anchor.getProtocol()) && spec.endsWith(CATALOG_ANCHOR)) {
-            return java.net.URI.create(spec.substring(0, spec.length() - CATALOG_ANCHOR.length()))
-                .toURL();
+            return java.net
+                    .URI
+                    .create(spec.substring(0, spec.length() - CATALOG_ANCHOR.length()))
+                    .toURL();
         }
         return anchor;
     }

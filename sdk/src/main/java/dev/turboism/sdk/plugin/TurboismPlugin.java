@@ -11,18 +11,14 @@ public interface TurboismPlugin {
      * @param context the plugin's runtime view
      * @throws Exception when initialization fails; the plugin is not enabled afterwards
      */
-    default void init(PluginContext context) throws Exception {
-    }
+    default void init(PluginContext context) throws Exception {}
 
     /** Called when the plugin transitions to the enabled state. */
-    default void enable() throws Exception {
-    }
+    default void enable() throws Exception {}
 
     /** Called when the plugin transitions back to the disabled state. */
-    default void disable() throws Exception {
-    }
+    default void disable() throws Exception {}
 
     /** Called when the plugin is being unloaded. */
-    default void shutdown() throws Exception {
-    }
+    default void shutdown() throws Exception {}
 }

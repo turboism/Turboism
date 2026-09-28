@@ -3,15 +3,14 @@ package dev.turboism.preview;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 
 /** Builds a plugin JAR that triggers reportable failures through PluginContext services. */
 final class PreviewFailurePluginJarFixture {
@@ -20,8 +19,7 @@ final class PreviewFailurePluginJarFixture {
     static final String SECRET = "preview-secret-must-not-leak";
     private static final String ENTRYPOINT = "dev.example.previewfailures.PreviewFailurePlugin";
 
-    private PreviewFailurePluginJarFixture() {
-    }
+    private PreviewFailurePluginJarFixture() {}
 
     static Path write(final Path plugins, final Path temporary) throws Exception {
         Files.createDirectories(plugins);
@@ -54,16 +52,8 @@ final class PreviewFailurePluginJarFixture {
         }
         Files.createDirectories(classRoot);
         final String classpath = System.getProperty("java.class.path");
-        final int result = compiler.run(
-            null,
-            null,
-            null,
-            "-classpath",
-            classpath,
-            "-d",
-            classRoot.toString(),
-            source.toString()
-        );
+        final int result =
+                compiler.run(null, null, null, "-classpath", classpath, "-d", classRoot.toString(), source.toString());
         if (result != 0) {
             throw new IOException("Fixture plugin compilation failed with exit code " + result);
         }
@@ -71,19 +61,19 @@ final class PreviewFailurePluginJarFixture {
 
     private static void addClasses(final JarOutputStream output, final Path classRoot) throws IOException {
         try (var paths = Files.walk(classRoot)) {
-            for (Path path : paths.filter(Files::isRegularFile).sorted(Comparator.naturalOrder()).toList()) {
+            for (Path path : paths.filter(Files::isRegularFile)
+                    .sorted(Comparator.naturalOrder())
+                    .toList()) {
                 add(output, classRoot.relativize(path).toString().replace('\\', '/'), Files.readAllBytes(path));
             }
         }
     }
 
-    private static void add(final JarOutputStream output, final String name, final String value)
-        throws IOException {
+    private static void add(final JarOutputStream output, final String name, final String value) throws IOException {
         add(output, name, value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    private static void add(final JarOutputStream output, final String name, final byte[] value)
-        throws IOException {
+    private static void add(final JarOutputStream output, final String name, final byte[] value) throws IOException {
         output.putNextEntry(new JarEntry(name));
         output.write(value);
         output.closeEntry();
@@ -105,19 +95,19 @@ final class PreviewFailurePluginJarFixture {
         descriptor.put("license", "Test License");
         descriptor.put("website", "https://turboism.dev/tests");
         descriptor.putArray("resources");
-        descriptor.putObject("i18n")
-            .put("baseName", "META-INF/turboism/i18n/messages")
-            .putArray("locales");
+        descriptor
+                .putObject("i18n")
+                .put("baseName", "META-INF/turboism/i18n/messages")
+                .putArray("locales");
         descriptor.putArray("dependencies");
         final ArrayNode permissions = descriptor.putArray("permissions");
-        permissions.addObject()
-            .put("id", "turboism.config.plugin.read")
-            .put("scope", "application")
-            .put("reason", "Exercises typed config failure reporting.");
+        permissions
+                .addObject()
+                .put("id", "turboism.config.plugin.read")
+                .put("scope", "application")
+                .put("reason", "Exercises typed config failure reporting.");
         descriptor.putArray("capabilities");
-        descriptor.putObject("environment")
-            .put("requiresCubism", false)
-            .put("ui", "none");
+        descriptor.putObject("environment").put("requiresCubism", false).put("ui", "none");
         return mapper.writeValueAsBytes(descriptor);
     }
 

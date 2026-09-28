@@ -2,7 +2,6 @@ package dev.turboism.plugin.recentpreview.cache;
 
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;

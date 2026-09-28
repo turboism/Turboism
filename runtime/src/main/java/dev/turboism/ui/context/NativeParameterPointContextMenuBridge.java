@@ -2,7 +2,6 @@ package dev.turboism.ui.context;
 
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
-
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -11,8 +10,7 @@ public final class NativeParameterPointContextMenuBridge {
 
     private static final AtomicReference<Handler> HANDLER = new AtomicReference<>();
 
-    private NativeParameterPointContextMenuBridge() {
-    }
+    private NativeParameterPointContextMenuBridge() {}
 
     /**
      * Installs the single process-wide handler for parameter-point menu-shown notifications.
@@ -79,9 +77,8 @@ public final class NativeParameterPointContextMenuBridge {
      * @throws NullPointerException if either argument is null
      */
     public static Handler handler(
-        final VerifiedObjectContextMenuHostOperations host,
-        final VerifiedObjectContextMenuNativeAccess nativeAccess
-    ) {
+            final VerifiedObjectContextMenuHostOperations host,
+            final VerifiedObjectContextMenuNativeAccess nativeAccess) {
         Objects.requireNonNull(host, "host");
         Objects.requireNonNull(nativeAccess, "nativeAccess");
         return (primary, secondary, context) -> {

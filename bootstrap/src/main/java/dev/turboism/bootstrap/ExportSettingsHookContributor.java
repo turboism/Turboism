@@ -18,15 +18,18 @@ import dev.turboism.preview.PreviewRuntime;
  */
 final class ExportSettingsHookContributor implements HookContributor {
 
-    @Override public String id() {
+    @Override
+    public String id() {
         return "TURBOISM_EXPORT_SETTINGS_HOOK";
     }
 
-    @Override public Phase phase() {
+    @Override
+    public Phase phase() {
         return Phase.RUNTIME_STARTED;
     }
 
-    @Override public boolean closesOnProcessExit() {
+    @Override
+    public boolean closesOnProcessExit() {
         return true;
     }
 
@@ -39,31 +42,25 @@ final class ExportSettingsHookContributor implements HookContributor {
      * gate and the capability in agreement, so an admitted-but-unsupported build never even
      * attempts installation.</p>
      */
-    @Override public boolean admitted(final HookEnvironment environment) {
+    @Override
+    public boolean admitted(final HookEnvironment environment) {
         return runtimeAdmitted(environment.profile(), environment.fullRuntimeAdmission());
     }
 
     static boolean runtimeAdmitted(final String profile, final boolean fullRuntimeAdmission) {
         return fullRuntimeAdmission
-            && ReviewedHostArtifacts.admitsFullRuntime(profile)
-            && ExportSettingsHostProfile.supportedHostVersions().contains(profile);
+                && ReviewedHostArtifacts.admitsFullRuntime(profile)
+                && ExportSettingsHostProfile.supportedHostVersions().contains(profile);
     }
 
-    @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
+    @Override
+    public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final PreviewRuntime runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
-        final var profile = ExportSettingsHostProfile.forArtifact(
-            HostArtifactDigest.from(host.artifact())
-        ).orElseThrow(() -> new IllegalStateException(
-            "Unsupported export-settings host artifact"
-        ));
-        final VerifiedExportSettingsHookInstaller installer =
-            VerifiedExportSettingsHookInstaller.fromHostProfile(
-                environment.instrumentation(),
-                profile,
-                runtime.exportSettingsAuthority(),
-                host.classLoader()
-            );
+        final var profile = ExportSettingsHostProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
+                .orElseThrow(() -> new IllegalStateException("Unsupported export-settings host artifact"));
+        final VerifiedExportSettingsHookInstaller installer = VerifiedExportSettingsHookInstaller.fromHostProfile(
+                environment.instrumentation(), profile, runtime.exportSettingsAuthority(), host.classLoader());
         try {
             installer.install();
         } catch (Throwable failure) {
@@ -73,7 +70,7 @@ final class ExportSettingsHookContributor implements HookContributor {
         }
         runtime.info("bootstrap", id() + " installation=COMPLETE");
         final VerifiedProtectedExportHookInstaller protectedExportHook =
-            installProtectedExportChooserHook(environment, runtime, host);
+                installProtectedExportChooserHook(environment, runtime, host);
         return () -> {
             try {
                 if (protectedExportHook != null) {
@@ -94,28 +91,18 @@ final class ExportSettingsHookContributor implements HookContributor {
      * is refused because the staging redirect cannot be proven.</p>
      */
     private static VerifiedProtectedExportHookInstaller installProtectedExportChooserHook(
-        final HookEnvironment environment,
-        final PreviewRuntime runtime,
-        final HostClassLocator.LocatedHost host
-    ) {
+            final HookEnvironment environment, final PreviewRuntime runtime, final HostClassLocator.LocatedHost host) {
         VerifiedProtectedExportHookInstaller installer = null;
         try {
-            final var profile = ProtectedExportChooserProfile.forArtifact(
-                HostArtifactDigest.from(host.artifact())
-            ).orElseThrow(() -> new IllegalStateException(
-                "Unsupported protected-export chooser host artifact"
-            ));
+            final var profile = ProtectedExportChooserProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
+                    .orElseThrow(() -> new IllegalStateException("Unsupported protected-export chooser host artifact"));
             installer = VerifiedProtectedExportHookInstaller.fromHostProfile(
-                environment.instrumentation(),
-                profile,
-                host.classLoader()
-            );
+                    environment.instrumentation(), profile, host.classLoader());
             if (!installer.install()) {
                 installer.close();
                 runtime.warn(
-                    "bootstrap",
-                    "Turboism protected-export chooser redirect unavailable; checked export stays rejected"
-                );
+                        "bootstrap",
+                        "Turboism protected-export chooser redirect unavailable; checked export stays rejected");
                 return null;
             }
             runtime.exportSettingsAuthority().markProtectedExportRedirectSeamInstalled();
@@ -132,10 +119,9 @@ final class ExportSettingsHookContributor implements HookContributor {
                 }
             }
             runtime.warn(
-                "bootstrap",
-                "Turboism protected-export chooser hook disabled safely: "
-                    + failure.getClass().getName()
-            );
+                    "bootstrap",
+                    "Turboism protected-export chooser hook disabled safely: "
+                            + failure.getClass().getName());
             return null;
         }
     }

@@ -9,7 +9,6 @@ import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryGroup;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -18,23 +17,17 @@ import java.util.Optional;
 final class GroupUndoDecoder implements NativeHistoryDecoder {
 
     private static final int MAX_GROUP_CHILDREN = 64;
+
     @Override
     public NativeHistoryDecodeResult decode(
-        final Object entry,
-        final String label,
-        final NativeHistoryDecodeContext context,
-        final int depth,
-        final NativeHistoryDecoderRegistry registry
-    ) {
+            final Object entry,
+            final String label,
+            final NativeHistoryDecodeContext context,
+            final int depth,
+            final NativeHistoryDecoderRegistry registry) {
         final VerifiedMemberResolver resolver = context.resolver();
-        final Object rawChildren = resolver.invoke(
-            "cubism.editor-history.semantic.group.edits",
-            entry
-        );
-        final Object rawCount = resolver.invoke(
-            "cubism.editor-history.semantic.group.count",
-            entry
-        );
+        final Object rawChildren = resolver.invoke("cubism.editor-history.semantic.group.edits", entry);
+        final Object rawCount = resolver.invoke("cubism.editor-history.semantic.group.count", entry);
         if (!(rawChildren instanceof List<?> nativeChildren) || !(rawCount instanceof Integer count)) {
             return NativeHistoryDecodeResult.failed("history.detail.group-shape-invalid");
         }
@@ -45,64 +38,49 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
         for (int index = 0; index < projectedCount; index++) {
             final Object child = nativeChildren.get(index);
             final String childLabel = childLabel(resolver, child, context);
-            final NativeHistoryDecodeResult result = registry.decode(
-                child,
-                childLabel,
-                context,
-                depth + 1
-            );
-            final HistoryEntryDetail detail = result.detail().orElseGet(() ->
-                HistoryEntryDetail.labelOnly(
-                    childLabel,
-                    HistoryOrigin.hostUnattributed(),
-                    result.diagnosticId()
-                )
-            );
+            final NativeHistoryDecodeResult result = registry.decode(child, childLabel, context, depth + 1);
+            final HistoryEntryDetail detail = result.detail()
+                    .orElseGet(() -> HistoryEntryDetail.labelOnly(
+                            childLabel, HistoryOrigin.hostUnattributed(), result.diagnosticId()));
             children.add(detail);
             if (result.diagnosticId().contains("limit")
-                || detail.group().map(HistoryGroup::truncated).orElse(false)) {
+                    || detail.group().map(HistoryGroup::truncated).orElse(false)) {
                 truncated = true;
             }
         }
         if (nativeChildren.size() > projectedCount) truncated = true;
         if (!truncated) {
             final Optional<HistoryEntryDetail> coalesced =
-                PartMembershipRelations.coalesce(children, context.boundedLabel(label));
+                    PartMembershipRelations.coalesce(children, context.boundedLabel(label));
             if (coalesced.isPresent()) {
                 return NativeHistoryDecodeResult.decoded(coalesced.orElseThrow());
             }
         }
         final boolean full = !truncated
-            && !children.isEmpty()
-            && children.stream().allMatch(child ->
-                child.detailLevel() == HistoryAction.DetailLevel.FULL);
-        final HistoryGroup group = new HistoryGroup(
-            Optional.empty(),
-            Math.max(count, nativeChildren.size()),
-            children,
-            truncated
-        );
+                && !children.isEmpty()
+                && children.stream().allMatch(child -> child.detailLevel() == HistoryAction.DetailLevel.FULL);
+        final HistoryGroup group =
+                new HistoryGroup(Optional.empty(), Math.max(count, nativeChildren.size()), children, truncated);
         // A group whose every child proves the same change on the same object is one operator
         // action: the subject is hoisted so the row can name it, while the bounded children stay
         // attached for audit.
         if (!truncated) {
             final Optional<HistoryEntryDetail> hoisted =
-                hoistUniformSubject(children, context.boundedLabel(label), group);
+                    hoistUniformSubject(children, context.boundedLabel(label), group);
             if (hoisted.isPresent()) {
                 return NativeHistoryDecodeResult.decoded(hoisted.orElseThrow());
             }
         }
         final HistoryEntryDetail detail = new HistoryEntryDetail(
-            context.boundedLabel(label),
-            full ? HistoryAction.DetailLevel.FULL : HistoryAction.DetailLevel.PARTIAL,
-            HistoryOrigin.hostUnattributed(),
-            List.of(),
-            List.of(),
-            Optional.of(group),
-            full ? Optional.empty() : Optional.of(
-                truncated ? "history.detail.group-truncated" : "history.detail.group-partial"
-            )
-        );
+                context.boundedLabel(label),
+                full ? HistoryAction.DetailLevel.FULL : HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.hostUnattributed(),
+                List.of(),
+                List.of(),
+                Optional.of(group),
+                full
+                        ? Optional.empty()
+                        : Optional.of(truncated ? "history.detail.group-truncated" : "history.detail.group-partial"));
         return NativeHistoryDecodeResult.decoded(detail);
     }
 
@@ -116,10 +94,7 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
      * than one fact and stays a plain group row.</p>
      */
     private static Optional<HistoryEntryDetail> hoistUniformSubject(
-        final List<HistoryEntryDetail> children,
-        final String label,
-        final HistoryGroup group
-    ) {
+            final List<HistoryEntryDetail> children, final String label, final HistoryGroup group) {
         if (children.isEmpty()) return Optional.empty();
         HistoryTarget subject = null;
         HistoryChange.Operation operation = null;
@@ -132,7 +107,8 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
         boolean full = true;
         for (final HistoryEntryDetail child : children) {
             if (child.detailLevel() == HistoryAction.DetailLevel.LABEL_ONLY
-                || child.targets().size() != 1 || child.changes().size() != 1) {
+                    || child.targets().size() != 1
+                    || child.changes().size() != 1) {
                 return Optional.empty();
             }
             final HistoryTarget childTarget = child.targets().get(0);
@@ -147,21 +123,20 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
                 after = childChange.after();
             } else {
                 if (!subject.equals(childTarget)
-                    || operation != childChange.operation()
-                    || !java.util.Objects.equals(property, childChange.property().orElse(null))) {
+                        || operation != childChange.operation()
+                        || !java.util.Objects.equals(
+                                property, childChange.property().orElse(null))) {
                     return Optional.empty();
                 }
                 uniformContext = uniformContext && context.equals(childChange.context());
-                uniformValues = uniformValues
-                    && before.equals(childChange.before())
-                    && after.equals(childChange.after());
+                uniformValues =
+                        uniformValues && before.equals(childChange.before()) && after.equals(childChange.after());
             }
             full = full && child.detailLevel() == HistoryAction.DetailLevel.FULL;
         }
         final HistoryEditContext projectedContext = uniformContext
-            ? context
-            : new HistoryEditContext(
-                HistoryEditContext.Kind.UNKNOWN, Optional.empty(), List.of());
+                ? context
+                : new HistoryEditContext(HistoryEditContext.Kind.UNKNOWN, Optional.empty(), List.of());
         // When children agree on subject, operation and property but not on values, the hoisted
         // row still names what was done to what — it is PARTIAL because the single projected
         // change cannot carry one honest before/after pair.
@@ -169,25 +144,26 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
         // change just because its children share one target.
         final boolean complete = full && uniformContext && uniformValues;
         return Optional.of(new HistoryEntryDetail(
-            label,
-            complete ? HistoryAction.DetailLevel.FULL : HistoryAction.DetailLevel.PARTIAL,
-            HistoryOrigin.hostUnattributed(),
-            List.of(subject),
-            List.of(new HistoryChange(
-                operation,
-                Optional.of(0),
-                Optional.ofNullable(property),
-                uniformValues ? before : Optional.empty(),
-                uniformValues ? after : Optional.empty(),
-                projectedContext
-            )),
-            Optional.of(group),
-            complete ? Optional.empty() : Optional.of(
-                !uniformContext ? "history.detail.group-scope-vary"
-                    : uniformValues ? "history.detail.group-partial"
-                    : "history.detail.group-values-vary"
-            )
-        ));
+                label,
+                complete ? HistoryAction.DetailLevel.FULL : HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.hostUnattributed(),
+                List.of(subject),
+                List.of(new HistoryChange(
+                        operation,
+                        Optional.of(0),
+                        Optional.ofNullable(property),
+                        uniformValues ? before : Optional.empty(),
+                        uniformValues ? after : Optional.empty(),
+                        projectedContext)),
+                Optional.of(group),
+                complete
+                        ? Optional.empty()
+                        : Optional.of(
+                                !uniformContext
+                                        ? "history.detail.group-scope-vary"
+                                        : uniformValues
+                                                ? "history.detail.group-partial"
+                                                : "history.detail.group-values-vary")));
     }
 
     /**
@@ -206,18 +182,15 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
      * decode as unsupported either way, so there is nothing to protect.</p>
      */
     private static void withholdEarlierWriters(
-        final VerifiedMemberResolver resolver,
-        final Object root,
-        final List<?> nativeChildren,
-        final int projectedCount,
-        final int depth,
-        final int count,
-        final NativeHistoryDecodeContext context
-    ) {
+            final VerifiedMemberResolver resolver,
+            final Object root,
+            final List<?> nativeChildren,
+            final int projectedCount,
+            final int depth,
+            final int count,
+            final NativeHistoryDecodeContext context) {
         if (!NativeHistoryDecoderRegistry.authorized(
-            resolver,
-            EditorHistorySemanticSelectorContract.SIMPLE_REQUIRED_ALIASES
-        )) {
+                resolver, EditorHistorySemanticSelectorContract.SIMPLE_REQUIRED_ALIASES)) {
             return;
         }
 
@@ -237,8 +210,7 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
             // only threatens SimpleUndos visited before it: writes execute in child order, so
             // an earlier-positioned node cannot be a later writer of the same target. Nodes
             // after it stay readable; the live value provably remains their own result.
-            final boolean laterUnknownNode = scan.hasUnknownNodeAfter(
-                scan.simpleVisitOrdinal(writer.entry()));
+            final boolean laterUnknownNode = scan.hasUnknownNodeAfter(scan.simpleVisitOrdinal(writer.entry()));
             if (laterUnknownNode || scan.lastWriter(writer.target()) != writer.entry()) {
                 context.withholdLivePostState(writer.entry());
             }
@@ -248,14 +220,12 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
     /** Bounded, selector-only writer scan over one top-level group and its nested descendants. */
     private static final class WriterScan {
         private final VerifiedMemberResolver resolver;
-        private final java.util.IdentityHashMap<Object, Boolean> visited =
-            new java.util.IdentityHashMap<>();
-        private final java.util.IdentityHashMap<Object, Object> lastWriters =
-            new java.util.IdentityHashMap<>();
+        private final java.util.IdentityHashMap<Object, Boolean> visited = new java.util.IdentityHashMap<>();
+        private final java.util.IdentityHashMap<Object, Object> lastWriters = new java.util.IdentityHashMap<>();
         private final List<Writer> writers = new ArrayList<>();
         private final List<Object> simpleEntries = new ArrayList<>();
         private final java.util.IdentityHashMap<Object, Integer> simpleVisitOrdinals =
-            new java.util.IdentityHashMap<>();
+                new java.util.IdentityHashMap<>();
         private final List<Integer> unknownVisitOrdinals = new ArrayList<>();
         private int visits;
         private int nodes;
@@ -266,12 +236,11 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
         }
 
         private void root(
-            final Object entry,
-            final List<?> children,
-            final int projectedCount,
-            final int depth,
-            final int count
-        ) {
+                final Object entry,
+                final List<?> children,
+                final int projectedCount,
+                final int depth,
+                final int count) {
             if (!enter(entry, depth)) return;
             scanChildren(children, projectedCount, depth);
             if (count != children.size() || children.size() > MAX_GROUP_CHILDREN) {
@@ -285,10 +254,7 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
 
             final boolean simple;
             try {
-                simple = resolver.isExactInstance(
-                    "cubism.editor-history.semantic.simple.class",
-                    entry
-                );
+                simple = resolver.isExactInstance("cubism.editor-history.semantic.simple.class", entry);
             } catch (RuntimeException unavailable) {
                 unknownVisitOrdinals.add(visitOrdinal);
                 return;
@@ -315,10 +281,7 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
 
             final boolean group;
             try {
-                group = resolver.isExactInstance(
-                    "cubism.editor-history.semantic.group.class",
-                    entry
-                );
+                group = resolver.isExactInstance("cubism.editor-history.semantic.group.class", entry);
             } catch (RuntimeException unavailable) {
                 unknownVisitOrdinals.add(visitOrdinal);
                 return;
@@ -349,20 +312,17 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
             }
         }
 
-        private void scanChildren(
-            final List<?> children,
-            final int projectedCount,
-            final int parentDepth
-        ) {
+        private void scanChildren(final List<?> children, final int projectedCount, final int parentDepth) {
             for (int index = 0; index < projectedCount; index++) {
                 scanEntry(children.get(index), parentDepth + 1);
             }
         }
 
         private boolean enter(final Object entry, final int depth) {
-            if (entry == null || depth > NativeHistoryDecodeContext.MAX_DEPTH
-                || nodes >= NativeHistoryDecodeContext.MAX_NODES
-                || visited.containsKey(entry)) {
+            if (entry == null
+                    || depth > NativeHistoryDecodeContext.MAX_DEPTH
+                    || nodes >= NativeHistoryDecodeContext.MAX_NODES
+                    || visited.containsKey(entry)) {
                 complete = false;
                 return false;
             }
@@ -398,23 +358,14 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
             return lastWriters.get(target);
         }
 
-        private record Writer(Object entry, Object target) {
-        }
+        private record Writer(Object entry, Object target) {}
     }
 
     private static String childLabel(
-        final VerifiedMemberResolver resolver,
-        final Object child,
-        final NativeHistoryDecodeContext context
-    ) {
+            final VerifiedMemberResolver resolver, final Object child, final NativeHistoryDecodeContext context) {
         try {
-            final Object value = resolver.invoke(
-                "cubism.editor-history.entry.presentation-name",
-                child
-            );
-            return value instanceof String text
-                ? context.boundedLabel(text)
-                : "History entry";
+            final Object value = resolver.invoke("cubism.editor-history.entry.presentation-name", child);
+            return value instanceof String text ? context.boundedLabel(text) : "History entry";
         } catch (RuntimeException failure) {
             return "History entry";
         }

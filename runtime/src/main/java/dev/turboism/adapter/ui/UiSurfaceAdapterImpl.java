@@ -3,7 +3,6 @@ package dev.turboism.adapter.ui;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.FileChooserRequest;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -62,21 +61,16 @@ public final class UiSurfaceAdapterImpl implements UiSurfaceAdapter {
     }
 
     private <T> AdapterResult<T> withCapability(
-        final Capability capability,
-        final Function<HostOperations, T> hostCall
-    ) {
+            final Capability capability, final Function<HostOperations, T> hostCall) {
         return host.map(operations -> callIfSupported(operations, capability, hostCall))
-            .orElseGet(unavailable(capability));
+                .orElseGet(unavailable(capability));
     }
 
     private <T> AdapterResult<T> callIfSupported(
-        final HostOperations operations,
-        final Capability capability,
-        final Function<HostOperations, T> hostCall
-    ) {
+            final HostOperations operations, final Capability capability, final Function<HostOperations, T> hostCall) {
         try {
             final Optional<SafeModeDiagnostic> versionDiagnostic =
-                HostUiVersionCheck.diagnosticFor(capability.id(), operations.hostVersion());
+                    HostUiVersionCheck.diagnosticFor(capability.id(), operations.hostVersion());
             if (versionDiagnostic.isPresent()) {
                 return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
             }
@@ -87,10 +81,8 @@ public final class UiSurfaceAdapterImpl implements UiSurfaceAdapter {
         } catch (AdapterHostException exception) {
             return AdapterResult.unavailable(exception.diagnostic());
         } catch (RuntimeException exception) {
-            return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
-                capability.id(),
-                "Host UI adapter call failed safely."
-            ));
+            return AdapterResult.unavailable(
+                    SafeModeDiagnostic.validationFailure(capability.id(), "Host UI adapter call failed safely."));
         }
     }
 

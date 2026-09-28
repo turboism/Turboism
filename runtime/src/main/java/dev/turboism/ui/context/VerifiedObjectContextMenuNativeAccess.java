@@ -4,15 +4,14 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.ObjectKind;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /** Exact-selector adapter from Cubism menu callbacks to typed selection snapshots and native items. */
 public final class VerifiedObjectContextMenuNativeAccess
-    implements VerifiedObjectContextMenuHostOperations.SelectionResolver,
-    VerifiedObjectContextMenuHostOperations.NativeAppender {
+        implements VerifiedObjectContextMenuHostOperations.SelectionResolver,
+                VerifiedObjectContextMenuHostOperations.NativeAppender {
 
     private static final String PARAMETER_GROUP_ROW = "object-context-menu.parameter.group-row.class";
     private static final String PARAMETER_GROUP_SOURCE = "object-context-menu.parameter.group-row.source";
@@ -40,10 +39,7 @@ public final class VerifiedObjectContextMenuNativeAccess
     private final String documentId;
 
     public VerifiedObjectContextMenuNativeAccess(
-        final VerifiedMemberResolver resolver,
-        final long hostGeneration,
-        final String documentId
-    ) {
+            final VerifiedMemberResolver resolver, final long hostGeneration, final String documentId) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         if (hostGeneration <= 0) throw new IllegalArgumentException("hostGeneration must be positive");
         this.hostGeneration = hostGeneration;
@@ -54,11 +50,12 @@ public final class VerifiedObjectContextMenuNativeAccess
     public ContextMenuSelection resolve(final Location location, final Object source) {
         Objects.requireNonNull(location, "location");
         Objects.requireNonNull(source, "source");
-        final List<?> selected = switch (location) {
-            case DEFORMER_TAB, PART_TAB -> list(source, "palette selection");
-            case PARAMETER_TAB -> parameterSources(source);
-            case WORKSPACE_OBJECT -> workspaceSources(source);
-        };
+        final List<?> selected =
+                switch (location) {
+                    case DEFORMER_TAB, PART_TAB -> list(source, "palette selection");
+                    case PARAMETER_TAB -> parameterSources(source);
+                    case WORKSPACE_OBJECT -> workspaceSources(source);
+                };
         final List<ContextMenuSelection.Item> items = new ArrayList<>(selected.size());
         for (Object value : selected) items.add(item(value));
         return new ContextMenuSelection(hostGeneration, documentId, location, items);
@@ -73,19 +70,17 @@ public final class VerifiedObjectContextMenuNativeAccess
             throw new IllegalStateException("parameter-point GUID is unavailable");
         }
         return new ContextMenuSelection(
-            hostGeneration,
-            documentId,
-            Location.PARAMETER_TAB,
-            List.of(new ContextMenuSelection.Item(ObjectKind.PARAMETER, text))
-        );
+                hostGeneration,
+                documentId,
+                Location.PARAMETER_TAB,
+                List.of(new ContextMenuSelection.Item(ObjectKind.PARAMETER, text)));
     }
 
     @Override
     public void append(
-        final Object menu,
-        final ContextMenuContributionDescriptor contribution,
-        final java.util.function.Consumer<String> action
-    ) {
+            final Object menu,
+            final ContextMenuContributionDescriptor contribution,
+            final java.util.function.Consumer<String> action) {
         Objects.requireNonNull(menu, "menu");
         Objects.requireNonNull(contribution, "contribution");
         Objects.requireNonNull(action, "action");
@@ -94,10 +89,9 @@ public final class VerifiedObjectContextMenuNativeAccess
 
     /** Appends to a persistent native Q menu and returns reversible Swing removal. */
     public dev.turboism.sdk.plugin.Registration appendPersistent(
-        final Object menu,
-        final ContextMenuContributionDescriptor contribution,
-        final java.util.function.Consumer<String> action
-    ) {
+            final Object menu,
+            final ContextMenuContributionDescriptor contribution,
+            final java.util.function.Consumer<String> action) {
         final Object item = nativeEntry(contribution.entry(), action);
         place(menu, item, contribution.placement());
         final Object component = resolver.invoke(MENU_COMPONENT, item);
@@ -117,19 +111,15 @@ public final class VerifiedObjectContextMenuNativeAccess
     }
 
     private Object nativeEntry(
-        final dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuEntry entry,
-        final java.util.function.Consumer<String> action
-    ) {
+            final dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuEntry entry,
+            final java.util.function.Consumer<String> action) {
         return switch (entry.kind()) {
             case ITEM -> {
-                final Object callback = resolver.createFunctionalConstructorArgumentProxy(
-                    MENU_ITEM_CREATE,
-                    2,
-                    ignored -> {
-                        action.accept(entry.actionId());
-                        return kotlinUnit();
-                    }
-                );
+                final Object callback =
+                        resolver.createFunctionalConstructorArgumentProxy(MENU_ITEM_CREATE, 2, ignored -> {
+                            action.accept(entry.actionId());
+                            return kotlinUnit();
+                        });
                 yield resolver.construct(MENU_ITEM_CREATE, entry.label(), null, callback);
             }
             case SEPARATOR -> resolver.construct(MENU_SEPARATOR_CREATE);
@@ -146,17 +136,17 @@ public final class VerifiedObjectContextMenuNativeAccess
     }
 
     private void place(
-        final Object menu,
-        final Object item,
-        final dev.turboism.sdk.ui.context.ContextMenuRegistry.Placement placement
-    ) {
+            final Object menu,
+            final Object item,
+            final dev.turboism.sdk.ui.context.ContextMenuRegistry.Placement placement) {
         if (menu instanceof List<?> raw) {
-            @SuppressWarnings("unchecked") final List<Object> items = (List<Object>) raw;
+            @SuppressWarnings("unchecked")
+            final List<Object> items = (List<Object>) raw;
             placeInList(items, item, placement);
             return;
         }
         if (placement.kind() == dev.turboism.sdk.ui.context.ContextMenuRegistry.PlacementKind.FIRST
-            || placement.kind() == dev.turboism.sdk.ui.context.ContextMenuRegistry.PlacementKind.LAST) {
+                || placement.kind() == dev.turboism.sdk.ui.context.ContextMenuRegistry.PlacementKind.LAST) {
             resolver.invoke(MENU_APPEND, menu, item);
             return;
         }
@@ -164,15 +154,15 @@ public final class VerifiedObjectContextMenuNativeAccess
         if (!(value instanceof List<?> raw)) {
             throw new IllegalStateException("context-menu items are unavailable");
         }
-        @SuppressWarnings("unchecked") final List<Object> items = (List<Object>) raw;
+        @SuppressWarnings("unchecked")
+        final List<Object> items = (List<Object>) raw;
         placeInList(items, item, placement);
     }
 
     private void placeInList(
-        final List<Object> items,
-        final Object item,
-        final dev.turboism.sdk.ui.context.ContextMenuRegistry.Placement placement
-    ) {
+            final List<Object> items,
+            final Object item,
+            final dev.turboism.sdk.ui.context.ContextMenuRegistry.Placement placement) {
         switch (placement.kind()) {
             case FIRST -> items.add(0, item);
             case LAST -> items.add(item);
@@ -181,9 +171,11 @@ public final class VerifiedObjectContextMenuNativeAccess
                 if (anchor < 0) {
                     throw new IllegalStateException("context-menu placement anchor is unavailable");
                 }
-                items.add(placement.kind() ==
-                    dev.turboism.sdk.ui.context.ContextMenuRegistry.PlacementKind.BEFORE
-                    ? anchor : anchor + 1, item);
+                items.add(
+                        placement.kind() == dev.turboism.sdk.ui.context.ContextMenuRegistry.PlacementKind.BEFORE
+                                ? anchor
+                                : anchor + 1,
+                        item);
             }
         }
     }
@@ -212,9 +204,7 @@ public final class VerifiedObjectContextMenuNativeAccess
                 throw new IllegalStateException("workspace selection type is unsupported");
             }
             values.add(Objects.requireNonNull(
-                resolver.invoke(WORKSPACE_SELECTION_SOURCE, selection),
-                "workspace selection source"
-            ));
+                    resolver.invoke(WORKSPACE_SELECTION_SOURCE, selection), "workspace selection source"));
         }
         return values;
     }
@@ -256,7 +246,9 @@ public final class VerifiedObjectContextMenuNativeAccess
 
     private Object kotlinUnit() {
         try {
-            return Class.forName("kotlin.Unit", false, resolver.hostClassLoader()).getField("INSTANCE").get(null);
+            return Class.forName("kotlin.Unit", false, resolver.hostClassLoader())
+                    .getField("INSTANCE")
+                    .get(null);
         } catch (ReflectiveOperationException | LinkageError unavailable) {
             return null;
         }

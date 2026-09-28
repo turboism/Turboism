@@ -8,7 +8,6 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -62,23 +61,21 @@ public final class SelectionObservationPublisher implements AutoCloseable {
     private boolean closed;
 
     public SelectionObservationPublisher(
-        final HostSnapshotSource source,
-        final SharedAsyncHostReadLane hostReads,
-        final RuntimeScheduler scheduler,
-        final RuntimeEventBroker eventBroker,
-        final AtomicReference<SelectionObservation> observedSelection
-    ) {
+            final HostSnapshotSource source,
+            final SharedAsyncHostReadLane hostReads,
+            final RuntimeScheduler scheduler,
+            final RuntimeEventBroker eventBroker,
+            final AtomicReference<SelectionObservation> observedSelection) {
         this(source, hostReads, scheduler, eventBroker, observedSelection, DEFAULT_INTERVAL);
     }
 
     SelectionObservationPublisher(
-        final HostSnapshotSource source,
-        final SharedAsyncHostReadLane hostReads,
-        final RuntimeScheduler scheduler,
-        final RuntimeEventBroker eventBroker,
-        final AtomicReference<SelectionObservation> observedSelection,
-        final Duration interval
-    ) {
+            final HostSnapshotSource source,
+            final SharedAsyncHostReadLane hostReads,
+            final RuntimeScheduler scheduler,
+            final RuntimeEventBroker eventBroker,
+            final AtomicReference<SelectionObservation> observedSelection,
+            final Duration interval) {
         this.source = Objects.requireNonNull(source, "source");
         this.hostReads = Objects.requireNonNull(hostReads, "hostReads");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
@@ -98,9 +95,9 @@ public final class SelectionObservationPublisher implements AutoCloseable {
     public void signalDemand() {
         synchronized (lifecycle) {
             if (closed
-                || pendingTimer != null
-                || readInFlight.get()
-                || !eventBroker.hasObserversFor(SelectionChangedEvent.class)) {
+                    || pendingTimer != null
+                    || readInFlight.get()
+                    || !eventBroker.hasObserversFor(SelectionChangedEvent.class)) {
                 return;
             }
             scheduleNext();
@@ -125,8 +122,7 @@ public final class SelectionObservationPublisher implements AutoCloseable {
     private void tick() {
         synchronized (lifecycle) {
             pendingTimer = null;
-            if (closed
-                || !eventBroker.hasObserversFor(SelectionChangedEvent.class)) {
+            if (closed || !eventBroker.hasObserversFor(SelectionChangedEvent.class)) {
                 // Park: no active subscription can receive the event. The next
                 // relevant subscription re-arms the loop via signalDemand().
                 return;
@@ -163,9 +159,7 @@ public final class SelectionObservationPublisher implements AutoCloseable {
 
     private void armNext() {
         synchronized (lifecycle) {
-            if (closed
-                || pendingTimer != null
-                || !eventBroker.hasObserversFor(SelectionChangedEvent.class)) {
+            if (closed || pendingTimer != null || !eventBroker.hasObserversFor(SelectionChangedEvent.class)) {
                 return;
             }
             scheduleNext();
@@ -186,15 +180,13 @@ public final class SelectionObservationPublisher implements AutoCloseable {
         // this observation reflects, which is what the commit's same-source stale
         // guard needs.
         final long version = source.invalidationToken();
-        final HostSnapshotSource.HostDocument document =
-            source.activeDocument().orElse(null);
+        final HostSnapshotSource.HostDocument document = source.activeDocument().orElse(null);
         final HostSnapshotSource.HostModel model = source.activeModel().orElse(null);
         final HostSnapshotSource.HostSelection selection = source.selection();
         final SelectionProbe probe = new SelectionProbe(
-            document == null ? null : document.documentId(),
-            model == null ? null : model.modelId(),
-            selection == null ? List.of() : selection.selectedObjectIds()
-        );
+                document == null ? null : document.documentId(),
+                model == null ? null : model.modelId(),
+                selection == null ? List.of() : selection.selectedObjectIds());
         // Commit and publication sit under the lifecycle monitor so close() is a
         // hard fence: a read finishing during teardown can neither commit nor
         // publish afterwards.
@@ -207,24 +199,16 @@ public final class SelectionObservationPublisher implements AutoCloseable {
             }
             // Project identity is deliberately absent: it is permission-gated per plugin
             // and never participates in observed events (SelectionSummaries.observedIdentity).
-            final SelectionSummary current = SelectionSummaries.observedIdentity(
-                SelectionSummaries.fromRuntimeSnapshot(snapshots.runtime(
-                    Optional.empty(),
-                    Optional.ofNullable(document),
-                    Optional.ofNullable(model),
-                    selection
-                ))
-            );
+            final SelectionSummary current =
+                    SelectionSummaries.observedIdentity(SelectionSummaries.fromRuntimeSnapshot(snapshots.runtime(
+                            Optional.empty(), Optional.ofNullable(document), Optional.ofNullable(model), selection)));
             // lastProbe is marked only after classification and the commit/publish
             // attempt complete — a failure here must not permanently suppress the
             // next observation of the same host state.
             SelectionObservation.commit(
-                observedSelection,
-                new SelectionObservation(source, version, current),
-                (previous, identity) -> eventBroker.publishRuntime(
-                    new SelectionChangedEvent(previous, identity)
-                )
-            );
+                    observedSelection,
+                    new SelectionObservation(source, version, current),
+                    (previous, identity) -> eventBroker.publishRuntime(new SelectionChangedEvent(previous, identity)));
             lastProbe = probe;
             lastProbeVersion = version;
         }
@@ -247,15 +231,9 @@ public final class SelectionObservationPublisher implements AutoCloseable {
     }
 
     /** Cheap raw host probe compared before any snapshot classification work runs. */
-    private record SelectionProbe(
-        String documentId,
-        String modelId,
-        List<String> selectedObjectIds
-    ) {
+    private record SelectionProbe(String documentId, String modelId, List<String> selectedObjectIds) {
         private SelectionProbe {
-            selectedObjectIds = List.copyOf(
-                Objects.requireNonNull(selectedObjectIds, "selectedObjectIds")
-            );
+            selectedObjectIds = List.copyOf(Objects.requireNonNull(selectedObjectIds, "selectedObjectIds"));
         }
     }
 }

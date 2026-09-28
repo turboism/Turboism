@@ -1,7 +1,6 @@
 package dev.turboism.graalhost;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
@@ -77,6 +76,7 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
      * receives a new sandboxed Context and fresh bindings.
      */
     private final Object engine;
+
     private final Availability availability;
     private final AtomicInteger contextsCreated = new AtomicInteger();
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -88,15 +88,18 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
         try {
             created = newEngine();
             probeContext(created);
-            detected = new Availability(true, System.getProperty("java.vm.name", "unknown") + " / "
-                + System.getProperty("java.version", "unknown"));
+            detected = new Availability(
+                    true,
+                    System.getProperty("java.vm.name", "unknown") + " / "
+                            + System.getProperty("java.version", "unknown"));
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
         } catch (Throwable failure) {
             closeEngine(created);
             created = null;
-            detected = new Availability(false, "UNTRUSTED GraalJS context is unavailable: "
-                + safeMessage(unwrap(failure), "unknown error"));
+            detected = new Availability(
+                    false,
+                    "UNTRUSTED GraalJS context is unavailable: " + safeMessage(unwrap(failure), "unknown error"));
         }
         this.engine = created;
         this.availability = detected;
@@ -107,21 +110,16 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
     }
 
     ExecutionResult execute(
-        final String source,
-        final Map<String, String> arguments,
-        final HostCall hostCall,
-        final ExecutionControl control
-    ) {
+            final String source,
+            final Map<String, String> arguments,
+            final HostCall hostCall,
+            final ExecutionControl control) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(arguments, "arguments");
         Objects.requireNonNull(hostCall, "hostCall");
         Objects.requireNonNull(control, "control");
         if (closed.get()) {
-            return ExecutionResult.failed(
-                "GRAAL_RUNTIME_CLOSED",
-                "GraalJS runtime is closed.",
-                ""
-            );
+            return ExecutionResult.failed("GRAAL_RUNTIME_CLOSED", "GraalJS runtime is closed.", "");
         }
         if (!availability.available()) {
             return ExecutionResult.failed("GRAAL_RUNTIME_UNAVAILABLE", availability.detail(), "");
@@ -154,16 +152,10 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
             final GraalHostMain.HostCallException hostFailure = hostFailure(cause);
             if (hostFailure != null) {
                 return ExecutionResult.failed(
-                    hostFailure.code(),
-                    safeMessage(hostFailure, "Script host call failed."),
-                    output
-                );
+                        hostFailure.code(), safeMessage(hostFailure, "Script host call failed."), output);
             }
             return ExecutionResult.failed(
-                "SCRIPT_EVALUATION_FAILED",
-                safeMessage(cause, "Script evaluation failed."),
-                output
-            );
+                    "SCRIPT_EVALUATION_FAILED", safeMessage(cause, "Script evaluation failed."), output);
         } finally {
             control.detach(context);
             closeContext(context, false);
@@ -178,42 +170,31 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
 
     private Object newEngine() throws ReflectiveOperationException {
         final Class<?> engineClass = Class.forName("org.graalvm.polyglot.Engine");
-        final Object builder = engineClass.getMethod("newBuilder", String[].class)
-            .invoke(null, (Object) new String[] {LANGUAGE});
+        final Object builder =
+                engineClass.getMethod("newBuilder", String[].class).invoke(null, (Object) new String[] {LANGUAGE});
         final Class<?> sandboxClass = Class.forName("org.graalvm.polyglot.SandboxPolicy");
         @SuppressWarnings({"unchecked", "rawtypes"})
-        final Object untrusted = Enum.valueOf(
-            (Class<? extends Enum>) sandboxClass.asSubclass(Enum.class), "UNTRUSTED"
-        );
+        final Object untrusted = Enum.valueOf((Class<? extends Enum>) sandboxClass.asSubclass(Enum.class), "UNTRUSTED");
         invokeBuilder(builder, "sandbox", new Class<?>[] {sandboxClass}, untrusted);
         invokeBuilder(
-            builder, "out", new Class<?>[] {java.io.OutputStream.class},
-            java.io.OutputStream.nullOutputStream()
-        );
+                builder, "out", new Class<?>[] {java.io.OutputStream.class}, java.io.OutputStream.nullOutputStream());
         invokeBuilder(
-            builder, "err", new Class<?>[] {java.io.OutputStream.class},
-            java.io.OutputStream.nullOutputStream()
-        );
+                builder, "err", new Class<?>[] {java.io.OutputStream.class}, java.io.OutputStream.nullOutputStream());
         option(builder, "engine.MaxIsolateMemory", "256MB");
         return builder.getClass().getMethod("build").invoke(builder);
     }
 
-    private Object newContext(
-        final ByteArrayOutputStream stdout,
-        final ByteArrayOutputStream stderr
-    ) throws ReflectiveOperationException {
+    private Object newContext(final ByteArrayOutputStream stdout, final ByteArrayOutputStream stderr)
+            throws ReflectiveOperationException {
         return newContext(engine, stdout, stderr);
     }
 
     private Object newContext(
-        final Object selectedEngine,
-        final ByteArrayOutputStream stdout,
-        final ByteArrayOutputStream stderr
-    ) throws ReflectiveOperationException {
+            final Object selectedEngine, final ByteArrayOutputStream stdout, final ByteArrayOutputStream stderr)
+            throws ReflectiveOperationException {
         final Class<?> contextClass = Class.forName("org.graalvm.polyglot.Context");
-        final Object builder = contextClass
-            .getMethod("newBuilder", String[].class)
-            .invoke(null, (Object) new String[] {LANGUAGE});
+        final Object builder =
+                contextClass.getMethod("newBuilder", String[].class).invoke(null, (Object) new String[] {LANGUAGE});
 
         final Class<?> engineClass = Class.forName("org.graalvm.polyglot.Engine");
         invokeBuilder(builder, "engine", new Class<?>[] {engineClass}, selectedEngine);
@@ -236,56 +217,50 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
     }
 
     private static void option(final Object builder, final String key, final String value)
-        throws ReflectiveOperationException {
+            throws ReflectiveOperationException {
         invokeBuilder(builder, "option", new Class<?>[] {String.class, String.class}, key, value);
     }
 
     private static void invokeBuilder(
-        final Object builder,
-        final String method,
-        final Class<?>[] parameterTypes,
-        final Object... arguments
-    ) throws ReflectiveOperationException {
+            final Object builder, final String method, final Class<?>[] parameterTypes, final Object... arguments)
+            throws ReflectiveOperationException {
         builder.getClass().getMethod(method, parameterTypes).invoke(builder, arguments);
     }
 
-    private void installBindings(
-        final Object context,
-        final Map<String, String> arguments,
-        final HostCall hostCall
-    ) throws Exception {
+    private void installBindings(final Object context, final Map<String, String> arguments, final HostCall hostCall)
+            throws Exception {
         final Class<?> contextClass = context.getClass();
-        final Object bindings = contextClass.getMethod("getBindings", String.class).invoke(context, LANGUAGE);
+        final Object bindings =
+                contextClass.getMethod("getBindings", String.class).invoke(context, LANGUAGE);
         final Method putMember = bindings.getClass().getMethod("putMember", String.class, Object.class);
         putMember.invoke(bindings, "__turboismArgsJson", mapper.writeValueAsString(arguments));
 
         final Class<?> executableClass = Class.forName("org.graalvm.polyglot.proxy.ProxyExecutable");
         final Object executable = Proxy.newProxyInstance(
-            executableClass.getClassLoader(),
-            new Class<?>[] {executableClass},
-            (proxy, method, invocationArguments) -> {
-                if (method.getDeclaringClass() == Object.class) {
-                    return switch (method.getName()) {
-                        case "toString" -> "TurboismHostCall";
-                        case "hashCode" -> System.identityHashCode(proxy);
-                        case "equals" -> proxy == invocationArguments[0];
-                        default -> null;
-                    };
-                }
-                if (!"execute".equals(method.getName())) {
-                    throw new UnsupportedOperationException(method.getName());
-                }
-                final Object values = invocationArguments == null || invocationArguments.length == 0
-                    ? null
-                    : invocationArguments[0];
-                if (values == null || Array.getLength(values) != 2) {
-                    throw new IllegalArgumentException("Turboism host call requires operation and JSON payload");
-                }
-                final String operation = valueAsString(Array.get(values, 0));
-                final String payload = valueAsString(Array.get(values, 1));
-                return hostCall.call(operation, payload);
-            }
-        );
+                executableClass.getClassLoader(),
+                new Class<?>[] {executableClass},
+                (proxy, method, invocationArguments) -> {
+                    if (method.getDeclaringClass() == Object.class) {
+                        return switch (method.getName()) {
+                            case "toString" -> "TurboismHostCall";
+                            case "hashCode" -> System.identityHashCode(proxy);
+                            case "equals" -> proxy == invocationArguments[0];
+                            default -> null;
+                        };
+                    }
+                    if (!"execute".equals(method.getName())) {
+                        throw new UnsupportedOperationException(method.getName());
+                    }
+                    final Object values = invocationArguments == null || invocationArguments.length == 0
+                            ? null
+                            : invocationArguments[0];
+                    if (values == null || Array.getLength(values) != 2) {
+                        throw new IllegalArgumentException("Turboism host call requires operation and JSON payload");
+                    }
+                    final String operation = valueAsString(Array.get(values, 0));
+                    final String payload = valueAsString(Array.get(values, 1));
+                    return hostCall.call(operation, payload);
+                });
         putMember.invoke(bindings, "__turboismCall", executable);
     }
 
@@ -294,8 +269,7 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
     }
 
     private static void eval(final Object context, final String source) throws ReflectiveOperationException {
-        context.getClass().getMethod("eval", String.class, CharSequence.class)
-            .invoke(context, LANGUAGE, source);
+        context.getClass().getMethod("eval", String.class, CharSequence.class).invoke(context, LANGUAGE, source);
     }
 
     private static void closeContext(final Object context, final boolean cancelIfExecuting) {
@@ -322,9 +296,7 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
         }
         Object context = null;
         try {
-            context = newContext(
-                candidateEngine, new ByteArrayOutputStream(), new ByteArrayOutputStream()
-            );
+            context = newContext(candidateEngine, new ByteArrayOutputStream(), new ByteArrayOutputStream());
         } finally {
             closeContext(context, false);
         }
@@ -385,7 +357,8 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
             if (!Boolean.TRUE.equals(isHostException.invoke(failure))) {
                 return null;
             }
-            final Object hostException = failure.getClass().getMethod("asHostException").invoke(failure);
+            final Object hostException =
+                    failure.getClass().getMethod("asHostException").invoke(failure);
             return hostException instanceof Throwable throwable ? throwable : null;
         } catch (ReflectiveOperationException ignored) {
             return null;
@@ -403,10 +376,13 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
     }
 
     private static String safeMessage(final Throwable failure, final String fallback) {
-        if (failure == null || failure.getMessage() == null || failure.getMessage().isBlank()) {
+        if (failure == null
+                || failure.getMessage() == null
+                || failure.getMessage().isBlank()) {
             return fallback;
         }
-        final String value = failure.getMessage().replace('\r', ' ').replace('\n', ' ').trim();
+        final String value =
+                failure.getMessage().replace('\r', ' ').replace('\n', ' ').trim();
         return value.length() <= 1024 ? value : value.substring(0, 1024);
     }
 
@@ -414,8 +390,7 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
         return output.toString(StandardCharsets.UTF_8);
     }
 
-    record Availability(boolean available, String detail) {
-    }
+    record Availability(boolean available, String detail) {}
 
     record ExecutionResult(Status status, String code, String message, String output) {
         static ExecutionResult success(final String output) {

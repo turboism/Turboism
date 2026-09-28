@@ -31,21 +31,22 @@ public final class SharedAsyncHostReadLane implements AutoCloseable {
             throw new IllegalArgumentException("queueCapacity must be positive");
         }
         this.executor = new ThreadPoolExecutor(
-            1,
-            1,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new LinkedBlockingQueue<>(queueCapacity),
-            runnable -> {
-                final Thread thread = new Thread(() -> {
-                    workerThreadName.set(Thread.currentThread().getName());
-                    runnable.run();
-                }, "turboism-host-read-shared");
-                thread.setDaemon(true);
-                return thread;
-            },
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(queueCapacity),
+                runnable -> {
+                    final Thread thread = new Thread(
+                            () -> {
+                                workerThreadName.set(Thread.currentThread().getName());
+                                runnable.run();
+                            },
+                            "turboism-host-read-shared");
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
         this.timer = new ScheduledThreadPoolExecutor(1, runnable -> {
             final Thread thread = new Thread(runnable, "turboism-host-read-deadline");
             thread.setDaemon(true);
@@ -54,11 +55,7 @@ public final class SharedAsyncHostReadLane implements AutoCloseable {
         this.timer.setRemoveOnCancelPolicy(true);
     }
 
-    Admission admit(
-        final RuntimeAsyncHostReadHandle handle,
-        final Duration timeout,
-        final Runnable action
-    ) {
+    Admission admit(final RuntimeAsyncHostReadHandle handle, final Duration timeout, final Runnable action) {
         Objects.requireNonNull(handle, "handle");
         Objects.requireNonNull(timeout, "timeout");
         Objects.requireNonNull(action, "action");
@@ -69,11 +66,7 @@ public final class SharedAsyncHostReadLane implements AutoCloseable {
             final PhysicalOperation operation = new PhysicalOperation(handle, action);
             final ScheduledFuture<?> deadline;
             try {
-                deadline = timer.schedule(
-                    handle::timeout,
-                    timeout.toNanos(),
-                    TimeUnit.NANOSECONDS
-                );
+                deadline = timer.schedule(handle::timeout, timeout.toNanos(), TimeUnit.NANOSECONDS);
             } catch (RejectedExecutionException exception) {
                 return Admission.RUNTIME_UNAVAILABLE;
             }
@@ -158,10 +151,7 @@ public final class SharedAsyncHostReadLane implements AutoCloseable {
     }
 
     private static void await(
-        final java.util.concurrent.ExecutorService service,
-        final long deadline,
-        final String message
-    ) {
+            final java.util.concurrent.ExecutorService service, final long deadline, final String message) {
         final long remaining = deadline - System.nanoTime();
         if (remaining <= 0L) {
             throw new IllegalStateException(message);
@@ -190,10 +180,7 @@ public final class SharedAsyncHostReadLane implements AutoCloseable {
         private final AtomicBoolean canceled = new AtomicBoolean(false);
         private volatile Thread runner;
 
-        private PhysicalOperation(
-            final RuntimeAsyncHostReadHandle handle,
-            final Runnable action
-        ) {
+        private PhysicalOperation(final RuntimeAsyncHostReadHandle handle, final Runnable action) {
             this.handle = handle;
             this.action = action;
         }

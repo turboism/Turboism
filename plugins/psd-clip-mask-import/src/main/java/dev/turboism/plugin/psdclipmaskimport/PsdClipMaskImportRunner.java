@@ -24,33 +24,29 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
     private final Consumer<Throwable> failureHandler;
     private final AtomicBoolean running = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final AtomicReference<PsdClipMaskImportProgress> activeProgress =
-        new AtomicReference<>();
+    private final AtomicReference<PsdClipMaskImportProgress> activeProgress = new AtomicReference<>();
     private final Object lifecycleLock = new Object();
     private volatile Thread runningThread;
 
     PsdClipMaskImportRunner(
-        final ImportOperation operation,
-        final Supplier<PsdClipMaskImportProgress> progressFactory,
-        final Consumer<Throwable> failureHandler
-    ) {
+            final ImportOperation operation,
+            final Supplier<PsdClipMaskImportProgress> progressFactory,
+            final Consumer<Throwable> failureHandler) {
         this(defaultExecutor(), operation, progressFactory, failureHandler);
     }
 
     PsdClipMaskImportRunner(
-        final ExecutorService executor,
-        final ImportOperation operation,
-        final Supplier<PsdClipMaskImportProgress> progressFactory
-    ) {
-        this(executor, operation, progressFactory, ignored -> { });
+            final ExecutorService executor,
+            final ImportOperation operation,
+            final Supplier<PsdClipMaskImportProgress> progressFactory) {
+        this(executor, operation, progressFactory, ignored -> {});
     }
 
     PsdClipMaskImportRunner(
-        final ExecutorService executor,
-        final ImportOperation operation,
-        final Supplier<PsdClipMaskImportProgress> progressFactory,
-        final Consumer<Throwable> failureHandler
-    ) {
+            final ExecutorService executor,
+            final ImportOperation operation,
+            final Supplier<PsdClipMaskImportProgress> progressFactory,
+            final Consumer<Throwable> failureHandler) {
         this.executor = Objects.requireNonNull(executor, "executor");
         this.operation = Objects.requireNonNull(operation, "operation");
         this.progressFactory = Objects.requireNonNull(progressFactory, "progressFactory");
@@ -149,12 +145,33 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
 
     private PsdClipMaskImportProgress guarded(final PsdClipMaskImportProgress delegate) {
         return new PsdClipMaskImportProgress() {
-            @Override public void show() { safely(delegate::show); }
-            @Override public void preparing() { safely(delegate::preparing); }
-            @Override public void awaitingConfirmation() { safely(delegate::awaitingConfirmation); }
-            @Override public void applying() { safely(delegate::applying); }
-            @Override public void focus() { safely(delegate::focus); }
-            @Override public boolean cancellationRequested() {
+            @Override
+            public void show() {
+                safely(delegate::show);
+            }
+
+            @Override
+            public void preparing() {
+                safely(delegate::preparing);
+            }
+
+            @Override
+            public void awaitingConfirmation() {
+                safely(delegate::awaitingConfirmation);
+            }
+
+            @Override
+            public void applying() {
+                safely(delegate::applying);
+            }
+
+            @Override
+            public void focus() {
+                safely(delegate::focus);
+            }
+
+            @Override
+            public boolean cancellationRequested() {
                 if (closed.get() || Thread.currentThread().isInterrupted()) return true;
                 try {
                     return delegate.cancellationRequested();
@@ -165,7 +182,11 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
                     return true;
                 }
             }
-            @Override public void close() { safely(delegate::close); }
+
+            @Override
+            public void close() {
+                safely(delegate::close);
+            }
         };
     }
 

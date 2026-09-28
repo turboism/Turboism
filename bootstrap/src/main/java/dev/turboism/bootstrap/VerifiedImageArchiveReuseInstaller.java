@@ -24,29 +24,33 @@ final class VerifiedImageArchiveReuseInstaller implements AutoCloseable {
     private boolean restored;
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-        ReviewedHostContract.candidates(
-            ImageArchiveReuseTransformer.reviewedClassSha256(), version -> HOOK_ID);
+            ReviewedHostContract.candidates(ImageArchiveReuseTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
-    static boolean admitted(final Path artifact, final RuntimeStartupConfig config,
-                            final boolean requested) {
-        return requested && config.hookEnabled(HOOK_ID)
-            && ReviewedHostContract.resolved(artifact, CANDIDATES);
+    static boolean admitted(final Path artifact, final RuntimeStartupConfig config, final boolean requested) {
+        return requested && config.hookEnabled(HOOK_ID) && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
-    VerifiedImageArchiveReuseInstaller(final Instrumentation instrumentation, final Path artifact,
-                                      final ClassLoader hostLoader) throws Exception {
+    VerifiedImageArchiveReuseInstaller(
+            final Instrumentation instrumentation, final Path artifact, final ClassLoader hostLoader) throws Exception {
         final var contract = ReviewedHostContract.requireBound(
-            ReviewedHostContract.resolve(artifact, CANDIDATES), "image archive reuse");
+                ReviewedHostContract.resolve(artifact, CANDIDATES), "image archive reuse");
         this.instrumentation = instrumentation;
-        target = Class.forName("com.live2d.graphics.CImageResource",false,hostLoader);
-        final Class<?> image = Class.forName("com.live2d.graphics.CWritableImage",false,hostLoader);
-        if (target.getClassLoader() != hostLoader || image.getClassLoader() != hostLoader
-            || !artifact.toAbsolutePath().normalize().equals(Path.of(target.getProtectionDomain()
-                .getCodeSource().getLocation().toURI()).toAbsolutePath().normalize())) {
+        target = Class.forName("com.live2d.graphics.CImageResource", false, hostLoader);
+        final Class<?> image = Class.forName("com.live2d.graphics.CWritableImage", false, hostLoader);
+        if (target.getClassLoader() != hostLoader
+                || image.getClassLoader() != hostLoader
+                || !artifact.toAbsolutePath()
+                        .normalize()
+                        .equals(Path.of(target.getProtectionDomain()
+                                        .getCodeSource()
+                                        .getLocation()
+                                        .toURI())
+                                .toAbsolutePath()
+                                .normalize())) {
             throw new IllegalArgumentException("image archive host loader or source mismatch");
         }
-        transformer = new ImageArchiveReuseTransformer(hostLoader,artifact);
-        bridge = new ImageArchiveReuseBridge(target,image);
+        transformer = new ImageArchiveReuseTransformer(hostLoader, artifact);
+        bridge = new ImageArchiveReuseBridge(target, image);
         contract.requireUnchanged(artifact);
     }
 
@@ -57,44 +61,63 @@ final class VerifiedImageArchiveReuseInstaller implements AutoCloseable {
         }
         bridge.install();
         try {
-            instrumentation.addTransformer(transformer,true);
+            instrumentation.addTransformer(transformer, true);
             installed = true;
             instrumentation.retransformClasses(target);
             if (transformer.matches() != 1 || transformer.failure() != null) {
                 throw new IllegalStateException("image archive transformation not admitted: " + transformer.failure());
             }
         } catch (Exception | Error failure) {
-            try { close(); } catch (Exception | Error cleanup) { failure.addSuppressed(cleanup); }
-            bridge.close(); throw failure;
+            try {
+                close();
+            } catch (Exception | Error cleanup) {
+                failure.addSuppressed(cleanup);
+            }
+            bridge.close();
+            throw failure;
         }
     }
 
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         bridge.close();
         if (!installed) return;
         installed = false;
         instrumentation.removeTransformer(transformer);
         final AtomicReference<String> observed = new AtomicReference<>();
         final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override public byte[] transform(Module module,ClassLoader loader,String name,Class<?> redefined,
-                                              ProtectionDomain domain,byte[] bytes) {
-                if (redefined == target) try {
-                    observed.set(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
-                } catch (Exception failure) { observed.set("unavailable"); }
+            @Override
+            public byte[] transform(
+                    Module module,
+                    ClassLoader loader,
+                    String name,
+                    Class<?> redefined,
+                    ProtectionDomain domain,
+                    byte[] bytes) {
+                if (redefined == target)
+                    try {
+                        observed.set(HexFormat.of()
+                                .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+                    } catch (Exception failure) {
+                        observed.set("unavailable");
+                    }
                 return null;
             }
         };
-        instrumentation.addTransformer(observer,true);
+        instrumentation.addTransformer(observer, true);
         try {
             instrumentation.retransformClasses(target);
-            restored = transformer.beforeSha256() != null && transformer.beforeSha256().equals(observed.get());
+            restored = transformer.beforeSha256() != null
+                    && transformer.beforeSha256().equals(observed.get());
             if (!restored) throw new IllegalStateException("image archive bytecode restoration not proven");
         } catch (java.lang.instrument.UnmodifiableClassException failure) {
-            throw new IllegalStateException("image archive bytecode restoration failed",failure);
+            throw new IllegalStateException("image archive bytecode restoration failed", failure);
         } finally {
             instrumentation.removeTransformer(observer);
         }
     }
 
-    boolean restored() { return restored; }
+    boolean restored() {
+        return restored;
+    }
 }

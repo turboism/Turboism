@@ -1,5 +1,10 @@
 package dev.turboism.preview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
@@ -26,20 +31,14 @@ import dev.turboism.storage.RuntimePluginStorage;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.userfile.RuntimeUserFileAccessService;
 import dev.turboism.userfile.UserFileGrantSource;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class PreviewRuntimeFailureIntegrationTest {
 
@@ -68,18 +67,20 @@ class PreviewRuntimeFailureIntegrationTest {
     }
 
     private static void triggerServiceFailures(
-        final Path home,
-        final dev.turboism.core.runtime.RuntimeScheduler scheduler,
-        final DisposableScope servicesScope,
-        final RuntimeFailureCollector collector
-    ) throws Exception {
+            final Path home,
+            final dev.turboism.core.runtime.RuntimeScheduler scheduler,
+            final DisposableScope servicesScope,
+            final RuntimeFailureCollector collector)
+            throws Exception {
         final RuntimePluginConfigRegistry legacyConfig = legacyConfig(home, scheduler, collector);
         servicesScope.register(legacyConfig);
         final Path pluginData = home.resolve("plugin-data");
         final Path unreadableScope = pluginData.resolve("private/read.properties");
         Files.createDirectories(unreadableScope);
         final Registration readScope = legacyConfig.readScope("private/read.properties");
-        assertTrue(legacyConfig.readString("private/read.properties", "private-value").isEmpty());
+        assertTrue(legacyConfig
+                .readString("private/read.properties", "private-value")
+                .isEmpty());
         readScope.close();
 
         final Path blockedParent = pluginData.resolve("private/blocker");
@@ -87,85 +88,87 @@ class PreviewRuntimeFailureIntegrationTest {
         Files.writeString(blockedParent, "not-a-directory");
         final Registration writeScope = legacyConfig.writeScope("private/blocker/config.properties");
         assertThrows(
-            dev.turboism.sdk.config.PluginConfigException.class,
-            () -> legacyConfig.writeString(
-                "private/blocker/config.properties",
-                "private-value",
-                "private-secret-must-not-leak"
-            )
-        );
+                dev.turboism.sdk.config.PluginConfigException.class,
+                () -> legacyConfig.writeString(
+                        "private/blocker/config.properties", "private-value", "private-secret-must-not-leak"));
         writeScope.close();
 
         final CleanupEvidenceCollector cleanupEvidence = new CleanupEvidenceCollector();
-        final RuntimePluginTaskScheduler tasks = new RuntimePluginTaskScheduler(
-            PLUGIN_ID, scheduler, servicesScope, cleanupEvidence, collector
-        );
+        final RuntimePluginTaskScheduler tasks =
+                new RuntimePluginTaskScheduler(PLUGIN_ID, scheduler, servicesScope, cleanupEvidence, collector);
         final RuntimePluginStorage storage = new RuntimePluginStorage(
-            PLUGIN_ID,
-            Map.of(
-                StorageRoot.DATA, home.resolve("data"),
-                StorageRoot.STATE, home.resolve("state-storage"),
-                StorageRoot.CACHE, home.resolve("cache")
-            ),
-            servicePermissions(),
-            tasks,
-            servicesScope,
-            cleanupEvidence,
-            collector
-        );
-        assertEquals("PERMISSION_DENIED", storage.readUtf8(
-            new StoragePath(StorageRoot.DATA, "private/read.txt"), 32
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS).error().orElseThrow().code().name());
+                PLUGIN_ID,
+                Map.of(
+                        StorageRoot.DATA, home.resolve("data"),
+                        StorageRoot.STATE, home.resolve("state-storage"),
+                        StorageRoot.CACHE, home.resolve("cache")),
+                servicePermissions(),
+                tasks,
+                servicesScope,
+                cleanupEvidence,
+                collector);
+        assertEquals(
+                "PERMISSION_DENIED",
+                storage.readUtf8(new StoragePath(StorageRoot.DATA, "private/read.txt"), 32)
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .error()
+                        .orElseThrow()
+                        .code()
+                        .name());
 
         final RuntimeUserFileAccessService userFiles = new RuntimeUserFileAccessService(
-            PLUGIN_ID,
-            servicePermissions(),
-            UserFileGrantSource.unavailable(),
-            tasks,
-            servicesScope,
-            cleanupEvidence,
-            collector
-        );
-        assertEquals("PERMISSION_DENIED", userFiles.request(new UserFileRequest(
-            "private-request",
-            "Select a private file",
-            List.of("txt"),
-            UserFileMode.READ,
-            UserFileLifetime.UNTIL_DISABLE
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS).error().orElseThrow().code().name());
+                PLUGIN_ID,
+                servicePermissions(),
+                UserFileGrantSource.unavailable(),
+                tasks,
+                servicesScope,
+                cleanupEvidence,
+                collector);
+        assertEquals(
+                "PERMISSION_DENIED",
+                userFiles
+                        .request(new UserFileRequest(
+                                "private-request",
+                                "Select a private file",
+                                List.of("txt"),
+                                UserFileMode.READ,
+                                UserFileLifetime.UNTIL_DISABLE))
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .error()
+                        .orElseThrow()
+                        .code()
+                        .name());
 
         final RuntimeTypedPluginConfigRegistry typedConfig = new RuntimeTypedPluginConfigRegistry(
-            legacyConfig,
-            PLUGIN_ID,
-            home.resolve("typed-config"),
-            servicePermissions(),
-            tasks,
-            servicesScope,
-            cleanupEvidence,
-            collector
-        );
-        typedConfig.read(new ConfigKey<>(
-            "private-config", "enabled", true, ConfigCodecs.booleanValue()
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS);
+                legacyConfig,
+                PLUGIN_ID,
+                home.resolve("typed-config"),
+                servicePermissions(),
+                tasks,
+                servicesScope,
+                cleanupEvidence,
+                collector);
+        typedConfig
+                .read(new ConfigKey<>("private-config", "enabled", true, ConfigCodecs.booleanValue()))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
         assertFalse(tasks.submit(new PluginTaskRequest(
-            new TaskId("task-1"),
-            PluginTaskKind.COMPUTE,
-            PluginTaskPriority.NORMAL,
-            token -> { }
-        )).accepted());
+                        new TaskId("task-1"), PluginTaskKind.COMPUTE, PluginTaskPriority.NORMAL, token -> {}))
+                .accepted());
         servicesScope.close();
     }
 
     private void assertReportsPreserveFailures(
-        final Path home,
-        final dev.turboism.core.runtime.RuntimeScheduler scheduler,
-        final RuntimeFailureCollector collector
-    ) throws Exception {
+            final Path home,
+            final dev.turboism.core.runtime.RuntimeScheduler scheduler,
+            final RuntimeFailureCollector collector)
+            throws Exception {
         final HostSession host = new HostSession(java.util.Optional::empty);
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
-            final LocalPluginRuntime plugins = new LocalPluginRuntime(
-                home, scheduler, host.adapterAccess(), log, collector
-            );
+            final LocalPluginRuntime plugins =
+                    new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log, collector);
             final PreviewRuntime runtime = PreviewRuntimeTestSupport.runtime(home, log, scheduler, plugins);
             PreviewRuntimeTestSupport.writeInitialReports(runtime, HostSession.State.ACTIVE);
             assertReport(home, 1, 2, 3);
@@ -178,36 +181,27 @@ class PreviewRuntimeFailureIntegrationTest {
     }
 
     private static RuntimePluginConfigRegistry legacyConfig(
-        final Path home,
-        final dev.turboism.core.runtime.RuntimeScheduler scheduler,
-        final RuntimeFailureCollector collector
-    ) {
+            final Path home,
+            final dev.turboism.core.runtime.RuntimeScheduler scheduler,
+            final RuntimeFailureCollector collector) {
         return new RuntimePluginConfigRegistry(
-            (permissionId, operation) -> { },
-            scheduler,
-            home.resolve("plugin-data"),
-            PLUGIN_ID,
-            problem -> { },
-            collector
-        );
+                (permissionId, operation) -> {},
+                scheduler,
+                home.resolve("plugin-data"),
+                PLUGIN_ID,
+                problem -> {},
+                collector);
     }
 
     private static Set<String> servicePermissions() {
-        return Set.of(
-            PermissionIds.TURBOISM_CONFIG_PLUGIN_READ,
-            PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE
-        );
+        return Set.of(PermissionIds.TURBOISM_CONFIG_PLUGIN_READ, PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE);
     }
 
     private static void assertReport(
-        final Path home,
-        final long taskCount,
-        final long storageCount,
-        final long configCount
-    ) throws Exception {
-        final JsonNode report = PreviewReportValidator.validate(Files.readAllBytes(
-            home.resolve("state").resolve(PreviewReportType.PREVIEW_RUNTIME.fileName())
-        )).document();
+            final Path home, final long taskCount, final long storageCount, final long configCount) throws Exception {
+        final JsonNode report = PreviewReportValidator.validate(
+                        Files.readAllBytes(home.resolve("state").resolve(PreviewReportType.PREVIEW_RUNTIME.fileName())))
+                .document();
         final JsonNode payload = report.path("payload");
         assertFailureCount(payload.path("taskFailures"), taskCount);
         assertFailureCount(payload.path("storageFailures"), storageCount);
@@ -220,10 +214,9 @@ class PreviewRuntimeFailureIntegrationTest {
 
     private static void assertFailureCount(final JsonNode failures, final long expectedCount) {
         assertEquals(
-            expectedCount,
-            java.util.stream.StreamSupport.stream(failures.spliterator(), false)
-                .mapToLong(failure -> failure.path("count").longValue())
-                .sum()
-        );
+                expectedCount,
+                java.util.stream.StreamSupport.stream(failures.spliterator(), false)
+                        .mapToLong(failure -> failure.path("count").longValue())
+                        .sum());
     }
 }

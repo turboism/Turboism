@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.performance;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 class PerformanceProbeRecorderRealtimeCountingTest {
 
@@ -28,7 +28,8 @@ class PerformanceProbeRecorderRealtimeCountingTest {
         recorder.exit(PerformanceProbeMetric.RENDER_SCENE, started);
         assertEquals(1L, recorder.renderSceneCalls());
         final PerformanceProbeRecorder.Snapshot capture = recorder.snapshot();
-        assertEquals(1L, capture.metrics().get(PerformanceProbeMetric.RENDER_SCENE).calls());
+        assertEquals(
+                1L, capture.metrics().get(PerformanceProbeMetric.RENDER_SCENE).calls());
         recorder.stopCapture();
         // Counting continues after capture stops; capture reset does not wipe it.
         recorder.enter(PerformanceProbeMetric.RENDER_SCENE);
@@ -49,7 +50,8 @@ class PerformanceProbeRecorderRealtimeCountingTest {
         recorder.exit(PerformanceProbeMetric.RENDER_SCENE, started);
         final PerformanceProbeRecorder.Snapshot capture = recorder.snapshot();
         // The capture window restarted the call counter...
-        assertEquals(1L, capture.metrics().get(PerformanceProbeMetric.RENDER_SCENE).calls());
+        assertEquals(
+                1L, capture.metrics().get(PerformanceProbeMetric.RENDER_SCENE).calls());
         // ...but the real-time counter is cumulative across capture windows.
         assertEquals(2L, recorder.renderSceneCalls());
     }

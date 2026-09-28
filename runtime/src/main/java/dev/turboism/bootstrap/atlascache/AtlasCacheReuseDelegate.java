@@ -66,8 +66,7 @@ public final class AtlasCacheReuseDelegate {
      * signature belongs to plus the signature itself. Weak keys keep atlas lifetime owned
      * by the host; the stored cache reference is one the atlas itself already retains.
      */
-    private static final Map<Object, Record> RECORDS =
-        Collections.synchronizedMap(new WeakHashMap<>());
+    private static final Map<Object, Record> RECORDS = Collections.synchronizedMap(new WeakHashMap<>());
 
     /**
      * Signature → produced-cache record, for atlas instances the record table has never
@@ -80,11 +79,10 @@ public final class AtlasCacheReuseDelegate {
      * Entries are bounded by count and by retained pixel bytes, eldest-evicted.
      */
     private static final int MAX_OUTPUTS = 128;
-    private static final long MAX_RETAINED_BYTES = Long.parseLong(System.getProperty(
-        "turboism.atlasCacheReuse.retainedImageBytes",
-        String.valueOf(1024L * 1024L * 1024L)));
-    private static final Map<Object, Output> OUTPUTS =
-        new LinkedHashMap<>(64, 0.75f, false);
+
+    private static final long MAX_RETAINED_BYTES = Long.parseLong(
+            System.getProperty("turboism.atlasCacheReuse.retainedImageBytes", String.valueOf(1024L * 1024L * 1024L)));
+    private static final Map<Object, Output> OUTPUTS = new LinkedHashMap<>(64, 0.75f, false);
     private static long retainedBytes;
 
     private static volatile HostAccess access;
@@ -93,11 +91,9 @@ public final class AtlasCacheReuseDelegate {
      * Optional file mirror for verdicts; set once via
      * {@code -Dturboism.atlasCacheReuse.evidenceFile=<path>}. Validation runs only.
      */
-    private static final String evidenceFile =
-        System.getProperty("turboism.atlasCacheReuse.evidenceFile");
+    private static final String evidenceFile = System.getProperty("turboism.atlasCacheReuse.evidenceFile");
 
-    private AtlasCacheReuseDelegate() {
-    }
+    private AtlasCacheReuseDelegate() {}
 
     /**
      * Proves every host handle resolves through the loader that defined the patched class.
@@ -127,8 +123,7 @@ public final class AtlasCacheReuseDelegate {
      * @return {@code true} only when the installed cache was built for exactly the inputs
      *         that would be drawn now — skipping the rebuild is then pixel-identical
      */
-    public static boolean tryReuse(final Class<?> hostClass, final Object atlas,
-                                   final boolean privatePath) {
+    public static boolean tryReuse(final Class<?> hostClass, final Object atlas, final boolean privatePath) {
         try {
             final HostAccess host = resolve(hostClass);
             final Object current = signature(host, atlas, privatePath);
@@ -140,43 +135,34 @@ public final class AtlasCacheReuseDelegate {
                 // for the same inputs still retains its output image, install a copy of
                 // it — the rebuild would reproduce those exact pixels.
                 final Output output = output(current);
-                if (output != null && output.image != null
-                        && supply(host, atlas, output.image)) {
-                    RECORDS.put(atlas,
-                        new Record(host.cachedAtlasImage.get(atlas), current));
+                if (output != null && output.image != null && supply(host, atlas, output.image)) {
+                    RECORDS.put(atlas, new Record(host.cachedAtlasImage.get(atlas), current));
                     return report(atlas, "reuse:supplied");
                 }
-                return report(atlas,
-                    stored == null ? "miss:no-cache" : "miss:cache-cleared");
+                return report(atlas, stored == null ? "miss:no-cache" : "miss:cache-cleared");
             }
             if (stored != null) {
                 if (stored.cache != cache) return report(atlas, "miss:cache-replaced");
-                return report(atlas,
-                    current.equals(stored.signature) ? "reuse" : "miss:signature-changed");
+                return report(atlas, current.equals(stored.signature) ? "reuse" : "miss:signature-changed");
             }
             // Unknown instance with an installed cache — a deep copy carrying the
             // source's pixels. Reuse when the installed pixels already equal the
             // recorded output; when they differ the recorded output is still the
             // correct result for these inputs, so a supplied copy is equally sound.
             final BufferedImage installed = bufferedImage(host, cache);
-            final String installedDigest =
-                installed == null ? null : pixelDigest(installed);
+            final String installedDigest = installed == null ? null : pixelDigest(installed);
             final Output output = output(current);
             if (output == null) {
-                return report(atlas, "miss:first-build installed="
-                    + shortDigest(installedDigest));
+                return report(atlas, "miss:first-build installed=" + shortDigest(installedDigest));
             }
             if (output.digest != null && output.digest.equals(installedDigest)) {
                 return report(atlas, "reuse:content");
             }
             if (output.image != null && supply(host, atlas, output.image)) {
-                RECORDS.put(atlas,
-                    new Record(host.cachedAtlasImage.get(atlas), current));
-                return report(atlas, "reuse:supplied installed="
-                    + shortDigest(installedDigest));
+                RECORDS.put(atlas, new Record(host.cachedAtlasImage.get(atlas), current));
+                return report(atlas, "reuse:supplied installed=" + shortDigest(installedDigest));
             }
-            return report(atlas, "miss:cache-content-differs installed="
-                + shortDigest(installedDigest));
+            return report(atlas, "miss:cache-content-differs installed=" + shortDigest(installedDigest));
         } catch (Throwable unreadable) {
             FatalErrors.rethrowIfFatal(unreadable);
             return report(atlas, "miss:exception");
@@ -189,8 +175,7 @@ public final class AtlasCacheReuseDelegate {
      * built cache was produced from. A failed rebuild never reaches this call, so no stale
      * signature can be recorded for an aborted build.
      */
-    public static void rebuilt(final Class<?> hostClass, final Object atlas,
-                               final boolean privatePath) {
+    public static void rebuilt(final Class<?> hostClass, final Object atlas, final boolean privatePath) {
         try {
             final HostAccess host = resolve(hostClass);
             final Object cache = host.cachedAtlasImage.get(atlas);
@@ -200,9 +185,11 @@ public final class AtlasCacheReuseDelegate {
                 RECORDS.put(atlas, new Record(cache, signature));
                 final BufferedImage produced = bufferedImage(host, cache);
                 if (produced != null) {
-                    recordOutput(signature, pixelDigest(produced),
-                        host.resImage.invoke(cache),
-                        (long) produced.getWidth() * produced.getHeight() * 4L);
+                    recordOutput(
+                            signature,
+                            pixelDigest(produced),
+                            host.resImage.invoke(cache),
+                            (long) produced.getWidth() * produced.getHeight() * 4L);
                 }
             }
         } catch (Throwable unrecordable) {
@@ -220,18 +207,19 @@ public final class AtlasCacheReuseDelegate {
      */
     private static boolean report(final Object atlas, final String verdict) {
         final String line = "[turboism] atlas-cache-reuse " + verdict
-            + " atlas=" + Integer.toHexString(System.identityHashCode(atlas))
-            + " loader=" + Integer.toHexString(System.identityHashCode(
-                atlas.getClass().getClassLoader()))
-            + " thread=" + Thread.currentThread().getName();
+                + " atlas=" + Integer.toHexString(System.identityHashCode(atlas))
+                + " loader="
+                + Integer.toHexString(System.identityHashCode(atlas.getClass().getClassLoader()))
+                + " thread=" + Thread.currentThread().getName();
         System.err.println(line);
         final String evidence = evidenceFile;
         if (evidence != null) {
             try {
-                java.nio.file.Files.writeString(java.nio.file.Path.of(evidence),
-                    line + System.lineSeparator(),
-                    java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.APPEND);
+                java.nio.file.Files.writeString(
+                        java.nio.file.Path.of(evidence),
+                        line + System.lineSeparator(),
+                        java.nio.file.StandardOpenOption.CREATE,
+                        java.nio.file.StandardOpenOption.APPEND);
             } catch (Throwable ignored) {
                 FatalErrors.rethrowIfFatal(ignored);
                 // Evidence capture must never affect the guard decision.
@@ -258,17 +246,16 @@ public final class AtlasCacheReuseDelegate {
      * bounded by {@code turboism.atlasCacheReuse.retainedImageBytes}; an image that alone
      * exceeds the budget is not retained (its digest still is).
      */
-    private static void recordOutput(final Object signature, final String digest,
-                                     final Object image, final long bytes) {
+    private static void recordOutput(
+            final Object signature, final String digest, final Object image, final long bytes) {
         synchronized (OUTPUTS) {
             final Output previous = OUTPUTS.remove(signature);
             if (previous != null) retainedBytes -= previous.bytes;
             final boolean retain = image != null && bytes <= MAX_RETAINED_BYTES;
-            OUTPUTS.put(signature,
-                new Output(digest, retain ? image : null, retain ? bytes : 0));
+            OUTPUTS.put(signature, new Output(digest, retain ? image : null, retain ? bytes : 0));
             if (retain) retainedBytes += bytes;
             final Iterator<Map.Entry<Object, Output>> eldest =
-                OUTPUTS.entrySet().iterator();
+                    OUTPUTS.entrySet().iterator();
             while (retainedBytes > MAX_RETAINED_BYTES && eldest.hasNext()) {
                 final Map.Entry<Object, Output> entry = eldest.next();
                 if (entry.getValue().image == null) continue;
@@ -276,7 +263,7 @@ public final class AtlasCacheReuseDelegate {
                 entry.setValue(new Output(entry.getValue().digest, null, 0));
             }
             final Iterator<Map.Entry<Object, Output>> excess =
-                OUTPUTS.entrySet().iterator();
+                    OUTPUTS.entrySet().iterator();
             while (OUTPUTS.size() > MAX_OUTPUTS && excess.hasNext()) {
                 retainedBytes -= excess.next().getValue().bytes;
                 excess.remove();
@@ -293,13 +280,11 @@ public final class AtlasCacheReuseDelegate {
      *
      * @return {@code true} when the supplied resource is installed
      */
-    private static boolean supply(final HostAccess host, final Object atlas,
-                                  final Object image) {
+    private static boolean supply(final HostAccess host, final Object atlas, final Object image) {
         try {
             final Object copy = host.wiCopyAs.invoke(image, null, true);
             if (copy == null) return false;
-            final Object resource =
-                host.resCtor.newInstance(copy, host.defaultColorType, false);
+            final Object resource = host.resCtor.newInstance(copy, host.defaultColorType, false);
             host.setCachedAtlasImage.invoke(atlas, resource);
             if (host.cachedAtlasImage.get(atlas) != resource) return false;
             // Post-build parity: setupCacheImage$cubism's tail clears the dirty flag
@@ -337,8 +322,8 @@ public final class AtlasCacheReuseDelegate {
      * degenerate into a comparable placeholder: two unknown contents are not equal
      * contents, so any uncomputable component discards the whole signature.
      */
-    private static Object signature(final HostAccess host, final Object atlas,
-                                    final boolean privatePath) throws Exception {
+    private static Object signature(final HostAccess host, final Object atlas, final boolean privatePath)
+            throws Exception {
         final List<Object> sig = new ArrayList<>();
         sig.add(host.width.getInt(atlas));
         sig.add(host.height.getInt(atlas));
@@ -349,9 +334,7 @@ public final class AtlasCacheReuseDelegate {
             if (entry == null) return null;
             final List<Object> term = new ArrayList<>(4);
             final Object guid = host.entryGuid.invoke(entry);
-            term.add(guid == null
-                ? "guid:null"
-                : String.valueOf(host.guidUuid.invoke(guid)));
+            term.add(guid == null ? "guid:null" : String.valueOf(host.guidUuid.invoke(guid)));
             final Object affine = host.entryTransform.invoke(entry);
             final Object transform = affine == null ? null : matrixKey(host, affine);
             if (transform == null) return null;
@@ -374,8 +357,7 @@ public final class AtlasCacheReuseDelegate {
      * pixels cannot be read or hashed within budget — the signature then cannot prove
      * what would be drawn and must be discarded.
      */
-    private static Object modelImageTerm(final HostAccess host, final Object modelImage)
-            throws Exception {
+    private static Object modelImageTerm(final HostAccess host, final Object modelImage) throws Exception {
         final Object resource = host.miFiltered.invoke(modelImage);
         if (resource == null) return null;
         final BufferedImage pixels = bufferedImage(host, resource);
@@ -390,8 +372,7 @@ public final class AtlasCacheReuseDelegate {
         return term;
     }
 
-    private static BufferedImage bufferedImage(final HostAccess host, final Object resource)
-            throws Exception {
+    private static BufferedImage bufferedImage(final HostAccess host, final Object resource) throws Exception {
         final Object writable = host.resImage.invoke(resource);
         if (writable == null) return null;
         final Object image = host.wiBuffered.invoke(writable);
@@ -399,8 +380,7 @@ public final class AtlasCacheReuseDelegate {
     }
 
     /** Canonical float[6] key — bit-exact compare, no tolerance; null if unreadable. */
-    private static Object matrixKey(final HostAccess host, final Object affine)
-            throws Exception {
+    private static Object matrixKey(final HostAccess host, final Object affine) throws Exception {
         final Object matrix = host.affineMatrix.invoke(affine);
         if (!(matrix instanceof float[] m) || m.length != 6) return null;
         final StringBuilder key = new StringBuilder(6 * 9);
@@ -421,8 +401,7 @@ public final class AtlasCacheReuseDelegate {
         final MessageDigest sha = sha256();
         final DataBuffer buffer = image.getRaster().getDataBuffer();
         if (buffer instanceof DataBufferInt ints
-                && image.getRaster().getDataBuffer().getSize()
-                        == image.getWidth() * image.getHeight()) {
+                && image.getRaster().getDataBuffer().getSize() == image.getWidth() * image.getHeight()) {
             for (final int v : ints.getData()) {
                 sha.update((byte) (v >>> 24));
                 sha.update((byte) (v >>> 16));
@@ -475,22 +454,21 @@ public final class AtlasCacheReuseDelegate {
     private static HostAccess load(final Class<?> atlas) {
         final ClassLoader loader = atlas.getClassLoader();
         if (loader == null) {
-            throw new IllegalStateException(
-                "atlas cache-reuse: patched class is bootstrap-loaded; host unreachable");
+            throw new IllegalStateException("atlas cache-reuse: patched class is bootstrap-loaded; host unreachable");
         }
         final SideHandles side = loadSideHandles(loader);
         try {
-            return new HostAccess(atlas,
-                field(atlas, "cachedAtlasImage"),
-                field(atlas, "width"),
-                field(atlas, "height"),
-                field(atlas, "modelImages"),
-                atlas.getMethod("setCachedAtlasImage", side.resourceClass),
-                atlas.getMethod("setDirty_cachedAtlasImage", boolean.class),
-                side);
+            return new HostAccess(
+                    atlas,
+                    field(atlas, "cachedAtlasImage"),
+                    field(atlas, "width"),
+                    field(atlas, "height"),
+                    field(atlas, "modelImages"),
+                    atlas.getMethod("setCachedAtlasImage", side.resourceClass),
+                    atlas.getMethod("setDirty_cachedAtlasImage", boolean.class),
+                    side);
         } catch (NoSuchFieldException | NoSuchMethodException missing) {
-            throw new IllegalStateException(
-                "atlas cache-reuse atlas member missing", missing);
+            throw new IllegalStateException("atlas cache-reuse atlas member missing", missing);
         }
     }
 
@@ -502,42 +480,35 @@ public final class AtlasCacheReuseDelegate {
     private static SideHandles loadSideHandles(final ClassLoader loader) {
         try {
             final Class<?> entry = Class.forName(
-                "com.live2d.cubism.doc.model.texture.textureAtlas.CTextureAtlas$ModelImageEntry",
-                false, loader);
+                    "com.live2d.cubism.doc.model.texture.textureAtlas.CTextureAtlas$ModelImageEntry", false, loader);
             final Class<?> guid = Class.forName("com.live2d.type.Guid", false, loader);
             final Class<?> affine = Class.forName("com.live2d.type.CAffine", false, loader);
-            final Class<?> modelImage = Class.forName(
-                "com.live2d.cubism.doc.model.texture.modelImage.CModelImage", false, loader);
-            final Class<?> resource =
-                Class.forName("com.live2d.graphics.CImageResource", false, loader);
-            final Class<?> writable =
-                Class.forName("com.live2d.graphics.CWritableImage", false, loader);
-            final Class<?> colorType =
-                Class.forName("com.live2d.graphics.n", false, loader);
-            final Field defaultColorType =
-                resource.getDeclaredField("DEFAULT_COLOR_TYPE");
+            final Class<?> modelImage =
+                    Class.forName("com.live2d.cubism.doc.model.texture.modelImage.CModelImage", false, loader);
+            final Class<?> resource = Class.forName("com.live2d.graphics.CImageResource", false, loader);
+            final Class<?> writable = Class.forName("com.live2d.graphics.CWritableImage", false, loader);
+            final Class<?> colorType = Class.forName("com.live2d.graphics.n", false, loader);
+            final Field defaultColorType = resource.getDeclaredField("DEFAULT_COLOR_TYPE");
             defaultColorType.setAccessible(true);
             return new SideHandles(
-                entry.getMethod("getModelImageGuid"),
-                guid.getMethod("getUuidString"),
-                entry.getMethod("calcModelImageLocalToAtlasTransform"),
-                affine.getMethod("getMatrix"),
-                entry.getMethod("getModelImage"),
-                modelImage.getMethod("getModelImageVersion"),
-                modelImage.getMethod("getFilteredImage"),
-                resource.getMethod("getImage"),
-                writable.getMethod("getJBufferedImage"),
-                writable.getMethod("copyAs", colorType, boolean.class),
-                resource.getConstructor(writable, colorType, boolean.class),
-                defaultColorType.get(null));
+                    entry.getMethod("getModelImageGuid"),
+                    guid.getMethod("getUuidString"),
+                    entry.getMethod("calcModelImageLocalToAtlasTransform"),
+                    affine.getMethod("getMatrix"),
+                    entry.getMethod("getModelImage"),
+                    modelImage.getMethod("getModelImageVersion"),
+                    modelImage.getMethod("getFilteredImage"),
+                    resource.getMethod("getImage"),
+                    writable.getMethod("getJBufferedImage"),
+                    writable.getMethod("copyAs", colorType, boolean.class),
+                    resource.getConstructor(writable, colorType, boolean.class),
+                    defaultColorType.get(null));
         } catch (ReflectiveOperationException missing) {
-            throw new IllegalStateException(
-                "atlas cache-reuse host member missing", missing);
+            throw new IllegalStateException("atlas cache-reuse host member missing", missing);
         }
     }
 
-    private static Field field(final Class<?> owner, final String name)
-            throws NoSuchFieldException {
+    private static Field field(final Class<?> owner, final String name) throws NoSuchFieldException {
         final Field field = owner.getDeclaredField(name);
         field.setAccessible(true);
         return field;
@@ -594,10 +565,15 @@ public final class AtlasCacheReuseDelegate {
         private final Method setCachedAtlasImage;
         private final Method setDirty;
 
-        private HostAccess(final Class<?> atlasClass, final Field cachedAtlasImage,
-                           final Field width, final Field height, final Field modelImages,
-                           final Method setCachedAtlasImage, final Method setDirty,
-                           final SideHandles side) {
+        private HostAccess(
+                final Class<?> atlasClass,
+                final Field cachedAtlasImage,
+                final Field width,
+                final Field height,
+                final Field modelImages,
+                final Method setCachedAtlasImage,
+                final Method setDirty,
+                final SideHandles side) {
             this.atlasClass = atlasClass;
             this.cachedAtlasImage = cachedAtlasImage;
             this.width = width;
@@ -636,13 +612,19 @@ public final class AtlasCacheReuseDelegate {
         private final Object defaultColorType;
         private final Class<?> resourceClass;
 
-        private SideHandles(final Method entryGuid, final Method guidUuid,
-                            final Method entryTransform, final Method affineMatrix,
-                            final Method entryModelImage, final Method miVersion,
-                            final Method miFiltered, final Method resImage,
-                            final Method wiBuffered, final Method wiCopyAs,
-                            final Constructor<?> resCtor,
-                            final Object defaultColorType) {
+        private SideHandles(
+                final Method entryGuid,
+                final Method guidUuid,
+                final Method entryTransform,
+                final Method affineMatrix,
+                final Method entryModelImage,
+                final Method miVersion,
+                final Method miFiltered,
+                final Method resImage,
+                final Method wiBuffered,
+                final Method wiCopyAs,
+                final Constructor<?> resCtor,
+                final Object defaultColorType) {
             this.entryGuid = entryGuid;
             this.guidUuid = guidUuid;
             this.entryTransform = entryTransform;

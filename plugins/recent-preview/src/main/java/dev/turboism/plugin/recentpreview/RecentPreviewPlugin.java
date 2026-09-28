@@ -6,10 +6,13 @@ import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
+import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.task.FixedDelayTaskRequest;
 import dev.turboism.sdk.task.PluginTaskKind;
 import dev.turboism.sdk.task.PluginTaskPriority;
@@ -17,16 +20,11 @@ import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.task.TaskHandle;
 import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.task.TaskSubmission;
-import dev.turboism.sdk.plugin.Registration;
-
-import javax.swing.SwingUtilities;
-
-import java.util.Objects;
-import java.util.Optional;
 import java.time.Duration;
 import java.util.List;
-import dev.turboism.sdk.cubism.recentfile.RecentFileService;
-import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
+import java.util.Objects;
+import java.util.Optional;
+import javax.swing.SwingUtilities;
 
 /**
  * Recent-file preview thumbnail plugin: captures a bounded preview when a model is
@@ -55,6 +53,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
 
     /** Poller clock (package-private so tests can drive the min-interval). */
     RecentPreviewPoller.Clock pollClock = System::currentTimeMillis;
+
     private TaskHandle pollTask;
 
     @Override
@@ -62,13 +61,11 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         this.context = Objects.requireNonNull(context, "context");
         cacheIndex = new PreviewCacheIndex(context.storage());
         controller = new RecentPreviewController(
-            context.services().get(RecentFileService.class),
-            context.services().get(ScreenshotCaptureService.class),
-            cacheIndex
-        );
-        renderer = new RecentPreviewRendererImpl(
-            controller, this::requestCapture, context.logger(), loadingText(context)
-        );
+                context.services().get(RecentFileService.class),
+                context.services().get(ScreenshotCaptureService.class),
+                cacheIndex);
+        renderer =
+                new RecentPreviewRendererImpl(controller, this::requestCapture, context.logger(), loadingText(context));
         context.disposableScope().register(() -> closeContribution());
         context.logger().info("Recent Preview plugin initialized");
     }
@@ -116,16 +113,12 @@ public final class RecentPreviewPlugin implements CubismPlugin {
 
     @Override
     public void beforeOpenModel(final ProjectFileOperation operation) {
-        fileNameHint = operation.fileName().isPresent()
-            ? operation.fileName()
-            : Optional.of(operation.displayName());
+        fileNameHint = operation.fileName().isPresent() ? operation.fileName() : Optional.of(operation.displayName());
     }
 
     @Override
     public void beforeSaveModel(final ProjectFileOperation operation) {
-        fileNameHint = operation.fileName().isPresent()
-            ? operation.fileName()
-            : Optional.of(operation.displayName());
+        fileNameHint = operation.fileName().isPresent() ? operation.fileName() : Optional.of(operation.displayName());
         // Exact-timing track: capture the current scene right before the save writes
         // the file, so the thumbnail matches the saved content (onModelSaved remains
         // as a safety net).
@@ -152,9 +145,8 @@ public final class RecentPreviewPlugin implements CubismPlugin {
     /** before* hook resolution: the operation carries the real file name (hint). */
     private void captureForOperation(final ProjectFileOperation operation) {
         if (!enabled || operation == null) return;
-        final Optional<String> hint = operation.fileName().isPresent()
-            ? operation.fileName()
-            : Optional.of(operation.displayName());
+        final Optional<String> hint =
+                operation.fileName().isPresent() ? operation.fileName() : Optional.of(operation.displayName());
         final Optional<RecentFileId> id = controller.resolveId(operation.displayName(), hint);
         if (id.isEmpty()) return;
         requestCapture(id.get());
@@ -190,22 +182,24 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         final TaskSubmission submission;
         try {
             submission = tasks.scheduleWithFixedDelay(new FixedDelayTaskRequest(
-                new TaskId(POLL_TASK_ID),
-                PluginTaskKind.LOW_FREQUENCY_REFRESH,
-                PluginTaskPriority.LOW,
-                POLL_INTERVAL,
-                POLL_INTERVAL,
-                ignored -> pollOnce()
-            ));
+                    new TaskId(POLL_TASK_ID),
+                    PluginTaskKind.LOW_FREQUENCY_REFRESH,
+                    PluginTaskPriority.LOW,
+                    POLL_INTERVAL,
+                    POLL_INTERVAL,
+                    ignored -> pollOnce()));
         } catch (RuntimeException rejected) {
-            context.logger().warn("Recent preview poller rejected: " + rejected.getClass().getSimpleName());
+            context.logger()
+                    .warn("Recent preview poller rejected: "
+                            + rejected.getClass().getSimpleName());
             return;
         }
         if (submission.accepted()) {
             pollTask = submission.handle();
         } else {
-            context.logger().warn("Recent preview poller not accepted: "
-                + submission.rejectionReason().map(Object::toString).orElse("unknown"));
+            context.logger()
+                    .warn("Recent preview poller not accepted: "
+                            + submission.rejectionReason().map(Object::toString).orElse("unknown"));
         }
     }
 
@@ -235,8 +229,9 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         try {
             files = controller.refresh().toCompletableFuture().join();
         } catch (RuntimeException failure) {
-            context.logger().warn("Recent preview poll refresh failed: "
-                + failure.getClass().getSimpleName());
+            context.logger()
+                    .warn("Recent preview poll refresh failed: "
+                            + failure.getClass().getSimpleName());
             return;
         }
         final Optional<RecentFileId> target = poller.sample(files);
@@ -246,8 +241,9 @@ public final class RecentPreviewPlugin implements CubismPlugin {
             if (!enabled) return;
             if (failure != null) {
                 renderer.captureFailed(id);
-                context.logger().warn("Recent preview poll capture failed: "
-                    + failure.getClass().getSimpleName());
+                context.logger()
+                        .warn("Recent preview poll capture failed: "
+                                + failure.getClass().getSimpleName());
                 refreshPopup();
             } else if (result == PreviewCacheWriteResult.STORED) {
                 renderer.captureStored(id);
@@ -269,7 +265,9 @@ public final class RecentPreviewPlugin implements CubismPlugin {
             if (!enabled) return;
             if (failure != null) {
                 renderer.captureFailed(id);
-                context.logger().warn("Recent preview capture failed: " + failure.getClass().getSimpleName());
+                context.logger()
+                        .warn("Recent preview capture failed: "
+                                + failure.getClass().getSimpleName());
                 refreshPopup();
                 return;
             }
@@ -302,8 +300,9 @@ public final class RecentPreviewPlugin implements CubismPlugin {
             service.refresh();
         } catch (RuntimeException unavailable) {
             // Safe mode / missing bridge: nothing to refresh, never crash the EDT.
-            context.logger().warn("Recent preview popup refresh unavailable: "
-                + unavailable.getClass().getSimpleName());
+            context.logger()
+                    .warn("Recent preview popup refresh unavailable: "
+                            + unavailable.getClass().getSimpleName());
         }
     }
 
@@ -311,13 +310,15 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         final RecentPreviewRenderer active = renderer;
         if (active == null) return;
         try {
-            contribution = context.disposableScope().register(
-                context.services().get(RecentPreviewContributionService.class).contribute(active)
-            );
+            contribution = context.disposableScope()
+                    .register(context.services()
+                            .get(RecentPreviewContributionService.class)
+                            .contribute(active));
         } catch (RuntimeException unavailable) {
             // Safe mode / missing bridge: no popup contribution, capture still works.
-            context.logger().warn("Recent preview popup contribution unavailable: "
-                + unavailable.getClass().getSimpleName());
+            context.logger()
+                    .warn("Recent preview popup contribution unavailable: "
+                            + unavailable.getClass().getSimpleName());
         }
     }
 

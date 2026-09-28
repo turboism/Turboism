@@ -6,7 +6,6 @@ import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -21,15 +20,11 @@ import java.util.concurrent.atomic.AtomicReference;
 final class MeshMirrorHookContributor implements HookContributor {
 
     static final String HOOK_ID = "cubism.mesh.mirror-axis";
-    static final AtomicReference<VerifiedMeshMirrorHookInstaller> CURRENT =
-        new AtomicReference<>();
+    static final AtomicReference<VerifiedMeshMirrorHookInstaller> CURRENT = new AtomicReference<>();
 
-    private final AtomicReference<VerifiedMeshMirrorHookInstaller> installer =
-        new AtomicReference<>();
+    private final AtomicReference<VerifiedMeshMirrorHookInstaller> installer = new AtomicReference<>();
 
-    static boolean premainOnly(
-        final StartupSuppressionInstaller.AttachmentMode attachmentMode
-    ) {
+    static boolean premainOnly(final StartupSuppressionInstaller.AttachmentMode attachmentMode) {
         return attachmentMode == StartupSuppressionInstaller.AttachmentMode.PREMAIN;
     }
 
@@ -43,12 +38,13 @@ final class MeshMirrorHookContributor implements HookContributor {
      * otherwise every generation's pinned classes are tried and exactly one distinct
      * contract must match. The whole-artifact digest attests the snapshot without selecting a version.
      */
-    static ReviewedHostContract.Resolution<MeshMirrorHostProfile> resolveProfile(
-        final Path artifact
-    ) {
-        return ReviewedHostContract.resolve(artifact, ReviewedHostContract.candidates(
-            MeshMirrorHostProfile.reviewedClassSha256(),
-            version -> MeshMirrorHostProfile.forReviewedVersion(version).orElse(null)));
+    static ReviewedHostContract.Resolution<MeshMirrorHostProfile> resolveProfile(final Path artifact) {
+        return ReviewedHostContract.resolve(
+                artifact,
+                ReviewedHostContract.candidates(
+                        MeshMirrorHostProfile.reviewedClassSha256(),
+                        version -> MeshMirrorHostProfile.forReviewedVersion(version)
+                                .orElse(null)));
     }
 
     static void closeCurrent(final VerifiedMeshMirrorHookInstaller candidate) {
@@ -58,53 +54,51 @@ final class MeshMirrorHookContributor implements HookContributor {
         candidate.close();
     }
 
-    @Override public String id() {
+    @Override
+    public String id() {
         return "TURBOISM_MESH_MIRROR_HOOK";
     }
 
-    @Override public Phase phase() {
+    @Override
+    public Phase phase() {
         return Phase.PREMAIN;
     }
 
-    @Override public boolean admitted(final HookEnvironment environment) {
+    @Override
+    public boolean admitted(final HookEnvironment environment) {
         return hookEnabled(environment.startupPolicy());
     }
 
-    @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
+    @Override
+    public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final Optional<Path> artifact = environment.locateHostArtifact();
         if (artifact.isEmpty()) {
-            throw new IllegalStateException(
-                "Mesh mirror hook unavailable because the host artifact was not admitted"
-            );
+            throw new IllegalStateException("Mesh mirror hook unavailable because the host artifact was not admitted");
         }
         final Path hostArtifact = artifact.orElseThrow();
-        final ReviewedHostContract.Resolution<MeshMirrorHostProfile> resolution =
-            resolveProfile(hostArtifact);
+        final ReviewedHostContract.Resolution<MeshMirrorHostProfile> resolution = resolveProfile(hostArtifact);
         if (!(resolution instanceof ReviewedHostContract.Bound<MeshMirrorHostProfile> bound)
-            || !ReviewedHostArtifacts.admitsFullRuntime(bound.sourceVersion())) {
-            throw new IllegalStateException(
-                "Mesh mirror host artifact is not runtime-admitted: "
+                || !ReviewedHostArtifacts.admitsFullRuntime(bound.sourceVersion())) {
+            throw new IllegalStateException("Mesh mirror host artifact is not runtime-admitted: "
                     + (resolution instanceof ReviewedHostContract.Refused<MeshMirrorHostProfile> refused
-                        ? refused.reason() : "unsupported host"));
+                            ? refused.reason()
+                            : "unsupported host"));
         }
         final MeshMirrorHostProfile profile = bound.contract();
         final VerifiedMeshMirrorHookInstaller candidate = new VerifiedMeshMirrorHookInstaller(
-            environment.instrumentation(),
-            null,
-            hostArtifact.toAbsolutePath().normalize(),
-            null,
-            null,
-            profile,
-            MeshMirrorHostProfile.reviewedClassSha256().get(bound.sourceVersion()),
-            ignored -> { }
-        );
+                environment.instrumentation(),
+                null,
+                hostArtifact.toAbsolutePath().normalize(),
+                null,
+                null,
+                profile,
+                MeshMirrorHostProfile.reviewedClassSha256().get(bound.sourceVersion()),
+                ignored -> {});
         bound.requireUnchanged(hostArtifact);
         candidate.install();
         try {
             if (!CURRENT.compareAndSet(null, candidate)) {
-                throw new IllegalStateException(
-                    "Mesh mirror hook is already installed"
-                );
+                throw new IllegalStateException("Mesh mirror hook is already installed");
             }
             installer.set(candidate);
         } catch (Throwable failure) {
@@ -127,34 +121,30 @@ final class MeshMirrorHookContributor implements HookContributor {
      * orchestration can withdraw the capability; a silent return would expose
      * the feature without its native bridge.
      */
-    @Override public void bind(final HookEnvironment environment) throws Exception {
+    @Override
+    public void bind(final HookEnvironment environment) throws Exception {
         final VerifiedMeshMirrorHookInstaller current = installer.get();
         if (current == null) {
-            throw new IllegalStateException(
-                "Mesh mirror bind refused: premain installation absent");
+            throw new IllegalStateException("Mesh mirror bind refused: premain installation absent");
         }
         if (environment.runtime().isEmpty()) {
-            throw new IllegalStateException(
-                "Mesh mirror bind refused: preview runtime not started");
+            throw new IllegalStateException("Mesh mirror bind refused: preview runtime not started");
         }
         if (!environment.runtimeSliceAdmitted(NativeOptimizationHookContributor.HOOK_SLICE)) {
-            throw new IllegalStateException(
-                "Mesh mirror bind refused: runtime slice not admitted");
+            throw new IllegalStateException("Mesh mirror bind refused: runtime slice not admitted");
         }
         final var runtime = environment.runtime().orElseThrow();
         if (!MeshMirrorHookAdmission.admitted(runtime.loadReport().loaded())) {
             current.close();
             installer.compareAndSet(current, null);
             CURRENT.compareAndSet(current, null);
-            throw new IllegalStateException(
-                "Mesh mirror bind refused: authorized consumer plugin absent");
+            throw new IllegalStateException("Mesh mirror bind refused: authorized consumer plugin absent");
         }
         try {
             current.defineLazyTargets(environment.host().orElseThrow().classLoader());
             current.bind(
-                runtime.hostAccess().meshMirrorAxisService(),
-                runtime.hostAccess().meshEditUiService()
-            );
+                    runtime.hostAccess().meshMirrorAxisService(),
+                    runtime.hostAccess().meshEditUiService());
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             current.close();

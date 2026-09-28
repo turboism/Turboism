@@ -3,14 +3,13 @@ package dev.turboism.ui.resource;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.sdk.ui.resource.CubismIcon;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
 /** Static evidence only: logical-16 PNGs in the two exact reviewed artifacts, not bundled assets. */
 final class CubismNativeIconCatalog {
-    private CubismNativeIconCatalog() { }
+    private CubismNativeIconCatalog() {}
 
     static Optional<HostArtifactDigest> artifact(final String version) {
         return switch (version) {
@@ -54,8 +53,11 @@ final class CubismNativeIconCatalog {
                 throw new IllegalStateException("invalid native icon catalog row");
             }
             for (int index = 0; index < 5; index++) {
-                final NativeIconVariant key = new NativeIconVariant(CubismIcon.valueOf(cells[0]),
-                    NativeIconVariant.Theme.valueOf(cells[1]), 100 + index * 25, Boolean.parseBoolean(cells[2]));
+                final NativeIconVariant key = new NativeIconVariant(
+                        CubismIcon.valueOf(cells[0]),
+                        NativeIconVariant.Theme.valueOf(cells[1]),
+                        100 + index * 25,
+                        Boolean.parseBoolean(cells[2]));
                 final String hash = cells[index + 3];
                 if (!hash.matches("[0-9a-f]{64}") || result.putIfAbsent(key, hash) != null) {
                     throw new IllegalStateException("invalid or duplicate native icon pin");

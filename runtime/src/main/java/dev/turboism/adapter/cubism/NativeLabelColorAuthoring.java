@@ -35,10 +35,7 @@ public interface NativeLabelColorAuthoring {
             }
 
             @Override
-            public void setNativeLabelColor(
-                final NativeLabelColorTarget target,
-                final NativeLabelColor color
-            ) {
+            public void setNativeLabelColor(final NativeLabelColorTarget target, final NativeLabelColor color) {
                 throw unsupported();
             }
         };

@@ -18,8 +18,7 @@ public final class VerifiedAtlasCacheReuseInstaller {
 
     private static final java.util.Set<String> TARGET_CLASS_NAMES = targetClassNames();
 
-    private VerifiedAtlasCacheReuseInstaller() {
-    }
+    private VerifiedAtlasCacheReuseInstaller() {}
 
     /** Lifecycle outcome of one installation attempt. */
     public enum Status {
@@ -36,16 +35,18 @@ public final class VerifiedAtlasCacheReuseInstaller {
         private final AtlasCacheReuseTransformer transformer;
         private final AtomicReference<Status> current;
 
-        private Installation(final Status status, final Instrumentation instrumentation,
-                            final AtlasCacheReuseTransformer transformer) {
+        private Installation(
+                final Status status,
+                final Instrumentation instrumentation,
+                final AtlasCacheReuseTransformer transformer) {
             this.status = status;
             this.instrumentation = instrumentation;
             this.transformer = transformer;
             this.current = new AtomicReference<>(status);
         }
 
-        static Installation installed(final Instrumentation instrumentation,
-                                     final AtlasCacheReuseTransformer transformer) {
+        static Installation installed(
+                final Instrumentation instrumentation, final AtlasCacheReuseTransformer transformer) {
             return new Installation(Status.INSTALLED, instrumentation, transformer);
         }
 
@@ -60,9 +61,7 @@ public final class VerifiedAtlasCacheReuseInstaller {
 
         /** Outcome of the transform itself, only meaningful once the target was defined. */
         public AtlasCacheReuseTransformer.Outcome transformOutcome() {
-            return transformer == null
-                ? AtlasCacheReuseTransformer.Outcome.NONE
-                : transformer.outcome();
+            return transformer == null ? AtlasCacheReuseTransformer.Outcome.NONE : transformer.outcome();
         }
 
         /** Transformer diagnostic detail, or the empty string when none was installed. */
@@ -91,8 +90,7 @@ public final class VerifiedAtlasCacheReuseInstaller {
      * @param diagnostic receives one stable outcome code; exceptions are swallowed
      * @return the installation handle; its status distinguishes installed from declined
      */
-    public static Installation install(final Instrumentation instrumentation,
-                                       final Consumer<String> diagnostic) {
+    public static Installation install(final Instrumentation instrumentation, final Consumer<String> diagnostic) {
         Objects.requireNonNull(instrumentation, "instrumentation");
         Objects.requireNonNull(diagnostic, "diagnostic");
 

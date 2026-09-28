@@ -38,9 +38,7 @@ public interface ExportSettingsContributionService {
 
         @Override
         public Registration contribute(final ExportSettingsContribution contribution) {
-            throw new UnsupportedOperationException(
-                "export settings contribution service is not available"
-            );
+            throw new UnsupportedOperationException("export settings contribution service is not available");
         }
     }
 }

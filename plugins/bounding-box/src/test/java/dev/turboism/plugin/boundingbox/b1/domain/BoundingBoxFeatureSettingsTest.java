@@ -13,7 +13,8 @@ final class BoundingBoxFeatureSettingsTest {
         assertTrue(defaults.overlayButtonsEnabled());
         assertTrue(defaults.workspaceButtonsEnabled());
         assertEquals(false, defaults.mirrorAndShrinkSuppressed());
-        assertEquals(new BoundingBoxFeatureSettings(false, true, true),
-            defaults.withOverlayButtonsEnabled(false).withMirrorAndShrinkSuppressed(true));
+        assertEquals(
+                new BoundingBoxFeatureSettings(false, true, true),
+                defaults.withOverlayButtonsEnabled(false).withMirrorAndShrinkSuppressed(true));
     }
 }

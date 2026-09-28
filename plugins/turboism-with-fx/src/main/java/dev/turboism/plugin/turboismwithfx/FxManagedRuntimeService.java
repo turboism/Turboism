@@ -1,7 +1,6 @@
 package dev.turboism.plugin.turboismwithfx;
 
 import dev.turboism.sdk.plugin.PluginPaths;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -43,9 +42,8 @@ final class FxManagedRuntimeService {
     private static final String RELEASE_HOST = "github.com";
     private static final String RELEASE_ASSET_HOST = "release-assets.githubusercontent.com";
     private static final String USER_AGENT = "Turboism-with-fx/0.1";
-    private static final Set<String> ARCHIVE_ENTRIES = Set.of(
-        "fx", FxRuntimeManifest.LICENSE.name(), FxRuntimeManifest.THIRD_PARTY_NOTICES.name()
-    );
+    private static final Set<String> ARCHIVE_ENTRIES =
+            Set.of("fx", FxRuntimeManifest.LICENSE.name(), FxRuntimeManifest.THIRD_PARTY_NOTICES.name());
 
     private final FxRuntimeResolver resolver;
     private final FxRuntimeResolver.PlatformDetector platformDetector;
@@ -60,56 +58,48 @@ final class FxManagedRuntimeService {
     private final byte[] distributionManifest;
     private final FailureInjector failureInjector;
 
-    FxManagedRuntimeService(
-        final PluginPaths paths,
-        final Consumer<Code> diagnostic
-    ) {
+    FxManagedRuntimeService(final PluginPaths paths, final Consumer<Code> diagnostic) {
         this(
-            paths,
-            FxRuntimePlatform::detect,
-            FxRuntimeManifest::entry,
-            HttpClient.newBuilder()
-                .connectTimeout(CONNECT_TIMEOUT)
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build(),
-            diagnostic,
-            resource("META-INF/turboism/fx-runtime/LICENSE"),
-            resource("META-INF/turboism/fx-runtime/THIRD_PARTY_NOTICES.md"),
-            resource("META-INF/turboism/fx-runtime/TURBOISM-DISTRIBUTION-NOTICE.txt"),
-            resource("META-INF/turboism/fx-runtime/manifest.properties"),
-            ignored -> { }
-        );
+                paths,
+                FxRuntimePlatform::detect,
+                FxRuntimeManifest::entry,
+                HttpClient.newBuilder()
+                        .connectTimeout(CONNECT_TIMEOUT)
+                        .followRedirects(HttpClient.Redirect.NEVER)
+                        .build(),
+                diagnostic,
+                resource("META-INF/turboism/fx-runtime/LICENSE"),
+                resource("META-INF/turboism/fx-runtime/THIRD_PARTY_NOTICES.md"),
+                resource("META-INF/turboism/fx-runtime/TURBOISM-DISTRIBUTION-NOTICE.txt"),
+                resource("META-INF/turboism/fx-runtime/manifest.properties"),
+                ignored -> {});
     }
 
     FxManagedRuntimeService(
-        final PluginPaths paths,
-        final FxRuntimeResolver.PlatformDetector platformDetector,
-        final EntrySelector entrySelector,
-        final HttpClient client,
-        final Consumer<Code> diagnostic,
-        final byte[] distributionLicense,
-        final byte[] distributionThirdPartyNotices,
-        final byte[] distributionNotice,
-        final byte[] distributionManifest,
-        final FailureInjector failureInjector
-    ) {
+            final PluginPaths paths,
+            final FxRuntimeResolver.PlatformDetector platformDetector,
+            final EntrySelector entrySelector,
+            final HttpClient client,
+            final Consumer<Code> diagnostic,
+            final byte[] distributionLicense,
+            final byte[] distributionThirdPartyNotices,
+            final byte[] distributionNotice,
+            final byte[] distributionManifest,
+            final FailureInjector failureInjector) {
         this.resolver = new FxRuntimeResolver(paths, platformDetector);
         this.platformDetector = Objects.requireNonNull(platformDetector, "platformDetector");
         this.entrySelector = Objects.requireNonNull(entrySelector, "entrySelector");
         this.client = Objects.requireNonNull(client, "client");
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
-        this.distributionLicense = Objects.requireNonNull(
-            distributionLicense, "distributionLicense"
-        ).clone();
+        this.distributionLicense = Objects.requireNonNull(distributionLicense, "distributionLicense")
+                .clone();
         this.distributionThirdPartyNotices = Objects.requireNonNull(
-            distributionThirdPartyNotices, "distributionThirdPartyNotices"
-        ).clone();
-        this.distributionNotice = Objects.requireNonNull(
-            distributionNotice, "distributionNotice"
-        ).clone();
-        this.distributionManifest = Objects.requireNonNull(
-            distributionManifest, "distributionManifest"
-        ).clone();
+                        distributionThirdPartyNotices, "distributionThirdPartyNotices")
+                .clone();
+        this.distributionNotice =
+                Objects.requireNonNull(distributionNotice, "distributionNotice").clone();
+        this.distributionManifest = Objects.requireNonNull(distributionManifest, "distributionManifest")
+                .clone();
         this.failureInjector = Objects.requireNonNull(failureInjector, "failureInjector");
         final Path managedRoot = resolver.managedRoot();
         this.homeRoot = managedRoot.getParent().getParent().toAbsolutePath().normalize();
@@ -147,15 +137,11 @@ final class FxManagedRuntimeService {
             createPrivateDirectory(staging);
             extract(entry, archive, staging);
             replaceLegalFile(
-                staging.resolve(FxRuntimeManifest.LICENSE.name()),
-                FxRuntimeManifest.LICENSE,
-                distributionLicense
-            );
+                    staging.resolve(FxRuntimeManifest.LICENSE.name()), FxRuntimeManifest.LICENSE, distributionLicense);
             replaceLegalFile(
-                staging.resolve(FxRuntimeManifest.THIRD_PARTY_NOTICES.name()),
-                FxRuntimeManifest.THIRD_PARTY_NOTICES,
-                distributionThirdPartyNotices
-            );
+                    staging.resolve(FxRuntimeManifest.THIRD_PARTY_NOTICES.name()),
+                    FxRuntimeManifest.THIRD_PARTY_NOTICES,
+                    distributionThirdPartyNotices);
             writeStatic(staging.resolve("TURBOISM-DISTRIBUTION-NOTICE.txt"), distributionNotice);
             writeStatic(staging.resolve("manifest.properties"), distributionManifest);
             verifyStaging(entry, staging);
@@ -216,29 +202,26 @@ final class FxManagedRuntimeService {
     }
 
     private void download(final FxRuntimeManifest.Entry entry, final Path archive)
-        throws IOException, InterruptedException {
+            throws IOException, InterruptedException {
         final HttpRequest request = HttpRequest.newBuilder(
-            entry.sourceUri().orElseThrow(() -> new IOException("runtime is not downloadable"))
-        ).timeout(REQUEST_TIMEOUT)
-            .header("Accept", "application/octet-stream")
-            .header("User-Agent", USER_AGENT)
-            .GET()
-            .build();
-        HttpResponse<InputStream> response = client.send(
-            request, HttpResponse.BodyHandlers.ofInputStream()
-        );
+                        entry.sourceUri().orElseThrow(() -> new IOException("runtime is not downloadable")))
+                .timeout(REQUEST_TIMEOUT)
+                .header("Accept", "application/octet-stream")
+                .header("User-Agent", USER_AGENT)
+                .GET()
+                .build();
+        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
         if (redirect(response.statusCode())) {
             try (InputStream ignored = response.body()) {
                 final URI redirect = redirect(response, entry);
                 response = client.send(
-                    HttpRequest.newBuilder(redirect)
-                        .timeout(REQUEST_TIMEOUT)
-                        .header("Accept", "application/octet-stream")
-                        .header("User-Agent", USER_AGENT)
-                        .GET()
-                        .build(),
-                    HttpResponse.BodyHandlers.ofInputStream()
-                );
+                        HttpRequest.newBuilder(redirect)
+                                .timeout(REQUEST_TIMEOUT)
+                                .header("Accept", "application/octet-stream")
+                                .header("User-Agent", USER_AGENT)
+                                .GET()
+                                .build(),
+                        HttpResponse.BodyHandlers.ofInputStream());
             }
         }
         try (InputStream input = response.body()) {
@@ -258,9 +241,7 @@ final class FxManagedRuntimeService {
             final MessageDigest digest = sha256Digest();
             long copied = 0L;
             final OpenOption[] options = {
-                StandardOpenOption.CREATE_NEW,
-                StandardOpenOption.WRITE,
-                LinkOption.NOFOLLOW_LINKS
+                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS
             };
             try (OutputStream output = Files.newOutputStream(archive, options)) {
                 final byte[] buffer = new byte[BUFFER_BYTES];
@@ -274,18 +255,17 @@ final class FxManagedRuntimeService {
                 }
             }
             if (copied != entry.archiveSize()
-                || !entry.archiveSha256().equals(HexFormat.of().formatHex(digest.digest()))) {
+                    || !entry.archiveSha256().equals(HexFormat.of().formatHex(digest.digest()))) {
                 throw new IOException("archive identity mismatch");
             }
         }
     }
 
-    private static URI redirect(
-        final HttpResponse<?> response,
-        final FxRuntimeManifest.Entry entry
-    ) throws IOException {
-        final String location = response.headers().firstValue("Location")
-            .orElseThrow(() -> new IOException("release redirect is missing"));
+    private static URI redirect(final HttpResponse<?> response, final FxRuntimeManifest.Entry entry)
+            throws IOException {
+        final String location = response.headers()
+                .firstValue("Location")
+                .orElseThrow(() -> new IOException("release redirect is missing"));
         final URI uri;
         try {
             uri = URI.create(location);
@@ -293,11 +273,11 @@ final class FxManagedRuntimeService {
             throw new IOException("release redirect is invalid", failure);
         }
         if (!"https".equals(uri.getScheme())
-            || !RELEASE_ASSET_HOST.equals(uri.getHost())
-            || uri.getPort() != -1
-            || uri.getRawUserInfo() != null
-            || uri.getRawFragment() != null
-            || !entry.releaseAssetPath().equals(uri.getRawPath())) {
+                || !RELEASE_ASSET_HOST.equals(uri.getHost())
+                || uri.getPort() != -1
+                || uri.getRawUserInfo() != null
+                || uri.getRawFragment() != null
+                || !entry.releaseAssetPath().equals(uri.getRawPath())) {
             throw new IOException("release redirect is not reviewed");
         }
         return uri;
@@ -307,14 +287,11 @@ final class FxManagedRuntimeService {
         return status >= 300 && status <= 399;
     }
 
-    private static void extract(
-        final FxRuntimeManifest.Entry entry,
-        final Path archive,
-        final Path target
-    ) throws IOException {
+    private static void extract(final FxRuntimeManifest.Entry entry, final Path archive, final Path target)
+            throws IOException {
         final LinkedHashSet<String> found = new LinkedHashSet<>();
         try (InputStream compressed = Files.newInputStream(archive, LinkOption.NOFOLLOW_LINKS);
-             GZIPInputStream input = new GZIPInputStream(compressed, BUFFER_BYTES)) {
+                GZIPInputStream input = new GZIPInputStream(compressed, BUFFER_BYTES)) {
             final byte[] header = new byte[TAR_BLOCK_BYTES];
             while (true) {
                 readFully(input, header, 0, TAR_BLOCK_BYTES);
@@ -340,15 +317,16 @@ final class FxManagedRuntimeService {
                 final String path = prefix.isEmpty() ? name : prefix + "/" + name;
                 final long size = tarOctal(header, 124, 12);
                 final int type = header[156] & 0xff;
-                if ((type != 0 && type != '0') || !ARCHIVE_ENTRIES.contains(path)
-                    || !found.add(path) || size < 0L || size > MAX_ENTRY_BYTES) {
+                if ((type != 0 && type != '0')
+                        || !ARCHIVE_ENTRIES.contains(path)
+                        || !found.add(path)
+                        || size < 0L
+                        || size > MAX_ENTRY_BYTES) {
                     throw new IOException("unexpected tar entry");
                 }
                 final Path output = confinedChild(target, path);
                 try (OutputStream file = Files.newOutputStream(
-                    output, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE,
-                    LinkOption.NOFOLLOW_LINKS
-                )) {
+                        output, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
                     copyExact(input, file, size);
                 }
                 skipExact(input, padding(size));
@@ -362,35 +340,25 @@ final class FxManagedRuntimeService {
         }
     }
 
-    private static void verifyStaging(
-        final FxRuntimeManifest.Entry entry,
-        final Path staging
-    ) throws IOException {
+    private static void verifyStaging(final FxRuntimeManifest.Entry entry, final Path staging) throws IOException {
+        requireExactFile(staging.resolve("fx"), entry.executableSize(), entry.executableSha256());
         requireExactFile(
-            staging.resolve("fx"), entry.executableSize(), entry.executableSha256()
-        );
+                staging.resolve(FxRuntimeManifest.LICENSE.name()),
+                FxRuntimeManifest.LICENSE.size(),
+                FxRuntimeManifest.LICENSE.sha256());
         requireExactFile(
-            staging.resolve(FxRuntimeManifest.LICENSE.name()),
-            FxRuntimeManifest.LICENSE.size(), FxRuntimeManifest.LICENSE.sha256()
-        );
-        requireExactFile(
-            staging.resolve(FxRuntimeManifest.THIRD_PARTY_NOTICES.name()),
-            FxRuntimeManifest.THIRD_PARTY_NOTICES.size(),
-            FxRuntimeManifest.THIRD_PARTY_NOTICES.sha256()
-        );
+                staging.resolve(FxRuntimeManifest.THIRD_PARTY_NOTICES.name()),
+                FxRuntimeManifest.THIRD_PARTY_NOTICES.size(),
+                FxRuntimeManifest.THIRD_PARTY_NOTICES.sha256());
         ensureOwnerExecutable(staging.resolve("fx"));
         requireOrdinaryTree(staging);
     }
 
-    private static void requireExactFile(
-        final Path path,
-        final long size,
-        final String sha256
-    ) throws IOException {
+    private static void requireExactFile(final Path path, final long size, final String sha256) throws IOException {
         if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
-            || Files.isSymbolicLink(path)
-            || Files.size(path) != size
-            || !sha256.equals(sha256(path))) {
+                || Files.isSymbolicLink(path)
+                || Files.size(path) != size
+                || !sha256.equals(sha256(path))) {
             throw new IOException("staged file identity mismatch");
         }
     }
@@ -401,8 +369,7 @@ final class FxManagedRuntimeService {
         }
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(root)) {
             for (Path path : entries) {
-                if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
-                    || Files.isSymbolicLink(path)) {
+                if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(path)) {
                     throw new IOException("runtime tree contains a special entry");
                 }
             }
@@ -414,11 +381,12 @@ final class FxManagedRuntimeService {
         Files.createDirectories(path);
         requireSafeDirectoryChain(path);
         try {
-            Files.setPosixFilePermissions(path, EnumSet.of(
-                PosixFilePermission.OWNER_READ,
-                PosixFilePermission.OWNER_WRITE,
-                PosixFilePermission.OWNER_EXECUTE
-            ));
+            Files.setPosixFilePermissions(
+                    path,
+                    EnumSet.of(
+                            PosixFilePermission.OWNER_READ,
+                            PosixFilePermission.OWNER_WRITE,
+                            PosixFilePermission.OWNER_EXECUTE));
         } catch (UnsupportedOperationException ignored) {
             // Native Windows permissions are owned by the product installer/runtime boundary.
         }
@@ -427,8 +395,7 @@ final class FxManagedRuntimeService {
     private void requireSafeExistingAncestors(final Path path) throws IOException {
         final Path normalized = confined(path);
         Path current = homeRoot;
-        if (Files.isSymbolicLink(current)
-            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+        if (Files.isSymbolicLink(current) || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("Turboism home is not an ordinary directory");
         }
         for (Path segment : homeRoot.relativize(normalized)) {
@@ -448,19 +415,15 @@ final class FxManagedRuntimeService {
         Path current = homeRoot;
         for (Path segment : homeRoot.relativize(normalized)) {
             current = current.resolve(segment);
-            if (Files.isSymbolicLink(current)
-                || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.isSymbolicLink(current) || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
                 throw new IOException("managed runtime directory chain is unsafe");
             }
         }
     }
 
     private void reconcileTransaction(
-        final FxRuntimeManifest.Entry entry,
-        final Path target,
-        final Path staging,
-        final Path previous
-    ) throws IOException {
+            final FxRuntimeManifest.Entry entry, final Path target, final Path staging, final Path previous)
+            throws IOException {
         if (Files.exists(staging, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("managed runtime staging state requires manual review");
         }
@@ -487,10 +450,7 @@ final class FxManagedRuntimeService {
     }
 
     private static void replaceLegalFile(
-        final Path path,
-        final FxRuntimeManifest.LegalFile identity,
-        final byte[] content
-    ) throws IOException {
+            final Path path, final FxRuntimeManifest.LegalFile identity, final byte[] content) throws IOException {
         final String contentHash = HexFormat.of().formatHex(sha256Digest().digest(content));
         if (content.length != identity.size() || !contentHash.equals(identity.sha256())) {
             throw new IOException("bundled legal resource identity mismatch");
@@ -501,13 +461,7 @@ final class FxManagedRuntimeService {
     }
 
     private static void writeStatic(final Path path, final byte[] content) throws IOException {
-        Files.write(
-            path,
-            content,
-            StandardOpenOption.CREATE_NEW,
-            StandardOpenOption.WRITE,
-            LinkOption.NOFOLLOW_LINKS
-        );
+        Files.write(path, content, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
     }
 
     private static void atomicMove(final Path source, final Path target) throws IOException {
@@ -562,9 +516,8 @@ final class FxManagedRuntimeService {
 
     private static void ensureOwnerExecutable(final Path executable) throws IOException {
         try {
-            final Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(
-                executable, LinkOption.NOFOLLOW_LINKS
-            );
+            final Set<PosixFilePermission> permissions =
+                    Files.getPosixFilePermissions(executable, LinkOption.NOFOLLOW_LINKS);
             if (!permissions.contains(PosixFilePermission.OWNER_EXECUTE)) {
                 final EnumSet<PosixFilePermission> updated = EnumSet.copyOf(permissions);
                 updated.add(PosixFilePermission.OWNER_EXECUTE);
@@ -575,11 +528,8 @@ final class FxManagedRuntimeService {
         }
     }
 
-    private static void copyExact(
-        final InputStream input,
-        final OutputStream output,
-        final long bytes
-    ) throws IOException {
+    private static void copyExact(final InputStream input, final OutputStream output, final long bytes)
+            throws IOException {
         final byte[] buffer = new byte[BUFFER_BYTES];
         long remaining = bytes;
         while (remaining > 0L) {
@@ -604,12 +554,8 @@ final class FxManagedRuntimeService {
         }
     }
 
-    private static void readFully(
-        final InputStream input,
-        final byte[] buffer,
-        final int offset,
-        final int length
-    ) throws IOException {
+    private static void readFully(final InputStream input, final byte[] buffer, final int offset, final int length)
+            throws IOException {
         int copied = 0;
         while (copied < length) {
             final int read = input.read(buffer, offset + copied, length - copied);
@@ -632,8 +578,7 @@ final class FxManagedRuntimeService {
         if (actual != expected) throw new IOException("tar checksum mismatch");
     }
 
-    private static String tarText(final byte[] header, final int offset, final int length)
-        throws IOException {
+    private static String tarText(final byte[] header, final int offset, final int length) throws IOException {
         int end = offset;
         while (end < offset + length && header[end] != 0) end++;
         for (int index = offset; index < end; index++) {
@@ -643,8 +588,7 @@ final class FxManagedRuntimeService {
         return new String(header, offset, end - offset, StandardCharsets.US_ASCII);
     }
 
-    private static long tarOctal(final byte[] header, final int offset, final int length)
-        throws IOException {
+    private static long tarOctal(final byte[] header, final int offset, final int length) throws IOException {
         long value = 0L;
         boolean digit = false;
         for (int index = offset; index < offset + length; index++) {
@@ -677,8 +621,7 @@ final class FxManagedRuntimeService {
     }
 
     private static byte[] resource(final String name) {
-        try (InputStream input = FxManagedRuntimeService.class.getClassLoader()
-            .getResourceAsStream(name)) {
+        try (InputStream input = FxManagedRuntimeService.class.getClassLoader().getResourceAsStream(name)) {
             if (input == null) throw new IllegalStateException("managed fx resource is missing");
             return input.readAllBytes();
         } catch (IOException failure) {

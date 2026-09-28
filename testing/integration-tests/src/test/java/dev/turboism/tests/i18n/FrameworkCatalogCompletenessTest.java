@@ -1,17 +1,16 @@
 package dev.turboism.tests.i18n;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Holds the framework's own {@link java.util.ResourceBundle} catalogs to the same locale matrix the
@@ -27,59 +26,67 @@ class FrameworkCatalogCompletenessTest {
     private static final Path PANEL = Path.of("dev/turboism/ui/panel");
     private static final String ALIAS = "messages_zh.properties";
 
-    @TempDir Path tempDir;
+    @TempDir
+    Path tempDir;
+
     private int sandboxSequence;
 
-    @Test void verifiesShippedFrameworkMessageCatalogs() {
+    @Test
+    void verifiesShippedFrameworkMessageCatalogs() {
         Path projectRoot = Path.of(System.getProperty("projectRoot"));
 
         assertDoesNotThrow(() -> OfficialPluginCatalogCompleteness.verifyFrameworkCatalogs(
-            projectRoot.resolve("runtime/src/main/resources")));
+                projectRoot.resolve("runtime/src/main/resources")));
     }
 
     /**
      * The gate is only as wide as the modules it is pointed at, so a framework module that starts
      * shipping catalogs must be added to it. These two ship none today.
      */
-    @Test void frameworkModulesOutsideTheGateShipNoMessageCatalogs() throws Exception {
+    @Test
+    void frameworkModulesOutsideTheGateShipNoMessageCatalogs() throws Exception {
         Path projectRoot = Path.of(System.getProperty("projectRoot"));
 
         for (String module : List.of("sdk", "bootstrap")) {
             Path resources = projectRoot.resolve(module + "/src/main/resources");
             assertTrue(
-                messageCatalogsUnder(resources).isEmpty(),
-                module + " ships message catalogs; add it to verifiesShippedFrameworkMessageCatalogs"
-            );
+                    messageCatalogsUnder(resources).isEmpty(),
+                    module + " ships message catalogs; add it to verifiesShippedFrameworkMessageCatalogs");
         }
     }
 
-    @Test void acceptsCompleteMatrixWithoutTheAlias() throws Exception {
+    @Test
+    void acceptsCompleteMatrixWithoutTheAlias() throws Exception {
         Path resources = frameworkSandbox(false);
 
         assertDoesNotThrow(() -> OfficialPluginCatalogCompleteness.verifyFrameworkCatalogs(resources));
     }
 
-    @Test void acceptsCompleteMatrixWithTheCompatibilityAlias() throws Exception {
+    @Test
+    void acceptsCompleteMatrixWithTheCompatibilityAlias() throws Exception {
         Path resources = frameworkSandbox(true);
 
         assertDoesNotThrow(() -> OfficialPluginCatalogCompleteness.verifyFrameworkCatalogs(resources));
     }
 
-    @Test void rejectsMissingEnglishCatalog() throws Exception {
+    @Test
+    void rejectsMissingEnglishCatalog() throws Exception {
         Path resources = frameworkSandbox(true);
         Files.delete(catalog(resources, "messages_en.properties"));
 
         assertFailureContains(resources, "missing required catalog messages_en.properties");
     }
 
-    @Test void rejectsMissingSimplifiedChineseCatalog() throws Exception {
+    @Test
+    void rejectsMissingSimplifiedChineseCatalog() throws Exception {
         Path resources = frameworkSandbox(true);
         Files.delete(catalog(resources, "messages_zh_Hans.properties"));
 
         assertFailureContains(resources, "missing required catalog messages_zh_Hans.properties");
     }
 
-    @Test void rejectsTheAliasStandingInForSimplifiedChinese() throws Exception {
+    @Test
+    void rejectsTheAliasStandingInForSimplifiedChinese() throws Exception {
         // The alias is a compatibility extra, never a substitute: dropping the
         // script-suffixed catalog must fail even while messages_zh.properties exists.
         Path resources = frameworkSandbox(true);
@@ -88,63 +95,66 @@ class FrameworkCatalogCompletenessTest {
         assertFailureContains(resources, "missing required catalog messages_zh_Hans.properties");
     }
 
-    @Test void rejectsUnexpectedFrameworkCatalog() throws Exception {
+    @Test
+    void rejectsUnexpectedFrameworkCatalog() throws Exception {
         Path resources = frameworkSandbox(false);
         Files.writeString(
-            catalog(resources, "messages_fr.properties"), matrix("messages_fr.properties"), StandardCharsets.UTF_8);
+                catalog(resources, "messages_fr.properties"), matrix("messages_fr.properties"), StandardCharsets.UTF_8);
 
         assertFailureContains(resources, "unexpected catalog messages_fr.properties");
     }
 
-    @Test void rejectsAliasMissingAndExtraKeys() throws Exception {
+    @Test
+    void rejectsAliasMissingAndExtraKeys() throws Exception {
         Path resources = frameworkSandbox(true);
         Files.writeString(
-            catalog(resources, ALIAS),
-            "collapsible.section.expand=展开\ncollapsible.section.extra=多余\n",
-            StandardCharsets.UTF_8);
+                catalog(resources, ALIAS),
+                "collapsible.section.expand=展开\ncollapsible.section.extra=多余\n",
+                StandardCharsets.UTF_8);
 
         assertFailureContains(resources, "missing key collapsible.section.collapse in " + ALIAS);
         assertFailureContains(resources, "extra key collapsible.section.extra in " + ALIAS);
     }
 
-    @Test void rejectsCopiedEnglishValue() throws Exception {
+    @Test
+    void rejectsCopiedEnglishValue() throws Exception {
         Path resources = frameworkSandbox(false);
         Files.writeString(
-            catalog(resources, "messages_ja.properties"),
-            "collapsible.section.expand=Expand\ncollapsible.section.collapse=折りたたみ\n",
-            StandardCharsets.UTF_8);
+                catalog(resources, "messages_ja.properties"),
+                "collapsible.section.expand=Expand\ncollapsible.section.collapse=折りたたみ\n",
+                StandardCharsets.UTF_8);
 
         assertFailureContains(
-            resources, "copied English value for collapsible.section.expand in messages_ja.properties");
+                resources, "copied English value for collapsible.section.expand in messages_ja.properties");
     }
 
-    @Test void rejectsBlankValue() throws Exception {
+    @Test
+    void rejectsBlankValue() throws Exception {
         Path resources = frameworkSandbox(false);
         Files.writeString(
-            catalog(resources, "messages_ko.properties"),
-            "collapsible.section.expand=\ncollapsible.section.collapse=접기\n",
-            StandardCharsets.UTF_8);
+                catalog(resources, "messages_ko.properties"),
+                "collapsible.section.expand=\ncollapsible.section.collapse=접기\n",
+                StandardCharsets.UTF_8);
 
-        assertFailureContains(
-            resources, "blank value for collapsible.section.expand in messages_ko.properties");
+        assertFailureContains(resources, "blank value for collapsible.section.expand in messages_ko.properties");
     }
 
-    @Test void rejectsMissingResourcesRoot() {
+    @Test
+    void rejectsMissingResourcesRoot() {
         IllegalStateException failure = assertThrows(
-            IllegalStateException.class,
-            () -> OfficialPluginCatalogCompleteness.verifyFrameworkCatalogs(
-                tempDir.resolve("absent-" + sandboxSequence++))
-        );
+                IllegalStateException.class,
+                () -> OfficialPluginCatalogCompleteness.verifyFrameworkCatalogs(
+                        tempDir.resolve("absent-" + sandboxSequence++)));
         assertTrue(failure.getMessage().contains("missing resources root"), failure.getMessage());
     }
 
-    @Test void rejectsResourcesRootWithoutAnyCatalog() throws Exception {
+    @Test
+    void rejectsResourcesRootWithoutAnyCatalog() throws Exception {
         Path resources = Files.createDirectories(tempDir.resolve("empty-" + sandboxSequence++));
 
         IllegalStateException failure = assertThrows(
-            IllegalStateException.class,
-            () -> OfficialPluginCatalogCompleteness.verifyFrameworkCatalogs(resources)
-        );
+                IllegalStateException.class,
+                () -> OfficialPluginCatalogCompleteness.verifyFrameworkCatalogs(resources));
         assertTrue(failure.getMessage().contains("no framework message catalogs"), failure.getMessage());
     }
 
@@ -174,9 +184,9 @@ class FrameworkCatalogCompletenessTest {
         }
         try (var tree = Files.walk(resourcesRoot)) {
             return tree.filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().startsWith("messages"))
-                .filter(path -> path.getFileName().toString().endsWith(".properties"))
-                .toList();
+                    .filter(path -> path.getFileName().toString().startsWith("messages"))
+                    .filter(path -> path.getFileName().toString().endsWith(".properties"))
+                    .toList();
         }
     }
 
@@ -186,29 +196,29 @@ class FrameworkCatalogCompletenessTest {
      * why the alias cannot be validated against the other catalogs by value.
      */
     private static String matrix(String catalogName) {
-        String expand = switch (catalogName) {
-            case "messages_ja.properties" -> "展開";
-            case "messages_ko.properties" -> "펼치기";
-            case "messages_zh_Hans.properties", ALIAS -> "展开";
-            case "messages_zh_Hant.properties" -> "展開";
-            default -> "Expand";
-        };
-        String collapse = switch (catalogName) {
-            case "messages_ja.properties" -> "折りたたみ";
-            case "messages_ko.properties" -> "접기";
-            case "messages_zh_Hans.properties", ALIAS -> "收起";
-            case "messages_zh_Hant.properties" -> "收合";
-            default -> "Collapse";
-        };
-        return "collapsible.section.expand=" + expand + "\n"
-            + "collapsible.section.collapse=" + collapse + "\n";
+        String expand =
+                switch (catalogName) {
+                    case "messages_ja.properties" -> "展開";
+                    case "messages_ko.properties" -> "펼치기";
+                    case "messages_zh_Hans.properties", ALIAS -> "展开";
+                    case "messages_zh_Hant.properties" -> "展開";
+                    default -> "Expand";
+                };
+        String collapse =
+                switch (catalogName) {
+                    case "messages_ja.properties" -> "折りたたみ";
+                    case "messages_ko.properties" -> "접기";
+                    case "messages_zh_Hans.properties", ALIAS -> "收起";
+                    case "messages_zh_Hant.properties" -> "收合";
+                    default -> "Collapse";
+                };
+        return "collapsible.section.expand=" + expand + "\n" + "collapsible.section.collapse=" + collapse + "\n";
     }
 
     private void assertFailureContains(Path resources, String expected) {
         IllegalStateException failure = assertThrows(
-            IllegalStateException.class,
-            () -> OfficialPluginCatalogCompleteness.verifyFrameworkCatalogs(resources)
-        );
+                IllegalStateException.class,
+                () -> OfficialPluginCatalogCompleteness.verifyFrameworkCatalogs(resources));
         assertTrue(failure.getMessage().contains(expected), failure.getMessage());
     }
 }

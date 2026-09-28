@@ -3,21 +3,20 @@ package dev.turboism.plugin.mesheditmirroraxisenhance;
 import dev.turboism.plugin.mesheditmirroraxisenhance.service.MeshInspectorService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
+import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshEditTool;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.util.Set;
 import java.util.function.Consumer;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
-import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 /**
  * Official SDK-only plugin shell for read-only mesh inspection.
@@ -32,7 +31,8 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
     public void init(final PluginContext context) {
         this.context = context;
         this.logger = context.logger();
-        this.inspectorService = new MeshInspectorService(context.cubismRead(), context.services().get(UiHostCapabilityService.class));
+        this.inspectorService = new MeshInspectorService(
+                context.cubismRead(), context.services().get(UiHostCapabilityService.class));
         logger.info("MeshEditMirrorAxisEnhancePlugin initialized");
     }
 
@@ -40,34 +40,27 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
     public void enable() {
         try {
             registerAction(
-                MeshInspectorService.INSPECT_ACTION_ID,
-                "Inspect Meshes",
-                ignored -> inspectorService.inspect()
-            );
+                    MeshInspectorService.INSPECT_ACTION_ID, "Inspect Meshes", ignored -> inspectorService.inspect());
             registerMirrorLinkedDeletion();
-            context.disposableScope().register(
-                context.services().get(MeshMirrorMoveParticipation.class).participate()
-            );
-            context.disposableScope().register(
-                context.services().get(MeshMirrorToolEligibility.class).extendEligibleTools(Set.of(
-                    MeshEditTool.ARROW,
-                    MeshEditTool.ERASER,
-                    MeshEditTool.LASSO
-                ))
-            );
-            context.disposableScope().register(
-                context.services().get(MeshEditUiService.class).contributeMirrorAxisAngleControl(
-                    new MeshEditUiService.MirrorAxisAngleControl(
-                        "mesh.mirror-axis.angle",
-                        context.localization().text("mesh.mirror-axis.angle.label"),
-                        context.localization().text("mesh.mirror-axis.angle.reset"),
-                        -180.0f,
-                        180.0f,
-                        0.1f,
-                        this::setMirrorAxisAngleDegrees
-                    )
-                )
-            );
+            context.disposableScope()
+                    .register(context.services()
+                            .get(MeshMirrorMoveParticipation.class)
+                            .participate());
+            context.disposableScope()
+                    .register(context.services()
+                            .get(MeshMirrorToolEligibility.class)
+                            .extendEligibleTools(Set.of(MeshEditTool.ARROW, MeshEditTool.ERASER, MeshEditTool.LASSO)));
+            context.disposableScope()
+                    .register(context.services()
+                            .get(MeshEditUiService.class)
+                            .contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+                                    "mesh.mirror-axis.angle",
+                                    context.localization().text("mesh.mirror-axis.angle.label"),
+                                    context.localization().text("mesh.mirror-axis.angle.reset"),
+                                    -180.0f,
+                                    180.0f,
+                                    0.1f,
+                                    this::setMirrorAxisAngleDegrees)));
         } catch (RuntimeException failure) {
             closeDisposableScopeQuietly();
             throw failure;
@@ -101,20 +94,18 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
      * rather than anything this plugin invents.</p>
      */
     private void registerMirrorLinkedDeletion() {
-        context.disposableScope().register(
-            context.services().get(MeshEditParticipation.class).participate(deletion ->
-                deletion.mirrorAxis().enabled()
-                    ? context.services().get(MeshMirrorCounterparts.class).mirrorOf(deletion)
-                    : MeshEditContribution.none()
-            )
-        );
+        context.disposableScope()
+                .register(context.services()
+                        .get(MeshEditParticipation.class)
+                        .participate(deletion -> deletion.mirrorAxis().enabled()
+                                ? context.services()
+                                        .get(MeshMirrorCounterparts.class)
+                                        .mirrorOf(deletion)
+                                : MeshEditContribution.none()));
     }
 
     private void registerAction(
-        final String id,
-        final String label,
-        final Consumer<ActionRegistry.ActionContext> handler
-    ) {
+            final String id, final String label, final Consumer<ActionRegistry.ActionContext> handler) {
         final Registration registration = context.actions().register(id, new ActionRegistry.Action() {
             @Override
             public String id() {

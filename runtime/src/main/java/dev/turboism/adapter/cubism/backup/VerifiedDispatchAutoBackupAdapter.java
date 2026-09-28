@@ -1,11 +1,11 @@
 package dev.turboism.adapter.cubism.backup;
 
 import dev.turboism.core.runtime.work.FatalErrors;
-import javax.swing.SwingUtilities;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Objects;
+import javax.swing.SwingUtilities;
 
 /**
  * EDT-dispatching {@link AutoBackupAdapter} wrapper: every host operation runs
@@ -45,9 +45,7 @@ final class VerifiedDispatchAutoBackupAdapter implements AutoBackupAdapter {
     }
 
     @Override
-    public File saveDocumentFor(
-        final File matchFile, final List<String> documentUids, final long timestampMillis
-    ) {
+    public File saveDocumentFor(final File matchFile, final List<String> documentUids, final long timestampMillis) {
         Objects.requireNonNull(matchFile, "matchFile");
         Objects.requireNonNull(documentUids, "documentUids");
         return onEdt(() -> host.saveDocumentFor(matchFile, documentUids, timestampMillis));
@@ -83,7 +81,8 @@ final class VerifiedDispatchAutoBackupAdapter implements AutoBackupAdapter {
         if (failure[0] != null) {
             throw new IllegalStateException("auto-backup dispatch failed", failure[0]);
         }
-        @SuppressWarnings("unchecked") final T value = (T) result[0];
+        @SuppressWarnings("unchecked")
+        final T value = (T) result[0];
         return value;
     }
 

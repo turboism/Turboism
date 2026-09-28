@@ -2,7 +2,6 @@ package dev.turboism.sdk.action;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;

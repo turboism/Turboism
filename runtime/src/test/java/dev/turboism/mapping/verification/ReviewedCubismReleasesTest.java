@@ -1,9 +1,9 @@
 package dev.turboism.mapping.verification;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 final class ReviewedCubismReleasesTest {
 
@@ -20,9 +20,7 @@ final class ReviewedCubismReleasesTest {
         "5.3.2, 503020001, false",
         "5.3.02, 0, false"
     })
-    void reviewRequiresTheObservedVersionAndBuild(
-        final String version, final int build, final boolean reviewed
-    ) {
+    void reviewRequiresTheObservedVersionAndBuild(final String version, final int build, final boolean reviewed) {
         assertEquals(reviewed, ReviewedCubismReleases.isReviewed(version, build));
     }
 }

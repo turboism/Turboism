@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.write;
 
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;

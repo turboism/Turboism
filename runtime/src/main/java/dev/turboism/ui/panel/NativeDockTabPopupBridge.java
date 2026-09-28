@@ -2,7 +2,6 @@ package dev.turboism.ui.panel;
 
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -11,8 +10,7 @@ public final class NativeDockTabPopupBridge {
 
     private static final AtomicReference<Handler> HANDLER = new AtomicReference<>();
 
-    private NativeDockTabPopupBridge() {
-    }
+    private NativeDockTabPopupBridge() {}
 
     /**
      * Installs the single process-wide popup handler.
@@ -52,10 +50,7 @@ public final class NativeDockTabPopupBridge {
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "floating-panels",
-                "Dock-tab popup augmentation failed safely",
-                failure
-            );
+                    "floating-panels", "Dock-tab popup augmentation failed safely", failure);
         }
     }
 

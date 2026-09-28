@@ -16,12 +16,7 @@ package dev.turboism.core.runtime.sidecar;
  *                     standard error), empty on success
  * @throws IllegalArgumentException when {@code kind} is {@code null}
  */
-public record SidecarResult(
-    Kind kind,
-    String payload,
-    String errorCode,
-    String errorMessage
-) {
+public record SidecarResult(Kind kind, String payload, String errorCode, String errorMessage) {
 
     public SidecarResult {
         if (kind == null) {

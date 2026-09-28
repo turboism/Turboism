@@ -12,24 +12,11 @@ import org.junit.jupiter.api.Test;
 
 class ServiceInterfaceShapeTest {
 
-    private static final List<String> QUERY_SERVICE_SOURCES = List.of(
-        "ParameterQueryService",
-        "SelectionQueryService",
-        "ModelHierarchyQueryService"
-    );
+    private static final List<String> QUERY_SERVICE_SOURCES =
+            List.of("ParameterQueryService", "SelectionQueryService", "ModelHierarchyQueryService");
 
-    private static final Set<String> MUTATING_PREFIXES = Set.of(
-        "set",
-        "add",
-        "remove",
-        "mutate",
-        "write",
-        "delete",
-        "create",
-        "update",
-        "commit",
-        "rollback"
-    );
+    private static final Set<String> MUTATING_PREFIXES =
+            Set.of("set", "add", "remove", "mutate", "write", "delete", "create", "update", "commit", "rollback");
 
     @Test
     void pluginContextExposesExplicitReadOnlyQueryServices_whenInspectingSourceContract() throws IOException {
@@ -47,24 +34,30 @@ class ServiceInterfaceShapeTest {
 
             for (String prefix : MUTATING_PREFIXES) {
                 assertTrue(
-                    !Pattern.compile("\\b" + prefix + "[A-Z][A-Za-z0-9_]*\\s*\\(").matcher(source).find(),
-                    () -> sourceName + " must not expose a mutating method prefix: " + prefix
-                );
+                        !Pattern.compile("\\b" + prefix + "[A-Z][A-Za-z0-9_]*\\s*\\(")
+                                .matcher(source)
+                                .find(),
+                        () -> sourceName + " must not expose a mutating method prefix: " + prefix);
             }
         }
     }
 
     @Test
     void queryServiceReturnTypesAreImmutableContracts_whenInspectingSourceContract() throws IOException {
-        assertTrue(queryServiceSource("ParameterQueryService").contains("Optional<ParameterSummary> findById(ParameterId id)"));
+        assertTrue(queryServiceSource("ParameterQueryService")
+                .contains("Optional<ParameterSummary> findById(ParameterId id)"));
         assertTrue(queryServiceSource("ParameterQueryService").contains("List<ParameterSummary> listAll()"));
         assertTrue(queryServiceSource("ParameterQueryService").contains("boolean exists(ParameterId id)"));
         assertTrue(queryServiceSource("SelectionQueryService").contains("SelectionSummary currentSelection()"));
-        assertTrue(queryServiceSource("SelectionQueryService").contains("List<ModelObjectId> selectedIds(HierarchyNode.Kind kind)"));
+        assertTrue(queryServiceSource("SelectionQueryService")
+                .contains("List<ModelObjectId> selectedIds(HierarchyNode.Kind kind)"));
         assertTrue(!queryServiceSource("SelectionQueryService").contains("Registration onSelectionChanged"));
-        assertTrue(queryServiceSource("ModelHierarchyQueryService").contains("Optional<ModelHierarchy> currentHierarchy()"));
-        assertTrue(queryServiceSource("ModelHierarchyQueryService").contains("List<HierarchyNode> childrenOf(ModelObjectId id)"));
-        assertTrue(queryServiceSource("ModelHierarchyQueryService").contains("Optional<HierarchyNode> findNode(ModelObjectId id)"));
+        assertTrue(queryServiceSource("ModelHierarchyQueryService")
+                .contains("Optional<ModelHierarchy> currentHierarchy()"));
+        assertTrue(queryServiceSource("ModelHierarchyQueryService")
+                .contains("List<HierarchyNode> childrenOf(ModelObjectId id)"));
+        assertTrue(queryServiceSource("ModelHierarchyQueryService")
+                .contains("Optional<HierarchyNode> findNode(ModelObjectId id)"));
     }
 
     @Test

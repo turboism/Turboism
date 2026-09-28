@@ -1,37 +1,32 @@
 package dev.turboism.preview;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class PluginLifecycleLaneTest {
 
     private static final PluginLifecyclePolicy POLICY = new PluginLifecyclePolicy(
-        1,
-        2,
-        Duration.ofMillis(200),
-        Duration.ofMillis(100),
-        Duration.ofMillis(200),
-        Duration.ofMillis(20),
-        Duration.ofMillis(20)
-    );
+            1,
+            2,
+            Duration.ofMillis(200),
+            Duration.ofMillis(100),
+            Duration.ofMillis(200),
+            Duration.ofMillis(20),
+            Duration.ofMillis(20));
 
     @Test
     void succeededResultReturnsValue() {
         final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
         try {
-            final PluginLifecycleLane.Invocation<String> invocation =
-                lane.submit("p", "load", () -> "done");
-            final PluginLifecycleLane.AwaitResult<String> result =
-                lane.await(invocation, Duration.ofSeconds(2), null);
+            final PluginLifecycleLane.Invocation<String> invocation = lane.submit("p", "load", () -> "done");
+            final PluginLifecycleLane.AwaitResult<String> result = lane.await(invocation, Duration.ofSeconds(2), null);
             assertEquals(PluginLifecycleLane.Outcome.SUCCEEDED, result.outcome);
             assertEquals("done", result.value);
         } finally {
@@ -45,17 +40,13 @@ class PluginLifecycleLaneTest {
         final CountDownLatch release = new CountDownLatch(1);
         final AtomicBoolean ran = new AtomicBoolean();
         try {
-            final PluginLifecycleLane.Invocation<Void> invocation = lane.submit(
-                "p",
-                "load",
-                () -> {
-                    ran.set(true);
-                    release.await(30, TimeUnit.SECONDS);
-                    return null;
-                }
-            );
+            final PluginLifecycleLane.Invocation<Void> invocation = lane.submit("p", "load", () -> {
+                ran.set(true);
+                release.await(30, TimeUnit.SECONDS);
+                return null;
+            });
             final PluginLifecycleLane.AwaitResult<Void> result =
-                lane.await(invocation, Duration.ofMillis(80), new PluginLifecycleLease("p"));
+                    lane.await(invocation, Duration.ofMillis(80), new PluginLifecycleLease("p"));
             assertEquals(PluginLifecycleLane.Outcome.TIMED_OUT, result.outcome);
             assertTrue(ran.get(), "timed-out task was running, not merely queued");
             // Interrupt is advisory: wait() is interruptible, but even while the worker is still
@@ -74,25 +65,20 @@ class PluginLifecycleLaneTest {
         final CountDownLatch entered = new CountDownLatch(1);
         final AtomicBoolean release = new AtomicBoolean();
         try {
-            final PluginLifecycleLane.Invocation<Void> invocation = lane.submit(
-                "p",
-                "load",
-                () -> {
-                    entered.countDown();
-                    while (!release.get()) {
-                        Thread.onSpinWait();
-                    }
-                    return null;
+            final PluginLifecycleLane.Invocation<Void> invocation = lane.submit("p", "load", () -> {
+                entered.countDown();
+                while (!release.get()) {
+                    Thread.onSpinWait();
                 }
-            );
+                return null;
+            });
             assertTrue(entered.await(5, TimeUnit.SECONDS));
             final PluginLifecycleLane.AwaitResult<Void> result =
-                lane.await(invocation, Duration.ofMillis(60), new PluginLifecycleLease("p"));
+                    lane.await(invocation, Duration.ofMillis(60), new PluginLifecycleLease("p"));
             assertEquals(PluginLifecycleLane.Outcome.TIMED_OUT, result.outcome);
             assertFalse(
-                invocation.workerDone.isDone(),
-                "a cancelled/interrupted worker is not proof the plugin code stopped"
-            );
+                    invocation.workerDone.isDone(),
+                    "a cancelled/interrupted worker is not proof the plugin code stopped");
             release.set(true);
             invocation.workerDone.get(5, TimeUnit.SECONDS);
         } finally {
@@ -106,19 +92,14 @@ class PluginLifecycleLaneTest {
         final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
         final PluginLifecycleLease lease = new PluginLifecycleLease("p");
         try {
-            final PluginLifecycleLane.Invocation<String> invocation = lane.submit(
-                "p",
-                "load",
-                () -> {
-                    final String committed = lease.commit(() -> "committed");
-                    // Finish after the caller's deadline: the commit already won, so the caller
-                    // must observe SUCCEEDED rather than TIMED_OUT.
-                    Thread.sleep(120);
-                    return committed;
-                }
-            );
-            final PluginLifecycleLane.AwaitResult<String> result =
-                lane.await(invocation, Duration.ofMillis(40), lease);
+            final PluginLifecycleLane.Invocation<String> invocation = lane.submit("p", "load", () -> {
+                final String committed = lease.commit(() -> "committed");
+                // Finish after the caller's deadline: the commit already won, so the caller
+                // must observe SUCCEEDED rather than TIMED_OUT.
+                Thread.sleep(120);
+                return committed;
+            });
+            final PluginLifecycleLane.AwaitResult<String> result = lane.await(invocation, Duration.ofMillis(40), lease);
             assertEquals(PluginLifecycleLane.Outcome.SUCCEEDED, result.outcome);
             assertEquals("committed", result.value);
             assertTrue(lease.isCommitted());
@@ -140,12 +121,10 @@ class PluginLifecycleLaneTest {
             });
             lane.submit("p2", "load", () -> null);
             lane.submit("p3", "load", () -> null);
-            final PluginLifecycleLane.Invocation<Void> rejected =
-                lane.submit("p4", "load", () -> null);
+            final PluginLifecycleLane.Invocation<Void> rejected = lane.submit("p4", "load", () -> null);
             assertTrue(rejected.rejected);
             assertTrue(rejected.workerDone.isDone());
-            final PluginLifecycleLane.AwaitResult<Void> result =
-                lane.await(rejected, Duration.ofMillis(50), null);
+            final PluginLifecycleLane.AwaitResult<Void> result = lane.await(rejected, Duration.ofMillis(50), null);
             assertEquals(PluginLifecycleLane.Outcome.REJECTED, result.outcome);
         } finally {
             release.countDown();
@@ -157,15 +136,13 @@ class PluginLifecycleLaneTest {
     void stoppedAdmissionRejectsButRetainedDispatchStillRuns() throws Exception {
         final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
         lane.stopAdmission();
-        final PluginLifecycleLane.Invocation<Void> rejected =
-            lane.submit("p", "load", () -> null);
+        final PluginLifecycleLane.Invocation<Void> rejected = lane.submit("p", "load", () -> null);
         assertTrue(rejected.rejected);
         final AtomicBoolean retainedRan = new AtomicBoolean();
-        final PluginLifecycleLane.Invocation<Void> retained =
-            lane.submitRetained("p", "retained-cleanup", () -> {
-                retainedRan.set(true);
-                return null;
-            });
+        final PluginLifecycleLane.Invocation<Void> retained = lane.submitRetained("p", "retained-cleanup", () -> {
+            retainedRan.set(true);
+            return null;
+        });
         assertFalse(retained.rejected);
         retained.workerDone.get(5, TimeUnit.SECONDS);
         assertTrue(retainedRan.get());
@@ -189,7 +166,7 @@ class PluginLifecycleLaneTest {
                 return null;
             });
             final PluginLifecycleLane.AwaitResult<Void> result =
-                lane.await(queued, Duration.ofMillis(60), new PluginLifecycleLease("queued"));
+                    lane.await(queued, Duration.ofMillis(60), new PluginLifecycleLease("queued"));
             assertEquals(PluginLifecycleLane.Outcome.TIMED_OUT, result.outcome);
             queued.workerDone.get(5, TimeUnit.SECONDS);
             release.countDown();

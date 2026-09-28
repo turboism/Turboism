@@ -4,7 +4,11 @@ import java.util.function.Supplier;
 
 /** Captures optional event metadata without retaining a getter or a host exception. */
 record DetachedValue<T>(String property, T value, Availability availability) {
-    enum Availability { AVAILABLE, UNSUPPORTED, UNAVAILABLE }
+    enum Availability {
+        AVAILABLE,
+        UNSUPPORTED,
+        UNAVAILABLE
+    }
 
     static <T> DetachedValue<T> capture(final String property, final Supplier<T> read) {
         try {

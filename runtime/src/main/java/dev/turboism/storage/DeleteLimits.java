@@ -14,22 +14,12 @@ record DeleteLimits(int maxDepth, long maxEntries, long maxWork) {
     }
 
     static DeleteLimits defaults() {
-        return new DeleteLimits(
-            DEFAULT_MAX_DEPTH,
-            DEFAULT_MAX_ENTRIES,
-            DEFAULT_MAX_WORK
-        );
+        return new DeleteLimits(DEFAULT_MAX_DEPTH, DEFAULT_MAX_ENTRIES, DEFAULT_MAX_WORK);
     }
 
-    private static void requireTightened(
-        final String name,
-        final long value,
-        final long defaultValue
-    ) {
+    private static void requireTightened(final String name, final long value, final long defaultValue) {
         if (value < 0L || value > defaultValue) {
-            throw new IllegalArgumentException(
-                name + " must be between 0 and " + defaultValue
-            );
+            throw new IllegalArgumentException(name + " must be between 0 and " + defaultValue);
         }
     }
 }

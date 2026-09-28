@@ -1,5 +1,9 @@
 package dev.turboism.tests.plugin;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
@@ -32,15 +36,9 @@ import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -52,10 +50,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Focused lifecycle coverage: enable schedules one bounded low-frequency scan guarded by a scan
@@ -78,8 +75,7 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
     }
 
     @Test
-    void enableSchedulesOneScanAndDisableCancelsItSynchronously(@TempDir final Path stateDir)
-        throws Exception {
+    void enableSchedulesOneScanAndDisableCancelsItSynchronously(@TempDir final Path stateDir) throws Exception {
         scheduler = new FakeTaskScheduler();
         final DisposableScope scope = new DisposableScope();
         final WindowsWorkspaceValidationProbe probe = new WindowsWorkspaceValidationProbe();
@@ -93,25 +89,25 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         Files.createDirectories(commands);
         Files.writeString(commands.resolve("1-status.cmd"), "status", StandardCharsets.UTF_8);
         scheduler.runOnce().get(5, TimeUnit.SECONDS);
-        assertTrue(Files.exists(stateDir.resolve("results").resolve("000001-status.txt")),
-            "the scheduled scan must process the pending command");
+        assertTrue(
+                Files.exists(stateDir.resolve("results").resolve("000001-status.txt")),
+                "the scheduled scan must process the pending command");
         assertFalse(Files.exists(commands.resolve("1-status.cmd")));
 
         Files.writeString(commands.resolve("2-status.cmd"), "status", StandardCharsets.UTF_8);
         probe.disable();
         assertTrue(handle.cancel(), "cancel must be accepted and synchronous");
         scheduler.runOnce().get(5, TimeUnit.SECONDS);
-        assertTrue(Files.exists(commands.resolve("2-status.cmd")),
-            "no probe polling may survive disable");
-        assertFalse(Files.exists(stateDir.resolve("results").resolve("000002-status.txt")),
-            "no result may be published after disable");
+        assertTrue(Files.exists(commands.resolve("2-status.cmd")), "no probe polling may survive disable");
+        assertFalse(
+                Files.exists(stateDir.resolve("results").resolve("000002-status.txt")),
+                "no result may be published after disable");
 
         scope.close();
     }
 
     @Test
-    void shutdownAndScopeCloseAlsoCancelTheScheduledScan(@TempDir final Path stateDir)
-        throws Exception {
+    void shutdownAndScopeCloseAlsoCancelTheScheduledScan(@TempDir final Path stateDir) throws Exception {
         scheduler = new FakeTaskScheduler();
         final DisposableScope scope = new DisposableScope();
         final WindowsWorkspaceValidationProbe probe = new WindowsWorkspaceValidationProbe();
@@ -127,8 +123,7 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
     }
 
     @Test
-    void disableWaitsForInFlightScanAndNoScanRunsAfter(@TempDir final Path stateDir)
-        throws Exception {
+    void disableWaitsForInFlightScanAndNoScanRunsAfter(@TempDir final Path stateDir) throws Exception {
         scheduler = new FakeTaskScheduler();
         final DisposableScope scope = new DisposableScope();
         final BlockingWorkspaceService blocking = new BlockingWorkspaceService();
@@ -142,8 +137,7 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
 
         // Start one scan; it enters the scan lock and blocks inside the service call.
         final Future<?> scan = scheduler.runOnce();
-        assertTrue(blocking.entered.await(5, TimeUnit.SECONDS),
-            "the scan must reach the in-flight service call");
+        assertTrue(blocking.entered.await(5, TimeUnit.SECONDS), "the scan must reach the in-flight service call");
 
         // disable() must not return while that scan is in flight.
         testExecutor = Executors.newSingleThreadExecutor();
@@ -159,8 +153,9 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         // No subsequent scan may execute after disable returned.
         Files.writeString(commands.resolve("2-status.cmd"), "status", StandardCharsets.UTF_8);
         scheduler.runOnce().get(5, TimeUnit.SECONDS);
-        assertTrue(Files.exists(commands.resolve("2-status.cmd")),
-            "a scan starting after disable must observe the disabled flag before any service/I/O");
+        assertTrue(
+                Files.exists(commands.resolve("2-status.cmd")),
+                "a scan starting after disable must observe the disabled flag before any service/I/O");
         assertFalse(Files.exists(stateDir.resolve("results").resolve("000002-status.txt")));
         scope.close();
     }
@@ -208,8 +203,7 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
                 @Override
                 public CompletionStage<TaskOutcome> completion() {
                     return CompletableFuture.completedFuture(new TaskOutcome(
-                        request.id(), TaskOutcomeStatus.CANCELED, 0, Optional.empty(), Optional.empty()
-                    ));
+                            request.id(), TaskOutcomeStatus.CANCELED, 0, Optional.empty(), Optional.empty()));
                 }
 
                 @Override
@@ -270,11 +264,7 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
                 Thread.currentThread().interrupt();
             }
             return CompletableFuture.completedFuture(new WorkspaceStatus(
-                WorkspaceStatus.Availability.UNAVAILABLE,
-                Optional.empty(),
-                List.of(),
-                Optional.of("blocked")
-            ));
+                    WorkspaceStatus.Availability.UNAVAILABLE, Optional.empty(), List.of(), Optional.of("blocked")));
         }
 
         @Override
@@ -302,11 +292,10 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         private final WorkspaceService workspace;
 
         FakePluginContext(
-            final Path stateDir,
-            final PluginTaskScheduler tasks,
-            final DisposableScope scope,
-            final WorkspaceService workspace
-        ) {
+                final Path stateDir,
+                final PluginTaskScheduler tasks,
+                final DisposableScope scope,
+                final WorkspaceService workspace) {
             this.paths = new PluginPaths() {
                 @Override
                 public Path dataDir() {
@@ -336,11 +325,20 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         @Override
         public PluginLogger logger() {
             return new PluginLogger() {
-                @Override public void debug(String message) { }
-                @Override public void info(String message) { }
-                @Override public void warn(String message) { }
-                @Override public void error(String message) { }
-                @Override public void error(String message, Throwable throwable) { }
+                @Override
+                public void debug(String message) {}
+
+                @Override
+                public void info(String message) {}
+
+                @Override
+                public void warn(String message) {}
+
+                @Override
+                public void error(String message) {}
+
+                @Override
+                public void error(String message, Throwable throwable) {}
             };
         }
 

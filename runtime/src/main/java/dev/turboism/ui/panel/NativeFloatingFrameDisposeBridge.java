@@ -8,8 +8,7 @@ public final class NativeFloatingFrameDisposeBridge {
 
     private static final AtomicReference<Handler> HANDLER = new AtomicReference<>();
 
-    private NativeFloatingFrameDisposeBridge() {
-    }
+    private NativeFloatingFrameDisposeBridge() {}
 
     /**
      * Installs the single process-wide disposal handler.
@@ -52,10 +51,7 @@ public final class NativeFloatingFrameDisposeBridge {
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "floating-panels",
-                "Floating-frame cleanup failed safely",
-                failure
-            );
+                    "floating-panels", "Floating-frame cleanup failed safely", failure);
         }
     }
 

@@ -32,19 +32,18 @@ public final class PartTreeControlAppearanceProvider implements AutoCloseable {
      * @throws NullPointerException if {@code partId} or {@code component} is {@code null}
      */
     public Component apply(
-        final long hostGeneration,
-        final String partId,
-        final boolean folder,
-        final NativePartTreeAppearanceBridge.Selectors.SourceKind kind,
-        final Component component
-    ) {
+            final long hostGeneration,
+            final String partId,
+            final boolean folder,
+            final NativePartTreeAppearanceBridge.Selectors.SourceKind kind,
+            final Component component) {
         Objects.requireNonNull(partId, "partId");
         final Component target = Objects.requireNonNull(component, "component");
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) return target;
         final PaletteAppearanceCoordinator.Palette palette =
-            kind == NativePartTreeAppearanceBridge.Selectors.SourceKind.PART
-                ? PaletteAppearanceCoordinator.Palette.PART
-                : PaletteAppearanceCoordinator.Palette.DEFORMER_PART;
+                kind == NativePartTreeAppearanceBridge.Selectors.SourceKind.PART
+                        ? PaletteAppearanceCoordinator.Palette.PART
+                        : PaletteAppearanceCoordinator.Palette.DEFORMER_PART;
         styles.apply(target, coordinator.resolveCurrent(hostGeneration, palette, partId));
         return target;
     }
@@ -57,7 +56,10 @@ public final class PartTreeControlAppearanceProvider implements AutoCloseable {
 
     @Override
     public void close() {
-        try { changeSubscription.close(); } catch (Exception ignored) { }
+        try {
+            changeSubscription.close();
+        } catch (Exception ignored) {
+        }
         restore();
     }
 }

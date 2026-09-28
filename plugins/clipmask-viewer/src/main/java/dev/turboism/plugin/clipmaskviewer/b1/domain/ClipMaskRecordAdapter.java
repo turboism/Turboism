@@ -8,8 +8,7 @@ import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRe
  */
 public final class ClipMaskRecordAdapter {
 
-    private ClipMaskRecordAdapter() {
-    }
+    private ClipMaskRecordAdapter() {}
 
     /** First 8 characters of a GUID, or the whole value when shorter; null-safe. */
     public static String shortGuid(final String guid) {

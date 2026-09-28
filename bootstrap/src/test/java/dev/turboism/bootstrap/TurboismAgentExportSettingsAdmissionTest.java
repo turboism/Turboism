@@ -1,9 +1,9 @@
 package dev.turboism.bootstrap;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 /** Covers the export-settings admission gate in {@link ExportSettingsHookContributor}. */
 final class TurboismAgentExportSettingsAdmissionTest {
@@ -25,8 +25,8 @@ final class TurboismAgentExportSettingsAdmissionTest {
 
     private static HookEnvironment environment(final String profile, final boolean admitted) {
         return HookEnvironment.builder()
-            .profile(profile)
-            .fullRuntimeAdmission(admitted)
-            .build();
+                .profile(profile)
+                .fullRuntimeAdmission(admitted)
+                .build();
     }
 }

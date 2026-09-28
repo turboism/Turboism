@@ -1,5 +1,12 @@
 package dev.turboism.plugin.protectedexport;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
@@ -7,6 +14,7 @@ import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Deformer;
+import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Glue;
@@ -26,11 +34,8 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
-import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -42,13 +47,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class ProtectedExportPlannerTest {
     @Test
@@ -58,46 +57,43 @@ class ProtectedExportPlannerTest {
         final ProtectedExportPlan plan = new ProtectedExportPlanner().plan(fixture.model);
 
         assertEquals(
-            List.of("leaf", "child", "root"),
-            plan.deformerOrder().stream().map(DeformerId::value).toList()
-        );
+                List.of("leaf", "child", "root"),
+                plan.deformerOrder().stream().map(DeformerId::value).toList());
         assertEquals(
-            List.of("mesh-a", "mesh-b"),
-            plan.artMeshOrder().stream().map(ArtMeshId::value).toList()
-        );
-        assertEquals(List.of("root", "child"), plan.partIds().stream().map(PartId::value).toList());
-        assertEquals(List.of("ParamAngle"), plan.parameterIds().stream().map(ParameterId::value).toList());
+                List.of("mesh-a", "mesh-b"),
+                plan.artMeshOrder().stream().map(ArtMeshId::value).toList());
         assertEquals(
-            List.of(
-                new ProtectedExportPlan.PartSnapshot(
-                    new PartId("root"), "Root", Optional.empty(), List.of(new PartId("child")), 0.75f
-                ),
-                new ProtectedExportPlan.PartSnapshot(
-                    new PartId("child"), "Child", Optional.of(new PartId("root")), List.of(), 0.5f
-                )
-            ),
-            plan.partSnapshots()
-        );
+                List.of("root", "child"),
+                plan.partIds().stream().map(PartId::value).toList());
         assertEquals(
-            Set.of(ProtectedExportPlan.UnresolvedCondition.EXTENDED_INTERPOLATION_UNVERIFIED),
-            plan.unresolvedConditions()
-        );
-        assertTrue(plan.artMeshTargets().values().stream().allMatch(target ->
-            target.name().matches("ArtMesh_[0-9a-f]{16,62}")
-                && target.idToken().matches("[@_a-zA-Z][0-9a-zA-Z_@]*")
-                && target.idToken().length() < 64
-        ));
+                List.of("ParamAngle"),
+                plan.parameterIds().stream().map(ParameterId::value).toList());
+        assertEquals(
+                List.of(
+                        new ProtectedExportPlan.PartSnapshot(
+                                new PartId("root"), "Root", Optional.empty(), List.of(new PartId("child")), 0.75f),
+                        new ProtectedExportPlan.PartSnapshot(
+                                new PartId("child"), "Child", Optional.of(new PartId("root")), List.of(), 0.5f)),
+                plan.partSnapshots());
+        assertEquals(
+                Set.of(ProtectedExportPlan.UnresolvedCondition.EXTENDED_INTERPOLATION_UNVERIFIED),
+                plan.unresolvedConditions());
         assertTrue(plan.artMeshTargets().values().stream()
-            .allMatch(target -> target.idToken().getClass() == String.class));
-        assertThrows(UnsupportedOperationException.class, () -> plan.partSnapshots().add(null));
+                .allMatch(target -> target.name().matches("ArtMesh_[0-9a-f]{16,62}")
+                        && target.idToken().matches("[@_a-zA-Z][0-9a-zA-Z_@]*")
+                        && target.idToken().length() < 64));
+        assertTrue(plan.artMeshTargets().values().stream()
+                .allMatch(target -> target.idToken().getClass() == String.class));
         assertThrows(
-            UnsupportedOperationException.class,
-            () -> plan.artMeshTargets().put(new ArtMeshId("other"),
-                new ProtectedExportPlan.ArtMeshTarget("ArtMesh_other", "@other"))
-        );
+                UnsupportedOperationException.class, () -> plan.partSnapshots().add(null));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> plan.artMeshTargets()
+                        .put(new ArtMeshId("other"), new ProtectedExportPlan.ArtMeshTarget("ArtMesh_other", "@other")));
         assertEquals(Optional.empty(), fixture.root.answers().get("parentId"));
         assertEquals(List.of(new PartId("child")), fixture.root.answers().get("childIds"));
-        assertEquals(Optional.of(new PartId("root")), fixture.childPart.answers().get("parentId"));
+        assertEquals(
+                Optional.of(new PartId("root")), fixture.childPart.answers().get("parentId"));
         assertEquals(0, fixture.mutations.mutatorCalls.get(), "preflight must only read snapshots");
         assertEquals(0, fixture.model.updateCalls.get(), "preflight must never update the model");
     }
@@ -108,9 +104,8 @@ class ProtectedExportPlannerTest {
         final Fixture second = validFixture();
         second.model.parts = List.of(second.childPart.value(), second.root.value());
         second.model.parameters = List.of(second.parameter.value());
-        second.model.deformers = List.of(
-            second.leaf.value(), second.rootDeformer.value(), second.childDeformer.value()
-        );
+        second.model.deformers =
+                List.of(second.leaf.value(), second.rootDeformer.value(), second.childDeformer.value());
         second.model.drawables = List.of(second.secondaryDrawable.value(), second.primaryDrawable.value());
 
         final ProtectedExportPlan firstPlan = new ProtectedExportPlanner().plan(first.model);
@@ -125,9 +120,10 @@ class ProtectedExportPlannerTest {
         final List<String> hashedInputs = new ArrayList<>();
 
         new ProtectedExportPlanner(guid -> {
-            hashedInputs.add(guid);
-            return guid.equals("guid-a") ? fullHash('a') : fullHash('b');
-        }).plan(fixture.model);
+                    hashedInputs.add(guid);
+                    return guid.equals("guid-a") ? fullHash('a') : fullHash('b');
+                })
+                .plan(fixture.model);
 
         assertEquals(List.of("guid-a", "guid-b"), hashedInputs);
     }
@@ -136,18 +132,17 @@ class ProtectedExportPlannerTest {
     void acceptsAConsistentNormalBindingWithoutWriting() {
         final Fixture fixture = validFixture();
         final ParameterBinding binding = new ParameterBinding(
-            ParameterBindingTarget.warpDeformer(new DeformerId("root")),
-            new ParameterId("ParamAngle"),
-            ParameterBindingFamily.KEYFORM_GRID,
-            List.of()
-        );
+                ParameterBindingTarget.warpDeformer(new DeformerId("root")),
+                new ParameterId("ParamAngle"),
+                ParameterBindingFamily.KEYFORM_GRID,
+                List.of());
         fixture.rootDeformer.answers().put("getParameterBindings", List.of(binding));
         fixture.parameter.answers().put("getParameterBindings", List.of(binding));
 
         final ProtectedExportPlan plan = new ProtectedExportPlanner().plan(fixture.model);
 
-        assertEquals(List.of(new DeformerId("leaf"), new DeformerId("child"), new DeformerId("root")),
-            plan.deformerOrder());
+        assertEquals(
+                List.of(new DeformerId("leaf"), new DeformerId("child"), new DeformerId("root")), plan.deformerOrder());
         assertEquals(0, fixture.mutations.mutatorCalls.get());
     }
 
@@ -156,29 +151,39 @@ class ProtectedExportPlannerTest {
         // Morph-target content is pass-through: populated sets on parts and
         // drawables are admitted untouched by the plan.
         final Fixture partTargets = validFixture();
-        partTargets.root.answers().put("morphTargets", morphTargets(List.of(proxy(
-            MorphTarget.class, Map.of(), partTargets.mutations
-        ).value())));
+        partTargets
+                .root
+                .answers()
+                .put(
+                        "morphTargets",
+                        morphTargets(List.of(proxy(MorphTarget.class, Map.of(), partTargets.mutations)
+                                .value())));
         assertNotNull(new ProtectedExportPlanner().plan(partTargets.model));
         assertEquals(0, partTargets.mutations.mutatorCalls.get());
 
         final Fixture drawableTargets = validFixture();
-        drawableTargets.primaryDrawable.answers().put("morphTargets", morphTargets(List.of(proxy(
-            MorphTarget.class, Map.of(), drawableTargets.mutations
-        ).value())));
+        drawableTargets
+                .primaryDrawable
+                .answers()
+                .put(
+                        "morphTargets",
+                        morphTargets(List.of(proxy(MorphTarget.class, Map.of(), drawableTargets.mutations)
+                                .value())));
         assertNotNull(new ProtectedExportPlanner().plan(drawableTargets.model));
         assertEquals(0, drawableTargets.mutations.mutatorCalls.get());
 
         final Fixture readFailure = validFixture();
-        readFailure.primaryDrawable.answers().put(
-            "morphTargets", morphTargetsFailure(new IllegalStateException("morph target read failed"))
-        );
+        readFailure
+                .primaryDrawable
+                .answers()
+                .put("morphTargets", morphTargetsFailure(new IllegalStateException("morph target read failed")));
         assertRejectedReadOnly(readFailure);
 
         final Fixture partReadFailure = validFixture();
-        partReadFailure.root.answers().put(
-            "morphTargets", morphTargetsFailure(new IllegalStateException("part morph target read failed"))
-        );
+        partReadFailure
+                .root
+                .answers()
+                .put("morphTargets", morphTargetsFailure(new IllegalStateException("part morph target read failed")));
         assertRejectedReadOnly(partReadFailure);
     }
 
@@ -201,9 +206,7 @@ class ProtectedExportPlannerTest {
         assertRejectedReadOnly(blankName);
 
         final Fixture nameException = validFixture();
-        nameException.primaryDrawable.answers().put(
-            "name", new IllegalStateException("name unavailable")
-        );
+        nameException.primaryDrawable.answers().put("name", new IllegalStateException("name unavailable"));
         assertRejectedReadOnly(nameException);
     }
 
@@ -211,46 +214,39 @@ class ProtectedExportPlannerTest {
     void extendsShortHashPrefixesAndFailsClosedOnCompleteCollision() {
         final Fixture distinct = validFixture();
         final String common = "0123456789abcdef";
-        final ProtectedExportPlan plan = new ProtectedExportPlanner(guid ->
-            guid.equals("guid-a")
-                ? common + "0" + "0".repeat(47)
-                : common + "1" + "0".repeat(47)
-        ).plan(distinct.model);
+        final ProtectedExportPlan plan = new ProtectedExportPlanner(
+                        guid -> guid.equals("guid-a") ? common + "0" + "0".repeat(47) : common + "1" + "0".repeat(47))
+                .plan(distinct.model);
 
-        final List<ProtectedExportPlan.ArtMeshTarget> targets = new ArrayList<>(
-            plan.artMeshTargets().values()
-        );
+        final List<ProtectedExportPlan.ArtMeshTarget> targets =
+                new ArrayList<>(plan.artMeshTargets().values());
         assertEquals("ArtMesh_0123456789abcdef", targets.get(0).name());
         assertEquals("ArtMesh_0123456789abcdef1", targets.get(1).name());
         assertEquals("@0123456789abcdef", targets.get(0).idToken());
         assertEquals("@0123456789abcdef1", targets.get(1).idToken());
 
         final Fixture completeCollision = validFixture();
-        assertRejectedWithReadOnly(
-            completeCollision,
-            new ProtectedExportPlanner(guid -> common + "0".repeat(48))
-        );
+        assertRejectedWithReadOnly(completeCollision, new ProtectedExportPlanner(guid -> common + "0".repeat(48)));
     }
 
     @Test
     void rejectsTargetIdSourceConflictAndMalformedHashes() {
         final Fixture sourceConflict = validFixture();
         sourceConflict.primaryDrawable.answers().put("id", new ArtMeshId("@0123456789abcdef"));
-        final ProtectedExportPlan plan = new ProtectedExportPlanner(guid ->
-            guid.equals("guid-a")
-                ? "0123456789abcdef" + "0".repeat(48)
-                : fullHash('b')
-        ).plan(sourceConflict.model);
-        assertEquals("@0123456789abcdef0", plan.artMeshTargets().get(new ArtMeshId("mesh-a")).idToken());
+        final ProtectedExportPlan plan = new ProtectedExportPlanner(
+                        guid -> guid.equals("guid-a") ? "0123456789abcdef" + "0".repeat(48) : fullHash('b'))
+                .plan(sourceConflict.model);
+        assertEquals(
+                "@0123456789abcdef0",
+                plan.artMeshTargets().get(new ArtMeshId("mesh-a")).idToken());
         assertEquals(0, sourceConflict.mutations.mutatorCalls.get());
         assertEquals(0, sourceConflict.model.updateCalls.get());
 
         final Fixture malformed = validFixture();
         assertRejectedWithReadOnly(malformed, new ProtectedExportPlanner(guid -> "not-a-hash"));
         assertThrows(
-            IllegalArgumentException.class,
-            () -> new ProtectedExportPlan.ArtMeshTarget("name", "1starts-with-digit")
-        );
+                IllegalArgumentException.class,
+                () -> new ProtectedExportPlan.ArtMeshTarget("name", "1starts-with-digit"));
     }
 
     @Test
@@ -273,11 +269,13 @@ class ProtectedExportPlannerTest {
                 }
                 default -> throw new AssertionError(family);
             }
-            final ProtectedExportPlan plan = new ProtectedExportPlanner(guid ->
-                guid.equals("guid-a") ? "0123456789abcdef" + "0".repeat(48) : fullHash('b')
-            ).plan(fixture.model);
-            assertEquals("@0123456789abcdef0",
-                plan.artMeshTargets().get(new ArtMeshId("mesh-a")).idToken(), family);
+            final ProtectedExportPlan plan = new ProtectedExportPlanner(
+                            guid -> guid.equals("guid-a") ? "0123456789abcdef" + "0".repeat(48) : fullHash('b'))
+                    .plan(fixture.model);
+            assertEquals(
+                    "@0123456789abcdef0",
+                    plan.artMeshTargets().get(new ArtMeshId("mesh-a")).idToken(),
+                    family);
             assertEquals(0, fixture.mutations.mutatorCalls.get());
             assertEquals(0, fixture.model.updateCalls.get());
         }
@@ -288,61 +286,73 @@ class ProtectedExportPlannerTest {
         final Fixture fixture = validFixture();
         // A Glue binding mesh-a and mesh-b to ParamAngle is admitted verbatim:
         // the plan carries its identity snapshot, never a rewrite target.
-        fixture.model.glues = List.of(proxy(Glue.class, answers(
-            "id", new GlueId("glue-1"),
-            "drawableAId", new ArtMeshId("mesh-a"),
-            "drawableBId", new ArtMeshId("mesh-b"),
-            "parameterIds", List.of(new ParameterId("ParamAngle"))
-        ), fixture.mutations).value());
+        fixture.model.glues = List.of(proxy(
+                        Glue.class,
+                        answers(
+                                "id", new GlueId("glue-1"),
+                                "drawableAId", new ArtMeshId("mesh-a"),
+                                "drawableBId", new ArtMeshId("mesh-b"),
+                                "parameterIds", List.of(new ParameterId("ParamAngle"))),
+                        fixture.mutations)
+                .value());
 
         final ProtectedExportPlan plan = new ProtectedExportPlanner().plan(fixture.model);
 
         assertEquals(
-            List.of(new ProtectedExportPlan.GlueSnapshot(
-                new GlueId("glue-1"), new ArtMeshId("mesh-a"),
-                new ArtMeshId("mesh-b"), List.of(new ParameterId("ParamAngle")))),
-            plan.glueSnapshots());
+                List.of(new ProtectedExportPlan.GlueSnapshot(
+                        new GlueId("glue-1"),
+                        new ArtMeshId("mesh-a"),
+                        new ArtMeshId("mesh-b"),
+                        List.of(new ParameterId("ParamAngle")))),
+                plan.glueSnapshots());
         // The Glue's ArtMesh IDs are not rewrite targets and the obfuscation
         // surface is unaffected.
-        assertEquals(Set.of("mesh-a", "mesh-b"), plan.artMeshTargets().keySet().stream()
-            .map(ArtMeshId::value).collect(java.util.stream.Collectors.toSet()));
-        assertThrows(UnsupportedOperationException.class,
-            () -> plan.glueSnapshots().add(null));
-        assertEquals(0, fixture.mutations.mutatorCalls.get(),
-            "preflight must only read snapshots");
+        assertEquals(
+                Set.of("mesh-a", "mesh-b"),
+                plan.artMeshTargets().keySet().stream()
+                        .map(ArtMeshId::value)
+                        .collect(java.util.stream.Collectors.toSet()));
+        assertThrows(
+                UnsupportedOperationException.class, () -> plan.glueSnapshots().add(null));
+        assertEquals(0, fixture.mutations.mutatorCalls.get(), "preflight must only read snapshots");
         assertEquals(0, fixture.model.updateCalls.get());
     }
 
     @Test
     void rejectsGlueWithUnresolvedReferencesOrDuplicateIds() {
         final Fixture missingDrawable = validFixture();
-        missingDrawable.model.glues = List.of(proxy(Glue.class, answers(
-            "id", new GlueId("glue-1"),
-            "drawableAId", new ArtMeshId("mesh-missing"),
-            "drawableBId", new ArtMeshId("mesh-b"),
-            "parameterIds", List.of()
-        ), missingDrawable.mutations).value());
+        missingDrawable.model.glues = List.of(proxy(
+                        Glue.class,
+                        answers(
+                                "id", new GlueId("glue-1"),
+                                "drawableAId", new ArtMeshId("mesh-missing"),
+                                "drawableBId", new ArtMeshId("mesh-b"),
+                                "parameterIds", List.of()),
+                        missingDrawable.mutations)
+                .value());
         assertRejectedReadOnly(missingDrawable);
 
         final Fixture missingParameter = validFixture();
-        missingParameter.model.glues = List.of(proxy(Glue.class, answers(
-            "id", new GlueId("glue-1"),
-            "drawableAId", new ArtMeshId("mesh-a"),
-            "drawableBId", new ArtMeshId("mesh-b"),
-            "parameterIds", List.of(new ParameterId("missing"))
-        ), missingParameter.mutations).value());
+        missingParameter.model.glues = List.of(proxy(
+                        Glue.class,
+                        answers(
+                                "id", new GlueId("glue-1"),
+                                "drawableAId", new ArtMeshId("mesh-a"),
+                                "drawableBId", new ArtMeshId("mesh-b"),
+                                "parameterIds", List.of(new ParameterId("missing"))),
+                        missingParameter.mutations)
+                .value());
         assertRejectedReadOnly(missingParameter);
 
         final Fixture duplicate = validFixture();
         final Map<String, Object> duplicateAnswers = answers(
-            "id", new GlueId("glue-1"),
-            "drawableAId", new ArtMeshId("mesh-a"),
-            "drawableBId", new ArtMeshId("mesh-b"),
-            "parameterIds", List.of()
-        );
+                "id", new GlueId("glue-1"),
+                "drawableAId", new ArtMeshId("mesh-a"),
+                "drawableBId", new ArtMeshId("mesh-b"),
+                "parameterIds", List.of());
         duplicate.model.glues = List.of(
-            proxy(Glue.class, duplicateAnswers, duplicate.mutations).value(),
-            proxy(Glue.class, duplicateAnswers, duplicate.mutations).value());
+                proxy(Glue.class, duplicateAnswers, duplicate.mutations).value(),
+                proxy(Glue.class, duplicateAnswers, duplicate.mutations).value());
         assertRejectedReadOnly(duplicate);
     }
 
@@ -369,24 +379,22 @@ class ProtectedExportPlannerTest {
         // contract cannot be validated still fail closed.
         final Fixture unsupportedDeformer = validFixture();
         unsupportedDeformer.model.deformers = List.of(proxy(
-            Deformer.class,
-            answers(
-                "id", new DeformerId("plain"),
-                "parentPartId", Optional.empty(),
-                "parentDeformerId", Optional.empty(),
-                "getParameterBindings", List.of()
-            ),
-            unsupportedDeformer.mutations
-        ).value());
+                        Deformer.class,
+                        answers(
+                                "id", new DeformerId("plain"),
+                                "parentPartId", Optional.empty(),
+                                "parentDeformerId", Optional.empty(),
+                                "getParameterBindings", List.of()),
+                        unsupportedDeformer.mutations)
+                .value());
         assertRejectedReadOnly(unsupportedDeformer);
 
         final Fixture unsupportedBinding = validFixture();
         final ParameterBinding blendShape = new ParameterBinding(
-            ParameterBindingTarget.warpDeformer(new DeformerId("root")),
-            new ParameterId("ParamAngle"),
-            ParameterBindingFamily.BLEND_SHAPE,
-            List.of()
-        );
+                ParameterBindingTarget.warpDeformer(new DeformerId("root")),
+                new ParameterId("ParamAngle"),
+                ParameterBindingFamily.BLEND_SHAPE,
+                List.of());
         unsupportedBinding.rootDeformer.answers().put("getParameterBindings", List.of(blendShape));
         unsupportedBinding.parameter.answers().put("getParameterBindings", List.of(blendShape));
         assertRejectedReadOnly(unsupportedBinding);
@@ -395,21 +403,15 @@ class ProtectedExportPlannerTest {
     @Test
     void rejectsBadGraphsDuplicateIdsAndInconsistentRelations() {
         final Fixture missingPartParent = validFixture();
-        missingPartParent.childPart.answers().put(
-            "parentId", Optional.of(new PartId("missing"))
-        );
+        missingPartParent.childPart.answers().put("parentId", Optional.of(new PartId("missing")));
         assertRejectedReadOnly(missingPartParent);
 
         final Fixture missingDeformerParent = validFixture();
-        missingDeformerParent.childDeformer.answers().put(
-            "parentDeformerId", Optional.of(new DeformerId("missing"))
-        );
+        missingDeformerParent.childDeformer.answers().put("parentDeformerId", Optional.of(new DeformerId("missing")));
         assertRejectedReadOnly(missingDeformerParent);
 
         final Fixture deformerCycle = validFixture();
-        deformerCycle.rootDeformer.answers().put(
-            "parentDeformerId", Optional.of(new DeformerId("leaf"))
-        );
+        deformerCycle.rootDeformer.answers().put("parentDeformerId", Optional.of(new DeformerId("leaf")));
         assertRejectedReadOnly(deformerCycle);
 
         final Fixture partCycle = validFixture();
@@ -435,21 +437,18 @@ class ProtectedExportPlannerTest {
 
         final Fixture duplicateDeformer = validFixture();
         duplicateDeformer.model.deformers = List.of(
-            duplicateDeformer.rootDeformer.value(), duplicateDeformer.rootDeformer.value(),
-            duplicateDeformer.childDeformer.value(), duplicateDeformer.leaf.value()
-        );
+                duplicateDeformer.rootDeformer.value(), duplicateDeformer.rootDeformer.value(),
+                duplicateDeformer.childDeformer.value(), duplicateDeformer.leaf.value());
         assertRejectedReadOnly(duplicateDeformer);
 
         final Fixture duplicateParameter = validFixture();
-        duplicateParameter.model.parameters = List.of(
-            duplicateParameter.parameter.value(), duplicateParameter.parameter.value()
-        );
+        duplicateParameter.model.parameters =
+                List.of(duplicateParameter.parameter.value(), duplicateParameter.parameter.value());
         assertRejectedReadOnly(duplicateParameter);
 
         final Fixture duplicateDrawable = validFixture();
-        duplicateDrawable.model.drawables = List.of(
-            duplicateDrawable.primaryDrawable.value(), duplicateDrawable.primaryDrawable.value()
-        );
+        duplicateDrawable.model.drawables =
+                List.of(duplicateDrawable.primaryDrawable.value(), duplicateDrawable.primaryDrawable.value());
         assertRejectedReadOnly(duplicateDrawable);
     }
 
@@ -457,33 +456,30 @@ class ProtectedExportPlannerTest {
     void rejectsUnknownOrInconsistentBindingSnapshots() {
         final Fixture missingParameter = validFixture();
         final ParameterBinding missing = new ParameterBinding(
-            ParameterBindingTarget.warpDeformer(new DeformerId("root")),
-            new ParameterId("missing"),
-            ParameterBindingFamily.KEYFORM_GRID,
-            List.of()
-        );
+                ParameterBindingTarget.warpDeformer(new DeformerId("root")),
+                new ParameterId("missing"),
+                ParameterBindingFamily.KEYFORM_GRID,
+                List.of());
         missingParameter.rootDeformer.answers().put("getParameterBindings", List.of(missing));
         missingParameter.parameter.answers().put("getParameterBindings", List.of(missing));
         assertRejectedReadOnly(missingParameter);
 
         final Fixture wrongOwner = validFixture();
         final ParameterBinding wrongTarget = new ParameterBinding(
-            ParameterBindingTarget.rotationDeformer(new DeformerId("child")),
-            new ParameterId("ParamAngle"),
-            ParameterBindingFamily.KEYFORM_GRID,
-            List.of()
-        );
+                ParameterBindingTarget.rotationDeformer(new DeformerId("child")),
+                new ParameterId("ParamAngle"),
+                ParameterBindingFamily.KEYFORM_GRID,
+                List.of());
         wrongOwner.rootDeformer.answers().put("getParameterBindings", List.of(wrongTarget));
         wrongOwner.parameter.answers().put("getParameterBindings", List.of(wrongTarget));
         assertRejectedReadOnly(wrongOwner);
 
         final Fixture inconsistent = validFixture();
         final ParameterBinding onlyOnOwner = new ParameterBinding(
-            ParameterBindingTarget.warpDeformer(new DeformerId("root")),
-            new ParameterId("ParamAngle"),
-            ParameterBindingFamily.KEYFORM_GRID,
-            List.of()
-        );
+                ParameterBindingTarget.warpDeformer(new DeformerId("root")),
+                new ParameterId("ParamAngle"),
+                ParameterBindingFamily.KEYFORM_GRID,
+                List.of());
         inconsistent.rootDeformer.answers().put("getParameterBindings", List.of(onlyOnOwner));
         assertRejectedReadOnly(inconsistent);
     }
@@ -504,30 +500,28 @@ class ProtectedExportPlannerTest {
     void acceptsProductionLikeTypedDeformerWrappers() {
         final Fixture fixture = validFixture();
         final ParameterBinding warpBinding = new ParameterBinding(
-            ParameterBindingTarget.warpDeformer(new DeformerId("root")),
-            new ParameterId("ParamAngle"),
-            ParameterBindingFamily.KEYFORM_GRID,
-            List.of()
-        );
+                ParameterBindingTarget.warpDeformer(new DeformerId("root")),
+                new ParameterId("ParamAngle"),
+                ParameterBindingFamily.KEYFORM_GRID,
+                List.of());
         final ParameterBinding rotationBinding = new ParameterBinding(
-            ParameterBindingTarget.rotationDeformer(new DeformerId("child")),
-            new ParameterId("ParamAngle"),
-            ParameterBindingFamily.KEYFORM_GRID,
-            List.of()
-        );
+                ParameterBindingTarget.rotationDeformer(new DeformerId("child")),
+                new ParameterId("ParamAngle"),
+                ParameterBindingFamily.KEYFORM_GRID,
+                List.of());
         fixture.rootDeformer.answers().put("getParameterBindings", List.of(warpBinding));
         fixture.childDeformer.answers().put("getParameterBindings", List.of(rotationBinding));
         fixture.parameter.answers().put("getParameterBindings", List.of(warpBinding, rotationBinding));
         fixture.model.deformers = List.of(
-            new ProductionWarpDeformer(fixture.rootDeformer.value()),
-            new ProductionRotationDeformer(fixture.childDeformer.value()),
-            new ProductionWarpDeformer(fixture.leaf.value())
-        );
+                new ProductionWarpDeformer(fixture.rootDeformer.value()),
+                new ProductionRotationDeformer(fixture.childDeformer.value()),
+                new ProductionWarpDeformer(fixture.leaf.value()));
 
         final ProtectedExportPlan plan = new ProtectedExportPlanner().plan(fixture.model);
 
-        assertEquals(List.of("leaf", "child", "root"),
-            plan.deformerOrder().stream().map(DeformerId::value).toList());
+        assertEquals(
+                List.of("leaf", "child", "root"),
+                plan.deformerOrder().stream().map(DeformerId::value).toList());
         assertEquals(0, fixture.mutations.mutatorCalls.get(), "preflight must only read wrappers");
         assertEquals(0, fixture.model.updateCalls.get(), "preflight must never update the model");
     }
@@ -540,8 +534,9 @@ class ProtectedExportPlannerTest {
 
         final ProtectedExportPlan plan = new ProtectedExportPlanner().plan(fixture.model);
 
-        assertEquals(List.of("leaf", "child", "root"),
-            plan.deformerOrder().stream().map(DeformerId::value).toList());
+        assertEquals(
+                List.of("leaf", "child", "root"),
+                plan.deformerOrder().stream().map(DeformerId::value).toList());
         assertEquals(0, fixture.mutations.mutatorCalls.get(), "preflight must only read snapshots");
         assertEquals(0, fixture.model.updateCalls.get(), "preflight must never update the model");
     }
@@ -550,17 +545,15 @@ class ProtectedExportPlannerTest {
     void rejectsDuplicateLogicalBindingsWithDifferentPointsWithoutMutation() {
         final Fixture fixture = validFixture();
         final ParameterBinding first = new ParameterBinding(
-            ParameterBindingTarget.warpDeformer(new DeformerId("root")),
-            new ParameterId("ParamAngle"),
-            ParameterBindingFamily.KEYFORM_GRID,
-            List.of(new ParameterBindingPoint(new ParameterBindingPointId("point-a"), 0.0f))
-        );
+                ParameterBindingTarget.warpDeformer(new DeformerId("root")),
+                new ParameterId("ParamAngle"),
+                ParameterBindingFamily.KEYFORM_GRID,
+                List.of(new ParameterBindingPoint(new ParameterBindingPointId("point-a"), 0.0f)));
         final ParameterBinding differentPoints = new ParameterBinding(
-            ParameterBindingTarget.warpDeformer(new DeformerId("root")),
-            new ParameterId("ParamAngle"),
-            ParameterBindingFamily.KEYFORM_GRID,
-            List.of(new ParameterBindingPoint(new ParameterBindingPointId("point-b"), 1.0f))
-        );
+                ParameterBindingTarget.warpDeformer(new DeformerId("root")),
+                new ParameterId("ParamAngle"),
+                ParameterBindingFamily.KEYFORM_GRID,
+                List.of(new ParameterBindingPoint(new ParameterBindingPointId("point-b"), 1.0f)));
         fixture.rootDeformer.answers().put("getParameterBindings", List.of(first, differentPoints));
         fixture.parameter.answers().put("getParameterBindings", List.of(first, differentPoints));
 
@@ -572,30 +565,27 @@ class ProtectedExportPlannerTest {
         final String firstPrefix = "0123456789abcdef";
         final String secondPrefix = "fedcba9876543210";
         final String candidateName = "ArtMesh_" + secondPrefix;
-        final ProtectedExportPlanner.GuidHasher hasher = guid ->
-            guid.equals("guid-a") ? hashForPrefix(firstPrefix) : hashForPrefix(secondPrefix);
+        final ProtectedExportPlanner.GuidHasher hasher =
+                guid -> guid.equals("guid-a") ? hashForPrefix(firstPrefix) : hashForPrefix(secondPrefix);
 
         final Fixture ownObject = validFixture();
         ownObject.primaryDrawable.answers().put("name", candidateName);
         final ProtectedExportPlan ownPlan = new ProtectedExportPlanner(hasher).plan(ownObject.model);
         final ProtectedExportPlan.ArtMeshTarget ownTarget =
-            ownPlan.artMeshTargets().get(new ArtMeshId("mesh-b"));
+                ownPlan.artMeshTargets().get(new ArtMeshId("mesh-b"));
         assertNotEquals(candidateName, ownTarget.name());
         assertNotEquals("@" + secondPrefix, ownTarget.idToken());
 
         final Fixture crossMesh = validFixture();
         crossMesh.secondaryDrawable.answers().put("name", candidateName);
-        crossMesh.model.drawables = List.of(
-            crossMesh.secondaryDrawable.value(), crossMesh.primaryDrawable.value()
-        );
+        crossMesh.model.drawables = List.of(crossMesh.secondaryDrawable.value(), crossMesh.primaryDrawable.value());
         final ProtectedExportPlan crossPlan = new ProtectedExportPlanner(hasher).plan(crossMesh.model);
         final Fixture crossMeshReordered = validFixture();
         crossMeshReordered.secondaryDrawable.answers().put("name", candidateName);
-        final ProtectedExportPlan reorderedPlan =
-            new ProtectedExportPlanner(hasher).plan(crossMeshReordered.model);
+        final ProtectedExportPlan reorderedPlan = new ProtectedExportPlanner(hasher).plan(crossMeshReordered.model);
         assertEquals(crossPlan, reorderedPlan, "source-name reserves must be input-order independent");
         final ProtectedExportPlan.ArtMeshTarget crossTarget =
-            crossPlan.artMeshTargets().get(new ArtMeshId("mesh-b"));
+                crossPlan.artMeshTargets().get(new ArtMeshId("mesh-b"));
         assertNotEquals(candidateName, crossTarget.name());
         assertNotEquals("@" + secondPrefix, crossTarget.idToken());
     }
@@ -603,55 +593,81 @@ class ProtectedExportPlannerTest {
     @Test
     void ordersMultipleRootsAndSiblingsDeterministically() {
         final Fixture fixture = validFixture();
-        final ProxyValue<Part> alternateRoot = proxy(Part.class, answers(
-            "id", new PartId("a-root"),
-            "name", "AlternateRoot",
-            "parentId", Optional.empty(),
-            "childIds", List.of(new PartId("a-child")),
-            "getOpacity", 1.0f,
-            "morphTargets", morphTargets(List.of())
-        ), fixture.mutations);
-        final ProxyValue<Part> alternateChild = proxy(Part.class, answers(
-            "id", new PartId("a-child"),
-            "name", "AlternateChild",
-            "parentId", Optional.of(new PartId("a-root")),
-            "childIds", List.of(),
-            "getOpacity", 1.0f,
-            "morphTargets", morphTargets(List.of())
-        ), fixture.mutations);
-        fixture.model.parts = List.of(
-            fixture.childPart.value(), alternateChild.value(), fixture.root.value(), alternateRoot.value()
-        );
+        final ProxyValue<Part> alternateRoot = proxy(
+                Part.class,
+                answers(
+                        "id",
+                        new PartId("a-root"),
+                        "name",
+                        "AlternateRoot",
+                        "parentId",
+                        Optional.empty(),
+                        "childIds",
+                        List.of(new PartId("a-child")),
+                        "getOpacity",
+                        1.0f,
+                        "morphTargets",
+                        morphTargets(List.of())),
+                fixture.mutations);
+        final ProxyValue<Part> alternateChild = proxy(
+                Part.class,
+                answers(
+                        "id",
+                        new PartId("a-child"),
+                        "name",
+                        "AlternateChild",
+                        "parentId",
+                        Optional.of(new PartId("a-root")),
+                        "childIds",
+                        List.of(),
+                        "getOpacity",
+                        1.0f,
+                        "morphTargets",
+                        morphTargets(List.of())),
+                fixture.mutations);
+        fixture.model.parts =
+                List.of(fixture.childPart.value(), alternateChild.value(), fixture.root.value(), alternateRoot.value());
 
-        final ProxyValue<WarpDeformer> siblingB = proxy(WarpDeformer.class, answers(
-            "id", new DeformerId("sibling-b"),
-            "parentPartId", Optional.empty(),
-            "parentDeformerId", Optional.of(new DeformerId("root")),
-            "getParameterBindings", List.of()
-        ), fixture.mutations);
-        final ProxyValue<WarpDeformer> siblingA = proxy(WarpDeformer.class, answers(
-            "id", new DeformerId("sibling-a"),
-            "parentPartId", Optional.empty(),
-            "parentDeformerId", Optional.of(new DeformerId("root")),
-            "getParameterBindings", List.of()
-        ), fixture.mutations);
-        final ProxyValue<WarpDeformer> alternateDeformerRoot = proxy(WarpDeformer.class, answers(
-            "id", new DeformerId("a-root"),
-            "parentPartId", Optional.empty(),
-            "parentDeformerId", Optional.empty(),
-            "getParameterBindings", List.of()
-        ), fixture.mutations);
+        final ProxyValue<WarpDeformer> siblingB = proxy(
+                WarpDeformer.class,
+                answers(
+                        "id", new DeformerId("sibling-b"),
+                        "parentPartId", Optional.empty(),
+                        "parentDeformerId", Optional.of(new DeformerId("root")),
+                        "getParameterBindings", List.of()),
+                fixture.mutations);
+        final ProxyValue<WarpDeformer> siblingA = proxy(
+                WarpDeformer.class,
+                answers(
+                        "id", new DeformerId("sibling-a"),
+                        "parentPartId", Optional.empty(),
+                        "parentDeformerId", Optional.of(new DeformerId("root")),
+                        "getParameterBindings", List.of()),
+                fixture.mutations);
+        final ProxyValue<WarpDeformer> alternateDeformerRoot = proxy(
+                WarpDeformer.class,
+                answers(
+                        "id", new DeformerId("a-root"),
+                        "parentPartId", Optional.empty(),
+                        "parentDeformerId", Optional.empty(),
+                        "getParameterBindings", List.of()),
+                fixture.mutations);
         fixture.model.deformers = List.of(
-            siblingB.value(), fixture.leaf.value(), fixture.rootDeformer.value(),
-            alternateDeformerRoot.value(), fixture.childDeformer.value(), siblingA.value()
-        );
+                siblingB.value(),
+                fixture.leaf.value(),
+                fixture.rootDeformer.value(),
+                alternateDeformerRoot.value(),
+                fixture.childDeformer.value(),
+                siblingA.value());
 
         final ProtectedExportPlan plan = new ProtectedExportPlanner().plan(fixture.model);
 
-        assertEquals(List.of("a-root", "a-child", "root", "child"),
-            plan.partIds().stream().map(PartId::value).toList());
-        assertEquals(List.of("a-root", "leaf", "child", "sibling-a", "sibling-b", "root"),
-            plan.deformerOrder().stream().map(DeformerId::value).toList());
+        assertEquals(
+                List.of("a-root", "a-child", "root", "child"),
+                plan.partIds().stream().map(PartId::value).toList());
+        assertEquals(
+                List.of("a-root", "leaf", "child", "sibling-a", "sibling-b", "root"),
+                plan.deformerOrder().stream().map(DeformerId::value).toList());
         assertEquals(0, fixture.mutations.mutatorCalls.get());
         assertEquals(0, fixture.model.updateCalls.get());
     }
@@ -661,8 +677,9 @@ class ProtectedExportPlannerTest {
         for (InstanceRenderType renderType : InstanceRenderType.values()) {
             final Fixture instance = validFixture();
             instance.model.instances = List.of(() -> renderType);
-            assertNotNull(new ProtectedExportPlanner().plan(instance.model),
-                "render type " + renderType + " must pass through");
+            assertNotNull(
+                    new ProtectedExportPlanner().plan(instance.model),
+                    "render type " + renderType + " must pass through");
         }
 
         final Fixture blendShape = validFixture();
@@ -692,9 +709,7 @@ class ProtectedExportPlannerTest {
         final int depth = 4096;
         final DeepFixture fixture = deepFixture(depth);
 
-        final ProtectedExportPlan plan = assertDoesNotThrow(
-            () -> new ProtectedExportPlanner().plan(fixture.model)
-        );
+        final ProtectedExportPlan plan = assertDoesNotThrow(() -> new ProtectedExportPlanner().plan(fixture.model));
 
         assertEquals(depth, plan.partIds().size());
         assertEquals(depth, plan.deformerOrder().size());
@@ -708,10 +723,7 @@ class ProtectedExportPlannerTest {
         assertEquals(0, fixture.model.updateCalls.get(), "rejection must not update the model");
     }
 
-    private static void assertRejectedWithReadOnly(
-        final Fixture fixture,
-        final ProtectedExportPlanner planner
-    ) {
+    private static void assertRejectedWithReadOnly(final Fixture fixture, final ProtectedExportPlanner planner) {
         assertThrows(IllegalArgumentException.class, () -> planner.plan(fixture.model));
         assertEquals(0, fixture.mutations.mutatorCalls.get(), "rejection must not mutate the model");
         assertEquals(0, fixture.model.updateCalls.get(), "rejection must not update the model");
@@ -731,82 +743,109 @@ class ProtectedExportPlannerTest {
 
     private static MorphTargets morphTargetsFailure(final Object answer) {
         return (MorphTargets) Proxy.newProxyInstance(
-            MorphTargets.class.getClassLoader(),
-            new Class<?>[]{MorphTargets.class},
-            (proxy, method, arguments) -> {
-                if (method.getName().equals("all")) {
-                    if (answer instanceof Throwable failure) {
-                        throw failure;
+                MorphTargets.class.getClassLoader(),
+                new Class<?>[] {MorphTargets.class},
+                (proxy, method, arguments) -> {
+                    if (method.getName().equals("all")) {
+                        if (answer instanceof Throwable failure) {
+                            throw failure;
+                        }
+                        return List.copyOf((List<?>) answer);
                     }
-                    return List.copyOf((List<?>) answer);
-                }
-                if (method.getName().equals("toString")) return "MorphTargets";
-                throw new UnsupportedOperationException(method.getName());
-            }
-        );
+                    if (method.getName().equals("toString")) return "MorphTargets";
+                    throw new UnsupportedOperationException(method.getName());
+                });
     }
 
     private static Fixture validFixture() {
         final Mutations mutations = new Mutations();
-        final ProxyValue<Part> root = proxy(Part.class, answers(
-            "id", new PartId("root"),
-            "name", "Root",
-            "parentId", Optional.empty(),
-            "childIds", List.of(new PartId("child")),
-            "getOpacity", 0.75f,
-            "morphTargets", morphTargets(List.of())
-        ), mutations);
-        final ProxyValue<Part> childPart = proxy(Part.class, answers(
-            "id", new PartId("child"),
-            "name", "Child",
-            "parentId", Optional.of(new PartId("root")),
-            "childIds", List.of(),
-            "getOpacity", 0.5f,
-            "morphTargets", morphTargets(List.of())
-        ), mutations);
-        final ProxyValue<Parameter> parameter = proxy(Parameter.class, answers(
-            "id", new ParameterId("ParamAngle"),
-            "type", ParameterType.NORMAL,
-            "combined", Optional.of(false),
-            "combinedWith", Optional.empty(),
-            "getParameterBindings", List.of()
-        ), mutations);
-        final ProxyValue<WarpDeformer> rootDeformer = proxy(WarpDeformer.class, answers(
-            "id", new DeformerId("root"),
-            "parentPartId", Optional.empty(),
-            "parentDeformerId", Optional.empty(),
-            "getParameterBindings", List.of()
-        ), mutations);
-        final ProxyValue<RotationDeformer> childDeformer = proxy(RotationDeformer.class, answers(
-            "id", new DeformerId("child"),
-            "parentPartId", Optional.empty(),
-            "parentDeformerId", Optional.of(new DeformerId("root")),
-            "getParameterBindings", List.of()
-        ), mutations);
-        final ProxyValue<WarpDeformer> leaf = proxy(WarpDeformer.class, answers(
-            "id", new DeformerId("leaf"),
-            "parentPartId", Optional.empty(),
-            "parentDeformerId", Optional.of(new DeformerId("child")),
-            "getParameterBindings", List.of()
-        ), mutations);
-        final ProxyValue<Drawable> primaryDrawable = proxy(Drawable.class, answers(
-            "id", new ArtMeshId("mesh-b"),
-            "guid", "guid-b",
-            "name", "SourceNameB",
-            "parentPartId", Optional.empty(),
-            "parentDeformerId", Optional.of(new DeformerId("leaf")),
-            "getParameterBindings", List.of(),
-            "morphTargets", morphTargets(List.of())
-        ), mutations);
-        final ProxyValue<Drawable> secondaryDrawable = proxy(Drawable.class, answers(
-            "id", new ArtMeshId("mesh-a"),
-            "guid", "guid-a",
-            "name", "SourceNameA",
-            "parentPartId", Optional.of(new PartId("root")),
-            "parentDeformerId", Optional.empty(),
-            "getParameterBindings", List.of(),
-            "morphTargets", morphTargets(List.of())
-        ), mutations);
+        final ProxyValue<Part> root = proxy(
+                Part.class,
+                answers(
+                        "id",
+                        new PartId("root"),
+                        "name",
+                        "Root",
+                        "parentId",
+                        Optional.empty(),
+                        "childIds",
+                        List.of(new PartId("child")),
+                        "getOpacity",
+                        0.75f,
+                        "morphTargets",
+                        morphTargets(List.of())),
+                mutations);
+        final ProxyValue<Part> childPart = proxy(
+                Part.class,
+                answers(
+                        "id",
+                        new PartId("child"),
+                        "name",
+                        "Child",
+                        "parentId",
+                        Optional.of(new PartId("root")),
+                        "childIds",
+                        List.of(),
+                        "getOpacity",
+                        0.5f,
+                        "morphTargets",
+                        morphTargets(List.of())),
+                mutations);
+        final ProxyValue<Parameter> parameter = proxy(
+                Parameter.class,
+                answers(
+                        "id", new ParameterId("ParamAngle"),
+                        "type", ParameterType.NORMAL,
+                        "combined", Optional.of(false),
+                        "combinedWith", Optional.empty(),
+                        "getParameterBindings", List.of()),
+                mutations);
+        final ProxyValue<WarpDeformer> rootDeformer = proxy(
+                WarpDeformer.class,
+                answers(
+                        "id", new DeformerId("root"),
+                        "parentPartId", Optional.empty(),
+                        "parentDeformerId", Optional.empty(),
+                        "getParameterBindings", List.of()),
+                mutations);
+        final ProxyValue<RotationDeformer> childDeformer = proxy(
+                RotationDeformer.class,
+                answers(
+                        "id", new DeformerId("child"),
+                        "parentPartId", Optional.empty(),
+                        "parentDeformerId", Optional.of(new DeformerId("root")),
+                        "getParameterBindings", List.of()),
+                mutations);
+        final ProxyValue<WarpDeformer> leaf = proxy(
+                WarpDeformer.class,
+                answers(
+                        "id", new DeformerId("leaf"),
+                        "parentPartId", Optional.empty(),
+                        "parentDeformerId", Optional.of(new DeformerId("child")),
+                        "getParameterBindings", List.of()),
+                mutations);
+        final ProxyValue<Drawable> primaryDrawable = proxy(
+                Drawable.class,
+                answers(
+                        "id", new ArtMeshId("mesh-b"),
+                        "guid", "guid-b",
+                        "name", "SourceNameB",
+                        "parentPartId", Optional.empty(),
+                        "parentDeformerId", Optional.of(new DeformerId("leaf")),
+                        "getParameterBindings", List.of(),
+                        "morphTargets", morphTargets(List.of())),
+                mutations);
+        final ProxyValue<Drawable> secondaryDrawable = proxy(
+                Drawable.class,
+                answers(
+                        "id", new ArtMeshId("mesh-a"),
+                        "guid", "guid-a",
+                        "name", "SourceNameA",
+                        "parentPartId", Optional.of(new PartId("root")),
+                        "parentDeformerId", Optional.empty(),
+                        "getParameterBindings", List.of(),
+                        "morphTargets", morphTargets(List.of())),
+                mutations);
         final FakeModel model = new FakeModel();
         model.parameters = List.of(parameter.value());
         model.parts = List.of(root.value(), childPart.value());
@@ -814,9 +853,16 @@ class ProtectedExportPlannerTest {
         model.drawables = List.of(primaryDrawable.value(), secondaryDrawable.value());
         model.instances = List.of(() -> InstanceRenderType.NORMAL);
         return new Fixture(
-            model, mutations, root, childPart, parameter, rootDeformer, childDeformer, leaf,
-            primaryDrawable, secondaryDrawable
-        );
+                model,
+                mutations,
+                root,
+                childPart,
+                parameter,
+                rootDeformer,
+                childDeformer,
+                leaf,
+                primaryDrawable,
+                secondaryDrawable);
     }
 
     private static DeepFixture deepFixture(final int depth) {
@@ -827,51 +873,67 @@ class ProtectedExportPlannerTest {
         final List<Part> parts = new ArrayList<>();
         for (int index = 0; index < depth; index++) {
             final String id = "part-" + index;
-            final Optional<PartId> parentId = index == 0
-                ? Optional.empty()
-                : Optional.of(new PartId("part-" + (index - 1)));
-            final List<PartId> childIds = index + 1 == depth
-                ? List.of()
-                : List.of(new PartId("part-" + (index + 1)));
-            parts.add(proxy(Part.class, answers(
-                "id", new PartId(id),
-                "name", "Part-" + index,
-                "parentId", parentId,
-                "childIds", childIds,
-                "getOpacity", 1.0f,
-                "morphTargets", morphTargets(List.of())
-            ), mutations).value());
+            final Optional<PartId> parentId =
+                    index == 0 ? Optional.empty() : Optional.of(new PartId("part-" + (index - 1)));
+            final List<PartId> childIds = index + 1 == depth ? List.of() : List.of(new PartId("part-" + (index + 1)));
+            parts.add(proxy(
+                            Part.class,
+                            answers(
+                                    "id",
+                                    new PartId(id),
+                                    "name",
+                                    "Part-" + index,
+                                    "parentId",
+                                    parentId,
+                                    "childIds",
+                                    childIds,
+                                    "getOpacity",
+                                    1.0f,
+                                    "morphTargets",
+                                    morphTargets(List.of())),
+                            mutations)
+                    .value());
         }
 
         final List<Deformer> deformers = new ArrayList<>();
         for (int index = 0; index < depth; index++) {
-            final Optional<DeformerId> parentId = index == 0
-                ? Optional.empty()
-                : Optional.of(new DeformerId("deformer-" + (index - 1)));
-            deformers.add(proxy(WarpDeformer.class, answers(
-                "id", new DeformerId("deformer-" + index),
-                "parentPartId", Optional.empty(),
-                "parentDeformerId", parentId,
-                "getParameterBindings", List.of()
-            ), mutations).value());
+            final Optional<DeformerId> parentId =
+                    index == 0 ? Optional.empty() : Optional.of(new DeformerId("deformer-" + (index - 1)));
+            deformers.add(proxy(
+                            WarpDeformer.class,
+                            answers(
+                                    "id",
+                                    new DeformerId("deformer-" + index),
+                                    "parentPartId",
+                                    Optional.empty(),
+                                    "parentDeformerId",
+                                    parentId,
+                                    "getParameterBindings",
+                                    List.of()),
+                            mutations)
+                    .value());
         }
 
-        final ProxyValue<Parameter> parameter = proxy(Parameter.class, answers(
-            "id", new ParameterId("DeepParameter"),
-            "type", ParameterType.NORMAL,
-            "combined", Optional.of(false),
-            "combinedWith", Optional.empty(),
-            "getParameterBindings", List.of()
-        ), mutations);
-        final ProxyValue<Drawable> drawable = proxy(Drawable.class, answers(
-            "id", new ArtMeshId("deep-mesh"),
-            "guid", "deep-guid",
-            "name", "DeepSource",
-            "parentPartId", Optional.of(new PartId("part-0")),
-            "parentDeformerId", Optional.of(new DeformerId("deformer-" + (depth - 1))),
-            "getParameterBindings", List.of(),
-            "morphTargets", morphTargets(List.of())
-        ), mutations);
+        final ProxyValue<Parameter> parameter = proxy(
+                Parameter.class,
+                answers(
+                        "id", new ParameterId("DeepParameter"),
+                        "type", ParameterType.NORMAL,
+                        "combined", Optional.of(false),
+                        "combinedWith", Optional.empty(),
+                        "getParameterBindings", List.of()),
+                mutations);
+        final ProxyValue<Drawable> drawable = proxy(
+                Drawable.class,
+                answers(
+                        "id", new ArtMeshId("deep-mesh"),
+                        "guid", "deep-guid",
+                        "name", "DeepSource",
+                        "parentPartId", Optional.of(new PartId("part-0")),
+                        "parentDeformerId", Optional.of(new DeformerId("deformer-" + (depth - 1))),
+                        "getParameterBindings", List.of(),
+                        "morphTargets", morphTargets(List.of())),
+                mutations);
         final FakeModel model = new FakeModel();
         model.parameters = List.of(parameter.value());
         model.parts = parts;
@@ -890,32 +952,32 @@ class ProtectedExportPlannerTest {
     }
 
     private static <T> ProxyValue<T> proxy(
-        final Class<T> type,
-        final Map<String, Object> answers,
-        final Mutations mutations
-    ) {
-        final InvocationHandler handler = (proxy, method, arguments) -> invoke(
-            proxy, method, arguments, answers, mutations
-        );
-        return new ProxyValue<>(type.cast(Proxy.newProxyInstance(
-            type.getClassLoader(), new Class<?>[]{type}, handler
-        )), answers);
+            final Class<T> type, final Map<String, Object> answers, final Mutations mutations) {
+        final InvocationHandler handler =
+                (proxy, method, arguments) -> invoke(proxy, method, arguments, answers, mutations);
+        return new ProxyValue<>(
+                type.cast(Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, handler)), answers);
     }
 
     private static Object invoke(
-        final Object proxy,
-        final Method method,
-        final Object[] arguments,
-        final Map<String, Object> answers,
-        final Mutations mutations
-    ) throws Throwable {
+            final Object proxy,
+            final Method method,
+            final Object[] arguments,
+            final Map<String, Object> answers,
+            final Mutations mutations)
+            throws Throwable {
         final String name = method.getName();
         if (name.equals("toString")) return "read-only test proxy";
         if (name.equals("hashCode")) return System.identityHashCode(proxy);
         if (name.equals("equals")) return proxy == arguments(arguments)[0];
-        if (name.startsWith("set") || name.startsWith("replace") || name.equals("update")
-            || name.equals("remove") || name.equals("create") || name.equals("add")
-            || name.equals("combine") || name.equals("uncombine")) {
+        if (name.startsWith("set")
+                || name.startsWith("replace")
+                || name.equals("update")
+                || name.equals("remove")
+                || name.equals("create")
+                || name.equals("add")
+                || name.equals("combine")
+                || name.equals("uncombine")) {
             mutations.mutatorCalls.incrementAndGet();
             throw new AssertionError("planner invoked mutator " + name);
         }
@@ -934,52 +996,104 @@ class ProtectedExportPlannerTest {
     }
 
     private static <T> T collection(final Class<T> type, final Supplier<List<?>> values) {
-        return type.cast(Proxy.newProxyInstance(
-            type.getClassLoader(), new Class<?>[]{type}, (proxy, method, arguments) -> {
-                if (method.getName().equals("all")) return List.copyOf(values.get());
-                if (method.getName().equals("toString")) return type.getSimpleName();
-                throw new UnsupportedOperationException(method.getName());
-            }
-        ));
+        return type.cast(
+                Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (proxy, method, arguments) -> {
+                    if (method.getName().equals("all")) return List.copyOf(values.get());
+                    if (method.getName().equals("toString")) return type.getSimpleName();
+                    throw new UnsupportedOperationException(method.getName());
+                }));
     }
 
     private record ProductionWarpDeformer(WarpDeformer delegate) implements WarpDeformer {
-        @Override public DeformerId id() { return delegate.id(); }
-        @Override public Optional<PartId> parentPartId() { return delegate.parentPartId(); }
-        @Override public Optional<DeformerId> parentDeformerId() { return delegate.parentDeformerId(); }
-        @Override public List<ParameterBinding> getParameterBindings() {
+        @Override
+        public DeformerId id() {
+            return delegate.id();
+        }
+
+        @Override
+        public Optional<PartId> parentPartId() {
+            return delegate.parentPartId();
+        }
+
+        @Override
+        public Optional<DeformerId> parentDeformerId() {
+            return delegate.parentDeformerId();
+        }
+
+        @Override
+        public List<ParameterBinding> getParameterBindings() {
             return delegate.getParameterBindings();
         }
-        @Override public int parentDeformerIndex() { return delegate.parentDeformerIndex(); }
-        @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
+
+        @Override
+        public int parentDeformerIndex() {
+            return delegate.parentDeformerIndex();
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return delegate.parameters();
         }
-        @Override public dev.turboism.sdk.cubism.model.WarpGrid grid() { return delegate.grid(); }
-        @Override public void replaceGrid(final dev.turboism.sdk.cubism.model.WarpGrid grid) {
+
+        @Override
+        public dev.turboism.sdk.cubism.model.WarpGrid grid() {
+            return delegate.grid();
+        }
+
+        @Override
+        public void replaceGrid(final dev.turboism.sdk.cubism.model.WarpGrid grid) {
             delegate.replaceGrid(grid);
         }
     }
 
-    private record ProductionRotationDeformer(RotationDeformer delegate)
-        implements RotationDeformer {
-        @Override public DeformerId id() { return delegate.id(); }
-        @Override public Optional<PartId> parentPartId() { return delegate.parentPartId(); }
-        @Override public Optional<DeformerId> parentDeformerId() { return delegate.parentDeformerId(); }
-        @Override public List<ParameterBinding> getParameterBindings() {
+    private record ProductionRotationDeformer(RotationDeformer delegate) implements RotationDeformer {
+        @Override
+        public DeformerId id() {
+            return delegate.id();
+        }
+
+        @Override
+        public Optional<PartId> parentPartId() {
+            return delegate.parentPartId();
+        }
+
+        @Override
+        public Optional<DeformerId> parentDeformerId() {
+            return delegate.parentDeformerId();
+        }
+
+        @Override
+        public List<ParameterBinding> getParameterBindings() {
             return delegate.getParameterBindings();
         }
-        @Override public int parentDeformerIndex() { return delegate.parentDeformerIndex(); }
-        @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
+
+        @Override
+        public int parentDeformerIndex() {
+            return delegate.parentDeformerIndex();
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return delegate.parameters();
         }
-        @Override public float baseAngle() { return delegate.baseAngle(); }
-        @Override public void setBaseAngle(final float angle) { delegate.setBaseAngle(angle); }
-        @Override public dev.turboism.sdk.cubism.model.RotationDeformerForm form() {
+
+        @Override
+        public float baseAngle() {
+            return delegate.baseAngle();
+        }
+
+        @Override
+        public void setBaseAngle(final float angle) {
+            delegate.setBaseAngle(angle);
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.RotationDeformerForm form() {
             return delegate.form();
         }
-        @Override public void replaceForm(
-            final dev.turboism.sdk.cubism.model.RotationDeformerForm form
-        ) {
+
+        @Override
+        public void replaceForm(final dev.turboism.sdk.cubism.model.RotationDeformerForm form) {
             delegate.replaceForm(form);
         }
     }
@@ -994,29 +1108,46 @@ class ProtectedExportPlannerTest {
         private RuntimeException modelInstancesFailure;
         private final AtomicInteger updateCalls = new AtomicInteger();
 
-        @Override public ModelId id() { return new ModelId("model"); }
-        @Override public Parameters parameters() {
+        @Override
+        public ModelId id() {
+            return new ModelId("model");
+        }
+
+        @Override
+        public Parameters parameters() {
             return collection(Parameters.class, () -> parameters);
         }
-        @Override public Parts parts() {
+
+        @Override
+        public Parts parts() {
             return collection(Parts.class, () -> parts);
         }
-        @Override public Deformers deformers() {
+
+        @Override
+        public Deformers deformers() {
             return collection(Deformers.class, () -> deformers);
         }
-        @Override public Drawables drawables() {
+
+        @Override
+        public Drawables drawables() {
             return collection(Drawables.class, () -> drawables);
         }
-        @Override public Glues glues() {
+
+        @Override
+        public Glues glues() {
             return collection(Glues.class, () -> glues);
         }
-        @Override public List<ModelInstance> modelInstances() {
+
+        @Override
+        public List<ModelInstance> modelInstances() {
             if (modelInstancesFailure != null) {
                 throw modelInstancesFailure;
             }
             return List.copyOf(instances);
         }
-        @Override public void update() {
+
+        @Override
+        public void update() {
             updateCalls.incrementAndGet();
             throw new AssertionError("planner invoked model update");
         }
@@ -1026,23 +1157,19 @@ class ProtectedExportPlannerTest {
         private final AtomicInteger mutatorCalls = new AtomicInteger();
     }
 
-    private record DeepFixture(FakeModel model, Mutations mutations) {
-    }
+    private record DeepFixture(FakeModel model, Mutations mutations) {}
 
-    private record ProxyValue<T>(T value, Map<String, Object> answers) {
-    }
+    private record ProxyValue<T>(T value, Map<String, Object> answers) {}
 
     private record Fixture(
-        FakeModel model,
-        Mutations mutations,
-        ProxyValue<Part> root,
-        ProxyValue<Part> childPart,
-        ProxyValue<Parameter> parameter,
-        ProxyValue<WarpDeformer> rootDeformer,
-        ProxyValue<RotationDeformer> childDeformer,
-        ProxyValue<WarpDeformer> leaf,
-        ProxyValue<Drawable> primaryDrawable,
-        ProxyValue<Drawable> secondaryDrawable
-    ) {
-    }
+            FakeModel model,
+            Mutations mutations,
+            ProxyValue<Part> root,
+            ProxyValue<Part> childPart,
+            ProxyValue<Parameter> parameter,
+            ProxyValue<WarpDeformer> rootDeformer,
+            ProxyValue<RotationDeformer> childDeformer,
+            ProxyValue<WarpDeformer> leaf,
+            ProxyValue<Drawable> primaryDrawable,
+            ProxyValue<Drawable> secondaryDrawable) {}
 }

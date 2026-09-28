@@ -1,7 +1,6 @@
 package dev.turboism.ui.workspace;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.util.Set;
 
 /**
@@ -75,14 +74,11 @@ final class WorkspaceControlAdmission {
     }
 
     private static boolean authorizes(
-        final VerifiedMemberResolver resolver,
-        final String cubismVersion,
-        final String adapterSliceId
-    ) {
+            final VerifiedMemberResolver resolver, final String cubismVersion, final String adapterSliceId) {
         return resolver != null
-            && resolver.isAdmittedCubismVersion(cubismVersion)
-            && resolver.authorizes(adapterSliceId, Set.of(CAPABILITY_ID), REQUIRED_ALIASES);
+                && resolver.isAdmittedCubismVersion(cubismVersion)
+                && resolver.authorizes(adapterSliceId, Set.of(CAPABILITY_ID), REQUIRED_ALIASES);
     }
 
-    private WorkspaceControlAdmission() { }
+    private WorkspaceControlAdmission() {}
 }

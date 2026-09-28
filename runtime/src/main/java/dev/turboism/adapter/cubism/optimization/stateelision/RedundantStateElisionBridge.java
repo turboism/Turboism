@@ -38,17 +38,16 @@ public final class RedundantStateElisionBridge {
         this(new RedundantStateTracker());
     }
 
-    RedundantStateElisionBridge(final RedundantStateTracker tracker)
-            throws ReflectiveOperationException {
+    RedundantStateElisionBridge(final RedundantStateTracker tracker) throws ReflectiveOperationException {
         this.tracker = Objects.requireNonNull(tracker, "tracker");
         final MethodHandles.Lookup lookup = MethodHandles.lookup();
-        consult = lookup.bind(tracker, "consult",
-            MethodType.methodType(boolean.class, Object.class, int.class,
-                int.class, int.class, int.class, int.class));
-        invalidate = lookup.bind(tracker, "invalidate",
-            MethodType.methodType(void.class, Object.class, int.class));
-        exception = lookup.bind(tracker, "exception",
-            MethodType.methodType(void.class, Object.class));
+        consult = lookup.bind(
+                tracker,
+                "consult",
+                MethodType.methodType(
+                        boolean.class, Object.class, int.class, int.class, int.class, int.class, int.class));
+        invalidate = lookup.bind(tracker, "invalidate", MethodType.methodType(void.class, Object.class, int.class));
+        exception = lookup.bind(tracker, "exception", MethodType.methodType(void.class, Object.class));
     }
 
     /** Publishes all slots; the transformer consults them via exact invoke. */
@@ -57,10 +56,8 @@ public final class RedundantStateElisionBridge {
         properties.put(CONSULT_PROPERTY, consult);
         properties.put(INVALIDATE_PROPERTY, invalidate);
         properties.put(EXCEPTION_PROPERTY, exception);
-        properties.put(GATE_PROPERTY,
-            (java.util.function.Consumer<Boolean>) tracker::setArmed);
-        properties.put(STATS_PROPERTY,
-            (Supplier<Map<String, Long>>) () -> tracker.snapshot(tracker.armed()));
+        properties.put(GATE_PROPERTY, (java.util.function.Consumer<Boolean>) tracker::setArmed);
+        properties.put(STATS_PROPERTY, (Supplier<Map<String, Long>>) () -> tracker.snapshot(tracker.armed()));
     }
 
     /** Removes every published slot. */

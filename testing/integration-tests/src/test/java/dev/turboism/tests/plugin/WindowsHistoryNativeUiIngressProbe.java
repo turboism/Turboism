@@ -10,13 +10,6 @@ import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.plugin.PluginContext;
-
-import javax.swing.SwingUtilities;
-import javax.swing.JTable;
-import javax.swing.JTree;
-import javax.swing.table.TableModel;
-import javax.swing.tree.TreeModel;
-import javax.swing.tree.TreePath;
 import java.awt.Component;
 import java.awt.GraphicsConfiguration;
 import java.awt.Insets;
@@ -49,6 +42,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.JTable;
+import javax.swing.JTree;
+import javax.swing.SwingUtilities;
+import javax.swing.table.TableModel;
+import javax.swing.tree.TreeModel;
+import javax.swing.tree.TreePath;
 
 /**
  * Manual-test-only probe: records what an operator's own Editor edits look like to Turboism.
@@ -88,10 +87,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * automated run degrades to manual pacing instead of failing blind.</p>
      */
     static final boolean AUTOMATE =
-        Boolean.parseBoolean(System.getProperty("turboism.history.nativeUi.automate", "false"));
+            Boolean.parseBoolean(System.getProperty("turboism.history.nativeUi.automate", "false"));
 
     /** Bound on the component dump written for actor targeting review. */
     private static final int UI_MAP_MAX_COMPONENTS = 400;
+
     private static final int UI_MAP_MAX_WINDOWS = 8;
     private static final int UI_MAP_MAX_DEPTH = 12;
     private static final int UI_MAP_MAX_CHARS = 65_536;
@@ -152,6 +152,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * can write its verdicts and its summary instead of hanging with no terminal line.</p>
      */
     private static final long SAMPLE_TIMEOUT_MILLIS = 15_000L;
+
     private static final long AWAIT_DOCUMENT_MILLIS = 240_000L;
     /**
      * How long one step waits for the operator.
@@ -165,9 +166,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * either default.</p>
      */
     private static final long STEP_TIMEOUT_MILLIS = Long.parseLong(
-        System.getProperty(
-            "turboism.history.nativeUi.stepTimeoutMillis",
-            AUTOMATE ? "60000" : "420000"));
+            System.getProperty("turboism.history.nativeUi.stepTimeoutMillis", AUTOMATE ? "60000" : "420000"));
 
     /**
      * Operator steps in order.
@@ -178,53 +177,38 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * are a native Undo and Redo of whatever the operator left on the stack.</p>
      */
     private static final List<Step> STEPS = List.of(
-        new Step(
-            "parts-tree-drag",
-            "ACTION",
-            "Drag one Part onto a different Part in the Parts tree, then release."
-        ),
-        new Step(
-            "deformer-assign",
-            "ACTION",
-            "Assign a different Deformer target to one Part or ArtMesh and confirm it: the"
-                + " Deformers palette must show the new target. Selecting the object alone is not"
-                + " an assignment and does not count."
-        ),
-        new Step(
-            "canvas-move",
-            "ACTION",
-            "Move ONE model object as a whole on the canvas with the mouse, then release. Do not"
-                + " edit its vertices or mesh points."
-        ),
-        new Step(
-            "canvas-deform",
-            "ACTION",
-            "Deform ONE model object instead of moving it: drag a single mesh point (or use the"
-                + " mesh edit tool) so its shape changes, then release."
-        ),
-        new Step(
-            "native-parameter",
-            "ACTION",
-            "Change one Parameter value in the native Parameter palette only (drag its slider or"
-                + " type a value), then release. Do not move any object."
-        ),
-        new Step(
-            "native-color",
-            "ACTION",
-            "Change only the multiply colour (正片叠底色) of one drawable in the native"
-                + " palette, then confirm. Do not move the object and do not edit its mesh."
-        ),
-        new Step(
-            "native-undo",
-            "UNDO",
-            "Press the native Undo shortcut once (Ctrl+Z)."
-        ),
-        new Step(
-            "native-redo",
-            "REDO",
-            "Press the native Redo shortcut once (Ctrl+Y)."
-        )
-    );
+            new Step(
+                    "parts-tree-drag",
+                    "ACTION",
+                    "Drag one Part onto a different Part in the Parts tree, then release."),
+            new Step(
+                    "deformer-assign",
+                    "ACTION",
+                    "Assign a different Deformer target to one Part or ArtMesh and confirm it: the"
+                            + " Deformers palette must show the new target. Selecting the object alone is not"
+                            + " an assignment and does not count."),
+            new Step(
+                    "canvas-move",
+                    "ACTION",
+                    "Move ONE model object as a whole on the canvas with the mouse, then release. Do not"
+                            + " edit its vertices or mesh points."),
+            new Step(
+                    "canvas-deform",
+                    "ACTION",
+                    "Deform ONE model object instead of moving it: drag a single mesh point (or use the"
+                            + " mesh edit tool) so its shape changes, then release."),
+            new Step(
+                    "native-parameter",
+                    "ACTION",
+                    "Change one Parameter value in the native Parameter palette only (drag its slider or"
+                            + " type a value), then release. Do not move any object."),
+            new Step(
+                    "native-color",
+                    "ACTION",
+                    "Change only the multiply colour (正片叠底色) of one drawable in the native"
+                            + " palette, then confirm. Do not move the object and do not edit its mesh."),
+            new Step("native-undo", "UNDO", "Press the native Undo shortcut once (Ctrl+Z)."),
+            new Step("native-redo", "REDO", "Press the native Redo shortcut once (Ctrl+Y)."));
 
     private final Object lock = new Object();
     private final List<Observed> observed = new ArrayList<>();
@@ -283,25 +267,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     @Override
     public float beforeSetParameterValue(final Parameter parameter, final float value) {
-        recordParameterLifecycle(
-            "before", parameter, readFiniteParameterValue(parameter), finiteValue(value));
+        recordParameterLifecycle("before", parameter, readFiniteParameterValue(parameter), finiteValue(value));
         return value;
     }
 
     @Override
-    public void onParameterValueChanged(
-        final Parameter parameter,
-        final float oldValue,
-        final float newValue
-    ) {
-        recordParameterLifecycle(
-            "on", parameter, finiteValue(oldValue), finiteValue(newValue));
+    public void onParameterValueChanged(final Parameter parameter, final float oldValue, final float newValue) {
+        recordParameterLifecycle("on", parameter, finiteValue(oldValue), finiteValue(newValue));
     }
 
     @Override
     public void afterSetParameterValue(final Parameter parameter, final float value) {
-        recordParameterLifecycle(
-            "after", parameter, null, finiteValue(value));
+        recordParameterLifecycle("after", parameter, null, finiteValue(value));
     }
 
     /**
@@ -315,15 +292,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         try {
             if (event == null) return;
             final Observed value = new Observed(
-                phase,
-                event.sequence(),
-                event.operation() == null ? "" : event.operation().name(),
-                event.origin() == null ? "" : event.origin().name(),
-                event.subjectId().orElse(""),
-                event.label().orElse(""),
-                Thread.currentThread().getName(),
-                Instant.now().toString()
-            );
+                    phase,
+                    event.sequence(),
+                    event.operation() == null ? "" : event.operation().name(),
+                    event.origin() == null ? "" : event.origin().name(),
+                    event.subjectId().orElse(""),
+                    event.label().orElse(""),
+                    Thread.currentThread().getName(),
+                    Instant.now().toString());
             synchronized (lock) {
                 observed.add(value);
                 if (observed.size() > MAX_RECORDED_EVENTS) {
@@ -337,24 +313,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /** Records a bounded immutable parameter callback without touching model state. */
     private void recordParameterLifecycle(
-        final String phase,
-        final Parameter parameter,
-        final Float oldValue,
-        final Float newValue
-    ) {
+            final String phase, final Parameter parameter, final Float oldValue, final Float newValue) {
         try {
             final String parameterId = parameter == null || parameter.id() == null
-                ? "" : parameter.id().value();
+                    ? ""
+                    : parameter.id().value();
             final ParameterLifecycleEvent value;
             synchronized (lock) {
                 value = new ParameterLifecycleEvent(
-                    ++parameterLifecycleSequence,
-                    phase,
-                    parameterId == null ? "" : parameterId,
-                    oldValue,
-                    newValue,
-                    Thread.currentThread().getName()
-                );
+                        ++parameterLifecycleSequence,
+                        phase,
+                        parameterId == null ? "" : parameterId,
+                        oldValue,
+                        newValue,
+                        Thread.currentThread().getName());
                 if (parameterLifecycle.size() >= MAX_PARAMETER_LIFECYCLE_EVENTS) {
                     parameterLifecycle.remove(0);
                 }
@@ -413,48 +385,41 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 final Step step = STEPS.get(index);
                 final int start = cursor();
                 final long parameterLifecycleStart = parameterLifecycleCursor();
-                final String instruction = "STEP " + (index + 1) + "/" + STEPS.size()
-                    + " [" + step.id() + "] " + step.instruction();
+                final String instruction =
+                        "STEP " + (index + 1) + "/" + STEPS.size() + " [" + step.id() + "] " + step.instruction();
                 write(
-                    artifact,
-                    "{\"type\":\"prompt\",\"phase\":\"" + json(step.id()) + "\",\"instruction\":\""
-                        + json(step.instruction()) + "\",\"openedAt\":\"" + Instant.now()
-                        + "\",\"expiresAt\":\""
-                        + Instant.ofEpochMilli(System.currentTimeMillis() + STEP_TIMEOUT_MILLIS)
-                        + "\"}\n",
-                    false
-                );
+                        artifact,
+                        "{\"type\":\"prompt\",\"phase\":\"" + json(step.id()) + "\",\"instruction\":\""
+                                + json(step.instruction()) + "\",\"openedAt\":\"" + Instant.now()
+                                + "\",\"expiresAt\":\""
+                                + Instant.ofEpochMilli(System.currentTimeMillis() + STEP_TIMEOUT_MILLIS)
+                                + "\"}\n",
+                        false);
                 context.logger().info(instruction);
 
                 final WindowsHistoryManagerValidationProbe.Snapshot semanticBaseline =
-                    "parts-tree-drag".equals(step.id()) ? sample() : null;
+                        "parts-tree-drag".equals(step.id()) ? sample() : null;
                 if ("parts-tree-drag".equals(step.id())) {
                     write(artifact, paired(semanticBaseline, step.id() + "-semantic-baseline"), false);
                 }
 
                 final ParameterStateSnapshot parameterBefore =
-                    "native-parameter".equals(step.id()) ? readParameterSnapshot() : null;
+                        "native-parameter".equals(step.id()) ? readParameterSnapshot() : null;
                 if (parameterBefore != null) {
-                    write(
-                        artifact,
-                        parameterStateJson("native-parameter", "before", parameterBefore),
-                        false
-                    );
+                    write(artifact, parameterStateJson("native-parameter", "before", parameterBefore), false);
                 }
 
                 ParameterChangeObservation actorParameterTermination = null;
                 if (AUTOMATE) {
-                    final String actor = act(
-                        step, knownSignificant, knownPosition, parameterBefore);
+                    final String actor = act(step, knownSignificant, knownPosition, parameterBefore);
                     actorParameterTermination = parameterActorTermination;
                     write(
-                        artifact,
-                        "{\"type\":\"actor\",\"phase\":\"" + json(step.id())
-                            // The discovery detail legitimately exceeds a label's bound; clipping
-                            // it hid why the r9 Parts-tree selection never resolved.
-                        + "\",\"result\":\"" + json(actor, 8192) + "\"}\n",
-                        false
-                    );
+                            artifact,
+                            "{\"type\":\"actor\",\"phase\":\"" + json(step.id())
+                                    // The discovery detail legitimately exceeds a label's bound; clipping
+                                    // it hid why the r9 Parts-tree selection never resolved.
+                                    + "\",\"result\":\"" + json(actor, 8192) + "\"}\n",
+                            false);
                     if ("parts-tree-drag".equals(step.id())) {
                         for (final String evidence : partGestureEvidenceSnapshot()) {
                             write(artifact, evidence, false);
@@ -467,103 +432,96 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     // The map is captured when an actor actually ran — by then the document UI is
                     // populated, and the dump shows the controls the actor just used or missed.
                     if (!"none".equals(actor)) {
-                        write(artifact, "{\"type\":\"ui-map\",\"phase\":\"" + json(step.id())
-                            + "\",\"at\":\"" + Instant.now()
-                            + "\",\"map\":\"" + json(uiMap(), UI_MAP_MAX_CHARS) + "\"}\n", false);
+                        write(
+                                artifact,
+                                "{\"type\":\"ui-map\",\"phase\":\"" + json(step.id())
+                                        + "\",\"at\":\"" + Instant.now()
+                                        + "\",\"map\":\"" + json(uiMap(), UI_MAP_MAX_CHARS) + "\"}\n",
+                                false);
                     }
                 }
 
                 if ("native-parameter".equals(step.id())) {
                     final ParameterChangeObservation parameterObservation =
-                        awaitParameterChange(parameterBefore, actorParameterTermination);
+                            awaitParameterChange(parameterBefore, actorParameterTermination);
                     final WindowsHistoryManagerValidationProbe.Snapshot after = sample();
                     final ParameterStateSnapshot parameterAfter = parameterObservation.after();
                     final ParameterStateOutcome valueStatus = parameterObservation.outcome();
-                    final ParameterHistoryAdmission historyAdmission =
-                        after == null
+                    final ParameterHistoryAdmission historyAdmission = after == null
                             ? ParameterHistoryAdmission.UNAVAILABLE
-                            : parameterHistoryAdmission(
-                                knownSignificant, significantSequence(after));
-                    final Set<String> changedParameterIds = changedParameterIds(
-                        parameterBefore, parameterAfter);
+                            : parameterHistoryAdmission(knownSignificant, significantSequence(after));
+                    final Set<String> changedParameterIds = changedParameterIds(parameterBefore, parameterAfter);
                     final List<ParameterLifecycleEvent> lifecycleEvents =
-                        parameterLifecycleSince(parameterLifecycleStart);
-                    final boolean lifecycleWindowComplete =
-                        parameterLifecycleWindowComplete(parameterLifecycleStart);
-                    final ParameterLifecycleAssessment lifecycleAssessment =
-                        assessParameterLifecycle(
+                            parameterLifecycleSince(parameterLifecycleStart);
+                    final boolean lifecycleWindowComplete = parameterLifecycleWindowComplete(parameterLifecycleStart);
+                    final ParameterLifecycleAssessment lifecycleAssessment = assessParameterLifecycle(
                             lifecycleEvents,
                             parameterBefore,
                             parameterAfter,
                             changedParameterIds,
                             valueStatus == ParameterStateOutcome.CHANGED,
-                            lifecycleWindowComplete
-                        );
+                            lifecycleWindowComplete);
 
                     write(
-                        artifact,
-                        parameterStateJson(
-                            "native-parameter", "after",
-                            parameterAfter == null
-                                ? ParameterStateSnapshot.unavailable("no-readback")
-                                : parameterAfter
-                        ),
-                        false
-                    );
+                            artifact,
+                            parameterStateJson(
+                                    "native-parameter",
+                                    "after",
+                                    parameterAfter == null
+                                            ? ParameterStateSnapshot.unavailable("no-readback")
+                                            : parameterAfter),
+                            false);
                     write(
-                        artifact,
-                        parameterEvidenceJson(
-                            "native-parameter",
-                            parameterBefore,
-                            parameterAfter,
-                            valueStatus,
-                            historyAdmission,
-                            lifecycleAssessment,
-                            changedParameterIds,
-                            lifecycleEvents
-                        ),
-                        false
-                    );
+                            artifact,
+                            parameterEvidenceJson(
+                                    "native-parameter",
+                                    parameterBefore,
+                                    parameterAfter,
+                                    valueStatus,
+                                    historyAdmission,
+                                    lifecycleAssessment,
+                                    changedParameterIds,
+                                    lifecycleEvents),
+                            false);
                     write(artifact, paired(after, step.id()), false);
 
                     final List<Observed> events;
                     synchronized (lock) {
-                        events = List.copyOf(
-                            observed.subList(Math.min(start, observed.size()), observed.size()));
+                        events = List.copyOf(observed.subList(Math.min(start, observed.size()), observed.size()));
                     }
                     for (Observed event : events) {
                         write(artifact, event.json(step.id()), false);
                     }
 
                     final String parameterDetail = "valueStatus=" + valueStatus.code()
-                        + ",historyAdmission=" + historyAdmission.code()
-                        + ",lifecycle=" + lifecycleAssessment.status().code()
-                        + ",modelCorrelation=" + lifecycleAssessment.modelCorrelation().code();
+                            + ",historyAdmission=" + historyAdmission.code()
+                            + ",lifecycle=" + lifecycleAssessment.status().code()
+                            + ",modelCorrelation="
+                            + lifecycleAssessment.modelCorrelation().code();
                     final Verdict valueVerdict = new Verdict(
-                        valueStatus == ParameterStateOutcome.CHANGED,
-                        "parameter-value-" + valueStatus.code(),
-                        parameterDetail
-                    );
+                            valueStatus == ParameterStateOutcome.CHANGED,
+                            "parameter-value-" + valueStatus.code(),
+                            parameterDetail);
                     write(artifact, valueVerdict.json(step.id()), false);
                     if (!valueVerdict.ok()) {
                         failures.add(step.id() + ":" + valueVerdict.code());
                     }
                     final Verdict lifecycleVerdict = new Verdict(
-                        lifecycleAssessment.status() == ParameterLifecycleStatus.COMPLETE,
-                        "parameter-lifecycle-" + lifecycleAssessment.status().code(),
-                        parameterDetail
-                    );
+                            lifecycleAssessment.status() == ParameterLifecycleStatus.COMPLETE,
+                            "parameter-lifecycle-"
+                                    + lifecycleAssessment.status().code(),
+                            parameterDetail);
                     write(artifact, lifecycleVerdict.json(step.id()), false);
                     if (!lifecycleVerdict.ok()) {
                         failures.add(step.id() + ":" + lifecycleVerdict.code());
                     }
                     hookFired |= events.stream().anyMatch(event -> event.phase().equals("before"));
-                    observerFired |= events.stream().anyMatch(
-                        event -> event.phase().equals("on") || event.phase().equals("after")
-                    );
-                    labelSeen |= events.stream().anyMatch(
-                        event -> event.phase().equals("before") && !event.label().isBlank()
-                    );
+                    observerFired |= events.stream()
+                            .anyMatch(event ->
+                                    event.phase().equals("on") || event.phase().equals("after"));
+                    labelSeen |= events.stream()
+                            .anyMatch(event -> event.phase().equals("before")
+                                    && !event.label().isBlank());
                     if (after != null) {
                         knownSignificant = significantSequence(after);
                         knownPosition = position(after);
@@ -572,25 +530,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 }
 
                 final WindowsHistoryManagerValidationProbe.Snapshot after =
-                    awaitChange(step, knownSignificant, knownPosition);
+                        awaitChange(step, knownSignificant, knownPosition);
                 if (after == null) {
                     failures.add(step.id() + ":no-native-change");
                     write(
-                        artifact,
-                        new Verdict(false, "no-native-change", "unchanged after " + STEP_TIMEOUT_MILLIS + "ms")
-                            .json(step.id()),
-                        false
-                    );
-                    if ("parts-tree-drag".equals(step.id())) {
-                        final Verdict semanticVerdict = checkPartMembershipStep(
-                            sdkHistory(semanticBaseline),
-                            null
-                        );
-                        write(
                             artifact,
-                            semanticVerdict.json("parts-tree-drag-semantic"),
-                            false
-                        );
+                            new Verdict(false, "no-native-change", "unchanged after " + STEP_TIMEOUT_MILLIS + "ms")
+                                    .json(step.id()),
+                            false);
+                    if ("parts-tree-drag".equals(step.id())) {
+                        final Verdict semanticVerdict = checkPartMembershipStep(sdkHistory(semanticBaseline), null);
+                        write(artifact, semanticVerdict.json("parts-tree-drag-semantic"), false);
                         if (!semanticVerdict.ok()) {
                             failures.add(step.id() + ":semantic-" + semanticVerdict.code());
                         }
@@ -616,15 +566,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 write(artifact, verdict.json(step.id()), false);
                 if (!verdict.ok()) failures.add(step.id() + ":" + verdict.code());
                 if ("parts-tree-drag".equals(step.id())) {
-                    final Verdict semanticVerdict = checkPartMembershipStep(
-                        sdkHistory(semanticBaseline),
-                        sdkHistory(after)
-                    );
-                    write(
-                        artifact,
-                        semanticVerdict.json("parts-tree-drag-semantic"),
-                        false
-                    );
+                    final Verdict semanticVerdict =
+                            checkPartMembershipStep(sdkHistory(semanticBaseline), sdkHistory(after));
+                    write(artifact, semanticVerdict.json("parts-tree-drag-semantic"), false);
                     if (!semanticVerdict.ok()) {
                         failures.add(step.id() + ":semantic-" + semanticVerdict.code());
                     }
@@ -635,47 +579,44 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     }
                 }
                 hookFired |= events.stream().anyMatch(event -> event.phase().equals("before"));
-                observerFired |= events.stream().anyMatch(
-                    event -> event.phase().equals("on") || event.phase().equals("after")
-                );
-                labelSeen |= events.stream().anyMatch(
-                    event -> event.phase().equals("before") && !event.label().isBlank()
-                );
+                observerFired |= events.stream()
+                        .anyMatch(event ->
+                                event.phase().equals("on") || event.phase().equals("after"));
+                labelSeen |= events.stream()
+                        .anyMatch(event ->
+                                event.phase().equals("before") && !event.label().isBlank());
             }
 
             final WindowsHistoryManagerValidationProbe.Snapshot finalSnapshot = sample();
             write(artifact, paired(finalSnapshot, "final"), false);
             write(
-                artifact,
-                new Verdict(
-                    hookFired,
-                    "hook-fired",
-                    hookFired ? "at least one before event observed" : "no before event observed"
-                ).json("overall"),
-                false
-            );
+                    artifact,
+                    new Verdict(
+                                    hookFired,
+                                    "hook-fired",
+                                    hookFired ? "at least one before event observed" : "no before event observed")
+                            .json("overall"),
+                    false);
             write(
-                artifact,
-                new Verdict(
-                    observerFired,
-                    "observer-fired",
-                    observerFired
-                        ? "the ingress attached and published at least one operation"
-                        : "no operation was published for any native change"
-                ).json("overall"),
-                false
-            );
+                    artifact,
+                    new Verdict(
+                                    observerFired,
+                                    "observer-fired",
+                                    observerFired
+                                            ? "the ingress attached and published at least one operation"
+                                            : "no operation was published for any native change")
+                            .json("overall"),
+                    false);
             write(
-                artifact,
-                new Verdict(
-                    labelSeen,
-                    "label-transported",
-                    labelSeen
-                        ? "at least one before event carried the native edit name"
-                        : "every before event carried an empty name"
-                ).json("overall"),
-                false
-            );
+                    artifact,
+                    new Verdict(
+                                    labelSeen,
+                                    "label-transported",
+                                    labelSeen
+                                            ? "at least one before event carried the native edit name"
+                                            : "every before event carried an empty name")
+                            .json("overall"),
+                    false);
             // Only the hook firing is gated. A family whose native edit name is empty is a finding
             // to report, not a probe failure: the label is presentation, and the operation is
             // identified structurally.
@@ -684,15 +625,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             // The failure list is its own line: the host runner detects the terminal result by
             // comparing a whole line, so the summary line must be exactly what it looks for.
             write(
-                artifact,
-                "{\"type\":\"failures\",\"failures\":["
-                    + String.join(
-                        ",",
-                        failures.stream().map(WindowsHistoryNativeUiIngressProbe::quoted).toList()
-                    )
-                    + "]}\n",
-                false
-            );
+                    artifact,
+                    "{\"type\":\"failures\",\"failures\":["
+                            + String.join(
+                                    ",",
+                                    failures.stream()
+                                            .map(WindowsHistoryNativeUiIngressProbe::quoted)
+                                            .toList())
+                            + "]}\n",
+                    false);
             write(artifact, summaryLine(failures.isEmpty()), true);
             terminalSummaryWritten = true;
         } catch (InterruptedException interrupted) {
@@ -701,13 +642,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             // returning silently would leave it with nothing to match and no evidence at all.
             try {
                 write(
-                    artifact,
-                    "{\"type\":\"error\",\"class\":\"interrupted\",\"message\":\""
-                        + "the probe was disabled while a step was pending\"}\n"
-                        + "{\"type\":\"failures\",\"failures\":[\"probe-disabled-mid-run\"]}\n"
-                        + "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
-                    true
-                );
+                        artifact,
+                        "{\"type\":\"error\",\"class\":\"interrupted\",\"message\":\""
+                                + "the probe was disabled while a step was pending\"}\n"
+                                + "{\"type\":\"failures\",\"failures\":[\"probe-disabled-mid-run\"]}\n"
+                                + "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
+                        true);
                 terminalSummaryWritten = true;
             } catch (Exception ignored) {
                 context.logger().error("Native UI ingress evidence could not be written", ignored);
@@ -716,12 +656,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             context.logger().error("Native UI ingress probe failed", exception);
             try {
                 write(
-                    artifact,
-                    "{\"type\":\"error\",\"class\":\"" + json(exception.getClass().getName())
-                        + "\",\"message\":\"" + json(exception.getMessage()) + "\"}\n"
-                        + "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
-                    true
-                );
+                        artifact,
+                        "{\"type\":\"error\",\"class\":\""
+                                + json(exception.getClass().getName())
+                                + "\",\"message\":\"" + json(exception.getMessage()) + "\"}\n"
+                                + "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
+                        true);
                 terminalSummaryWritten = true;
             } catch (Exception ignored) {
                 context.logger().error("Native UI ingress evidence could not be written", ignored);
@@ -730,24 +670,22 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (AUTOMATE && terminalSummaryWritten) {
                 try {
                     final WindowsHistoryNativeUiHostClose.CloseResult close =
-                        WindowsHistoryNativeUiHostClose.closeIfEligible(
-                            AUTOMATE,
-                            running,
-                            terminalSummaryWritten,
-                            System.getProperty(WindowsHistoryNativeUiHostClose.RUN_ID_PROPERTY),
-                            System.getProperty(WindowsHistoryNativeUiHostClose.HOST_VERSION_PROPERTY)
-                        );
-                    context.logger().info(
-                        "Native UI ingress automated host close status=" + close.status()
-                            + " reason=" + close.reason()
-                    );
+                            WindowsHistoryNativeUiHostClose.closeIfEligible(
+                                    AUTOMATE,
+                                    running,
+                                    terminalSummaryWritten,
+                                    System.getProperty(WindowsHistoryNativeUiHostClose.RUN_ID_PROPERTY),
+                                    System.getProperty(WindowsHistoryNativeUiHostClose.HOST_VERSION_PROPERTY));
+                    context.logger()
+                            .info("Native UI ingress automated host close status=" + close.status() + " reason="
+                                    + close.reason());
                 } catch (Exception closeFailure) {
                     // The summary was already persisted. Keep the failure visible so the Runner's
                     // normal-exit gate, rather than this probe, decides whether the task passed.
-                    context.logger().error(
-                        "Native UI ingress automated host close failed; normal exit remains unverified",
-                        closeFailure
-                    );
+                    context.logger()
+                            .error(
+                                    "Native UI ingress automated host close failed; normal exit remains unverified",
+                                    closeFailure);
                 }
             }
         }
@@ -772,10 +710,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * process and the run would end with no verdict and no summary at all.</p>
      */
     private WindowsHistoryManagerValidationProbe.Snapshot awaitChange(
-        final Step step,
-        final String knownSignificant,
-        final long knownPosition
-    ) throws Exception {
+            final Step step, final String knownSignificant, final long knownPosition) throws Exception {
         final long deadline = System.currentTimeMillis() + STEP_TIMEOUT_MILLIS;
         long nextReminder = System.currentTimeMillis() + REMINDER_MILLIS;
         // Direction is measured against the last position actually observed, not against the
@@ -788,13 +723,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             Thread.sleep(POLL_MILLIS);
             final WindowsHistoryManagerValidationProbe.Snapshot current = sample();
             if (current == null) continue;
-            if (hasMoved(
-                step,
-                significantSequence(current),
-                position(current),
-                knownSignificant,
-                lastPosition
-            )) {
+            if (hasMoved(step, significantSequence(current), position(current), knownSignificant, lastPosition)) {
                 Thread.sleep(settleMillis(step));
                 return sample();
             }
@@ -817,11 +746,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         try {
             context.logger().info("STILL WAITING [" + step.id() + "] " + step.instruction());
             write(
-                artifact,
-                "{\"type\":\"reminder\",\"phase\":\"" + json(step.id())
-                    + "\",\"at\":\"" + Instant.now() + "\"}\n",
-                false
-            );
+                    artifact,
+                    "{\"type\":\"reminder\",\"phase\":\"" + json(step.id()) + "\",\"at\":\"" + Instant.now() + "\"}\n",
+                    false);
         } catch (Exception ignored) {
             // A reminder is a courtesy; losing one must not fail the step.
         }
@@ -849,20 +776,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return act(step, knownSignificant, -1L, null);
     }
 
-    String act(
-        final Step step,
-        final String knownSignificant,
-        final long knownPosition
-    ) {
+    String act(final Step step, final String knownSignificant, final long knownPosition) {
         return act(step, knownSignificant, knownPosition, null);
     }
 
     private String act(
-        final Step step,
-        final String knownSignificant,
-        final long knownPosition,
-        final ParameterStateSnapshot parameterBefore
-    ) {
+            final Step step,
+            final String knownSignificant,
+            final long knownPosition,
+            final ParameterStateSnapshot parameterBefore) {
         if ("native-parameter".equals(step.id())) {
             parameterActorTermination = null;
         }
@@ -884,10 +806,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 case "canvas-move", "canvas-deform" -> dragCanvas(knownSignificant);
                 case "native-parameter" -> dragParameterSlider(parameterBefore);
                 case "native-color" -> editColorField(knownSignificant);
-                case "native-undo" -> shortcut(
-                    java.awt.event.KeyEvent.VK_Z, knownPosition, step.kind());
-                case "native-redo" -> shortcut(
-                    java.awt.event.KeyEvent.VK_Y, knownPosition, step.kind());
+                case "native-undo" -> shortcut(java.awt.event.KeyEvent.VK_Z, knownPosition, step.kind());
+                case "native-redo" -> shortcut(java.awt.event.KeyEvent.VK_Y, knownPosition, step.kind());
                 default -> "none";
             };
         } catch (InterruptedException interrupted) {
@@ -900,12 +820,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final String message = failure.getMessage();
             if ("parts-tree-drag".equals(step.id())) {
                 partActorResult = PartActorResult.exception(
-                    failure.getClass().getSimpleName(),
-                    message == null ? failure.toString() : message
-                );
+                        failure.getClass().getSimpleName(), message == null ? failure.toString() : message);
             }
-            return "failed:" + failure.getClass().getSimpleName()
-                + (message == null ? "" : ":" + message);
+            return "failed:" + failure.getClass().getSimpleName() + (message == null ? "" : ":" + message);
         } finally {
             raiser.interrupt();
         }
@@ -917,22 +834,24 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * can re-cover the editor mid-step, sending real Robot input to the console instead.
      */
     private Thread hostWindowRaiser() {
-        final Thread thread = new Thread(() -> {
-            try {
-                while (!Thread.currentThread().isInterrupted()) {
+        final Thread thread = new Thread(
+                () -> {
                     try {
-                        raiseHostWindow();
-                    } catch (InterruptedException interrupted) {
-                        throw interrupted;
-                    } catch (Throwable ignored) {
-                        // A missed raise only costs the next interval.
+                        while (!Thread.currentThread().isInterrupted()) {
+                            try {
+                                raiseHostWindow();
+                            } catch (InterruptedException interrupted) {
+                                throw interrupted;
+                            } catch (Throwable ignored) {
+                                // A missed raise only costs the next interval.
+                            }
+                            Thread.sleep(2000L);
+                        }
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
                     }
-                    Thread.sleep(2000L);
-                }
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
-        }, "native-ui-window-raiser");
+                },
+                "native-ui-window-raiser");
         thread.setDaemon(true);
         thread.start();
         return thread;
@@ -947,10 +866,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         onEdt(() -> {
             java.awt.Window best = null;
             for (final java.awt.Window window : java.awt.Window.getWindows()) {
-                if (window instanceof java.awt.Frame && window.isVisible()
-                    && (best == null
-                        || (long) window.getWidth() * window.getHeight()
-                            > (long) best.getWidth() * best.getHeight())) {
+                if (window instanceof java.awt.Frame
+                        && window.isVisible()
+                        && (best == null
+                                || (long) window.getWidth() * window.getHeight()
+                                        > (long) best.getWidth() * best.getHeight())) {
                     best = window;
                 }
             }
@@ -983,75 +903,61 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         boolean sawVisiblePair = false;
         for (final PartPair pair : pairs) {
             if (pairCount++ >= MAX_PART_GESTURE_PAIRS) break;
-            final PartGesturePreparation preparation = onEdt(
-                () -> preparePartGesture(pair));
+            final PartGesturePreparation preparation = onEdt(() -> preparePartGesture(pair));
             if (!preparation.ready()) {
                 if ("no-safe-visible-pair".equals(preparation.reason())) continue;
                 return "unresolved:" + preparation.reason() + ":sourceId="
-                    + pair.source().id() + ":targetId=" + pair.target().id();
+                        + pair.source().id() + ":targetId=" + pair.target().id();
             }
             sawVisiblePair = true;
             if (!Objects.equals(lastSignificant, preparation.significantSequence())) {
                 return "mismatch:significant-changed-before-gesture:"
-                    + partEvidence(pair, pair.source().parentId(),
-                        pair.source().parentId());
+                        + partEvidence(
+                                pair, pair.source().parentId(), pair.source().parentId());
             }
 
             final java.awt.Point sourcePoint = preparation.layout().source().screenPoint();
             final java.awt.Point targetPoint = partGestureTargetPoint(preparation.layout());
             if (sourcePoint == null || targetPoint == null) {
                 return "unresolved:part-screen-point-unavailable:"
-                    + partEvidence(pair, pair.source().parentId(),
-                        pair.source().parentId());
+                        + partEvidence(
+                                pair, pair.source().parentId(), pair.source().parentId());
             }
             final PartGestureAttempt gesture = runPartGesture(
-                preparation.layout(),
-                pair.source().id(),
-                pair.target().id(),
-                robotPartGestureInput(),
-                WindowsHistoryNativeUiIngressProbe::readMouseInfoPointer,
-                () -> currentPartPrePress(pair, preparation.layout())
-            );
+                    preparation.layout(),
+                    pair.source().id(),
+                    pair.target().id(),
+                    robotPartGestureInput(),
+                    WindowsHistoryNativeUiIngressProbe::readMouseInfoPointer,
+                    () -> currentPartPrePress(pair, preparation.layout()));
             appendPartGestureEvidence(gesture.evidence());
             if (gesture.status() != PartGestureStatus.ACCEPTED) {
                 final String prefix = gesture.status() == PartGestureStatus.MISMATCH
-                    ? "mismatch:"
-                    : gesture.status() == PartGestureStatus.EXCEPTION
-                        ? "failed:"
-                        : "unresolved:";
-                return prefix + gesture.code() + ":sourceId=" + pair.source().id()
-                    + ":targetId=" + pair.target().id();
+                        ? "mismatch:"
+                        : gesture.status() == PartGestureStatus.EXCEPTION ? "failed:" : "unresolved:";
+                return prefix + gesture.code() + ":sourceId=" + pair.source().id() + ":targetId="
+                        + pair.target().id();
             }
 
-            final PartDragSettlement settlement = settlePartDrag(
-                PART_GESTURE_SETTLE_POLLS,
-                poll -> {
-                    Thread.sleep(POLL_MILLIS);
-                    final WindowsHistoryManagerValidationProbe.Snapshot history = sample();
-                    final String afterSignificant = history == null
-                        ? null : significantSequence(history);
-                    final PartModelSnapshot after;
-                    try {
-                        after = onEdt(this::readPartModel);
-                    } catch (Exception unavailable) {
-                        return new PartDragCheck(
+            final PartDragSettlement settlement = settlePartDrag(PART_GESTURE_SETTLE_POLLS, poll -> {
+                Thread.sleep(POLL_MILLIS);
+                final WindowsHistoryManagerValidationProbe.Snapshot history = sample();
+                final String afterSignificant = history == null ? null : significantSequence(history);
+                final PartModelSnapshot after;
+                try {
+                    after = onEdt(this::readPartModel);
+                } catch (Exception unavailable) {
+                    return new PartDragCheck(
                             PartDragStatus.UNAVAILABLE,
                             "part-readback-unavailable",
                             pair.source().id(),
                             pair.target().id(),
                             pair.source().parentId(),
-                            Optional.empty()
-                        );
-                    }
-                    return assessPartDrag(
-                        pair,
-                        preparation.model(),
-                        after,
-                        preparation.significantSequence(),
-                        afterSignificant
-                    );
+                            Optional.empty());
                 }
-            );
+                return assessPartDrag(
+                        pair, preparation.model(), after, preparation.significantSequence(), afterSignificant);
+            });
             final PartDragCheck lastCheck = settlement.lastCheck();
             if (lastCheck != null) attempts.add(lastCheck.evidence());
             if (settlement.status() == PartDragSettlementStatus.CHANGED) {
@@ -1067,7 +973,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
         if (!sawVisiblePair) return "unresolved:no-safe-visible-part-pair";
         return "unresolved:no-membership-change:attempts=" + attempts + ":dnd="
-            + onEdt(WindowsHistoryNativeUiIngressProbe::partsTreeDnD);
+                + onEdt(WindowsHistoryNativeUiIngressProbe::partsTreeDnD);
     }
 
     private PartGesturePreparation preparePartGesture(final PartPair pair) {
@@ -1075,7 +981,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (!partPairMatches(current, pair)) {
             return PartGesturePreparation.unavailable(current, "part-model-changed");
         }
-        final PartPairLayout layout = locatePartPair(pair.source().name(), pair.target().name());
+        final PartPairLayout layout =
+                locatePartPair(pair.source().name(), pair.target().name());
         if (layout == null) {
             return PartGesturePreparation.unavailable(current, "no-safe-visible-pair");
         }
@@ -1088,19 +995,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (history == null) {
             return PartGesturePreparation.unavailable(current, "history-unavailable");
         }
-        return new PartGesturePreparation(
-            current,
-            layout,
-            significantSequence(history),
-            ""
-        );
+        return new PartGesturePreparation(current, layout, significantSequence(history), "");
     }
 
     /** Reads the SDK Part graph and the current Parts surface in the final EDT guard. */
-    private PartPrePressCheck currentPartPrePress(
-        final PartPair pair,
-        final PartPairLayout expected
-    ) {
+    private PartPrePressCheck currentPartPrePress(final PartPair pair, final PartPairLayout expected) {
         final PartModelSnapshot current;
         try {
             current = readPartModel();
@@ -1108,23 +1007,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             try {
                 final PartPrePressCheck surface = currentPartPrePressSurface(expected);
                 return PartPrePressCheck.failure(
-                    "part-model-unavailable", expected,
-                    surface.currentTable(), surface.currentTree()
-                );
+                        "part-model-unavailable", expected, surface.currentTable(), surface.currentTree());
             } catch (Exception surfaceUnavailable) {
-                return PartPrePressCheck.failure(
-                    "part-model-unavailable", expected, null, null
-                );
+                return PartPrePressCheck.failure("part-model-unavailable", expected, null, null);
             }
         }
         final PartPrePressCheck surface = currentPartPrePressSurface(expected);
-        return verifyPartPrePress(
-            expected,
-            surface.currentTable(),
-            surface.currentTree(),
-            pair,
-            current
-        );
+        return verifyPartPrePress(expected, surface.currentTable(), surface.currentTree(), pair, current);
     }
 
     /** Finds the currently discovered Parts surface without substituting for SDK readback. */
@@ -1155,91 +1044,60 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * establish that a press is on the intended SDK Part.</p>
      */
     static PartPrePressCheck verifyPartPrePress(
-        final PartPairLayout expected,
-        final JTable currentTable,
-        final JTree currentTree
-    ) {
-        if (expected == null || expected.table() == null || expected.tree() == null
-            || expected.tableModel() == null || expected.treeModel() == null) {
-            return PartPrePressCheck.failure(
-                "layout-identity-unavailable", expected, currentTable, currentTree
-            );
+            final PartPairLayout expected, final JTable currentTable, final JTree currentTree) {
+        if (expected == null
+                || expected.table() == null
+                || expected.tree() == null
+                || expected.tableModel() == null
+                || expected.treeModel() == null) {
+            return PartPrePressCheck.failure("layout-identity-unavailable", expected, currentTable, currentTree);
         }
         if (currentTable == null || currentTree == null) {
-            return PartPrePressCheck.failure(
-                "current-parts-surface-unavailable", expected, currentTable, currentTree
-            );
+            return PartPrePressCheck.failure("current-parts-surface-unavailable", expected, currentTable, currentTree);
         }
         if (currentTable != expected.table()) {
-            return PartPrePressCheck.failure(
-                "table-replaced", expected, currentTable, currentTree
-            );
+            return PartPrePressCheck.failure("table-replaced", expected, currentTable, currentTree);
         }
         if (currentTree != expected.tree()) {
-            return PartPrePressCheck.failure(
-                "tree-replaced", expected, currentTable, currentTree
-            );
+            return PartPrePressCheck.failure("tree-replaced", expected, currentTable, currentTree);
         }
         if (currentTable.getModel() != expected.tableModel()) {
-            return PartPrePressCheck.failure(
-                "table-model-replaced", expected, currentTable, currentTree
-            );
+            return PartPrePressCheck.failure("table-model-replaced", expected, currentTable, currentTree);
         }
         if (currentTree.getModel() != expected.treeModel()) {
-            return PartPrePressCheck.failure(
-                "tree-model-replaced", expected, currentTable, currentTree
-            );
+            return PartPrePressCheck.failure("tree-model-replaced", expected, currentTable, currentTree);
         }
         if (currentTable.isShowing() != expected.tableShowing()) {
-            return PartPrePressCheck.failure(
-                "table-showing-changed", expected, currentTable, currentTree
-            );
+            return PartPrePressCheck.failure("table-showing-changed", expected, currentTable, currentTree);
         }
-        final String sourceFailure = verifyPartRowAtPress(
-            expected.source(), currentTable, currentTree
-        );
+        final String sourceFailure = verifyPartRowAtPress(expected.source(), currentTable, currentTree);
         if (sourceFailure != null) {
-            return PartPrePressCheck.failure(
-                "source-" + sourceFailure, expected, currentTable, currentTree
-            );
+            return PartPrePressCheck.failure("source-" + sourceFailure, expected, currentTable, currentTree);
         }
-        final String targetFailure = verifyPartRowAtPress(
-            expected.target(), currentTable, currentTree
-        );
+        final String targetFailure = verifyPartRowAtPress(expected.target(), currentTable, currentTree);
         if (targetFailure != null) {
-            return PartPrePressCheck.failure(
-                "target-" + targetFailure, expected, currentTable, currentTree
-            );
+            return PartPrePressCheck.failure("target-" + targetFailure, expected, currentTable, currentTree);
         }
         return PartPrePressCheck.success(expected, currentTable, currentTree);
     }
 
     /** Testable readback seam used by the real gesture runner's EDT guard. */
     static PartPrePressCheck verifyPartPrePress(
-        final PartPairLayout expected,
-        final JTable currentTable,
-        final JTree currentTree,
-        final PartPair pair,
-        final PartModelSnapshot currentModel
-    ) {
+            final PartPairLayout expected,
+            final JTable currentTable,
+            final JTree currentTree,
+            final PartPair pair,
+            final PartModelSnapshot currentModel) {
         if (currentModel == null) {
-            return PartPrePressCheck.failure(
-                "part-model-unavailable", expected, currentTable, currentTree
-            );
+            return PartPrePressCheck.failure("part-model-unavailable", expected, currentTable, currentTree);
         }
         if (pair == null || !partPairMatches(currentModel, pair)) {
-            return PartPrePressCheck.failure(
-                "part-model-changed", expected, currentTable, currentTree
-            );
+            return PartPrePressCheck.failure("part-model-changed", expected, currentTable, currentTree);
         }
         return verifyPartPrePress(expected, currentTable, currentTree);
     }
 
-    private static String verifyPartRowAtPress(
-        final PartRowLocation expected,
-        final JTable table,
-        final JTree tree
-    ) {
+    private static String verifyPartRowAtPress(final PartRowLocation expected, final JTable table, final JTree tree) {
         if (expected == null || expected.node() == null) return "node-unavailable";
         final int row = expected.row();
         if (tree.getRowForPath(expected.path()) != row) return "row-changed";
@@ -1261,7 +1119,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             return "column-at-point-changed";
         }
         if (!viewport.contains(cell.x, cell.y)
-            || !viewport.contains(cell.x + cell.width - 1, cell.y + cell.height - 1)) {
+                || !viewport.contains(cell.x + cell.width - 1, cell.y + cell.height - 1)) {
             return "cell-not-visible";
         }
         if (expected.screenPoint() != null) {
@@ -1275,8 +1133,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 final int screenRow = table.rowAtPoint(fromScreen);
                 final int screenColumn = table.columnAtPoint(fromScreen);
                 final TreePath screenPath = tree.getPathForRow(screenRow);
-                if (screenRow != row || screenColumn != expected.column()
-                    || !samePathNodeIdentity(expected.path(), screenPath)) {
+                if (screenRow != row
+                        || screenColumn != expected.column()
+                        || !samePathNodeIdentity(expected.path(), screenPath)) {
                     return "screen-row-path-changed";
                 }
             } catch (java.awt.IllegalComponentStateException notShowing) {
@@ -1286,10 +1145,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return null;
     }
 
-    private static boolean samePathNodeIdentity(
-        final TreePath expected,
-        final TreePath actual
-    ) {
+    private static boolean samePathNodeIdentity(final TreePath expected, final TreePath actual) {
         if (expected == null || actual == null || expected.getPathCount() != actual.getPathCount()) {
             return false;
         }
@@ -1334,53 +1190,68 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static PartPointerEvidence readPointer(
-        final int attempt,
-        final String phase,
-        final long commandStartMillis,
-        final Point commandedPoint,
-        final PartPointerReadback pointerReadback
-    ) {
+            final int attempt,
+            final String phase,
+            final long commandStartMillis,
+            final Point commandedPoint,
+            final PartPointerReadback pointerReadback) {
         final long monotonicNanos = System.nanoTime();
         final String thread = Thread.currentThread().getName();
         try {
             final Point readbackPoint = pointerReadback.read();
             if (readbackPoint == null) {
                 return new PartPointerEvidence(
-                    phase, attempt, commandStartMillis, monotonicNanos, thread, commandedPoint, null,
-                    "UNAVAILABLE", "null-pointer-info"
-                );
+                        phase,
+                        attempt,
+                        commandStartMillis,
+                        monotonicNanos,
+                        thread,
+                        commandedPoint,
+                        null,
+                        "UNAVAILABLE",
+                        "null-pointer-info");
             }
             final Point copy = new Point(readbackPoint);
             final boolean matches = commandedPoint != null && commandedPoint.equals(copy);
             return new PartPointerEvidence(
-                phase, attempt, commandStartMillis, monotonicNanos, thread, commandedPoint, copy,
-                matches ? "MATCH" : "MISMATCH",
-                matches ? "" : "commanded-point-diff"
-            );
+                    phase,
+                    attempt,
+                    commandStartMillis,
+                    monotonicNanos,
+                    thread,
+                    commandedPoint,
+                    copy,
+                    matches ? "MATCH" : "MISMATCH",
+                    matches ? "" : "commanded-point-diff");
         } catch (Exception failure) {
             return new PartPointerEvidence(
-                phase, attempt, commandStartMillis, monotonicNanos, thread, commandedPoint, null,
-                "UNAVAILABLE", "exception:" + failure.getClass().getSimpleName()
-            );
+                    phase,
+                    attempt,
+                    commandStartMillis,
+                    monotonicNanos,
+                    thread,
+                    commandedPoint,
+                    null,
+                    "UNAVAILABLE",
+                    "exception:" + failure.getClass().getSimpleName());
         }
     }
 
     static PartGestureAttempt runPartGesture(
-        final PartPairLayout layout,
-        final String intendedSourceId,
-        final String intendedTargetId,
-        final PartGestureInput input,
-        final PartPrePressGuard guard
-    ) throws Exception {
+            final PartPairLayout layout,
+            final String intendedSourceId,
+            final String intendedTargetId,
+            final PartGestureInput input,
+            final PartPrePressGuard guard)
+            throws Exception {
         Objects.requireNonNull(layout, "layout");
         return runPartGesture(
-            layout,
-            intendedSourceId,
-            intendedTargetId,
-            input,
-            () -> layout.source().screenPoint(),
-            guard
-        );
+                layout,
+                intendedSourceId,
+                intendedTargetId,
+                input,
+                () -> layout.source().screenPoint(),
+                guard);
     }
 
     /**
@@ -1389,61 +1260,49 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * java.awt.Robot}.
      */
     static PartGestureAttempt runPartGesture(
-        final PartPairLayout layout,
-        final String intendedSourceId,
-        final String intendedTargetId,
-        final PartGestureInput input,
-        final PartPointerReadback pointerReadback,
-        final PartPrePressGuard guard
-    ) throws Exception {
+            final PartPairLayout layout,
+            final String intendedSourceId,
+            final String intendedTargetId,
+            final PartGestureInput input,
+            final PartPointerReadback pointerReadback,
+            final PartPrePressGuard guard)
+            throws Exception {
         Objects.requireNonNull(layout, "layout");
         Objects.requireNonNull(input, "input");
         Objects.requireNonNull(pointerReadback, "pointerReadback");
         Objects.requireNonNull(guard, "guard");
-        final PartGestureCapture capture = new PartGestureCapture(
-            layout, intendedSourceId, intendedTargetId
-        );
+        final PartGestureCapture capture = new PartGestureCapture(layout, intendedSourceId, intendedTargetId);
         final AtomicBoolean lifecycleOpen = new AtomicBoolean(true);
         boolean listenersInstalled = false;
         boolean pressed = false;
         PartPrePressCheck prePress = null;
         try {
-            listenersInstalled = onEdt(
-                () -> capture.installIfOpen(lifecycleOpen)
-            );
+            listenersInstalled = onEdt(() -> capture.installIfOpen(lifecycleOpen));
             if (!listenersInstalled) {
                 throw new IllegalStateException("gesture-lifecycle-closed-before-install");
             }
             final Point source = layout.source().screenPoint();
             final Point target = layout.target().screenPoint();
             if (source == null || target == null) {
-                final PartPrePressCheck unavailable = PartPrePressCheck.failure(
-                    "screen-point-unavailable", layout, layout.table(), layout.tree()
-                );
+                final PartPrePressCheck unavailable =
+                        PartPrePressCheck.failure("screen-point-unavailable", layout, layout.table(), layout.tree());
                 onEdt(() -> {
                     capture.recordPrePress(unavailable);
                     return null;
                 });
                 return new PartGestureAttempt(
-                    PartGestureStatus.UNRESOLVED,
-                    unavailable.code(),
-                    unavailable,
-                    capture.evidence()
-                );
+                        PartGestureStatus.UNRESOLVED, unavailable.code(), unavailable, capture.evidence());
             }
             int matchedAttempt = 0;
             long matchedAttemptStartMillis = 0L;
             for (int attempt = 1; attempt <= MAX_PART_POINTER_ATTEMPTS; attempt++) {
                 final long commandStartMillis = System.currentTimeMillis();
                 capture.beginPointerAttempt(attempt, commandStartMillis);
-                capture.recordPointer(PartPointerEvidence.command(
-                    attempt, commandStartMillis, source
-                ));
+                capture.recordPointer(PartPointerEvidence.command(attempt, commandStartMillis, source));
                 input.mouseMove(source.x, source.y);
                 input.pause(120L);
-                final PartPointerEvidence afterMove = readPointer(
-                    attempt, "after-move-pointer", commandStartMillis, source, pointerReadback
-                );
+                final PartPointerEvidence afterMove =
+                        readPointer(attempt, "after-move-pointer", commandStartMillis, source, pointerReadback);
                 capture.recordPointer(afterMove);
                 if ("MATCH".equals(afterMove.outcome())) {
                     matchedAttempt = attempt;
@@ -1452,19 +1311,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 }
                 if ("UNAVAILABLE".equals(afterMove.outcome())) {
                     return new PartGestureAttempt(
-                        PartGestureStatus.UNRESOLVED,
-                        afterMove.failureCode(),
-                        prePress,
-                        capture.evidence()
-                    );
+                            PartGestureStatus.UNRESOLVED, afterMove.failureCode(), prePress, capture.evidence());
                 }
                 if (attempt == MAX_PART_POINTER_ATTEMPTS) {
                     return new PartGestureAttempt(
-                        PartGestureStatus.UNRESOLVED,
-                        afterMove.failureCode(),
-                        prePress,
-                        capture.evidence()
-                    );
+                            PartGestureStatus.UNRESOLVED, afterMove.failureCode(), prePress, capture.evidence());
                 }
                 // A retry is admitted only by the same SDK and Swing guard used before press.
                 prePress = onEdt(() -> {
@@ -1474,20 +1325,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 });
                 if (prePress == null || !prePress.ok()) {
                     return new PartGestureAttempt(
-                        PartGestureStatus.UNRESOLVED,
-                        prePress == null ? "pre-press-guard-unavailable" : prePress.code(),
-                        prePress,
-                        capture.evidence()
-                    );
+                            PartGestureStatus.UNRESOLVED,
+                            prePress == null ? "pre-press-guard-unavailable" : prePress.code(),
+                            prePress,
+                            capture.evidence());
                 }
             }
             if (matchedAttempt == 0) {
                 return new PartGestureAttempt(
-                    PartGestureStatus.UNRESOLVED,
-                    "after-move-pointer-mismatch",
-                    prePress,
-                    capture.evidence()
-                );
+                        PartGestureStatus.UNRESOLVED, "after-move-pointer-mismatch", prePress, capture.evidence());
             }
             prePress = onEdt(() -> {
                 final PartPrePressCheck checked = guard.check();
@@ -1496,25 +1342,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             });
             if (prePress == null || !prePress.ok()) {
                 return new PartGestureAttempt(
-                    PartGestureStatus.UNRESOLVED,
-                    prePress == null ? "pre-press-guard-unavailable" : prePress.code(),
-                    prePress,
-                    capture.evidence()
-                );
+                        PartGestureStatus.UNRESOLVED,
+                        prePress == null ? "pre-press-guard-unavailable" : prePress.code(),
+                        prePress,
+                        capture.evidence());
             }
 
             final PartPointerEvidence beforePress = readPointer(
-                matchedAttempt, "before-press-pointer", matchedAttemptStartMillis,
-                source, pointerReadback
-            );
+                    matchedAttempt, "before-press-pointer", matchedAttemptStartMillis, source, pointerReadback);
             capture.recordPointer(beforePress);
             if (beforePress.failureCode() != null) {
                 return new PartGestureAttempt(
-                    PartGestureStatus.UNRESOLVED,
-                    beforePress.failureCode(),
-                    prePress,
-                    capture.evidence()
-                );
+                        PartGestureStatus.UNRESOLVED, beforePress.failureCode(), prePress, capture.evidence());
             }
 
             // Set the flag before calling the injected endpoint: a press that throws may still
@@ -1525,9 +1364,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final int segments = 12;
             for (int segment = 1; segment <= segments; segment++) {
                 input.mouseMove(
-                    source.x + (target.x - source.x) * segment / segments,
-                    source.y + (target.y - source.y) * segment / segments
-                );
+                        source.x + (target.x - source.x) * segment / segments,
+                        source.y + (target.y - source.y) * segment / segments);
                 input.pause(35L);
             }
             input.pause(180L);
@@ -1535,25 +1373,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             pressed = false;
             // Flush queued Swing callbacks and read the bounded event set on the EDT.
             final PartGestureCheck checked = onEdt(capture::checkEvents);
-            return new PartGestureAttempt(
-                checked.status(),
-                checked.code(),
-                prePress,
-                capture.evidence()
-            );
+            return new PartGestureAttempt(checked.status(), checked.code(), prePress, capture.evidence());
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            return new PartGestureAttempt(
-                PartGestureStatus.EXCEPTION,
-                "interrupted",
-                prePress,
-                capture.evidence()
-            );
+            return new PartGestureAttempt(PartGestureStatus.EXCEPTION, "interrupted", prePress, capture.evidence());
         } catch (Exception failure) {
             if (prePress == null) {
                 final PartPrePressCheck guardFailure = PartPrePressCheck.failure(
-                    "guard-failed:" + failure.getClass().getSimpleName(), layout, null, null
-                );
+                        "guard-failed:" + failure.getClass().getSimpleName(), layout, null, null);
                 prePress = guardFailure;
                 try {
                     onEdt(() -> {
@@ -1565,13 +1392,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 }
             }
             final String failureCode = (listenersInstalled ? "input-failed:" : "listener-install-failed:")
-                + failure.getClass().getSimpleName();
-            return new PartGestureAttempt(
-                PartGestureStatus.EXCEPTION,
-                failureCode,
-                prePress,
-                capture.evidence()
-            );
+                    + failure.getClass().getSimpleName();
+            return new PartGestureAttempt(PartGestureStatus.EXCEPTION, failureCode, prePress, capture.evidence());
         } finally {
             // Close admission before any cleanup work. If an invokeLater callback timed out and
             // is still queued, its installIfOpen check must observe the closed gesture.
@@ -1625,15 +1447,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 throw new IllegalStateException("Part identity is unavailable");
             }
             final Optional<String> parentId = part.parentId().map(value -> value.value());
-            final List<String> childIds = part.childIds().stream()
-                .map(value -> value.value())
-                .toList();
-            parts.add(new ActorPart(
-                part.id().value(),
-                part.name(),
-                parentId,
-                childIds
-            ));
+            final List<String> childIds =
+                    part.childIds().stream().map(value -> value.value()).toList();
+            parts.add(new ActorPart(part.id().value(), part.name(), parentId, childIds));
         }
         final PartModelSnapshot snapshot = new PartModelSnapshot(model.id().value(), parts);
         if (partIndex(snapshot) == null) {
@@ -1656,10 +1472,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         for (final ActorPart source : byId.values()) {
             if (!sourceEligible(source) || !uniqueName(source, nameCounts)) continue;
             for (final ActorPart target : byId.values()) {
-                if (!targetEligible(target) || !uniqueName(target, nameCounts)
-                    || source.id().equals(target.id())
-                    || source.parentId().filter(target.id()::equals).isPresent()
-                    || isDescendant(source.id(), target.id(), byId)) {
+                if (!targetEligible(target)
+                        || !uniqueName(target, nameCounts)
+                        || source.id().equals(target.id())
+                        || source.parentId().filter(target.id()::equals).isPresent()
+                        || isDescendant(source.id(), target.id(), byId)) {
                     continue;
                 }
                 pairs.add(new PartPair(snapshot.modelId(), source, target));
@@ -1675,79 +1492,78 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final Map<String, ActorPart> byId = partIndex(snapshot);
         if (byId == null) return false;
         return samePartState(pair.source(), byId.get(pair.source().id()))
-            && samePartState(pair.target(), byId.get(pair.target().id()));
+                && samePartState(pair.target(), byId.get(pair.target().id()));
     }
 
     private static boolean samePartState(final ActorPart expected, final ActorPart actual) {
-        return expected != null && actual != null
-            && expected.id().equals(actual.id())
-            && Objects.equals(expected.parentId(), actual.parentId())
-            && Objects.equals(expected.childIds(), actual.childIds());
+        return expected != null
+                && actual != null
+                && expected.id().equals(actual.id())
+                && Objects.equals(expected.parentId(), actual.parentId())
+                && Objects.equals(expected.childIds(), actual.childIds());
     }
 
     /** Classifies only the selected source's read-only parent transition. */
     static PartDragCheck assessPartDrag(
-        final PartPair pair,
-        final PartModelSnapshot before,
-        final PartModelSnapshot after,
-        final String beforeSignificant,
-        final String afterSignificant
-    ) {
-        final ActorPart beforeSource = partOf(before, pair == null ? null : pair.source().id());
-        final ActorPart afterSource = partOf(after, pair == null ? null : pair.source().id());
+            final PartPair pair,
+            final PartModelSnapshot before,
+            final PartModelSnapshot after,
+            final String beforeSignificant,
+            final String afterSignificant) {
+        final ActorPart beforeSource =
+                partOf(before, pair == null ? null : pair.source().id());
+        final ActorPart afterSource =
+                partOf(after, pair == null ? null : pair.source().id());
         final Optional<String> parentBefore = parentOf(beforeSource);
         final Optional<String> parentAfter = parentOf(afterSource);
-        final String sourceId = pair == null || pair.source() == null ? "" : pair.source().id();
-        final String targetId = pair == null || pair.target() == null ? "" : pair.target().id();
-        if (pair == null || before == null || after == null
-            || !Objects.equals(before.modelId(), after.modelId())
-            || !Objects.equals(pair.modelId(), after.modelId())) {
+        final String sourceId =
+                pair == null || pair.source() == null ? "" : pair.source().id();
+        final String targetId =
+                pair == null || pair.target() == null ? "" : pair.target().id();
+        if (pair == null
+                || before == null
+                || after == null
+                || !Objects.equals(before.modelId(), after.modelId())
+                || !Objects.equals(pair.modelId(), after.modelId())) {
             return new PartDragCheck(
-                PartDragStatus.MISMATCH, "model-changed", sourceId, targetId,
-                parentBefore, parentAfter
-            );
+                    PartDragStatus.MISMATCH, "model-changed", sourceId, targetId, parentBefore, parentAfter);
         }
         if (beforeSource == null || afterSource == null || partOf(after, targetId) == null) {
             return new PartDragCheck(
-                PartDragStatus.UNAVAILABLE, "selected-part-unavailable", sourceId, targetId,
-                parentBefore, parentAfter
-            );
+                    PartDragStatus.UNAVAILABLE,
+                    "selected-part-unavailable",
+                    sourceId,
+                    targetId,
+                    parentBefore,
+                    parentAfter);
         }
         if (parentBefore.filter(targetId::equals).isPresent()) {
             return new PartDragCheck(
-                PartDragStatus.MISMATCH, "same-parent", sourceId, targetId,
-                parentBefore, parentAfter
-            );
+                    PartDragStatus.MISMATCH, "same-parent", sourceId, targetId, parentBefore, parentAfter);
         }
-        if (parentAfter.filter(targetId::equals).isPresent()
-            && !Objects.equals(parentBefore, parentAfter)) {
+        if (parentAfter.filter(targetId::equals).isPresent() && !Objects.equals(parentBefore, parentAfter)) {
             return new PartDragCheck(
-                PartDragStatus.CHANGED, "selected-parent-changed", sourceId, targetId,
-                parentBefore, parentAfter
-            );
+                    PartDragStatus.CHANGED, "selected-parent-changed", sourceId, targetId, parentBefore, parentAfter);
         }
         if (!Objects.equals(parentBefore, parentAfter)) {
             return new PartDragCheck(
-                PartDragStatus.MISMATCH, "wrong-parent", sourceId, targetId,
-                parentBefore, parentAfter
-            );
+                    PartDragStatus.MISMATCH, "wrong-parent", sourceId, targetId, parentBefore, parentAfter);
         }
         if (beforeSignificant == null || afterSignificant == null) {
             return new PartDragCheck(
-                PartDragStatus.UNAVAILABLE, "history-unavailable", sourceId, targetId,
-                parentBefore, parentAfter
-            );
+                    PartDragStatus.UNAVAILABLE, "history-unavailable", sourceId, targetId, parentBefore, parentAfter);
         }
         if (!Objects.equals(beforeSignificant, afterSignificant)) {
             return new PartDragCheck(
-                PartDragStatus.MISMATCH, "unselected-significant-change", sourceId, targetId,
-                parentBefore, parentAfter
-            );
+                    PartDragStatus.MISMATCH,
+                    "unselected-significant-change",
+                    sourceId,
+                    targetId,
+                    parentBefore,
+                    parentAfter);
         }
         return new PartDragCheck(
-            PartDragStatus.NO_CHANGE, "no-selected-parent-change", sourceId, targetId,
-            parentBefore, parentAfter
-        );
+                PartDragStatus.NO_CHANGE, "no-selected-parent-change", sourceId, targetId, parentBefore, parentAfter);
     }
 
     /**
@@ -1758,10 +1574,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * the caller to try another safe candidate. Unknown readback and mismatches terminate the
      * current actor so an unverified gesture is never sent again.</p>
      */
-    static PartDragSettlement settlePartDrag(
-        final int maxPolls,
-        final PartDragReadback readback
-    ) throws Exception {
+    static PartDragSettlement settlePartDrag(final int maxPolls, final PartDragReadback readback) throws Exception {
         if (maxPolls <= 0) throw new IllegalArgumentException("maxPolls must be positive");
         Objects.requireNonNull(readback, "readback");
         PartDragCheck lastCheck = null;
@@ -1769,13 +1582,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             lastCheck = readback.read(poll);
             if (lastCheck == null) {
                 lastCheck = new PartDragCheck(
-                    PartDragStatus.UNAVAILABLE,
-                    "part-readback-unavailable",
-                    "",
-                    "",
-                    Optional.empty(),
-                    Optional.empty()
-                );
+                        PartDragStatus.UNAVAILABLE,
+                        "part-readback-unavailable",
+                        "",
+                        "",
+                        Optional.empty(),
+                        Optional.empty());
             }
             if (lastCheck.status() == PartDragStatus.CHANGED) {
                 return new PartDragSettlement(PartDragSettlementStatus.CHANGED, lastCheck);
@@ -1791,24 +1603,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static String partEvidence(
-        final PartPair pair,
-        final Optional<String> parentBefore,
-        final Optional<String> parentAfter
-    ) {
+            final PartPair pair, final Optional<String> parentBefore, final Optional<String> parentAfter) {
         return "sourceId=" + pair.source().id()
-            + ":targetId=" + pair.target().id()
-            + ":parentBefore=" + parentText(parentBefore)
-            + ":parentAfter=" + parentText(parentAfter);
+                + ":targetId=" + pair.target().id()
+                + ":parentBefore=" + parentText(parentBefore)
+                + ":parentAfter=" + parentText(parentAfter);
     }
 
     private static String parentText(final Optional<String> parent) {
         return parent == null ? "<unavailable>" : parent.orElse("<none>");
     }
 
-    private static ActorPart partOf(
-        final PartModelSnapshot snapshot,
-        final String id
-    ) {
+    private static ActorPart partOf(final PartModelSnapshot snapshot, final String id) {
         if (snapshot == null || id == null) return null;
         final Map<String, ActorPart> byId = partIndex(snapshot);
         return byId == null ? null : byId.get(id);
@@ -1820,28 +1626,22 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private static boolean sourceEligible(final ActorPart part) {
         return part != null
-            && !INTERNAL_ROOT_PART_ID.equals(part.id())
-            && part.parentId().isPresent();
+                && !INTERNAL_ROOT_PART_ID.equals(part.id())
+                && part.parentId().isPresent();
     }
 
     private static boolean targetEligible(final ActorPart part) {
-        return part != null && !INTERNAL_ROOT_PART_ID.equals(part.id())
-            && part.parentId().isPresent();
+        return part != null
+                && !INTERNAL_ROOT_PART_ID.equals(part.id())
+                && part.parentId().isPresent();
     }
 
-    private static boolean uniqueName(
-        final ActorPart part,
-        final Map<String, Integer> nameCounts
-    ) {
-        return part.name() != null && !part.name().isBlank()
-            && nameCounts.getOrDefault(part.name(), 0) == 1;
+    private static boolean uniqueName(final ActorPart part, final Map<String, Integer> nameCounts) {
+        return part.name() != null && !part.name().isBlank() && nameCounts.getOrDefault(part.name(), 0) == 1;
     }
 
     private static boolean isDescendant(
-        final String sourceId,
-        final String candidateId,
-        final Map<String, ActorPart> byId
-    ) {
+            final String sourceId, final String candidateId, final Map<String, ActorPart> byId) {
         final ArrayDeque<String> pending = new ArrayDeque<>();
         final Set<String> visited = new HashSet<>();
         pending.add(sourceId);
@@ -1859,14 +1659,16 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /** Validates the complete read-only relation snapshot before any UI gesture is attempted. */
     private static Map<String, ActorPart> partIndex(final PartModelSnapshot snapshot) {
-        if (snapshot == null || snapshot.modelId() == null || snapshot.modelId().isBlank()
-            || snapshot.parts() == null || snapshot.parts().isEmpty()) {
+        if (snapshot == null
+                || snapshot.modelId() == null
+                || snapshot.modelId().isBlank()
+                || snapshot.parts() == null
+                || snapshot.parts().isEmpty()) {
             return null;
         }
         final Map<String, ActorPart> byId = new LinkedHashMap<>();
         for (final ActorPart part : snapshot.parts()) {
-            if (part == null || part.id() == null || part.id().isBlank()
-                || byId.put(part.id(), part) != null) {
+            if (part == null || part.id() == null || part.id().isBlank() || byId.put(part.id(), part) != null) {
                 return null;
             }
             final Set<String> childIds = new HashSet<>();
@@ -1897,10 +1699,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return byId;
     }
 
-    private static PartPairLayout locatePartPair(
-        final String sourceName,
-        final String targetName
-    ) {
+    private static PartPairLayout locatePartPair(final String sourceName, final String targetName) {
         for (final java.awt.Window window : java.awt.Window.getWindows()) {
             if (!window.isVisible()) continue;
             final javax.swing.JTable table = findPartsTable(window);
@@ -1923,13 +1722,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * exercises the same expansion, scrolling, row/path and point checks as the native actor.
      */
     static PartPairLayout locatePartPairRows(
-        final javax.swing.JTable table,
-        final javax.swing.JTree tree,
-        final String sourceName,
-        final String targetName
-    ) {
-        if (table == null || tree == null || sourceName == null || targetName == null
-            || sourceName.equals(targetName)) return null;
+            final javax.swing.JTable table,
+            final javax.swing.JTree tree,
+            final String sourceName,
+            final String targetName) {
+        if (table == null || tree == null || sourceName == null || targetName == null || sourceName.equals(targetName))
+            return null;
         javax.swing.tree.TreePath sourcePath = uniquePartPath(tree, sourceName);
         javax.swing.tree.TreePath targetPath = uniquePartPath(tree, targetName);
         if (sourcePath == null || targetPath == null || sourcePath.equals(targetPath)) return null;
@@ -1952,8 +1750,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (source == null || target == null) return null;
         if (!fullyVisible(table, source.cell()) || !fullyVisible(table, target.cell())) {
             final java.awt.Rectangle union = source.cell().union(target.cell());
-            if (union.height > table.getVisibleRect().height
-                || union.width > table.getVisibleRect().width) {
+            if (union.height > table.getVisibleRect().height || union.width > table.getVisibleRect().width) {
                 return null;
             }
             table.scrollRectToVisible(union);
@@ -1964,19 +1761,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             source = partRowLocation(table, tree, sourcePath);
             target = partRowLocation(table, tree, targetPath);
         }
-        if (source == null || target == null
-            || !fullyVisible(table, source.cell()) || !fullyVisible(table, target.cell())) {
+        if (source == null
+                || target == null
+                || !fullyVisible(table, source.cell())
+                || !fullyVisible(table, target.cell())) {
             return null;
         }
-        return new PartPairLayout(
-            table,
-            tree,
-            table.getModel(),
-            tree.getModel(),
-            source,
-            target,
-            table.isShowing()
-        );
+        return new PartPairLayout(table, tree, table.getModel(), tree.getModel(), source, target, table.isShowing());
     }
 
     /** Returns the already-verified target screen point without applying an unverified offset. */
@@ -1987,12 +1778,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return new java.awt.Point(layout.target().screenPoint());
     }
 
-    private static javax.swing.tree.TreePath uniquePartPath(
-        final javax.swing.JTree tree,
-        final String name
-    ) {
-        final List<javax.swing.tree.TreePath> paths =
-            WindowsMeshEditValidationProbe.findTreePaths(tree, name);
+    private static javax.swing.tree.TreePath uniquePartPath(final javax.swing.JTree tree, final String name) {
+        final List<javax.swing.tree.TreePath> paths = WindowsMeshEditValidationProbe.findTreePaths(tree, name);
         return paths.size() == 1 ? paths.get(0) : null;
     }
 
@@ -2000,9 +1787,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (tree == null || node == null) return "";
         try {
             return boundedText(
-                tree.convertValueToText(node, false, false, false, 0, false),
-                MAX_PART_GESTURE_TEXT_LENGTH
-            );
+                    tree.convertValueToText(node, false, false, false, 0, false), MAX_PART_GESTURE_TEXT_LENGTH);
         } catch (RuntimeException failure) {
             return boundedText(String.valueOf(node), MAX_PART_GESTURE_TEXT_LENGTH);
         }
@@ -2019,10 +1804,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return boundedText(label.toString(), MAX_PART_GESTURE_TEXT_LENGTH);
     }
 
-    private static void expandAncestors(
-        final javax.swing.JTree tree,
-        final javax.swing.tree.TreePath path
-    ) {
+    private static void expandAncestors(final javax.swing.JTree tree, final javax.swing.tree.TreePath path) {
         javax.swing.tree.TreePath parent = path == null ? null : path.getParentPath();
         while (parent != null) {
             tree.expandPath(parent);
@@ -2031,10 +1813,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static PartRowLocation partRowLocation(
-        final javax.swing.JTable table,
-        final javax.swing.JTree tree,
-        final javax.swing.tree.TreePath path
-    ) {
+            final javax.swing.JTable table, final javax.swing.JTree tree, final javax.swing.tree.TreePath path) {
         if (path == null) return null;
         final int row = tree.getRowForPath(path);
         if (row < 0 || row >= table.getRowCount() || !path.equals(tree.getPathForRow(row))) {
@@ -2052,31 +1831,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final java.awt.Rectangle cell = table.getCellRect(row, column, true);
         final java.awt.Rectangle viewport = table.getVisibleRect();
         if (cell.isEmpty() || viewport.isEmpty()) return null;
-        final java.awt.Point local = new java.awt.Point(
-            cell.x + Math.max(1, cell.width / 2),
-            cell.y + Math.max(1, cell.height / 2));
+        final java.awt.Point local =
+                new java.awt.Point(cell.x + Math.max(1, cell.width / 2), cell.y + Math.max(1, cell.height / 2));
         if (table.rowAtPoint(local) != row) return null;
         final Object node = path.getLastPathComponent();
-        return new PartRowLocation(
-            path,
-            node,
-            treeLabel(tree, node),
-            row,
-            column,
-            cell,
-            viewport,
-            local,
-            null
-        );
+        return new PartRowLocation(path, node, treeLabel(tree, node), row, column, cell, viewport, local, null);
     }
 
-    private static boolean fullyVisible(
-        final javax.swing.JTable table,
-        final java.awt.Rectangle cell
-    ) {
+    private static boolean fullyVisible(final javax.swing.JTable table, final java.awt.Rectangle cell) {
         final java.awt.Rectangle viewport = table.getVisibleRect();
         return viewport.contains(cell.x, cell.y)
-            && viewport.contains(cell.x + cell.width - 1, cell.y + cell.height - 1);
+                && viewport.contains(cell.x + cell.width - 1, cell.y + cell.height - 1);
     }
 
     /**
@@ -2089,8 +1854,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * whether a hierarchy entry is committed.</p>
      */
     private String dragPartRow(final String knownSignificant) throws Exception {
-        final List<String> names = onEdt(() ->
-            context.cubism().model().active().parts().all().stream()
+        final List<String> names = onEdt(() -> context.cubism().model().active().parts().all().stream()
                 .map(dev.turboism.sdk.cubism.model.Part::name)
                 .filter(name -> name != null && !name.isBlank())
                 .distinct()
@@ -2104,8 +1868,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         String source = null;
         int[] fromPoint = null;
         for (final String name : names) {
-            final int[] point = onEdt(
-                () -> WindowsHistoryNativeUiIngressProbe.partsRowPoint(name));
+            final int[] point = onEdt(() -> WindowsHistoryNativeUiIngressProbe.partsRowPoint(name));
             if (point != null) {
                 source = name;
                 fromPoint = point;
@@ -2120,8 +1883,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final ArrayList<String> tried = new ArrayList<>();
         for (final String name : names) {
             if (name.equals(source) || tried.size() >= 3) continue;
-            final int[] toPoint = onEdt(
-                () -> WindowsHistoryNativeUiIngressProbe.partsRowPoint(name));
+            final int[] toPoint = onEdt(() -> WindowsHistoryNativeUiIngressProbe.partsRowPoint(name));
             if (toPoint == null) continue;
             tried.add(name);
             final int toX = toPoint[0];
@@ -2135,8 +1897,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     Thread.sleep(POLL_MILLIS);
                     if (!significantSequence(sample()).equals(knownSignificant)) {
                         return "dragged:" + source + "->" + name
-                            + ":drop=" + (drop == 0 ? "on-row" : "row-edge")
-                            + ":targets=" + tried.size();
+                                + ":drop=" + (drop == 0 ? "on-row" : "row-edge")
+                                + ":targets=" + tried.size();
                     }
                 }
             }
@@ -2145,7 +1907,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             return "unresolved:no-target-row:" + names;
         }
         return "dragged:" + source + "->tried=" + tried + ":no-significant-entry:"
-            + onEdt(WindowsHistoryNativeUiIngressProbe::partsTreeDnD);
+                + onEdt(WindowsHistoryNativeUiIngressProbe::partsTreeDnD);
     }
 
     /**
@@ -2163,11 +1925,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (!window.isVisible()) continue;
             final javax.swing.JTable table = findPartsTable(window);
             if (table == null || !table.isShowing()) continue;
-            final javax.swing.JTree tree =
-                WindowsMeshEditValidationProbe.extractTree(table);
+            final javax.swing.JTree tree = WindowsMeshEditValidationProbe.extractTree(table);
             if (tree == null) continue;
             final java.util.List<javax.swing.tree.TreePath> paths =
-                WindowsMeshEditValidationProbe.findTreePaths(tree, displayName);
+                    WindowsMeshEditValidationProbe.findTreePaths(tree, displayName);
             if (paths.size() != 1) continue;
             // Collapsed parents give the path no row at all — expand first.
             tree.expandPath(paths.get(0).getParentPath());
@@ -2185,9 +1946,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final java.awt.Rectangle rect = table.getCellRect(row, column, true);
             if (rect.isEmpty()) continue;
             table.scrollRectToVisible(rect);
-            final java.awt.Point centre = new java.awt.Point(
-                rect.x + Math.max(1, rect.width / 2),
-                rect.y + Math.max(1, rect.height / 2));
+            final java.awt.Point centre =
+                    new java.awt.Point(rect.x + Math.max(1, rect.width / 2), rect.y + Math.max(1, rect.height / 2));
             SwingUtilities.convertPointToScreen(centre, table);
             return new int[] {centre.x, centre.y, rect.height};
         }
@@ -2196,7 +1956,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private static javax.swing.JTable findPartsTable(final java.awt.Component component) {
         if (component instanceof javax.swing.JTable table
-            && table.getClass().getName().contains("PartsTreeTable")) {
+                && table.getClass().getName().contains("PartsTreeTable")) {
             return table;
         }
         if (component instanceof java.awt.Container container) {
@@ -2224,35 +1984,43 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return out.length() > 0 ? out.toString() : "no-trees";
     }
 
-    private static void collectTreeDnD(
-        final java.awt.Component component,
-        final StringBuilder out,
-        final int depth
-    ) {
+    private static void collectTreeDnD(final java.awt.Component component, final StringBuilder out, final int depth) {
         if (depth > UI_MAP_MAX_DEPTH || !component.isVisible() || out.length() > 1800) return;
         if (component instanceof javax.swing.JTree tree) {
-            final java.awt.Container owner = SwingUtilities.getAncestorOfClass(
-                javax.swing.JTable.class, tree);
-            out.append("tree:").append(tree.getClass().getName())
-                .append(":drag=").append(tree.getDragEnabled())
-                .append(":drop=").append(tree.getDropTarget() != null)
-                .append(":handler=").append(tree.getTransferHandler() == null
-                    ? "none" : tree.getTransferHandler().getClass().getSimpleName())
-                .append(":owner=").append(owner == null ? "none" : owner.getClass().getName())
-                .append(';');
+            final java.awt.Container owner = SwingUtilities.getAncestorOfClass(javax.swing.JTable.class, tree);
+            out.append("tree:")
+                    .append(tree.getClass().getName())
+                    .append(":drag=")
+                    .append(tree.getDragEnabled())
+                    .append(":drop=")
+                    .append(tree.getDropTarget() != null)
+                    .append(":handler=")
+                    .append(
+                            tree.getTransferHandler() == null
+                                    ? "none"
+                                    : tree.getTransferHandler().getClass().getSimpleName())
+                    .append(":owner=")
+                    .append(owner == null ? "none" : owner.getClass().getName())
+                    .append(';');
         } else if (component instanceof javax.swing.JTable table
-            && table.getClass().getName().toLowerCase(java.util.Locale.ROOT)
-                .contains("treetable")) {
+                && table.getClass().getName().toLowerCase(java.util.Locale.ROOT).contains("treetable")) {
             // A TreeTable embeds its JTree as a cell renderer, so the drag gesture and the
             // transfer handler live on the table — checking only the tree would report a DnD
             // that can never fire.
-            out.append("table:").append(table.getClass().getName())
-                .append(":drag=").append(table.getDragEnabled())
-                .append(":drop=").append(table.getDropTarget() != null)
-                .append(":mode=").append(table.getDropMode())
-                .append(":handler=").append(table.getTransferHandler() == null
-                    ? "none" : table.getTransferHandler().getClass().getName())
-                .append(';');
+            out.append("table:")
+                    .append(table.getClass().getName())
+                    .append(":drag=")
+                    .append(table.getDragEnabled())
+                    .append(":drop=")
+                    .append(table.getDropTarget() != null)
+                    .append(":mode=")
+                    .append(table.getDropMode())
+                    .append(":handler=")
+                    .append(
+                            table.getTransferHandler() == null
+                                    ? "none"
+                                    : table.getTransferHandler().getClass().getName())
+                    .append(';');
         }
         if (component instanceof java.awt.Container container) {
             for (java.awt.Component child : container.getComponents()) {
@@ -2279,8 +2047,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         // invisible ancestor prunes the whole subtree and discovery comes back empty while the
         // post-action map shows a perfectly good surface. Give the layout a few bounded chances
         // to settle before reporting the miss.
-        List<java.awt.Component> candidates =
-            onEdt(WindowsHistoryNativeUiIngressProbe::canvasCandidates);
+        List<java.awt.Component> candidates = onEdt(WindowsHistoryNativeUiIngressProbe::canvasCandidates);
         for (int retry = 0; candidates.isEmpty() && retry < 4; retry++) {
             Thread.sleep(POLL_MILLIS);
             candidates = onEdt(WindowsHistoryNativeUiIngressProbe::canvasCandidates);
@@ -2289,8 +2056,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             // The r13 run returned empty here while the post-action map showed a showing leaf —
             // record what was actually rejected so the next run names the reason instead of
             // needing another guess.
-            return "unresolved:no-canvas-component:" + onEdt(
-                WindowsHistoryNativeUiIngressProbe::canvasRejects);
+            return "unresolved:no-canvas-component:" + onEdt(WindowsHistoryNativeUiIngressProbe::canvasRejects);
         }
         final ArrayList<String> tried = new ArrayList<>();
         // Centre of the visible region first — the model sits centered on load — then a second
@@ -2304,8 +2070,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final int dy = Math.min(40, Math.max(10, visible.height / 8));
             for (final int[] fraction : fractions) {
                 final java.awt.Point local = new java.awt.Point(
-                    visible.x + Math.max(1, visible.width * fraction[0] / fraction[1]),
-                    visible.y + Math.max(1, visible.height * fraction[2] / fraction[3]));
+                        visible.x + Math.max(1, visible.width * fraction[0] / fraction[1]),
+                        visible.y + Math.max(1, visible.height * fraction[2] / fraction[3]));
                 final java.awt.Point press = new java.awt.Point(local);
                 SwingUtilities.convertPointToScreen(press, canvas);
                 if (!pressed.add(press)) continue;
@@ -2317,8 +2083,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 for (int settle = 0; settle < 12; settle++) {
                     Thread.sleep(POLL_MILLIS);
                     if (!significantSequence(sample()).equals(knownSignificant)) {
-                        return "dragged:" + canvas.getClass().getName() + visible
-                            + ":hit=" + hit + ":attempt=" + (tried.size() + 1);
+                        return "dragged:" + canvas.getClass().getName() + visible + ":hit=" + hit + ":attempt="
+                                + (tried.size() + 1);
                     }
                 }
                 tried.add(hit + "@" + press.x + "," + press.y);
@@ -2338,14 +2104,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      */
     private String dragParameterSlider(final ParameterStateSnapshot parameterBefore) throws Exception {
         if (parameterBefore == null || !parameterBefore.available()) {
-            final String reason = parameterBefore == null
-                ? "no-before-readback" : parameterBefore.reason();
+            final String reason = parameterBefore == null ? "no-before-readback" : parameterBefore.reason();
             recordParameterActorTermination(new ParameterChangeObservation(
-                parameterBefore != null && "model-changed".equals(reason)
-                    ? ParameterStateOutcome.MODEL_CHANGED : ParameterStateOutcome.UNAVAILABLE,
-                parameterBefore,
-                reason
-            ));
+                    parameterBefore != null && "model-changed".equals(reason)
+                            ? ParameterStateOutcome.MODEL_CHANGED
+                            : ParameterStateOutcome.UNAVAILABLE,
+                    parameterBefore,
+                    reason));
             return "unresolved:parameter-state:" + reason;
         }
         // The Parameter palette's value rows are CSlider widgets whose Swing mirrors are
@@ -2355,20 +2120,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         // whether this actor stops after a gesture.
         final java.awt.Robot robot = new java.awt.Robot();
         String paletteNote = "";
-        List<javax.swing.JSlider> dockSliders = onEdt(
-            WindowsHistoryNativeUiIngressProbe::parameterDockSliders);
+        List<javax.swing.JSlider> dockSliders = onEdt(WindowsHistoryNativeUiIngressProbe::parameterDockSliders);
         if (dockSliders.isEmpty()) {
-            paletteNote = "palette=" + openPalette(
-                PARAMETER_MARKERS,
-                () -> !parameterDockSliders().isEmpty());
+            paletteNote = "palette="
+                    + openPalette(
+                            PARAMETER_MARKERS, () -> !parameterDockSliders().isEmpty());
             for (int retry = 0; dockSliders.isEmpty() && retry < 12; retry++) {
                 Thread.sleep(POLL_MILLIS);
-                dockSliders = onEdt(
-                    WindowsHistoryNativeUiIngressProbe::parameterDockSliders);
+                dockSliders = onEdt(WindowsHistoryNativeUiIngressProbe::parameterDockSliders);
             }
             if (dockSliders.isEmpty()) {
-                paletteNote += ":scope=" + onEdt(
-                    WindowsHistoryNativeUiIngressProbe::paletteClassCensus);
+                paletteNote += ":scope=" + onEdt(WindowsHistoryNativeUiIngressProbe::paletteClassCensus);
             }
         }
         final ArrayList<String> tried = new ArrayList<>();
@@ -2378,14 +2140,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             robotDrag(plan[0], plan[1], plan[2], plan[3]);
             final ParameterChangeObservation changed = awaitParameterGestureAndRecord(parameterBefore);
             if (changed.outcome() == ParameterStateOutcome.CHANGED) {
-                return "changed:param-row:" + slider.getClass().getName()
-                    + ":attempt=" + (tried.size() + 1);
+                return "changed:param-row:" + slider.getClass().getName() + ":attempt=" + (tried.size() + 1);
             }
             if (changed.outcome() != ParameterStateOutcome.UNCHANGED) {
                 return "unresolved:parameter-state:" + changed.outcome().code();
             }
-            tried.add("dock:" + slider.getClass().getSimpleName()
-                + "@" + plan[0] + "," + plan[1]);
+            tried.add("dock:" + slider.getClass().getSimpleName() + "@" + plan[0] + "," + plan[1]);
             if (tried.size() >= 6) break;
         }
         // Palettes whose rows live only in the CWidget tree expose no Swing sliders —
@@ -2393,12 +2153,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         // parameter value control is CSlidableFloat: a scrub gestures sideways, and a
         // double-click opens its embedded text editor for direct typing.
         if (tried.size() < 6) {
-            final List<Object> cwRows = onEdt(
-                WindowsHistoryNativeUiIngressProbe::parameterCWidgetRows);
+            final List<Object> cwRows = onEdt(WindowsHistoryNativeUiIngressProbe::parameterCWidgetRows);
             for (final Object rowWidget : cwRows) {
                 final java.awt.Component surface = onEdt(() -> cwidgetSurface(rowWidget));
-                final int[] at = surface == null
-                    ? null : onEdt(() -> fieldCentre(surface));
+                final int[] at = surface == null ? null : onEdt(() -> fieldCentre(surface));
                 if (at == null) continue;
                 robotDrag(at[0] - 6, at[1], at[0] + 18, at[1]);
                 ParameterChangeObservation changed = awaitParameterGestureAndRecord(parameterBefore);
@@ -2425,8 +2183,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
                 robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
                 Thread.sleep(POLL_MILLIS);
-                final javax.swing.text.JTextComponent editor = onEdt(
-                    () -> cwidgetEditor(rowWidget));
+                final javax.swing.text.JTextComponent editor = onEdt(() -> cwidgetEditor(rowWidget));
                 if (editor != null) {
                     final int[] eat = onEdt(() -> fieldCentre(editor));
                     if (eat != null) {
@@ -2449,7 +2206,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                             return "changed:typed-cslidable:attempt=" + (tried.size() + 1);
                         }
                         if (changed.outcome() != ParameterStateOutcome.UNCHANGED) {
-                            return "unresolved:parameter-state:" + changed.outcome().code();
+                            return "unresolved:parameter-state:"
+                                    + changed.outcome().code();
                         }
                     }
                 }
@@ -2457,16 +2215,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 if (tried.size() >= 6) break;
             }
         }
-        List<java.awt.Component> rows = onEdt(
-            WindowsHistoryNativeUiIngressProbe::parameterRows);
+        List<java.awt.Component> rows = onEdt(WindowsHistoryNativeUiIngressProbe::parameterRows);
         for (final java.awt.Component row : rows) {
             final int[] at = onEdt(() -> fieldCentre(row));
             if (at == null) continue;
             robotDrag(at[0] - 8, at[1], at[0] + 24, at[1]);
             final ParameterChangeObservation changed = awaitParameterGestureAndRecord(parameterBefore);
             if (changed.outcome() == ParameterStateOutcome.CHANGED) {
-                return "changed:param-row:" + row.getClass().getName()
-                    + ":attempt=" + (tried.size() + 1);
+                return "changed:param-row:" + row.getClass().getName() + ":attempt=" + (tried.size() + 1);
             }
             if (changed.outcome() != ParameterStateOutcome.UNCHANGED) {
                 return "unresolved:parameter-state:" + changed.outcome().code();
@@ -2474,17 +2230,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             tried.add(row.getClass().getSimpleName() + "@" + at[0] + "," + at[1]);
             if (tried.size() >= 6) break;
         }
-        List<javax.swing.JSlider> sliders = onEdt(
-            WindowsHistoryNativeUiIngressProbe::parameterSliders);
+        List<javax.swing.JSlider> sliders = onEdt(WindowsHistoryNativeUiIngressProbe::parameterSliders);
         if (sliders.isEmpty() && rows.isEmpty()) {
             recordParameterActorTermination(new ParameterChangeObservation(
-                ParameterStateOutcome.UNCHANGED,
-                parameterBefore,
-                "no-slider-or-param-row"
-            ));
+                    ParameterStateOutcome.UNCHANGED, parameterBefore, "no-slider-or-param-row"));
             return "unresolved:no-slider-or-param-row:"
-                + paletteNote + ":"
-                + onEdt(WindowsHistoryNativeUiIngressProbe::canvasRejects);
+                    + paletteNote + ":"
+                    + onEdt(WindowsHistoryNativeUiIngressProbe::canvasRejects);
         }
         for (final javax.swing.JSlider slider : sliders) {
             final int[] plan = onEdt(() -> sliderDragPlan(slider));
@@ -2492,8 +2244,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             robotDrag(plan[0], plan[1], plan[2], plan[3]);
             final ParameterChangeObservation changed = awaitParameterGestureAndRecord(parameterBefore);
             if (changed.outcome() == ParameterStateOutcome.CHANGED) {
-                return "changed:" + slider.getClass().getName()
-                    + ":attempt=" + (tried.size() + 1);
+                return "changed:" + slider.getClass().getName() + ":attempt=" + (tried.size() + 1);
             }
             if (changed.outcome() != ParameterStateOutcome.UNCHANGED) {
                 return "unresolved:parameter-state:" + changed.outcome().code();
@@ -2502,20 +2253,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (tried.size() >= 6) break;
         }
         recordParameterActorTermination(new ParameterChangeObservation(
-            ParameterStateOutcome.UNCHANGED,
-            parameterBefore,
-            "no-parameter-value-change"
-        ));
+                ParameterStateOutcome.UNCHANGED, parameterBefore, "no-parameter-value-change"));
         return "unresolved:no-parameter-value-change:" + tried.size() + "-candidates:"
-            + String.join("|", tried)
-            + (paletteNote.isEmpty() ? "" : ":" + paletteNote)
-            + ":" + onEdt(WindowsHistoryNativeUiIngressProbe::parameterWidgetCensus);
+                + String.join("|", tried)
+                + (paletteNote.isEmpty() ? "" : ":" + paletteNote)
+                + ":" + onEdt(WindowsHistoryNativeUiIngressProbe::parameterWidgetCensus);
     }
 
     /** Bounded post-gesture readback used to stop the actor on the first actual value change. */
-    private ParameterChangeObservation awaitParameterGesture(
-        final ParameterStateSnapshot before
-    ) throws Exception {
+    private ParameterChangeObservation awaitParameterGesture(final ParameterStateSnapshot before) throws Exception {
         ParameterStateSnapshot latest = before;
         for (int poll = 0; poll < PARAMETER_ACTOR_POLLS; poll++) {
             Thread.sleep(POLL_MILLIS);
@@ -2526,21 +2272,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             }
             latest = current;
         }
-        return new ParameterChangeObservation(
-            ParameterStateOutcome.UNCHANGED, latest, "gesture-window-expired");
+        return new ParameterChangeObservation(ParameterStateOutcome.UNCHANGED, latest, "gesture-window-expired");
     }
 
-    private ParameterChangeObservation awaitParameterGestureAndRecord(
-        final ParameterStateSnapshot before
-    ) throws Exception {
+    private ParameterChangeObservation awaitParameterGestureAndRecord(final ParameterStateSnapshot before)
+            throws Exception {
         final ParameterChangeObservation observation = awaitParameterGesture(before);
         recordParameterActorTermination(observation);
         return observation;
     }
 
-    private void recordParameterActorTermination(
-        final ParameterChangeObservation observation
-    ) {
+    private void recordParameterActorTermination(final ParameterChangeObservation observation) {
         if (observation != null) parameterActorTermination = observation;
     }
 
@@ -2548,15 +2290,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * Waits for a native parameter value transition without consulting Undo as the exit signal.
      * Any read failure or model change stops the actor fail-closed.
      */
-    private ParameterChangeObservation awaitParameterChange(
-        final ParameterStateSnapshot before
-    ) throws Exception {
+    private ParameterChangeObservation awaitParameterChange(final ParameterStateSnapshot before) throws Exception {
         if (before == null || !before.available()) {
             return new ParameterChangeObservation(
-                ParameterStateOutcome.UNAVAILABLE,
-                null,
-                before == null ? "no-before-readback" : before.reason()
-            );
+                    ParameterStateOutcome.UNAVAILABLE, null, before == null ? "no-before-readback" : before.reason());
         }
         final long deadline = System.currentTimeMillis() + STEP_TIMEOUT_MILLIS;
         ParameterStateSnapshot latest = before;
@@ -2566,27 +2303,21 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final ParameterStateSnapshot current = readParameterSnapshot();
             final ParameterStateOutcome outcome = compareParameterState(before, current);
             if (outcome == ParameterStateOutcome.CHANGED) {
-                return settleParameterChange(
-                    before,
-                    new ParameterChangeObservation(outcome, current, outcome.code())
-                );
+                return settleParameterChange(before, new ParameterChangeObservation(outcome, current, outcome.code()));
             }
             if (outcome != ParameterStateOutcome.UNCHANGED) {
                 return new ParameterChangeObservation(outcome, current, outcome.code());
             }
             latest = current;
         }
-        return new ParameterChangeObservation(
-            ParameterStateOutcome.UNCHANGED, latest, "parameter-window-expired");
+        return new ParameterChangeObservation(ParameterStateOutcome.UNCHANGED, latest, "parameter-window-expired");
     }
 
     private ParameterChangeObservation awaitParameterChange(
-        final ParameterStateSnapshot before,
-        final ParameterChangeObservation actorTermination
-    ) throws Exception {
+            final ParameterStateSnapshot before, final ParameterChangeObservation actorTermination) throws Exception {
         if (actorTermination != null) {
             if (actorTermination.outcome() == ParameterStateOutcome.UNAVAILABLE
-                || actorTermination.outcome() == ParameterStateOutcome.MODEL_CHANGED) {
+                    || actorTermination.outcome() == ParameterStateOutcome.MODEL_CHANGED) {
                 return actorTermination;
             }
             if (actorTermination.outcome() == ParameterStateOutcome.CHANGED) {
@@ -2597,9 +2328,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private ParameterChangeObservation settleParameterChange(
-        final ParameterStateSnapshot before,
-        final ParameterChangeObservation detected
-    ) throws Exception {
+            final ParameterStateSnapshot before, final ParameterChangeObservation detected) throws Exception {
         final List<ParameterChangeObservation> settleObservations = new ArrayList<>();
         final long deadline = System.currentTimeMillis() + ACTION_SETTLE_MILLIS;
         while (System.currentTimeMillis() < deadline) {
@@ -2607,10 +2336,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             Thread.sleep(POLL_MILLIS);
             final ParameterStateSnapshot current = readParameterSnapshot();
             final ParameterStateOutcome outcome = compareParameterState(before, current);
-            if (outcome == ParameterStateOutcome.UNAVAILABLE
-                || outcome == ParameterStateOutcome.MODEL_CHANGED) {
-                settleObservations.add(new ParameterChangeObservation(
-                    outcome, current, outcome.code()));
+            if (outcome == ParameterStateOutcome.UNAVAILABLE || outcome == ParameterStateOutcome.MODEL_CHANGED) {
+                settleObservations.add(new ParameterChangeObservation(outcome, current, outcome.code()));
                 return settleParameterObservations(detected, settleObservations);
             }
             // Every successful read is a candidate final state. In particular, an unchanged
@@ -2625,13 +2352,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private ParameterStateSnapshot readParameterSnapshot() {
         try {
             final ParameterStateSnapshot snapshot = onEdt(this::readParameterSnapshotOnEdt);
-            return snapshot == null
-                ? ParameterStateSnapshot.unavailable("null-readback") : snapshot;
+            return snapshot == null ? ParameterStateSnapshot.unavailable("null-readback") : snapshot;
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
         } catch (Throwable failure) {
             return ParameterStateSnapshot.unavailable(
-                "read-failed:" + failure.getClass().getSimpleName());
+                    "read-failed:" + failure.getClass().getSimpleName());
         }
     }
 
@@ -2639,9 +2365,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         try {
             if (context == null) return ParameterStateSnapshot.unavailable("no-context");
             final CubismModel model = context.cubism().model().active();
-            if (model == null || model.id() == null || model.id().value() == null
-                || model.id().value().isBlank()
-                || model.id().value().length() > MAX_PARAMETER_ID_LENGTH) {
+            if (model == null
+                    || model.id() == null
+                    || model.id().value() == null
+                    || model.id().value().isBlank()
+                    || model.id().value().length() > MAX_PARAMETER_ID_LENGTH) {
                 return ParameterStateSnapshot.unavailable("model-identity-unavailable");
             }
             final String modelId = model.id().value();
@@ -2655,10 +2383,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final Set<String> ids = new LinkedHashSet<>();
             final List<ParameterValueSample> values = new ArrayList<>(parameters.size());
             for (final Parameter parameter : parameters) {
-                if (parameter == null || parameter.id() == null
-                    || parameter.id().value() == null
-                    || parameter.id().value().isBlank()
-                    || parameter.id().value().length() > MAX_PARAMETER_ID_LENGTH) {
+                if (parameter == null
+                        || parameter.id() == null
+                        || parameter.id().value() == null
+                        || parameter.id().value().isBlank()
+                        || parameter.id().value().length() > MAX_PARAMETER_ID_LENGTH) {
                     return ParameterStateSnapshot.unavailable("parameter-identity-unavailable");
                 }
                 final String parameterId = parameter.id().value();
@@ -2672,8 +2401,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 values.add(new ParameterValueSample(parameterId, value));
             }
             final CubismModel activeAgain = context.cubism().model().active();
-            if (activeAgain == null || activeAgain.id() == null
-                || !modelId.equals(activeAgain.id().value())) {
+            if (activeAgain == null
+                    || activeAgain.id() == null
+                    || !modelId.equals(activeAgain.id().value())) {
                 return ParameterStateSnapshot.unavailable("model-changed");
             }
             return ParameterStateSnapshot.available(modelId, values);
@@ -2681,7 +2411,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             throw fatal;
         } catch (Throwable failure) {
             return ParameterStateSnapshot.unavailable(
-                "read-failed:" + failure.getClass().getSimpleName());
+                    "read-failed:" + failure.getClass().getSimpleName());
         }
     }
 
@@ -2690,12 +2420,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * class, rect and label the palette actually instantiated. Runs on the EDT.
      */
     private static String parameterWidgetCensus() {
-        for (final javax.swing.AbstractButton tab
-            : paletteTabs(PARAMETER_MARKERS, new StringBuilder(1))) {
+        for (final javax.swing.AbstractButton tab : paletteTabs(PARAMETER_MARKERS, new StringBuilder(1))) {
             if (!tab.isSelected()) continue;
             java.awt.Container scope = tab.getParent();
-            while (scope != null && scope.getParent() != null
-                && scope.getParent().getWidth() <= 200) {
+            while (scope != null
+                    && scope.getParent() != null
+                    && scope.getParent().getWidth() <= 200) {
                 scope = scope.getParent();
             }
             if (scope == null) continue;
@@ -2722,15 +2452,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static void collectSliders(
-        final java.awt.Component component,
-        final List<javax.swing.JSlider> found,
-        final int depth
-    ) {
+            final java.awt.Component component, final List<javax.swing.JSlider> found, final int depth) {
         if (depth > CANVAS_SCAN_DEPTH || !component.isVisible()) return;
         if (component instanceof javax.swing.JSlider slider
-            && slider.isShowing() && slider.isEnabled()
-            && slider.getOrientation() == javax.swing.JSlider.HORIZONTAL
-            && slider.getWidth() >= 48) {
+                && slider.isShowing()
+                && slider.isEnabled()
+                && slider.getOrientation() == javax.swing.JSlider.HORIZONTAL
+                && slider.getWidth() >= 48) {
             found.add(slider);
         }
         if (component instanceof java.awt.Container container) {
@@ -2758,18 +2486,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static void collectParameterRows(
-        final java.awt.Component component,
-        final List<java.awt.Component> found,
-        final int depth
-    ) {
+            final java.awt.Component component, final List<java.awt.Component> found, final int depth) {
         if (depth > CANVAS_SCAN_DEPTH || !component.isVisible()) return;
         final String className = component.getClass().getName();
-        if (component.isShowing() && className.contains(".palette.parameter")
-            && !(component instanceof javax.swing.AbstractButton)
-            && !(component instanceof javax.swing.text.JTextComponent)
-            && component.getWidth() >= 48 && component.getWidth() <= 400
-            && component.getHeight() >= 10 && component.getHeight() <= 48
-            && !found.contains(component)) {
+        if (component.isShowing()
+                && className.contains(".palette.parameter")
+                && !(component instanceof javax.swing.AbstractButton)
+                && !(component instanceof javax.swing.text.JTextComponent)
+                && component.getWidth() >= 48
+                && component.getWidth() <= 400
+                && component.getHeight() >= 10
+                && component.getHeight() <= 48
+                && !found.contains(component)) {
             found.add(component);
         }
         if (component instanceof java.awt.Container container) {
@@ -2788,10 +2516,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * so the menu is opened through the {@link javax.swing.MenuSelectionManager} and the item
      * is clicked with a real Robot press, exactly as the operator does.</p>
      */
-    private String openPalette(
-        final String[] itemMarkers,
-        final java.util.function.Supplier<Boolean> realized
-    ) throws Exception {
+    private String openPalette(final String[] itemMarkers, final java.util.function.Supplier<Boolean> realized)
+            throws Exception {
         final StringBuilder diag = new StringBuilder(320);
         // Palettes dock as tabs — the ui-map shows a 参数 tab (com.live2d.ui.swingImpl.K) in
         // the right dock's tab bar. A real press on the tab realizes the palette.
@@ -2799,14 +2525,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         for (int attempt = 0; attempt < 6; attempt++) {
             // Several tabs can carry the same palette name in different dock groups —
             // cycle through them instead of pressing the first one four times.
-            final List<javax.swing.AbstractButton> tabs =
-                onEdt(() -> paletteTabs(itemMarkers, diag));
+            final List<javax.swing.AbstractButton> tabs = onEdt(() -> paletteTabs(itemMarkers, diag));
             if (tabs.isEmpty()) {
                 diag.append("tab-miss;");
                 break;
             }
-            final javax.swing.AbstractButton tabButton =
-                tabs.get(attempt % tabs.size());
+            final javax.swing.AbstractButton tabButton = tabs.get(attempt % tabs.size());
             final int[] tab = onEdt(() -> fieldCentre(tabButton));
             if (tab == null) {
                 diag.append("tab-not-showing;");
@@ -2833,8 +2557,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (menu == null) return "no-window-menu:" + diag;
         onEdt(() -> {
             if (menu.getParent() instanceof javax.swing.JMenuBar bar) {
-                javax.swing.MenuSelectionManager.defaultManager().setSelectedPath(
-                    new javax.swing.MenuElement[] {bar, menu, menu.getPopupMenu()});
+                javax.swing.MenuSelectionManager.defaultManager()
+                        .setSelectedPath(new javax.swing.MenuElement[] {bar, menu, menu.getPopupMenu()});
             } else {
                 menu.setPopupMenuVisible(true);
             }
@@ -2847,8 +2571,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 javax.swing.MenuSelectionManager.defaultManager().clearSelectedPath();
                 return true;
             });
-            return "menu-no-palette-item:" + diag + "|" + onEdt(
-                WindowsHistoryNativeUiIngressProbe::windowMenuTexts);
+            return "menu-no-palette-item:" + diag + "|" + onEdt(WindowsHistoryNativeUiIngressProbe::windowMenuTexts);
         }
         // The mirror maps back to its real CMenuItem through the host's component→widget
         // registry (com.live2d.ui.k.a). Clicking the CMenuItem fires the Kotlin action.
@@ -2858,25 +2581,27 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             // toggling alone does not realize the palette. Also try the menu's
             // "show panels" entry and its "reset state" entry, which rebuild the dock
             // layout, then re-toggle the palette item.
-            final Object showPanels = onEdt(
-                () -> menuWidget(menu, SHOW_PANELS_MARKERS, diag));
-            final Object resetState = onEdt(
-                () -> menuWidget(menu, RESET_STATE_MARKERS, diag));
+            final Object showPanels = onEdt(() -> menuWidget(menu, SHOW_PANELS_MARKERS, diag));
+            final Object resetState = onEdt(() -> menuWidget(menu, RESET_STATE_MARKERS, diag));
             // The workspace submenu carries layout presets — switching layout rebuilds the
             // whole dock, palettes included. It is a JMenu inside the popup: open it and
             // take its first real item.
             final Object workspace = onEdt(() -> {
                 final javax.swing.JMenuItem sub = popupItem(menu, WORKSPACE_MARKERS, diag);
                 if (!(sub instanceof javax.swing.JMenu submenu)) return null;
-                javax.swing.MenuSelectionManager.defaultManager().setSelectedPath(
-                    new javax.swing.MenuElement[] {
-                        menu.getParent() instanceof javax.swing.JMenuBar b ? b : menu,
-                        menu, menu.getPopupMenu(), submenu, submenu.getPopupMenu()});
+                javax.swing.MenuSelectionManager.defaultManager().setSelectedPath(new javax.swing.MenuElement[] {
+                    menu.getParent() instanceof javax.swing.JMenuBar b ? b : menu,
+                    menu,
+                    menu.getPopupMenu(),
+                    submenu,
+                    submenu.getPopupMenu()
+                });
                 diag.append("sub{");
                 for (java.awt.Component component : submenu.getPopupMenu().getComponents()) {
                     if (component instanceof javax.swing.JMenu) continue;
                     if (!(component instanceof javax.swing.JMenuItem leaf)
-                        || leaf.getText() == null || leaf.getText().isBlank()) continue;
+                            || leaf.getText() == null
+                            || leaf.getText().isBlank()) continue;
                     diag.append(leaf.getText()).append(',');
                     // Layout presets only — skip save/manage entries that write host state.
                     if (containsAny(leaf.getText(), WORKSPACE_SKIP_MARKERS)) continue;
@@ -2885,10 +2610,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 diag.append('}');
                 return null;
             });
-            final StringBuilder note = new StringBuilder(
-                "menu-doClick:" + widget.getClass().getSimpleName());
-            final Object[] sequence =
-                {widget, showPanels, widget, resetState, widget, workspace, widget};
+            final StringBuilder note =
+                    new StringBuilder("menu-doClick:" + widget.getClass().getSimpleName());
+            final Object[] sequence = {widget, showPanels, widget, resetState, widget, workspace, widget};
             for (final Object target : sequence) {
                 if (target == null) {
                     note.append(":skip-null");
@@ -2902,8 +2626,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     Thread.sleep(POLL_MILLIS);
                     if (Boolean.TRUE.equals(onEdt(realized::get))) {
                         onEdt(() -> {
-                            javax.swing.MenuSelectionManager.defaultManager()
-                                .clearSelectedPath();
+                            javax.swing.MenuSelectionManager.defaultManager().clearSelectedPath();
                             return true;
                         });
                         return note.append(":opened").toString();
@@ -2943,12 +2666,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
             final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
             if (bar != null) {
-                diag.append("bar=").append(bar.getClass().getName())
-                    .append(':').append(bar.getMenuCount()).append(';');
+                diag.append("bar=")
+                        .append(bar.getClass().getName())
+                        .append(':')
+                        .append(bar.getMenuCount())
+                        .append(';');
                 for (int index = 0; index < bar.getMenuCount(); index++) {
                     final javax.swing.JMenu menu = bar.getMenu(index);
-                    if (menu != null && menu.getText() != null
-                        && containsAny(menu.getText(), MENU_WINDOW_MARKERS)) return menu;
+                    if (menu != null && menu.getText() != null && containsAny(menu.getText(), MENU_WINDOW_MARKERS))
+                        return menu;
                 }
             } else {
                 diag.append("no-bar;");
@@ -2959,13 +2685,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return null;
     }
 
-    private static javax.swing.JMenu windowMenuInTree(
-        final java.awt.Component component,
-        final int depth
-    ) {
+    private static javax.swing.JMenu windowMenuInTree(final java.awt.Component component, final int depth) {
         if (depth > CANVAS_SCAN_DEPTH || !component.isVisible()) return null;
-        if (component instanceof javax.swing.JMenu menu && menu.getText() != null
-            && containsAny(menu.getText(), MENU_WINDOW_MARKERS)) return menu;
+        if (component instanceof javax.swing.JMenu menu
+                && menu.getText() != null
+                && containsAny(menu.getText(), MENU_WINDOW_MARKERS)) return menu;
         if (component instanceof java.awt.Container container) {
             for (java.awt.Component child : container.getComponents()) {
                 final javax.swing.JMenu found = windowMenuInTree(child, depth + 1);
@@ -2981,10 +2705,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * and popup items are excluded; a tab is small, showing, and below the toolbar band.
      * Runs on the EDT.
      */
-    private static javax.swing.AbstractButton paletteTab(
-        final String[] markers,
-        final StringBuilder diag
-    ) {
+    private static javax.swing.AbstractButton paletteTab(final String[] markers, final StringBuilder diag) {
         javax.swing.AbstractButton best = null;
         for (final java.awt.Window window : java.awt.Window.getWindows()) {
             if (!window.isVisible()) continue;
@@ -2995,10 +2716,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     /** Every showing dock tab whose text carries a marker, across all windows. */
-    private static List<javax.swing.AbstractButton> paletteTabs(
-        final String[] markers,
-        final StringBuilder diag
-    ) {
+    private static List<javax.swing.AbstractButton> paletteTabs(final String[] markers, final StringBuilder diag) {
         final List<javax.swing.AbstractButton> found = new ArrayList<>();
         for (final java.awt.Window window : java.awt.Window.getWindows()) {
             if (!window.isVisible()) continue;
@@ -3008,24 +2726,31 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static void collectPaletteTabs(
-        final java.awt.Component component,
-        final String[] markers,
-        final List<javax.swing.AbstractButton> found,
-        final int depth,
-        final StringBuilder diag
-    ) {
+            final java.awt.Component component,
+            final String[] markers,
+            final List<javax.swing.AbstractButton> found,
+            final int depth,
+            final StringBuilder diag) {
         if (depth > CANVAS_SCAN_DEPTH || !component.isVisible()) return;
         if (component instanceof javax.swing.AbstractButton button
-            && !(component instanceof javax.swing.JMenuItem)
-            && button.isShowing() && button.getText() != null
-            && containsAny(button.getText(), markers)
-            && button.getHeight() <= 30 && button.getWidth() <= 200) {
+                && !(component instanceof javax.swing.JMenuItem)
+                && button.isShowing()
+                && button.getText() != null
+                && containsAny(button.getText(), markers)
+                && button.getHeight() <= 30
+                && button.getWidth() <= 200) {
             final java.awt.Point p = component.getLocationOnScreen();
             if (p.y > 42 && !found.contains(button)) {
-                diag.append("tab=").append(button.getClass().getSimpleName())
-                    .append('[').append(button.getText()).append(']')
-                    .append('@').append(p.x + button.getWidth() / 2)
-                    .append(',').append(p.y + button.getHeight() / 2).append(';');
+                diag.append("tab=")
+                        .append(button.getClass().getSimpleName())
+                        .append('[')
+                        .append(button.getText())
+                        .append(']')
+                        .append('@')
+                        .append(p.x + button.getWidth() / 2)
+                        .append(',')
+                        .append(p.y + button.getHeight() / 2)
+                        .append(';');
                 found.add(button);
             }
         }
@@ -3037,31 +2762,34 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static javax.swing.AbstractButton paletteTabIn(
-        final java.awt.Component component,
-        final String[] markers,
-        final int depth,
-        final StringBuilder diag
-    ) {
+            final java.awt.Component component, final String[] markers, final int depth, final StringBuilder diag) {
         if (depth > CANVAS_SCAN_DEPTH || !component.isVisible()) return null;
         if (component instanceof javax.swing.AbstractButton button
-            && !(component instanceof javax.swing.JMenuItem)
-            && button.isShowing() && button.getText() != null
-            && containsAny(button.getText(), markers)
-            && button.getHeight() <= 30 && button.getWidth() <= 200) {
+                && !(component instanceof javax.swing.JMenuItem)
+                && button.isShowing()
+                && button.getText() != null
+                && containsAny(button.getText(), markers)
+                && button.getHeight() <= 30
+                && button.getWidth() <= 200) {
             final java.awt.Point p = component.getLocationOnScreen();
             // The menu strip lives at y<42; dock tabs sit below it.
             if (p.y > 42) {
-                diag.append("tab=").append(button.getClass().getSimpleName())
-                    .append('[').append(button.getText()).append(']')
-                    .append('@').append(p.x + button.getWidth() / 2)
-                    .append(',').append(p.y + button.getHeight() / 2).append(';');
+                diag.append("tab=")
+                        .append(button.getClass().getSimpleName())
+                        .append('[')
+                        .append(button.getText())
+                        .append(']')
+                        .append('@')
+                        .append(p.x + button.getWidth() / 2)
+                        .append(',')
+                        .append(p.y + button.getHeight() / 2)
+                        .append(';');
                 return button;
             }
         }
         if (component instanceof java.awt.Container container) {
             for (java.awt.Component child : container.getComponents()) {
-                final javax.swing.AbstractButton hit =
-                    paletteTabIn(child, markers, depth + 1, diag);
+                final javax.swing.AbstractButton hit = paletteTabIn(child, markers, depth + 1, diag);
                 if (hit != null) return hit;
             }
         }
@@ -3075,23 +2803,16 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /** The CWidget behind the popup item whose text matches a marker, or null. The menu must
      * already be open. Runs on the EDT. */
-    private static Object menuWidget(
-        final javax.swing.JMenu menu,
-        final String[] markers,
-        final StringBuilder diag
-    ) {
+    private static Object menuWidget(final javax.swing.JMenu menu, final String[] markers, final StringBuilder diag) {
         final javax.swing.JMenuItem jmi = popupItem(menu, markers, diag);
         return jmi == null ? null : widgetOf(jmi, diag);
     }
 
     /** The host CWidget registered for a mirror component, via {@code com.live2d.ui.k.a}. */
-    private static Object widgetOf(
-        final javax.swing.JMenuItem jmi,
-        final StringBuilder diag
-    ) {
+    private static Object widgetOf(final javax.swing.JMenuItem jmi, final StringBuilder diag) {
         try {
-            final Class<?> registry = Class.forName(
-                "com.live2d.ui.k", true, jmi.getClass().getClassLoader());
+            final Class<?> registry =
+                    Class.forName("com.live2d.ui.k", true, jmi.getClass().getClassLoader());
             return registry.getMethod("a", java.awt.Component.class).invoke(null, jmi);
         } catch (final Exception e) {
             diag.append("registry-threw:").append(e.getClass().getSimpleName()).append(';');
@@ -3102,10 +2823,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     /** The popup item whose text matches a marker — the menu is already open. Runs on the
      * EDT. */
     private static javax.swing.JMenuItem popupItem(
-        final javax.swing.JMenu menu,
-        final String[] markers,
-        final StringBuilder diag
-    ) {
+            final javax.swing.JMenu menu, final String[] markers, final StringBuilder diag) {
         final javax.swing.JPopupMenu popup = menu == null ? null : menu.getPopupMenu();
         if (popup == null) {
             diag.append("no-popup;");
@@ -3133,11 +2851,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final StringBuilder out = new StringBuilder(512);
             for (int index = 0; index < bar.getMenuCount(); index++) {
                 final javax.swing.JMenu menu = bar.getMenu(index);
-                if (menu == null || menu.getText() == null
-                    || !containsAny(menu.getText(), MENU_WINDOW_MARKERS)) continue;
+                if (menu == null || menu.getText() == null || !containsAny(menu.getText(), MENU_WINDOW_MARKERS))
+                    continue;
                 for (java.awt.Component component : menu.getMenuComponents()) {
                     if (component instanceof javax.swing.JMenuItem child) {
-                        out.append(child.getText() == null ? "?" : child.getText()).append(';');
+                        out.append(child.getText() == null ? "?" : child.getText())
+                                .append(';');
                     }
                 }
             }
@@ -3149,14 +2868,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static final String[] MENU_WINDOW_MARKERS = {"视窗", "ウィンドウ", "Window"};
     private static final String[] PARAMETER_MARKERS = {"参数", "パラメータ", "arameter"};
     private static final String[] INSPECTOR_MARKERS = {"检视", "检查", "インスペクタ", "nspector"};
-    private static final String[] SHOW_PANELS_MARKERS =
-        {"显示面板", "パネルを表示", "how panels", "anels"};
-    private static final String[] RESET_STATE_MARKERS =
-        {"重置状态", "状態をリセット", "eset state", "eset"};
-    private static final String[] WORKSPACE_MARKERS =
-        {"工作区", "ワークスペース", "orkspace"};
-    private static final String[] WORKSPACE_SKIP_MARKERS =
-        {"保存", "管理", "新建", "删除", "編集", "管理", "ave", "anage", "ew ", "elete"};
+    private static final String[] SHOW_PANELS_MARKERS = {"显示面板", "パネルを表示", "how panels", "anels"};
+    private static final String[] RESET_STATE_MARKERS = {"重置状态", "状態をリセット", "eset state", "eset"};
+    private static final String[] WORKSPACE_MARKERS = {"工作区", "ワークスペース", "orkspace"};
+    private static final String[] WORKSPACE_SKIP_MARKERS = {
+        "保存", "管理", "新建", "删除", "編集", "管理", "ave", "anage", "ew ", "elete"
+    };
 
     /**
      * A bounded census of palette-package components per visible window: which windows exist,
@@ -3169,20 +2886,23 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (!window.isVisible()) continue;
             final int[] counts = {0, 0};
             censusPaletteClasses(window, counts, 0);
-            out.append(window.getClass().getSimpleName()).append('[')
-                .append(window.getWidth()).append('x').append(window.getHeight()).append(']')
-                .append(":param=").append(counts[0])
-                .append(":insp=").append(counts[1]).append(';');
+            out.append(window.getClass().getSimpleName())
+                    .append('[')
+                    .append(window.getWidth())
+                    .append('x')
+                    .append(window.getHeight())
+                    .append(']')
+                    .append(":param=")
+                    .append(counts[0])
+                    .append(":insp=")
+                    .append(counts[1])
+                    .append(';');
             if (out.length() > 440) break;
         }
         return out.toString();
     }
 
-    private static void censusPaletteClasses(
-        final java.awt.Component component,
-        final int[] counts,
-        final int depth
-    ) {
+    private static void censusPaletteClasses(final java.awt.Component component, final int[] counts, final int depth) {
         if (depth > CANVAS_SCAN_DEPTH + 4) return;
         final String className = component.getClass().getName();
         if (className.contains(".palette.parameter")) counts[0]++;
@@ -3212,11 +2932,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (!slider.isShowing()) return null;
         final int range = slider.getMaximum() - slider.getMinimum();
         if (range <= 0 || slider.getWidth() < 48) return null;
-        final double fraction =
-            (double) (slider.getValue() - slider.getMinimum()) / (double) range;
+        final double fraction = (double) (slider.getValue() - slider.getMinimum()) / (double) range;
         // The track rarely spans the whole component; keep the press inside it.
-        final int localX = Math.max(6, Math.min(
-            slider.getWidth() - 6, (int) Math.round(fraction * slider.getWidth())));
+        final int localX = Math.max(6, Math.min(slider.getWidth() - 6, (int) Math.round(fraction * slider.getWidth())));
         final int localY = slider.getHeight() / 2;
         final int delta = Math.max(6, slider.getWidth() / 8);
         if (localX + delta > slider.getWidth() - 2 && slider.getValue() == slider.getMaximum()) {
@@ -3238,8 +2956,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * operator like every other missed actor.</p>
      */
     private String editColorField(final String knownSignificant) throws Exception {
-        List<javax.swing.text.JTextComponent> fields = onEdt(
-            WindowsHistoryNativeUiIngressProbe::colorFields);
+        List<javax.swing.text.JTextComponent> fields = onEdt(WindowsHistoryNativeUiIngressProbe::colorFields);
         for (int retry = 0; fields.isEmpty() && retry < 4; retry++) {
             Thread.sleep(POLL_MILLIS);
             fields = onEdt(WindowsHistoryNativeUiIngressProbe::colorFields);
@@ -3251,9 +2968,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (fields.isEmpty()) {
             // The inspector palette — where the multiply-colour field lives — may not be
             // open in the fixture layout; open it first so it can observe the selection.
-            final String palette = openPalette(
-                INSPECTOR_MARKERS,
-                () -> inspectorShowing() || paletteTabSelected(INSPECTOR_MARKERS));
+            final String palette =
+                    openPalette(INSPECTOR_MARKERS, () -> inspectorShowing() || paletteTabSelected(INSPECTOR_MARKERS));
             // Then select a drawable — the inspector fills its property rows, colour
             // swatch included, when a selection event arrives while it is visible. A plain
             // click selects, it does not drag, so no undo entry is produced by this step.
@@ -3262,9 +2978,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 Thread.sleep(POLL_MILLIS);
                 fields = onEdt(WindowsHistoryNativeUiIngressProbe::colorFields);
             }
-            if (fields.isEmpty()
-                && (inspectorShowing()
-                    || onEdt(() -> paletteTabSelected(INSPECTOR_MARKERS)))) {
+            if (fields.isEmpty() && (inspectorShowing() || onEdt(() -> paletteTabSelected(INSPECTOR_MARKERS)))) {
                 // The inspector paints custom CWidgets onto one panel — Swing sees no
                 // children there, but every mirror maps back through com.live2d.ui.k
                 // and CWidget.traverse exposes the real controls: the colour row
@@ -3275,54 +2989,46 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 final List<java.awt.Component> chooser = new ArrayList<>();
                 final List<java.awt.Component> chooserOther = new ArrayList<>();
                 for (int scan = 0; scan < 4; scan++) {
-                final Object contentWidget = onEdt(
-                    WindowsHistoryNativeUiIngressProbe::inspectorContentWidget);
-                final java.awt.Container dockScope = onEdt(
-                    WindowsHistoryNativeUiIngressProbe::inspectorDockScope);
-                final java.awt.Rectangle dockRect = onEdt(() -> {
-                    if (dockScope == null || !dockScope.isShowing()) return null;
-                    final java.awt.Point origin = dockScope.getLocationOnScreen();
-                    return new java.awt.Rectangle(
-                        origin.x, origin.y,
-                        dockScope.getWidth(), dockScope.getHeight());
-                });
-                cwidgetNote[0] = onEdt(() -> {
-                    final Object root = contentWidget;
-                    final List<Object> widgets = cwidgetTree(root);
-                    for (final Object widget : widgets) {
-                        if (dockRect != null) {
-                            final java.awt.Rectangle rect = cwidgetRect(widget);
-                            if (rect == null || !rect.intersects(dockRect)) {
+                    final Object contentWidget = onEdt(WindowsHistoryNativeUiIngressProbe::inspectorContentWidget);
+                    final java.awt.Container dockScope = onEdt(WindowsHistoryNativeUiIngressProbe::inspectorDockScope);
+                    final java.awt.Rectangle dockRect = onEdt(() -> {
+                        if (dockScope == null || !dockScope.isShowing()) return null;
+                        final java.awt.Point origin = dockScope.getLocationOnScreen();
+                        return new java.awt.Rectangle(origin.x, origin.y, dockScope.getWidth(), dockScope.getHeight());
+                    });
+                    cwidgetNote[0] = onEdt(() -> {
+                        final Object root = contentWidget;
+                        final List<Object> widgets = cwidgetTree(root);
+                        for (final Object widget : widgets) {
+                            if (dockRect != null) {
+                                final java.awt.Rectangle rect = cwidgetRect(widget);
+                                if (rect == null || !rect.intersects(dockRect)) {
+                                    continue;
+                                }
+                            }
+                            final javax.swing.text.JTextComponent text = cwidgetTextComponent(widget);
+                            if (text != null) {
+                                (multiplyMarked(widget) ? argb : argbOther).add(text);
                                 continue;
                             }
-                        }
-                        final javax.swing.text.JTextComponent text =
-                            cwidgetTextComponent(widget);
-                        if (text != null) {
-                            (multiplyMarked(widget) ? argb : argbOther).add(text);
-                            continue;
-                        }
-                        if (widget.getClass().getName()
-                            .endsWith("CColorChooserButton")) {
-                            final java.awt.Component surface = cwidgetSurface(widget);
-                            if (surface != null) {
-                                (multiplyMarked(widget) ? chooser : chooserOther)
-                                    .add(surface);
+                            if (widget.getClass().getName().endsWith("CColorChooserButton")) {
+                                final java.awt.Component surface = cwidgetSurface(widget);
+                                if (surface != null) {
+                                    (multiplyMarked(widget) ? chooser : chooserOther).add(surface);
+                                }
                             }
                         }
+                        return "cw{root="
+                                + (root == null ? "null" : root.getClass().getSimpleName())
+                                + ":n=" + widgets.size()
+                                + ":" + cwidgetCensus(widgets) + "}";
+                    });
+                    // The inspector fills its widget tree a beat after the selection
+                    // lands — rescan until the colour controls materialise.
+                    if (!argb.isEmpty() || !argbOther.isEmpty() || !chooser.isEmpty() || !chooserOther.isEmpty()) {
+                        break;
                     }
-                    return "cw{root=" + (root == null ? "null"
-                        : root.getClass().getSimpleName())
-                        + ":n=" + widgets.size()
-                        + ":" + cwidgetCensus(widgets) + "}";
-                });
-                // The inspector fills its widget tree a beat after the selection
-                // lands — rescan until the colour controls materialise.
-                if (!argb.isEmpty() || !argbOther.isEmpty()
-                    || !chooser.isEmpty() || !chooserOther.isEmpty()) {
-                    break;
-                }
-                Thread.sleep(POLL_MILLIS);
+                    Thread.sleep(POLL_MILLIS);
                 }
                 fields.addAll(argb);
                 fields.addAll(argbOther);
@@ -3333,28 +3039,38 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 final List<java.awt.Component> swatches = new ArrayList<>(chooser);
                 swatches.addAll(chooserOther);
                 if (fields.isEmpty()) {
-                    swatches.addAll(onEdt(
-                        WindowsHistoryNativeUiIngressProbe::colorSwatches));
+                    swatches.addAll(onEdt(WindowsHistoryNativeUiIngressProbe::colorSwatches));
                 }
                 if (swatches.isEmpty()) {
                     // The inspector paints its property rows onto one component rather than
                     // hosting Swing children — the swatch is a painted square on a row. Scan
                     // the panel's actual pixels for saturated colour blocks and press those.
-                    final java.awt.Rectangle panel = onEdt(
-                        WindowsHistoryNativeUiIngressProbe::inspectorContentBounds);
-                    final int[] bounds = panel == null ? null
-                        : new int[] {panel.x, panel.y, panel.width, panel.height};
+                    final java.awt.Rectangle panel = onEdt(WindowsHistoryNativeUiIngressProbe::inspectorContentBounds);
+                    final int[] bounds = panel == null ? null : new int[] {panel.x, panel.y, panel.width, panel.height};
                     if (bounds != null) {
                         for (final int[] point : saturatedBlocks(robot, bounds)) {
                             final int fx = point[0];
                             final int fy = point[1];
                             swatches.add(new java.awt.Component() {
-                                @Override public boolean isShowing() { return true; }
-                                @Override public java.awt.Point getLocationOnScreen() {
+                                @Override
+                                public boolean isShowing() {
+                                    return true;
+                                }
+
+                                @Override
+                                public java.awt.Point getLocationOnScreen() {
                                     return new java.awt.Point(fx, fy);
                                 }
-                                @Override public int getWidth() { return 1; }
-                                @Override public int getHeight() { return 1; }
+
+                                @Override
+                                public int getWidth() {
+                                    return 1;
+                                }
+
+                                @Override
+                                public int getHeight() {
+                                    return 1;
+                                }
                             });
                         }
                     }
@@ -3367,7 +3083,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     if (at == null) continue;
                     swatchAttempts++;
                     final java.util.Set<java.awt.Window> before =
-                        onEdt(WindowsHistoryNativeUiIngressProbe::visibleWindows);
+                            onEdt(WindowsHistoryNativeUiIngressProbe::visibleWindows);
                     robot.mouseMove(at[0], at[1]);
                     robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
                     robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
@@ -3385,11 +3101,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         // decimal RGB rather than hex. Edit one and let the dialog confirm.
                         dumpWindowScreenshot(robot, opened, "dialog");
                         final StringBuilder dialogNote = new StringBuilder(80);
-                        final String edited = editDialogField(
-                            robot, opened, knownSignificant, dialogNote);
+                        final String edited = editDialogField(robot, opened, knownSignificant, dialogNote);
                         if (edited != null) return "edited-dialog:" + edited;
-                        dialogDiag.append("dialog:").append(opened.getClass().getSimpleName())
-                            .append('{').append(dialogNote).append('}');
+                        dialogDiag
+                                .append("dialog:")
+                                .append(opened.getClass().getSimpleName())
+                                .append('{')
+                                .append(dialogNote)
+                                .append('}');
                         robot.keyPress(java.awt.event.KeyEvent.VK_ESCAPE);
                         robot.keyRelease(java.awt.event.KeyEvent.VK_ESCAPE);
                         Thread.sleep(POLL_MILLIS);
@@ -3397,15 +3116,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 }
             }
             if (fields.isEmpty()) {
-                final String dock = onEdt(
-                    WindowsHistoryNativeUiIngressProbe::inspectorLeafCensus);
+                final String dock = onEdt(WindowsHistoryNativeUiIngressProbe::inspectorLeafCensus);
                 dumpRegionScreenshot(robot, "inspector");
                 return "unresolved:no-color-field:palette=" + palette
-                    + ":sel=" + selection
-                    + ":swatches=" + swatchCount
-                    + ":" + dialogDiag
-                    + ":" + cwidgetNote[0]
-                    + ":dock{" + dock + "}";
+                        + ":sel=" + selection
+                        + ":swatches=" + swatchCount
+                        + ":" + dialogDiag
+                        + ":" + cwidgetNote[0]
+                        + ":dock{" + dock + "}";
             }
         }
         final ArrayList<String> tried = new ArrayList<>();
@@ -3413,8 +3131,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final int[] at = onEdt(() -> fieldCentre(field));
             if (at == null) continue;
             final String previous = onEdt(field::getText);
-            final String replacement = previous != null && previous.contains("33")
-                ? "2244CC" : "CC4433";
+            final String replacement = previous != null && previous.contains("33") ? "2244CC" : "CC4433";
             robot.mouseMove(at[0], at[1]);
             robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
             robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
@@ -3432,8 +3149,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             for (int settle = 0; settle < 12; settle++) {
                 Thread.sleep(POLL_MILLIS);
                 if (!significantSequence(sample()).equals(knownSignificant)) {
-                    return "edited:" + field.getClass().getName()
-                        + ":attempt=" + (tried.size() + 1);
+                    return "edited:" + field.getClass().getName() + ":attempt=" + (tried.size() + 1);
                 }
             }
             tried.add(field.getClass().getSimpleName() + "@" + at[0] + "," + at[1]);
@@ -3452,13 +3168,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static void collectColorFields(
-        final java.awt.Component component,
-        final List<javax.swing.text.JTextComponent> found,
-        final int depth
-    ) {
+            final java.awt.Component component, final List<javax.swing.text.JTextComponent> found, final int depth) {
         if (depth > CANVAS_SCAN_DEPTH || !component.isVisible()) return;
         if (component instanceof javax.swing.text.JTextComponent text
-            && text.isShowing() && text.isEnabled() && text.isEditable()) {
+                && text.isShowing()
+                && text.isEnabled()
+                && text.isEditable()) {
             final String value = text.getText();
             if (value != null && value.trim().matches("#?[0-9a-fA-F]{6}")) {
                 found.add(text);
@@ -3476,8 +3191,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * that drawable's property rows, colour included.
      */
     private String selectDrawableRow(final java.awt.Robot robot) throws Exception {
-        final List<String> drawableNames = onEdt(() ->
-            context.cubism().model().active().drawables().all().stream()
+        final List<String> drawableNames = onEdt(() -> context.cubism().model().active().drawables().all().stream()
                 .map(dev.turboism.sdk.cubism.model.Drawable::name)
                 .filter(name -> name != null && !name.isBlank())
                 .distinct()
@@ -3486,8 +3200,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final ArrayList<String> tried = new ArrayList<>();
         for (final String name : drawableNames) {
             if (tried.size() >= 6) break;
-            final int[] point = onEdt(
-                () -> WindowsHistoryNativeUiIngressProbe.partsRowPoint(name));
+            final int[] point = onEdt(() -> WindowsHistoryNativeUiIngressProbe.partsRowPoint(name));
             if (point == null) continue;
             rows++;
             robot.mouseMove(point[0], point[1]);
@@ -3499,8 +3212,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             // The SDK runtime selection projection is an unimplemented stub, so verify
             // at the widget that owns the row: a press that selected it leaves the Parts
             // table's selection on that row.
-            final int selectedRow = onEdt(
-                WindowsHistoryNativeUiIngressProbe::partsTableSelectedRow);
+            final int selectedRow = onEdt(WindowsHistoryNativeUiIngressProbe::partsTableSelectedRow);
             if (selectedRow >= 0) return "row:" + name + ":tableRow=" + selectedRow;
             tried.add(name);
         }
@@ -3513,8 +3225,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final boolean selected = onEdt(() -> selectPartsTreeRow(name));
             if (!selected) continue;
             Thread.sleep(POLL_MILLIS);
-            final int selectedRow = onEdt(
-                WindowsHistoryNativeUiIngressProbe::partsTableSelectedRow);
+            final int selectedRow = onEdt(WindowsHistoryNativeUiIngressProbe::partsTableSelectedRow);
             if (selectedRow >= 0) {
                 return "tree-select:" + name + ":tableRow=" + selectedRow;
             }
@@ -3527,9 +3238,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             for (final java.awt.Component canvas : canvasCandidates()) {
                 final java.awt.Rectangle visible = visibleBounds(canvas);
                 if (visible.isEmpty()) continue;
-                final java.awt.Point centre = new java.awt.Point(
-                    visible.x + visible.width / 2,
-                    visible.y + visible.height / 2);
+                final java.awt.Point centre =
+                        new java.awt.Point(visible.x + visible.width / 2, visible.y + visible.height / 2);
                 SwingUtilities.convertPointToScreen(centre, canvas);
                 return new int[] {centre.x, centre.y};
             }
@@ -3545,18 +3255,16 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 Thread.sleep(80L);
                 robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
                 Thread.sleep(POLL_MILLIS);
-                final int selectedRow = onEdt(
-                    WindowsHistoryNativeUiIngressProbe::partsTableSelectedRow);
+                final int selectedRow = onEdt(WindowsHistoryNativeUiIngressProbe::partsTableSelectedRow);
                 if (selectedRow >= 0) {
-                    return "canvas@" + (canvasCentre[0] + offset[0]) + ","
-                        + (canvasCentre[1] + offset[1]) + ":tableRow=" + selectedRow;
+                    return "canvas@" + (canvasCentre[0] + offset[0]) + "," + (canvasCentre[1] + offset[1])
+                            + ":tableRow=" + selectedRow;
                 }
             }
             return "canvas-miss:tried-rows=" + tried;
         }
-        return "none:names=" + drawableNames.size() + ":rows=" + rows
-            + ":tried=" + tried + ":tree=" + onEdt(
-                WindowsHistoryNativeUiIngressProbe::partsTreeLabels);
+        return "none:names=" + drawableNames.size() + ":rows=" + rows + ":tried=" + tried + ":tree="
+                + onEdt(WindowsHistoryNativeUiIngressProbe::partsTreeLabels);
     }
 
     /**
@@ -3569,11 +3277,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (!window.isVisible()) continue;
             final javax.swing.JTable table = findPartsTable(window);
             if (table == null || !table.isShowing()) continue;
-            final javax.swing.JTree tree =
-                WindowsMeshEditValidationProbe.extractTree(table);
+            final javax.swing.JTree tree = WindowsMeshEditValidationProbe.extractTree(table);
             if (tree == null) continue;
             final java.util.List<javax.swing.tree.TreePath> paths =
-                WindowsMeshEditValidationProbe.findTreePaths(tree, displayName);
+                    WindowsMeshEditValidationProbe.findTreePaths(tree, displayName);
             if (paths.size() != 1) continue;
             tree.expandPath(paths.get(0).getParentPath());
             final int row = tree.getRowForPath(paths.get(0));
@@ -3604,8 +3311,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (!window.isVisible()) continue;
             final javax.swing.JTable table = findPartsTable(window);
             if (table == null) continue;
-            final javax.swing.JTree tree =
-                WindowsMeshEditValidationProbe.extractTree(table);
+            final javax.swing.JTree tree = WindowsMeshEditValidationProbe.extractTree(table);
             if (tree == null) continue;
             final ArrayList<String> labels = new ArrayList<>();
             final ArrayDeque<Object> pending = new ArrayDeque<>();
@@ -3634,10 +3340,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static boolean hasPackageComponent(
-        final java.awt.Component component,
-        final String packageMarker,
-        final int depth
-    ) {
+            final java.awt.Component component, final String packageMarker, final int depth) {
         if (depth > CANVAS_SCAN_DEPTH + 4) return false;
         if (component.getClass().getName().contains(packageMarker) && component.isShowing()) {
             return true;
@@ -3668,8 +3371,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 // inside the tab's own cell — climb to the column (the narrow container
                 // holding every docked palette) and search it, skipping the tab strips.
                 java.awt.Container scope = tab.getParent();
-                while (scope != null && scope.getParent() != null
-                    && scope.getParent().getWidth() <= 200) {
+                while (scope != null
+                        && scope.getParent() != null
+                        && scope.getParent().getWidth() <= 200) {
                     scope = scope.getParent();
                 }
                 if (scope != null) {
@@ -3681,33 +3385,34 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static void collectColorSwatches(
-        final java.awt.Component component,
-        final List<java.awt.Component> found,
-        final boolean insideInspector,
-        final int depth
-    ) {
+            final java.awt.Component component,
+            final List<java.awt.Component> found,
+            final boolean insideInspector,
+            final int depth) {
         collectColorSwatches(component, found, insideInspector, null, depth);
     }
 
     private static void collectColorSwatches(
-        final java.awt.Component component,
-        final List<java.awt.Component> found,
-        final boolean insideInspector,
-        final java.awt.Container exclude,
-        final int depth
-    ) {
+            final java.awt.Component component,
+            final List<java.awt.Component> found,
+            final boolean insideInspector,
+            final java.awt.Container exclude,
+            final int depth) {
         if (depth > CANVAS_SCAN_DEPTH + 4 || !component.isVisible()) return;
         if (exclude != null && component == exclude) return;
-        final boolean inInspector = insideInspector
-            || component.getClass().getName().contains(".palette.inspector");
-        if (inInspector && component.isShowing() && component.isEnabled()
-            && component.getHeight() <= 40 && component.getHeight() >= 8
-            && component.getWidth() <= 120 && component.getWidth() >= 8
-            // Dock tab buttons are not swatches — pressing one just switches palettes.
-            && !component.getClass().getName().equals("com.live2d.ui.swingImpl.K")
-            && (component instanceof javax.swing.AbstractButton
-                    && !(component instanceof javax.swing.JMenuItem)
-                || looksLikeSwatch(component))) {
+        final boolean inInspector =
+                insideInspector || component.getClass().getName().contains(".palette.inspector");
+        if (inInspector
+                && component.isShowing()
+                && component.isEnabled()
+                && component.getHeight() <= 40
+                && component.getHeight() >= 8
+                && component.getWidth() <= 120
+                && component.getWidth() >= 8
+                // Dock tab buttons are not swatches — pressing one just switches palettes.
+                && !component.getClass().getName().equals("com.live2d.ui.swingImpl.K")
+                && (component instanceof javax.swing.AbstractButton && !(component instanceof javax.swing.JMenuItem)
+                        || looksLikeSwatch(component))) {
             found.add(component);
         }
         if (component instanceof java.awt.Container container) {
@@ -3722,8 +3427,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * saturated, non-grey, non-default colour.
      */
     private static boolean looksLikeSwatch(final java.awt.Component component) {
-        if (component instanceof java.awt.Container container
-            && container.getComponentCount() > 0) {
+        if (component instanceof java.awt.Container container && container.getComponentCount() > 0) {
             return false;
         }
         final java.awt.Color bg = component.getBackground();
@@ -3755,8 +3459,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final javax.swing.AbstractButton tab = selectedPaletteTab(markers);
         if (tab == null) return null;
         java.awt.Container scope = tab.getParent();
-        while (scope != null && scope.getParent() != null
-            && scope.getParent().getWidth() <= 200) {
+        while (scope != null && scope.getParent() != null && scope.getParent().getWidth() <= 200) {
             scope = scope.getParent();
         }
         return scope;
@@ -3764,8 +3467,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /** The selected dock tab carrying one of {@code markers}, or null. Runs on the EDT. */
     private static javax.swing.AbstractButton selectedPaletteTab(final String[] markers) {
-        for (final javax.swing.AbstractButton tab
-            : paletteTabs(markers, new StringBuilder(1))) {
+        for (final javax.swing.AbstractButton tab : paletteTabs(markers, new StringBuilder(1))) {
             if (tab.isSelected()) return tab;
         }
         return null;
@@ -3778,12 +3480,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      */
     private static List<javax.swing.JSlider> parameterDockSliders() {
         final List<javax.swing.JSlider> found = new ArrayList<>();
-        for (final javax.swing.AbstractButton tab
-            : paletteTabs(PARAMETER_MARKERS, new StringBuilder(1))) {
+        for (final javax.swing.AbstractButton tab : paletteTabs(PARAMETER_MARKERS, new StringBuilder(1))) {
             if (!tab.isSelected()) continue;
             java.awt.Container scope = tab.getParent();
-            while (scope != null && scope.getParent() != null
-                && scope.getParent().getWidth() <= 200) {
+            while (scope != null
+                    && scope.getParent() != null
+                    && scope.getParent().getWidth() <= 200) {
                 scope = scope.getParent();
             }
             if (scope != null) collectSliders(scope, found, 0);
@@ -3799,18 +3501,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static List<Object> parameterCWidgetRows() {
         final List<Object> found = new ArrayList<>();
         final List<Object> backup = new ArrayList<>();
-        for (final javax.swing.AbstractButton tab
-            : paletteTabs(PARAMETER_MARKERS, new StringBuilder(1))) {
+        for (final javax.swing.AbstractButton tab : paletteTabs(PARAMETER_MARKERS, new StringBuilder(1))) {
             if (!tab.isSelected()) continue;
             java.awt.Container scope = tab.getParent();
-            while (scope != null && scope.getParent() != null
-                && scope.getParent().getWidth() <= 200) {
+            while (scope != null
+                    && scope.getParent() != null
+                    && scope.getParent().getWidth() <= 200) {
                 scope = scope.getParent();
             }
             if (scope == null || !scope.isShowing()) continue;
             final java.awt.Point origin = scope.getLocationOnScreen();
-            final java.awt.Rectangle dockRect = new java.awt.Rectangle(
-                origin.x, origin.y, scope.getWidth(), scope.getHeight());
+            final java.awt.Rectangle dockRect =
+                    new java.awt.Rectangle(origin.x, origin.y, scope.getWidth(), scope.getHeight());
             Object root = cwidgetOf(scope);
             if (root == null) root = cwidgetTop(cwidgetOf(tab));
             for (final Object widget : cwidgetTree(root)) {
@@ -3818,14 +3520,16 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 // The row's value control is a CSlidableFloat — a horizontal drag
                 // across it scrubs the parameter. Other palette.parameter widgets
                 // (the row surface, its value bar) qualify as weaker candidates.
-                final int rank = name.endsWith("CSlidableFloat") ? 0
-                    : name.endsWith("CSlider") ? 1
-                    : name.contains(".palette.parameter") ? 2 : -1;
+                final int rank = name.endsWith("CSlidableFloat")
+                        ? 0
+                        : name.endsWith("CSlider") ? 1 : name.contains(".palette.parameter") ? 2 : -1;
                 if (rank < 0) continue;
                 final java.awt.Rectangle rect = cwidgetRect(widget);
-                if (rect == null || !rect.intersects(dockRect)
-                    || rect.width < 24 || rect.height < 6
-                    || rect.height > 60) continue;
+                if (rect == null
+                        || !rect.intersects(dockRect)
+                        || rect.width < 24
+                        || rect.height < 6
+                        || rect.height > 60) continue;
                 if (cwidgetShowing(widget)) {
                     (rank == 0 ? found : backup).add(widget);
                 }
@@ -3842,8 +3546,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      */
     private static javax.swing.text.JTextComponent cwidgetEditor(final Object widget) {
         try {
-            final Object mirror = widget.getClass().getMethod("getJComponent")
-                .invoke(widget);
+            final Object mirror = widget.getClass().getMethod("getJComponent").invoke(widget);
             if (!(mirror instanceof java.awt.Component component)) return null;
             final javax.swing.text.JTextComponent[] hit = {null};
             collectEditableText(component, hit, 0);
@@ -3854,13 +3557,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static void collectEditableText(
-        final java.awt.Component component,
-        final javax.swing.text.JTextComponent[] hit,
-        final int depth
-    ) {
+            final java.awt.Component component, final javax.swing.text.JTextComponent[] hit, final int depth) {
         if (hit[0] != null || depth > 8 || !component.isVisible()) return;
         if (component instanceof javax.swing.text.JTextComponent text
-            && text.isShowing() && text.isEnabled() && text.isEditable()) {
+                && text.isShowing()
+                && text.isEnabled()
+                && text.isEditable()) {
             hit[0] = text;
             return;
         }
@@ -3887,8 +3589,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (scope == null || tab == null) return null;
         final java.awt.Rectangle dockRect = screenBounds(scope);
         final Object tabWidget = cwidgetOf(tab);
-        final java.awt.Rectangle tabRect = tabWidget == null
-            ? screenBounds(tab) : cwidgetRect(tabWidget);
+        final java.awt.Rectangle tabRect = tabWidget == null ? screenBounds(tab) : cwidgetRect(tabWidget);
         final Object root = cwidgetTop(tabWidget);
         if (dockRect == null || tabRect == null || root == null) return null;
 
@@ -3898,12 +3599,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (rect == null || rect.width < 100 || rect.height < 120) continue;
             final int contentScore = visibleInspectorContentScore(widget, tabRect, dockRect);
             if (contentScore > 0) {
-                candidates.add(new InspectorContentCandidate(
-                    widget, rect, cwidgetShowing(widget), contentScore));
+                candidates.add(new InspectorContentCandidate(widget, rect, cwidgetShowing(widget), contentScore));
             }
         }
-        final InspectorContentCandidate selected = selectInspectorContentCandidate(
-            candidates, tabRect, dockRect);
+        final InspectorContentCandidate selected = selectInspectorContentCandidate(candidates, tabRect, dockRect);
         return selected == null ? null : selected.widget();
     }
 
@@ -3912,18 +3611,21 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * geometry, selected-tab ownership and visible content rather than a fixed screen coordinate.
      */
     static InspectorContentCandidate selectInspectorContentCandidate(
-        final List<InspectorContentCandidate> candidates,
-        final java.awt.Rectangle selectedTabRect,
-        final java.awt.Rectangle dockRect
-    ) {
+            final List<InspectorContentCandidate> candidates,
+            final java.awt.Rectangle selectedTabRect,
+            final java.awt.Rectangle dockRect) {
         if (selectedTabRect == null || dockRect == null) return null;
         final int tabBottom = selectedTabRect.y + selectedTabRect.height;
         InspectorContentCandidate best = null;
         for (final InspectorContentCandidate candidate : candidates) {
             final java.awt.Rectangle rect = candidate.rect();
-            if (candidate.widget() == null || !candidate.showing()
-                || rect == null || rect.isEmpty() || candidate.contentScore() <= 0
-                || !dockRect.contains(rect) || rect.y < tabBottom) {
+            if (candidate.widget() == null
+                    || !candidate.showing()
+                    || rect == null
+                    || rect.isEmpty()
+                    || candidate.contentScore() <= 0
+                    || !dockRect.contains(rect)
+                    || rect.y < tabBottom) {
                 continue;
             }
             if (best == null || candidate.contentScore() > best.contentScore()) {
@@ -3934,21 +3636,16 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static int visibleInspectorContentScore(
-        final Object widget,
-        final java.awt.Rectangle selectedTabRect,
-        final java.awt.Rectangle dockRect
-    ) {
+            final Object widget, final java.awt.Rectangle selectedTabRect, final java.awt.Rectangle dockRect) {
         final int tabBottom = selectedTabRect.y + selectedTabRect.height;
         int score = 0;
         for (final Object child : cwidgetTree(widget)) {
             final java.awt.Rectangle rect = cwidgetRect(child);
-            if (rect == null || !cwidgetShowing(child) || !dockRect.contains(rect)
-                || rect.y < tabBottom) {
+            if (rect == null || !cwidgetShowing(child) || !dockRect.contains(rect) || rect.y < tabBottom) {
                 continue;
             }
             final String name = child.getClass().getName();
-            score += name.endsWith("CColorChooserButton") || name.endsWith("CTextField")
-                ? 4 : 1;
+            score += name.endsWith("CColorChooserButton") || name.endsWith("CTextField") ? 4 : 1;
         }
         return score;
     }
@@ -3964,21 +3661,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (component == null || !component.isShowing()) return null;
         try {
             final java.awt.Point origin = component.getLocationOnScreen();
-            return new java.awt.Rectangle(
-                origin.x, origin.y, component.getWidth(), component.getHeight());
+            return new java.awt.Rectangle(origin.x, origin.y, component.getWidth(), component.getHeight());
         } catch (java.awt.IllegalComponentStateException notShowing) {
             return null;
         }
     }
 
     /** Candidate root from a selected dock's bounded CWidget traversal. */
-    record InspectorContentCandidate(
-        Object widget,
-        java.awt.Rectangle rect,
-        boolean showing,
-        int contentScore
-    ) {
-    }
+    record InspectorContentCandidate(Object widget, java.awt.Rectangle rect, boolean showing, int contentScore) {}
 
     /**
      * The custom {@code CWidget} behind a Swing mirror component, resolved through the
@@ -3987,10 +3677,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static Object cwidgetOf(final java.awt.Component component) {
         if (component == null) return null;
         try {
-            final Class<?> registry = Class.forName(
-                "com.live2d.ui.k", true, component.getClass().getClassLoader());
-            return registry.getMethod("a", java.awt.Component.class)
-                .invoke(null, component);
+            final Class<?> registry =
+                    Class.forName("com.live2d.ui.k", true, component.getClass().getClassLoader());
+            return registry.getMethod("a", java.awt.Component.class).invoke(null, component);
         } catch (final Exception e) {
             return null;
         }
@@ -4001,8 +3690,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         Object cursor = widget;
         while (cursor != null) {
             try {
-                final Object parent = cursor.getClass().getMethod("getParent")
-                    .invoke(cursor);
+                final Object parent = cursor.getClass().getMethod("getParent").invoke(cursor);
                 if (parent == null) return cursor;
                 cursor = parent;
             } catch (final Exception e) {
@@ -4019,8 +3707,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         for (final boolean direction : new boolean[] {true, false}) {
             try {
                 final java.util.Iterator<?> it = (java.util.Iterator<?>)
-                    root.getClass().getMethod("traverse", boolean.class)
-                        .invoke(root, direction);
+                        root.getClass().getMethod("traverse", boolean.class).invoke(root, direction);
                 while (it.hasNext()) {
                     found.add(it.next());
                 }
@@ -4033,10 +3720,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private static java.awt.Rectangle cwidgetRect(final Object widget) {
         try {
-            final Object rect = widget.getClass().getMethod("getRectOnScreen")
-                .invoke(widget);
-            return (java.awt.Rectangle) rect.getClass().getMethod("getJrect")
-                .invoke(rect);
+            final Object rect = widget.getClass().getMethod("getRectOnScreen").invoke(widget);
+            return (java.awt.Rectangle) rect.getClass().getMethod("getJrect").invoke(rect);
         } catch (final Exception e) {
             return null;
         }
@@ -4044,8 +3729,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private static boolean cwidgetShowing(final Object widget) {
         try {
-            return Boolean.TRUE.equals(widget.getClass()
-                .getMethod("isShowing").invoke(widget));
+            return Boolean.TRUE.equals(widget.getClass().getMethod("isShowing").invoke(widget));
         } catch (final Exception e) {
             return false;
         }
@@ -4055,14 +3739,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * A {@code CTextField}'s editable {@code JTextComponent} mirror — real Robot typing
      * into it is a native edit. Null for any other widget.
      */
-    private static javax.swing.text.JTextComponent cwidgetTextComponent(
-        final Object widget
-    ) {
+    private static javax.swing.text.JTextComponent cwidgetTextComponent(final Object widget) {
         try {
-            final Object text = widget.getClass().getMethod("getJTextComponent")
-                .invoke(widget);
+            final Object text = widget.getClass().getMethod("getJTextComponent").invoke(widget);
             return text instanceof javax.swing.text.JTextComponent tc
-                && tc.isShowing() && tc.isEnabled() && tc.isEditable() ? tc : null;
+                            && tc.isShowing()
+                            && tc.isEnabled()
+                            && tc.isEditable()
+                    ? tc
+                    : null;
         } catch (final Exception e) {
             return null;
         }
@@ -4088,15 +3773,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         Object cursor = widget;
         for (int up = 0; cursor != null && up < 5; up++) {
             try {
-                final Object parent = cursor.getClass().getMethod("getParent")
-                    .invoke(cursor);
+                final Object parent = cursor.getClass().getMethod("getParent").invoke(cursor);
                 if (parent == null) return false;
-                final Object children = parent.getClass().getMethod("getChildren")
-                    .invoke(parent);
+                final Object children =
+                        parent.getClass().getMethod("getChildren").invoke(parent);
                 if (children instanceof List<?> siblings) {
                     for (final Object sibling : siblings) {
-                        if (cwidgetText(sibling)
-                            .matches(".*(正片叠底|乗算|乘算|[Mm]ultiply).*")) {
+                        if (cwidgetText(sibling).matches(".*(正片叠底|乗算|乘算|[Mm]ultiply).*")) {
                             return true;
                         }
                     }
@@ -4118,12 +3801,25 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final java.awt.Rectangle rect = cwidgetRect(widget);
         if (rect == null || rect.isEmpty()) return null;
         return new java.awt.Component() {
-            @Override public boolean isShowing() { return true; }
-            @Override public java.awt.Point getLocationOnScreen() {
+            @Override
+            public boolean isShowing() {
+                return true;
+            }
+
+            @Override
+            public java.awt.Point getLocationOnScreen() {
                 return rect.getLocation();
             }
-            @Override public int getWidth() { return rect.width; }
-            @Override public int getHeight() { return rect.height; }
+
+            @Override
+            public int getWidth() {
+                return rect.width;
+            }
+
+            @Override
+            public int getHeight() {
+                return rect.height;
+            }
         };
     }
 
@@ -4142,8 +3838,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             out.append(widget.getClass().getSimpleName());
             final java.awt.Rectangle rect = cwidgetRect(widget);
             if (rect != null) {
-                out.append('@').append(rect.x).append(',').append(rect.y)
-                    .append(' ').append(rect.width).append('x').append(rect.height);
+                out.append('@')
+                        .append(rect.x)
+                        .append(',')
+                        .append(rect.y)
+                        .append(' ')
+                        .append(rect.width)
+                        .append('x')
+                        .append(rect.height);
             }
             if (!cwidgetShowing(widget)) out.append(":hidden");
             final String text = cwidgetText(widget);
@@ -4159,50 +3861,47 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      */
     private void dumpRegionScreenshot(final java.awt.Robot robot, final String name) {
         try {
-            final java.awt.Rectangle rect = onEdt(
-                WindowsHistoryNativeUiIngressProbe::inspectorContentBounds);
+            final java.awt.Rectangle rect = onEdt(WindowsHistoryNativeUiIngressProbe::inspectorContentBounds);
             if (rect == null || rect.width < 4 || rect.height < 4) return;
-            final java.awt.Rectangle clipped = rect.intersection(
-                new java.awt.Rectangle(
-                    java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
-                        .getMaximumWindowBounds()));
+            final java.awt.Rectangle clipped = rect.intersection(new java.awt.Rectangle(
+                    java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()));
             if (clipped.width < 4 || clipped.height < 4) return;
             final java.awt.image.BufferedImage image = robot.createScreenCapture(clipped);
             final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
             javax.imageio.ImageIO.write(image, "png", out);
             final byte[] png = out.toByteArray();
-            write(artifact, "{\"type\":\"screenshot\",\"region\":" + quoted(name)
-                + ",\"png\":\"" + java.util.Base64.getEncoder().encodeToString(png)
-                + "\"}\n", false);
+            write(
+                    artifact,
+                    "{\"type\":\"screenshot\",\"region\":" + quoted(name)
+                            + ",\"png\":\"" + java.util.Base64.getEncoder().encodeToString(png)
+                            + "\"}\n",
+                    false);
         } catch (Throwable ignored) {
             // Diagnostics must never fail the step.
         }
     }
 
-    private void dumpWindowScreenshot(
-        final java.awt.Robot robot,
-        final java.awt.Window window,
-        final String name
-    ) {
+    private void dumpWindowScreenshot(final java.awt.Robot robot, final java.awt.Window window, final String name) {
         try {
             final java.awt.Rectangle rect = onEdt(() -> {
                 if (!window.isShowing()) return null;
-                return new java.awt.Rectangle(
-                    window.getX(), window.getY(), window.getWidth(), window.getHeight());
+                return new java.awt.Rectangle(window.getX(), window.getY(), window.getWidth(), window.getHeight());
             });
             if (rect == null || rect.width < 4 || rect.height < 4) return;
             final java.awt.Rectangle clipped = rect.intersection(new java.awt.Rectangle(
-                java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
-                    .getMaximumWindowBounds()));
+                    java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()));
             if (clipped.width < 4 || clipped.height < 4) return;
             rect.setBounds(clipped);
             final java.awt.image.BufferedImage image = robot.createScreenCapture(rect);
             final java.io.ByteArrayOutputStream png = new java.io.ByteArrayOutputStream();
             javax.imageio.ImageIO.write(image, "png", png);
-            write(artifact, "{\"type\":\"screenshot\",\"region\":" + quoted(name)
-                + ",\"width\":" + rect.width + ",\"height\":" + rect.height
-                + ",\"png\":\"" + java.util.Base64.getEncoder().encodeToString(png.toByteArray())
-                + "\"}\n", false);
+            write(
+                    artifact,
+                    "{\"type\":\"screenshot\",\"region\":" + quoted(name)
+                            + ",\"width\":" + rect.width + ",\"height\":" + rect.height
+                            + ",\"png\":\"" + java.util.Base64.getEncoder().encodeToString(png.toByteArray())
+                            + "\"}\n",
+                    false);
         } catch (Throwable ignored) {
             // Diagnostics must never fail the step.
         }
@@ -4212,10 +3911,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * Scans a screen rectangle for saturated colour blocks — the centres of small regions
      * whose pixels stay vividly coloured are the inspector's painted colour swatches.
      */
-    private static List<int[]> saturatedBlocks(
-        final java.awt.Robot robot,
-        final int[] bounds
-    ) {
+    private static List<int[]> saturatedBlocks(final java.awt.Robot robot, final int[] bounds) {
         final List<int[]> points = new ArrayList<>();
         int lastY = -100;
         for (int y = bounds[1] + 6; y < bounds[1] + bounds[3] - 6; y += 4) {
@@ -4223,24 +3919,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             int runEnd = -1;
             for (int x = bounds[0] + 6; x < bounds[0] + bounds[2] - 6; x += 3) {
                 final java.awt.Color pixel = robot.getPixelColor(x, y);
-                final int max = Math.max(pixel.getRed(),
-                    Math.max(pixel.getGreen(), pixel.getBlue()));
-                final int min = Math.min(pixel.getRed(),
-                    Math.min(pixel.getGreen(), pixel.getBlue()));
+                final int max = Math.max(pixel.getRed(), Math.max(pixel.getGreen(), pixel.getBlue()));
+                final int min = Math.min(pixel.getRed(), Math.min(pixel.getGreen(), pixel.getBlue()));
                 if (max - min >= 64 && max >= 90) {
                     if (runStart < 0) runStart = x;
                     runEnd = x;
                 } else if (runStart >= 0) {
-                    if (runEnd - runStart >= 8 && runEnd - runStart <= 60
-                        && y - lastY > 18) {
+                    if (runEnd - runStart >= 8 && runEnd - runStart <= 60 && y - lastY > 18) {
                         points.add(new int[] {(runStart + runEnd) / 2, y});
                         lastY = y;
                     }
                     runStart = -1;
                 }
             }
-            if (runStart >= 0 && runEnd - runStart >= 8 && runEnd - runStart <= 60
-                && y - lastY > 18) {
+            if (runStart >= 0 && runEnd - runStart >= 8 && runEnd - runStart <= 60 && y - lastY > 18) {
                 points.add(new int[] {(runStart + runEnd) / 2, y});
                 lastY = y;
             }
@@ -4257,8 +3949,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final javax.swing.AbstractButton tab = selectedPaletteTab(INSPECTOR_MARKERS);
         if (tab == null) return "no-tab";
         java.awt.Container scope = tab.getParent();
-        while (scope != null && scope.getParent() != null
-            && scope.getParent().getWidth() <= 200) {
+        while (scope != null && scope.getParent() != null && scope.getParent().getWidth() <= 200) {
             scope = scope.getParent();
         }
         if (scope == null) return "no-scope";
@@ -4268,20 +3959,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static void collectLeafCensus(
-        final java.awt.Component component,
-        final StringBuilder out,
-        final java.awt.Container exclude,
-        final int depth
-    ) {
-        if (depth > CANVAS_SCAN_DEPTH + 4 || !component.isVisible()
-            || out.length() > 1100) return;
+            final java.awt.Component component,
+            final StringBuilder out,
+            final java.awt.Container exclude,
+            final int depth) {
+        if (depth > CANVAS_SCAN_DEPTH + 4 || !component.isVisible() || out.length() > 1100) return;
         if (exclude != null && component == exclude) return;
-        if (!(component instanceof java.awt.Container container)
-            || container.getComponentCount() == 0) {
+        if (!(component instanceof java.awt.Container container) || container.getComponentCount() == 0) {
             final java.awt.Color bg = component.getBackground();
             out.append(component.getClass().getSimpleName())
-                .append('[').append(component.getWidth()).append('x')
-                .append(component.getHeight()).append(']');
+                    .append('[')
+                    .append(component.getWidth())
+                    .append('x')
+                    .append(component.getHeight())
+                    .append(']');
             if (bg != null) {
                 out.append('#').append(Integer.toHexString(bg.getRGB() & 0xFFFFFF));
             }
@@ -4319,11 +4010,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * @return a short note for the actor result, or {@code null} when nothing committed
      */
     private String editDialogField(
-        final java.awt.Robot robot,
-        final java.awt.Window dialog,
-        final String knownSignificant,
-        final StringBuilder note
-    ) throws Exception {
+            final java.awt.Robot robot,
+            final java.awt.Window dialog,
+            final String knownSignificant,
+            final StringBuilder note)
+            throws Exception {
         final List<javax.swing.text.JTextComponent> fields = onEdt(() -> {
             final List<javax.swing.text.JTextComponent> found = new ArrayList<>();
             collectEditableFields(dialog, found, 0);
@@ -4339,7 +4030,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (replacement == null) continue;
             tried.add((previous == null ? "?" : previous.trim()) + "->" + replacement);
             note.append(previous == null ? "?" : previous.trim())
-                .append("->").append(replacement).append(';');
+                    .append("->")
+                    .append(replacement)
+                    .append(';');
             robot.mouseMove(at[0], at[1]);
             robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
             robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
@@ -4397,13 +4090,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /** Every showing editable text component inside one window. */
     private static void collectEditableFields(
-        final java.awt.Component component,
-        final List<javax.swing.text.JTextComponent> found,
-        final int depth
-    ) {
+            final java.awt.Component component, final List<javax.swing.text.JTextComponent> found, final int depth) {
         if (depth > CANVAS_SCAN_DEPTH || !component.isVisible()) return;
         if (component instanceof javax.swing.text.JTextComponent text
-            && text.isShowing() && text.isEnabled() && text.isEditable()) {
+                && text.isShowing()
+                && text.isEnabled()
+                && text.isEditable()) {
             found.add(text);
         }
         if (component instanceof java.awt.Container container) {
@@ -4420,18 +4112,16 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return found[0] == null ? null : fieldCentre(found[0]);
     }
 
-    private static final String[] CONFIRM_MARKERS =
-        {"OK", "确定", "適用", "适用", "Apply"};
+    private static final String[] CONFIRM_MARKERS = {"OK", "确定", "適用", "适用", "Apply"};
 
     private static void findConfirmButton(
-        final java.awt.Component component,
-        final javax.swing.AbstractButton[] found,
-        final int depth
-    ) {
+            final java.awt.Component component, final javax.swing.AbstractButton[] found, final int depth) {
         if (depth > CANVAS_SCAN_DEPTH || !component.isVisible() || found[0] != null) return;
         if (component instanceof javax.swing.AbstractButton button
-            && button.isShowing() && button.isEnabled() && button.getText() != null
-            && containsAny(button.getText(), CONFIRM_MARKERS)) {
+                && button.isShowing()
+                && button.isEnabled()
+                && button.getText() != null
+                && containsAny(button.getText(), CONFIRM_MARKERS)) {
             found[0] = button;
             return;
         }
@@ -4455,10 +4145,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (!component.isShowing()) return null;
         try {
             final java.awt.Point origin = component.getLocationOnScreen();
-            return new int[] {
-                origin.x + component.getWidth() / 2,
-                origin.y + component.getHeight() / 2
-            };
+            return new int[] {origin.x + component.getWidth() / 2, origin.y + component.getHeight() / 2};
         } catch (java.awt.IllegalComponentStateException notShowing) {
             return null;
         }
@@ -4466,19 +4153,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /** Types one ASCII hex character through the Robot. */
     private static void typeChar(final java.awt.Robot robot, final char digit) throws Exception {
-        final int key = switch (digit) {
-            case '0' -> java.awt.event.KeyEvent.VK_0;
-            case '1' -> java.awt.event.KeyEvent.VK_1;
-            case '2' -> java.awt.event.KeyEvent.VK_2;
-            case '3' -> java.awt.event.KeyEvent.VK_3;
-            case '4' -> java.awt.event.KeyEvent.VK_4;
-            case '5' -> java.awt.event.KeyEvent.VK_5;
-            case '6' -> java.awt.event.KeyEvent.VK_6;
-            case '7' -> java.awt.event.KeyEvent.VK_7;
-            case '8' -> java.awt.event.KeyEvent.VK_8;
-            case '9' -> java.awt.event.KeyEvent.VK_9;
-            default -> java.awt.event.KeyEvent.VK_A + (Character.toUpperCase(digit) - 'A');
-        };
+        final int key =
+                switch (digit) {
+                    case '0' -> java.awt.event.KeyEvent.VK_0;
+                    case '1' -> java.awt.event.KeyEvent.VK_1;
+                    case '2' -> java.awt.event.KeyEvent.VK_2;
+                    case '3' -> java.awt.event.KeyEvent.VK_3;
+                    case '4' -> java.awt.event.KeyEvent.VK_4;
+                    case '5' -> java.awt.event.KeyEvent.VK_5;
+                    case '6' -> java.awt.event.KeyEvent.VK_6;
+                    case '7' -> java.awt.event.KeyEvent.VK_7;
+                    case '8' -> java.awt.event.KeyEvent.VK_8;
+                    case '9' -> java.awt.event.KeyEvent.VK_9;
+                    default -> java.awt.event.KeyEvent.VK_A + (Character.toUpperCase(digit) - 'A');
+                };
         robot.keyPress(key);
         robot.keyRelease(key);
         Thread.sleep(25L);
@@ -4502,11 +4190,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * position sample was available and unchanged. Unknown evidence is recorded as unresolved so
      * a menu action can never be repeated merely because the probe could not observe it.
      */
-    private String shortcut(
-        final int key,
-        final long knownPosition,
-        final String kind
-    ) throws Exception {
+    private String shortcut(final int key, final long knownPosition, final String kind) throws Exception {
         String route = "none";
         primeMenus();
         if (Boolean.TRUE.equals(onEdt(() -> menuShortcut(key)))) {
@@ -4522,21 +4206,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 Thread.sleep(POLL_MILLIS);
                 final WindowsHistoryManagerValidationProbe.Snapshot current = sample();
                 positionSamples.add(current == null ? null : position(current));
-                final ShortcutResolution resolution = shortcutResolution(
-                    kind, knownPosition, positionSamples);
+                final ShortcutResolution resolution = shortcutResolution(kind, knownPosition, positionSamples);
                 if (resolution == ShortcutResolution.DELIVERED) return route;
                 if (resolution == ShortcutResolution.WRONG_DIRECTION) {
                     return route + ":wrong-direction";
                 }
             }
-            final ShortcutResolution resolution = shortcutResolution(
-                kind, knownPosition, positionSamples);
+            final ShortcutResolution resolution = shortcutResolution(kind, knownPosition, positionSamples);
             if (resolution != ShortcutResolution.FALLBACK) {
-                return route + ":unresolved:" + switch (resolution) {
-                    case UNKNOWN -> "unknown-position";
-                    case UNAVAILABLE -> "history-position-unavailable";
-                    default -> "history-position-unresolved";
-                };
+                return route + ":unresolved:"
+                        + switch (resolution) {
+                            case UNKNOWN -> "unknown-position";
+                            case UNAVAILABLE -> "history-position-unavailable";
+                            default -> "history-position-unresolved";
+                        };
             }
         }
         final java.awt.Robot robot = new java.awt.Robot();
@@ -4557,8 +4240,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private void primeMenus() throws Exception {
         final javax.swing.JMenuBar bar = onEdt(() -> {
             for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
-                if (frame instanceof javax.swing.JFrame swingFrame && frame.isVisible()
-                    && swingFrame.getJMenuBar() != null) {
+                if (frame instanceof javax.swing.JFrame swingFrame
+                        && frame.isVisible()
+                        && swingFrame.getJMenuBar() != null) {
                     return swingFrame.getJMenuBar();
                 }
             }
@@ -4616,14 +4300,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return false;
     }
 
-    private static javax.swing.JMenuItem findMenuShortcut(
-        final javax.swing.JMenuItem item,
-        final int key
-    ) {
+    private static javax.swing.JMenuItem findMenuShortcut(final javax.swing.JMenuItem item, final int key) {
         if (item == null) return null;
         final javax.swing.KeyStroke accelerator = item.getAccelerator();
-        if (accelerator != null && accelerator.getKeyCode() == key
-            && (accelerator.getModifiers() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0) {
+        if (accelerator != null
+                && accelerator.getKeyCode() == key
+                && (accelerator.getModifiers() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0) {
             return item;
         }
         if (item instanceof javax.swing.JMenu menu) {
@@ -4638,12 +4320,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     /** One Robot drag between two screen points, interpolated so the host sees real motion. */
-    private static void robotDrag(
-        final int fromX,
-        final int fromY,
-        final int toX,
-        final int toY
-    ) throws Exception {
+    private static void robotDrag(final int fromX, final int fromY, final int toX, final int toY) throws Exception {
         final java.awt.Robot robot = new java.awt.Robot();
         robot.mouseMove(fromX, fromY);
         Thread.sleep(120L);
@@ -4651,10 +4328,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         Thread.sleep(180L);
         final int segments = 12;
         for (int segment = 1; segment <= segments; segment++) {
-            robot.mouseMove(
-                fromX + (toX - fromX) * segment / segments,
-                fromY + (toY - fromY) * segment / segments
-            );
+            robot.mouseMove(fromX + (toX - fromX) * segment / segments, fromY + (toY - fromY) * segment / segments);
             Thread.sleep(35L);
         }
         Thread.sleep(180L);
@@ -4690,8 +4364,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (window.isVisible()) collectCanvas(window, named, regions, 0);
         }
         regions.sort((first, second) -> Long.compare(
-            (long) second.getWidth() * second.getHeight(),
-            (long) first.getWidth() * first.getHeight()));
+                (long) second.getWidth() * second.getHeight(), (long) first.getWidth() * first.getHeight()));
         // A region whose centre resolves to a host-class component is the model view itself —
         // press those first; a region whose centre resolves to a control is refused entirely so
         // its remaining fractions can never press a button the panel happens to wrap. Palette
@@ -4702,8 +4375,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final List<java.awt.Component> palettes = new ArrayList<>();
         final List<java.awt.Component> plain = new ArrayList<>();
         for (final java.awt.Component region : regions) {
-            final String hit = pressTarget(
-                region, new java.awt.Point(region.getWidth() / 2, region.getHeight() / 2));
+            final String hit = pressTarget(region, new java.awt.Point(region.getWidth() / 2, region.getHeight() / 2));
             if (hit == null) continue;
             if (hit.contains(".palette.") || region.getClass().getName().contains(".palette.")) {
                 palettes.add(region);
@@ -4733,15 +4405,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private static boolean isHostClassName(final String className) {
         return !className.startsWith("javax.swing.")
-            && !className.startsWith("java.awt.")
-            && !className.startsWith("sun.")
-            && !className.startsWith("com.formdev.flatlaf.");
+                && !className.startsWith("java.awt.")
+                && !className.startsWith("sun.")
+                && !className.startsWith("com.formdev.flatlaf.");
     }
 
     private static List<java.awt.Component> concat(
-        final List<java.awt.Component> first,
-        final List<java.awt.Component> second
-    ) {
+            final List<java.awt.Component> first, final List<java.awt.Component> second) {
         final List<java.awt.Component> all = new ArrayList<>(first.size() + second.size());
         all.addAll(first);
         all.addAll(second);
@@ -4753,8 +4423,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (!component.isShowing()) return null;
         try {
             final java.awt.Point origin = component.getLocationOnScreen();
-            return new java.awt.Rectangle(
-                origin.x, origin.y, component.getWidth(), component.getHeight());
+            return new java.awt.Rectangle(origin.x, origin.y, component.getWidth(), component.getHeight());
         } catch (java.awt.IllegalComponentStateException notShowing) {
             return null;
         }
@@ -4770,11 +4439,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      */
     private static boolean isExcludedControl(final java.awt.Component component) {
         return component instanceof javax.swing.AbstractButton
-            || component instanceof javax.swing.JSlider
-            || component instanceof javax.swing.JComboBox<?>
-            || component instanceof javax.swing.text.JTextComponent
-            || component instanceof javax.swing.JSpinner
-            || component instanceof java.awt.Scrollbar;
+                || component instanceof javax.swing.JSlider
+                || component instanceof javax.swing.JComboBox<?>
+                || component instanceof javax.swing.text.JTextComponent
+                || component instanceof javax.swing.JSpinner
+                || component instanceof java.awt.Scrollbar;
     }
 
     /**
@@ -4786,8 +4455,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * would resize the dock layout instead of moving the model.</p>
      */
     private static String pressTarget(final java.awt.Component canvas, final java.awt.Point local) {
-        java.awt.Component hit = javax.swing.SwingUtilities.getDeepestComponentAt(
-            canvas, local.x, local.y);
+        java.awt.Component hit = javax.swing.SwingUtilities.getDeepestComponentAt(canvas, local.x, local.y);
         if (hit == null) hit = canvas;
         if (isExcludedControl(hit)) return null;
         if (hit.getWidth() < 8 || hit.getHeight() < 8) return null;
@@ -4805,18 +4473,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final StringBuilder out = new StringBuilder(4096);
         for (final java.awt.Window window : java.awt.Window.getWindows()) {
             if (!window.isVisible()) continue;
-            out.append("W:").append(window.getClass().getSimpleName())
-                .append(":showing=").append(window.isShowing()).append(';');
+            out.append("W:")
+                    .append(window.getClass().getSimpleName())
+                    .append(":showing=")
+                    .append(window.isShowing())
+                    .append(';');
             collectRejects(window, out, 0);
         }
         return out.length() > 0 ? out.substring(0, Math.min(out.length(), 4000)) : "no-windows";
     }
 
-    private static void collectRejects(
-        final java.awt.Component component,
-        final StringBuilder out,
-        final int depth
-    ) {
+    private static void collectRejects(final java.awt.Component component, final StringBuilder out, final int depth) {
         if (depth > CANVAS_SCAN_DEPTH || !component.isVisible() || out.length() > 3800) return;
         boolean visibleLeaf = true;
         if (component instanceof java.awt.Container container) {
@@ -4827,17 +4494,21 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 }
             }
         }
-        if (component.getWidth() >= MIN_CANVAS_EDGE
-            && component.getHeight() >= MIN_CANVAS_EDGE) {
-            final String reason = !component.isShowing() ? "not-showing"
-                : isExcludedControl(component) ? "control"
-                : !visibleLeaf ? "container"
-                : "eligible";
+        if (component.getWidth() >= MIN_CANVAS_EDGE && component.getHeight() >= MIN_CANVAS_EDGE) {
+            final String reason = !component.isShowing()
+                    ? "not-showing"
+                    : isExcludedControl(component) ? "control" : !visibleLeaf ? "container" : "eligible";
             out.append(component.getClass().getName())
-                .append('[').append(component.getWidth()).append('x')
-                .append(component.getHeight()).append(']')
-                .append('@').append(depth)
-                .append('=').append(reason).append(';');
+                    .append('[')
+                    .append(component.getWidth())
+                    .append('x')
+                    .append(component.getHeight())
+                    .append(']')
+                    .append('@')
+                    .append(depth)
+                    .append('=')
+                    .append(reason)
+                    .append(';');
         }
         if (component instanceof java.awt.Container container) {
             for (java.awt.Component child : container.getComponents()) {
@@ -4847,11 +4518,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static void collectCanvas(
-        final java.awt.Component component,
-        final List<java.awt.Component> named,
-        final List<java.awt.Component> regions,
-        final int depth
-    ) {
+            final java.awt.Component component,
+            final List<java.awt.Component> named,
+            final List<java.awt.Component> regions,
+            final int depth) {
         if (depth > CANVAS_SCAN_DEPTH || !component.isVisible()) return;
         final String className = component.getClass().getName();
         // Only a host/JOGL class may win by name: a Swing widget whose name happens to contain a
@@ -4862,13 +4532,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         // CPartsTreeTable.g into this bucket because every com.live2d.cubism.view.* class carries
         // the ".view." package segment.
         final boolean hostClass = component instanceof java.awt.Canvas
-            || (!className.startsWith("javax.swing.")
-                && !className.startsWith("java.awt.")
-                && !className.startsWith("sun."));
-        if (component.isShowing() && hostClass && !className.contains(".palette.")
-            && component.getClass().getSimpleName()
-                .matches(".*[cC]anvas.*|.*[gG][lL].*|.*[vV]iew.*")
-            && !named.contains(component)) {
+                || (!className.startsWith("javax.swing.")
+                        && !className.startsWith("java.awt.")
+                        && !className.startsWith("sun."));
+        if (component.isShowing()
+                && hostClass
+                && !className.contains(".palette.")
+                && component.getClass().getSimpleName().matches(".*[cC]anvas.*|.*[gG][lL].*|.*[vV]iew.*")
+                && !named.contains(component)) {
             named.add(component);
         }
         // A drag surface only has to mark a plausible press region: the r19 run showed the model
@@ -4877,9 +4548,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         // region candidate; {@link #pressTarget} refuses any point that resolves to a control or
         // a divider sliver, so a container entry can never press a button it happens to contain.
         if (component.isShowing()
-            && component.getWidth() >= MIN_CANVAS_EDGE && component.getHeight() >= MIN_CANVAS_EDGE
-            && !isExcludedControl(component)
-            && !(component instanceof java.awt.Window)) {
+                && component.getWidth() >= MIN_CANVAS_EDGE
+                && component.getHeight() >= MIN_CANVAS_EDGE
+                && !isExcludedControl(component)
+                && !(component instanceof java.awt.Window)) {
             regions.add(component);
         }
         if (component instanceof java.awt.Container container) {
@@ -4906,11 +4578,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 if (!window.isVisible()) continue;
                 if (windows >= UI_MAP_MAX_WINDOWS || seen[0] >= UI_MAP_MAX_COMPONENTS) break;
                 windows++;
-                out.append("W:").append(window.getClass().getSimpleName())
-                    .append('(')
-                    .append(WindowsHistoryManagerValidationProbe.boundedLabel(window.getName()))
-                    .append(')')
-                    .append(boundsOf(window)).append('\n');
+                out.append("W:")
+                        .append(window.getClass().getSimpleName())
+                        .append('(')
+                        .append(WindowsHistoryManagerValidationProbe.boundedLabel(window.getName()))
+                        .append(')')
+                        .append(boundsOf(window))
+                        .append('\n');
                 mapComponent(window, 0, out, seen);
             }
             return out.toString();
@@ -4918,32 +4592,28 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static void mapComponent(
-        final java.awt.Component component,
-        final int depth,
-        final StringBuilder out,
-        final int[] seen
-    ) {
-        if (seen[0] >= UI_MAP_MAX_COMPONENTS || depth > UI_MAP_MAX_DEPTH
-            || out.length() >= UI_MAP_MAX_CHARS - 256) {
+            final java.awt.Component component, final int depth, final StringBuilder out, final int[] seen) {
+        if (seen[0] >= UI_MAP_MAX_COMPONENTS || depth > UI_MAP_MAX_DEPTH || out.length() >= UI_MAP_MAX_CHARS - 256) {
             return;
         }
         seen[0]++;
         out.append("  ".repeat(Math.min(depth, 16)))
-            .append(component.getClass().getName())
-            .append(boundsOf(component));
+                .append(component.getClass().getName())
+                .append(boundsOf(component));
         if (!component.isShowing()) out.append(":hidden");
         if (component instanceof javax.swing.JTree tree) {
             out.append(":rows=").append(tree.getRowCount());
         } else if (component instanceof javax.swing.JTable table) {
-            out.append(":rows=").append(table.getRowCount())
-                .append("x").append(table.getColumnCount());
+            out.append(":rows=").append(table.getRowCount()).append("x").append(table.getColumnCount());
         } else if (component instanceof javax.swing.AbstractButton button) {
-            out.append(":text=")
-                .append(WindowsHistoryManagerValidationProbe.boundedLabel(button.getText()));
+            out.append(":text=").append(WindowsHistoryManagerValidationProbe.boundedLabel(button.getText()));
         } else if (component instanceof javax.swing.JSlider slider) {
-            out.append(":range=").append(slider.getMinimum())
-                .append('-').append(slider.getMaximum())
-                .append('=').append(slider.getValue());
+            out.append(":range=")
+                    .append(slider.getMinimum())
+                    .append('-')
+                    .append(slider.getMaximum())
+                    .append('=')
+                    .append(slider.getValue());
         } else if (component instanceof javax.swing.JComboBox<?> combo) {
             out.append(":items=").append(combo.getItemCount());
         }
@@ -4957,11 +4627,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private static String boundsOf(final java.awt.Component component) {
         try {
-            final java.awt.Point origin = component.isShowing()
-                ? component.getLocationOnScreen()
-                : new java.awt.Point(0, 0);
-            return "[" + origin.x + ',' + origin.y + ','
-                + component.getWidth() + 'x' + component.getHeight() + ']';
+            final java.awt.Point origin =
+                    component.isShowing() ? component.getLocationOnScreen() : new java.awt.Point(0, 0);
+            return "[" + origin.x + ',' + origin.y + ',' + component.getWidth() + 'x' + component.getHeight() + ']';
         } catch (java.awt.IllegalComponentStateException notShowing) {
             return "[hidden]";
         }
@@ -4996,8 +4664,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private WindowsHistoryManagerValidationProbe.Snapshot sample() throws Exception {
-        final AtomicReference<WindowsHistoryManagerValidationProbe.Snapshot> result =
-            new AtomicReference<>();
+        final AtomicReference<WindowsHistoryManagerValidationProbe.Snapshot> result = new AtomicReference<>();
         final AtomicReference<Exception> failure = new AtomicReference<>();
         final CountDownLatch sampled = new CountDownLatch(1);
         // invokeLater rather than invokeAndWait: the wait has to be bounded, because an Editor
@@ -5013,9 +4680,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             }
         });
         if (!sampled.await(SAMPLE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
-            context.logger().warn(
-                "Native UI ingress probe sampling timed out after " + SAMPLE_TIMEOUT_MILLIS + "ms"
-            );
+            context.logger().warn("Native UI ingress probe sampling timed out after " + SAMPLE_TIMEOUT_MILLIS + "ms");
             return null;
         }
         if (failure.get() != null) return null;
@@ -5035,11 +4700,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final List<Observed> safeEvents = events == null ? List.of() : events;
         final long before = countPhase(safeEvents, "before");
         final long confirmed = safeEvents.stream()
-            .filter(event -> event != null
-                && ("on".equals(event.phase()) || "after".equals(event.phase())))
-            .count();
-        final String seen = "before=" + before + ",confirmed=" + confirmed
-            + ",events=" + safeEvents.size();
+                .filter(event -> event != null && ("on".equals(event.phase()) || "after".equals(event.phase())))
+                .count();
+        final String seen = "before=" + before + ",confirmed=" + confirmed + ",events=" + safeEvents.size();
         if (step == null || !supportedStepKind(step.kind())) {
             return new Verdict(false, "unknown-step-kind", seen);
         }
@@ -5057,7 +4720,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 return new Verdict(false, "no-confirmed-event", seen);
             }
             if (confirmations.pairs().stream()
-                .anyMatch(pair -> !"HOST_UI".equals(pair.on().origin()))) {
+                    .anyMatch(pair -> !"HOST_UI".equals(pair.on().origin()))) {
                 return new Verdict(false, "confirmation-not-host-ui", seen);
             }
             return new Verdict(true, "action-hook-and-host-ui-pair-observed", seen);
@@ -5070,7 +4733,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
         final ConfirmationPair pair = confirmations.pairs().get(0);
         if (!step.kind().equals(pair.on().operation())
-            || !step.kind().equals(pair.on().origin())) {
+                || !step.kind().equals(pair.on().origin())) {
             return new Verdict(false, "navigation-not-attributed", seen);
         }
         return new Verdict(true, "navigation-pair-confirmed-without-an-edit", seen);
@@ -5085,9 +4748,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * particular, two one-sided native entries are never coalesced here.</p>
      */
     static Verdict checkPartMembershipStep(
-        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot before,
-        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot after
-    ) {
+            final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot before,
+            final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot after) {
         final String seen = historySeen(before, after);
         final String gateFailure = historyGateFailure(before, after);
         if (gateFailure != null) return new Verdict(false, gateFailure, seen);
@@ -5097,35 +4759,29 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (entry != null && stableEntryId(entry.entryId())) beforeIds.add(entry.entryId());
         }
         final List<WindowsHistoryManagerValidationProbe.SdkEntry> candidates = after.entries().stream()
-            .filter(Objects::nonNull)
-            .filter(entry -> entry.index() >= 0 && entry.index() < after.position())
-            .filter(entry -> stableEntryId(entry.entryId()))
-            .filter(entry -> !beforeIds.contains(entry.entryId()))
-            .toList();
+                .filter(Objects::nonNull)
+                .filter(entry -> entry.index() >= 0 && entry.index() < after.position())
+                .filter(entry -> stableEntryId(entry.entryId()))
+                .filter(entry -> !beforeIds.contains(entry.entryId()))
+                .toList();
         if (candidates.isEmpty()) {
             return new Verdict(false, "no-new-entry", seen + ",candidates=0");
         }
 
         final List<PartCandidate> assessments = candidates.stream()
-            .map(WindowsHistoryNativeUiIngressProbe::assessPartCandidate)
-            .toList();
-        final List<PartCandidate> relationCandidates = assessments.stream()
-            .filter(PartCandidate::hasRelation)
-            .toList();
-        final String candidateSeen = seen
-            + ",candidates=" + candidates.size()
-            + ",relationCandidates=" + relationCandidates.size();
+                .map(WindowsHistoryNativeUiIngressProbe::assessPartCandidate)
+                .toList();
+        final List<PartCandidate> relationCandidates =
+                assessments.stream().filter(PartCandidate::hasRelation).toList();
+        final String candidateSeen =
+                seen + ",candidates=" + candidates.size() + ",relationCandidates=" + relationCandidates.size();
         if (relationCandidates.isEmpty()) {
             return new Verdict(false, "no-proven-membership-change", candidateSeen);
         }
         if (relationCandidates.size() > 1) {
             final boolean allPartial = relationCandidates.stream()
-                .allMatch(candidate -> "partial-relation".equals(candidateFailureCode(candidate)));
-            return new Verdict(
-                false,
-                allPartial ? "partial-relation" : "ambiguous-candidate",
-                candidateSeen
-            );
+                    .allMatch(candidate -> "partial-relation".equals(candidateFailureCode(candidate)));
+            return new Verdict(false, allPartial ? "partial-relation" : "ambiguous-candidate", candidateSeen);
         }
 
         final PartCandidate candidate = relationCandidates.get(0);
@@ -5135,9 +4791,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
         // A label-only/unstructured entry can be a selection side effect. Any additional typed
         // facts are evidence that the delta is not one unambiguous membership edit.
-        if (assessments.stream()
-            .filter(other -> other != candidate)
-            .anyMatch(PartCandidate::structured)) {
+        if (assessments.stream().filter(other -> other != candidate).anyMatch(PartCandidate::structured)) {
             return new Verdict(false, "ambiguous-candidate", candidateSeen);
         }
         return new Verdict(true, "proven-membership-change", candidateSeen);
@@ -5153,22 +4807,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             return semantic;
         }
         return new Verdict(
-            false,
-            "actor-" + actor.code(),
-            "actorOutcome=" + actor.outcome().name()
-                + ",actorEvidence=" + actor.evidence()
-                + ",semantic=" + semantic.code()
-        );
+                false,
+                "actor-" + actor.code(),
+                "actorOutcome=" + actor.outcome().name()
+                        + ",actorEvidence=" + actor.evidence()
+                        + ",semantic=" + semantic.code());
     }
 
     private static String historyGateFailure(
-        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot before,
-        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot after
-    ) {
+            final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot before,
+            final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot after) {
         if (!usableSdkHistory(before) || !usableSdkHistory(after)) return "history-unavailable";
         if (!sameNonBlank(before.documentBindingId(), after.documentBindingId())
-            || !sameNonBlank(before.managerBindingId(), after.managerBindingId())
-            || before.generation() != after.generation()) {
+                || !sameNonBlank(before.managerBindingId(), after.managerBindingId())
+                || before.generation() != after.generation()) {
             return "binding-changed";
         }
         if (truncatedSdkHistory(before) || truncatedSdkHistory(after)) return "history-truncated";
@@ -5178,29 +4830,23 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return null;
     }
 
-    private static boolean usableSdkHistory(
-        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot
-    ) {
+    private static boolean usableSdkHistory(final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot) {
         return snapshot != null
-            && "AVAILABLE".equals(snapshot.availability())
-            && nonBlank(snapshot.documentBindingId())
-            && nonBlank(snapshot.managerBindingId())
-            && snapshot.entries() != null;
+                && "AVAILABLE".equals(snapshot.availability())
+                && nonBlank(snapshot.documentBindingId())
+                && nonBlank(snapshot.managerBindingId())
+                && snapshot.entries() != null;
     }
 
-    private static boolean truncatedSdkHistory(
-        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot
-    ) {
+    private static boolean truncatedSdkHistory(final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot) {
         return snapshot.totalEntries() != snapshot.entries().size();
     }
 
     private static boolean completeEntryIdentities(
-        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot
-    ) {
+            final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot) {
         final Set<String> identities = new HashSet<>();
         for (WindowsHistoryManagerValidationProbe.SdkEntry entry : snapshot.entries()) {
-            if (entry == null || !stableEntryId(entry.entryId())
-                || !identities.add(entry.entryId())) {
+            if (entry == null || !stableEntryId(entry.entryId()) || !identities.add(entry.entryId())) {
                 return false;
             }
         }
@@ -5220,55 +4866,42 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static String historySeen(
-        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot before,
-        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot after
-    ) {
+            final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot before,
+            final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot after) {
         return "before=" + sdkHistorySeen(before) + ",after=" + sdkHistorySeen(after);
     }
 
-    private static String sdkHistorySeen(
-        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot
-    ) {
+    private static String sdkHistorySeen(final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot) {
         if (snapshot == null) return "null";
         return snapshot.availability()
-            + ":generation=" + snapshot.generation()
-            + ":position=" + snapshot.position()
-            + ":total=" + snapshot.totalEntries();
+                + ":generation=" + snapshot.generation()
+                + ":position=" + snapshot.position()
+                + ":total=" + snapshot.totalEntries();
     }
 
-    private static PartCandidate assessPartCandidate(
-        final WindowsHistoryManagerValidationProbe.SdkEntry entry
-    ) {
+    private static PartCandidate assessPartCandidate(final WindowsHistoryManagerValidationProbe.SdkEntry entry) {
         final HistoryEntryDetail detail = entry.detail();
         if (detail == null) {
-            return new PartCandidate(
-                entry.entryId(),
-                true,
-                true,
-                false,
-                Set.of(),
-                List.of(),
-                true
-            );
+            return new PartCandidate(entry.entryId(), true, true, false, Set.of(), List.of(), true);
         }
         final DetailWalk walk = walkDetail(detail, 0, new int[] {0});
         return new PartCandidate(
-            entry.entryId(),
-            walk.structured(),
-            walk.complete(),
-            walk.unstableTarget(),
-            walk.targetKeys(),
-            walk.relations(),
-            walk.hasNonRelationChange()
-        );
+                entry.entryId(),
+                walk.structured(),
+                walk.complete(),
+                walk.unstableTarget(),
+                walk.targetKeys(),
+                walk.relations(),
+                walk.hasNonRelationChange());
     }
 
     private static String candidateFailureCode(final PartCandidate candidate) {
         if (!candidate.hasRelation()) return "no-proven-membership-change";
         if (candidate.hasNonRelationChange()) return "ambiguous-candidate";
         if (!candidate.complete()) return "partial-relation";
-        if (candidate.relations().size() != 1 || candidate.unstableTarget()
-            || candidate.targetKeys().size() != 1) {
+        if (candidate.relations().size() != 1
+                || candidate.unstableTarget()
+                || candidate.targetKeys().size() != 1) {
             return "ambiguous-candidate";
         }
         return switch (candidate.relations().get(0).status()) {
@@ -5279,13 +4912,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         };
     }
 
-    private static DetailWalk walkDetail(
-        final HistoryEntryDetail detail,
-        final int depth,
-        final int[] nodes
-    ) {
+    private static DetailWalk walkDetail(final HistoryEntryDetail detail, final int depth, final int[] nodes) {
         if (depth > WindowsHistoryManagerValidationProbe.MAX_DETAIL_DEPTH
-            || nodes[0] >= WindowsHistoryManagerValidationProbe.MAX_DETAIL_NODES) {
+                || nodes[0] >= WindowsHistoryManagerValidationProbe.MAX_DETAIL_NODES) {
             return DetailWalk.incomplete();
         }
         nodes[0]++;
@@ -5310,17 +4939,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
         boolean complete = true;
         final boolean structured = !detail.targets().isEmpty()
-            || !detail.changes().isEmpty()
-            || detail.group().isPresent();
+                || !detail.changes().isEmpty()
+                || detail.group().isPresent();
         if (detail.group().isPresent()) {
             final var group = detail.group().orElseThrow();
             if (group.truncated()
-                || group.observedChildCount() < group.children().size()
-                || group.children().size() > WindowsHistoryManagerValidationProbe.MAX_DETAIL_NODES) {
+                    || group.observedChildCount() < group.children().size()
+                    || group.children().size() > WindowsHistoryManagerValidationProbe.MAX_DETAIL_NODES) {
                 complete = false;
             }
             if (depth >= WindowsHistoryManagerValidationProbe.MAX_DETAIL_DEPTH
-                && !group.children().isEmpty()) {
+                    && !group.children().isEmpty()) {
                 complete = false;
             } else {
                 for (HistoryEntryDetail child : group.children()) {
@@ -5337,20 +4966,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 }
             }
         }
-        return new DetailWalk(
-            complete,
-            structured,
-            unstableTarget,
-            targetKeys,
-            relations,
-            hasNonRelationChange
-        );
+        return new DetailWalk(complete, structured, unstableTarget, targetKeys, relations, hasNonRelationChange);
     }
 
     private static RelationObservation relationObservation(
-        final HistoryEntryDetail detail,
-        final HistoryChange change
-    ) {
+            final HistoryEntryDetail detail, final HistoryChange change) {
         final HistoryRelationChange relation = change.relation().orElseThrow();
         if (relation.kind() != HistoryRelationChange.Kind.PART_MEMBERSHIP) {
             return new RelationObservation(RelationStatus.NON_MEMBERSHIP);
@@ -5376,36 +4996,33 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private static boolean stableTarget(final HistoryTarget target) {
         return target != null
-            && nonBlank(target.type())
-            && target.id().filter(WindowsHistoryNativeUiIngressProbe::nonBlank).isPresent();
+                && nonBlank(target.type())
+                && target.id()
+                        .filter(WindowsHistoryNativeUiIngressProbe::nonBlank)
+                        .isPresent();
     }
 
     private static TargetKey targetKey(final HistoryTarget target) {
         return new TargetKey(target.type(), target.id().orElseThrow());
     }
 
-    private static EndpointIdentity endpointIdentity(
-        final HistoryRelationChange.Endpoint endpoint
-    ) {
+    private static EndpointIdentity endpointIdentity(final HistoryRelationChange.Endpoint endpoint) {
         return switch (endpoint.state()) {
-            case ROOT -> endpoint.target().isEmpty()
-                ? new EndpointIdentity(HistoryRelationChange.State.ROOT, null)
-                : null;
-            case TARGET -> endpoint.target().filter(WindowsHistoryNativeUiIngressProbe::stableTarget)
-                .map(WindowsHistoryNativeUiIngressProbe::targetKey)
-                .map(key -> new EndpointIdentity(HistoryRelationChange.State.TARGET, key))
-                .orElse(null);
+            case ROOT ->
+                endpoint.target().isEmpty() ? new EndpointIdentity(HistoryRelationChange.State.ROOT, null) : null;
+            case TARGET ->
+                endpoint.target()
+                        .filter(WindowsHistoryNativeUiIngressProbe::stableTarget)
+                        .map(WindowsHistoryNativeUiIngressProbe::targetKey)
+                        .map(key -> new EndpointIdentity(HistoryRelationChange.State.TARGET, key))
+                        .orElse(null);
             case UNKNOWN -> null;
         };
     }
 
-    private static boolean sameEndpoint(
-        final EndpointIdentity left,
-        final EndpointIdentity right
-    ) {
+    private static boolean sameEndpoint(final EndpointIdentity left, final EndpointIdentity right) {
         if (left.state() != right.state()) return false;
-        return left.state() == HistoryRelationChange.State.ROOT
-            || Objects.equals(left.target(), right.target());
+        return left.state() == HistoryRelationChange.State.ROOT || Objects.equals(left.target(), right.target());
     }
 
     private enum RelationStatus {
@@ -5416,26 +5033,19 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         NON_MEMBERSHIP
     }
 
-    private record TargetKey(String type, String id) {
-    }
+    private record TargetKey(String type, String id) {}
 
-    private record EndpointIdentity(
-        HistoryRelationChange.State state,
-        TargetKey target
-    ) {
-    }
+    private record EndpointIdentity(HistoryRelationChange.State state, TargetKey target) {}
 
-    private record RelationObservation(RelationStatus status) {
-    }
+    private record RelationObservation(RelationStatus status) {}
 
     private record DetailWalk(
-        boolean complete,
-        boolean structured,
-        boolean unstableTarget,
-        Set<TargetKey> targetKeys,
-        List<RelationObservation> relations,
-        boolean hasNonRelationChange
-    ) {
+            boolean complete,
+            boolean structured,
+            boolean unstableTarget,
+            Set<TargetKey> targetKeys,
+            List<RelationObservation> relations,
+            boolean hasNonRelationChange) {
         private DetailWalk {
             targetKeys = Set.copyOf(targetKeys);
             relations = List.copyOf(relations);
@@ -5447,14 +5057,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private record PartCandidate(
-        String entryId,
-        boolean structured,
-        boolean complete,
-        boolean unstableTarget,
-        Set<TargetKey> targetKeys,
-        List<RelationObservation> relations,
-        boolean hasNonRelationChange
-    ) {
+            String entryId,
+            boolean structured,
+            boolean complete,
+            boolean unstableTarget,
+            Set<TargetKey> targetKeys,
+            List<RelationObservation> relations,
+            boolean hasNonRelationChange) {
         private PartCandidate {
             targetKeys = Set.copyOf(targetKeys);
             relations = List.copyOf(relations);
@@ -5466,15 +5075,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static WindowsHistoryManagerValidationProbe.SdkHistorySnapshot sdkHistory(
-        final WindowsHistoryManagerValidationProbe.Snapshot snapshot
-    ) {
+            final WindowsHistoryManagerValidationProbe.Snapshot snapshot) {
         return snapshot == null ? null : snapshot.sdkHistory();
     }
 
     private static long countPhase(final List<Observed> events, final String phase) {
         return events.stream()
-            .filter(event -> event != null && phase.equals(event.phase()))
-            .count();
+                .filter(event -> event != null && phase.equals(event.phase()))
+                .count();
     }
 
     private static boolean supportedStepKind(final String kind) {
@@ -5512,10 +5120,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 final Observed on = onBySequence.get(event.sequence());
                 if (on == null) {
                     return ConfirmationCheck.invalid(
-                        onBySequence.isEmpty()
-                            ? "orphan-after-event"
-                            : "confirmation-sequence-mismatch"
-                    );
+                            onBySequence.isEmpty() ? "orphan-after-event" : "confirmation-sequence-mismatch");
                 }
                 if (blank(on.operation()) || blank(on.origin())) {
                     return ConfirmationCheck.invalid("confirmation-fields-missing");
@@ -5537,13 +5142,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return new ConfirmationCheck(true, "", List.copyOf(pairs));
     }
 
-    private static boolean sameConfirmationFields(
-        final Observed on,
-        final Observed after
-    ) {
+    private static boolean sameConfirmationFields(final Observed on, final Observed after) {
         return Objects.equals(on.operation(), after.operation())
-            && Objects.equals(on.origin(), after.origin())
-            && Objects.equals(on.subjectId(), after.subjectId());
+                && Objects.equals(on.origin(), after.origin())
+                && Objects.equals(on.subjectId(), after.subjectId());
     }
 
     private static boolean blank(final String value) {
@@ -5585,8 +5187,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private List<ParameterLifecycleEvent> parameterLifecycleSince(final long cursor) {
         synchronized (lock) {
             return parameterLifecycle.stream()
-                .filter(event -> event.sequence() > cursor)
-                .toList();
+                    .filter(event -> event.sequence() > cursor)
+                    .toList();
         }
     }
 
@@ -5600,9 +5202,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     static ParameterStateOutcome compareParameterState(
-        final ParameterStateSnapshot before,
-        final ParameterStateSnapshot after
-    ) {
+            final ParameterStateSnapshot before, final ParameterStateSnapshot after) {
         if (before == null || after == null || !before.available() || !after.available()) {
             return ParameterStateOutcome.UNAVAILABLE;
         }
@@ -5611,8 +5211,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
         final Map<String, Float> beforeValues = parameterValueMap(before);
         final Map<String, Float> afterValues = parameterValueMap(after);
-        if (beforeValues == null || afterValues == null
-            || !beforeValues.keySet().equals(afterValues.keySet())) {
+        if (beforeValues == null
+                || afterValues == null
+                || !beforeValues.keySet().equals(afterValues.keySet())) {
             return ParameterStateOutcome.UNAVAILABLE;
         }
         for (final Map.Entry<String, Float> entry : beforeValues.entrySet()) {
@@ -5623,10 +5224,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return ParameterStateOutcome.UNCHANGED;
     }
 
-    static Set<String> changedParameterIds(
-        final ParameterStateSnapshot before,
-        final ParameterStateSnapshot after
-    ) {
+    static Set<String> changedParameterIds(final ParameterStateSnapshot before, final ParameterStateSnapshot after) {
         if (compareParameterState(before, after) != ParameterStateOutcome.CHANGED) {
             return Set.of();
         }
@@ -5653,71 +5251,63 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     static ParameterHistoryAdmission parameterHistoryAdmission(
-        final String beforeSignificant,
-        final String afterSignificant
-    ) {
+            final String beforeSignificant, final String afterSignificant) {
         if (beforeSignificant == null || afterSignificant == null) {
             return ParameterHistoryAdmission.UNAVAILABLE;
         }
         return beforeSignificant.equals(afterSignificant)
-            ? ParameterHistoryAdmission.NOT_OBSERVED
-            : ParameterHistoryAdmission.OBSERVED;
+                ? ParameterHistoryAdmission.NOT_OBSERVED
+                : ParameterHistoryAdmission.OBSERVED;
     }
 
     static List<ParameterLifecycleEvent> relevantParameterLifecycle(
-        final List<ParameterLifecycleEvent> events,
-        final Set<String> parameterIds
-    ) {
+            final List<ParameterLifecycleEvent> events, final Set<String> parameterIds) {
         if (events == null || events.isEmpty() || parameterIds == null || parameterIds.isEmpty()) {
             return List.of();
         }
         return events.stream()
-            .filter(event -> event != null && parameterIds.contains(event.parameterId()))
-            .toList();
+                .filter(event -> event != null && parameterIds.contains(event.parameterId()))
+                .toList();
     }
 
     static ParameterLifecycleStatus parameterLifecycleStatus(
-        final List<ParameterLifecycleEvent> events,
-        final Set<String> changedIds,
-        final boolean valueChanged
-    ) {
+            final List<ParameterLifecycleEvent> events, final Set<String> changedIds, final boolean valueChanged) {
         return parameterLifecycleStatus(events, null, null, changedIds, valueChanged, true);
     }
 
     static ParameterLifecycleStatus parameterLifecycleStatus(
-        final List<ParameterLifecycleEvent> events,
-        final ParameterStateSnapshot before,
-        final ParameterStateSnapshot after,
-        final Set<String> changedIds,
-        final boolean valueChanged
-    ) {
-        return parameterLifecycleStatus(
-            events, before, after, changedIds, valueChanged, true);
+            final List<ParameterLifecycleEvent> events,
+            final ParameterStateSnapshot before,
+            final ParameterStateSnapshot after,
+            final Set<String> changedIds,
+            final boolean valueChanged) {
+        return parameterLifecycleStatus(events, before, after, changedIds, valueChanged, true);
     }
 
     static ParameterLifecycleStatus parameterLifecycleStatus(
-        final List<ParameterLifecycleEvent> events,
-        final ParameterStateSnapshot before,
-        final ParameterStateSnapshot after,
-        final Set<String> changedIds,
-        final boolean valueChanged,
-        final boolean lifecycleWindowComplete
-    ) {
+            final List<ParameterLifecycleEvent> events,
+            final ParameterStateSnapshot before,
+            final ParameterStateSnapshot after,
+            final Set<String> changedIds,
+            final boolean valueChanged,
+            final boolean lifecycleWindowComplete) {
         if (!lifecycleWindowComplete) return ParameterLifecycleStatus.INCOMPLETE;
         if (events == null || events.isEmpty()) return ParameterLifecycleStatus.MISSING;
         if (changedIds == null || changedIds.isEmpty()) {
             return ParameterLifecycleStatus.OBSERVED_UNRELATED;
         }
         if (!valueChanged) return ParameterLifecycleStatus.INCOMPLETE;
-        if (before == null || after == null || !before.available() || !after.available()
-            || !before.modelId().equals(after.modelId())) {
+        if (before == null
+                || after == null
+                || !before.available()
+                || !after.available()
+                || !before.modelId().equals(after.modelId())) {
             return ParameterLifecycleStatus.UNAVAILABLE;
         }
         final Map<String, Float> beforeValues = parameterValueMap(before);
         final Map<String, Float> afterValues = parameterValueMap(after);
         final Set<String> actualChangedIds = changedParameterIds(before, after);
-        if (beforeValues == null || afterValues == null
-            || !actualChangedIds.equals(changedIds)) {
+        if (beforeValues == null || afterValues == null || !actualChangedIds.equals(changedIds)) {
             return ParameterLifecycleStatus.UNAVAILABLE;
         }
         if (!strictLifecycleSequence(events)) return ParameterLifecycleStatus.INCOMPLETE;
@@ -5730,8 +5320,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 return ParameterLifecycleStatus.UNAVAILABLE;
             }
             final List<ParameterLifecycleEvent> perParameter = relevant.stream()
-                .filter(event -> event.parameterId().equals(changedId))
-                .toList();
+                    .filter(event -> event.parameterId().equals(changedId))
+                    .toList();
             if (!validParameterLifecycle(perParameter, beforeValue, afterValue)) {
                 return ParameterLifecycleStatus.INCOMPLETE;
             }
@@ -5740,34 +5330,27 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     static ParameterLifecycleAssessment assessParameterLifecycle(
-        final List<ParameterLifecycleEvent> events,
-        final ParameterStateSnapshot before,
-        final ParameterStateSnapshot after,
-        final Set<String> changedIds,
-        final boolean valueChanged
-    ) {
-        return assessParameterLifecycle(
-            events, before, after, changedIds, valueChanged, true);
+            final List<ParameterLifecycleEvent> events,
+            final ParameterStateSnapshot before,
+            final ParameterStateSnapshot after,
+            final Set<String> changedIds,
+            final boolean valueChanged) {
+        return assessParameterLifecycle(events, before, after, changedIds, valueChanged, true);
     }
 
     static ParameterLifecycleAssessment assessParameterLifecycle(
-        final List<ParameterLifecycleEvent> events,
-        final ParameterStateSnapshot before,
-        final ParameterStateSnapshot after,
-        final Set<String> changedIds,
-        final boolean valueChanged,
-        final boolean lifecycleWindowComplete
-    ) {
+            final List<ParameterLifecycleEvent> events,
+            final ParameterStateSnapshot before,
+            final ParameterStateSnapshot after,
+            final Set<String> changedIds,
+            final boolean valueChanged,
+            final boolean lifecycleWindowComplete) {
         return new ParameterLifecycleAssessment(
-            parameterLifecycleStatus(
-                events, before, after, changedIds, valueChanged, lifecycleWindowComplete),
-            ParameterModelCorrelation.UNAVAILABLE
-        );
+                parameterLifecycleStatus(events, before, after, changedIds, valueChanged, lifecycleWindowComplete),
+                ParameterModelCorrelation.UNAVAILABLE);
     }
 
-    private static boolean strictLifecycleSequence(
-        final List<ParameterLifecycleEvent> events
-    ) {
+    private static boolean strictLifecycleSequence(final List<ParameterLifecycleEvent> events) {
         long previous = Long.MIN_VALUE;
         for (final ParameterLifecycleEvent event : events) {
             if (event == null || event.sequence() <= previous) return false;
@@ -5777,10 +5360,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private static boolean validParameterLifecycle(
-        final List<ParameterLifecycleEvent> events,
-        final float beforeValue,
-        final float afterValue
-    ) {
+            final List<ParameterLifecycleEvent> events, final float beforeValue, final float afterValue) {
         if (events == null || events.isEmpty() || Float.compare(beforeValue, afterValue) == 0) {
             return false;
         }
@@ -5794,17 +5374,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (event == null) return false;
             switch (event.phase()) {
                 case "before" -> {
-                    if (open || !finite(event.oldValue()) || !finite(event.newValue())
-                        || !same(event.oldValue(), current)) return false;
+                    if (open
+                            || !finite(event.oldValue())
+                            || !finite(event.newValue())
+                            || !same(event.oldValue(), current)) return false;
                     open = true;
                     segmentChanged = false;
-                    segmentNeutral = same(event.oldValue(), event.newValue())
-                        && same(event.newValue(), current);
+                    segmentNeutral = same(event.oldValue(), event.newValue()) && same(event.newValue(), current);
                 }
                 case "on" -> {
-                    if (!open || !finite(event.oldValue()) || !finite(event.newValue())
-                        || !same(event.oldValue(), current)
-                        || !movesToward(event.oldValue(), event.newValue(), beforeValue, afterValue)) {
+                    if (!open
+                            || !finite(event.oldValue())
+                            || !finite(event.newValue())
+                            || !same(event.oldValue(), current)
+                            || !movesToward(event.oldValue(), event.newValue(), beforeValue, afterValue)) {
                         return false;
                     }
                     current = event.newValue();
@@ -5813,9 +5396,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     sawOn = true;
                 }
                 case "after" -> {
-                    if (!open || (!segmentChanged && !segmentNeutral) || !finite(event.newValue())
-                        || !same(event.newValue(), current)
-                        || !within(event.newValue(), beforeValue, afterValue)) return false;
+                    if (!open
+                            || (!segmentChanged && !segmentNeutral)
+                            || !finite(event.newValue())
+                            || !same(event.newValue(), current)
+                            || !within(event.newValue(), beforeValue, afterValue)) return false;
                     open = false;
                     segmentChanged = false;
                     segmentNeutral = false;
@@ -5844,29 +5429,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return value >= low && value <= high;
     }
 
-    private static boolean movesToward(
-        final Float oldValue,
-        final Float newValue,
-        final float start,
-        final float end
-    ) {
-        if (!finite(oldValue) || !finite(newValue)
-            || !within(oldValue, start, end) || !within(newValue, start, end)) {
+    private static boolean movesToward(final Float oldValue, final Float newValue, final float start, final float end) {
+        if (!finite(oldValue) || !finite(newValue) || !within(oldValue, start, end) || !within(newValue, start, end)) {
             return false;
         }
-        return end > start
-            ? newValue > oldValue && newValue <= end
-            : newValue < oldValue && newValue >= end;
+        return end > start ? newValue > oldValue && newValue <= end : newValue < oldValue && newValue >= end;
     }
 
     static ParameterChangeObservation preserveParameterActorOutcome(
-        final ParameterChangeObservation actorObservation,
-        final ParameterChangeObservation followupObservation
-    ) {
+            final ParameterChangeObservation actorObservation, final ParameterChangeObservation followupObservation) {
         return settleParameterObservations(
-            actorObservation,
-            followupObservation == null ? List.of() : List.of(followupObservation)
-        );
+                actorObservation, followupObservation == null ? List.of() : List.of(followupObservation));
     }
 
     /**
@@ -5875,12 +5448,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * new final candidate, including a readback that is unchanged from the original value.
      */
     static ParameterChangeObservation settleParameterObservations(
-        final ParameterChangeObservation actorObservation,
-        final List<ParameterChangeObservation> settleObservations
-    ) {
+            final ParameterChangeObservation actorObservation,
+            final List<ParameterChangeObservation> settleObservations) {
         if (actorObservation != null
-            && (actorObservation.outcome() == ParameterStateOutcome.UNAVAILABLE
-                || actorObservation.outcome() == ParameterStateOutcome.MODEL_CHANGED)) {
+                && (actorObservation.outcome() == ParameterStateOutcome.UNAVAILABLE
+                        || actorObservation.outcome() == ParameterStateOutcome.MODEL_CHANGED)) {
             return actorObservation;
         }
         ParameterChangeObservation latest = actorObservation;
@@ -5888,7 +5460,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         for (final ParameterChangeObservation observation : settleObservations) {
             if (observation == null) continue;
             if (observation.outcome() == ParameterStateOutcome.UNAVAILABLE
-                || observation.outcome() == ParameterStateOutcome.MODEL_CHANGED) {
+                    || observation.outcome() == ParameterStateOutcome.MODEL_CHANGED) {
                 return observation;
             }
             latest = observation;
@@ -5896,49 +5468,51 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return latest;
     }
 
-    private String parameterStateJson(
-        final String step,
-        final String phase,
-        final ParameterStateSnapshot snapshot
-    ) {
+    private String parameterStateJson(final String step, final String phase, final ParameterStateSnapshot snapshot) {
         return "{\"type\":\"parameter-state\",\"step\":\""
-            + json(step) + "\",\"phase\":\"" + json(phase)
-            + "\",\"availability\":\"" + snapshot.availability().code()
-            + "\",\"modelId\":\"" + json(snapshot.modelId())
-            + "\",\"reason\":\"" + json(snapshot.reason())
-            + "\",\"parameters\":["
-            + snapshot.values().stream().map(ParameterValueSample::json)
-                .reduce((left, right) -> left + "," + right).orElse("")
-            + "]}\n";
+                + json(step) + "\",\"phase\":\"" + json(phase)
+                + "\",\"availability\":\"" + snapshot.availability().code()
+                + "\",\"modelId\":\"" + json(snapshot.modelId())
+                + "\",\"reason\":\"" + json(snapshot.reason())
+                + "\",\"parameters\":["
+                + snapshot.values().stream()
+                        .map(ParameterValueSample::json)
+                        .reduce((left, right) -> left + "," + right)
+                        .orElse("")
+                + "]}\n";
     }
 
     private String parameterEvidenceJson(
-        final String step,
-        final ParameterStateSnapshot before,
-        final ParameterStateSnapshot after,
-        final ParameterStateOutcome valueStatus,
-        final ParameterHistoryAdmission historyAdmission,
-        final ParameterLifecycleAssessment lifecycleAssessment,
-        final Set<String> changedIds,
-        final List<ParameterLifecycleEvent> lifecycleEvents
-    ) {
+            final String step,
+            final ParameterStateSnapshot before,
+            final ParameterStateSnapshot after,
+            final ParameterStateOutcome valueStatus,
+            final ParameterHistoryAdmission historyAdmission,
+            final ParameterLifecycleAssessment lifecycleAssessment,
+            final Set<String> changedIds,
+            final List<ParameterLifecycleEvent> lifecycleEvents) {
         final Set<String> relevantIds = changedIds == null ? Set.of() : changedIds;
         return "{\"type\":\"parameter-evidence\",\"step\":\"" + json(step)
-            + "\",\"modelIdBefore\":\"" + json(modelId(before))
-            + "\",\"modelIdAfter\":\"" + json(modelId(after))
-            + "\",\"valueStatus\":\"" + valueStatus.code()
-            + "\",\"historyAdmission\":\"" + historyAdmission.code()
-            + "\",\"lifecycle\":\"" + lifecycleAssessment.status().code()
-            + "\",\"modelCorrelation\":\""
-            + lifecycleAssessment.modelCorrelation().code()
-            + "\",\"changedParameterIds\":["
-            + relevantIds.stream().map(WindowsHistoryNativeUiIngressProbe::quoted)
-                .reduce((left, right) -> left + "," + right).orElse("")
-            + "],\"callbacks\":["
-            + (lifecycleEvents == null ? "" : lifecycleEvents.stream()
-                .map(event -> event.json(relevantIds))
-                .reduce((left, right) -> left + "," + right).orElse(""))
-            + "]}\n";
+                + "\",\"modelIdBefore\":\"" + json(modelId(before))
+                + "\",\"modelIdAfter\":\"" + json(modelId(after))
+                + "\",\"valueStatus\":\"" + valueStatus.code()
+                + "\",\"historyAdmission\":\"" + historyAdmission.code()
+                + "\",\"lifecycle\":\"" + lifecycleAssessment.status().code()
+                + "\",\"modelCorrelation\":\""
+                + lifecycleAssessment.modelCorrelation().code()
+                + "\",\"changedParameterIds\":["
+                + relevantIds.stream()
+                        .map(WindowsHistoryNativeUiIngressProbe::quoted)
+                        .reduce((left, right) -> left + "," + right)
+                        .orElse("")
+                + "],\"callbacks\":["
+                + (lifecycleEvents == null
+                        ? ""
+                        : lifecycleEvents.stream()
+                                .map(event -> event.json(relevantIds))
+                                .reduce((left, right) -> left + "," + right)
+                                .orElse(""))
+                + "]}\n";
     }
 
     private static String modelId(final ParameterStateSnapshot snapshot) {
@@ -5961,19 +5535,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * response and must not be repeated; {@link #hasMoved} will reject it for the requested step.
      */
     static ShortcutResolution shortcutResolution(
-        final String kind,
-        final long knownPosition,
-        final long currentPosition
-    ) {
+            final String kind, final long knownPosition, final long currentPosition) {
         if (knownPosition < 0L) return ShortcutResolution.UNKNOWN;
         if (currentPosition < 0L) return ShortcutResolution.UNAVAILABLE;
         if (currentPosition == knownPosition) return ShortcutResolution.FALLBACK;
         final boolean expected = "UNDO".equals(kind)
-            ? currentPosition < knownPosition
-            : "REDO".equals(kind) && currentPosition > knownPosition;
-        return expected
-            ? ShortcutResolution.DELIVERED
-            : ShortcutResolution.WRONG_DIRECTION;
+                ? currentPosition < knownPosition
+                : "REDO".equals(kind) && currentPosition > knownPosition;
+        return expected ? ShortcutResolution.DELIVERED : ShortcutResolution.WRONG_DIRECTION;
     }
 
     /**
@@ -5982,10 +5551,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * probe cannot prove that the menu did not already execute.
      */
     static ShortcutResolution shortcutResolution(
-        final String kind,
-        final long knownPosition,
-        final List<Long> currentPositions
-    ) {
+            final String kind, final long knownPosition, final List<Long> currentPositions) {
         if (knownPosition < 0L) return ShortcutResolution.UNKNOWN;
         if (currentPositions == null || currentPositions.isEmpty()) {
             return ShortcutResolution.UNAVAILABLE;
@@ -5996,10 +5562,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 unavailable = true;
                 continue;
             }
-            final ShortcutResolution resolution = shortcutResolution(
-                kind, knownPosition, currentPosition.longValue());
-            if (resolution == ShortcutResolution.DELIVERED
-                || resolution == ShortcutResolution.WRONG_DIRECTION) {
+            final ShortcutResolution resolution = shortcutResolution(kind, knownPosition, currentPosition.longValue());
+            if (resolution == ShortcutResolution.DELIVERED || resolution == ShortcutResolution.WRONG_DIRECTION) {
                 return resolution;
             }
             unavailable |= resolution == ShortcutResolution.UNAVAILABLE;
@@ -6017,12 +5581,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * change the position and add no entry at all — so those steps are closed by the position.</p>
      */
     static boolean hasMoved(
-        final Step step,
-        final String currentSignificant,
-        final long currentPosition,
-        final String knownSignificant,
-        final long knownPosition
-    ) {
+            final Step step,
+            final String currentSignificant,
+            final long currentPosition,
+            final String knownSignificant,
+            final long knownPosition) {
         if (currentSignificant == null) return false;
         if (step.kind().equals("ACTION")) {
             return !currentSignificant.equals(knownSignificant);
@@ -6039,9 +5602,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /** How long this step settles after its signal appears. */
     static long settleMillis(final Step step) {
-        return step.kind().equals("ACTION")
-            ? ACTION_SETTLE_MILLIS
-            : NAVIGATION_SETTLE_MILLIS;
+        return step.kind().equals("ACTION") ? ACTION_SETTLE_MILLIS : NAVIGATION_SETTLE_MILLIS;
     }
 
     private static long position(final WindowsHistoryManagerValidationProbe.Snapshot snapshot) {
@@ -6054,13 +5615,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
     }
 
-    private String paired(
-        final WindowsHistoryManagerValidationProbe.Snapshot snapshot,
-        final String phase
-    ) {
+    private String paired(final WindowsHistoryManagerValidationProbe.Snapshot snapshot, final String phase) {
         if (snapshot == null) {
-            return "{\"type\":\"paired-snapshot\",\"phase\":\"" + json(phase)
-                + "\",\"unavailable\":true}\n";
+            return "{\"type\":\"paired-snapshot\",\"phase\":\"" + json(phase) + "\",\"unavailable\":true}\n";
         }
         return snapshot.pairedJson(phase) + "\n";
     }
@@ -6069,17 +5626,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
         final long existing = Files.exists(artifact) ? Files.size(artifact) : 0L;
         final long reserve = terminal ? 0L : TERMINAL_RESERVE_BYTES;
-        if (bytes.length > MAX_EVIDENCE_BYTES
-            || existing + bytes.length > MAX_EVIDENCE_BYTES - reserve) {
+        if (bytes.length > MAX_EVIDENCE_BYTES || existing + bytes.length > MAX_EVIDENCE_BYTES - reserve) {
             throw new IllegalStateException("Native UI ingress evidence budget exhausted");
         }
         Files.writeString(
-            artifact,
-            value,
-            StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.APPEND
-        );
+                artifact, value, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     }
 
     /**
@@ -6088,9 +5639,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * <p>The runner compares one whole line, so nothing else may share it.</p>
      */
     static String summaryLine(final boolean passed) {
-        return passed
-            ? "{\"type\":\"summary\",\"status\":\"PASS\"}\n"
-            : "{\"type\":\"summary\",\"status\":\"FAIL\"}\n";
+        return passed ? "{\"type\":\"summary\",\"status\":\"PASS\"}\n" : "{\"type\":\"summary\",\"status\":\"FAIL\"}\n";
     }
 
     private static String quoted(final String value) {
@@ -6207,10 +5756,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
     }
 
-    record ParameterLifecycleAssessment(
-        ParameterLifecycleStatus status,
-        ParameterModelCorrelation modelCorrelation
-    ) {
+    record ParameterLifecycleAssessment(ParameterLifecycleStatus status, ParameterModelCorrelation modelCorrelation) {
         ParameterLifecycleAssessment {
             status = Objects.requireNonNull(status, "status");
             modelCorrelation = Objects.requireNonNull(modelCorrelation, "modelCorrelation");
@@ -6229,17 +5775,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
 
         String json() {
-            return "{\"id\":\"" + WindowsHistoryNativeUiIngressProbe.json(parameterId)
-                + "\",\"value\":" + Float.toString(value) + "}";
+            return "{\"id\":\"" + WindowsHistoryNativeUiIngressProbe.json(parameterId) + "\",\"value\":"
+                    + Float.toString(value) + "}";
         }
     }
 
     record ParameterStateSnapshot(
-        ParameterStateAvailability availability,
-        String modelId,
-        List<ParameterValueSample> values,
-        String reason
-    ) {
+            ParameterStateAvailability availability, String modelId, List<ParameterValueSample> values, String reason) {
         ParameterStateSnapshot {
             availability = Objects.requireNonNull(availability, "availability");
             modelId = modelId == null ? "" : modelId;
@@ -6249,23 +5791,21 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 throw new IllegalArgumentException("modelId is unavailable");
             }
             if (availability == ParameterStateAvailability.AVAILABLE
-                && (modelId.isBlank() || values.size() > MAX_PARAMETER_VALUES)) {
+                    && (modelId.isBlank() || values.size() > MAX_PARAMETER_VALUES)) {
                 throw new IllegalArgumentException("available parameter snapshot is invalid");
             }
         }
 
-        static ParameterStateSnapshot available(
-            final String modelId,
-            final List<ParameterValueSample> values
-        ) {
-            return new ParameterStateSnapshot(
-                ParameterStateAvailability.AVAILABLE, modelId, values, "");
+        static ParameterStateSnapshot available(final String modelId, final List<ParameterValueSample> values) {
+            return new ParameterStateSnapshot(ParameterStateAvailability.AVAILABLE, modelId, values, "");
         }
 
         static ParameterStateSnapshot unavailable(final String reason) {
             return new ParameterStateSnapshot(
-                ParameterStateAvailability.UNAVAILABLE, "", List.of(),
-                reason == null || reason.isBlank() ? "unavailable" : reason);
+                    ParameterStateAvailability.UNAVAILABLE,
+                    "",
+                    List.of(),
+                    reason == null || reason.isBlank() ? "unavailable" : reason);
         }
 
         boolean available() {
@@ -6273,11 +5813,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
     }
 
-    record ParameterChangeObservation(
-        ParameterStateOutcome outcome,
-        ParameterStateSnapshot after,
-        String reason
-    ) {
+    record ParameterChangeObservation(ParameterStateOutcome outcome, ParameterStateSnapshot after, String reason) {
         ParameterChangeObservation {
             outcome = Objects.requireNonNull(outcome, "outcome");
             reason = reason == null ? "" : reason;
@@ -6285,13 +5821,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     record ParameterLifecycleEvent(
-        long sequence,
-        String phase,
-        String parameterId,
-        Float oldValue,
-        Float newValue,
-        String thread
-    ) {
+            long sequence, String phase, String parameterId, Float oldValue, Float newValue, String thread) {
         ParameterLifecycleEvent {
             phase = boundedText(phase, MAX_PARAMETER_PHASE_LENGTH);
             parameterId = boundedText(parameterId, MAX_PARAMETER_ID_LENGTH);
@@ -6303,12 +5833,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         String json(final Set<String> relatedIds) {
             final boolean related = relatedIds != null && relatedIds.contains(parameterId);
             return "{\"sequence\":" + sequence
-                + ",\"phase\":\"" + WindowsHistoryNativeUiIngressProbe.json(phase)
-                + "\",\"parameterId\":\"" + WindowsHistoryNativeUiIngressProbe.json(parameterId)
-                + "\",\"oldValue\":" + numberOrNull(oldValue)
-                + ",\"newValue\":" + numberOrNull(newValue)
-                + ",\"thread\":\"" + WindowsHistoryNativeUiIngressProbe.json(thread)
-                + "\",\"related\":" + related + "}";
+                    + ",\"phase\":\"" + WindowsHistoryNativeUiIngressProbe.json(phase)
+                    + "\",\"parameterId\":\"" + WindowsHistoryNativeUiIngressProbe.json(parameterId)
+                    + "\",\"oldValue\":" + numberOrNull(oldValue)
+                    + ",\"newValue\":" + numberOrNull(newValue)
+                    + ",\"thread\":\"" + WindowsHistoryNativeUiIngressProbe.json(thread)
+                    + "\",\"related\":" + related + "}";
         }
 
         private static String numberOrNull(final Float value) {
@@ -6327,16 +5857,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     record PartPointerEvidence(
-        String phase,
-        int attempt,
-        long commandStartMillis,
-        long monotonicNanos,
-        String thread,
-        Point commandedPoint,
-        Point readbackPoint,
-        String outcome,
-        String reason
-    ) {
+            String phase,
+            int attempt,
+            long commandStartMillis,
+            long monotonicNanos,
+            String thread,
+            Point commandedPoint,
+            Point readbackPoint,
+            String outcome,
+            String reason) {
         PartPointerEvidence {
             if (attempt < 1 || attempt > MAX_PART_POINTER_ATTEMPTS) {
                 throw new IllegalArgumentException("pointer attempt out of bounds: " + attempt);
@@ -6350,45 +5879,57 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
 
         PartPointerEvidence(
-            final String phase,
-            final long monotonicNanos,
-            final String thread,
-            final Point commandedPoint,
-            final Point readbackPoint,
-            final String outcome,
-            final String reason
-        ) {
+                final String phase,
+                final long monotonicNanos,
+                final String thread,
+                final Point commandedPoint,
+                final Point readbackPoint,
+                final String outcome,
+                final String reason) {
             this(
-                phase, 1, System.currentTimeMillis(), monotonicNanos, thread,
-                commandedPoint, readbackPoint, outcome, reason
-            );
+                    phase,
+                    1,
+                    System.currentTimeMillis(),
+                    monotonicNanos,
+                    thread,
+                    commandedPoint,
+                    readbackPoint,
+                    outcome,
+                    reason);
         }
 
         PartPointerEvidence(
-            final String phase,
-            final int attempt,
-            final long monotonicNanos,
-            final String thread,
-            final Point commandedPoint,
-            final Point readbackPoint,
-            final String outcome,
-            final String reason
-        ) {
+                final String phase,
+                final int attempt,
+                final long monotonicNanos,
+                final String thread,
+                final Point commandedPoint,
+                final Point readbackPoint,
+                final String outcome,
+                final String reason) {
             this(
-                phase, attempt, System.currentTimeMillis(), monotonicNanos, thread,
-                commandedPoint, readbackPoint, outcome, reason
-            );
+                    phase,
+                    attempt,
+                    System.currentTimeMillis(),
+                    monotonicNanos,
+                    thread,
+                    commandedPoint,
+                    readbackPoint,
+                    outcome,
+                    reason);
         }
 
-        static PartPointerEvidence command(
-            final int attempt,
-            final long commandStartMillis,
-            final Point point
-        ) {
+        static PartPointerEvidence command(final int attempt, final long commandStartMillis, final Point point) {
             return new PartPointerEvidence(
-                "source-command", attempt, commandStartMillis, System.nanoTime(),
-                Thread.currentThread().getName(), point, null, "COMMANDED", ""
-            );
+                    "source-command",
+                    attempt,
+                    commandStartMillis,
+                    System.nanoTime(),
+                    Thread.currentThread().getName(),
+                    point,
+                    null,
+                    "COMMANDED",
+                    "");
         }
 
         static PartPointerEvidence command(final int attempt, final Point point) {
@@ -6409,19 +5950,19 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
         String json() {
             return "{\"type\":\"part-pointer\",\"phase\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(phase)
-                + "\",\"attempt\":" + attempt
-                + ",\"commandStartMillis\":" + commandStartMillis
-                + ",\"monotonicNanos\":" + monotonicNanos
-                + ",\"thread\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(thread)
-                + "\",\"commandedPoint\":" + pointJson(commandedPoint)
-                + ",\"readbackPoint\":" + pointJson(readbackPoint)
-                + ",\"outcome\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(outcome)
-                + "\",\"reason\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(reason)
-                + "\"}\n";
+                    + WindowsHistoryNativeUiIngressProbe.json(phase)
+                    + "\",\"attempt\":" + attempt
+                    + ",\"commandStartMillis\":" + commandStartMillis
+                    + ",\"monotonicNanos\":" + monotonicNanos
+                    + ",\"thread\":\""
+                    + WindowsHistoryNativeUiIngressProbe.json(thread)
+                    + "\",\"commandedPoint\":" + pointJson(commandedPoint)
+                    + ",\"readbackPoint\":" + pointJson(readbackPoint)
+                    + ",\"outcome\":\""
+                    + WindowsHistoryNativeUiIngressProbe.json(outcome)
+                    + "\",\"reason\":\""
+                    + WindowsHistoryNativeUiIngressProbe.json(reason)
+                    + "\"}\n";
         }
     }
 
@@ -6443,11 +5984,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     record PartGestureAttempt(
-        PartGestureStatus status,
-        String code,
-        PartPrePressCheck prePress,
-        List<String> evidence
-    ) {
+            PartGestureStatus status, String code, PartPrePressCheck prePress, List<String> evidence) {
         PartGestureAttempt {
             Objects.requireNonNull(status, "status");
             code = boundedText(code, MAX_PART_GESTURE_TEXT_LENGTH);
@@ -6462,31 +5999,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
     }
 
-    record PartPrePressCheck(
-        boolean ok,
-        String code,
-        PartPairLayout expected,
-        JTable currentTable,
-        JTree currentTree
-    ) {
+    record PartPrePressCheck(boolean ok, String code, PartPairLayout expected, JTable currentTable, JTree currentTree) {
         PartPrePressCheck {
             code = boundedText(code, MAX_PART_GESTURE_TEXT_LENGTH);
         }
 
         static PartPrePressCheck success(
-            final PartPairLayout expected,
-            final JTable currentTable,
-            final JTree currentTree
-        ) {
+                final PartPairLayout expected, final JTable currentTable, final JTree currentTree) {
             return new PartPrePressCheck(true, "stable-structure", expected, currentTable, currentTree);
         }
 
         static PartPrePressCheck failure(
-            final String code,
-            final PartPairLayout expected,
-            final JTable currentTable,
-            final JTree currentTree
-        ) {
+                final String code, final PartPairLayout expected, final JTable currentTable, final JTree currentTree) {
             return new PartPrePressCheck(false, code, expected, currentTable, currentTree);
         }
     }
@@ -6504,14 +6028,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private record MouseMovedAttribution(
-        Integer observedAttempt,
-        int currentAttempt,
-        PointerAttemptWindow observedWindow,
-        PointerAttemptWindow currentWindow,
-        List<PointerAttemptWindow> boundaryWindows,
-        String admission,
-        boolean firstForAttempt
-    ) {
+            Integer observedAttempt,
+            int currentAttempt,
+            PointerAttemptWindow observedWindow,
+            PointerAttemptWindow currentWindow,
+            List<PointerAttemptWindow> boundaryWindows,
+            String admission,
+            boolean firstForAttempt) {
         MouseMovedAttribution {
             if (currentAttempt < 0 || currentAttempt > MAX_PART_POINTER_ATTEMPTS) {
                 throw new IllegalArgumentException("current pointer attempt out of bounds: " + currentAttempt);
@@ -6533,8 +6056,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         private final List<PartGestureEvent> events = new ArrayList<>();
         private final List<String> evidence = new ArrayList<>();
         private final Map<Integer, PartGestureEvent> firstMouseMovedByAttempt = new LinkedHashMap<>();
-        private final Map<Integer, PointerAttemptWindow> pointerAttemptWindows =
-            new LinkedHashMap<>();
+        private final Map<Integer, PointerAttemptWindow> pointerAttemptWindows = new LinkedHashMap<>();
         private int pointerAttempt;
         private final MouseAdapter listener = new MouseAdapter() {
             @Override
@@ -6560,11 +6082,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         private boolean tableInstalled;
         private boolean treeInstalled;
 
-        PartGestureCapture(
-            final PartPairLayout layout,
-            final String intendedSourceId,
-            final String intendedTargetId
-        ) {
+        PartGestureCapture(final PartPairLayout layout, final String intendedSourceId, final String intendedTargetId) {
             this.layout = Objects.requireNonNull(layout, "layout");
             this.intendedSourceId = boundedText(intendedSourceId, MAX_PART_GESTURE_TEXT_LENGTH);
             this.intendedTargetId = boundedText(intendedTargetId, MAX_PART_GESTURE_TEXT_LENGTH);
@@ -6596,9 +6114,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     pointerAttemptWindows.put(pointerAttempt, previous.closedAt(commandStartMillis));
                 }
                 pointerAttempt = attempt;
-                pointerAttemptWindows.put(
-                    attempt, new PointerAttemptWindow(attempt, commandStartMillis, null)
-                );
+                pointerAttemptWindows.put(attempt, new PointerAttemptWindow(attempt, commandStartMillis, null));
             }
         }
 
@@ -6665,8 +6181,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 if (press == null) {
                     return new PartGestureCheck(PartGestureStatus.UNRESOLVED, "actual-press-missing");
                 }
-                if (!press.componentMatch() || !press.tableModelMatch() || !press.treeModelMatch()
-                    || !press.sourceNodeMatch() || press.row() != layout.source().row()) {
+                if (!press.componentMatch()
+                        || !press.tableModelMatch()
+                        || !press.treeModelMatch()
+                        || !press.sourceNodeMatch()
+                        || press.row() != layout.source().row()) {
                     return new PartGestureCheck(PartGestureStatus.MISMATCH, "actual-press-target-mismatch");
                 }
                 final PartGestureEvent drag = eventLocked("first-drag");
@@ -6680,8 +6199,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 if (release == null) {
                     return new PartGestureCheck(PartGestureStatus.UNRESOLVED, "release-missing");
                 }
-                if (!release.componentMatch() || !release.tableModelMatch() || !release.treeModelMatch()
-                    || !release.targetNodeMatch()) {
+                if (!release.componentMatch()
+                        || !release.tableModelMatch()
+                        || !release.treeModelMatch()
+                        || !release.targetNodeMatch()) {
                     return new PartGestureCheck(PartGestureStatus.MISMATCH, "release-target-mismatch");
                 }
                 return new PartGestureCheck(PartGestureStatus.ACCEPTED, "press-drag-release-matched");
@@ -6707,16 +6228,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 final MouseMovedAttribution attribution = mouseMovedAttribution(event.getWhen());
                 final PartGestureEvent firstMouseMoved = describe("mouse-moved", event);
                 if (attribution.observedAttempt() == null) {
-                    addEvidence(firstMouseMoved.json(
-                        layout, intendedSourceId, intendedTargetId, attribution
-                    ));
+                    addEvidence(firstMouseMoved.json(layout, intendedSourceId, intendedTargetId, attribution));
                     return;
                 }
                 if (firstMouseMovedByAttempt.containsKey(attribution.observedAttempt())) return;
                 firstMouseMovedByAttempt.put(attribution.observedAttempt(), firstMouseMoved);
-                addEvidence(firstMouseMoved.json(
-                    layout, intendedSourceId, intendedTargetId, attribution
-                ));
+                addEvidence(firstMouseMoved.json(layout, intendedSourceId, intendedTargetId, attribution));
             }
         }
 
@@ -6726,35 +6243,32 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final List<PointerAttemptWindow> boundary = new ArrayList<>();
             for (final PointerAttemptWindow window : pointerAttemptWindows.values()) {
                 final boolean atStart = eventWhenMillis == window.startMillis();
-                final boolean atEnd = window.endMillis() != null
-                    && eventWhenMillis == window.endMillis();
+                final boolean atEnd = window.endMillis() != null && eventWhenMillis == window.endMillis();
                 if (atStart || atEnd) boundary.add(window);
                 if (eventWhenMillis > window.startMillis()
-                    && (window.endMillis() == null || eventWhenMillis < window.endMillis())) {
+                        && (window.endMillis() == null || eventWhenMillis < window.endMillis())) {
                     containing.add(window);
                 }
             }
             if (!boundary.isEmpty() || containing.size() != 1) {
                 return new MouseMovedAttribution(
-                    null,
-                    pointerAttempt,
-                    null,
-                    currentWindow,
-                    boundary,
-                    boundary.isEmpty() ? "outside-attempt-window" : "window-boundary-uncertain",
-                    false
-                );
+                        null,
+                        pointerAttempt,
+                        null,
+                        currentWindow,
+                        boundary,
+                        boundary.isEmpty() ? "outside-attempt-window" : "window-boundary-uncertain",
+                        false);
             }
             final PointerAttemptWindow observedWindow = containing.get(0);
             return new MouseMovedAttribution(
-                observedWindow.attempt(),
-                pointerAttempt,
-                observedWindow,
-                currentWindow,
-                List.of(),
-                "within-attempt-window",
-                true
-            );
+                    observedWindow.attempt(),
+                    pointerAttempt,
+                    observedWindow,
+                    currentWindow,
+                    List.of(),
+                    "within-attempt-window",
+                    true);
         }
 
         private void record(final String phase, final MouseEvent event) {
@@ -6769,9 +6283,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
         private PartGestureEvent eventLocked(final String phase) {
             return events.stream()
-                .filter(value -> phase.equals(value.phase()))
-                .findFirst()
-                .orElse(null);
+                    .filter(value -> phase.equals(value.phase()))
+                    .findFirst()
+                    .orElse(null);
         }
 
         private PartGestureEvent describe(final String phase, final MouseEvent event) {
@@ -6794,40 +6308,42 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final Object node = path == null ? null : path.getLastPathComponent();
             Rectangle cell = new Rectangle();
             Rectangle viewport = new Rectangle();
-            if (table != null && row >= 0 && column >= 0
-                && row < table.getRowCount() && column < table.getColumnCount()) {
+            if (table != null
+                    && row >= 0
+                    && column >= 0
+                    && row < table.getRowCount()
+                    && column < table.getColumnCount()) {
                 cell = table.getCellRect(row, column, true);
                 viewport = table.getVisibleRect();
             }
             final Object sourceModel = source instanceof JTable sourceTable
-                ? sourceTable.getModel()
-                : source instanceof JTree sourceTree ? sourceTree.getModel() : null;
-            final boolean tableModelMatch = source instanceof JTable sourceTable
-                && sourceTable.getModel() == layout.tableModel();
+                    ? sourceTable.getModel()
+                    : source instanceof JTree sourceTree ? sourceTree.getModel() : null;
+            final boolean tableModelMatch =
+                    source instanceof JTable sourceTable && sourceTable.getModel() == layout.tableModel();
             final boolean treeModelMatch = layout.treeModel() != null
-                && layout.tree() != null
-                && layout.tree().getModel() == layout.treeModel();
+                    && layout.tree() != null
+                    && layout.tree().getModel() == layout.treeModel();
             return new PartGestureEvent(
-                phase,
-                SwingUtilities.isEventDispatchThread(),
-                Thread.currentThread().getName(),
-                source,
-                sourceModel,
-                event.getWhen(),
-                row,
-                column,
-                path,
-                node,
-                local,
-                new Point(event.getXOnScreen(), event.getYOnScreen()),
-                cell,
-                viewport,
-                source == table,
-                tableModelMatch,
-                treeModelMatch,
-                node == layout.source().node(),
-                node == layout.target().node()
-            );
+                    phase,
+                    SwingUtilities.isEventDispatchThread(),
+                    Thread.currentThread().getName(),
+                    source,
+                    sourceModel,
+                    event.getWhen(),
+                    row,
+                    column,
+                    path,
+                    node,
+                    local,
+                    new Point(event.getXOnScreen(), event.getYOnScreen()),
+                    cell,
+                    viewport,
+                    source == table,
+                    tableModelMatch,
+                    treeModelMatch,
+                    node == layout.source().node(),
+                    node == layout.target().node());
         }
 
         private void addEvidence(final String line) {
@@ -6838,26 +6354,25 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     record PartGestureEvent(
-        String phase,
-        boolean edt,
-        String thread,
-        Component source,
-        Object sourceModel,
-        long eventWhenMillis,
-        int row,
-        int column,
-        TreePath path,
-        Object node,
-        Point local,
-        Point screen,
-        Rectangle cell,
-        Rectangle viewport,
-        boolean componentMatch,
-        boolean tableModelMatch,
-        boolean treeModelMatch,
-        boolean sourceNodeMatch,
-        boolean targetNodeMatch
-    ) {
+            String phase,
+            boolean edt,
+            String thread,
+            Component source,
+            Object sourceModel,
+            long eventWhenMillis,
+            int row,
+            int column,
+            TreePath path,
+            Object node,
+            Point local,
+            Point screen,
+            Rectangle cell,
+            Rectangle viewport,
+            boolean componentMatch,
+            boolean tableModelMatch,
+            boolean treeModelMatch,
+            boolean sourceNodeMatch,
+            boolean targetNodeMatch) {
         PartGestureEvent {
             phase = boundedText(phase, MAX_PART_GESTURE_TEXT_LENGTH);
             thread = boundedText(thread, MAX_PART_GESTURE_TEXT_LENGTH);
@@ -6867,166 +6382,148 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             viewport = viewport == null ? new Rectangle() : new Rectangle(viewport);
         }
 
-        String json(
-            final PartPairLayout layout,
-            final String intendedSourceId,
-            final String intendedTargetId
-        ) {
+        String json(final PartPairLayout layout, final String intendedSourceId, final String intendedTargetId) {
             return jsonWithFields(layout, intendedSourceId, intendedTargetId, "", null);
         }
 
         String json(
-            final PartPairLayout layout,
-            final String intendedSourceId,
-            final String intendedTargetId,
-            final int attempt
-        ) {
+                final PartPairLayout layout,
+                final String intendedSourceId,
+                final String intendedTargetId,
+                final int attempt) {
             if (attempt < 1 || attempt > MAX_PART_POINTER_ATTEMPTS) {
                 throw new IllegalArgumentException("pointer attempt out of bounds: " + attempt);
             }
-            return jsonWithFields(
-                layout, intendedSourceId, intendedTargetId, ",\"attempt\":" + attempt, null
-            );
+            return jsonWithFields(layout, intendedSourceId, intendedTargetId, ",\"attempt\":" + attempt, null);
         }
 
         String json(
-            final PartPairLayout layout,
-            final String intendedSourceId,
-            final String intendedTargetId,
-            final MouseMovedAttribution attribution
-        ) {
+                final PartPairLayout layout,
+                final String intendedSourceId,
+                final String intendedTargetId,
+                final MouseMovedAttribution attribution) {
             Objects.requireNonNull(attribution, "attribution");
             final Integer observedAttempt = attribution.observedAttempt();
-            final String attemptField = observedAttempt == null
-                ? ""
-                : ",\"attempt\":" + observedAttempt;
-            return jsonWithFields(
-                layout, intendedSourceId, intendedTargetId, attemptField, attribution
-            );
+            final String attemptField = observedAttempt == null ? "" : ",\"attempt\":" + observedAttempt;
+            return jsonWithFields(layout, intendedSourceId, intendedTargetId, attemptField, attribution);
         }
 
         private String jsonWithFields(
-            final PartPairLayout layout,
-            final String intendedSourceId,
-            final String intendedTargetId,
-            final String attemptField,
-            final MouseMovedAttribution attribution
-        ) {
+                final PartPairLayout layout,
+                final String intendedSourceId,
+                final String intendedTargetId,
+                final String attemptField,
+                final MouseMovedAttribution attribution) {
             final JTree tree = layout.tree();
             return "{\"type\":\"part-gesture\",\"phase\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(phase)
-                + "\"" + attemptField
-                + ",\"threadEDT\":" + edt
-                + ",\"thread\":\"" + WindowsHistoryNativeUiIngressProbe.json(thread)
-                + "\",\"eventSource\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(source == null ? "" : source.getClass().getName())
-                + "\",\"eventSourceIdentityHash\":" + identityHash(source)
-                + ",\"eventSourceModelIdentityHash\":" + identityHash(sourceModel)
-                + ",\"tableIdentityHash\":" + identityHash(layout.table())
-                + ",\"treeIdentityHash\":" + identityHash(layout.tree())
-                + ",\"tableModelIdentityHash\":" + identityHash(layout.tableModel())
-                + ",\"treeModelIdentityHash\":" + identityHash(layout.treeModel())
-                + ",\"intendedSourceId\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(intendedSourceId)
-                + "\",\"intendedTargetId\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(intendedTargetId)
-                + "\",\"row\":" + row
-                + ",\"column\":" + column
-                + ",\"pathLabel\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(treePathLabel(tree, path))
-                + "\",\"lastNodeLabel\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(treeLabel(tree, node))
-                + "\",\"lastNodeIdentityHash\":" + identityHash(node)
-                + ",\"componentMatch\":" + componentMatch
-                + ",\"tableModelMatch\":" + tableModelMatch
-                + ",\"treeModelMatch\":" + treeModelMatch
-                + ",\"sourceNodeObjectMatch\":" + sourceNodeMatch
-                + ",\"targetNodeObjectMatch\":" + targetNodeMatch
-                + ",\"local\":" + pointJson(local)
-                + ",\"screen\":" + pointJson(screen)
-                + ",\"cell\":" + rectangleJson(cell)
-                + ",\"viewport\":" + rectangleJson(viewport)
-                + ",\"eventWhenMillis\":" + eventWhenMillis
-                + motionEvidenceJson(attribution)
-                + "}\n";
+                    + WindowsHistoryNativeUiIngressProbe.json(phase)
+                    + "\"" + attemptField
+                    + ",\"threadEDT\":" + edt
+                    + ",\"thread\":\"" + WindowsHistoryNativeUiIngressProbe.json(thread)
+                    + "\",\"eventSource\":\""
+                    + WindowsHistoryNativeUiIngressProbe.json(
+                            source == null ? "" : source.getClass().getName())
+                    + "\",\"eventSourceIdentityHash\":" + identityHash(source)
+                    + ",\"eventSourceModelIdentityHash\":" + identityHash(sourceModel)
+                    + ",\"tableIdentityHash\":" + identityHash(layout.table())
+                    + ",\"treeIdentityHash\":" + identityHash(layout.tree())
+                    + ",\"tableModelIdentityHash\":" + identityHash(layout.tableModel())
+                    + ",\"treeModelIdentityHash\":" + identityHash(layout.treeModel())
+                    + ",\"intendedSourceId\":\""
+                    + WindowsHistoryNativeUiIngressProbe.json(intendedSourceId)
+                    + "\",\"intendedTargetId\":\""
+                    + WindowsHistoryNativeUiIngressProbe.json(intendedTargetId)
+                    + "\",\"row\":" + row
+                    + ",\"column\":" + column
+                    + ",\"pathLabel\":\""
+                    + WindowsHistoryNativeUiIngressProbe.json(treePathLabel(tree, path))
+                    + "\",\"lastNodeLabel\":\""
+                    + WindowsHistoryNativeUiIngressProbe.json(treeLabel(tree, node))
+                    + "\",\"lastNodeIdentityHash\":" + identityHash(node)
+                    + ",\"componentMatch\":" + componentMatch
+                    + ",\"tableModelMatch\":" + tableModelMatch
+                    + ",\"treeModelMatch\":" + treeModelMatch
+                    + ",\"sourceNodeObjectMatch\":" + sourceNodeMatch
+                    + ",\"targetNodeObjectMatch\":" + targetNodeMatch
+                    + ",\"local\":" + pointJson(local)
+                    + ",\"screen\":" + pointJson(screen)
+                    + ",\"cell\":" + rectangleJson(cell)
+                    + ",\"viewport\":" + rectangleJson(viewport)
+                    + ",\"eventWhenMillis\":" + eventWhenMillis
+                    + motionEvidenceJson(attribution)
+                    + "}\n";
         }
 
         private String motionEvidenceJson(final MouseMovedAttribution attribution) {
             if (attribution == null) return "";
             final Integer observedAttempt = attribution.observedAttempt();
             return ",\"observedAttempt\":"
-                + (observedAttempt == null ? "null" : observedAttempt)
-                + ",\"currentAttempt\":" + attribution.currentAttempt()
-                + ",\"observedAttemptWindow\":"
-                + pointerAttemptWindowJson(attribution.observedWindow())
-                + ",\"currentAttemptWindow\":"
-                + pointerAttemptWindowJson(attribution.currentWindow())
-                + ",\"boundaryAttemptWindows\":"
-                + pointerAttemptWindowsJson(attribution.boundaryWindows())
-                + ",\"motionAdmission\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(attribution.admission())
-                + "\",\"firstForAttempt\":" + attribution.firstForAttempt()
-                + ",\"correlation\":\"callback-window-only\"";
+                    + (observedAttempt == null ? "null" : observedAttempt)
+                    + ",\"currentAttempt\":" + attribution.currentAttempt()
+                    + ",\"observedAttemptWindow\":"
+                    + pointerAttemptWindowJson(attribution.observedWindow())
+                    + ",\"currentAttemptWindow\":"
+                    + pointerAttemptWindowJson(attribution.currentWindow())
+                    + ",\"boundaryAttemptWindows\":"
+                    + pointerAttemptWindowsJson(attribution.boundaryWindows())
+                    + ",\"motionAdmission\":\""
+                    + WindowsHistoryNativeUiIngressProbe.json(attribution.admission())
+                    + "\",\"firstForAttempt\":" + attribution.firstForAttempt()
+                    + ",\"correlation\":\"callback-window-only\"";
         }
     }
 
     private static String layoutJson(
-        final PartPairLayout layout,
-        final String intendedSourceId,
-        final String intendedTargetId
-    ) {
+            final PartPairLayout layout, final String intendedSourceId, final String intendedTargetId) {
         return "{\"type\":\"part-gesture\",\"phase\":\"layout\",\"threadEDT\":"
-            + SwingUtilities.isEventDispatchThread()
-            + ",\"thread\":\"" + json(Thread.currentThread().getName())
-            + "\",\"tableIdentityHash\":" + identityHash(layout.table())
-            + ",\"treeIdentityHash\":" + identityHash(layout.tree())
-            + ",\"tableModelIdentityHash\":" + identityHash(layout.tableModel())
-            + ",\"treeModelIdentityHash\":" + identityHash(layout.treeModel())
-            + ",\"tableShowing\":" + layout.tableShowing()
-            + ",\"intendedSourceId\":\"" + json(intendedSourceId)
-            + "\",\"intendedTargetId\":\"" + json(intendedTargetId)
-            + "\",\"surface\":" + partSurfaceJson(layout.table())
-            + ",\"source\":" + rowJson(layout.source(), layout.tree())
-            + ",\"target\":" + rowJson(layout.target(), layout.tree())
-            + "}\n";
+                + SwingUtilities.isEventDispatchThread()
+                + ",\"thread\":\"" + json(Thread.currentThread().getName())
+                + "\",\"tableIdentityHash\":" + identityHash(layout.table())
+                + ",\"treeIdentityHash\":" + identityHash(layout.tree())
+                + ",\"tableModelIdentityHash\":" + identityHash(layout.tableModel())
+                + ",\"treeModelIdentityHash\":" + identityHash(layout.treeModel())
+                + ",\"tableShowing\":" + layout.tableShowing()
+                + ",\"intendedSourceId\":\"" + json(intendedSourceId)
+                + "\",\"intendedTargetId\":\"" + json(intendedTargetId)
+                + "\",\"surface\":" + partSurfaceJson(layout.table())
+                + ",\"source\":" + rowJson(layout.source(), layout.tree())
+                + ",\"target\":" + rowJson(layout.target(), layout.tree())
+                + "}\n";
     }
 
     private static String prePressJson(
-        final PartPrePressCheck check,
-        final String intendedSourceId,
-        final String intendedTargetId
-    ) {
+            final PartPrePressCheck check, final String intendedSourceId, final String intendedTargetId) {
         final PartPairLayout layout = check == null ? null : check.expected();
         final JTable currentTable = check == null ? null : check.currentTable();
         final JTree currentTree = check == null ? null : check.currentTree();
         return "{\"type\":\"part-gesture\",\"phase\":\"pre-press\",\"threadEDT\":"
-            + SwingUtilities.isEventDispatchThread()
-            + ",\"thread\":\"" + json(Thread.currentThread().getName())
-            + "\",\"ok\":" + (check != null && check.ok())
-            + ",\"code\":\"" + json(check == null ? "missing-check" : check.code())
-            + "\",\"intendedSourceId\":\"" + json(intendedSourceId)
-            + "\",\"intendedTargetId\":\"" + json(intendedTargetId)
-            + "\",\"expectedTableIdentityHash\":" + identityHash(layout == null ? null : layout.table())
-            + ",\"expectedTreeIdentityHash\":" + identityHash(layout == null ? null : layout.tree())
-            + ",\"expectedTableModelIdentityHash\":"
-            + identityHash(layout == null ? null : layout.tableModel())
-            + ",\"expectedTreeModelIdentityHash\":"
-            + identityHash(layout == null ? null : layout.treeModel())
-            + ",\"expectedTableShowing\":"
-            + (layout != null && layout.table() != null && layout.tableShowing())
-            + ",\"currentTableIdentityHash\":" + identityHash(currentTable)
-            + ",\"currentTreeIdentityHash\":" + identityHash(currentTree)
-            + ",\"currentTableModelIdentityHash\":"
-            + identityHash(currentTable == null ? null : currentTable.getModel())
-            + ",\"currentTreeModelIdentityHash\":"
-            + identityHash(currentTree == null ? null : currentTree.getModel())
-            + ",\"currentTableShowing\":"
-            + (currentTable != null && currentTable.isShowing())
-            + ",\"source\":" + rowJson(layout == null ? null : layout.source(),
-                layout == null ? null : layout.tree())
-            + ",\"target\":" + rowJson(layout == null ? null : layout.target(),
-                layout == null ? null : layout.tree())
-            + "}\n";
+                + SwingUtilities.isEventDispatchThread()
+                + ",\"thread\":\"" + json(Thread.currentThread().getName())
+                + "\",\"ok\":" + (check != null && check.ok())
+                + ",\"code\":\"" + json(check == null ? "missing-check" : check.code())
+                + "\",\"intendedSourceId\":\"" + json(intendedSourceId)
+                + "\",\"intendedTargetId\":\"" + json(intendedTargetId)
+                + "\",\"expectedTableIdentityHash\":" + identityHash(layout == null ? null : layout.table())
+                + ",\"expectedTreeIdentityHash\":" + identityHash(layout == null ? null : layout.tree())
+                + ",\"expectedTableModelIdentityHash\":"
+                + identityHash(layout == null ? null : layout.tableModel())
+                + ",\"expectedTreeModelIdentityHash\":"
+                + identityHash(layout == null ? null : layout.treeModel())
+                + ",\"expectedTableShowing\":"
+                + (layout != null && layout.table() != null && layout.tableShowing())
+                + ",\"currentTableIdentityHash\":" + identityHash(currentTable)
+                + ",\"currentTreeIdentityHash\":" + identityHash(currentTree)
+                + ",\"currentTableModelIdentityHash\":"
+                + identityHash(currentTable == null ? null : currentTable.getModel())
+                + ",\"currentTreeModelIdentityHash\":"
+                + identityHash(currentTree == null ? null : currentTree.getModel())
+                + ",\"currentTableShowing\":"
+                + (currentTable != null && currentTable.isShowing())
+                + ",\"source\":"
+                + rowJson(layout == null ? null : layout.source(), layout == null ? null : layout.tree())
+                + ",\"target\":"
+                + rowJson(layout == null ? null : layout.target(), layout == null ? null : layout.tree())
+                + "}\n";
     }
 
     private static String partSurfaceJson(final JTable table) {
@@ -7079,52 +6576,50 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 // Keep an explicit null when graphics bounds are unavailable.
             }
             try {
-                defaultTransform = new AffineTransform(
-                    graphicsConfiguration.getDefaultTransform()
-                );
+                defaultTransform = new AffineTransform(graphicsConfiguration.getDefaultTransform());
             } catch (RuntimeException ignored) {
                 // Keep an explicit null when the device transform is unavailable.
             }
         }
         return "{\"tableLocationOnScreen\":" + pointJson(tableLocation)
-            + ",\"windowBounds\":" + rectangleJson(windowBounds)
-            + ",\"windowInsets\":" + insetsJson(windowInsets)
-            + ",\"graphicsConfigurationBounds\":" + rectangleJson(graphicsBounds)
-            + ",\"graphicsConfigurationDefaultTransform\":"
-            + transformJson(defaultTransform)
-            + "}";
+                + ",\"windowBounds\":" + rectangleJson(windowBounds)
+                + ",\"windowInsets\":" + insetsJson(windowInsets)
+                + ",\"graphicsConfigurationBounds\":" + rectangleJson(graphicsBounds)
+                + ",\"graphicsConfigurationDefaultTransform\":"
+                + transformJson(defaultTransform)
+                + "}";
     }
 
     private static String insetsJson(final Insets insets) {
         if (insets == null) return "null";
         return "{\"top\":" + insets.top
-            + ",\"left\":" + insets.left
-            + ",\"bottom\":" + insets.bottom
-            + ",\"right\":" + insets.right + "}";
+                + ",\"left\":" + insets.left
+                + ",\"bottom\":" + insets.bottom
+                + ",\"right\":" + insets.right + "}";
     }
 
     private static String transformJson(final AffineTransform transform) {
         if (transform == null) return "null";
         return "{\"scaleX\":" + transform.getScaleX()
-            + ",\"scaleY\":" + transform.getScaleY()
-            + ",\"shearX\":" + transform.getShearX()
-            + ",\"shearY\":" + transform.getShearY()
-            + ",\"translateX\":" + transform.getTranslateX()
-            + ",\"translateY\":" + transform.getTranslateY() + "}";
+                + ",\"scaleY\":" + transform.getScaleY()
+                + ",\"shearX\":" + transform.getShearX()
+                + ",\"shearY\":" + transform.getShearY()
+                + ",\"translateX\":" + transform.getTranslateX()
+                + ",\"translateY\":" + transform.getTranslateY() + "}";
     }
 
     private static String rowJson(final PartRowLocation row, final JTree tree) {
         if (row == null) return "null";
         return "{\"row\":" + row.row()
-            + ",\"column\":" + row.column()
-            + ",\"pathLabel\":\"" + json(treePathLabel(tree, row.path()))
-            + "\",\"lastNodeLabel\":\"" + json(row.label())
-            + "\",\"lastNodeIdentityHash\":" + identityHash(row.node())
-            + ",\"local\":" + pointJson(row.localPoint())
-            + ",\"screen\":" + pointJson(row.screenPoint())
-            + ",\"cell\":" + rectangleJson(row.cell())
-            + ",\"viewport\":" + rectangleJson(row.viewport())
-            + "}";
+                + ",\"column\":" + row.column()
+                + ",\"pathLabel\":\"" + json(treePathLabel(tree, row.path()))
+                + "\",\"lastNodeLabel\":\"" + json(row.label())
+                + "\",\"lastNodeIdentityHash\":" + identityHash(row.node())
+                + ",\"local\":" + pointJson(row.localPoint())
+                + ",\"screen\":" + pointJson(row.screenPoint())
+                + ",\"cell\":" + rectangleJson(row.cell())
+                + ",\"viewport\":" + rectangleJson(row.viewport())
+                + "}";
     }
 
     private static String pointJson(final Point point) {
@@ -7134,15 +6629,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static String pointerAttemptWindowJson(final PointerAttemptWindow window) {
         if (window == null) return "null";
         return "{\"attempt\":" + window.attempt()
-            + ",\"startMillis\":" + window.startMillis()
-            + ",\"endMillis\":"
-            + (window.endMillis() == null ? "null" : window.endMillis())
-            + "}";
+                + ",\"startMillis\":" + window.startMillis()
+                + ",\"endMillis\":"
+                + (window.endMillis() == null ? "null" : window.endMillis())
+                + "}";
     }
 
-    private static String pointerAttemptWindowsJson(
-        final List<PointerAttemptWindow> windows
-    ) {
+    private static String pointerAttemptWindowsJson(final List<PointerAttemptWindow> windows) {
         if (windows == null || windows.isEmpty()) return "[]";
         final StringBuilder json = new StringBuilder("[");
         for (int index = 0; index < windows.size(); index++) {
@@ -7154,8 +6647,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private static String rectangleJson(final Rectangle rectangle) {
         if (rectangle == null) return "null";
-        return "{\"x\":" + rectangle.x + ",\"y\":" + rectangle.y
-            + ",\"width\":" + rectangle.width + ",\"height\":" + rectangle.height + "}";
+        return "{\"x\":" + rectangle.x + ",\"y\":" + rectangle.y + ",\"width\":" + rectangle.width + ",\"height\":"
+                + rectangle.height + "}";
     }
 
     private static int identityHash(final Object value) {
@@ -7163,12 +6656,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     /** Immutable read-only Part facts used by the Parts actor. */
-    record ActorPart(
-        String id,
-        String name,
-        Optional<String> parentId,
-        List<String> childIds
-    ) {
+    record ActorPart(String id, String name, Optional<String> parentId, List<String> childIds) {
         ActorPart {
             Objects.requireNonNull(id, "id");
             parentId = parentId == null ? Optional.empty() : parentId;
@@ -7210,23 +6698,19 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         RETRY
     }
 
-    record PartDragSettlement(
-        PartDragSettlementStatus status,
-        PartDragCheck lastCheck
-    ) {
+    record PartDragSettlement(PartDragSettlementStatus status, PartDragCheck lastCheck) {
         PartDragSettlement {
             Objects.requireNonNull(status, "status");
         }
     }
 
     record PartDragCheck(
-        PartDragStatus status,
-        String code,
-        String sourceId,
-        String targetId,
-        Optional<String> parentBefore,
-        Optional<String> parentAfter
-    ) {
+            PartDragStatus status,
+            String code,
+            String sourceId,
+            String targetId,
+            Optional<String> parentBefore,
+            Optional<String> parentAfter) {
         PartDragCheck {
             Objects.requireNonNull(status, "status");
             Objects.requireNonNull(code, "code");
@@ -7236,10 +6720,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
         String evidence() {
             return "code=" + code
-                + ":sourceId=" + sourceId
-                + ":targetId=" + targetId
-                + ":parentBefore=" + parentText(parentBefore)
-                + ":parentAfter=" + parentText(parentAfter);
+                    + ":sourceId=" + sourceId
+                    + ":targetId=" + targetId
+                    + ":parentBefore=" + parentText(parentBefore)
+                    + ":parentAfter=" + parentText(parentAfter);
         }
     }
 
@@ -7289,44 +6773,36 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
         String json(final String step) {
             return "{\"type\":\"part-actor-outcome\",\"step\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(step)
-                + "\",\"outcome\":\"" + WindowsHistoryNativeUiIngressProbe.json(outcome.name())
-                + "\",\"code\":\"" + WindowsHistoryNativeUiIngressProbe.json(code)
-                + "\",\"accepted\":" + accepted()
-                + ",\"evidence\":\"" + WindowsHistoryNativeUiIngressProbe.json(evidence)
-                + "\"}\n";
+                    + WindowsHistoryNativeUiIngressProbe.json(step)
+                    + "\",\"outcome\":\"" + WindowsHistoryNativeUiIngressProbe.json(outcome.name())
+                    + "\",\"code\":\"" + WindowsHistoryNativeUiIngressProbe.json(code)
+                    + "\",\"accepted\":" + accepted()
+                    + ",\"evidence\":\"" + WindowsHistoryNativeUiIngressProbe.json(evidence)
+                    + "\"}\n";
         }
     }
 
     record PartGesturePreparation(
-        PartModelSnapshot model,
-        PartPairLayout layout,
-        String significantSequence,
-        String reason
-    ) {
+            PartModelSnapshot model, PartPairLayout layout, String significantSequence, String reason) {
         boolean ready() {
             return layout != null && reason != null && reason.isBlank();
         }
 
-        static PartGesturePreparation unavailable(
-            final PartModelSnapshot model,
-            final String reason
-        ) {
+        static PartGesturePreparation unavailable(final PartModelSnapshot model, final String reason) {
             return new PartGesturePreparation(model, null, null, reason);
         }
     }
 
     record PartRowLocation(
-        TreePath path,
-        Object node,
-        String label,
-        int row,
-        int column,
-        Rectangle cell,
-        Rectangle viewport,
-        Point localPoint,
-        Point screenPoint
-    ) {
+            TreePath path,
+            Object node,
+            String label,
+            int row,
+            int column,
+            Rectangle cell,
+            Rectangle viewport,
+            Point localPoint,
+            Point screenPoint) {
         PartRowLocation {
             Objects.requireNonNull(path, "path");
             Objects.requireNonNull(node, "node");
@@ -7338,25 +6814,23 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
 
         PartRowLocation(
-            final TreePath path,
-            final int row,
-            final int column,
-            final Rectangle cell,
-            final Rectangle viewport,
-            final Point localPoint,
-            final Point screenPoint
-        ) {
+                final TreePath path,
+                final int row,
+                final int column,
+                final Rectangle cell,
+                final Rectangle viewport,
+                final Point localPoint,
+                final Point screenPoint) {
             this(
-                path,
-                path == null ? null : path.getLastPathComponent(),
-                path == null ? "" : String.valueOf(path.getLastPathComponent()),
-                row,
-                column,
-                cell,
-                viewport,
-                localPoint,
-                screenPoint
-            );
+                    path,
+                    path == null ? null : path.getLastPathComponent(),
+                    path == null ? "" : String.valueOf(path.getLastPathComponent()),
+                    row,
+                    column,
+                    cell,
+                    viewport,
+                    localPoint,
+                    screenPoint);
         }
 
         PartRowLocation withScreenPoint(final Point point) {
@@ -7365,14 +6839,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     record PartPairLayout(
-        JTable table,
-        JTree tree,
-        TableModel tableModel,
-        TreeModel treeModel,
-        PartRowLocation source,
-        PartRowLocation target,
-        boolean tableShowing
-    ) {
+            JTable table,
+            JTree tree,
+            TableModel tableModel,
+            TreeModel treeModel,
+            PartRowLocation source,
+            PartRowLocation target,
+            boolean tableShowing) {
         PartPairLayout {
             Objects.requireNonNull(source, "source");
             Objects.requireNonNull(target, "target");
@@ -7384,38 +6857,28 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
         PartPairLayout withScreenPoints(final JTable table) {
             return new PartPairLayout(
-                this.table,
-                this.tree,
-                this.tableModel,
-                this.treeModel,
-                source.withScreenPoint(toScreenPoint(table, source.localPoint())),
-                target.withScreenPoint(toScreenPoint(table, target.localPoint())),
-                tableShowing
-            );
+                    this.table,
+                    this.tree,
+                    this.tableModel,
+                    this.treeModel,
+                    source.withScreenPoint(toScreenPoint(table, source.localPoint())),
+                    target.withScreenPoint(toScreenPoint(table, target.localPoint())),
+                    tableShowing);
         }
     }
 
-    private static Point toScreenPoint(
-        final JTable table,
-        final Point local
-    ) {
+    private static Point toScreenPoint(final JTable table, final Point local) {
         final java.awt.Point screen = new java.awt.Point(local);
         SwingUtilities.convertPointToScreen(screen, table);
         return screen;
     }
 
     /** One operator instruction and the kind of native outcome it must produce. */
-    record Step(String id, String kind, String instruction) {
-    }
+    record Step(String id, String kind, String instruction) {}
 
-    private record ConfirmationPair(Observed on, Observed after) {
-    }
+    private record ConfirmationPair(Observed on, Observed after) {}
 
-    private record ConfirmationCheck(
-        boolean valid,
-        String code,
-        List<ConfirmationPair> pairs
-    ) {
+    private record ConfirmationCheck(boolean valid, String code, List<ConfirmationPair> pairs) {
         private static ConfirmationCheck invalid(final String code) {
             return new ConfirmationCheck(false, code, List.of());
         }
@@ -7423,25 +6886,24 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /** One semantic event as the probe saw it. */
     record Observed(
-        String phase,
-        long sequence,
-        String operation,
-        String origin,
-        String subjectId,
-        String label,
-        String thread,
-        String observedAt
-    ) {
+            String phase,
+            long sequence,
+            String operation,
+            String origin,
+            String subjectId,
+            String label,
+            String thread,
+            String observedAt) {
         String json(final String step) {
             return "{\"type\":\"semantic-event\",\"step\":\"" + WindowsHistoryNativeUiIngressProbe.json(step)
-                + "\",\"phase\":\"" + WindowsHistoryNativeUiIngressProbe.json(phase)
-                + "\",\"sequence\":" + sequence
-                + ",\"operation\":\"" + WindowsHistoryNativeUiIngressProbe.json(operation)
-                + "\",\"origin\":\"" + WindowsHistoryNativeUiIngressProbe.json(origin)
-                + "\",\"subjectId\":\"" + WindowsHistoryNativeUiIngressProbe.json(subjectId)
-                + "\",\"label\":\"" + WindowsHistoryNativeUiIngressProbe.json(label)
-                + "\",\"thread\":\"" + WindowsHistoryNativeUiIngressProbe.json(thread)
-                + "\",\"observedAt\":\"" + WindowsHistoryNativeUiIngressProbe.json(observedAt) + "\"}\n";
+                    + "\",\"phase\":\"" + WindowsHistoryNativeUiIngressProbe.json(phase)
+                    + "\",\"sequence\":" + sequence
+                    + ",\"operation\":\"" + WindowsHistoryNativeUiIngressProbe.json(operation)
+                    + "\",\"origin\":\"" + WindowsHistoryNativeUiIngressProbe.json(origin)
+                    + "\",\"subjectId\":\"" + WindowsHistoryNativeUiIngressProbe.json(subjectId)
+                    + "\",\"label\":\"" + WindowsHistoryNativeUiIngressProbe.json(label)
+                    + "\",\"thread\":\"" + WindowsHistoryNativeUiIngressProbe.json(thread)
+                    + "\",\"observedAt\":\"" + WindowsHistoryNativeUiIngressProbe.json(observedAt) + "\"}\n";
         }
     }
 
@@ -7449,8 +6911,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     record Verdict(boolean ok, String code, String detail) {
         String json(final String step) {
             return "{\"type\":\"check\",\"check\":\""
-                + WindowsHistoryNativeUiIngressProbe.json(step + "-" + code) + "\",\"ok\":" + ok
-                + ",\"detail\":\"" + WindowsHistoryNativeUiIngressProbe.json(detail) + "\"}\n";
+                    + WindowsHistoryNativeUiIngressProbe.json(step + "-" + code) + "\",\"ok\":" + ok
+                    + ",\"detail\":\"" + WindowsHistoryNativeUiIngressProbe.json(detail) + "\"}\n";
         }
     }
 }

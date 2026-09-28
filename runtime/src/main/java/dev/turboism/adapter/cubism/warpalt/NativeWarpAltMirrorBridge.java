@@ -28,35 +28,31 @@ import java.util.function.Consumer;
  * a diagnostic; it must never reach the host call site.</p>
  */
 public final class NativeWarpAltMirrorBridge {
-    private static final String WARP_BINDER_CLASS =
-        "com.live2d.cubism.view.context.temporaryHandler.warp.WarpBinder";
+    private static final String WARP_BINDER_CLASS = "com.live2d.cubism.view.context.temporaryHandler.warp.WarpBinder";
 
     private static final AtomicReference<Binding> INSTALLED = new AtomicReference<>();
     /** Armed mirror axis published by the plugin: 0=off, 1=vertical, 2=horizontal. */
     private static final java.util.concurrent.atomic.AtomicInteger ARMED_AXIS =
-        new java.util.concurrent.atomic.AtomicInteger(0);
-
+            new java.util.concurrent.atomic.AtomicInteger(0);
 
     /**
      * The reviewed warp binder type. Package-private mutable only so tests can point
      * the recognition at stub classes; production never changes it.
      */
-    private static final AtomicReference<String> BINDER_CLASS_NAME =
-        new AtomicReference<>(WARP_BINDER_CLASS);
+    private static final AtomicReference<String> BINDER_CLASS_NAME = new AtomicReference<>(WARP_BINDER_CLASS);
+
     private static final AtomicBoolean MOVE_APPLIED_REPORTED = new AtomicBoolean();
     private static final AtomicBoolean GREEN_APPLIED_REPORTED = new AtomicBoolean();
     private static final AtomicLong LAST_THROTTLE = new AtomicLong();
     private static final java.util.Set<String> REPORTED_SKIPS =
-        java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
-    private static final Consumer<String> DEFAULT_DIAGNOSTIC = ignored -> { };
-    private static final AtomicReference<Consumer<String>> DIAGNOSTIC =
-        new AtomicReference<>(DEFAULT_DIAGNOSTIC);
-    private static final RuntimeWarpAltMirrorParticipation PARTICIPATION =
-        new RuntimeWarpAltMirrorParticipation();
+            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+    private static final Consumer<String> DEFAULT_DIAGNOSTIC = ignored -> {};
+    private static final AtomicReference<Consumer<String>> DIAGNOSTIC = new AtomicReference<>(DEFAULT_DIAGNOSTIC);
+    private static final RuntimeWarpAltMirrorParticipation PARTICIPATION = new RuntimeWarpAltMirrorParticipation();
 
-    private record Binding(boolean enabled) { }
+    private record Binding(boolean enabled) {}
 
-    private NativeWarpAltMirrorBridge() { }
+    private NativeWarpAltMirrorBridge() {}
 
     /** Routes bridge markers into the installer log; resets to a no-op on uninstall. */
     public static void diagnostics(final Consumer<String> sink) {
@@ -135,7 +131,8 @@ public final class NativeWarpAltMirrorBridge {
             final long now = System.currentTimeMillis();
             if (now - LAST_THROTTLE.get() >= 1_000L) {
                 LAST_THROTTLE.set(now);
-                diagnostic("POINT_MOVE_CALL ref=" + (ref == null ? "null" : ref.getClass().getName()));
+                diagnostic("POINT_MOVE_CALL ref="
+                        + (ref == null ? "null" : ref.getClass().getName()));
             }
             final Binding binding = INSTALLED.get();
             if (binding == null || !binding.enabled() || ref == null || target == null) {
@@ -180,17 +177,14 @@ public final class NativeWarpAltMirrorBridge {
             final int counterpartRow = vertical ? height - 1 - row : row;
             final int counterpartColumn = vertical ? column : step - 1 - column;
             final int counterpart = counterpartRow * step + counterpartColumn;
-            if (counterpart == index
-                || counterpart * 2 + 1 >= positions.length
-                || index * 2 + 1 >= positions.length) {
+            if (counterpart == index || counterpart * 2 + 1 >= positions.length || index * 2 + 1 >= positions.length) {
                 return;
             }
             final float targetX = invokeFloat(target, "getX");
             final float targetY = invokeFloat(target, "getY");
             final float dx = targetX - positions[index * 2];
             final float dy = targetY - positions[index * 2 + 1];
-            if (Math.abs(dx) <= AltAxisMirrorMath.MOVE_EPSILON
-                && Math.abs(dy) <= AltAxisMirrorMath.MOVE_EPSILON) {
+            if (Math.abs(dx) <= AltAxisMirrorMath.MOVE_EPSILON && Math.abs(dy) <= AltAxisMirrorMath.MOVE_EPSILON) {
                 return;
             }
             if (vertical) {
@@ -201,8 +195,7 @@ public final class NativeWarpAltMirrorBridge {
                 positions[counterpart * 2 + 1] += weight * dy;
             }
             if (MOVE_APPLIED_REPORTED.compareAndSet(false, true)) {
-                diagnostic("MIRROR_APPLIED axis=" + (vertical ? "vertical" : "horizontal")
-                    + " step=" + step);
+                diagnostic("MIRROR_APPLIED axis=" + (vertical ? "vertical" : "horizontal") + " step=" + step);
             }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -255,17 +248,14 @@ public final class NativeWarpAltMirrorBridge {
      * displacement, in place, before the native move commits the dragged point.
      */
     private static void mirrorCounterpart(
-        final Object binder,
-        final int selectedIndex,
-        final Object pos,
-        final boolean shift
-    ) throws ReflectiveOperationException {
+            final Object binder, final int selectedIndex, final Object pos, final boolean shift)
+            throws ReflectiveOperationException {
         final int width = invokeInt(binder, "rowPointSize");
         final int height = invokeInt(binder, "columnPointSize");
         if (width <= 0 || height <= 0) {
             return;
         }
-        final Object indexPair = invoke(binder, "toGridIndex", new Class<?>[]{int.class}, selectedIndex);
+        final Object indexPair = invoke(binder, "toGridIndex", new Class<?>[] {int.class}, selectedIndex);
         if (indexPair == null) {
             return;
         }
@@ -283,8 +273,7 @@ public final class NativeWarpAltMirrorBridge {
         if (!(rows.get(row) instanceof List<?> sourceRow) || sourceRow.size() != width) {
             return;
         }
-        if (!(rows.get(counterpartRow) instanceof List<?> counterpartRowList)
-            || counterpartRowList.size() != width) {
+        if (!(rows.get(counterpartRow) instanceof List<?> counterpartRowList) || counterpartRowList.size() != width) {
             return;
         }
         final Object dragged = sourceRow.get(column);
@@ -298,16 +287,15 @@ public final class NativeWarpAltMirrorBridge {
         final float draggedY = invokeFloat(dragged, "getY");
         final float dx = positionX - draggedX;
         final float dy = positionY - draggedY;
-        if (Math.abs(dx) <= AltAxisMirrorMath.MOVE_EPSILON
-            && Math.abs(dy) <= AltAxisMirrorMath.MOVE_EPSILON) {
+        if (Math.abs(dx) <= AltAxisMirrorMath.MOVE_EPSILON && Math.abs(dy) <= AltAxisMirrorMath.MOVE_EPSILON) {
             return;
         }
         final float counterpartX = invokeFloat(counterpart, "getX");
         final float counterpartY = invokeFloat(counterpart, "getY");
         final float targetX = shift ? counterpartX + dx : counterpartX - dx;
         final float targetY = shift ? counterpartY - dy : counterpartY + dy;
-        invoke(counterpart, "setX", new Class<?>[]{float.class}, targetX);
-        invoke(counterpart, "setY", new Class<?>[]{float.class}, targetY);
+        invoke(counterpart, "setX", new Class<?>[] {float.class}, targetX);
+        invoke(counterpart, "setY", new Class<?>[] {float.class}, targetY);
         if (MOVE_APPLIED_REPORTED.compareAndSet(false, true)) {
             diagnostic("MIRROR_APPLIED axis=" + (shift ? "horizontal" : "vertical"));
         }
@@ -323,35 +311,28 @@ public final class NativeWarpAltMirrorBridge {
     }
 
     private static Object invoke(
-        final Object target,
-        final String name,
-        final Class<?>[] parameterTypes,
-        final Object... args
-    ) throws ReflectiveOperationException {
+            final Object target, final String name, final Class<?>[] parameterTypes, final Object... args)
+            throws ReflectiveOperationException {
         final Method method = target.getClass().getMethod(name, parameterTypes);
         return method.invoke(target, args);
     }
 
-    private static boolean invokeBoolean(final Object target, final String name)
-        throws ReflectiveOperationException {
+    private static boolean invokeBoolean(final Object target, final String name) throws ReflectiveOperationException {
         final Object value = invoke(target, name, new Class<?>[0]);
         return value instanceof Boolean enabled && enabled;
     }
 
-    private static int invokeInt(final Object target, final String name)
-        throws ReflectiveOperationException {
+    private static int invokeInt(final Object target, final String name) throws ReflectiveOperationException {
         final Object value = invoke(target, name, new Class<?>[0]);
         return value instanceof Number number ? number.intValue() : -1;
     }
 
-    private static float invokeFloat(final Object target, final String name)
-        throws ReflectiveOperationException {
+    private static float invokeFloat(final Object target, final String name) throws ReflectiveOperationException {
         final Object value = invoke(target, name, new Class<?>[0]);
         return value instanceof Number number ? number.floatValue() : Float.NaN;
     }
 
-    private static Integer invokeInteger(final Object target, final String name)
-        throws ReflectiveOperationException {
+    private static Integer invokeInteger(final Object target, final String name) throws ReflectiveOperationException {
         final Object value = invoke(target, name, new Class<?>[0]);
         return value instanceof Integer number ? number : null;
     }
@@ -473,8 +454,7 @@ public final class NativeWarpAltMirrorBridge {
                 counterpart = point;
             } else {
                 final Object table = invoke(grid, "getBezierPtRef", new Class<?>[0]);
-                if (!(table instanceof Object[][] columns)
-                    || counterpartCol < 0 || counterpartCol >= columns.length) {
+                if (!(table instanceof Object[][] columns) || counterpartCol < 0 || counterpartCol >= columns.length) {
                     return;
                 }
                 if (!(columns[counterpartCol] instanceof Object[])) {
@@ -491,8 +471,7 @@ public final class NativeWarpAltMirrorBridge {
             if (delta == null) return;
             final float dx = invokeFloat(delta, "getX");
             final float dy = invokeFloat(delta, "getY");
-            if (Math.abs(dx) <= AltAxisMirrorMath.MOVE_EPSILON
-                && Math.abs(dy) <= AltAxisMirrorMath.MOVE_EPSILON) {
+            if (Math.abs(dx) <= AltAxisMirrorMath.MOVE_EPSILON && Math.abs(dy) <= AltAxisMirrorMath.MOVE_EPSILON) {
                 return;
             }
             final Object draggedHandle = handleOf(point, type);
@@ -508,11 +487,10 @@ public final class NativeWarpAltMirrorBridge {
             final float curY = invokeFloat(counterHandle, "getY");
             final float mirroredDx = vertical ? dx : -dx;
             final float mirroredDy = vertical ? -dy : dy;
-            invoke(counterHandle, "setX", new Class<?>[]{float.class}, curX + mirroredDx);
-            invoke(counterHandle, "setY", new Class<?>[]{float.class}, curY + mirroredDy);
+            invoke(counterHandle, "setX", new Class<?>[] {float.class}, curX + mirroredDx);
+            invoke(counterHandle, "setY", new Class<?>[] {float.class}, curY + mirroredDy);
             if (GREEN_APPLIED_REPORTED.compareAndSet(false, true)) {
-                diagnostic("MIRROR_GREEN_APPLIED axis="
-                    + (vertical ? "vertical" : "horizontal"));
+                diagnostic("MIRROR_GREEN_APPLIED axis=" + (vertical ? "vertical" : "horizontal"));
             }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -534,15 +512,13 @@ public final class NativeWarpAltMirrorBridge {
     }
 
     private static final java.util.Map<String, String> HANDLE_ACCESSORS = java.util.Map.of(
-        "ANCHOR", "getAnchor",
-        "CONTROL_N", "getCn",
-        "CONTROL_S", "getCs",
-        "CONTROL_W", "getCw",
-        "CONTROL_E", "getCe"
-    );
+            "ANCHOR", "getAnchor",
+            "CONTROL_N", "getCn",
+            "CONTROL_S", "getCs",
+            "CONTROL_W", "getCw",
+            "CONTROL_E", "getCe");
 
-    private static Object handleOf(final Object point, final String type)
-        throws ReflectiveOperationException {
+    private static Object handleOf(final Object point, final String type) throws ReflectiveOperationException {
         final String accessor = HANDLE_ACCESSORS.get(type);
         if (accessor == null) return null;
         return invoke(point, accessor, new Class<?>[0]);
@@ -624,6 +600,6 @@ public final class NativeWarpAltMirrorBridge {
         /** Displacement below this magnitude is treated as "did not move". */
         static final float MOVE_EPSILON = 1.0e-3f;
 
-        private AltAxisMirrorMath() { }
+        private AltAxisMirrorMath() {}
     }
 }

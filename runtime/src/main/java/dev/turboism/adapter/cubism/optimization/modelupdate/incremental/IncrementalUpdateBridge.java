@@ -17,8 +17,8 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HexFormat;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,34 +84,64 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
 
     private final IncrementalUpdateTarget target;
     private final Class<?> modelingDocumentType, meshFormType, pathFormType;
-    private final MethodHandle getSkipInterpolation, setSkipInterpolation,
-        getAllDeformers, getAllArtPaths, getAllAffecters, getDeformer,
-        getParameterSet, getAllDrawables, getParameters, getUpdateVersion, paramValue,
-        getLastModifiedTime, getDoc,
-        getDirty, setDirty, deformerInterpolatedForm, deformerAnimatedForm,
-        getTargetDeformerGuid, getDeformerGuid, createTransform,
-        meshInterpolatedForm, meshAnimatedForm, meshTransform,
-        getDeformedForm, getDrawOrder, meshPositions, pathPositions,
-        pointCurve, pointWidth, pointOpacity, spPoint, spStart, spEnd, vecX, vecY;
+    private final MethodHandle getSkipInterpolation,
+            setSkipInterpolation,
+            getAllDeformers,
+            getAllArtPaths,
+            getAllAffecters,
+            getDeformer,
+            getParameterSet,
+            getAllDrawables,
+            getParameters,
+            getUpdateVersion,
+            paramValue,
+            getLastModifiedTime,
+            getDoc,
+            getDirty,
+            setDirty,
+            deformerInterpolatedForm,
+            deformerAnimatedForm,
+            getTargetDeformerGuid,
+            getDeformerGuid,
+            createTransform,
+            meshInterpolatedForm,
+            meshAnimatedForm,
+            meshTransform,
+            getDeformedForm,
+            getDrawOrder,
+            meshPositions,
+            pathPositions,
+            pointCurve,
+            pointWidth,
+            pointOpacity,
+            spPoint,
+            spStart,
+            spEnd,
+            vecX,
+            vecY;
     private final Object updaterInstance;
     private final AtomicBoolean active = new AtomicBoolean();
-    private final LongAdder epochs = new LongAdder(), markCalls = new LongAdder(),
-        markedDirty = new LongAdder(), markedClean = new LongAdder(),
-        descendantsMarked = new LongAdder(), meshDeformed = new LongAdder(),
-        meshSkipped = new LongAdder(), formsRecorded = new LongAdder(),
-        probePairs = new LongAdder(), probeSkippedPairs = new LongAdder(),
-        probeMismatch = new LongAdder(), failures = new LongAdder(),
-        digestNanos = new LongAdder();
+    private final LongAdder epochs = new LongAdder(),
+            markCalls = new LongAdder(),
+            markedDirty = new LongAdder(),
+            markedClean = new LongAdder(),
+            descendantsMarked = new LongAdder(),
+            meshDeformed = new LongAdder(),
+            meshSkipped = new LongAdder(),
+            formsRecorded = new LongAdder(),
+            probePairs = new LongAdder(),
+            probeSkippedPairs = new LongAdder(),
+            probeMismatch = new LongAdder(),
+            failures = new LongAdder(),
+            digestNanos = new LongAdder();
     private final Consumer<Object> beginCallback = this::beginUpdate;
     private final Consumer<Object> endCallback = this::afterUpdate;
     private final BiConsumer<Object, Object> markCallback = this::markDirty;
     private final Function<Object[], Object> deformCallback = this::deformArtMesh;
     private final Consumer<Object> formCallback = this::formInterpolated;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
-    private final Set<Object> changedForms =
-        Collections.newSetFromMap(new IdentityHashMap<>());
-    private final Set<Object> markedDeformers =
-        Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Set<Object> changedForms = Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Set<Object> markedDeformers = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
     private volatile boolean epochFull, epochUnsafe, priorSkipInterpolation;
     private volatile byte[] previousDigest, previousInputs, currentInputs;
@@ -125,8 +155,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
      *
      * @throws ReflectiveOperationException when any reviewed getter is absent or mistyped
      */
-    public IncrementalUpdateBridge(final IncrementalUpdateTarget target,
-                                   final ClassLoader loader)
+    public IncrementalUpdateBridge(final IncrementalUpdateTarget target, final ClassLoader loader)
             throws ReflectiveOperationException {
         this.target = target;
         modelingDocumentType = Class.forName(DOC, false, loader);
@@ -174,29 +203,26 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
 
     private Dep dep(final String owner, final String name, final String descriptor) {
         for (final Dep d : target.dependencies()) {
-            if (d.owner().equals(owner) && d.name().equals(name)
-                && d.descriptor().equals(descriptor)) return d;
+            if (d.owner().equals(owner)
+                    && d.name().equals(name)
+                    && d.descriptor().equals(descriptor)) return d;
         }
-        throw new IllegalArgumentException(
-            "undeclared dependency " + owner + "." + name + descriptor);
+        throw new IllegalArgumentException("undeclared dependency " + owner + "." + name + descriptor);
     }
 
     private Dep dep(final String owner, final String name) {
         Dep found = null;
         for (final Dep d : target.dependencies()) {
             if (d.owner().equals(owner) && d.name().equals(name)) {
-                if (found != null) throw new IllegalArgumentException(
-                    "ambiguous dependency " + owner + "." + name);
+                if (found != null) throw new IllegalArgumentException("ambiguous dependency " + owner + "." + name);
                 found = d;
             }
         }
-        if (found == null) throw new IllegalArgumentException(
-            "undeclared dependency " + owner + "." + name);
+        if (found == null) throw new IllegalArgumentException("undeclared dependency " + owner + "." + name);
         return found;
     }
 
-    private static Map<Dep, MethodHandle> resolve(final IncrementalUpdateTarget target,
-                                                  final ClassLoader loader)
+    private static Map<Dep, MethodHandle> resolve(final IncrementalUpdateTarget target, final ClassLoader loader)
             throws ReflectiveOperationException {
         final var lookup = MethodHandles.publicLookup();
         final Map<Dep, MethodHandle> handles = new HashMap<>();
@@ -220,8 +246,8 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private static Method method(final Class<?> owner, final Dep dep) throws NoSuchMethodException {
         for (final Method method : owner.getMethods()) {
             if (!method.getName().equals(dep.name())) continue;
-            final String descriptor = MethodType.methodType(
-                method.getReturnType(), method.getParameterTypes()).descriptorString();
+            final String descriptor = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
+                    .descriptorString();
             if (descriptor.equals(dep.descriptor())) return method;
         }
         throw new NoSuchMethodException(owner.getName() + "." + dep.name() + dep.descriptor());
@@ -232,9 +258,12 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         if (active.get()) throw new IllegalStateException("incremental update already installed");
         final Properties properties = System.getProperties();
         synchronized (properties) {
-            if (properties.containsKey(BEGIN_PROPERTY) || properties.containsKey(END_PROPERTY)
-                || properties.containsKey(MARK_PROPERTY) || properties.containsKey(DEFORM_PROPERTY)
-                || properties.containsKey(FORM_PROPERTY) || properties.containsKey(STATS_PROPERTY)) {
+            if (properties.containsKey(BEGIN_PROPERTY)
+                    || properties.containsKey(END_PROPERTY)
+                    || properties.containsKey(MARK_PROPERTY)
+                    || properties.containsKey(DEFORM_PROPERTY)
+                    || properties.containsKey(FORM_PROPERTY)
+                    || properties.containsKey(STATS_PROPERTY)) {
                 throw new IllegalStateException("incremental update slots occupied");
             }
             try {
@@ -297,8 +326,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             final boolean enabled = enabled();
             final boolean probe = Boolean.getBoolean(PROBE_PROPERTY);
             epochFull = !enabled || (probe && (epochs.sum() & 1L) == 1L);
-            setSkipInterpolation.invokeExact(updaterInstance,
-                (Object) Boolean.valueOf(enabled && !epochFull));
+            setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.valueOf(enabled && !epochFull));
             epochUnsafe = !enabled || unsafe(model);
             if (probe) {
                 currentInputs = inputsVersion(model, ctx);
@@ -340,10 +368,9 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                 return;
             }
             final boolean dirty = (boolean) getDirty.invokeExact(deformer)
-                || changedForms.contains(
-                    (Object) deformerInterpolatedForm.invokeExact(deformer))
-                || (Object) deformerAnimatedForm.invokeExact(deformer) != null
-                || ancestorChanged(deformer, model);
+                    || changedForms.contains((Object) deformerInterpolatedForm.invokeExact(deformer))
+                    || (Object) deformerAnimatedForm.invokeExact(deformer) != null
+                    || ancestorChanged(deformer, model);
             if (dirty) {
                 setDirty.invokeExact(deformer, (Object) Boolean.TRUE);
                 markedDeformers.add(deformer);
@@ -375,10 +402,9 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             final Object parent = (Object) getDeformer.invokeExact(model, guid);
             if (parent == null || parent == current) return false;
             if (markedDeformers.contains(parent)
-                || (boolean) getDirty.invokeExact(parent)
-                || changedForms.contains(
-                    (Object) deformerInterpolatedForm.invokeExact(parent))
-                || (Object) deformerAnimatedForm.invokeExact(parent) != null) {
+                    || (boolean) getDirty.invokeExact(parent)
+                    || changedForms.contains((Object) deformerInterpolatedForm.invokeExact(parent))
+                    || (Object) deformerAnimatedForm.invokeExact(parent) != null) {
                 return true;
             }
             current = parent;
@@ -435,10 +461,13 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                 throw new IllegalStateException("deform args absent");
             }
             final Object preDeform = args[0], target3 = args[1], out = args[2], mesh = args[3];
-            final boolean deform = epochFull || epochUnsafe || target3 == null || out == null
-                || changedForms.contains((Object) meshInterpolatedForm.invokeExact(mesh))
-                || (Object) meshAnimatedForm.invokeExact(mesh) != null
-                || markedDeformers.contains(target3);
+            final boolean deform = epochFull
+                    || epochUnsafe
+                    || target3 == null
+                    || out == null
+                    || changedForms.contains((Object) meshInterpolatedForm.invokeExact(mesh))
+                    || (Object) meshAnimatedForm.invokeExact(mesh) != null
+                    || markedDeformers.contains(target3);
             if (!deform) {
                 meshSkipped.increment();
                 return out;
@@ -460,7 +489,9 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private void afterUpdate(final Object args) {
         try {
             if (!Boolean.getBoolean(PROBE_PROPERTY)
-                || !(args instanceof Object[] pair) || pair.length < 1 || pair[0] == null) return;
+                    || !(args instanceof Object[] pair)
+                    || pair.length < 1
+                    || pair[0] == null) return;
             final Object model = pair[0];
             final byte[] digest;
             try {
@@ -473,8 +504,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                 previousNarrowed = false;
                 return;
             }
-            if (previousNarrowed && epochFull && previousDigest != null
-                && previousInputs != null) {
+            if (previousNarrowed && epochFull && previousDigest != null && previousInputs != null) {
                 if (currentInputs != null && Arrays.equals(previousInputs, currentInputs)) {
                     probePairs.increment();
                     if (!Arrays.equals(previousDigest, digest)) {
@@ -510,9 +540,12 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             if (parameters instanceof List) {
                 putInt(md, buffer, ((List<?>) parameters).size());
                 for (final Object parameter : (List<?>) parameters) {
-                    putInt(md, buffer,
-                        parameter == null ? -1
-                            : Float.floatToRawIntBits((float) paramValue.invokeExact(parameter)));
+                    putInt(
+                            md,
+                            buffer,
+                            parameter == null
+                                    ? -1
+                                    : Float.floatToRawIntBits((float) paramValue.invokeExact(parameter)));
                 }
             } else {
                 putInt(md, buffer, -2);
@@ -520,8 +553,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         }
         Object document = ctx == null ? null : (Object) getDoc.invokeExact(ctx);
         if (!modelingDocumentType.isInstance(document)) document = null;
-        putLong(md, buffer, document == null ? Long.MIN_VALUE
-            : (long) getLastModifiedTime.invokeExact(document));
+        putLong(md, buffer, document == null ? Long.MIN_VALUE : (long) getLastModifiedTime.invokeExact(document));
         buffer.flip();
         md.update(buffer);
         return md.digest();
@@ -531,8 +563,10 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private boolean unsafe(final Object model) throws Throwable {
         final Object paths = (Object) getAllArtPaths.invokeExact(model);
         final Object affecters = (Object) getAllAffecters.invokeExact(model);
-        return !(paths instanceof List) || !(affecters instanceof List)
-            || !((List<?>) paths).isEmpty() || !((List<?>) affecters).isEmpty();
+        return !(paths instanceof List)
+                || !(affecters instanceof List)
+                || !((List<?>) paths).isEmpty()
+                || !((List<?>) affecters).isEmpty();
     }
 
     private byte[] digest(final Object model) throws Throwable {
@@ -562,8 +596,8 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                     if (points == null) {
                         putInt(md, buffer, -1);
                     } else if (!(points instanceof List)) {
-                        throw new IllegalStateException(
-                            "path points of unexpected type " + points.getClass().getName());
+                        throw new IllegalStateException("path points of unexpected type "
+                                + points.getClass().getName());
                     } else {
                         putInt(md, buffer, ((List<?>) points).size());
                         for (final Object point : (List<?>) points) {
@@ -585,7 +619,8 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                         }
                     }
                 } else {
-                    throw new IllegalStateException("undigestable form " + form.getClass().getName());
+                    throw new IllegalStateException(
+                            "undigestable form " + form.getClass().getName());
                 }
                 putInt(md, buffer, (int) getDrawOrder.invokeExact(drawable));
             }
@@ -597,8 +632,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         }
     }
 
-    private void putVector(final MessageDigest md, final ByteBuffer buffer, final Object vector)
-            throws Throwable {
+    private void putVector(final MessageDigest md, final ByteBuffer buffer, final Object vector) throws Throwable {
         if (vector == null) {
             putInt(md, buffer, -1);
             return;
@@ -633,14 +667,20 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             final StringBuilder json = new StringBuilder(256).append('{');
             json.append("\"target\":\"").append(target.version()).append('\"');
             if (post != null) {
-                json.append(",\"postDigest\":\"").append(HexFormat.of().formatHex(post)).append('\"');
+                json.append(",\"postDigest\":\"")
+                        .append(HexFormat.of().formatHex(post))
+                        .append('\"');
             }
             if (failure != null) {
                 json.append(",\"error\":\"").append(escape(describe(failure))).append('\"');
             }
             json.append("}\n");
-            Files.writeString(Path.of(path), json.toString(), StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            Files.writeString(
+                    Path.of(path),
+                    json.toString(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             failures.increment();
@@ -664,41 +704,42 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     /** Work counts only; no interaction benefit is inferred from them. */
     public Map<String, Long> snapshot() {
         return Map.ofEntries(
-            Map.entry("active", active.get() ? 1L : 0L),
-            Map.entry("epochs", epochs.sum()),
-            Map.entry("markCalls", markCalls.sum()),
-            Map.entry("markedDirty", markedDirty.sum()),
-            Map.entry("markedClean", markedClean.sum()),
-            Map.entry("descendantsMarked", descendantsMarked.sum()),
-            Map.entry("meshDeformed", meshDeformed.sum()),
-            Map.entry("meshSkipped", meshSkipped.sum()),
-            Map.entry("formsRecorded", formsRecorded.sum()),
-            Map.entry("probePairs", probePairs.sum()),
-            Map.entry("probeSkippedPairs", probeSkippedPairs.sum()),
-            Map.entry("probeMismatch", probeMismatch.sum()),
-            Map.entry("failures", failures.sum()),
-            Map.entry("digestNanos", digestNanos.sum()));
+                Map.entry("active", active.get() ? 1L : 0L),
+                Map.entry("epochs", epochs.sum()),
+                Map.entry("markCalls", markCalls.sum()),
+                Map.entry("markedDirty", markedDirty.sum()),
+                Map.entry("markedClean", markedClean.sum()),
+                Map.entry("descendantsMarked", descendantsMarked.sum()),
+                Map.entry("meshDeformed", meshDeformed.sum()),
+                Map.entry("meshSkipped", meshSkipped.sum()),
+                Map.entry("formsRecorded", formsRecorded.sum()),
+                Map.entry("probePairs", probePairs.sum()),
+                Map.entry("probeSkippedPairs", probeSkippedPairs.sum()),
+                Map.entry("probeMismatch", probeMismatch.sum()),
+                Map.entry("failures", failures.sum()),
+                Map.entry("digestNanos", digestNanos.sum()));
     }
 
     /** Clears owned slots and restores the host skip flag to its pre-install value. */
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         active.set(false);
         try {
-            setSkipInterpolation.invokeExact(updaterInstance,
-                (Object) Boolean.valueOf(priorSkipInterpolation));
+            setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.valueOf(priorSkipInterpolation));
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             failures.increment();
         }
         final Properties properties = installedProperties;
         installedProperties = null;
-        if (properties != null) synchronized (properties) {
-            properties.remove(BEGIN_PROPERTY, beginCallback);
-            properties.remove(END_PROPERTY, endCallback);
-            properties.remove(MARK_PROPERTY, markCallback);
-            properties.remove(DEFORM_PROPERTY, deformCallback);
-            properties.remove(FORM_PROPERTY, formCallback);
-            properties.remove(STATS_PROPERTY, statistics);
-        }
+        if (properties != null)
+            synchronized (properties) {
+                properties.remove(BEGIN_PROPERTY, beginCallback);
+                properties.remove(END_PROPERTY, endCallback);
+                properties.remove(MARK_PROPERTY, markCallback);
+                properties.remove(DEFORM_PROPERTY, deformCallback);
+                properties.remove(FORM_PROPERTY, formCallback);
+                properties.remove(STATS_PROPERTY, statistics);
+            }
     }
 }

@@ -4,11 +4,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Sanitized failure state for the Editor UI host foundation. */
-public record EditorUiHostFailure(
-    Code code,
-    String message,
-    Optional<EditorUiFamily> family
-) {
+public record EditorUiHostFailure(Code code, String message, Optional<EditorUiFamily> family) {
     public EditorUiHostFailure {
         code = Objects.requireNonNull(code, "code");
         message = requireText(message, "message");
@@ -31,11 +27,7 @@ public record EditorUiHostFailure(
      * @return a failure scoped to one UI family
      * @throws NullPointerException if {@code family} is null
      */
-    public static EditorUiHostFailure family(
-        final Code code,
-        final String message,
-        final EditorUiFamily family
-    ) {
+    public static EditorUiHostFailure family(final Code code, final String message, final EditorUiFamily family) {
         return new EditorUiHostFailure(code, message, Optional.of(Objects.requireNonNull(family, "family")));
     }
 

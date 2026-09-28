@@ -13,7 +13,7 @@ final class PluginWorkItem implements Runnable {
     private volatile Thread runningThread;
 
     PluginWorkItem(PluginTask task, Runnable work) {
-        this(task, work, () -> { });
+        this(task, work, () -> {});
     }
 
     PluginWorkItem(PluginTask task, Runnable work, Runnable timeoutAction) {

@@ -1,41 +1,32 @@
 package dev.turboism.sdk.cubism.history;
 
-import java.util.Objects;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /** One trusted semantic change within a history entry. */
 public record HistoryChange(
-    Operation operation,
-    Optional<Integer> targetIndex,
-    Optional<String> property,
-    Optional<String> before,
-    Optional<String> after,
-    HistoryEditContext context,
-    Optional<HistoryRelationChange> relation
-) {
+        Operation operation,
+        Optional<Integer> targetIndex,
+        Optional<String> property,
+        Optional<String> before,
+        Optional<String> after,
+        HistoryEditContext context,
+        Optional<HistoryRelationChange> relation) {
 
     private static final int MAX_PROPERTY_LENGTH = 128;
     private static final int MAX_VALUE_LENGTH = 256;
 
     public HistoryChange {
         operation = Objects.requireNonNull(operation, "operation");
-        targetIndex = Objects.requireNonNull(targetIndex, "targetIndex")
-            .map(HistoryChange::validTargetIndex);
+        targetIndex = Objects.requireNonNull(targetIndex, "targetIndex").map(HistoryChange::validTargetIndex);
         property = normalizedOptional(property, "property", MAX_PROPERTY_LENGTH, false);
         before = normalizedOptional(before, "before", MAX_VALUE_LENGTH, true);
         after = normalizedOptional(after, "after", MAX_VALUE_LENGTH, true);
         context = Objects.requireNonNull(context, "context");
         relation = Objects.requireNonNull(relation, "relation");
         if (relation.isPresent()) {
-            validateRelation(
-                operation,
-                targetIndex,
-                property,
-                before,
-                after,
-                context
-            );
+            validateRelation(operation, targetIndex, property, before, after, context);
         }
     }
 
@@ -46,59 +37,43 @@ public record HistoryChange(
      * context and therefore cannot support a new {@code FULL} detail by itself.</p>
      */
     public HistoryChange(
-        final Operation operation,
-        final Optional<Integer> targetIndex,
-        final Optional<String> property,
-        final Optional<String> before,
-        final Optional<String> after
-    ) {
+            final Operation operation,
+            final Optional<Integer> targetIndex,
+            final Optional<String> property,
+            final Optional<String> before,
+            final Optional<String> after) {
         this(
-            operation,
-            targetIndex,
-            property,
-            before,
-            after,
-            new HistoryEditContext(
-                HistoryEditContext.Kind.UNKNOWN,
-                Optional.empty(),
-                List.of()
-            ),
-            Optional.empty()
-        );
+                operation,
+                targetIndex,
+                property,
+                before,
+                after,
+                new HistoryEditContext(HistoryEditContext.Kind.UNKNOWN, Optional.empty(), List.of()),
+                Optional.empty());
     }
 
     /** Creates a change with a verified edit context and no direct relation. */
     public HistoryChange(
-        final Operation operation,
-        final Optional<Integer> targetIndex,
-        final Optional<String> property,
-        final Optional<String> before,
-        final Optional<String> after,
-        final HistoryEditContext context
-    ) {
+            final Operation operation,
+            final Optional<Integer> targetIndex,
+            final Optional<String> property,
+            final Optional<String> before,
+            final Optional<String> after,
+            final HistoryEditContext context) {
         this(operation, targetIndex, property, before, after, context, Optional.empty());
     }
 
     /** Creates a complete SET change for one indexed target. */
     public static HistoryChange set(
-        final int targetIndex,
-        final String property,
-        final String before,
-        final String after
-    ) {
+            final int targetIndex, final String property, final String before, final String after) {
         return new HistoryChange(
-            Operation.SET,
-            Optional.of(targetIndex),
-            Optional.of(property),
-            Optional.of(before),
-            Optional.of(after),
-            new HistoryEditContext(
-                HistoryEditContext.Kind.OBJECT,
-                Optional.empty(),
-                List.of()
-            ),
-            Optional.empty()
-        );
+                Operation.SET,
+                Optional.of(targetIndex),
+                Optional.of(property),
+                Optional.of(before),
+                Optional.of(after),
+                new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+                Optional.empty());
     }
 
     private static int validTargetIndex(final int value) {
@@ -109,13 +84,12 @@ public record HistoryChange(
     }
 
     private static void validateRelation(
-        final Operation operation,
-        final Optional<Integer> targetIndex,
-        final Optional<String> property,
-        final Optional<String> before,
-        final Optional<String> after,
-        final HistoryEditContext context
-    ) {
+            final Operation operation,
+            final Optional<Integer> targetIndex,
+            final Optional<String> property,
+            final Optional<String> before,
+            final Optional<String> after,
+            final HistoryEditContext context) {
         if (operation != Operation.SET) {
             throw new IllegalArgumentException("relation changes must use SET operation");
         }
@@ -123,9 +97,7 @@ public record HistoryChange(
             throw new IllegalArgumentException("relation changes require targetIndex");
         }
         if (property.isPresent() || before.isPresent() || after.isPresent()) {
-            throw new IllegalArgumentException(
-                "relation changes must not contain scalar property or values"
-            );
+            throw new IllegalArgumentException("relation changes must not contain scalar property or values");
         }
         if (context.kind() != HistoryEditContext.Kind.OBJECT) {
             throw new IllegalArgumentException("relation changes require OBJECT context");
@@ -133,29 +105,19 @@ public record HistoryChange(
     }
 
     private static Optional<String> normalizedOptional(
-        final Optional<String> value,
-        final String fieldName,
-        final int maxLength,
-        final boolean allowEmpty
-    ) {
+            final Optional<String> value, final String fieldName, final int maxLength, final boolean allowEmpty) {
         return Objects.requireNonNull(value, fieldName)
-            .map(item -> normalizedText(item, fieldName, maxLength, allowEmpty));
+                .map(item -> normalizedText(item, fieldName, maxLength, allowEmpty));
     }
 
     private static String normalizedText(
-        final String value,
-        final String fieldName,
-        final int maxLength,
-        final boolean allowEmpty
-    ) {
+            final String value, final String fieldName, final int maxLength, final boolean allowEmpty) {
         final String normalized = Objects.requireNonNull(value, fieldName).strip();
         if (!allowEmpty && normalized.isEmpty()) {
             throw new IllegalArgumentException(fieldName + " must not be blank");
         }
         if (normalized.length() > maxLength) {
-            throw new IllegalArgumentException(
-                fieldName + " must not exceed " + maxLength + " characters"
-            );
+            throw new IllegalArgumentException(fieldName + " must not exceed " + maxLength + " characters");
         }
         if (normalized.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException(fieldName + " must not contain control characters");

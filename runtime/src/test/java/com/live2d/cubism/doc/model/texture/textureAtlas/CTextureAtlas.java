@@ -40,8 +40,8 @@ public class CTextureAtlas {
     }
 
     /** Reproduces the reviewed host body exactly; the patcher rewrites this method. */
-    public final void updateTexture(final boolean rebuild, final boolean privatePath,
-                                    final com.live2d.util.a.a progress) {
+    public final void updateTexture(
+            final boolean rebuild, final boolean privatePath, final com.live2d.util.a.a progress) {
         if (rebuild) {
             setupCacheImage$cubism(privatePath, progress);
         }
@@ -49,19 +49,16 @@ public class CTextureAtlas {
     }
 
     /** Functional stand-in: transformed per-entry composite into a fresh page image. */
-    public final void setupCacheImage$cubism(final boolean privatePath,
-                                             final com.live2d.util.a.a progress) {
+    public final void setupCacheImage$cubism(final boolean privatePath, final com.live2d.util.a.a progress) {
         setupCalls.incrementAndGet();
-        final BufferedImage page =
-            new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        final BufferedImage page = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         final Graphics2D g = page.createGraphics();
         try {
             for (final ModelImageEntry entry : modelImages) {
                 final CModelImage image = entry.getModelImage();
                 if (image == null) continue;
                 g.setTransform(entry.calcModelImageLocalToAtlasTransform());
-                g.drawImage(image.getFilteredImage().getImage().getJBufferedImage(),
-                    0, 0, null);
+                g.drawImage(image.getFilteredImage().getImage().getJBufferedImage(), 0, 0, null);
             }
         } finally {
             g.dispose();
@@ -117,8 +114,7 @@ public class CTextureAtlas {
     }
 
     /** Test hook: attach a tile at a fixed atlas transform. */
-    public final ModelImageEntry addEntry(final CModelImageGuid guid,
-                                          final CAffine atlasLocalToCanvas) {
+    public final ModelImageEntry addEntry(final CModelImageGuid guid, final CAffine atlasLocalToCanvas) {
         final ModelImageEntry entry = new ModelImageEntry(this, guid, atlasLocalToCanvas);
         modelImages.add(entry);
         return entry;
@@ -130,8 +126,8 @@ public class CTextureAtlas {
         private final CModelImageGuid modelImageGuid;
         private final CAffine atlasLocalToCanvasTransform;
 
-        public ModelImageEntry(final CTextureAtlas atlas, final CModelImageGuid guid,
-                        final CAffine atlasLocalToCanvas) {
+        public ModelImageEntry(
+                final CTextureAtlas atlas, final CModelImageGuid guid, final CAffine atlasLocalToCanvas) {
             this.atlas = atlas;
             this.modelImageGuid = guid;
             this.atlasLocalToCanvasTransform = atlasLocalToCanvas;

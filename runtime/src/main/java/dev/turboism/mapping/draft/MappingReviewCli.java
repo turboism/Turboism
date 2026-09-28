@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
  * Generated {@code diff.json} files are presentation only and are never read by apply.</p>
  */
 public final class MappingReviewCli {
-    private MappingReviewCli() { }
+    private MappingReviewCli() {}
 
     /**
      * Runs the CLI and terminates the JVM with the resulting status code.
@@ -39,10 +39,13 @@ public final class MappingReviewCli {
             final String command = args[0];
             final Arguments options = Arguments.parse(args, 1);
             options.requireAllowed(command);
-            final Path root = Path.of(options.optional("root", Path.of(System.getProperty("user.dir")).toString()));
-            final MappingReviewService service = new MappingReviewService(root, JarScanPolicy.defaults(), AtomicMover.system());
+            final Path root = Path.of(options.optional(
+                    "root", Path.of(System.getProperty("user.dir")).toString()));
+            final MappingReviewService service =
+                    new MappingReviewService(root, JarScanPolicy.defaults(), AtomicMover.system());
             return switch (command) {
-                case "generate" -> generate(options, service, root.toAbsolutePath().normalize(), output);
+                case "generate" ->
+                    generate(options, service, root.toAbsolutePath().normalize(), output);
                 case "apply" -> apply(options, service, output);
                 default -> throw new IllegalArgumentException("unknown command: " + command);
             };
@@ -57,26 +60,21 @@ public final class MappingReviewCli {
     }
 
     private static int generate(
-        final Arguments options,
-        final MappingReviewService service,
-        final Path root,
-        final PrintStream output
-    ) {
+            final Arguments options, final MappingReviewService service, final Path root, final PrintStream output) {
         options.rejectWrite();
         final GeneratedBundle bundle = service.generate(new GenerateRequest(
-            Path.of(options.required("artifact")),
-            options.required("pack"),
-            options.required("semantic-name"),
-            options.required("expected-old-runtime"),
-            options.required("caller-owner"),
-            options.required("caller-name"),
-            options.required("caller-descriptor"),
-            options.required("target-method-name"),
-            options.required("target-method-descriptor"),
-            InvocationConstraint.valueOf(options.optional("invocation", "ANY")),
-            options.optionalPath("output"),
-            worktreeId(options)
-        ));
+                Path.of(options.required("artifact")),
+                options.required("pack"),
+                options.required("semantic-name"),
+                options.required("expected-old-runtime"),
+                options.required("caller-owner"),
+                options.required("caller-name"),
+                options.required("caller-descriptor"),
+                options.required("target-method-name"),
+                options.required("target-method-descriptor"),
+                InvocationConstraint.valueOf(options.optional("invocation", "ANY")),
+                options.optionalPath("output"),
+                worktreeId(options)));
         output.println("candidate=" + relativeOutput(root, bundle.candidatePath()));
         output.println("review=" + relativeOutput(root, bundle.reviewPath()));
         output.println("diff=" + relativeOutput(root, bundle.diffPath()));
@@ -87,11 +85,10 @@ public final class MappingReviewCli {
 
     private static int apply(final Arguments options, final MappingReviewService service, final PrintStream output) {
         final ApplyResult result = service.apply(new ApplyRequest(
-            Path.of(options.required("candidate")),
-            Path.of(options.required("review")),
-            Path.of(options.required("artifact")),
-            options.write()
-        ));
+                Path.of(options.required("candidate")),
+                Path.of(options.required("review")),
+                Path.of(options.required("artifact")),
+                options.write()));
         output.println("mode=" + (result.written() ? "WRITTEN" : "DRY_RUN"));
         output.println("resultPackSha256=" + result.resultPackSha256());
         return 0;
@@ -108,7 +105,8 @@ public final class MappingReviewCli {
     private static String worktreeId(final Arguments options) {
         final String configured = options.optional("worktree-id", System.getProperty("turboism.worktree.id", ""));
         if (configured.isBlank()) {
-            throw new DraftMappingException("WORKTREE_ID_MISSING", "a validated worktree ID is required for generated output");
+            throw new DraftMappingException(
+                    "WORKTREE_ID_MISSING", "a validated worktree ID is required for generated output");
         }
         if (!Pattern.matches("[a-z][a-z0-9-]{2,63}", configured)) {
             throw new DraftMappingException("WORKTREE_ID_INVALID", "worktree ID must match [a-z][a-z0-9-]{2,63}");
@@ -129,7 +127,8 @@ public final class MappingReviewCli {
         output.println("      --semantic-name <id> --expected-old-runtime <internal-name>");
         output.println("      --caller-owner <internal-name> --caller-name <name> --caller-descriptor <descriptor>");
         output.println("      --target-method-name <name> --target-method-descriptor <descriptor>");
-        output.println("      [--invocation ANY|STATIC|INSTANCE] [--root <worktree>] [--output <directory>] [--worktree-id <id>]");
+        output.println(
+                "      [--invocation ANY|STATIC|INSTANCE] [--root <worktree>] [--output <directory>] [--worktree-id <id>]");
         output.println("  MappingReviewCli apply --candidate <candidate.json> --review <review.json> --artifact <jar>");
         output.println("      [--root <worktree>] [--write]");
         output.println("apply defaults to dry-run; --write is required for an atomic mapping-pack replacement.");
@@ -137,10 +136,19 @@ public final class MappingReviewCli {
 
     private static final class Arguments {
         private static final Set<String> GENERATE_OPTIONS = Set.of(
-            "root", "artifact", "pack", "semantic-name", "expected-old-runtime", "caller-owner",
-            "caller-name", "caller-descriptor", "target-method-name", "target-method-descriptor",
-            "invocation", "output", "worktree-id"
-        );
+                "root",
+                "artifact",
+                "pack",
+                "semantic-name",
+                "expected-old-runtime",
+                "caller-owner",
+                "caller-name",
+                "caller-descriptor",
+                "target-method-name",
+                "target-method-descriptor",
+                "invocation",
+                "output",
+                "worktree-id");
         private static final Set<String> APPLY_OPTIONS = Set.of("root", "candidate", "review", "artifact");
         private final Map<String, String> values;
         private final boolean write;
@@ -173,15 +181,18 @@ public final class MappingReviewCli {
         }
 
         void requireAllowed(final String command) {
-            final Set<String> allowed = switch (command) {
-                case "generate" -> GENERATE_OPTIONS;
-                case "apply" -> APPLY_OPTIONS;
-                default -> throw new IllegalArgumentException("unknown command: " + command);
-            };
+            final Set<String> allowed =
+                    switch (command) {
+                        case "generate" -> GENERATE_OPTIONS;
+                        case "apply" -> APPLY_OPTIONS;
+                        default -> throw new IllegalArgumentException("unknown command: " + command);
+                    };
             for (String key : values.keySet()) {
-                if (!allowed.contains(key)) throw new IllegalArgumentException("unknown option for " + command + ": --" + key);
+                if (!allowed.contains(key))
+                    throw new IllegalArgumentException("unknown option for " + command + ": --" + key);
             }
-            if (write && !"apply".equals(command)) throw new IllegalArgumentException("--write is valid only for apply");
+            if (write && !"apply".equals(command))
+                throw new IllegalArgumentException("--write is valid only for apply");
         }
 
         String required(final String key) {

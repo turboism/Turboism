@@ -7,12 +7,11 @@ import java.util.Optional;
 
 /** Snapshot of one animation file and its scene documents. */
 public record AnimationSnapshot(
-    String animationId,
-    String name,
-    Optional<Path> filePath,
-    List<String> sceneDocumentIds,
-    Optional<String> activeSceneDocumentId
-) {
+        String animationId,
+        String name,
+        Optional<Path> filePath,
+        List<String> sceneDocumentIds,
+        Optional<String> activeSceneDocumentId) {
     public AnimationSnapshot {
         animationId = requireText(animationId, "animationId");
         name = requireText(name, "name");
@@ -22,11 +21,8 @@ public record AnimationSnapshot(
         if (filePath.isPresent() && filePath.get().isAbsolute()) {
             throw new IllegalArgumentException("filePath must be relative or absent");
         }
-        if (activeSceneDocumentId.isPresent()
-            && !sceneDocumentIds.contains(activeSceneDocumentId.orElseThrow())) {
-            throw new IllegalArgumentException(
-                "activeSceneDocumentId must identify one of sceneDocumentIds"
-            );
+        if (activeSceneDocumentId.isPresent() && !sceneDocumentIds.contains(activeSceneDocumentId.orElseThrow())) {
+            throw new IllegalArgumentException("activeSceneDocumentId must identify one of sceneDocumentIds");
         }
     }
 

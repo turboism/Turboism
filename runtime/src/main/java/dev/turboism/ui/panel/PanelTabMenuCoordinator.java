@@ -1,8 +1,6 @@
 package dev.turboism.ui.panel;
 
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -58,9 +56,8 @@ public final class PanelTabMenuCoordinator implements AutoCloseable {
     public void update(final long hostGeneration, final List<PanelTabMenuContribution> values) {
         synchronized (monitor) {
             requireOpen();
-            final List<PanelTabMenuContribution> requested = List.copyOf(
-                Objects.requireNonNull(values, "contributions")
-            );
+            final List<PanelTabMenuContribution> requested =
+                    List.copyOf(Objects.requireNonNull(values, "contributions"));
             requested.forEach(value -> {
                 if (value.hostGeneration() != hostGeneration) {
                     throw new IllegalArgumentException("panel-tab menu contribution generation mismatch");
@@ -86,10 +83,7 @@ public final class PanelTabMenuCoordinator implements AutoCloseable {
         if (host == null || contributions.isEmpty()) {
             return;
         }
-        nativeRegistration = Objects.requireNonNull(
-            host.install(contributions),
-            "host.install()"
-        );
+        nativeRegistration = Objects.requireNonNull(host.install(contributions), "host.install()");
     }
 
     private void closeNative() {

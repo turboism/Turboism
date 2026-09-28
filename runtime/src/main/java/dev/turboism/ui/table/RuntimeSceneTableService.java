@@ -5,7 +5,6 @@ import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -69,9 +68,7 @@ public final class RuntimeSceneTableService implements SceneTableService {
 
     /** Publishes a detached header-click observation without invoking plugin code on Swing EDT. */
     public void publishHeaderClick(final String columnId) {
-        publish(new SceneTableHeaderClickEvent(
-            new HeaderClick(SCENE_TABLE_ID, requireText(columnId, "columnId"))
-        ));
+        publish(new SceneTableHeaderClickEvent(new HeaderClick(SCENE_TABLE_ID, requireText(columnId, "columnId"))));
     }
 
     /** Records and asynchronously publishes the latest detached Scene-table state. */

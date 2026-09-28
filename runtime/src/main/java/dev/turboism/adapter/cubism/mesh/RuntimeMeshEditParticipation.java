@@ -6,7 +6,6 @@ import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
 import dev.turboism.sdk.cubism.mesh.MeshEditParticipant;
 import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -46,8 +45,7 @@ public final class RuntimeMeshEditParticipation implements MeshEditParticipation
         final List<dev.turboism.sdk.cubism.mesh.MeshEdgeRef> edges = new ArrayList<>();
         for (MeshEditParticipant participant : participants) {
             final MeshEditContribution contribution;
-            final NativeMeshMirrorBridge.ProvenanceMark provenance =
-                NativeMeshMirrorBridge.markDefaultProvenance();
+            final NativeMeshMirrorBridge.ProvenanceMark provenance = NativeMeshMirrorBridge.markDefaultProvenance();
             final long startedAt = System.nanoTime();
             try {
                 contribution = participant.onDeleting(deletion);
@@ -55,15 +53,12 @@ public final class RuntimeMeshEditParticipation implements MeshEditParticipation
                 FatalErrors.rethrowIfFatal(failure);
                 NativeMeshMirrorBridge.restoreDefaultProvenance(provenance);
                 NativeMeshMirrorBridge.diagnostic(
-                    "PARTICIPANT_FAILED reason=" + failure.getClass().getName()
-                );
+                        "PARTICIPANT_FAILED reason=" + failure.getClass().getName());
                 continue;
             } finally {
                 final long elapsed = System.nanoTime() - startedAt;
                 if (elapsed > CALLBACK_BUDGET_NANOS) {
-                    NativeMeshMirrorBridge.diagnostic(
-                        "PARTICIPANT_BUDGET_EXCEEDED elapsedNanos=" + elapsed
-                    );
+                    NativeMeshMirrorBridge.diagnostic("PARTICIPANT_BUDGET_EXCEEDED elapsedNanos=" + elapsed);
                 }
             }
             if (contribution == null || contribution.isEmpty()) continue;
@@ -72,8 +67,8 @@ public final class RuntimeMeshEditParticipation implements MeshEditParticipation
             edges.addAll(contribution.edges());
         }
         return points.isEmpty() && edges.isEmpty()
-            ? MeshEditContribution.none()
-            : new MeshEditContribution(points, edges);
+                ? MeshEditContribution.none()
+                : new MeshEditContribution(points, edges);
     }
 
     /** Removes every participant registered for the current host session. */

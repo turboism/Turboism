@@ -2,7 +2,6 @@ package dev.turboism.ui;
 
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -97,7 +96,7 @@ final class IdempotentRegistration implements Registration {
             completion.get(CLOSE_JOIN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         } catch (TimeoutException timeout) {
             throw new IllegalStateException(
-                "registration close did not finish within " + CLOSE_JOIN_TIMEOUT_MILLIS + "ms", timeout);
+                    "registration close did not finish within " + CLOSE_JOIN_TIMEOUT_MILLIS + "ms", timeout);
         } catch (ExecutionException exception) {
             final Throwable cause = exception.getCause();
             rethrow(cause);
@@ -123,6 +122,5 @@ final class IdempotentRegistration implements Registration {
         CLOSED
     }
 
-    private record CloseAttempt(boolean owner, CompletableFuture<Void> completion) {
-    }
+    private record CloseAttempt(boolean owner, CompletableFuture<Void> completion) {}
 }

@@ -15,12 +15,8 @@ import dev.turboism.sdk.cubism.write.CubismWriteCommand;
  * @param objectId the model object whose bounding box is written
  * @param action the bounding-box action requested; never blank
  */
-public record BoundingBoxWriteCommand(
-    String commandId,
-    ModelId modelId,
-    ModelObjectId objectId,
-    String action
-) implements CubismWriteCommand {
+public record BoundingBoxWriteCommand(String commandId, ModelId modelId, ModelObjectId objectId, String action)
+        implements CubismWriteCommand {
 
     /**
      * Validates the record components.

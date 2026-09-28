@@ -19,9 +19,7 @@ public record AuthoringTransactionOptions(String label) {
             throw new IllegalArgumentException("label must not be blank");
         }
         if (label.length() > MAX_LABEL_LENGTH) {
-            throw new IllegalArgumentException(
-                "label must not exceed " + MAX_LABEL_LENGTH + " characters"
-            );
+            throw new IllegalArgumentException("label must not exceed " + MAX_LABEL_LENGTH + " characters");
         }
         if (label.chars().anyMatch(character -> Character.isISOControl(character))) {
             throw new IllegalArgumentException("label must not contain control characters");

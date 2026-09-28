@@ -1,19 +1,22 @@
 package dev.turboism.adapter.cubism;
 
+import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.panelChain;
+import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.panelResolver;
+import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.projectChain;
+import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.projectResolver;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.RecentPreviewHostFixture.PanelHost;
 import dev.turboism.adapter.cubism.RecentPreviewHostFixture.ProjectHost;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
-
-import javax.imageio.ImageIO;
-
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
@@ -27,17 +30,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.panelChain;
-import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.panelResolver;
-import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.projectChain;
-import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.projectResolver;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.imageio.ImageIO;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 class ScreenshotCaptureHostOperationsTest {
 
@@ -57,7 +54,6 @@ class ScreenshotCaptureHostOperationsTest {
         assertTrue(PreviewCaptureHostOperations.scale(small, 150, 150) == small);
     }
 
-
     @Test
     void detectsSolidBuffersFromUniformOrNearUniformContent() {
         final BufferedImage uniform = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
@@ -67,8 +63,9 @@ class ScreenshotCaptureHostOperationsTest {
         final BufferedImage nearUniform = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
         fill(nearUniform, new Color(100, 100, 100));
         nearUniform.setRGB(0, 0, new Color(101, 100, 100).getRGB());
-        assertTrue(PreviewCaptureHostOperations.isSolidContent(nearUniform),
-            "two near-identical colors inside the luminance variance must stay solid");
+        assertTrue(
+                PreviewCaptureHostOperations.isSolidContent(nearUniform),
+                "two near-identical colors inside the luminance variance must stay solid");
     }
 
     @Test
@@ -98,8 +95,9 @@ class ScreenshotCaptureHostOperationsTest {
                 checker.setRGB(x, y, ((x + y) & 1) == 0 ? 0xFF000000 : 0xFFFFFFFF);
             }
         }
-        assertFalse(PreviewCaptureHostOperations.isSolidContent(checker),
-            "a black/white checkerboard has a large luminance spread");
+        assertFalse(
+                PreviewCaptureHostOperations.isSolidContent(checker),
+                "a black/white checkerboard has a large luminance spread");
 
         final BufferedImage split = new BufferedImage(400, 400, BufferedImage.TYPE_INT_ARGB);
         for (int y = 0; y < split.getHeight(); y++) {
@@ -107,8 +105,9 @@ class ScreenshotCaptureHostOperationsTest {
                 split.setRGB(x, y, x < 200 ? 0xFF000000 : 0xFFFF8040);
             }
         }
-        assertFalse(PreviewCaptureHostOperations.isSolidContent(split),
-            "dense grid sampling must see both halves of a split image");
+        assertFalse(
+                PreviewCaptureHostOperations.isSolidContent(split),
+                "dense grid sampling must see both halves of a split image");
     }
 
     private static void fill(final BufferedImage image, final Color color) {
@@ -118,6 +117,7 @@ class ScreenshotCaptureHostOperationsTest {
             }
         }
     }
+
     @Test
     void scoresGlCanvasLikeAndDarkComponentsOverPlainSurfaces() {
         final JPanel plain = new ShowingPanel("plain", 400, 300, null);
@@ -126,10 +126,14 @@ class ScreenshotCaptureHostOperationsTest {
 
         // findBestCaptureComponent requires isShowing(); a wrapper makes the fixture honest.
         final ShowingWrapper wrapper = new ShowingWrapper(plain, dark, gl);
-        assertEquals(gl, PreviewCaptureHostOperations.findBestCaptureComponent(wrapper),
-            "the GL-like dark canvas must outscore plain surfaces");
-        assertEquals(dark, PreviewCaptureHostOperations.findBestCaptureComponent(new ShowingWrapper(plain, dark)),
-            "a named canvas must outscore a plain surface");
+        assertEquals(
+                gl,
+                PreviewCaptureHostOperations.findBestCaptureComponent(wrapper),
+                "the GL-like dark canvas must outscore plain surfaces");
+        assertEquals(
+                dark,
+                PreviewCaptureHostOperations.findBestCaptureComponent(new ShowingWrapper(plain, dark)),
+                "a named canvas must outscore a plain surface");
     }
 
     @Test
@@ -142,21 +146,20 @@ class ScreenshotCaptureHostOperationsTest {
         final Path current = Files.createTempFile("recent-preview-capture", ".cmo3");
         final ClassLoader loader = getClass().getClassLoader();
         final VerifiedRecentFileListHostOperations files = new VerifiedRecentFileListHostOperations(
-            projectResolver("5.2.03", loader), panelResolver("5.2.03", loader)
-        );
+                projectResolver("5.2.03", loader), panelResolver("5.2.03", loader));
         ProjectHost.setRoot(projectChain(current));
         PanelHost.setRoot(panelChain(RecentPreviewHostFixture.recentMenu()));
         files.list();
 
         final List<String> diagnostics = new ArrayList<>();
         final PreviewCaptureHostOperations capture = new PreviewCaptureHostOperations(
-            panelResolver("5.2.03", loader), files, noopSuppression(), diagnostics::add
-        );
+                panelResolver("5.2.03", loader), files, noopSuppression(), diagnostics::add);
         final RecentFileId other = new RecentFileId("0".repeat(64));
         final java.util.concurrent.CompletionException failure = assertThrows(
-            java.util.concurrent.CompletionException.class,
-            () -> capture.capture(new ScreenshotCaptureRequest(other, 150, 150)).toCompletableFuture().join()
-        );
+                java.util.concurrent.CompletionException.class,
+                () -> capture.capture(new ScreenshotCaptureRequest(other, 150, 150))
+                        .toCompletableFuture()
+                        .join());
         assertTrue(failure.getCause() instanceof ScreenshotCaptureTargetUnavailableException);
         assertTrue(diagnostics.stream().noneMatch(value -> value.contains("capture:failed")));
     }
@@ -166,36 +169,33 @@ class ScreenshotCaptureHostOperationsTest {
         final Path current = Files.createTempFile("recent-preview-capture", ".cmo3");
         final ClassLoader loader = getClass().getClassLoader();
         final VerifiedRecentFileListHostOperations files = new VerifiedRecentFileListHostOperations(
-            projectResolver("5.2.03", loader), panelResolver("5.2.03", loader)
-        );
+                projectResolver("5.2.03", loader), panelResolver("5.2.03", loader));
         ProjectHost.setRoot(projectChain(current));
         PanelHost.setRoot(panelChain(RecentPreviewHostFixture.recentMenu()));
         files.list();
 
-        final PreviewCaptureHostOperations capture = new PreviewCaptureHostOperations(
-            panelResolver("5.2.03", loader), files, noopSuppression(),
-            ignored -> { throw new IllegalStateException("diagnostic unavailable"); }
-        );
+        final PreviewCaptureHostOperations capture =
+                new PreviewCaptureHostOperations(panelResolver("5.2.03", loader), files, noopSuppression(), ignored -> {
+                    throw new IllegalStateException("diagnostic unavailable");
+                });
         final RecentFileId other = new RecentFileId("0".repeat(64));
-        final var future = capture.capture(
-            new ScreenshotCaptureRequest(other, 150, 150)
-        ).toCompletableFuture();
+        final var future =
+                capture.capture(new ScreenshotCaptureRequest(other, 150, 150)).toCompletableFuture();
 
-        assertThrows(java.util.concurrent.ExecutionException.class,
-            () -> future.get(5, TimeUnit.SECONDS));
+        assertThrows(java.util.concurrent.ExecutionException.class, () -> future.get(5, TimeUnit.SECONDS));
         assertTrue(future.isCompletedExceptionally());
     }
 
     @Test
     void capturesCurrentProjectWithDebounceAndPopupSuppression() throws Exception {
-        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(),
-            "direct capture requires a visible AWT window; covered by the real-host rerun");
+        Assumptions.assumeFalse(
+                GraphicsEnvironment.isHeadless(),
+                "direct capture requires a visible AWT window; covered by the real-host rerun");
 
         final Path current = Files.createTempFile("recent-preview-capture", ".cmo3");
         final ClassLoader loader = getClass().getClassLoader();
         final VerifiedRecentFileListHostOperations files = new VerifiedRecentFileListHostOperations(
-            projectResolver("5.2.03", loader), panelResolver("5.2.03", loader)
-        );
+                projectResolver("5.2.03", loader), panelResolver("5.2.03", loader));
         ProjectHost.setRoot(projectChain(current));
         PanelHost.setRoot(panelChain(RecentPreviewHostFixture.recentMenu()));
         files.list();
@@ -203,13 +203,19 @@ class ScreenshotCaptureHostOperationsTest {
         final AtomicInteger hides = new AtomicInteger();
         final AtomicInteger restores = new AtomicInteger();
         final PreviewCaptureHostOperations.PopupSuppression suppression =
-            new PreviewCaptureHostOperations.PopupSuppression() {
-                @Override public void hide() { hides.incrementAndGet(); }
-                @Override public void restore() { restores.incrementAndGet(); }
-            };
-        final PreviewCaptureHostOperations capture = new PreviewCaptureHostOperations(
-            panelResolver("5.2.03", loader), files, suppression
-        );
+                new PreviewCaptureHostOperations.PopupSuppression() {
+                    @Override
+                    public void hide() {
+                        hides.incrementAndGet();
+                    }
+
+                    @Override
+                    public void restore() {
+                        restores.incrementAndGet();
+                    }
+                };
+        final PreviewCaptureHostOperations capture =
+                new PreviewCaptureHostOperations(panelResolver("5.2.03", loader), files, suppression);
 
         final Window host = new Window(null);
         SwingUtilities.invokeAndWait(() -> {
@@ -219,19 +225,20 @@ class ScreenshotCaptureHostOperationsTest {
         });
         try {
             final ScreenshotCaptureRequest request =
-                new ScreenshotCaptureRequest(files.list().get(0).id(), 150, 150);
-            final ScreenshotCaptureResult first = capture.capture(request)
-                .toCompletableFuture().get(15, TimeUnit.SECONDS);
+                    new ScreenshotCaptureRequest(files.list().get(0).id(), 150, 150);
+            final ScreenshotCaptureResult first =
+                    capture.capture(request).toCompletableFuture().get(15, TimeUnit.SECONDS);
             assertEquals(request.id(), first.id());
             assertTrue(first.image().width() <= 150 && first.image().height() <= 150);
             assertEquals(1, hides.get(), "the actual capture suppresses its popup");
             assertEquals(1, restores.get(), "the actual capture restores its popup");
 
             // Debounce: an immediate repeat for the same id reuses the cached result.
-            final ScreenshotCaptureResult second = capture.capture(request)
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+            final ScreenshotCaptureResult second =
+                    capture.capture(request).toCompletableFuture().get(5, TimeUnit.SECONDS);
             assertEquals(first.image(), second.image());
-            final BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(first.image().png()));
+            final BufferedImage decoded =
+                    ImageIO.read(new ByteArrayInputStream(first.image().png()));
             assertNotNull(decoded);
 
             assertEquals(1, hides.get(), "a cached response must not suppress the popup again");
@@ -243,8 +250,11 @@ class ScreenshotCaptureHostOperationsTest {
 
     private static PreviewCaptureHostOperations.PopupSuppression noopSuppression() {
         return new PreviewCaptureHostOperations.PopupSuppression() {
-            @Override public void hide() { }
-            @Override public void restore() { }
+            @Override
+            public void hide() {}
+
+            @Override
+            public void restore() {}
         };
     }
 

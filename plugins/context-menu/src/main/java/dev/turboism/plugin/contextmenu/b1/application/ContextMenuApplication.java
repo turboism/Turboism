@@ -20,21 +20,29 @@ public final class ContextMenuApplication {
      * @return the result of moving to the enabled state; unsuccessful when already enabled or
      *     already shut down
      */
-    public LifecycleOperationResult enable() { return lifecycle.enable(); }
+    public LifecycleOperationResult enable() {
+        return lifecycle.enable();
+    }
     /**
      * @return the result of moving to the disabled state; unsuccessful when already disabled or
      *     already shut down
      */
-    public LifecycleOperationResult disable() { return lifecycle.disable(); }
+    public LifecycleOperationResult disable() {
+        return lifecycle.disable();
+    }
     /**
      * Retires this instance permanently; no later enable or disable will succeed.
      *
      * @return the result of the shutdown transition
      */
-    public LifecycleOperationResult shutdown() { return lifecycle.shutdown(); }
+    public LifecycleOperationResult shutdown() {
+        return lifecycle.shutdown();
+    }
     /**
      * @return the plugin's fixed set of context-menu contributions; a compile-time constant that
      *     does not vary with lifecycle state
      */
-    public List<ContextMenuContribution> inventory() { return lifecycle.inventory(); }
+    public List<ContextMenuContribution> inventory() {
+        return lifecycle.inventory();
+    }
 }

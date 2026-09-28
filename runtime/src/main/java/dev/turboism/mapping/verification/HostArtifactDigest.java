@@ -40,10 +40,7 @@ public record HostArtifactDigest(long size, String sha256) {
                 digest.update(buffer, 0, read);
             }
         }
-        return new HostArtifactDigest(
-            Files.size(artifact),
-            HexFormat.of().formatHex(digest.digest())
-        );
+        return new HostArtifactDigest(Files.size(artifact), HexFormat.of().formatHex(digest.digest()));
     }
 
     static MessageDigest sha256Digest() {

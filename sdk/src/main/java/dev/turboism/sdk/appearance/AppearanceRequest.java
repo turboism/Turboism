@@ -1,6 +1,5 @@
 package dev.turboism.sdk.appearance;
 
-
 import java.util.Objects;
 
 /**
@@ -17,11 +16,7 @@ import java.util.Objects;
  *     apply is rejected if the current revision has moved on, giving optimistic concurrency
  */
 public record AppearanceRequest(
-    String appearanceId,
-    AppearanceBase base,
-    AppearancePalette palette,
-    long expectedRevision
-) {
+        String appearanceId, AppearanceBase base, AppearancePalette palette, long expectedRevision) {
     public AppearanceRequest {
         Objects.requireNonNull(appearanceId, "appearanceId");
         if (appearanceId.isBlank() || appearanceId.length() > 128) {

@@ -4,12 +4,11 @@ import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskRecordAdapter;
 import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
 import dev.turboism.sdk.i18n.PluginLocalization;
-
-import javax.swing.table.AbstractTableModel;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.swing.table.AbstractTableModel;
 
 /**
  * 查看器两种表视角的模型（纯模型，无组件）。
@@ -19,8 +18,7 @@ import java.util.Set;
  */
 public final class ClipMaskTableModels {
 
-    private ClipMaskTableModels() {
-    }
+    private ClipMaskTableModels() {}
 
     /** 蒙版为主模型：行 = 被他人作为蒙版的唯一 ArtMesh。 */
     public static final class MaskPrimaryTableModel extends AbstractTableModel {
@@ -251,11 +249,11 @@ public final class ClipMaskTableModels {
                 }
                 final String maskGuid = user.orderedMaskGuids().get(i);
                 final ClipMaskRecord mask = state.byGuid().get(maskGuid);
-                sb.append(mask != null
-                    ? mask.displayName()
-                    : ClipMaskRecordAdapter.shortGuid(maskGuid));
+                sb.append(mask != null ? mask.displayName() : ClipMaskRecordAdapter.shortGuid(maskGuid));
             }
-            sb.append(" ").append(localization.format("table.count", user.orderedMaskGuids().size()));
+            sb.append(" ")
+                    .append(localization.format(
+                            "table.count", user.orderedMaskGuids().size()));
             return sb.toString();
         }
     }

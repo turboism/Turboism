@@ -11,10 +11,7 @@ import java.util.Objects;
  * @param status how the work ended
  * @param failureCode short stable code naming the failure, empty when there was none
  */
-public record PluginWorkResult(
-    PluginWorkStatus status,
-    String failureCode
-) {
+public record PluginWorkResult(PluginWorkStatus status, String failureCode) {
     public PluginWorkResult {
         status = Objects.requireNonNull(status, "status");
         failureCode = failureCode == null ? "" : failureCode;

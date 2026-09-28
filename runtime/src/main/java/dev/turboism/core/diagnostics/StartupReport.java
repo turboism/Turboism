@@ -60,11 +60,12 @@ public final class StartupReport {
      * @param path     the file or plugin location the problem refers to
      * @param severity how serious the problem is
      */
-    public record DiagnosticProblem(String code, String message, String path, Severity severity) {
-    }
+    public record DiagnosticProblem(String code, String message, String path, Severity severity) {}
 
     /** How serious one collected problem is; only {@link #ERROR} counts for {@link #hasErrors()}. */
     public enum Severity {
-        ERROR, WARNING, INFO
+        ERROR,
+        WARNING,
+        INFO
     }
 }

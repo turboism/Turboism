@@ -1,7 +1,6 @@
 package dev.turboism.ui.overlay;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicLong;
@@ -29,8 +28,7 @@ public final class NativeBoundingBoxOverlayButtonBridge {
     private static final Object[] EMPTY_BUTTONS = new Object[0];
     private static final AtomicLong LAST_FAILURE_REPORT = new AtomicLong(Long.MIN_VALUE);
 
-    private NativeBoundingBoxOverlayButtonBridge() {
-    }
+    private NativeBoundingBoxOverlayButtonBridge() {}
 
     /**
      * Installs the JDK-only callback properties and returns a registration whose close
@@ -38,25 +36,19 @@ public final class NativeBoundingBoxOverlayButtonBridge {
      */
     static Registration install(final SetupHandler handler) {
         final SetupHandler requested = Objects.requireNonNull(handler, "handler");
-        final long generation = NEXT_GENERATION.updateAndGet(previous ->
-            previous == Long.MAX_VALUE ? 1L : previous + 1L
-        );
+        final long generation =
+                NEXT_GENERATION.updateAndGet(previous -> previous == Long.MAX_VALUE ? 1L : previous + 1L);
         if (!HANDLER.compareAndSet(null, requested)) {
             throw new IllegalStateException("bounding-box overlay bridge is already installed");
         }
         final BiFunction<Object, Object, Object> setup = (overlay, scene) ->
-            isGenerationActive(generation)
-                ? requested.customButtonEntities(overlay, scene)
-                : EMPTY_BUTTONS;
+                isGenerationActive(generation) ? requested.customButtonEntities(overlay, scene) : EMPTY_BUTTONS;
         final Consumer<Object> failure = NativeBoundingBoxOverlayButtonBridge::reportSetupFailure;
         final Properties properties = System.getProperties();
         try {
             synchronized (properties) {
-                if (properties.containsKey(SETUP_PROPERTY)
-                    || properties.containsKey(FAILURE_PROPERTY)) {
-                    throw new IllegalStateException(
-                        "bounding-box overlay callback property is already installed"
-                    );
+                if (properties.containsKey(SETUP_PROPERTY) || properties.containsKey(FAILURE_PROPERTY)) {
+                    throw new IllegalStateException("bounding-box overlay callback property is already installed");
                 }
                 properties.put(SETUP_PROPERTY, setup);
                 properties.put(FAILURE_PROPERTY, failure);
@@ -97,11 +89,7 @@ public final class NativeBoundingBoxOverlayButtonBridge {
     }
 
     private static Throwable removeExpected(
-        final Properties properties,
-        final String key,
-        final Object expected,
-        final Throwable prior
-    ) {
+            final Properties properties, final String key, final Object expected, final Throwable prior) {
         try {
             properties.remove(key, expected);
             return prior;
@@ -124,20 +112,16 @@ public final class NativeBoundingBoxOverlayButtonBridge {
     }
 
     /** Rate-limited structured diagnostics for augmentation/setup failures. */
-
     private static void reportSetupFailure(final Object throwable) {
         final long now = System.nanoTime();
         final long previous = LAST_FAILURE_REPORT.get();
-        if (!shouldReport(now, previous)
-            || !LAST_FAILURE_REPORT.compareAndSet(previous, now)) {
+        if (!shouldReport(now, previous) || !LAST_FAILURE_REPORT.compareAndSet(previous, now)) {
             return;
         }
         final String detail = throwable == null
-            ? "unknown"
-            : throwable.getClass().getName()
-                + (throwable instanceof Throwable t && t.getMessage() != null
-                    ? ": " + t.getMessage()
-                    : "");
+                ? "unknown"
+                : throwable.getClass().getName()
+                        + (throwable instanceof Throwable t && t.getMessage() != null ? ": " + t.getMessage() : "");
         System.err.println("Turboism bounding-box overlay augmentation failed safely: " + detail);
     }
 
@@ -147,8 +131,7 @@ public final class NativeBoundingBoxOverlayButtonBridge {
      * {@code nanoTime} wrap cannot suppress a report. Package-private deterministic seam.
      */
     static boolean shouldReport(final long now, final long previous) {
-        return previous == Long.MIN_VALUE
-            || Long.compareUnsigned(now - previous, FAILURE_REPORT_INTERVAL_NANOS) >= 0;
+        return previous == Long.MIN_VALUE || Long.compareUnsigned(now - previous, FAILURE_REPORT_INTERVAL_NANOS) >= 0;
     }
 
     /** Callback invoked while the host builds the bounding-box overlay scene. */

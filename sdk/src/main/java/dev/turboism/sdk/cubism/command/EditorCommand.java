@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.command;
 
-
 import java.util.Set;
 
 /** Safe no-argument semantic operations discovered from the normal Cubism menus. */

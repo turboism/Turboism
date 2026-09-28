@@ -1,12 +1,12 @@
 package dev.turboism.task;
 
-import dev.turboism.core.runtime.work.PluginWorkResult;
-import dev.turboism.core.runtime.work.PluginWorkStatus;
-import dev.turboism.core.runtime.work.PluginWorkSubmission;
+import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeSchedulerLease;
-import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.core.runtime.work.PluginWorkResult;
+import dev.turboism.core.runtime.work.PluginWorkStatus;
+import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureDomain;
 import dev.turboism.failure.RuntimeFailureSink;
@@ -20,7 +20,6 @@ import dev.turboism.sdk.task.TaskOutcome;
 import dev.turboism.sdk.task.TaskRejectionReason;
 import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.task.TaskSubmissionStatus;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
@@ -50,52 +49,32 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
     private boolean active = true;
 
     public RuntimePluginTaskScheduler(
-        final String pluginId,
-        final RuntimeScheduler runtimeScheduler,
-        final DisposableScope disposableScope
-    ) {
-        this(
-            pluginId,
-            runtimeScheduler,
-            disposableScope,
-            new CleanupEvidenceCollector(),
-            RuntimeFailureSink.noop()
-        );
+            final String pluginId, final RuntimeScheduler runtimeScheduler, final DisposableScope disposableScope) {
+        this(pluginId, runtimeScheduler, disposableScope, new CleanupEvidenceCollector(), RuntimeFailureSink.noop());
     }
 
     public RuntimePluginTaskScheduler(
-        final String pluginId,
-        final RuntimeScheduler runtimeScheduler,
-        final DisposableScope disposableScope,
-        final CleanupEvidenceCollector cleanupEvidence
-    ) {
-        this(
-            pluginId,
-            runtimeScheduler,
-            disposableScope,
-            cleanupEvidence,
-            RuntimeFailureSink.noop()
-        );
+            final String pluginId,
+            final RuntimeScheduler runtimeScheduler,
+            final DisposableScope disposableScope,
+            final CleanupEvidenceCollector cleanupEvidence) {
+        this(pluginId, runtimeScheduler, disposableScope, cleanupEvidence, RuntimeFailureSink.noop());
     }
 
     public RuntimePluginTaskScheduler(
-        final String pluginId,
-        final RuntimeScheduler runtimeScheduler,
-        final DisposableScope disposableScope,
-        final CleanupEvidenceCollector cleanupEvidence,
-        final RuntimeFailureSink failureSink
-    ) {
+            final String pluginId,
+            final RuntimeScheduler runtimeScheduler,
+            final DisposableScope disposableScope,
+            final CleanupEvidenceCollector cleanupEvidence,
+            final RuntimeFailureSink failureSink) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.runtimeScheduler = Objects.requireNonNull(runtimeScheduler, "runtimeScheduler");
         this.disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
         this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
         this.failureSink = RuntimeFailureSink.require(failureSink);
         this.schedulerLease = this.runtimeScheduler.acquirePluginTaskSchedulerLease();
-        this.completionDispatcher = new RuntimeTaskCompletionDispatcher(
-            this.pluginId,
-            this.runtimeScheduler,
-            this.cleanupEvidence
-        );
+        this.completionDispatcher =
+                new RuntimeTaskCompletionDispatcher(this.pluginId, this.runtimeScheduler, this.cleanupEvidence);
         try {
             disposableScope.register(this);
         } catch (RuntimeException exception) {
@@ -120,22 +99,17 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.BACKPRESSURE);
             }
-            final ActiveTaskAdmission admission = new ActiveTaskAdmission(
-                request.id(),
-                activeTasks,
-                activeTaskPermits
-            );
+            final ActiveTaskAdmission admission = new ActiveTaskAdmission(request.id(), activeTasks, activeTaskPermits);
             final OneShotTaskHandle handle = new OneShotTaskHandle(
-                request.id(),
-                request.action(),
-                () -> {
-                    admission.release();
-                    ownership.releaseAfterTerminal();
-                },
-                outcome -> recordTerminalFailure(SUBMIT_OPERATION, outcome),
-                completionDispatcher::dispatchTaskHandleSettlement,
-                completionDispatcher::dispatchPluginContinuation
-            );
+                    request.id(),
+                    request.action(),
+                    () -> {
+                        admission.release();
+                        ownership.releaseAfterTerminal();
+                    },
+                    outcome -> recordTerminalFailure(SUBMIT_OPERATION, outcome),
+                    completionDispatcher::dispatchTaskHandleSettlement,
+                    completionDispatcher::dispatchPluginContinuation);
             admission.bind(handle);
             ownership.ownCandidate(handle);
             if (ownership.isCloseRequested()) {
@@ -154,28 +128,21 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
             final PluginWorkSubmission submission = runtimeScheduler.submitLightweight(
-                runtimeTask(request),
-                handle.token(),
-                () -> ownership.runWhenBound(handle::runAction)
-            );
+                    runtimeTask(request), handle.token(), () -> ownership.runWhenBound(handle::runAction));
             if (!submission.accepted()) {
                 admission.release();
                 final boolean closeRequested = ownership.isCloseRequested();
                 ownership.disarm();
                 return rejected(
-                    request.id(),
-                    closeRequested
-                        ? TaskRejectionReason.PLUGIN_INACTIVE
-                        : mapRejection(submission.rejectionStatus())
-                );
+                        request.id(),
+                        closeRequested
+                                ? TaskRejectionReason.PLUGIN_INACTIVE
+                                : mapRejection(submission.rejectionStatus()));
             }
             ownership.bind();
             submission.completion().whenComplete((result, failure) -> {
                 if (failure != null || result == null) {
-                    handle.observeExecution(new PluginWorkResult(
-                        PluginWorkStatus.FAILED,
-                        "TASK_RUNTIME_FAILURE"
-                    ));
+                    handle.observeExecution(new PluginWorkResult(PluginWorkStatus.FAILED, "TASK_RUNTIME_FAILURE"));
                 } else {
                     handle.observeExecution(result);
                 }
@@ -200,26 +167,21 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 ownership.disarm();
                 return rejectedScheduled(request.id(), TaskRejectionReason.BACKPRESSURE);
             }
-            final ActiveTaskAdmission admission = new ActiveTaskAdmission(
-                request.id(),
-                activeTasks,
-                activeTaskPermits
-            );
+            final ActiveTaskAdmission admission = new ActiveTaskAdmission(request.id(), activeTasks, activeTaskPermits);
             final FixedDelayTaskHandle handle = new FixedDelayTaskHandle(
-                request.id(),
-                runtimeScheduler,
-                runtimeTask(request),
-                request.delay(),
-                ownership::runWhenBound,
-                request.action(),
-                () -> {
-                    admission.release();
-                    ownership.releaseAfterTerminal();
-                },
-                outcome -> recordTerminalFailure(SCHEDULE_OPERATION, outcome),
-                completionDispatcher::dispatchTaskHandleSettlement,
-                completionDispatcher::dispatchPluginContinuation
-            );
+                    request.id(),
+                    runtimeScheduler,
+                    runtimeTask(request),
+                    request.delay(),
+                    ownership::runWhenBound,
+                    request.action(),
+                    () -> {
+                        admission.release();
+                        ownership.releaseAfterTerminal();
+                    },
+                    outcome -> recordTerminalFailure(SCHEDULE_OPERATION, outcome),
+                    completionDispatcher::dispatchTaskHandleSettlement,
+                    completionDispatcher::dispatchPluginContinuation);
             admission.bind(handle);
             ownership.ownCandidate(handle);
             if (ownership.isCloseRequested()) {
@@ -242,11 +204,8 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 final boolean closeRequested = ownership.isCloseRequested();
                 ownership.disarm();
                 return rejectedScheduled(
-                    request.id(),
-                    closeRequested
-                        ? TaskRejectionReason.PLUGIN_INACTIVE
-                        : TaskRejectionReason.BACKPRESSURE
-                );
+                        request.id(),
+                        closeRequested ? TaskRejectionReason.PLUGIN_INACTIVE : TaskRejectionReason.BACKPRESSURE);
             }
             ownership.bind();
             return accepted(handle);
@@ -282,9 +241,7 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
      * @throws NullPointerException if {@code continuation} is {@code null}
      */
     public void dispatchContinuation(final Runnable continuation) {
-        completionDispatcher.dispatchPluginContinuation(
-            Objects.requireNonNull(continuation, "continuation")
-        );
+        completionDispatcher.dispatchPluginContinuation(Objects.requireNonNull(continuation, "continuation"));
     }
 
     /**
@@ -320,10 +277,8 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
     }
 
     private PendingTaskOwnership registerPendingOwnership() {
-        final PendingTaskOwnership ownership = new PendingTaskOwnership(
-            completionDispatcher::beginCleanup,
-            cleanupEvidence::taskHandleCanceled
-        );
+        final PendingTaskOwnership ownership =
+                new PendingTaskOwnership(completionDispatcher::beginCleanup, cleanupEvidence::taskHandleCanceled);
         final Registration registration;
         try {
             registration = disposableScope.register(ownership);
@@ -337,105 +292,81 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
 
     private PluginTask runtimeTask(final PluginTaskRequest request) {
         return new PluginTask(
-            runtimeTaskType(request.kind(), request.priority()),
-            pluginId,
-            "plugin task " + request.id().value(),
-            NO_CAPABILITY
-        );
+                runtimeTaskType(request.kind(), request.priority()),
+                pluginId,
+                "plugin task " + request.id().value(),
+                NO_CAPABILITY);
     }
 
     private PluginTask runtimeTask(final FixedDelayTaskRequest request) {
         return new PluginTask(
-            runtimeTaskType(request.kind(), request.priority()),
-            pluginId,
-            "plugin task " + request.id().value(),
-            NO_CAPABILITY
-        );
+                runtimeTaskType(request.kind(), request.priority()),
+                pluginId,
+                "plugin task " + request.id().value(),
+                NO_CAPABILITY);
     }
 
     private static String runtimeTaskType(
-        final dev.turboism.sdk.task.PluginTaskKind kind,
-        final dev.turboism.sdk.task.PluginTaskPriority priority
-    ) {
-        final String category = switch (kind) {
-            case COMPUTE -> "compute";
-            case LOW_FREQUENCY_REFRESH -> "refresh";
-            case LONG_RUNNING -> "long";
-        };
-        final String level = switch (priority) {
-            case NORMAL -> "normal";
-            case LOW -> "low";
-        };
+            final dev.turboism.sdk.task.PluginTaskKind kind, final dev.turboism.sdk.task.PluginTaskPriority priority) {
+        final String category =
+                switch (kind) {
+                    case COMPUTE -> "compute";
+                    case LOW_FREQUENCY_REFRESH -> "refresh";
+                    case LONG_RUNNING -> "long";
+                };
+        final String level =
+                switch (priority) {
+                    case NORMAL -> "normal";
+                    case LOW -> "low";
+                };
         return "plugin." + category + "." + level;
     }
 
     private static TaskSubmission accepted(final AbstractRuntimeTaskHandle handle) {
-        return new TaskSubmission(
-            TaskSubmissionStatus.ACCEPTED,
-            handle,
-            Optional.empty()
-        );
+        return new TaskSubmission(TaskSubmissionStatus.ACCEPTED, handle, Optional.empty());
     }
 
-    private TaskSubmission rejected(
-        final TaskId id,
-        final TaskRejectionReason reason
-    ) {
+    private TaskSubmission rejected(final TaskId id, final TaskRejectionReason reason) {
         return rejected(id, reason, SUBMIT_OPERATION);
     }
 
-    private TaskSubmission rejectedScheduled(
-        final TaskId id,
-        final TaskRejectionReason reason
-    ) {
+    private TaskSubmission rejectedScheduled(final TaskId id, final TaskRejectionReason reason) {
         return rejected(id, reason, SCHEDULE_OPERATION);
     }
 
-    private TaskSubmission rejected(
-        final TaskId id,
-        final TaskRejectionReason reason,
-        final String operationId
-    ) {
-        failureSink.record(RuntimeFailureDomain.TASK, new RuntimeFailure(
-            "TASK_REJECTED_" + reason.name(),
-            "ERROR",
-            "admission",
-            pluginId,
-            operationId,
-            null,
-            "Plugin task submission was rejected safely.",
-            null,
-            1
-        ));
+    private TaskSubmission rejected(final TaskId id, final TaskRejectionReason reason, final String operationId) {
+        failureSink.record(
+                RuntimeFailureDomain.TASK,
+                new RuntimeFailure(
+                        "TASK_REJECTED_" + reason.name(),
+                        "ERROR",
+                        "admission",
+                        pluginId,
+                        operationId,
+                        null,
+                        "Plugin task submission was rejected safely.",
+                        null,
+                        1));
         return new TaskSubmission(
-            TaskSubmissionStatus.REJECTED,
-            new RejectedTaskHandle(
-                id,
-                reason,
-                completionDispatcher::dispatchPluginContinuation
-            ),
-            Optional.of(reason)
-        );
+                TaskSubmissionStatus.REJECTED,
+                new RejectedTaskHandle(id, reason, completionDispatcher::dispatchPluginContinuation),
+                Optional.of(reason));
     }
 
-    private void recordTerminalFailure(
-        final String operationId,
-        final TaskOutcome outcome
-    ) {
-        outcome.failure().ifPresent(failure -> failureSink.record(
-            RuntimeFailureDomain.TASK,
-            new RuntimeFailure(
-                failure.code(),
-                "ERROR",
-                "execution",
-                pluginId,
-                operationId,
-                null,
-                failure.message(),
-                null,
-                1
-            )
-        ));
+    private void recordTerminalFailure(final String operationId, final TaskOutcome outcome) {
+        outcome.failure()
+                .ifPresent(failure -> failureSink.record(
+                        RuntimeFailureDomain.TASK,
+                        new RuntimeFailure(
+                                failure.code(),
+                                "ERROR",
+                                "execution",
+                                pluginId,
+                                operationId,
+                                null,
+                                failure.message(),
+                                null,
+                                1)));
     }
 
     private static TaskRejectionReason mapRejection(final PluginWorkStatus status) {

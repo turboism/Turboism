@@ -1,17 +1,16 @@
 package dev.turboism.adapter.cubism.integration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Bytecode-contract tests for {@link NativeEditToggleShowTransformer}: an ASM-crafted
@@ -42,7 +41,7 @@ class NativeEditToggleShowTransformerTest {
 
     @Test
     void aMissingIngressLeavesTheMethodWorking() throws Exception {
-        invokeBuild(transformedFixture(), false);  // must simply complete
+        invokeBuild(transformedFixture(), false); // must simply complete
     }
 
     @Test
@@ -72,18 +71,22 @@ class NativeEditToggleShowTransformerTest {
         final NativeEditToggleShowTransformer transformer = transformer(KEY);
 
         // Static method: refused — not the reviewed shape.
-        assertNull(transformer.transform(null, null, OWNER, null, null,
-            fixtureClass(Opcodes.ACC_STATIC | Opcodes.ACC_FINAL)));
-        assertEquals(NativeEditToggleShowTransformer.Outcome.SHAPE_REJECTED,
-            transformer.outcome());
+        assertNull(transformer.transform(
+                null, null, OWNER, null, null, fixtureClass(Opcodes.ACC_STATIC | Opcodes.ACC_FINAL)));
+        assertEquals(NativeEditToggleShowTransformer.Outcome.SHAPE_REJECTED, transformer.outcome());
         assertTrue(transformer.diagnostic().contains("patched=false"));
     }
 
     @Test
     void unrelatedClassesAndMethodsPassThrough() {
         final NativeEditToggleShowTransformer transformer = transformer(KEY);
-        assertNull(transformer.transform(null, null, "fixture/SomethingElse",
-            null, null, fixtureClass(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL)));
+        assertNull(transformer.transform(
+                null,
+                null,
+                "fixture/SomethingElse",
+                null,
+                null,
+                fixtureClass(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL)));
     }
 
     private static NativeEditToggleShowTransformer transformer(final String key) {
@@ -91,19 +94,16 @@ class NativeEditToggleShowTransformerTest {
     }
 
     private static Class<?> transformedFixture() throws Exception {
-        final byte[] transformed = transformer(KEY).transform(
-            null, null, OWNER, null, null,
-            fixtureClass(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL));
+        final byte[] transformed = transformer(KEY)
+                .transform(null, null, OWNER, null, null, fixtureClass(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL));
         assertNotNull(transformed, "the exact method shape must be patched");
         return new FixtureLoader().define(OWNER.replace('/', '.'), transformed);
     }
 
-    private static void invokeBuild(final Class<?> type, final boolean branch)
-        throws Exception {
+    private static void invokeBuild(final Class<?> type, final boolean branch) throws Exception {
         type.getField("flag").setBoolean(null, branch);
         final Object instance = type.getDeclaredConstructor().newInstance();
-        final java.lang.reflect.Method build =
-            type.getDeclaredMethod("b", Object.class);
+        final java.lang.reflect.Method build = type.getDeclaredMethod("b", Object.class);
         build.setAccessible(true);
         build.invoke(instance, new Object());
     }
@@ -113,21 +113,18 @@ class NativeEditToggleShowTransformerTest {
      * flag — mirrors {@code y.b}'s private-final multi-exit shape.
      */
     private static byte[] fixtureClass(final int access) {
-        final ClassWriter writer = new ClassWriter(
-            ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
-        writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "flag", "Z",
-            null, null).visitEnd();
-        final MethodVisitor init = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "flag", "Z", null, null)
+                .visitEnd();
+        final MethodVisitor init = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         init.visitCode();
         init.visitVarInsn(Opcodes.ALOAD, 0);
         init.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
         init.visitInsn(Opcodes.RETURN);
         init.visitMaxs(0, 0);
         init.visitEnd();
-        final MethodVisitor method = writer.visitMethod(
-            access, "b", DESCRIPTOR, null, null);
+        final MethodVisitor method = writer.visitMethod(access, "b", DESCRIPTOR, null, null);
         method.visitCode();
         method.visitFieldInsn(Opcodes.GETSTATIC, OWNER, "flag", "Z");
         final Label tail = new Label();

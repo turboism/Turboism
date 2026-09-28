@@ -7,7 +7,6 @@ import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageReadResult;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.storage.StorageWriteResult;
-
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -56,11 +55,13 @@ interface ManualOrderStore {
 
     static ManualOrderStore unavailable() {
         return new ManualOrderStore() {
-            @Override public CompletionStage<LoadResult> load(final String scopeId) {
+            @Override
+            public CompletionStage<LoadResult> load(final String scopeId) {
                 return CompletableFuture.completedStage(LoadResult.unusable());
             }
 
-            @Override public CompletionStage<Void> save(final String scopeId, final List<String> itemIds) {
+            @Override
+            public CompletionStage<Void> save(final String scopeId, final List<String> itemIds) {
                 return CompletableFuture.completedStage(null);
             }
         };
@@ -97,10 +98,7 @@ final class StorageManualOrderStore implements ManualOrderStore {
     private CompletionStage<LoadResult> read(final String scopeId) {
         final CompletionStage<StorageReadResult<String>> read;
         try {
-            read = Objects.requireNonNull(
-                storage.readUtf8(path(scopeId), MAX_BYTES),
-                "storage read stage"
-            );
+            read = Objects.requireNonNull(storage.readUtf8(path(scopeId), MAX_BYTES), "storage read stage");
         } catch (RuntimeException failure) {
             warnFailure("read", failure);
             return CompletableFuture.completedStage(LoadResult.unusable());
@@ -114,11 +112,14 @@ final class StorageManualOrderStore implements ManualOrderStore {
                 logger.warn("Scene manual order could not be read: missing storage result");
                 return LoadResult.unusable();
             }
-            if (result.error().map(error -> error.code() == StorageErrorCode.NOT_FOUND).orElse(false)) {
+            if (result.error()
+                    .map(error -> error.code() == StorageErrorCode.NOT_FOUND)
+                    .orElse(false)) {
                 return LoadResult.missing();
             }
             if (result.error().isPresent()) {
-                logger.warn("Scene manual order could not be read: " + result.error().orElseThrow().code());
+                logger.warn("Scene manual order could not be read: "
+                        + result.error().orElseThrow().code());
                 return LoadResult.unusable();
             }
             if (result.truncated()) {
@@ -148,8 +149,8 @@ final class StorageManualOrderStore implements ManualOrderStore {
             return CompletableFuture.completedStage(null);
         }
         synchronized (saveLock) {
-            final CompletionStage<Void> next = saveTail.handle((ignored, failure) -> null)
-                .thenCompose(ignored -> write(target, content));
+            final CompletionStage<Void> next =
+                    saveTail.handle((ignored, failure) -> null).thenCompose(ignored -> write(target, content));
             saveTail = next;
             return next;
         }
@@ -158,10 +159,7 @@ final class StorageManualOrderStore implements ManualOrderStore {
     private CompletionStage<Void> write(final StoragePath target, final String content) {
         final CompletionStage<StorageWriteResult> write;
         try {
-            write = Objects.requireNonNull(
-                storage.writeUtf8Atomic(target, content),
-                "storage write stage"
-            );
+            write = Objects.requireNonNull(storage.writeUtf8Atomic(target, content), "storage write stage");
         } catch (RuntimeException failure) {
             warnFailure("written", failure);
             return CompletableFuture.failedStage(failure);
@@ -176,9 +174,8 @@ final class StorageManualOrderStore implements ManualOrderStore {
                 throw new IllegalStateException("Scene manual order write failed: missing storage result");
             }
             if (!result.written()) {
-                final String reason = result.error()
-                    .map(error -> error.code().toString())
-                    .orElse("unknown");
+                final String reason =
+                        result.error().map(error -> error.code().toString()).orElse("unknown");
                 logger.warn("Scene manual order could not be written: " + reason);
                 throw new IllegalStateException("Scene manual order write failed: " + reason);
             }
@@ -192,7 +189,7 @@ final class StorageManualOrderStore implements ManualOrderStore {
 
     private void warnFailure(final String operation, final Throwable failure) {
         logger.warn("Scene manual order could not be " + operation + ": "
-            + failure.getClass().getSimpleName());
+                + failure.getClass().getSimpleName());
     }
 
     private static LoadResult parse(final String content) {
@@ -208,10 +205,10 @@ final class StorageManualOrderStore implements ManualOrderStore {
 
     private static List<String> itemIds(final String[] lines, final int start) {
         return Arrays.stream(lines, start, lines.length)
-            .map(String::trim)
-            .filter(value -> !value.isEmpty())
-            .distinct()
-            .toList();
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .distinct()
+                .toList();
     }
 
     private static String serialize(final List<String> itemIds) {

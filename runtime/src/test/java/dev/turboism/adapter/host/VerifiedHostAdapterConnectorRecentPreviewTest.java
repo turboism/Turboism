@@ -1,32 +1,26 @@
 package dev.turboism.adapter.host;
 
-import dev.turboism.adapter.RuntimeHostAdapters;
-import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.adapter.RuntimeHostAdapters;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
 
 class VerifiedHostAdapterConnectorRecentPreviewTest {
 
     @Test
     void usesTheExistingAdmittedPanelClassAliasForIconPreload() {
-        assertEquals(
-            "cubism.ui-panel.app-controller.class",
-            VerifiedHostAdapterConnector.PANEL_ICON_ANCHOR_ALIAS
-        );
-        assertTrue(
-            dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest.REQUIRED_ALIASES
-                .contains(VerifiedHostAdapterConnector.PANEL_ICON_ANCHOR_ALIAS)
-        );
+        assertEquals("cubism.ui-panel.app-controller.class", VerifiedHostAdapterConnector.PANEL_ICON_ANCHOR_ALIAS);
+        assertTrue(dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest.REQUIRED_ALIASES.contains(
+                VerifiedHostAdapterConnector.PANEL_ICON_ANCHOR_ALIAS));
     }
 
     @Test
     void forwardsProjectAndEmbeddedPanelEvidenceToTheVerifiedFactorySeam() throws Exception {
-        final ClassLoader hostClassLoader = new ClassLoader() { };
+        final ClassLoader hostClassLoader = new ClassLoader() {};
         final HostVerificationEvidence evidence = evidenceWithPanel(hostClassLoader);
         final AtomicReference<HostVerificationEvidence> seenEvidence = new AtomicReference<>();
         final RuntimeHostAdapters expected = RuntimeHostAdapters.safeMode();
@@ -35,9 +29,8 @@ class VerifiedHostAdapterConnectorRecentPreviewTest {
             return expected;
         });
 
-        final HostAdapterConnection connection = connector.connect(
-            new HostInstanceDescriptor("session-recent", evidence)
-        );
+        final HostAdapterConnection connection =
+                connector.connect(new HostInstanceDescriptor("session-recent", evidence));
 
         assertSame(evidence, seenEvidence.get());
         assertTrue(seenEvidence.get().embeddedPanel().isPresent());
@@ -46,42 +39,29 @@ class VerifiedHostAdapterConnectorRecentPreviewTest {
 
     @Test
     void rejectsEmbeddedPanelEvidenceFromAnotherHostIdentity() {
-        final ClassLoader hostClassLoader = new ClassLoader() { };
-        final HostVerificationEvidence evidence = HostVerificationEvidence.projectOnly(slice(
-            "project", hostClassLoader
-        ));
-        assertThrows(IllegalArgumentException.class, () -> evidence.addingEmbeddedPanel(slice(
-            "panel", new ClassLoader() { }
-        )));
-        assertThrows(IllegalArgumentException.class, () -> evidence.addingEmbeddedPanel(slice(
-            "panel", hostClassLoader, "host/another.jar"
-        )));
+        final ClassLoader hostClassLoader = new ClassLoader() {};
+        final HostVerificationEvidence evidence =
+                HostVerificationEvidence.projectOnly(slice("project", hostClassLoader));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> evidence.addingEmbeddedPanel(slice("panel", new ClassLoader() {})));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> evidence.addingEmbeddedPanel(slice("panel", hostClassLoader, "host/another.jar")));
     }
-
 
     private static HostVerificationEvidence evidenceWithPanel(final ClassLoader hostClassLoader) {
         return HostVerificationEvidence.projectOnly(slice("project", hostClassLoader))
-            .addingEmbeddedPanel(slice("panel", hostClassLoader));
+                .addingEmbeddedPanel(slice("panel", hostClassLoader));
     }
 
-    private static HostVerificationEvidence.Slice slice(
-        final String name,
-        final ClassLoader classLoader
-    ) {
+    private static HostVerificationEvidence.Slice slice(final String name, final ClassLoader classLoader) {
         return slice(name, classLoader, "host/Live2D_Cubism.jar");
     }
 
     private static HostVerificationEvidence.Slice slice(
-        final String name,
-        final ClassLoader classLoader,
-        final String artifact
-    ) {
+            final String name, final ClassLoader classLoader, final String artifact) {
         return new HostVerificationEvidence.Slice(
-            java.nio.file.Path.of("records/" + name + ".json"),
-            java.nio.file.Path.of(artifact),
-            classLoader
-        );
+                java.nio.file.Path.of("records/" + name + ".json"), java.nio.file.Path.of(artifact), classLoader);
     }
-
-
 }

@@ -4,7 +4,6 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.settings.SettingsContributionSource;
 import dev.turboism.sdk.ui.settings.SettingsSnapshot;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -15,10 +14,10 @@ import java.util.OptionalInt;
 
 /** Process-owned aggregate of every active plugin's declarative settings contributions. */
 public final class SettingsContributionStore implements SettingsContributionSource {
-    private static final Comparator<Entry> ENTRY_ORDER = Comparator
-        .comparingInt((Entry value) -> value.contribution().index().orElse(Integer.MAX_VALUE))
-        .thenComparing(Entry::pluginId)
-        .thenComparing(value -> value.contribution().id());
+    private static final Comparator<Entry> ENTRY_ORDER = Comparator.comparingInt(
+                    (Entry value) -> value.contribution().index().orElse(Integer.MAX_VALUE))
+            .thenComparing(Entry::pluginId)
+            .thenComparing(value -> value.contribution().id());
 
     private final Map<String, Entry> entries = new LinkedHashMap<>();
 
@@ -57,48 +56,44 @@ public final class SettingsContributionStore implements SettingsContributionSour
         final Map<String, List<Entry>> byTab = new LinkedHashMap<>();
         for (Entry entry : entries.values()) {
             byTab.computeIfAbsent(entry.contribution().tab().id(), ignored -> new ArrayList<>())
-                .add(entry);
+                    .add(entry);
         }
         final List<TabGroup> groups = new ArrayList<>();
         for (Map.Entry<String, List<Entry>> grouped : byTab.entrySet()) {
-            final List<Entry> sortedEntries = grouped.getValue().stream().sorted(ENTRY_ORDER).toList();
-            final Entry metadata = sortedEntries.stream().min(tabMetadataOrder()).orElseThrow();
+            final List<Entry> sortedEntries =
+                    grouped.getValue().stream().sorted(ENTRY_ORDER).toList();
+            final Entry metadata =
+                    sortedEntries.stream().min(tabMetadataOrder()).orElseThrow();
             groups.add(new TabGroup(
-                grouped.getKey(),
-                metadata.contribution().tab().title(),
-                tabIndex(sortedEntries),
-                sortedEntries
-            ));
+                    grouped.getKey(), metadata.contribution().tab().title(), tabIndex(sortedEntries), sortedEntries));
         }
-        groups.sort(Comparator
-            .comparingInt((TabGroup value) -> value.index().orElse(Integer.MAX_VALUE))
-            .thenComparing(TabGroup::id));
-        return groups.stream().map(group -> new SettingsSnapshot.Tab(
-            group.id(),
-            group.title(),
-            group.index(),
-            group.entries().stream()
-                .map(value -> new SettingsSnapshot.Entry(
-                    value.pluginId(), value.contribution()
-                ))
-                .toList()
-        )).toList();
+        groups.sort(Comparator.comparingInt((TabGroup value) -> value.index().orElse(Integer.MAX_VALUE))
+                .thenComparing(TabGroup::id));
+        return groups.stream()
+                .map(group -> new SettingsSnapshot.Tab(
+                        group.id(),
+                        group.title(),
+                        group.index(),
+                        group.entries().stream()
+                                .map(value -> new SettingsSnapshot.Entry(value.pluginId(), value.contribution()))
+                                .toList()))
+                .toList();
     }
 
     private static OptionalInt tabIndex(final List<Entry> entries) {
         return entries.stream()
-            .map(value -> value.contribution().tab().index())
-            .filter(OptionalInt::isPresent)
-            .mapToInt(OptionalInt::getAsInt)
-            .min();
+                .map(value -> value.contribution().tab().index())
+                .filter(OptionalInt::isPresent)
+                .mapToInt(OptionalInt::getAsInt)
+                .min();
     }
 
     private static Comparator<Entry> tabMetadataOrder() {
-        return Comparator
-            .comparing((Entry value) -> value.contribution().tab().index().isEmpty())
-            .thenComparingInt(value -> value.contribution().tab().index().orElse(Integer.MAX_VALUE))
-            .thenComparing(Entry::pluginId)
-            .thenComparing(value -> value.contribution().id());
+        return Comparator.comparing(
+                        (Entry value) -> value.contribution().tab().index().isEmpty())
+                .thenComparingInt(value -> value.contribution().tab().index().orElse(Integer.MAX_VALUE))
+                .thenComparing(Entry::pluginId)
+                .thenComparing(value -> value.contribution().id());
     }
 
     private static String requireText(final String value, final String name) {
@@ -107,14 +102,7 @@ public final class SettingsContributionStore implements SettingsContributionSour
         return value;
     }
 
-    private record Entry(String identity, String pluginId, SettingsContribution contribution) {
-    }
+    private record Entry(String identity, String pluginId, SettingsContribution contribution) {}
 
-    private record TabGroup(
-        String id,
-        String title,
-        OptionalInt index,
-        List<Entry> entries
-    ) {
-    }
+    private record TabGroup(String id, String title, OptionalInt index, List<Entry> entries) {}
 }

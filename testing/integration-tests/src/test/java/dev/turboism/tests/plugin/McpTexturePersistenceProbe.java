@@ -8,8 +8,6 @@ import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.plugin.PluginContext;
-
-import javax.swing.SwingUtilities;
 import java.awt.Frame;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -34,6 +32,7 @@ import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
+import javax.swing.SwingUtilities;
 
 /**
  * Test-only texture state and persistence acceptance. Texture writes and history use the SDK.
@@ -44,14 +43,16 @@ public final class McpTexturePersistenceProbe {
     public static final String REQUEST = "mcp-texture-roundtrip-request.properties";
     public static final String RESULT = "mcp-texture-roundtrip-result.properties";
     private static final long MAX_PIXELS = 64L * 1024 * 1024;
-    private McpTexturePersistenceProbe() { }
+
+    private McpTexturePersistenceProbe() {}
 
     public static boolean runIfRequested(final PluginContext context, final Path stateRoot) {
         final String runId = System.getProperty("turboism.validation.runId", "");
         final Path request = stateRoot.resolve(REQUEST);
         try {
-            if (!Files.isRegularFile(request, LinkOption.NOFOLLOW_LINKS) || Files.size(request) > 2048
-                || !acceptsRequest(Files.readAllLines(request), runId)) return false;
+            if (!Files.isRegularFile(request, LinkOption.NOFOLLOW_LINKS)
+                    || Files.size(request) > 2048
+                    || !acceptsRequest(Files.readAllLines(request), runId)) return false;
             final Properties result = new Properties();
             result.setProperty("schemaVersion", "1");
             result.setProperty("runId", runId);
@@ -60,14 +61,23 @@ public final class McpTexturePersistenceProbe {
                 new Engine(context, stateRoot, runId, result).run();
                 result.setProperty("status", "PASS");
             } catch (Exception failure) {
-                result.setProperty("error", failure.getClass().getSimpleName() + ": "
-                    + String.valueOf(failure.getMessage()).replace('\n', ' ').replace('\r', ' '));
+                result.setProperty(
+                        "error",
+                        failure.getClass().getSimpleName() + ": "
+                                + String.valueOf(failure.getMessage())
+                                        .replace('\n', ' ')
+                                        .replace('\r', ' '));
                 context.logger().error("MCP texture native round-trip failed", failure);
             }
             final Path pending = stateRoot.resolve(RESULT + ".pending");
-            try (var stream = Files.newOutputStream(pending)) { result.store(stream, "Task-local texture evidence"); }
-            Files.move(pending, stateRoot.resolve(RESULT), StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING);
+            try (var stream = Files.newOutputStream(pending)) {
+                result.store(stream, "Task-local texture evidence");
+            }
+            Files.move(
+                    pending,
+                    stateRoot.resolve(RESULT),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
             return true;
         } catch (Exception failure) {
             context.logger().error("MCP texture probe could not publish evidence", failure);
@@ -76,11 +86,13 @@ public final class McpTexturePersistenceProbe {
     }
 
     static Path requireTaskPaths(final Path home, final Path fixture, final String runId) throws Exception {
-        if (runId == null || !runId.matches("[a-zA-Z0-9-]{8,96}")
-            || !fixture.getFileName().toString().equals(runId + ".cmo3")
-            || !fixture.getParent().getFileName().toString().equals(runId)
-            || Files.isSymbolicLink(home) || Files.isSymbolicLink(fixture)
-            || !home.toRealPath().getParent().equals(fixture.toRealPath().getParent())) {
+        if (runId == null
+                || !runId.matches("[a-zA-Z0-9-]{8,96}")
+                || !fixture.getFileName().toString().equals(runId + ".cmo3")
+                || !fixture.getParent().getFileName().toString().equals(runId)
+                || Files.isSymbolicLink(home)
+                || Files.isSymbolicLink(fixture)
+                || !home.toRealPath().getParent().equals(fixture.toRealPath().getParent())) {
             throw new IllegalArgumentException("Fixture and home must belong to this exact task");
         }
         Path current = home.toRealPath();
@@ -99,12 +111,13 @@ public final class McpTexturePersistenceProbe {
     }
 
     static String expectedJarHash(final String version) {
-        final String exact = switch (version) {
-            case "5203" -> "5.2.03";
-            case "5302" -> "5.3.02";
-            case "5303" -> "5.3.03";
-            default -> throw new IllegalArgumentException("Unreviewed texture host version");
-        };
+        final String exact =
+                switch (version) {
+                    case "5203" -> "5.2.03";
+                    case "5302" -> "5.3.02";
+                    case "5303" -> "5.3.03";
+                    default -> throw new IllegalArgumentException("Unreviewed texture host version");
+                };
         final String resource = "/META-INF/turboism/verification/cubism-" + exact + "-editor-model.json";
         try (var stream = McpTexturePersistenceProbe.class.getResourceAsStream(resource)) {
             require(stream != null, "Canonical host verification record is not packaged");
@@ -123,9 +136,14 @@ public final class McpTexturePersistenceProbe {
     }
 
     static boolean acceptsRequest(final List<String> lines, final String runId) {
-        return runId != null && !runId.isBlank() && lines.size() == 2
-            && lines.stream().filter(line -> line.equals("runId=" + runId)).count() == 1
-            && lines.stream().filter(line -> line.equals("status=REQUESTED")).count() == 1;
+        return runId != null
+                && !runId.isBlank()
+                && lines.size() == 2
+                && lines.stream().filter(line -> line.equals("runId=" + runId)).count() == 1
+                && lines.stream()
+                                .filter(line -> line.equals("status=REQUESTED"))
+                                .count()
+                        == 1;
     }
 
     static String pixelDigest(final BufferedImage image) throws Exception {
@@ -133,7 +151,10 @@ public final class McpTexturePersistenceProbe {
             throw new IllegalArgumentException("Pixel evidence exceeds its bound");
         }
         final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        digest.update(ByteBuffer.allocate(8).putInt(image.getWidth()).putInt(image.getHeight()).array());
+        digest.update(ByteBuffer.allocate(8)
+                .putInt(image.getWidth())
+                .putInt(image.getHeight())
+                .array());
         final int[] row = new int[image.getWidth()];
         final ByteBuffer bytes = ByteBuffer.allocate(Math.multiplyExact(image.getWidth(), 4));
         for (int y = 0; y < image.getHeight(); y++) {
@@ -172,8 +193,9 @@ public final class McpTexturePersistenceProbe {
     }
 
     private static Object invoke(final Method method, final Object target, final Object... arguments) throws Exception {
-        try { return method.invoke(target, arguments); }
-        catch (InvocationTargetException failure) {
+        try {
+            return method.invoke(target, arguments);
+        } catch (InvocationTargetException failure) {
             final Throwable cause = failure.getCause();
             if (cause instanceof Exception exception) throw exception;
             if (cause instanceof Error error) throw error;
@@ -210,7 +232,7 @@ public final class McpTexturePersistenceProbe {
         private volatile boolean nativeTimedOut;
 
         Engine(final PluginContext context, final Path stateRoot, final String runId, final Properties result)
-            throws Exception {
+                throws Exception {
             this.context = context;
             this.runId = runId;
             this.result = result;
@@ -223,8 +245,12 @@ public final class McpTexturePersistenceProbe {
             if (SwingUtilities.isEventDispatchThread()) return action.call();
             final FutureTask<T> task = new FutureTask<>(action);
             SwingUtilities.invokeLater(task);
-            try { return task.get(120, TimeUnit.SECONDS); }
-            catch (java.util.concurrent.TimeoutException timeout) { nativeTimedOut = true; throw timeout; }
+            try {
+                return task.get(120, TimeUnit.SECONDS);
+            } catch (java.util.concurrent.TimeoutException timeout) {
+                nativeTimedOut = true;
+                throw timeout;
+            }
         }
 
         void run() throws Exception {
@@ -237,15 +263,23 @@ public final class McpTexturePersistenceProbe {
                     loaders.add(loader);
                 }
                 loaders.add(ClassLoader.getSystemClassLoader());
-                for (Frame frame : Frame.getFrames()) loaders.add(frame.getClass().getClassLoader());
+                for (Frame frame : Frame.getFrames())
+                    loaders.add(frame.getClass().getClassLoader());
                 Class<?> appClass = null;
                 for (ClassLoader loader : loaders) {
                     if (loader == null) continue;
-                    try { appClass = Class.forName("com.live2d.cubism.CEAppCtrl", false, loader); break; }
-                    catch (ClassNotFoundException absent) { /* Try another already-present host loader. */ }
+                    try {
+                        appClass = Class.forName("com.live2d.cubism.CEAppCtrl", false, loader);
+                        break;
+                    } catch (ClassNotFoundException absent) {
+                        /* Try another already-present host loader. */
+                    }
                 }
                 require(appClass != null, "Exact Cubism application class is unavailable");
-                final Path jar = Path.of(appClass.getProtectionDomain().getCodeSource().getLocation().toURI());
+                final Path jar = Path.of(appClass.getProtectionDomain()
+                        .getCodeSource()
+                        .getLocation()
+                        .toURI());
                 require(expectedJarHash(version).equals(fileHash(jar)), "Native class artifact hash mismatch");
                 app = invoke(appClass.getMethod("access$get_instance$cp"), null);
                 originalDocument = currentDocument();
@@ -255,7 +289,8 @@ public final class McpTexturePersistenceProbe {
                 appClass.getMethod("command_open", File.class, boolean.class);
                 pristine = snapshot();
                 result.setProperty("pristineFingerprint", pristine.digest());
-                result.setProperty("pristineInputCount", Integer.toString(pristine.inputs().size()));
+                result.setProperty(
+                        "pristineInputCount", Integer.toString(pristine.inputs().size()));
                 require(!pristine.pixels().isEmpty(), "Fixture must contain actual raw-layer pixels");
                 return null;
             });
@@ -263,11 +298,17 @@ public final class McpTexturePersistenceProbe {
                 edt(() -> {
                     if (pristine.inputs().isEmpty()) seedNativeLayerInput();
                     baseline = snapshot();
-                    result.setProperty("baselineInputCount", Integer.toString(baseline.inputs().size()));
-                    result.setProperty("baselinePixelLayerCount", Integer.toString(baseline.pixels().size()));
-                    require(!baseline.inputs().isEmpty() && !baseline.pixels().isEmpty(),
-                        "Fixture lacks native evidence: inputs=" + baseline.inputs().size()
-                            + ", pixelLayers=" + baseline.pixels().size());
+                    result.setProperty(
+                            "baselineInputCount",
+                            Integer.toString(baseline.inputs().size()));
+                    result.setProperty(
+                            "baselinePixelLayerCount",
+                            Integer.toString(baseline.pixels().size()));
+                    require(
+                            !baseline.inputs().isEmpty() && !baseline.pixels().isEmpty(),
+                            "Fixture lacks native evidence: inputs="
+                                    + baseline.inputs().size() + ", pixelLayers="
+                                    + baseline.pixels().size());
                     return null;
                 });
                 verifyNativeRawUndo();
@@ -281,23 +322,36 @@ public final class McpTexturePersistenceProbe {
             result.setProperty("restoredFingerprint", edt(() -> snapshot().digest()));
         }
 
-        private Object currentDocument() throws Exception { return call(app, "getCurrentDoc"); }
-        private ModelTextures textures() { return context.cubism().model().active().textures(); }
-        private int position() { return context.cubism().history().snapshot().position(); }
+        private Object currentDocument() throws Exception {
+            return call(app, "getCurrentDoc");
+        }
+
+        private ModelTextures textures() {
+            return context.cubism().model().active().textures();
+        }
+
+        private int position() {
+            return context.cubism().history().snapshot().position();
+        }
 
         private void requireFile(final Object document, final Path expected) throws Exception {
-            require(document != null && document.getClass().getName().equals("com.live2d.cubism.doc.modeling.CModelingDocument"),
-                "Active document is not the owned modeling document");
+            require(
+                    document != null
+                            && document.getClass().getName().equals("com.live2d.cubism.doc.modeling.CModelingDocument"),
+                    "Active document is not the owned modeling document");
             final Object file = call(document, "getFile");
-            require(file instanceof File && Files.isSameFile(((File) file).toPath(), expected),
-                "Active document file does not match the owned target");
+            require(
+                    file instanceof File && Files.isSameFile(((File) file).toPath(), expected),
+                    "Active document file does not match the owned target");
         }
 
         private void move(final int target) {
             final HistorySnapshot history = context.cubism().history().snapshot();
             final var moved = context.cubism().history().moveTo(history.generation(), history.revision(), target);
-            require(moved.outcome() == HistoryMoveResult.Outcome.MOVED
-                || moved.outcome() == HistoryMoveResult.Outcome.NO_CHANGE, "Native history restoration failed");
+            require(
+                    moved.outcome() == HistoryMoveResult.Outcome.MOVED
+                            || moved.outcome() == HistoryMoveResult.Outcome.NO_CHANGE,
+                    "Native history restoration failed");
             require(position() == target, "Native history position mismatch");
         }
 
@@ -305,11 +359,16 @@ public final class McpTexturePersistenceProbe {
             requireFile(currentDocument(), fixture);
             final Object source = call(currentDocument(), "getModelSource");
             final Object manager = call(source, "getTextureManager");
-            final Object image = ((List<?>) call(manager, "getAllModelImages")).stream().findFirst().orElseThrow();
+            final Object image = ((List<?>) call(manager, "getAllModelImages"))
+                    .stream().findFirst().orElseThrow();
             final Object inputs = call(call(image, "getInputFilterEnv"), "getLayerInputData");
-            require(inputs != null && ((Map<?, ?>) call(inputs, "getImageToLayerInput")).isEmpty(),
-                "Fixture setup must never overwrite existing layer inputs");
-            final Object raw = call(((List<?>) call(manager, "getRawImages")).stream().findFirst().orElseThrow(), "getImage");
+            require(
+                    inputs != null && ((Map<?, ?>) call(inputs, "getImageToLayerInput")).isEmpty(),
+                    "Fixture setup must never overwrite existing layer inputs");
+            final Object raw = call(
+                    ((List<?>) call(manager, "getRawImages"))
+                            .stream().findFirst().orElseThrow(),
+                    "getImage");
             Object selectedLayer = null;
             for (Object layer : (Iterable<?>) call(raw, "layerIterable")) {
                 if (layer.getClass().getName().equals("com.live2d.cubism.doc.resources.CLayer")) {
@@ -321,24 +380,32 @@ public final class McpTexturePersistenceProbe {
             final ClassLoader loader = app.getClass().getClassLoader();
             final Class<?> affine = Class.forName("com.live2d.type.CAffine", false, loader);
             final Class<?> inputType = Class.forName(
-                "com.live2d.cubism.doc.model.extension.textureInput.inputFilter.CLayerInputData", false, loader);
+                    "com.live2d.cubism.doc.model.extension.textureInput.inputFilter.CLayerInputData", false, loader);
             final Class<?> clip = Class.forName("com.live2d.graphics.filter.concreteFilter.clip.AClip", false, loader);
-            final Object input = inputType.getConstructor(selectedLayer.getClass(), affine, clip)
-                .newInstance(selectedLayer, affine.getConstructor().newInstance(), null);
+            final Object input = inputType
+                    .getConstructor(selectedLayer.getClass(), affine, clip)
+                    .newInstance(selectedLayer, affine.getConstructor().newInstance(), null);
             final Object rawGuid = call(raw, "getGuid");
             final Class<?> undoType = Class.forName(
-                "com.live2d.cubism.doc.model.texture.TextureManagerHandler$UndoAddOrRemove_LayerInput", false, loader);
-            final Object undoable = undoType.getConstructor(inputs.getClass(), rawGuid.getClass(), List.class, boolean.class)
-                .newInstance(inputs, rawGuid, List.of(input), true);
+                    "com.live2d.cubism.doc.model.texture.TextureManagerHandler$UndoAddOrRemove_LayerInput",
+                    false,
+                    loader);
+            final Object undoable = undoType.getConstructor(
+                            inputs.getClass(), rawGuid.getClass(), List.class, boolean.class)
+                    .newInstance(inputs, rawGuid, List.of(input), true);
             final Class<?> undoBase = Class.forName("com.live2d.undo.ACUndoable", false, loader);
             final Class<?> callback = Class.forName("kotlin.jvm.functions.Function1", false, loader);
             final Object editMode = call(currentDocument(), "getEditMode_modeling");
-            final Object root = invoke(editMode.getClass().getMethod("beginEdit", String.class), editMode,
-                "MCP test fixture: Native layer input");
+            final Object root = invoke(
+                    editMode.getClass().getMethod("beginEdit", String.class),
+                    editMode,
+                    "MCP test fixture: Native layer input");
             boolean completed = false;
             try {
-                require(Boolean.TRUE.equals(invoke(root.getClass().getMethod("addEdit", undoBase, boolean.class),
-                    root, undoable, true)), "Fixture setup native Undo was rejected");
+                require(
+                        Boolean.TRUE.equals(invoke(
+                                root.getClass().getMethod("addEdit", undoBase, boolean.class), root, undoable, true)),
+                        "Fixture setup native Undo was rejected");
                 call(undoable, "forceRedo");
                 call(source, "updateModelInstances");
                 completed = true;
@@ -354,16 +421,20 @@ public final class McpTexturePersistenceProbe {
             edt(() -> {
                 requireFile(currentDocument(), fixture);
                 final int beforePosition = position();
-                final String target = textures().rawImages().stream().map(raw -> raw.id().value())
-                    .filter(id -> baseline.inputs().keySet().stream().anyMatch(key -> key.endsWith("|" + id)))
-                    .findFirst().orElseThrow();
+                final String target = textures().rawImages().stream()
+                        .map(raw -> raw.id().value())
+                        .filter(id -> baseline.inputs().keySet().stream().anyMatch(key -> key.endsWith("|" + id)))
+                        .findFirst()
+                        .orElseThrow();
                 try {
                     textures().removeRawImage(new RawImageId(target));
                     require(position() == beforePosition + 1, "Raw deletion must have one native Undo root");
                     final Snapshot changed = snapshot();
                     final Map<String, String> expectedInputs = new TreeMap<>(baseline.inputs());
                     expectedInputs.keySet().removeIf(key -> key.endsWith("|" + target));
-                    require(changed.inputs().equals(expectedInputs), "Raw deletion changed unrelated native layer inputs");
+                    require(
+                            changed.inputs().equals(expectedInputs),
+                            "Raw deletion changed unrelated native layer inputs");
                     result.setProperty("nativeInputsBefore", mapHash(baseline.inputs()));
                     result.setProperty("nativeInputsAfterDelete", mapHash(changed.inputs()));
                     result.setProperty("rawPixelsBefore", mapHash(baseline.pixels()));
@@ -389,11 +460,15 @@ public final class McpTexturePersistenceProbe {
                 requireFile(currentDocument(), fixture);
                 final ModelTextures library = textures();
                 final String rawId = library.rawImages().get(0).id().value();
-                final String imageId = library.modelImageGroups().stream().flatMap(group -> group.modelImages().stream())
-                    .findFirst().orElseThrow().id().value();
+                final String imageId = library.modelImageGroups().stream()
+                        .flatMap(group -> group.modelImages().stream())
+                        .findFirst()
+                        .orElseThrow()
+                        .id()
+                        .value();
                 final TextureAtlasId removeAtlas = library.textureAtlases().isEmpty()
-                    ? library.addTextureAtlas("TexturePersistenceTemporary", 64, 64)
-                    : library.textureAtlases().get(0).id();
+                        ? library.addTextureAtlas("TexturePersistenceTemporary", 64, 64)
+                        : library.textureAtlases().get(0).id();
                 library.addModelImageGroup("TexturePersistence-" + runId.substring(runId.length() - 8));
                 final TextureAtlasId retainedAtlas = library.addTextureAtlas("TexturePersistenceRetained", 64, 64);
                 library.removeTextureAtlas(removeAtlas);
@@ -402,14 +477,22 @@ public final class McpTexturePersistenceProbe {
                 final Snapshot value = snapshot();
                 result.setProperty("persistedAtlasId", retainedAtlas.value());
                 result.setProperty("persistenceOperationKinds", "5");
-                require(Boolean.TRUE.equals(invoke(originalDocument.getClass().getMethod("saveDocument", File.class,
-                    boolean.class), originalDocument, output.toFile(), false)), "Native save rejected");
+                require(
+                        Boolean.TRUE.equals(invoke(
+                                originalDocument.getClass().getMethod("saveDocument", File.class, boolean.class),
+                                originalDocument,
+                                output.toFile(),
+                                false)),
+                        "Native save rejected");
                 return value;
             });
             awaitSaved();
             result.setProperty("savedFileSha256", fileHash(output));
             result.setProperty("savedFingerprint", expected.digest());
-            edt(() -> { closeOwned(originalDocument); return null; });
+            edt(() -> {
+                closeOwned(originalDocument);
+                return null;
+            });
             openOwned(output);
             edt(() -> {
                 savedDocument = currentDocument();
@@ -447,10 +530,16 @@ public final class McpTexturePersistenceProbe {
             final Object value = call(document, "getFile");
             require(value instanceof File, "Owned document has no file");
             final Path file = ((File) value).toPath();
-            require(Files.isSameFile(file, fixture) || (Files.exists(output) && Files.isSameFile(file, output)),
-                "Refusing to close a foreign document");
-            require(Boolean.TRUE.equals(invoke(document.getClass().getMethod("closeFile", boolean.class, boolean.class),
-                document, false, false)), "Native task document close failed");
+            require(
+                    Files.isSameFile(file, fixture) || (Files.exists(output) && Files.isSameFile(file, output)),
+                    "Refusing to close a foreign document");
+            require(
+                    Boolean.TRUE.equals(invoke(
+                            document.getClass().getMethod("closeFile", boolean.class, boolean.class),
+                            document,
+                            false,
+                            false)),
+                    "Native task document close failed");
         }
 
         private void openOwned(final Path path) throws Exception {
@@ -477,32 +566,42 @@ public final class McpTexturePersistenceProbe {
                 final Object document = currentDocument();
                 if (document == null) return false;
                 final Object value = call(document, "getFile");
-                if (value instanceof File && Files.isSameFile(((File) value).toPath(), fixture)
-                    && snapshot().equals(pristine)) return true;
-                require(document == originalDocument || document == savedDocument,
-                    "Unknown active document prevents recovery");
+                if (value instanceof File
+                        && Files.isSameFile(((File) value).toPath(), fixture)
+                        && snapshot().equals(pristine)) return true;
+                require(
+                        document == originalDocument || document == savedDocument,
+                        "Unknown active document prevents recovery");
                 closeOwned(document);
                 return false;
             });
             if (!alreadyRestored) openOwned(fixture);
-            edt(() -> { require(snapshot().equals(pristine), "Recovery did not restore the original native state"); return null; });
+            edt(() -> {
+                require(snapshot().equals(pristine), "Recovery did not restore the original native state");
+                return null;
+            });
         }
 
         private Snapshot snapshot() throws Exception {
             final Map<String, String> library = new TreeMap<>();
             final ModelTextures textures = textures();
-            for (var raw : textures.rawImages()) library.put("raw/" + raw.id().value(),
-                raw.name() + "/" + raw.width() + "/" + raw.height());
+            for (var raw : textures.rawImages())
+                library.put("raw/" + raw.id().value(), raw.name() + "/" + raw.width() + "/" + raw.height());
             int groupIndex = 0;
             for (var group : textures.modelImageGroups()) {
                 final String groupKey = "group/" + groupIndex++;
                 library.put(groupKey, group.groupName() + "/" + group.memo());
                 int imageIndex = 0;
-                for (var image : group.modelImages()) library.put("image/" + image.id().value(),
-                    groupKey + "/" + imageIndex++ + "/" + image.name() + "/" + image.width() + "/" + image.height());
+                for (var image : group.modelImages())
+                    library.put(
+                            "image/" + image.id().value(),
+                            groupKey + "/" + imageIndex++ + "/" + image.name() + "/" + image.width() + "/"
+                                    + image.height());
             }
-            for (var atlas : textures.textureAtlases()) library.put("atlas/" + atlas.id().value(),
-                atlas.name() + "/" + atlas.width() + "/" + atlas.height() + "/" + atlas.modelImageCount());
+            for (var atlas : textures.textureAtlases())
+                library.put(
+                        "atlas/" + atlas.id().value(),
+                        atlas.name() + "/" + atlas.width() + "/" + atlas.height() + "/" + atlas.modelImageCount());
             final Object manager = call(call(currentDocument(), "getModelSource"), "getTextureManager");
             final Map<String, String> inputs = new TreeMap<>();
             final List<?> nativeImages = (List<?>) call(manager, "getAllModelImages");
@@ -512,12 +611,15 @@ public final class McpTexturePersistenceProbe {
                 linkedRawCount += ((List<?>) call(image, "getLinkedRawImageGuids")).size();
                 final String imageId = guid(call(image, "getGuid"));
                 final Object map = call(call(image, "getInputFilterEnv"), "getLayerInputData");
-                if (map == null) { nullMaps++; continue; }
+                if (map == null) {
+                    nullMaps++;
+                    continue;
+                }
                 for (var entry : ((Map<?, ?>) call(map, "getImageToLayerInput")).entrySet()) {
                     final List<String> layers = new ArrayList<>();
                     for (Object input : (List<?>) entry.getValue()) {
                         layers.add(guid(call(call(input, "getLayer"), "getGuid")) + ":"
-                            + Arrays.toString((float[]) call(call(input, "getAffine"), "getMatrix")));
+                                + Arrays.toString((float[]) call(call(input, "getAffine"), "getMatrix")));
                     }
                     inputs.put(imageId + "|" + guid(entry.getKey()), layers.toString());
                 }

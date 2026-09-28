@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 /**
  * Evaluated deformation configuration of one side of an auto-Yure binding.
  *

@@ -1,21 +1,20 @@
 package dev.turboism.core.runtime;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginExecutorSet;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.work.PluginWorkResult;
 import dev.turboism.core.runtime.work.PluginWorkStatus;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.sdk.plugin.WorkBudget;
-
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -55,11 +54,10 @@ public final class RuntimeScheduler {
     private int pluginTaskSchedulerLeases;
 
     public RuntimeScheduler(
-        WorkBudgetPolicy policy,
-        PluginWorkExecutorRegistry executorRegistry,
-        SidecarDispatcher sidecarDispatcher,
-        Consumer<PluginWorkBudgetEvent> diagnosticSink
-    ) {
+            WorkBudgetPolicy policy,
+            PluginWorkExecutorRegistry executorRegistry,
+            SidecarDispatcher sidecarDispatcher,
+            Consumer<PluginWorkBudgetEvent> diagnosticSink) {
         this.policy = Objects.requireNonNull(policy, "policy");
         this.executorRegistry = Objects.requireNonNull(executorRegistry, "executorRegistry");
         this.sidecarDispatcher = Objects.requireNonNull(sidecarDispatcher, "sidecarDispatcher");
@@ -84,7 +82,7 @@ public final class RuntimeScheduler {
      * @throws NullPointerException if either argument is {@code null}
      */
     public boolean dispatch(PluginTask task, Runnable callback) {
-        return dispatch(task, callback, () -> { });
+        return dispatch(task, callback, () -> {});
     }
 
     /**
@@ -97,11 +95,7 @@ public final class RuntimeScheduler {
      * @param timeoutAction idempotent action that cancels work queued beyond the runtime worker
      * @return {@code true} if some lane accepted the work; {@code false} otherwise
      */
-    public boolean dispatch(
-        PluginTask task,
-        Runnable callback,
-        Runnable timeoutAction
-    ) {
+    public boolean dispatch(PluginTask task, Runnable callback, Runnable timeoutAction) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(callback, "callback");
         Objects.requireNonNull(timeoutAction, "timeoutAction");
@@ -111,11 +105,11 @@ public final class RuntimeScheduler {
         }
         WorkBudget budget = policy.classify(task);
         return switch (budget) {
-            case LIGHTWEIGHT -> executorRegistry.get(task.pluginId()).submit(
-                task,
-                bindCancellation(callback),
-                timeoutAction
-            ).accepted();
+            case LIGHTWEIGHT ->
+                executorRegistry
+                        .get(task.pluginId())
+                        .submit(task, bindCancellation(callback), timeoutAction)
+                        .accepted();
             case HEAVY -> dispatchHeavy(task, callback);
             case SIDECAR -> dispatchSidecar(task, callback);
             case REJECTED -> {
@@ -143,11 +137,7 @@ public final class RuntimeScheduler {
      *     when the policy did not classify the task as lightweight or long
      * @throws NullPointerException if any argument is {@code null}
      */
-    public PluginWorkSubmission submitLightweight(
-        PluginTask task,
-        RuntimeCancellationToken token,
-        Runnable callback
-    ) {
+    public PluginWorkSubmission submitLightweight(PluginTask task, RuntimeCancellationToken token, Runnable callback) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(token, "token");
         Objects.requireNonNull(callback, "callback");
@@ -156,17 +146,10 @@ public final class RuntimeScheduler {
         }
         final WorkBudget budget = policy.classify(task);
         if (budget == WorkBudget.LIGHTWEIGHT) {
-            return executorRegistry.get(task.pluginId()).submit(
-                task,
-                bindCancellation(token, callback)
-            );
+            return executorRegistry.get(task.pluginId()).submit(task, bindCancellation(token, callback));
         }
         if (budget == WorkBudget.HEAVY && isLongLaneTask(task)) {
-            return executorRegistry.longLane(task.pluginId()).submit(
-                task,
-                token,
-                bindCancellation(token, callback)
-            );
+            return executorRegistry.longLane(task.pluginId()).submit(task, token, bindCancellation(token, callback));
         }
         emitRejected(task);
         return rejected(PluginWorkStatus.POLICY_REJECTED, "POLICY_REJECTED");
@@ -190,10 +173,7 @@ public final class RuntimeScheduler {
      *     {@code REJECTED_BACKPRESSURE} when the lane queue is full
      */
     public PluginWorkSubmission submitEventDelivery(
-        PluginTask task,
-        RuntimeCancellationToken token,
-        Runnable callback
-    ) {
+            PluginTask task, RuntimeCancellationToken token, Runnable callback) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(token, "token");
         Objects.requireNonNull(callback, "callback");
@@ -204,10 +184,7 @@ public final class RuntimeScheduler {
             emitRejected(task);
             return rejected(PluginWorkStatus.POLICY_REJECTED, "POLICY_REJECTED");
         }
-        return executorRegistry.eventLane(task.pluginId()).submit(
-            task,
-            bindCancellation(token, callback)
-        );
+        return executorRegistry.eventLane(task.pluginId()).submit(task, bindCancellation(token, callback));
     }
 
     /**
@@ -248,26 +225,14 @@ public final class RuntimeScheduler {
      * @throws NullPointerException if either argument is {@code null}
      * @throws IllegalArgumentException if {@code pluginId} is blank
      */
-    public PluginWorkSubmission submitCompletion(
-        String pluginId,
-        Runnable callback
-    ) {
+    public PluginWorkSubmission submitCompletion(String pluginId, Runnable callback) {
         requireText(pluginId, "pluginId");
         Objects.requireNonNull(callback, "callback");
         if (closed.get()) {
             return rejected(PluginWorkStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
         }
-        PluginTask task = new PluginTask(
-            "sidecar.complete",
-            pluginId,
-            "plugin completion settlement",
-            "none"
-        );
-        return executorRegistry.submitCompletion(
-            pluginId,
-            task,
-            bindCancellation(callback)
-        );
+        PluginTask task = new PluginTask("sidecar.complete", pluginId, "plugin completion settlement", "none");
+        return executorRegistry.submitCompletion(pluginId, task, bindCancellation(callback));
     }
 
     /**
@@ -302,16 +267,15 @@ public final class RuntimeScheduler {
         }
         try {
             token.bind(timer.schedule(
-                () -> {
-                    try {
-                        callback.run();
-                    } finally {
-                        token.executed();
-                    }
-                },
-                delay.toNanos(),
-                TimeUnit.NANOSECONDS
-            ));
+                    () -> {
+                        try {
+                            callback.run();
+                        } finally {
+                            token.executed();
+                        }
+                    },
+                    delay.toNanos(),
+                    TimeUnit.NANOSECONDS));
             return new RuntimeTimerSubmission(true, token);
         } catch (RuntimeException exception) {
             token.rejected();
@@ -373,8 +337,7 @@ public final class RuntimeScheduler {
             }
             if (pluginTaskSchedulerLeases != 0) {
                 throw new IllegalStateException(
-                    "Runtime scheduler cannot close while plugin task schedulers are active"
-                );
+                        "Runtime scheduler cannot close while plugin task schedulers are active");
             }
             closed.set(true);
             timersToCancel = activeTimers.toArray(RuntimeTimerToken[]::new);
@@ -417,9 +380,10 @@ public final class RuntimeScheduler {
 
     private boolean submitToLongLane(PluginTask task, Runnable callback) {
         final RuntimeCancellationToken token = new RuntimeCancellationToken();
-        return executorRegistry.longLane(task.pluginId())
-            .submit(task, token, bindCancellation(token, callback))
-            .accepted();
+        return executorRegistry
+                .longLane(task.pluginId())
+                .submit(task, token, bindCancellation(token, callback))
+                .accepted();
     }
 
     private static boolean isLongLaneTask(PluginTask task) {
@@ -438,10 +402,8 @@ public final class RuntimeScheduler {
             return false;
         }
         try {
-            CompletionStage<SidecarResult> stage = sidecarDispatcher.dispatch(
-                task,
-                () -> enqueueSidecarCompletion(task, callback)
-            );
+            CompletionStage<SidecarResult> stage =
+                    sidecarDispatcher.dispatch(task, () -> enqueueSidecarCompletion(task, callback));
             if (stage == null) {
                 emitRejected(task);
                 return false;
@@ -449,40 +411,48 @@ public final class RuntimeScheduler {
             stage.whenComplete((result, failure) -> emitSidecarResult(task, result, failure));
             return true;
         } catch (RuntimeException exception) {
-            emit(task, PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Decision.SIDECAR, PluginWorkBudgetEvent.Severity.ERROR);
+            emit(
+                    task,
+                    PluginWorkBudgetEvent.Phase.FAILED,
+                    PluginWorkBudgetEvent.Decision.SIDECAR,
+                    PluginWorkBudgetEvent.Severity.ERROR);
             return false;
         }
     }
 
     private void enqueueSidecarCompletion(PluginTask originalTask, Runnable callback) {
         PluginTask completionTask = new PluginTask(
-            SIDECAR_COMPLETION_TASK_TYPE,
-            originalTask.pluginId(),
-            originalTask.payloadDescription(),
-            originalTask.declaredCapability()
-        );
+                SIDECAR_COMPLETION_TASK_TYPE,
+                originalTask.pluginId(),
+                originalTask.payloadDescription(),
+                originalTask.declaredCapability());
         executorRegistry.get(originalTask.pluginId()).execute(completionTask, bindCancellation(callback));
     }
 
     private void emitSidecarResult(PluginTask task, SidecarResult result, Throwable failure) {
         if (failure != null) {
-            emit(task, PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Decision.SIDECAR, PluginWorkBudgetEvent.Severity.ERROR);
+            emit(
+                    task,
+                    PluginWorkBudgetEvent.Phase.FAILED,
+                    PluginWorkBudgetEvent.Decision.SIDECAR,
+                    PluginWorkBudgetEvent.Severity.ERROR);
             return;
         }
         if (result == null || result.kind() == SidecarResult.Kind.SUCCESS) {
             return;
         }
-        emit(task, PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Decision.SIDECAR, PluginWorkBudgetEvent.Severity.ERROR);
+        emit(
+                task,
+                PluginWorkBudgetEvent.Phase.FAILED,
+                PluginWorkBudgetEvent.Decision.SIDECAR,
+                PluginWorkBudgetEvent.Severity.ERROR);
     }
 
     private Runnable bindCancellation(Runnable callback) {
         return bindCancellation(new RuntimeCancellationToken(), callback);
     }
 
-    private Runnable bindCancellation(
-        RuntimeCancellationToken token,
-        Runnable callback
-    ) {
+    private Runnable bindCancellation(RuntimeCancellationToken token, Runnable callback) {
         return () -> {
             CancellationContext.set(token);
             try {
@@ -501,30 +471,24 @@ public final class RuntimeScheduler {
         return value;
     }
 
-    private static PluginWorkSubmission rejected(
-        PluginWorkStatus status,
-        String failureCode
-    ) {
+    private static PluginWorkSubmission rejected(PluginWorkStatus status, String failureCode) {
         PluginWorkResult result = new PluginWorkResult(status, failureCode);
         return new PluginWorkSubmission(false, status, CompletableFuture.completedFuture(result));
     }
 
     private void emitRejected(PluginTask task) {
-        emit(task, PluginWorkBudgetEvent.Phase.REJECTED, PluginWorkBudgetEvent.Decision.REJECTED, PluginWorkBudgetEvent.Severity.WARNING);
+        emit(
+                task,
+                PluginWorkBudgetEvent.Phase.REJECTED,
+                PluginWorkBudgetEvent.Decision.REJECTED,
+                PluginWorkBudgetEvent.Severity.WARNING);
     }
 
     private void emit(
-        PluginTask task,
-        PluginWorkBudgetEvent.Phase phase,
-        PluginWorkBudgetEvent.Decision decision,
-        PluginWorkBudgetEvent.Severity severity
-    ) {
-        diagnosticSink.accept(new PluginWorkBudgetEvent(
-            task.pluginId(),
-            task.taskType(),
-            phase,
-            decision,
-            severity
-        ));
+            PluginTask task,
+            PluginWorkBudgetEvent.Phase phase,
+            PluginWorkBudgetEvent.Decision decision,
+            PluginWorkBudgetEvent.Severity severity) {
+        diagnosticSink.accept(new PluginWorkBudgetEvent(task.pluginId(), task.taskType(), phase, decision, severity));
     }
 }

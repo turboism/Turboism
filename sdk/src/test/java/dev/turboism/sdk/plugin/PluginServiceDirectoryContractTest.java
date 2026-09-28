@@ -1,6 +1,5 @@
 package dev.turboism.sdk.plugin;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,7 +11,6 @@ import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.ui.UiScheduler;
-
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Locale;
@@ -27,30 +25,70 @@ import org.junit.jupiter.api.Test;
 class PluginServiceDirectoryContractTest {
 
     private final PluginContext context = new PluginContext() {
-        @Override public PluginDescriptor descriptor() { return null; }
-        @Override public PluginLogger logger() { return null; }
-        @Override public PluginPaths paths() { return null; }
-        @Override public CubismFacade cubism() { return null; }
-        @Override public List<PluginPermission> permissions() { return List.of(); }
-        @Override public EventBus eventBus() { return null; }
-        @Override public ActionRegistry actions() { return null; }
-        @Override public MenuRegistry menus() { return null; }
-        @Override public UiScheduler uiScheduler() { return null; }
-        @Override public DiagnosticReport diagnostics() { return null; }
-        @Override public DisposableScope disposableScope() { return null; }
+        @Override
+        public PluginDescriptor descriptor() {
+            return null;
+        }
+
+        @Override
+        public PluginLogger logger() {
+            return null;
+        }
+
+        @Override
+        public PluginPaths paths() {
+            return null;
+        }
+
+        @Override
+        public CubismFacade cubism() {
+            return null;
+        }
+
+        @Override
+        public List<PluginPermission> permissions() {
+            return List.of();
+        }
+
+        @Override
+        public EventBus eventBus() {
+            return null;
+        }
+
+        @Override
+        public ActionRegistry actions() {
+            return null;
+        }
+
+        @Override
+        public MenuRegistry menus() {
+            return null;
+        }
+
+        @Override
+        public UiScheduler uiScheduler() {
+            return null;
+        }
+
+        @Override
+        public DiagnosticReport diagnostics() {
+            return null;
+        }
+
+        @Override
+        public DisposableScope disposableScope() {
+            return null;
+        }
     };
 
     @Test
     void everyMemberTypeNamesItsAccessorReturnType() throws Exception {
         for (PluginService service : PluginService.values()) {
-            final Method accessor = PluginContext.class
-                .getDeclaredMethod(accessorName(service.name()));
+            final Method accessor = PluginContext.class.getDeclaredMethod(accessorName(service.name()));
             assertSame(
-                accessor.getReturnType(),
-                service.type(),
-                "PluginService." + service.name() + ".type() must name "
-                    + accessor.getName() + "()'s return type"
-            );
+                    accessor.getReturnType(),
+                    service.type(),
+                    "PluginService." + service.name() + ".type() must name " + accessor.getName() + "()'s return type");
         }
     }
 
@@ -60,13 +98,9 @@ class PluginServiceDirectoryContractTest {
         assertTrue(directory.installed().isEmpty());
         for (PluginService service : PluginService.values()) {
             assertNull(
-                directory.get(service.type()),
-                service + " resolved on a context exposing only unavailable sentinels"
-            );
-            assertNull(
-                service.resolve(context),
-                service + ".resolve() must return null for the unavailable sentinel"
-            );
+                    directory.get(service.type()),
+                    service + " resolved on a context exposing only unavailable sentinels");
+            assertNull(service.resolve(context), service + ".resolve() must return null for the unavailable sentinel");
         }
     }
 

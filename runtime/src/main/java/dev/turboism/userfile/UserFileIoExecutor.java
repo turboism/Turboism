@@ -3,7 +3,6 @@ package dev.turboism.userfile;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Objects;
@@ -27,42 +26,30 @@ final class UserFileIoExecutor implements AutoCloseable {
     private final Set<Operation<?>> operations = new HashSet<>();
     private boolean active = true;
 
-    UserFileIoExecutor(
-        final String pluginId,
-        final RuntimePluginTaskScheduler tasks
-    ) {
+    UserFileIoExecutor(final String pluginId, final RuntimePluginTaskScheduler tasks) {
         this.tasks = Objects.requireNonNull(tasks, "tasks");
         this.executor = new ThreadPoolExecutor(
-            1,
-            1,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new LinkedBlockingQueue<>(64),
-            runnable -> {
-                final Thread thread = new Thread(
-                    runnable,
-                    "turboism-user-file-" + requireText(pluginId, "pluginId")
-                );
-                thread.setDaemon(true);
-                return thread;
-            },
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(64),
+                runnable -> {
+                    final Thread thread =
+                            new Thread(runnable, "turboism-user-file-" + requireText(pluginId, "pluginId"));
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
     <T> CompletionStage<T> submit(
-        final Supplier<T> action,
-        final Supplier<T> canceled,
-        final Supplier<T> unavailable,
-        final Supplier<T> failed
-    ) {
+            final Supplier<T> action,
+            final Supplier<T> canceled,
+            final Supplier<T> unavailable,
+            final Supplier<T> failed) {
         final PluginCompletionFuture<T> completion = future();
-        final Operation<T> operation = new Operation<>(
-            action,
-            canceled,
-            failed,
-            completion
-        );
+        final Operation<T> operation = new Operation<>(action, canceled, failed, completion);
         synchronized (lifecycleLock) {
             if (!active) {
                 dispatch(() -> completion.settle(unavailable.get()));
@@ -99,16 +86,11 @@ final class UserFileIoExecutor implements AutoCloseable {
         executor.shutdownNow();
         try {
             if (!executor.awaitTermination(CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                throw new IllegalStateException(
-                    "User-file I/O did not quiesce before scope close"
-                );
+                throw new IllegalStateException("User-file I/O did not quiesce before scope close");
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException(
-                "Interrupted while waiting for user-file I/O quiescence",
-                exception
-            );
+            throw new IllegalStateException("Interrupted while waiting for user-file I/O quiescence", exception);
         }
     }
 
@@ -143,11 +125,10 @@ final class UserFileIoExecutor implements AutoCloseable {
         private final AtomicBoolean settled = new AtomicBoolean(false);
 
         private Operation(
-            final Supplier<T> action,
-            final Supplier<T> canceled,
-            final Supplier<T> failed,
-            final PluginCompletionFuture<T> completion
-        ) {
+                final Supplier<T> action,
+                final Supplier<T> canceled,
+                final Supplier<T> failed,
+                final PluginCompletionFuture<T> completion) {
             this.action = Objects.requireNonNull(action, "action");
             this.canceled = Objects.requireNonNull(canceled, "canceled");
             this.failed = Objects.requireNonNull(failed, "failed");
@@ -161,9 +142,7 @@ final class UserFileIoExecutor implements AutoCloseable {
                 return;
             }
             try {
-                settle(Thread.currentThread().isInterrupted()
-                    ? canceled.get()
-                    : action.get());
+                settle(Thread.currentThread().isInterrupted() ? canceled.get() : action.get());
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 settle(failed.get());

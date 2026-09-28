@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.integration;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -33,23 +32,18 @@ public final class EditToggleConfigStore {
     /** UUConfig key persisting the edit toggle; sibling of {@code …RemoteConnect}. */
     public static final String CONFIG_KEY = "CExternalAppSettingDialog.EditEnabled";
 
-    private static final String ADAPTER_SLICE_ID =
-        EditorIntegrationSettingsDialogSelectorContract.ADAPTER_SLICE_ID;
+    private static final String ADAPTER_SLICE_ID = EditorIntegrationSettingsDialogSelectorContract.ADAPTER_SLICE_ID;
     private static final String CAPABILITY_ID =
-        EditorIntegrationSettingsDialogSelectorContract.EDIT_TOGGLE_CAPABILITY_ID;
+            EditorIntegrationSettingsDialogSelectorContract.EDIT_TOGGLE_CAPABILITY_ID;
     private static final Set<String> CONFIG_ALIASES = Set.of(
-        EditorIntegrationSettingsDialogSelectorContract.CONFIG_INSTANCE_ALIAS,
-        EditorIntegrationSettingsDialogSelectorContract.CONFIG_READ_ALIAS,
-        EditorIntegrationSettingsDialogSelectorContract.CONFIG_WRITE_ALIAS
-    );
+            EditorIntegrationSettingsDialogSelectorContract.CONFIG_INSTANCE_ALIAS,
+            EditorIntegrationSettingsDialogSelectorContract.CONFIG_READ_ALIAS,
+            EditorIntegrationSettingsDialogSelectorContract.CONFIG_WRITE_ALIAS);
 
     private final VerifiedMemberResolver resolver;
     private final Object config;
 
-    private EditToggleConfigStore(
-        final VerifiedMemberResolver resolver,
-        final Object config
-    ) {
+    private EditToggleConfigStore(final VerifiedMemberResolver resolver, final Object config) {
         this.resolver = resolver;
         this.config = config;
     }
@@ -62,19 +56,15 @@ public final class EditToggleConfigStore {
      * exact editor-model slice. A missing or unresolved member yields {@link Optional#empty()}
      * — the toggle then runs unpersisted rather than failing injection.</p>
      */
-    public static Optional<EditToggleConfigStore> fromVerifiedResolver(
-        final VerifiedMemberResolver resolver
-    ) {
+    public static Optional<EditToggleConfigStore> fromVerifiedResolver(final VerifiedMemberResolver resolver) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
         if (!verified.authorizesFeature(ADAPTER_SLICE_ID, CAPABILITY_ID, CONFIG_ALIASES)) {
             return Optional.empty();
         }
         try {
-            final Object config = verified.readStaticField(
-                EditorIntegrationSettingsDialogSelectorContract.CONFIG_INSTANCE_ALIAS);
-            return config == null
-                ? Optional.empty()
-                : Optional.of(new EditToggleConfigStore(verified, config));
+            final Object config =
+                    verified.readStaticField(EditorIntegrationSettingsDialogSelectorContract.CONFIG_INSTANCE_ALIAS);
+            return config == null ? Optional.empty() : Optional.of(new EditToggleConfigStore(verified, config));
         } catch (RuntimeException failure) {
             return Optional.empty();
         }
@@ -87,8 +77,10 @@ public final class EditToggleConfigStore {
     public boolean load() {
         try {
             final Object value = resolver.invoke(
-                EditorIntegrationSettingsDialogSelectorContract.CONFIG_READ_ALIAS,
-                config, CONFIG_KEY, Boolean.FALSE);
+                    EditorIntegrationSettingsDialogSelectorContract.CONFIG_READ_ALIAS,
+                    config,
+                    CONFIG_KEY,
+                    Boolean.FALSE);
             return Boolean.TRUE.equals(value);
         } catch (RuntimeException failure) {
             return false;
@@ -103,8 +95,7 @@ public final class EditToggleConfigStore {
     public void store(final boolean enabled) {
         try {
             resolver.invoke(
-                EditorIntegrationSettingsDialogSelectorContract.CONFIG_WRITE_ALIAS,
-                config, CONFIG_KEY, enabled);
+                    EditorIntegrationSettingsDialogSelectorContract.CONFIG_WRITE_ALIAS, config, CONFIG_KEY, enabled);
         } catch (RuntimeException ignored) {
             // best-effort persistence; the live toggle state remains authoritative
         }

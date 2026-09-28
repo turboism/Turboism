@@ -1,16 +1,12 @@
 package dev.turboism.ui.menu;
 
-import java.util.List;
-import java.util.Objects;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
+import java.util.Objects;
 
 /** Complete deterministic snapshot of one top-level menu (plugin-owned or shared reserved root). */
-public record TopMenuDescriptor(
-    String menuId,
-    String label,
-    List<TopMenuItemDescriptor> items
-) {
+public record TopMenuDescriptor(String menuId, String label, List<TopMenuItemDescriptor> items) {
     public TopMenuDescriptor {
         menuId = requireText(menuId, "menuId");
         label = requireText(label, "label");
@@ -20,20 +16,16 @@ public record TopMenuDescriptor(
         }
     }
 
-    static TopMenuDescriptor owned(
-        final String rootLabel,
-        final List<TopMenuItemDescriptor> items
-    ) {
+    static TopMenuDescriptor owned(final String rootLabel, final List<TopMenuItemDescriptor> items) {
         final String label = requireText(rootLabel, "rootLabel");
         final List<TopMenuItemDescriptor> snapshot = List.copyOf(items);
-        if (snapshot.isEmpty() || snapshot.stream().anyMatch(item ->
-            !item.rootLabel().equals(label))) {
+        if (snapshot.isEmpty()
+                || snapshot.stream().anyMatch(item -> !item.rootLabel().equals(label))) {
             throw new IllegalArgumentException("top-menu items must share one root label");
         }
         final String owner = snapshot.get(0).pluginId();
-        final String encodedLabel = Base64.getUrlEncoder().withoutPadding().encodeToString(
-            label.getBytes(StandardCharsets.UTF_8)
-        );
+        final String encodedLabel =
+                Base64.getUrlEncoder().withoutPadding().encodeToString(label.getBytes(StandardCharsets.UTF_8));
         return new TopMenuDescriptor("turboism.menu." + owner + "." + encodedLabel, label, snapshot);
     }
 
@@ -45,10 +37,7 @@ public record TopMenuDescriptor(
      * name actually shown in the menu bar.
      */
     static TopMenuDescriptor shared(
-        final String rootLabel,
-        final String displayLabel,
-        final List<TopMenuItemDescriptor> items
-    ) {
+            final String rootLabel, final String displayLabel, final List<TopMenuItemDescriptor> items) {
         final String label = requireText(rootLabel, "rootLabel");
         final String display = requireText(displayLabel, "displayLabel");
         final List<TopMenuItemDescriptor> snapshot = List.copyOf(items);
@@ -58,9 +47,8 @@ public record TopMenuDescriptor(
         if (snapshot.stream().anyMatch(item -> !item.rootLabel().equals(label))) {
             throw new IllegalArgumentException("shared top-menu items must share one root label");
         }
-        final String encodedLabel = Base64.getUrlEncoder().withoutPadding().encodeToString(
-            label.getBytes(StandardCharsets.UTF_8)
-        );
+        final String encodedLabel =
+                Base64.getUrlEncoder().withoutPadding().encodeToString(label.getBytes(StandardCharsets.UTF_8));
         return new TopMenuDescriptor("turboism.menu.shared." + encodedLabel, display, snapshot);
     }
 

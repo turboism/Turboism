@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-
 import java.util.Objects;
 
 /**
@@ -17,22 +16,20 @@ import java.util.Objects;
  * algorithms declaring it and they are ignored for every other selection.</p>
  */
 public record TextureAtlasLayoutAlgorithm(
-    String id,
-    String displayName,
-    boolean supportsParallel,
-    boolean supportsPolygonOptions,
-    TextureAtlasLayoutPlanner planner
-) {
+        String id,
+        String displayName,
+        boolean supportsParallel,
+        boolean supportsPolygonOptions,
+        TextureAtlasLayoutPlanner planner) {
     /**
      * Compatibility constructor keeping the pre-polygon-options signature:
      * the algorithm declares no extended packing-option support.
      */
     public TextureAtlasLayoutAlgorithm(
-        final String id,
-        final String displayName,
-        final boolean supportsParallel,
-        final TextureAtlasLayoutPlanner planner
-    ) {
+            final String id,
+            final String displayName,
+            final boolean supportsParallel,
+            final TextureAtlasLayoutPlanner planner) {
         this(id, displayName, supportsParallel, false, planner);
     }
 

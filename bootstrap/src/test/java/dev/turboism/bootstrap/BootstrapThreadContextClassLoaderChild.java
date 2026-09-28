@@ -1,13 +1,12 @@
 package dev.turboism.bootstrap;
 
-import javax.swing.SwingUtilities;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.SwingUtilities;
 
 /** Child-JVM fixture proving the bootstrap thread cannot seed Swing with a null context loader. */
 public final class BootstrapThreadContextClassLoaderChild {
 
-    private BootstrapThreadContextClassLoaderChild() {
-    }
+    private BootstrapThreadContextClassLoaderChild() {}
 
     public static void main(final String[] ignored) throws Exception {
         if (BootstrapThreadFactory.class.getClassLoader() != null) {
@@ -17,9 +16,8 @@ public final class BootstrapThreadContextClassLoaderChild {
         final AtomicReference<Throwable> failure = new AtomicReference<>();
         final Thread bootstrap = BootstrapThreadFactory.create(() -> {
             try {
-                SwingUtilities.invokeAndWait(() ->
-                    edtLoader.set(Thread.currentThread().getContextClassLoader())
-                );
+                SwingUtilities.invokeAndWait(
+                        () -> edtLoader.set(Thread.currentThread().getContextClassLoader()));
             } catch (Throwable throwable) {
                 failure.set(throwable);
             }

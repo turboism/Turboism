@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-
 /** Version-neutral MOC format version. */
 public enum MocVersion {
     UNKNOWN,

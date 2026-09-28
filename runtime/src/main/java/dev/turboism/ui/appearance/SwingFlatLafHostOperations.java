@@ -1,21 +1,18 @@
 package dev.turboism.ui.appearance;
 
 import dev.turboism.ui.host.EdtDispatch;
-
-import javax.swing.UIManager;
-import javax.swing.plaf.ColorUIResource;
 import java.awt.Color;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import javax.swing.UIManager;
+import javax.swing.plaf.ColorUIResource;
 
 /** Runtime-owned bridge for UIManager injection, native fallback capture and FlatLaf refresh. */
 public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostProvider.HostOperations {
 
-    private static final String OFF_CANVAS_BACKGROUND =
-        "CubismCommon.gl.viewArea.background";
-    private static final String NATIVE_OFF_CANVAS_BACKGROUND =
-        "Turboism.native.CubismCommon.gl.viewArea.background";
+    private static final String OFF_CANVAS_BACKGROUND = "CubismCommon.gl.viewArea.background";
+    private static final String NATIVE_OFF_CANVAS_BACKGROUND = "Turboism.native.CubismCommon.gl.viewArea.background";
 
     private final ClassLoader hostClassLoader;
     private final java.util.Set<String> ownedKeys;
@@ -167,16 +164,16 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
         return onEdt(() -> {
             final Object lookAndFeel = javax.swing.UIManager.getLookAndFeel();
             return lookAndFeel != null
-                && isFlatLaf(lookAndFeel.getClass().getName())
-                && javax.swing.UIManager.get("PanelUI") != null;
+                    && isFlatLaf(lookAndFeel.getClass().getName())
+                    && javax.swing.UIManager.get("PanelUI") != null;
         });
     }
 
     private static boolean isFlatLaf(final String className) {
         return className != null
-            && (className.startsWith("com.formdev.flatlaf.")
-                || className.contains("CubismLightTheme")
-                || className.contains("CubismDarkTheme"));
+                && (className.startsWith("com.formdev.flatlaf.")
+                        || className.contains("CubismLightTheme")
+                        || className.contains("CubismDarkTheme"));
     }
 
     private static void restoreNativeOffCanvasBackground() {
@@ -190,16 +187,12 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
     public void refresh() {
         onEdt(() -> {
             try {
-                final Class<?> flatLaf = Class.forName(
-                    "com.formdev.flatlaf.FlatLaf",
-                    false,
-                    hostClassLoader
-                );
+                final Class<?> flatLaf = Class.forName("com.formdev.flatlaf.FlatLaf", false, hostClassLoader);
                 // Keep the fixed file registered for look-and-feel reinstalls.
                 // Runtime apply/restore update UIManager directly; FlatLaf.updateUI()
                 // only refreshes component trees and does not rebuild UIDefaults.
                 flatLaf.getMethod("registerCustomDefaultsSource", java.io.File.class)
-                    .invoke(null, ThemeRuntimeProperties.path().toFile());
+                        .invoke(null, ThemeRuntimeProperties.path().toFile());
                 flatLaf.getMethod("updateUI").invoke(null);
                 return null;
             } catch (ReflectiveOperationException exception) {

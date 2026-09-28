@@ -18,17 +18,14 @@ import java.lang.reflect.Constructor;
  */
 public final class ContractParentVisibilityMain {
 
-    private ContractParentVisibilityMain() { }
+    private ContractParentVisibilityMain() {}
 
     public static void main(final String[] args) throws Exception {
         final Class<?> sdk = Class.forName("dev.turboism.sdk.event.EventBus");
-        final Class<?> filter =
-            Class.forName("dev.turboism.core.event.SdkContractParent");
-        final Constructor<?> constructor =
-            filter.getDeclaredConstructor(ClassLoader.class);
+        final Class<?> filter = Class.forName("dev.turboism.core.event.SdkContractParent");
+        final Constructor<?> constructor = filter.getDeclaredConstructor(ClassLoader.class);
         constructor.setAccessible(true);
-        final ClassLoader parent =
-            (ClassLoader) constructor.newInstance(sdk.getClassLoader());
+        final ClassLoader parent = (ClassLoader) constructor.newInstance(sdk.getClassLoader());
 
         for (final String name : new String[] {
             "dev.turboism.core.event.RuntimeEventBroker",
@@ -51,15 +48,12 @@ public final class ContractParentVisibilityMain {
         }
         System.out.println(sdk.getName() + " => IDENTITY");
 
-        for (final String name : new String[] {
-            "com.sun.net.httpserver.HttpServer",
-            "org.w3c.dom.Node"
-        }) {
+        for (final String name : new String[] {"com.sun.net.httpserver.HttpServer", "org.w3c.dom.Node"}) {
             final Class<?> type = parent.loadClass(name);
             final Module module = type.getModule();
             if (!module.isNamed()
-                || !(module.getName().startsWith("java.")
-                    || module.getName().startsWith("jdk."))) {
+                    || !(module.getName().startsWith("java.")
+                            || module.getName().startsWith("jdk."))) {
                 throw new AssertionError(name + " resolved outside JDK platform modules");
             }
             System.out.println(name + " => VISIBLE module=" + module.getName());

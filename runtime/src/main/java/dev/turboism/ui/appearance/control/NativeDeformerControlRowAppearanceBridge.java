@@ -2,7 +2,6 @@ package dev.turboism.ui.appearance.control;
 
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
-
 import java.awt.Component;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -13,7 +12,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class NativeDeformerControlRowAppearanceBridge {
     private static final AtomicReference<Installed> INSTALLED = new AtomicReference<>();
 
-    private NativeDeformerControlRowAppearanceBridge() { }
+    private NativeDeformerControlRowAppearanceBridge() {}
 
     /**
      * Entry point the instrumented host deformer control-row renderer calls after producing a row
@@ -60,13 +59,14 @@ public final class NativeDeformerControlRowAppearanceBridge {
      * @throws NullPointerException if {@code selectors} or {@code provider} is {@code null}
      */
     public static void install(
-        final long generation,
-        final Selectors selectors,
-        final DeformerControlRowAppearanceProvider provider
-    ) {
+            final long generation, final Selectors selectors, final DeformerControlRowAppearanceProvider provider) {
         if (generation <= 0) throw new IllegalArgumentException("generation must be positive");
-        if (!INSTALLED.compareAndSet(null, new Installed(generation,
-            Objects.requireNonNull(selectors, "selectors"), Objects.requireNonNull(provider, "provider")))) {
+        if (!INSTALLED.compareAndSet(
+                null,
+                new Installed(
+                        generation,
+                        Objects.requireNonNull(selectors, "selectors"),
+                        Objects.requireNonNull(provider, "provider")))) {
             throw new IllegalStateException("native deformer control-row bridge is already installed");
         }
     }
@@ -82,9 +82,11 @@ public final class NativeDeformerControlRowAppearanceBridge {
         if (installed != null) installed.provider().close();
     }
 
-    static void clearForTesting() { uninstall(); }
+    static void clearForTesting() {
+        uninstall();
+    }
 
-    private record Installed(long generation, Selectors selectors, DeformerControlRowAppearanceProvider provider) { }
+    private record Installed(long generation, Selectors selectors, DeformerControlRowAppearanceProvider provider) {}
 
     /**
      * Reflective coordinates of the host's deformer control-row internals: how to get from the
@@ -111,23 +113,32 @@ public final class NativeDeformerControlRowAppearanceBridge {
      * @throws NullPointerException if any component is {@code null}
      */
     public record Selectors(
-        String rendererOwner,
-        String outerField,
-        String outerOwner,
-        String treeAccessorMethod,
-        String treeOwner,
-        String pathForRowMethod,
-        String rowOwner,
-        String rowSourceMethod,
-        String deformerSourceOwner,
-        String deformerIdMethod,
-        String idStringMethod,
-        ClassLoader hostClassLoader
-    ) {
+            String rendererOwner,
+            String outerField,
+            String outerOwner,
+            String treeAccessorMethod,
+            String treeOwner,
+            String pathForRowMethod,
+            String rowOwner,
+            String rowSourceMethod,
+            String deformerSourceOwner,
+            String deformerIdMethod,
+            String idStringMethod,
+            ClassLoader hostClassLoader) {
         public Selectors {
-            for (String value : new String[]{rendererOwner, outerField, outerOwner, treeAccessorMethod,
-                treeOwner, pathForRowMethod, rowOwner, rowSourceMethod, deformerSourceOwner,
-                deformerIdMethod, idStringMethod}) requireText(value);
+            for (String value : new String[] {
+                rendererOwner,
+                outerField,
+                outerOwner,
+                treeAccessorMethod,
+                treeOwner,
+                pathForRowMethod,
+                rowOwner,
+                rowSourceMethod,
+                deformerSourceOwner,
+                deformerIdMethod,
+                idStringMethod
+            }) requireText(value);
             Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         }
 
@@ -136,26 +147,27 @@ public final class NativeDeformerControlRowAppearanceBridge {
             final Object outer = field(renderer, outerField);
             if (!exact(outer, outerOwner)) return null;
             final Class<?> outerType = Class.forName(outerOwner.replace('/', '.'), false, hostClassLoader);
-            final Method accessor = MethodHandleCache.method(
-                outerType, treeAccessorMethod, outerType
-            );
+            final Method accessor = MethodHandleCache.method(outerType, treeAccessorMethod, outerType);
             final Object tree = accessor.invoke(null, outer);
-            if (tree == null || tree.getClass().getClassLoader() != hostClassLoader
-                || !isTypeOrSuper(tree.getClass(), treeOwner.replace('/', '.'))) return null;
+            if (tree == null
+                    || tree.getClass().getClassLoader() != hostClassLoader
+                    || !isTypeOrSuper(tree.getClass(), treeOwner.replace('/', '.'))) return null;
             final Object path = invoke(tree, pathForRowMethod, int.class, row);
             final Object rowValue = path == null ? null : invoke(path, "getLastPathComponent");
             if (!exact(rowValue, rowOwner)) return null;
             final Object source = invoke(rowValue, rowSourceMethod);
-            if (source == null || source.getClass().getClassLoader() != hostClassLoader
-                || !isTypeOrSuper(source.getClass(), deformerSourceOwner.replace('/', '.'))) return null;
+            if (source == null
+                    || source.getClass().getClassLoader() != hostClassLoader
+                    || !isTypeOrSuper(source.getClass(), deformerSourceOwner.replace('/', '.'))) return null;
             final Object id = invoke(source, deformerIdMethod);
             final Object value = id == null ? null : invoke(id, idStringMethod);
             return value instanceof String text && !text.isBlank() ? text : null;
         }
 
         private boolean exact(final Object value, final String owner) {
-            return value != null && value.getClass().getClassLoader() == hostClassLoader
-                && value.getClass().getName().equals(owner.replace('/', '.'));
+            return value != null
+                    && value.getClass().getClassLoader() == hostClassLoader
+                    && value.getClass().getName().equals(owner.replace('/', '.'));
         }
 
         private static boolean isTypeOrSuper(final Class<?> type, final String expected) {
@@ -178,7 +190,7 @@ public final class NativeDeformerControlRowAppearanceBridge {
     }
 
     private static Object invoke(final Object target, final String name, final Class<?> type, final Object argument)
-        throws ReflectiveOperationException {
+            throws ReflectiveOperationException {
         final Method method = MethodHandleCache.method(target.getClass(), name, type);
         if (!method.canAccess(target) && !method.trySetAccessible()) return null;
         return method.invoke(target, argument);

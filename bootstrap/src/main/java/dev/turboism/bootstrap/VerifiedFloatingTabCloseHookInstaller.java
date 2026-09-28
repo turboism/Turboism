@@ -3,7 +3,6 @@ package dev.turboism.bootstrap;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.ui.panel.FloatingTabCloseNativeMethodTransformer;
-
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -19,23 +18,20 @@ final class VerifiedFloatingTabCloseHookInstaller implements AutoCloseable {
     private FloatingTabCloseNativeMethodTransformer transformer;
 
     VerifiedFloatingTabCloseHookInstaller(
-        final Instrumentation instrumentation,
-        final StaticSelector operation,
-        final StaticSelector paletteField,
-        final ClassLoader hostClassLoader
-    ) {
+            final Instrumentation instrumentation,
+            final StaticSelector operation,
+            final StaticSelector paletteField,
+            final ClassLoader hostClassLoader) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.operation = Objects.requireNonNull(operation, "operation");
         this.paletteField = Objects.requireNonNull(paletteField, "paletteField");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         if (operation.kind() != StaticSelector.Kind.METHOD
-            || paletteField.kind() != StaticSelector.Kind.FIELD
-            || !operation.ownerInternalName().equals(paletteField.ownerInternalName())
-            || (operation.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
-            || (paletteField.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
-            throw new IllegalArgumentException(
-                "Floating-tab close selectors do not describe exact instance members"
-            );
+                || paletteField.kind() != StaticSelector.Kind.FIELD
+                || !operation.ownerInternalName().equals(paletteField.ownerInternalName())
+                || (operation.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
+                || (paletteField.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
+            throw new IllegalArgumentException("Floating-tab close selectors do not describe exact instance members");
         }
     }
 
@@ -43,21 +39,20 @@ final class VerifiedFloatingTabCloseHookInstaller implements AutoCloseable {
         if (!installed.compareAndSet(false, true)) return;
         try {
             transformer = new FloatingTabCloseNativeMethodTransformer(
-                operation.ownerInternalName(),
-                operation.memberName(),
-                operation.descriptor(),
-                paletteField.memberName(),
-                paletteField.descriptor(),
-                hostClassLoader
-            );
+                    operation.ownerInternalName(),
+                    operation.memberName(),
+                    operation.descriptor(),
+                    paletteField.memberName(),
+                    paletteField.descriptor(),
+                    hostClassLoader);
             instrumentation.addTransformer(transformer, true);
             if (!instrumentation.isRetransformClassesSupported()) {
                 throw new IllegalStateException("Floating-tab close retransformation is unavailable");
             }
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getClassLoader() == hostClassLoader
-                    && loaded.getName().replace('.', '/').equals(operation.ownerInternalName())
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && loaded.getName().replace('.', '/').equals(operation.ownerInternalName())
+                        && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
                 }
             }

@@ -1,65 +1,32 @@
 package dev.turboism.ui.filter;
 
-import dev.turboism.core.reflect.MethodHandleCache;
-import dev.turboism.mapping.verification.VerifiedAccessException;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
-import dev.turboism.ui.palette.LogPaletteHostStructure;
-import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import dev.turboism.ui.toolbar.PaletteToolbarContributionDescriptor;
 import dev.turboism.ui.toolbar.PaletteToolbarHostOperations;
-
-import javax.swing.AbstractButton;
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.ImageIcon;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextField;
-import javax.swing.JTextPane;
-import javax.swing.JTree;
-import javax.swing.JViewport;
-import javax.swing.SwingUtilities;
-import javax.swing.Timer;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.event.TreeModelEvent;
-import javax.swing.event.TreeModelListener;
-import javax.swing.table.AbstractTableModel;
-import javax.swing.tree.TreeModel;
-import javax.swing.tree.TreePath;
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.LayoutManager;
 import java.awt.RenderingHints;
-import java.awt.Window;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import javax.swing.BorderFactory;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 /** Filter-box construction and toolbar contribution placement. */
 final class ToolbarPlacement {
@@ -72,13 +39,12 @@ final class ToolbarPlacement {
     boolean attached = true;
 
     ToolbarPlacement(
-        final Container toolbar,
-        final JComponent contribution,
-        final JPanel wrapper,
-        final Container originalParent,
-        final int originalIndex,
-        final Object originalConstraint
-    ) {
+            final Container toolbar,
+            final JComponent contribution,
+            final JPanel wrapper,
+            final Container originalParent,
+            final int originalIndex,
+            final Object originalConstraint) {
         this.toolbar = toolbar;
         this.contribution = contribution;
         this.wrapper = wrapper;
@@ -88,11 +54,12 @@ final class ToolbarPlacement {
     }
 
     boolean isCurrent() {
-        return attached && (wrapper == null
-            ? contribution.getParent() == toolbar
-            : wrapper.getParent() == originalParent
-                && contribution.getParent() == wrapper
-                && toolbar.getParent() == wrapper);
+        return attached
+                && (wrapper == null
+                        ? contribution.getParent() == toolbar
+                        : wrapper.getParent() == originalParent
+                                && contribution.getParent() == wrapper
+                                && toolbar.getParent() == wrapper);
     }
 
     void detach() {
@@ -111,10 +78,7 @@ final class ToolbarPlacement {
             if (originalConstraint != null) {
                 originalParent.add(toolbar, originalConstraint);
             } else {
-                originalParent.add(
-                    toolbar,
-                    Math.max(0, Math.min(originalIndex, originalParent.getComponentCount()))
-                );
+                originalParent.add(toolbar, Math.max(0, Math.min(originalIndex, originalParent.getComponentCount())));
             }
             originalParent.revalidate();
             originalParent.repaint();
@@ -136,8 +100,7 @@ final class FilterBox {
 
 final class PaletteToolbarSupport {
 
-    private PaletteToolbarSupport() {
-    }
+    private PaletteToolbarSupport() {}
 
     static final String FILTER_PANEL_NAME = "turboismPaletteFilterPanel";
 
@@ -173,10 +136,7 @@ final class PaletteToolbarSupport {
 
     /** Creates the filter box (placeholder field + clear button overlay). Pure Swing, ported from legacy. */
     static FilterBox createFilterBox(
-        final String placeholder,
-        final String initialText,
-        final Consumer<String> onTextChanged
-    ) {
+            final String placeholder, final String initialText, final Consumer<String> onTextChanged) {
         final JPanel filterPanel = new JPanel(new BorderLayout());
         filterPanel.setName(FILTER_PANEL_NAME);
         filterPanel.setOpaque(false);
@@ -195,8 +155,7 @@ final class PaletteToolbarSupport {
                 final Graphics2D graphics2d = (Graphics2D) graphics.create();
                 try {
                     graphics2d.setRenderingHint(
-                        RenderingHints.KEY_TEXT_ANTIALIASING,
-                        RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                            RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
                     graphics2d.setColor(new Color(150, 150, 150));
                     graphics2d.setFont(getFont());
                     final Insets insets = getInsets();
@@ -254,9 +213,21 @@ final class PaletteToolbarSupport {
         filterPanel.add(fieldOverlay, BorderLayout.CENTER);
 
         filterField.getDocument().addDocumentListener(new DocumentListener() {
-            @Override public void insertUpdate(final DocumentEvent event) { update(); }
-            @Override public void removeUpdate(final DocumentEvent event) { update(); }
-            @Override public void changedUpdate(final DocumentEvent event) { update(); }
+            @Override
+            public void insertUpdate(final DocumentEvent event) {
+                update();
+            }
+
+            @Override
+            public void removeUpdate(final DocumentEvent event) {
+                update();
+            }
+
+            @Override
+            public void changedUpdate(final DocumentEvent event) {
+                update();
+            }
+
             private void update() {
                 onTextChanged.accept(filterField.getText());
             }
@@ -266,10 +237,7 @@ final class PaletteToolbarSupport {
     }
 
     /** Framework-owned placement: contribution left, untouched host toolbar right. */
-    static ToolbarPlacement attachToolbarContribution(
-        final Container toolbar,
-        final JComponent contribution
-    ) {
+    static ToolbarPlacement attachToolbarContribution(final Container toolbar, final JComponent contribution) {
         Objects.requireNonNull(toolbar, "toolbar");
         Objects.requireNonNull(contribution, "contribution");
         final Container parent = toolbar.getParent();
@@ -281,9 +249,8 @@ final class PaletteToolbarSupport {
         }
 
         final LayoutManager layout = parent.getLayout();
-        final Object constraint = layout instanceof BorderLayout
-            ? ((BorderLayout) layout).getConstraints(toolbar)
-            : null;
+        final Object constraint =
+                layout instanceof BorderLayout ? ((BorderLayout) layout).getConstraints(toolbar) : null;
         final int index = parent.getComponentZOrder(toolbar);
         final JPanel wrapper = new JPanel(new BorderLayout(8, 0));
         wrapper.setOpaque(false);
@@ -303,13 +270,11 @@ final class PaletteToolbarSupport {
     }
 
     static void ensureFilterBox(
-        final PaletteFilterState state,
-        final Container toolbar,
-        final PaletteFilterRegistry.PaletteFilterContribution contribution,
-        final Consumer<String> onTextChanged
-    ) {
-        if (state.filterBox != null && state.toolbarPlacement != null
-            && state.toolbarPlacement.isCurrent()) {
+            final PaletteFilterState state,
+            final Container toolbar,
+            final PaletteFilterRegistry.PaletteFilterContribution contribution,
+            final Consumer<String> onTextChanged) {
+        if (state.filterBox != null && state.toolbarPlacement != null && state.toolbarPlacement.isCurrent()) {
             return;
         }
         detachFilterBox(state);
@@ -335,11 +300,12 @@ final class PaletteToolbarSupport {
         state.filterBox = null;
     }
 
-    static void syncToolbarButtons(final PaletteFilterHostOperations host, final PaletteFilterState state, final Container toolbar) {
+    static void syncToolbarButtons(
+            final PaletteFilterHostOperations host, final PaletteFilterState state, final Container toolbar) {
         final List<PaletteToolbarHostOperations.ButtonContribution> requested =
-            host.toolbarContributions.getOrDefault(state.kind, List.of());
+                host.toolbarContributions.getOrDefault(state.kind, List.of());
         final boolean current = state.toolbarSnapshot.equals(requested)
-            && state.toolbarButtons.values().stream().allMatch(button -> button.getParent() != null);
+                && state.toolbarButtons.values().stream().allMatch(button -> button.getParent() != null);
         if (current) return;
         detachToolbarButtons(state);
         state.toolbarSnapshot = requested;
@@ -363,12 +329,15 @@ final class PaletteToolbarSupport {
             for (PaletteToolbarHostOperations.ButtonContribution contribution : requested) {
                 final JButton button = createToolbarButton(host, contribution);
                 state.toolbarButtons.put(contribution.descriptor().nativeId(), button);
-                final Container target = toolbarAlignment(contribution.descriptor().anchor()) == FlowLayout.LEFT
-                    ? state.toolbarButtonPanel
-                    : state.levelPanel;
-                target.add(button, target == state.levelPanel
-                    ? Math.max(0, target.getComponentCount() - logLevelButtonCount(state))
-                    : target.getComponentCount());
+                final Container target =
+                        toolbarAlignment(contribution.descriptor().anchor()) == FlowLayout.LEFT
+                                ? state.toolbarButtonPanel
+                                : state.levelPanel;
+                target.add(
+                        button,
+                        target == state.levelPanel
+                                ? Math.max(0, target.getComponentCount() - logLevelButtonCount(state))
+                                : target.getComponentCount());
             }
             state.toolbarPanel.revalidate();
             state.toolbarPanel.repaint();
@@ -393,11 +362,15 @@ final class PaletteToolbarSupport {
         return state.infoButton == null ? 0 : 3;
     }
 
-    static JButton createToolbarButton(final PaletteFilterHostOperations host, final PaletteToolbarHostOperations.ButtonContribution contribution) {
+    static JButton createToolbarButton(
+            final PaletteFilterHostOperations host,
+            final PaletteToolbarHostOperations.ButtonContribution contribution) {
         final PaletteToolbarContributionDescriptor descriptor = contribution.descriptor();
         ImageIcon icon = null;
         if (host.resources != null) {
-            final URL url = host.resources.resource(descriptor.pluginId(), descriptor.iconResourcePath()).orElse(null);
+            final URL url = host.resources
+                    .resource(descriptor.pluginId(), descriptor.iconResourcePath())
+                    .orElse(null);
             if (url != null) icon = new ImageIcon(url);
         }
         final JButton button = new JButton(descriptor.label(), icon);

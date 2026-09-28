@@ -15,8 +15,12 @@ final class ParameterCsvCodecTest {
         final String input = "id,value\r\n\"z,part\",1.2300\r\n\"a\"\"quote\",-2.500\r\n\"multi\r\nline\",0\r\n";
         final ParameterCsvParseResult parsed = ParameterCsvCodec.parse(input);
         assertTrue(parsed.valid(), parsed.error().toString());
-        assertEquals(List.of("z,part", "a\"quote", "multi\r\nline"), parsed.rows().stream().map(ParameterCsvRow::id).toList());
-        assertEquals("id,value\n\"a\"\"quote\",-2.5\n\"multi\r\nline\",0\n\"z,part\",1.23\n", ParameterCsvCodec.serialize(parsed.rows()));
+        assertEquals(
+                List.of("z,part", "a\"quote", "multi\r\nline"),
+                parsed.rows().stream().map(ParameterCsvRow::id).toList());
+        assertEquals(
+                "id,value\n\"a\"\"quote\",-2.5\n\"multi\r\nline\",0\n\"z,part\",1.23\n",
+                ParameterCsvCodec.serialize(parsed.rows()));
     }
 
     @Test
@@ -30,7 +34,9 @@ final class ParameterCsvCodecTest {
         assertError(ParameterCsvErrorCode.VALUE_NEGATIVE_ZERO, "id,value\na,-0.00\n");
         assertError(ParameterCsvErrorCode.CONTROL_FORBIDDEN, "id,value\ra,1\r");
         final ParameterCsvParseResult duplicate = ParameterCsvCodec.parse("id,value\na,1\nb,2\na,3\n");
-        assertEquals(ParameterCsvErrorCode.DUPLICATE_ID, duplicate.error().orElseThrow().code());
+        assertEquals(
+                ParameterCsvErrorCode.DUPLICATE_ID,
+                duplicate.error().orElseThrow().code());
         assertEquals(2, duplicate.error().orElseThrow().firstRecord());
         assertEquals(4, duplicate.error().orElseThrow().record());
     }
@@ -50,7 +56,9 @@ final class ParameterCsvCodecTest {
             final java.util.ArrayList<ParameterCsvRow> rows = new java.util.ArrayList<>();
             final int count = random.nextInt(1, 50);
             for (int index = 0; index < count; index++) {
-                rows.add(new ParameterCsvRow("id," + index, BigDecimal.valueOf(random.nextLong(-1_000_000, 1_000_000), random.nextInt(0, 5))));
+                rows.add(new ParameterCsvRow(
+                        "id," + index,
+                        BigDecimal.valueOf(random.nextLong(-1_000_000, 1_000_000), random.nextInt(0, 5))));
             }
             final String encoded = ParameterCsvCodec.serialize(rows);
             final ParameterCsvParseResult parsed = ParameterCsvCodec.parse(encoded);

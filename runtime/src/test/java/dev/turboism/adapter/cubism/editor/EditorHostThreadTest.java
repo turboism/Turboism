@@ -1,49 +1,48 @@
 package dev.turboism.adapter.cubism.editor;
 
-import org.junit.jupiter.api.Test;
-
-import javax.swing.SwingUtilities;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
+
 class EditorHostThreadTest {
 
     @Test
     void dispatchesSynchronouslyToTheEventThread() {
-        assertEquals("EDT", EditorHostThread.dispatch(
-            "test",
-            () -> EditorHostThread.isCurrent() ? "EDT" : "worker"
-        ));
+        assertEquals("EDT", EditorHostThread.dispatch("test", () -> EditorHostThread.isCurrent() ? "EDT" : "worker"));
     }
 
     @Test
     void executesInlineWhenAlreadyOnTheEventThread() throws Exception {
         final AtomicReference<Boolean> current = new AtomicReference<>();
-        SwingUtilities.invokeAndWait(() -> current.set(EditorHostThread.dispatch(
-            "test",
-            EditorHostThread::isCurrent
-        )));
+        SwingUtilities.invokeAndWait(() -> current.set(EditorHostThread.dispatch("test", EditorHostThread::isCurrent)));
         assertEquals(Boolean.TRUE, current.get());
     }
 
     @Test
     void propagatesRuntimeExceptionsAndErrors() {
         final IllegalArgumentException runtime = new IllegalArgumentException("runtime");
-        assertSame(runtime, assertThrows(
-            IllegalArgumentException.class,
-            () -> EditorHostThread.dispatch("test", () -> { throw runtime; })
-        ));
+        assertSame(
+                runtime,
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> EditorHostThread.dispatch("test", () -> {
+                            throw runtime;
+                        })));
         final AssertionError error = new AssertionError("error");
-        assertSame(error, assertThrows(
-            AssertionError.class,
-            () -> EditorHostThread.dispatch("test", () -> { throw error; })
-        ));
+        assertSame(
+                error,
+                assertThrows(
+                        AssertionError.class,
+                        () -> EditorHostThread.dispatch("test", () -> {
+                            throw error;
+                        })));
     }
 
     @Test

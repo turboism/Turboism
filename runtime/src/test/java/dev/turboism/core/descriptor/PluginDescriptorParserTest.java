@@ -1,17 +1,16 @@
 package dev.turboism.core.descriptor;
 
-import dev.turboism.sdk.plugin.PluginDescriptor;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.fail;
+import org.junit.jupiter.api.Test;
 
 class PluginDescriptorParserTest {
 
@@ -22,8 +21,7 @@ class PluginDescriptorParserTest {
     }
 
     @Test
-    void parsesValidDescriptorWithMultipleEntrypointsAndResources()
-        throws DescriptorParseException {
+    void parsesValidDescriptorWithMultipleEntrypointsAndResources() throws DescriptorParseException {
         final String json = """
             {
               "format": "turboism.plugin.meta",
@@ -50,10 +48,9 @@ class PluginDescriptorParserTest {
 
         assertEquals("dev.turboism.plugin.demo", descriptor.id());
         assertEquals("0.1.0", descriptor.version());
-        assertEquals(List.of(
-            "dev.turboism.plugin.demo.DemoPlugin",
-            "dev.turboism.plugin.demo.ModelHooks"
-        ), descriptor.entrypoints());
+        assertEquals(
+                List.of("dev.turboism.plugin.demo.DemoPlugin", "dev.turboism.plugin.demo.ModelHooks"),
+                descriptor.entrypoints());
         assertEquals(List.of("icons/", "themes/"), descriptor.resources());
         assertEquals("META-INF/turboism/i18n/messages", descriptor.i18n().baseName());
         assertEquals(List.of("base", "en", "zh_Hans"), descriptor.i18n().locales());
@@ -62,45 +59,36 @@ class PluginDescriptorParserTest {
 
     @Test
     void rejectsSchemaVersionOne() {
-        final String json = validDescriptor().replace(
-            "\"schemaVersion\": 2",
-            "\"schemaVersion\": 1"
-        );
+        final String json = validDescriptor().replace("\"schemaVersion\": 2", "\"schemaVersion\": 1");
         assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
     }
 
     @Test
     void rejectsLegacyEntrypointObject() {
-        final String json = validDescriptor().replace(
-            "[\"dev.turboism.plugin.demo.DemoPlugin\"]",
-            "{\"plugin\":\"dev.turboism.plugin.demo.DemoPlugin\"}"
-        );
+        final String json = validDescriptor()
+                .replace(
+                        "[\"dev.turboism.plugin.demo.DemoPlugin\"]",
+                        "{\"plugin\":\"dev.turboism.plugin.demo.DemoPlugin\"}");
         assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
     }
 
     @Test
     void rejectsEmptyEntrypoints() {
-        final String json = validDescriptor().replace(
-            "[\"dev.turboism.plugin.demo.DemoPlugin\"]",
-            "[]"
-        );
+        final String json = validDescriptor().replace("[\"dev.turboism.plugin.demo.DemoPlugin\"]", "[]");
         assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
     }
 
     @Test
     void rejectsUndeclaredLegacyHomepage() {
-        final String json = validDescriptor().replace(
-            "\"website\": \"https://turboism.dev\"",
-            "\"homepage\": \"https://turboism.dev\""
-        );
+        final String json = validDescriptor()
+                .replace("\"website\": \"https://turboism.dev\"", "\"homepage\": \"https://turboism.dev\"");
         assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
     }
 
     @Test
     void parsesV3DescriptorWithCategoryAndTags() throws DescriptorParseException {
-        final String json = v3Descriptor(
-            "\"category\": \"modeling\",\n              \"tags\": [\"parameter\", \"batch-edit\"],"
-        );
+        final String json =
+                v3Descriptor("\"category\": \"modeling\",\n              \"tags\": [\"parameter\", \"batch-edit\"],");
 
         final PluginDescriptor descriptor = parser.parse(toStream(json));
 
@@ -148,21 +136,18 @@ class PluginDescriptorParserTest {
     void rejectsV3DescriptorWithoutCategory() {
         final String json = v3Descriptor("");
 
-        final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class, () -> parser.parse(toStream(json))
-        );
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
         assertEquals("PLUGIN_META_MISSING", failure.code());
     }
 
     @Test
     void rejectsV3DescriptorWithDuplicateTags() {
-        final String json = v3Descriptor(
-            "\"category\": \"modeling\",\n              \"tags\": [\"parameter\", \"parameter\"],"
-        );
+        final String json =
+                v3Descriptor("\"category\": \"modeling\",\n              \"tags\": [\"parameter\", \"parameter\"],");
 
-        final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class, () -> parser.parse(toStream(json))
-        );
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
         assertEquals("PLUGIN_META_BAD_TAGS", failure.code());
     }
 
@@ -170,36 +155,31 @@ class PluginDescriptorParserTest {
     void rejectsV3DescriptorWithMalformedCategory() {
         final String json = v3Descriptor("\"category\": \"Modeling\",");
 
-        final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class, () -> parser.parse(toStream(json))
-        );
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
         assertEquals("PLUGIN_META_BAD_CATEGORY", failure.code());
     }
 
     @Test
     void rejectsV3DescriptorWithMoreThanTwelveTags() {
-        final String json = v3Descriptor(
-            "\"category\": \"modeling\",\n              \"tags\": ["
+        final String json = v3Descriptor("\"category\": \"modeling\",\n              \"tags\": ["
                 + "\"a-1\",\"a-2\",\"a-3\",\"a-4\",\"a-5\",\"a-6\","
-                + "\"a-7\",\"a-8\",\"a-9\",\"a-10\",\"a-11\",\"a-12\",\"a-13\"],"
-        );
+                + "\"a-7\",\"a-8\",\"a-9\",\"a-10\",\"a-11\",\"a-12\",\"a-13\"],");
 
-        final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class, () -> parser.parse(toStream(json))
-        );
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
         assertEquals("PLUGIN_META_BAD_TAGS", failure.code());
     }
 
     @Test
     void rejectsV2DescriptorCarryingV3FieldsAsUnknown() {
-        final String json = validDescriptor().replace(
-            "\"i18n\": {",
-            "\"category\": \"modeling\",\n              \"tags\": [\"parameter\"],\n              \"i18n\": {"
-        );
+        final String json = validDescriptor()
+                .replace(
+                        "\"i18n\": {",
+                        "\"category\": \"modeling\",\n              \"tags\": [\"parameter\"],\n              \"i18n\": {");
 
-        final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class, () -> parser.parse(toStream(json))
-        );
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
         assertEquals("PLUGIN_META_UNKNOWN_FIELD", failure.code());
     }
 
@@ -207,9 +187,8 @@ class PluginDescriptorParserTest {
     void rejectsV3DescriptorWithWrongTypeCategory() {
         final String json = v3Descriptor("\"category\": 42,");
 
-        final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class, () -> parser.parse(toStream(json))
-        );
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
         assertEquals("PLUGIN_META_BAD_CATEGORY", failure.code());
     }
 
@@ -217,9 +196,8 @@ class PluginDescriptorParserTest {
     void rejectsV3DescriptorWithNullCategoryAsMissing() {
         final String json = v3Descriptor("\"category\": null,");
 
-        final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class, () -> parser.parse(toStream(json))
-        );
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
         assertEquals("PLUGIN_META_MISSING", failure.code());
     }
 
@@ -227,17 +205,15 @@ class PluginDescriptorParserTest {
     void rejectsV3DescriptorWithNonArrayTags() {
         final String json = v3Descriptor("\"category\": \"modeling\",\n              \"tags\": \"parameter\",");
 
-        final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class, () -> parser.parse(toStream(json))
-        );
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
         assertEquals("PLUGIN_META_BAD_TAGS", failure.code());
     }
 
     @Test
     void parsesV4PublicEventContracts() throws DescriptorParseException {
         final String digest = "a".repeat(64);
-        final PluginDescriptor descriptor = parser.parse(toStream(v4Descriptor(
-            """
+        final PluginDescriptor descriptor = parser.parse(toStream(v4Descriptor("""
               "eventExports": [{
                 "id": "demo.started",
                 "contractVersion": "1.0.0",
@@ -252,17 +228,14 @@ class PluginDescriptorParserTest {
                 "abiSha256": "%s",
                 "required": false
               }],
-            """.formatted(digest, digest)
-        )));
+            """.formatted(digest, digest))));
 
         assertEquals(1, descriptor.eventExports().size());
         assertEquals("demo.started", descriptor.eventExports().get(0).id());
         assertEquals("1.0.0", descriptor.eventExports().get(0).contractVersion());
         assertEquals(1, descriptor.eventImports().size());
         assertEquals(
-            "dev.turboism.plugin.provider",
-            descriptor.eventImports().get(0).providerId()
-        );
+                "dev.turboism.plugin.provider", descriptor.eventImports().get(0).providerId());
         assertEquals("[1.0.0,2.0.0)", descriptor.eventImports().get(0).contractVersion());
         assertEquals(false, descriptor.eventImports().get(0).required());
     }
@@ -271,9 +244,8 @@ class PluginDescriptorParserTest {
     void rejectsV4DuplicateEventExportIds() {
         final String digest = "a".repeat(64);
         final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class,
-            () -> parser.parse(toStream(v4Descriptor(
-                """
+                DescriptorParseException.class,
+                () -> parser.parse(toStream(v4Descriptor("""
                   "eventExports": [
                     {
                       "id": "demo.started",
@@ -288,27 +260,21 @@ class PluginDescriptorParserTest {
                       "abiSha256": "%s"
                     }
                   ],
-                """.formatted(digest, digest)
-            )))
-        );
+                """.formatted(digest, digest)))));
         assertEquals("PLUGIN_META_DUPLICATE_EVENT_EXPORT", failure.code());
     }
 
     @Test
     void rejectsV4MalformedEventAbi() {
-        final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class,
-            () -> parser.parse(toStream(v4Descriptor(
-                """
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(v4Descriptor("""
                   "eventExports": [{
                     "id": "demo.started",
                     "contractVersion": "1.0.0",
                     "eventType": "dev.turboism.sdk.event.demo.DemoStartedEvent",
                     "abiSha256": "not-a-digest"
                   }],
-                """
-            )))
-        );
+                """))));
         assertEquals("PLUGIN_META_BAD_EVENT_ABI", failure.code());
     }
 
@@ -317,29 +283,98 @@ class PluginDescriptorParserTest {
         // A descriptor implementation compiled against the old method set must
         // remain loadable: the default methods supply empty classification.
         final PluginDescriptor legacy = new PluginDescriptor() {
-            @Override public String id() { return "legacy.plugin"; }
-            @Override public String name() { return "Legacy"; }
-            @Override public String version() { return "1.0.0"; }
-            @Override public String description() { return ""; }
-            @Override public List<String> entrypoints() { return List.of("legacy.Plugin"); }
-            @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
-            @Override public List<Author> authors() { return List.of(); }
-            @Override public String license() { return ""; }
-            @Override public Optional<String> website() { return Optional.empty(); }
-            @Override public List<String> resources() { return List.of(); }
-            @Override public I18n i18n() {
+            @Override
+            public String id() {
+                return "legacy.plugin";
+            }
+
+            @Override
+            public String name() {
+                return "Legacy";
+            }
+
+            @Override
+            public String version() {
+                return "1.0.0";
+            }
+
+            @Override
+            public String description() {
+                return "";
+            }
+
+            @Override
+            public List<String> entrypoints() {
+                return List.of("legacy.Plugin");
+            }
+
+            @Override
+            public String turboismApi() {
+                return "[0.1.0,0.2.0)";
+            }
+
+            @Override
+            public List<Author> authors() {
+                return List.of();
+            }
+
+            @Override
+            public String license() {
+                return "";
+            }
+
+            @Override
+            public Optional<String> website() {
+                return Optional.empty();
+            }
+
+            @Override
+            public List<String> resources() {
+                return List.of();
+            }
+
+            @Override
+            public I18n i18n() {
                 return new I18n() {
-                    @Override public String baseName() { return "META-INF/turboism/i18n/messages"; }
-                    @Override public List<String> locales() { return List.of(); }
+                    @Override
+                    public String baseName() {
+                        return "META-INF/turboism/i18n/messages";
+                    }
+
+                    @Override
+                    public List<String> locales() {
+                        return List.of();
+                    }
                 };
             }
-            @Override public List<DependencyRef> dependencies() { return List.of(); }
-            @Override public List<PermissionRef> permissions() { return List.of(); }
-            @Override public List<String> capabilities() { return List.of(); }
-            @Override public Environment environment() {
+
+            @Override
+            public List<DependencyRef> dependencies() {
+                return List.of();
+            }
+
+            @Override
+            public List<PermissionRef> permissions() {
+                return List.of();
+            }
+
+            @Override
+            public List<String> capabilities() {
+                return List.of();
+            }
+
+            @Override
+            public Environment environment() {
                 return new Environment() {
-                    @Override public boolean requiresCubism() { return false; }
-                    @Override public String ui() { return "none"; }
+                    @Override
+                    public boolean requiresCubism() {
+                        return false;
+                    }
+
+                    @Override
+                    public String ui() {
+                        return "none";
+                    }
                 };
             }
         };
@@ -354,26 +389,21 @@ class PluginDescriptorParserTest {
     @Test
     void parsesV5EventContracts() throws DescriptorParseException {
         final String sha256 = "b".repeat(64);
-        final PluginDescriptor descriptor = parser.parse(toStream(v5Descriptor(
-            """
+        final PluginDescriptor descriptor = parser.parse(toStream(v5Descriptor("""
               "eventContracts": [{
                 "id": "acme.events",
                 "version": "1.2.0",
                 "artifact": "META-INF/turboism/contracts/acme-events-1.2.0.jar",
                 "sha256": "%s"
               }],
-            """.formatted(sha256)
-        )));
+            """.formatted(sha256))));
 
         assertEquals(1, descriptor.eventContracts().size());
         final PluginDescriptor.EventContract contract =
-            descriptor.eventContracts().get(0);
+                descriptor.eventContracts().get(0);
         assertEquals("acme.events", contract.id());
         assertEquals("1.2.0", contract.version());
-        assertEquals(
-            "META-INF/turboism/contracts/acme-events-1.2.0.jar",
-            contract.artifact()
-        );
+        assertEquals("META-INF/turboism/contracts/acme-events-1.2.0.jar", contract.artifact());
         assertEquals(sha256, contract.sha256());
     }
 
@@ -386,18 +416,15 @@ class PluginDescriptorParserTest {
     @Test
     void rejectsV4EventContractsAsUnknownField() {
         final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class,
-            () -> parser.parse(toStream(v4Descriptor(
-                """
+                DescriptorParseException.class,
+                () -> parser.parse(toStream(v4Descriptor("""
                   "eventContracts": [{
                     "id": "acme.events",
                     "version": "1.0.0",
                     "artifact": "META-INF/turboism/contracts/acme.jar",
                     "sha256": "%s"
                   }],
-                """.formatted("b".repeat(64))
-            )))
-        );
+                """.formatted("b".repeat(64))))));
         assertEquals("PLUGIN_META_UNKNOWN_FIELD", failure.code());
     }
 
@@ -412,109 +439,88 @@ class PluginDescriptorParserTest {
             }
             """;
         final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class,
-            () -> parser.parse(toStream(v5Descriptor(
-                """
+                DescriptorParseException.class,
+                () -> parser.parse(toStream(v5Descriptor("""
                   "eventContracts": [
                     %s,
                     %s
                   ],
                 """.formatted(
-                    contract.formatted("a.jar", "b".repeat(64)),
-                    contract.formatted("b.jar", "c".repeat(64))
-                )
-            )))
-        );
+                        contract.formatted("a.jar", "b".repeat(64)), contract.formatted("b.jar", "c".repeat(64)))))));
         assertEquals("PLUGIN_META_DUPLICATE_EVENT_CONTRACT", failure.code());
     }
 
     @Test
     void rejectsV5ContractArtifactOutsideContractsDirectory() {
         final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class,
-            () -> parser.parse(toStream(v5Descriptor(
-                """
+                DescriptorParseException.class,
+                () -> parser.parse(toStream(v5Descriptor("""
                   "eventContracts": [{
                     "id": "acme.events",
                     "version": "1.0.0",
                     "artifact": "META-INF/turboism/libs/acme.jar",
                     "sha256": "%s"
                   }],
-                """.formatted("b".repeat(64))
-            )))
-        );
+                """.formatted("b".repeat(64))))));
         assertEquals("PLUGIN_META_BAD_EVENT_CONTRACT_ARTIFACT", failure.code());
     }
 
     @Test
     void rejectsV5ContractArtifactWithNestedPath() {
         final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class,
-            () -> parser.parse(toStream(v5Descriptor(
-                """
+                DescriptorParseException.class,
+                () -> parser.parse(toStream(v5Descriptor("""
                   "eventContracts": [{
                     "id": "acme.events",
                     "version": "1.0.0",
                     "artifact": "META-INF/turboism/contracts/nested/acme.jar",
                     "sha256": "%s"
                   }],
-                """.formatted("b".repeat(64))
-            )))
-        );
+                """.formatted("b".repeat(64))))));
         assertEquals("PLUGIN_META_BAD_EVENT_CONTRACT_ARTIFACT", failure.code());
     }
 
     @Test
     void rejectsV5ContractWithNonSemverVersion() {
         final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class,
-            () -> parser.parse(toStream(v5Descriptor(
-                """
+                DescriptorParseException.class,
+                () -> parser.parse(toStream(v5Descriptor("""
                   "eventContracts": [{
                     "id": "acme.events",
                     "version": "1.0",
                     "artifact": "META-INF/turboism/contracts/acme.jar",
                     "sha256": "%s"
                   }],
-                """.formatted("b".repeat(64))
-            )))
-        );
+                """.formatted("b".repeat(64))))));
         assertEquals("PLUGIN_META_BAD_EVENT_CONTRACT_VERSION", failure.code());
     }
 
     @Test
     void rejectsV5ContractWithMalformedSha256() {
-        final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class,
-            () -> parser.parse(toStream(v5Descriptor(
-                """
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(v5Descriptor("""
                   "eventContracts": [{
                     "id": "acme.events",
                     "version": "1.0.0",
                     "artifact": "META-INF/turboism/contracts/acme.jar",
                     "sha256": "not-lowercase-hex"
                   }],
-                """
-            )))
-        );
+                """))));
         assertEquals("PLUGIN_META_BAD_EVENT_ABI", failure.code());
     }
 
     @Test
     void rejectsV5ContractWithBadEventId() {
         final DescriptorParseException failure = assertThrows(
-            DescriptorParseException.class,
-            () -> parser.parse(toStream(v5Descriptor(
-                """
+                DescriptorParseException.class,
+                () -> parser.parse(toStream(v5Descriptor("""
                   "eventContracts": [{
                     "id": "Acme Events!",
                     "version": "1.0.0",
                     "artifact": "META-INF/turboism/contracts/acme.jar",
                     "sha256": "%s"
                   }],
-                """.formatted("b".repeat(64))
-            )))
-        );
+                """.formatted("b".repeat(64))))));
         assertEquals("PLUGIN_META_BAD_EVENT_ID", failure.code());
     }
 

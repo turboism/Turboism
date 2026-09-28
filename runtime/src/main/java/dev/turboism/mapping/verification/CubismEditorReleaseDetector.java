@@ -65,8 +65,7 @@ public final class CubismEditorReleaseDetector {
     /** Version-build integers are nine-digit values assigned verbatim by the host. */
     private static final long VERSION_BUILD_FLOOR = 100_000_000L;
 
-    private CubismEditorReleaseDetector() {
-    }
+    private CubismEditorReleaseDetector() {}
 
     /**
      * Probes the declared identity of the Editor JAR without pinning a version.
@@ -77,25 +76,22 @@ public final class CubismEditorReleaseDetector {
     public static HostIdentityProbe probe(final Path editorJar) {
         Objects.requireNonNull(editorJar, "editorJar");
         if (!Files.isRegularFile(editorJar)) {
-            return HostIdentityProbe.rejected(
-                HostIdentityProbe.Status.UNREADABLE, "artifact missing or not a file");
+            return HostIdentityProbe.rejected(HostIdentityProbe.Status.UNREADABLE, "artifact missing or not a file");
         }
         final HostArtifactDigest artifact;
         try {
             artifact = HostArtifactDigest.from(editorJar);
         } catch (IOException | RuntimeException failure) {
-            return HostIdentityProbe.rejected(
-                HostIdentityProbe.Status.UNREADABLE, "artifact unreadable");
+            return HostIdentityProbe.rejected(HostIdentityProbe.Status.UNREADABLE, "artifact unreadable");
         }
         try (JarFile jar = new JarFile(editorJar.toFile())) {
             if (jar.getJarEntry(HOST_ANCHOR_CLASS) == null) {
                 return HostIdentityProbe.rejected(
-                    HostIdentityProbe.Status.NOT_CUBISM, "cubism editor anchor class absent");
+                        HostIdentityProbe.Status.NOT_CUBISM, "cubism editor anchor class absent");
             }
             return scanDeclaration(jar, artifact);
         } catch (IOException | RuntimeException failure) {
-            return HostIdentityProbe.rejected(
-                HostIdentityProbe.Status.UNREADABLE, "artifact unreadable as jar");
+            return HostIdentityProbe.rejected(HostIdentityProbe.Status.UNREADABLE, "artifact unreadable as jar");
         }
     }
 
@@ -105,10 +101,7 @@ public final class CubismEditorReleaseDetector {
      * check is the caller's job — declaration reading is deliberately usable
      * without it for the legacy {@link #detect(Path)} surface.
      */
-    private static HostIdentityProbe scanDeclaration(
-        final JarFile jar,
-        final HostArtifactDigest artifact
-    ) {
+    private static HostIdentityProbe scanDeclaration(final JarFile jar, final HostArtifactDigest artifact) {
         final List<JarEntry> declarations = new ArrayList<>();
         final List<JarEntry> scanEntries = new ArrayList<>();
         final Set<String> duplicateNames = new LinkedHashSet<>();
@@ -118,11 +111,11 @@ public final class CubismEditorReleaseDetector {
                 declarations.add(entry);
             }
             if (!entry.isDirectory()
-                && name.endsWith(".class")
-                && name.startsWith(DECLARATION_SCAN_PREFIX)
-                && name.indexOf('/', DECLARATION_SCAN_PREFIX.length()) < 0) {
+                    && name.endsWith(".class")
+                    && name.startsWith(DECLARATION_SCAN_PREFIX)
+                    && name.indexOf('/', DECLARATION_SCAN_PREFIX.length()) < 0) {
                 if (!scanEntries.isEmpty()
-                    && scanEntries.stream().anyMatch(e -> e.getName().equals(name))) {
+                        && scanEntries.stream().anyMatch(e -> e.getName().equals(name))) {
                     duplicateNames.add(name);
                 } else {
                     scanEntries.add(entry);
@@ -131,13 +124,13 @@ public final class CubismEditorReleaseDetector {
         });
         if (!duplicateNames.isEmpty()) {
             return HostIdentityProbe.rejected(
-                HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
-                "duplicate zip entry in declaration scope: " + duplicateNames.iterator().next());
+                    HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
+                    "duplicate zip entry in declaration scope: "
+                            + duplicateNames.iterator().next());
         }
         if (declarations.size() > 1) {
             return HostIdentityProbe.rejected(
-                HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
-                "duplicate declaration class entry");
+                    HostIdentityProbe.Status.DECLARATION_AMBIGUOUS, "duplicate declaration class entry");
         }
 
         boolean malformed = false;
@@ -146,15 +139,14 @@ public final class CubismEditorReleaseDetector {
             if (assignment == null) {
                 malformed = true;
             } else {
-                final Evaluation evaluation = evaluate(
-                    assignment, stripClassSuffix(DECLARATION_CLASS), artifact);
+                final Evaluation evaluation = evaluate(assignment, stripClassSuffix(DECLARATION_CLASS), artifact);
                 if (evaluation.outcome() == Outcome.COMPLETE) {
                     return HostIdentityProbe.declared(evaluation.identity());
                 }
                 if (evaluation.outcome() == Outcome.CONFLICTING) {
                     return HostIdentityProbe.rejected(
-                        HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
-                        "conflicting values inside declaration class");
+                            HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
+                            "conflicting values inside declaration class");
                 }
             }
         }
@@ -165,8 +157,7 @@ public final class CubismEditorReleaseDetector {
         boolean conflictingSeen = false;
         if (scanEntries.size() > MAX_DECLARATION_SCAN_CLASSES) {
             return HostIdentityProbe.rejected(
-                HostIdentityProbe.Status.SCAN_LIMIT_EXCEEDED,
-                "declaration scan class budget exceeded");
+                    HostIdentityProbe.Status.SCAN_LIMIT_EXCEEDED, "declaration scan class budget exceeded");
         }
         long scanned = 0L;
         for (final JarEntry entry : scanEntries) {
@@ -175,49 +166,46 @@ public final class CubismEditorReleaseDetector {
             }
             if (scanned + Math.max(0, entry.getSize()) > MAX_DECLARATION_SCAN_BYTES) {
                 return HostIdentityProbe.rejected(
-                    HostIdentityProbe.Status.SCAN_LIMIT_EXCEEDED,
-                    "declaration scan byte budget exceeded");
+                        HostIdentityProbe.Status.SCAN_LIMIT_EXCEEDED, "declaration scan byte budget exceeded");
             }
             final DeclaredAssignment assignment = readDeclaration(jar, entry);
             scanned += Math.max(0, entry.getSize());
             if (assignment == null) {
                 continue;
             }
-            final Evaluation evaluation = evaluate(
-                assignment, stripClassSuffix(entry.getName()), artifact);
+            final Evaluation evaluation = evaluate(assignment, stripClassSuffix(entry.getName()), artifact);
             if (evaluation.outcome() == Outcome.CONFLICTING) {
                 conflictingSeen = true;
                 continue;
             }
             if (evaluation.outcome() == Outcome.COMPLETE
-                && evaluation.identity().isCubismEditor()) {
+                    && evaluation.identity().isCubismEditor()) {
                 candidates.add(evaluation.identity());
             }
         }
         if (conflictingSeen && candidates.isEmpty()) {
             return HostIdentityProbe.rejected(
-                HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
-                "declaration candidates carry conflicting values");
+                    HostIdentityProbe.Status.DECLARATION_AMBIGUOUS, "declaration candidates carry conflicting values");
         }
         if (candidates.isEmpty()) {
             return HostIdentityProbe.rejected(
-                malformed
-                    ? HostIdentityProbe.Status.DECLARATION_MALFORMED
-                    : HostIdentityProbe.Status.DECLARATION_MISSING,
-                malformed
-                    ? "declaration class present but malformed"
-                    : "no class declares a complete cubism identity");
+                    malformed
+                            ? HostIdentityProbe.Status.DECLARATION_MALFORMED
+                            : HostIdentityProbe.Status.DECLARATION_MISSING,
+                    malformed
+                            ? "declaration class present but malformed"
+                            : "no class declares a complete cubism identity");
         }
         final CubismHostIdentity first = candidates.get(0);
         for (final CubismHostIdentity candidate : candidates) {
             if (!candidate.product().equals(first.product())
-                || !candidate.version().equals(first.version())
-                || candidate.build() != first.build()
-                || !candidate.date().equals(first.date())) {
+                    || !candidate.version().equals(first.version())
+                    || candidate.build() != first.build()
+                    || !candidate.date().equals(first.date())) {
                 return HostIdentityProbe.rejected(
-                    HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
-                    "declaration classes disagree: " + first.declarationClass()
-                        + " vs " + candidate.declarationClass());
+                        HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
+                        "declaration classes disagree: " + first.declarationClass() + " vs "
+                                + candidate.declarationClass());
             }
         }
         return HostIdentityProbe.declared(first);
@@ -256,11 +244,7 @@ public final class CubismEditorReleaseDetector {
             }
             final CubismHostIdentity identity = probe.identity().orElseThrow();
             return Optional.of(new CubismEditorReleaseDeclaration(
-                identity.product(),
-                identity.version(),
-                identity.date().orElseThrow(),
-                identity.build()
-            ));
+                    identity.product(), identity.version(), identity.date().orElseThrow(), identity.build()));
         } catch (IOException | RuntimeException failure) {
             return Optional.empty();
         }
@@ -274,28 +258,24 @@ public final class CubismEditorReleaseDetector {
         }
         final Evaluation evaluation = evaluate(assignment, "declared", null);
         if (evaluation.outcome() != Outcome.COMPLETE
-            || evaluation.identity().date().isEmpty()) {
+                || evaluation.identity().date().isEmpty()) {
             return Optional.empty();
         }
         final CubismHostIdentity identity = evaluation.identity();
         return Optional.of(new CubismEditorReleaseDeclaration(
-            identity.product(),
-            identity.version(),
-            identity.date().orElseThrow(),
-            identity.build()
-        ));
+                identity.product(), identity.version(), identity.date().orElseThrow(), identity.build()));
     }
 
-    private enum Outcome { INCOMPLETE, COMPLETE, CONFLICTING }
-
-    private record Evaluation(Outcome outcome, CubismHostIdentity identity) {
+    private enum Outcome {
+        INCOMPLETE,
+        COMPLETE,
+        CONFLICTING
     }
+
+    private record Evaluation(Outcome outcome, CubismHostIdentity identity) {}
 
     private static Evaluation evaluate(
-        final DeclaredAssignment assignment,
-        final String declarationClass,
-        final HostArtifactDigest artifact
-    ) {
+            final DeclaredAssignment assignment, final String declarationClass, final HostArtifactDigest artifact) {
         String product = null;
         String version = null;
         String date = null;
@@ -329,22 +309,21 @@ public final class CubismEditorReleaseDetector {
         if (product == null || version == null || build == null) {
             return new Evaluation(Outcome.INCOMPLETE, null);
         }
-        return new Evaluation(Outcome.COMPLETE, new CubismHostIdentity(
-            product,
-            version,
-            Optional.ofNullable(date),
-            build,
-            declarationClass,
-            artifact == null
-                ? new HostArtifactDigest(0, "0".repeat(64))
-                : artifact
-        ));
+        return new Evaluation(
+                Outcome.COMPLETE,
+                new CubismHostIdentity(
+                        product,
+                        version,
+                        Optional.ofNullable(date),
+                        build,
+                        declarationClass,
+                        artifact == null ? new HostArtifactDigest(0, "0".repeat(64)) : artifact));
     }
 
     private static String stripClassSuffix(final String entryName) {
         return entryName.endsWith(".class")
-            ? entryName.substring(0, entryName.length() - ".class".length())
-            : entryName;
+                ? entryName.substring(0, entryName.length() - ".class".length())
+                : entryName;
     }
 
     private static DeclaredAssignment readDeclaration(final JarFile jar, final JarEntry entry) {
@@ -364,21 +343,22 @@ public final class CubismEditorReleaseDetector {
     }
 
     /** Parsed constants a class assigns to its own static fields. */
-    private record DeclaredAssignment(Set<String> strings, Set<Integer> ints) {
-    }
+    private record DeclaredAssignment(Set<String> strings, Set<Integer> ints) {}
 
     /**
      * Kept for focused tests: parses raw class bytes into the declared assignment surface.
      */
     static DeclaredAssignment parseAssignment(final byte[] classBytes) {
-        if (classBytes == null || classBytes.length < 10
-            || classBytes[0] != (byte) 0xCA || classBytes[1] != (byte) 0xFE
-            || classBytes[2] != (byte) 0xBA || classBytes[3] != (byte) 0xBE) {
+        if (classBytes == null
+                || classBytes.length < 10
+                || classBytes[0] != (byte) 0xCA
+                || classBytes[1] != (byte) 0xFE
+                || classBytes[2] != (byte) 0xBA
+                || classBytes[3] != (byte) 0xBE) {
             return null;
         }
         try {
-            final DataInputStream data =
-                new DataInputStream(new ByteArrayInputStream(classBytes));
+            final DataInputStream data = new DataInputStream(new ByteArrayInputStream(classBytes));
             data.readInt();
             data.readUnsignedShort();
             data.readUnsignedShort();
@@ -388,8 +368,7 @@ public final class CubismEditorReleaseDetector {
             data.readUnsignedShort(); // super class
             final int interfaceCount = data.readUnsignedShort();
             data.skipNBytes((long) interfaceCount * 2);
-            final DeclaredAssignment assignment =
-                new DeclaredAssignment(new LinkedHashSet<>(), new LinkedHashSet<>());
+            final DeclaredAssignment assignment = new DeclaredAssignment(new LinkedHashSet<>(), new LinkedHashSet<>());
             readFields(data, pool, assignment);
             readClinit(data, pool, thisClass, assignment);
             return assignment;
@@ -399,10 +378,8 @@ public final class CubismEditorReleaseDetector {
     }
 
     private static void readFields(
-        final DataInputStream data,
-        final ConstantPool pool,
-        final DeclaredAssignment assignment
-    ) throws IOException {
+            final DataInputStream data, final ConstantPool pool, final DeclaredAssignment assignment)
+            throws IOException {
         final int fieldCount = data.readUnsignedShort();
         for (int field = 0; field < fieldCount; field++) {
             data.readUnsignedShort(); // access
@@ -433,11 +410,11 @@ public final class CubismEditorReleaseDetector {
     }
 
     private static void readClinit(
-        final DataInputStream data,
-        final ConstantPool pool,
-        final String thisClass,
-        final DeclaredAssignment assignment
-    ) throws IOException {
+            final DataInputStream data,
+            final ConstantPool pool,
+            final String thisClass,
+            final DeclaredAssignment assignment)
+            throws IOException {
         final int methodCount = data.readUnsignedShort();
         for (int method = 0; method < methodCount; method++) {
             data.readUnsignedShort(); // access
@@ -466,11 +443,11 @@ public final class CubismEditorReleaseDetector {
      * pending constant so a call/load sequence never binds a stale value.
      */
     private static void readClinitCode(
-        final DataInputStream data,
-        final ConstantPool pool,
-        final String thisClass,
-        final DeclaredAssignment assignment
-    ) throws IOException {
+            final DataInputStream data,
+            final ConstantPool pool,
+            final String thisClass,
+            final DeclaredAssignment assignment)
+            throws IOException {
         data.readUnsignedShort(); // max stack
         data.readUnsignedShort(); // max locals
         final int codeLength = data.readInt();
@@ -498,25 +475,30 @@ public final class CubismEditorReleaseDetector {
     }
 
     private static void scanAssignedConstants(
-        final byte[] code,
-        final ConstantPool pool,
-        final String thisClass,
-        final DeclaredAssignment assignment
-    ) {
+            final byte[] code, final ConstantPool pool, final String thisClass, final DeclaredAssignment assignment) {
         Object pending = null;
         int pc = 0;
         while (pc < code.length) {
             final int opcode = code[pc] & 0xFF;
             switch (opcode) {
                 case 0x01: // aconst_null
-                case 0x09: case 0x0A: // lconst
-                case 0x0B: case 0x0C: case 0x0D: // fconst
-                case 0x0E: case 0x0F: // dconst
+                case 0x09:
+                case 0x0A: // lconst
+                case 0x0B:
+                case 0x0C:
+                case 0x0D: // fconst
+                case 0x0E:
+                case 0x0F: // dconst
                     pending = null;
                     pc += 1;
                     break;
-                case 0x02: case 0x03: case 0x04: case 0x05: // iconst_m1..iconst_2
-                case 0x06: case 0x07: case 0x08: // iconst_3..iconst_5
+                case 0x02:
+                case 0x03:
+                case 0x04:
+                case 0x05: // iconst_m1..iconst_2
+                case 0x06:
+                case 0x07:
+                case 0x08: // iconst_3..iconst_5
                     pending = opcode - 0x03;
                     pc += 1;
                     break;
@@ -601,9 +583,9 @@ public final class CubismEditorReleaseDetector {
 
     private static int intAt(final byte[] code, final int offset) {
         return ((code[offset] & 0xFF) << 24)
-            | ((code[offset + 1] & 0xFF) << 16)
-            | ((code[offset + 2] & 0xFF) << 8)
-            | (code[offset + 3] & 0xFF);
+                | ((code[offset + 1] & 0xFF) << 16)
+                | ((code[offset + 2] & 0xFF) << 8)
+                | (code[offset + 3] & 0xFF);
     }
 
     /** Operand byte counts per opcode; {@code -1} marks variable/special forms handled above. */
@@ -623,10 +605,16 @@ public final class CubismEditorReleaseDetector {
         for (int opcode = 0xCA; opcode <= 0xFE; opcode++) lengths[opcode] = 0;
         // One-byte operand.
         lengths[0x12] = 1; // ldc — handled explicitly above
-        lengths[0x15] = 1; lengths[0x16] = 1; lengths[0x17] = 1;
-        lengths[0x18] = 1; lengths[0x19] = 1; // iload..aload
-        lengths[0x36] = 1; lengths[0x37] = 1; lengths[0x38] = 1;
-        lengths[0x39] = 1; lengths[0x3A] = 1; // istore..astore
+        lengths[0x15] = 1;
+        lengths[0x16] = 1;
+        lengths[0x17] = 1;
+        lengths[0x18] = 1;
+        lengths[0x19] = 1; // iload..aload
+        lengths[0x36] = 1;
+        lengths[0x37] = 1;
+        lengths[0x38] = 1;
+        lengths[0x39] = 1;
+        lengths[0x3A] = 1; // istore..astore
         lengths[0xA9] = 1; // ret
         lengths[0xBC] = 1; // newarray
         // Two-byte operands.
@@ -634,12 +622,16 @@ public final class CubismEditorReleaseDetector {
         for (int opcode = 0xB2; opcode <= 0xB8; opcode++) lengths[opcode] = 2; // field/method refs
         lengths[0xBB] = 2; // new
         lengths[0xBD] = 2; // anewarray
-        lengths[0xC0] = 2; lengths[0xC1] = 2; // checkcast, instanceof
-        lengths[0xC6] = 2; lengths[0xC7] = 2; // ifnull, ifnonnull
+        lengths[0xC0] = 2;
+        lengths[0xC1] = 2; // checkcast, instanceof
+        lengths[0xC6] = 2;
+        lengths[0xC7] = 2; // ifnull, ifnonnull
         // Three/four-byte operands.
-        lengths[0x13] = 2; lengths[0x14] = 2; // ldc_w, ldc2_w — handled explicitly
+        lengths[0x13] = 2;
+        lengths[0x14] = 2; // ldc_w, ldc2_w — handled explicitly
         lengths[0x84] = 2; // iinc
-        lengths[0xC8] = 4; lengths[0xC9] = 4; // goto_w, jsr_w
+        lengths[0xC8] = 4;
+        lengths[0xC9] = 4; // goto_w, jsr_w
         lengths[0xB9] = 4; // invokeinterface
         lengths[0xBA] = 4; // invokedynamic
         lengths[0xC5] = 3; // multianewarray
@@ -708,9 +700,7 @@ public final class CubismEditorReleaseDetector {
         }
 
         String classInternalName(final int classIndex) {
-            return classIndex > 0 && classIndex < classNameIndex.length
-                ? utf8(classNameIndex[classIndex])
-                : null;
+            return classIndex > 0 && classIndex < classNameIndex.length ? utf8(classNameIndex[classIndex]) : null;
         }
 
         String stringValue(final int index) {
@@ -735,8 +725,7 @@ public final class CubismEditorReleaseDetector {
 
         /** Whether a field reference targets a field of the declaring class itself. */
         boolean fieldOwnerIs(final int fieldRefIndex, final String internalName) {
-            if (internalName == null
-                || fieldRefIndex <= 0 || fieldRefIndex >= memberRefClassIndex.length) {
+            if (internalName == null || fieldRefIndex <= 0 || fieldRefIndex >= memberRefClassIndex.length) {
                 return false;
             }
             final int classIndex = memberRefClassIndex[fieldRefIndex];

@@ -50,26 +50,23 @@ final class McpProductionDomainCatalog {
 
     List<Map<String, Object>> resources() {
         return List.of(
-            resource(ACTIVE_DOCUMENT, "Active document", "The active Cubism document and its current snapshot."),
-            resource(MODEL_OVERVIEW, "Active model overview", "The active model and current selection."),
-            resource(MODEL_HIERARCHY, "Active model hierarchy", "The active model object hierarchy."),
-            resource(CLIP_MASKS, "Active model clip masks", "The active model ArtMesh clip-mask records.")
-        );
+                resource(ACTIVE_DOCUMENT, "Active document", "The active Cubism document and its current snapshot."),
+                resource(MODEL_OVERVIEW, "Active model overview", "The active model and current selection."),
+                resource(MODEL_HIERARCHY, "Active model hierarchy", "The active model object hierarchy."),
+                resource(CLIP_MASKS, "Active model clip masks", "The active model ArtMesh clip-mask records."));
     }
 
     List<Map<String, Object>> read(final String uri) {
-        final Map<String, Object> content = switch (uri) {
-            case ACTIVE_DOCUMENT -> snapshot();
-            case MODEL_OVERVIEW -> overview();
-            case MODEL_HIERARCHY -> invoke(McpTools.MODEL_HIERARCHY_GET, Map.of());
-            case CLIP_MASKS -> invoke(McpTools.CLIP_MASKS_LIST, Map.of());
-            default -> throw new McpResourceCatalog.ResourceNotFound(uri);
-        };
+        final Map<String, Object> content =
+                switch (uri) {
+                    case ACTIVE_DOCUMENT -> snapshot();
+                    case MODEL_OVERVIEW -> overview();
+                    case MODEL_HIERARCHY -> invoke(McpTools.MODEL_HIERARCHY_GET, Map.of());
+                    case CLIP_MASKS -> invoke(McpTools.CLIP_MASKS_LIST, Map.of());
+                    default -> throw new McpResourceCatalog.ResourceNotFound(uri);
+                };
         return List.of(linked(
-            entry("uri", uri),
-            entry("mimeType", "application/json"),
-            entry("text", Json.stringify(content))
-        ));
+                entry("uri", uri), entry("mimeType", "application/json"), entry("text", Json.stringify(content))));
     }
 
     private Map<String, Object> snapshot() {
@@ -81,28 +78,26 @@ final class McpProductionDomainCatalog {
         final Map<String, Object> authoritative = invoke(McpTools.LIST, Map.of());
         if (!Boolean.TRUE.equals(authoritative.get("ok"))) {
             return linked(
-                entry("ok", true),
-                entry("availability", "UNAVAILABLE"),
-                entry("document", snapshot.get("document")),
-                entry("model", null),
-                entry("selection", snapshot.get("selection")),
-                entry("objects", null),
-                entry("modelObjects", null),
-                entry("diagnosticCode", "MODEL_OBJECT_PROVIDER_UNAVAILABLE")
-            );
+                    entry("ok", true),
+                    entry("availability", "UNAVAILABLE"),
+                    entry("document", snapshot.get("document")),
+                    entry("model", null),
+                    entry("selection", snapshot.get("selection")),
+                    entry("objects", null),
+                    entry("modelObjects", null),
+                    entry("diagnosticCode", "MODEL_OBJECT_PROVIDER_UNAVAILABLE"));
         }
         final List<Object> objects = array(authoritative.get("objects"), "objects");
         final Object model = modelWithObjects(snapshot.get("model"), objects);
         return linked(
-            entry("ok", true),
-            entry("availability", "AVAILABLE"),
-            entry("document", snapshot.get("document")),
-            entry("model", model),
-            entry("selection", snapshot.get("selection")),
-            entry("objects", objects),
-            entry("modelObjects", objects),
-            entry("diagnosticCode", null)
-        );
+                entry("ok", true),
+                entry("availability", "AVAILABLE"),
+                entry("document", snapshot.get("document")),
+                entry("model", model),
+                entry("selection", snapshot.get("selection")),
+                entry("objects", objects),
+                entry("modelObjects", objects),
+                entry("diagnosticCode", null));
     }
 
     private static Object modelWithObjects(final Object value, final List<Object> objects) {
@@ -115,7 +110,8 @@ final class McpProductionDomainCatalog {
 
     private Map<String, Object> apply(final Map<String, Object> arguments) {
         if (!McpJsonSchema.validates(arguments, inputSchema)) {
-            throw new IllegalArgumentException("Model-object batch must match inputSchema before any operation is applied");
+            throw new IllegalArgumentException(
+                    "Model-object batch must match inputSchema before any operation is applied");
         }
         only(arguments, "operations", "stopOnError");
         final List<Object> operations = array(arguments.get("operations"), "operations");
@@ -137,12 +133,8 @@ final class McpProductionDomainCatalog {
             }
             final Map<String, Object> result = execute(type, operation);
             final boolean ok = Boolean.TRUE.equals(result.get("ok"));
-            results.add(linked(
-                entry("index", index),
-                entry("operation", type),
-                entry("ok", ok),
-                entry("result", result)
-            ));
+            results.add(
+                    linked(entry("index", index), entry("operation", type), entry("ok", ok), entry("result", result)));
             if (ok) {
                 succeeded++;
             } else {
@@ -154,28 +146,27 @@ final class McpProductionDomainCatalog {
             failed += operations.size() - results.size();
         }
         final boolean complete = failed == 0;
-        return toolResult(linked(
-            entry("ok", complete),
-            entry("partialSuccess", succeeded > 0 && failed > 0),
-            entry("stopOnError", stopOnError),
-            entry("stopped", stopped),
-            entry("succeeded", succeeded),
-            entry("failed", failed),
-            entry("results", results)
-        ), !complete);
+        return toolResult(
+                linked(
+                        entry("ok", complete),
+                        entry("partialSuccess", succeeded > 0 && failed > 0),
+                        entry("stopOnError", stopOnError),
+                        entry("stopped", stopped),
+                        entry("succeeded", succeeded),
+                        entry("failed", failed),
+                        entry("results", results)),
+                !complete);
     }
 
-    private Map<String, Object> execute(
-        final String operation,
-        final Map<String, Object> values
-    ) {
-        final String legacyName = switch (operation) {
-            case "create" -> McpTools.CREATE;
-            case "rename" -> McpTools.RENAME;
-            case "reparent" -> McpTools.REPARENT;
-            case "delete" -> McpTools.DELETE;
-            default -> null;
-        };
+    private Map<String, Object> execute(final String operation, final Map<String, Object> values) {
+        final String legacyName =
+                switch (operation) {
+                    case "create" -> McpTools.CREATE;
+                    case "rename" -> McpTools.RENAME;
+                    case "reparent" -> McpTools.REPARENT;
+                    case "delete" -> McpTools.DELETE;
+                    default -> null;
+                };
         if (legacyName == null) {
             return failure("INVALID_ARGUMENT", "operation must be create, rename, reparent, or delete");
         }
@@ -184,10 +175,7 @@ final class McpProductionDomainCatalog {
         return withWriteOutcome(operation, invoke(legacyName, arguments));
     }
 
-    private static Map<String, Object> withWriteOutcome(
-        final String operation,
-        final Map<String, Object> result
-    ) {
+    private static Map<String, Object> withWriteOutcome(final String operation, final Map<String, Object> result) {
         if (result.containsKey("outcome")) return result;
         final LinkedHashMap<String, Object> enriched = new LinkedHashMap<>(result);
         enriched.put("retryable", false);
@@ -201,11 +189,8 @@ final class McpProductionDomainCatalog {
             return enriched;
         }
         final Object errorValue = result.get("error");
-        final String code = errorValue instanceof Map<?, ?> raw
-            ? String.valueOf(raw.get("code"))
-            : "FAILED";
-        final String outcome = "INVALID_ARGUMENT".equals(code)
-            ? "NOT_APPLIED" : "OUTCOME_UNKNOWN";
+        final String code = errorValue instanceof Map<?, ?> raw ? String.valueOf(raw.get("code")) : "FAILED";
+        final String outcome = "INVALID_ARGUMENT".equals(code) ? "NOT_APPLIED" : "OUTCOME_UNKNOWN";
         enriched.put("outcome", outcome);
         if ("OUTCOME_UNKNOWN".equals(outcome)) {
             enriched.put("diagnosticId", java.util.UUID.randomUUID().toString());
@@ -224,190 +209,172 @@ final class McpProductionDomainCatalog {
 
     private static Map<String, Object> skippedResult(final int index, final String operation) {
         return linked(
-            entry("index", index),
-            entry("operation", operation),
-            entry("ok", false),
-            entry("skipped", true),
-            entry("result", linked(
+                entry("index", index),
+                entry("operation", operation),
                 entry("ok", false),
-                entry("outcome", "NOT_APPLIED"),
-                entry("retryable", false),
-                entry("error", linked(
-                    entry("code", "SKIPPED"),
-                    entry("message", "not run because a previous operation failed")
-                ))
-            ))
-        );
+                entry("skipped", true),
+                entry(
+                        "result",
+                        linked(
+                                entry("ok", false),
+                                entry("outcome", "NOT_APPLIED"),
+                                entry("retryable", false),
+                                entry(
+                                        "error",
+                                        linked(
+                                                entry("code", "SKIPPED"),
+                                                entry("message", "not run because a previous operation failed"))))));
     }
 
     private static Map<String, Object> failure(final String code, final String message) {
-        return linked(
-            entry("ok", false),
-            entry("error", linked(entry("code", code), entry("message", message)))
-        );
+        return linked(entry("ok", false), entry("error", linked(entry("code", code), entry("message", message))));
     }
 
-    private static Map<String, Object> toolResult(
-        final Map<String, Object> output,
-        final boolean error
-    ) {
+    private static Map<String, Object> toolResult(final Map<String, Object> output, final boolean error) {
         return linked(
-            entry("content", List.of(linked(
-                entry("type", "text"),
-                entry("text", Json.stringify(output))
-            ))),
-            entry("structuredContent", output),
-            entry("isError", error)
-        );
+                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(output))))),
+                entry("structuredContent", output),
+                entry("isError", error));
     }
 
     private static Map<String, Object> applyDefinition() {
         return linked(
-            entry("name", APPLY),
-            entry("title", "Apply model object changes"),
-            entry("description", "Applies ordered create, rename, reparent, and delete operations to the active Cubism model. Each operation reports its own result; stopOnError defaults to false so completed operations are preserved and partial success is explicit."),
-            entry("inputSchema", objectSchema(
-                linked(
-                    entry("operations", linked(
-                        entry("type", "array"),
-                        entry("description", "Ordered model-object operations."),
-                        entry("minItems", 1),
-                        entry("items", operationSchema())
-                    )),
-                    entry("stopOnError", linked(
-                        entry("type", "boolean"),
-                        entry("default", false),
-                        entry("description", "Stop after the first failed operation.")
-                    ))
-                ),
-                List.of("operations")
-            )),
-            entry("outputSchema", McpOutputSchemas.modelObjectBatch()),
-            entry("annotations", Map.of(
-                "readOnlyHint", false,
-                "destructiveHint", true,
-                "idempotentHint", false
-            ))
-        );
+                entry("name", APPLY),
+                entry("title", "Apply model object changes"),
+                entry(
+                        "description",
+                        "Applies ordered create, rename, reparent, and delete operations to the active Cubism model. Each operation reports its own result; stopOnError defaults to false so completed operations are preserved and partial success is explicit."),
+                entry(
+                        "inputSchema",
+                        objectSchema(
+                                linked(
+                                        entry(
+                                                "operations",
+                                                linked(
+                                                        entry("type", "array"),
+                                                        entry("description", "Ordered model-object operations."),
+                                                        entry("minItems", 1),
+                                                        entry("items", operationSchema()))),
+                                        entry(
+                                                "stopOnError",
+                                                linked(
+                                                        entry("type", "boolean"),
+                                                        entry("default", false),
+                                                        entry(
+                                                                "description",
+                                                                "Stop after the first failed operation.")))),
+                                List.of("operations"))),
+                entry("outputSchema", McpOutputSchemas.modelObjectBatch()),
+                entry(
+                        "annotations",
+                        Map.of(
+                                "readOnlyHint", false,
+                                "destructiveHint", true,
+                                "idempotentHint", false)));
     }
 
     private static Map<String, Object> operationSchema() {
-        return linked(entry("oneOf", List.of(
-            createPartSchema(),
-            createArtMeshSchema(false),
-            createArtMeshSchema(true),
-            createWarpDeformerSchema(),
-            createRotationDeformerSchema(),
-            objectSchema(
-                linked(
-                    entry("operation", enumSchema(List.of("rename"))),
-                    entry("kind", modelObjectKindSchema()),
-                    entry("id", stringSchema()),
-                    entry("name", stringSchema())
-                ),
-                List.of("operation", "kind", "id", "name")
-            ),
-            objectSchema(
-                linked(
-                    entry("operation", enumSchema(List.of("reparent"))),
-                    entry("kind", modelObjectKindSchema()),
-                    entry("id", stringSchema()),
-                    entry("parent", parentSchema(modelObjectKindSchema())),
-                    entry("index", Map.of("type", "integer", "minimum", -1))
-                ),
-                List.of("operation", "kind", "id", "parent")
-            ),
-            objectSchema(
-                linked(
-                    entry("operation", enumSchema(List.of("delete"))),
-                    entry("kind", modelObjectKindSchema()),
-                    entry("id", stringSchema()),
-                    entry("policy", enumSchema(List.of("reject_referenced", "cascade")))
-                ),
-                List.of("operation", "kind", "id")
-            )
-        )));
+        return linked(entry(
+                "oneOf",
+                List.of(
+                        createPartSchema(),
+                        createArtMeshSchema(false),
+                        createArtMeshSchema(true),
+                        createWarpDeformerSchema(),
+                        createRotationDeformerSchema(),
+                        objectSchema(
+                                linked(
+                                        entry("operation", enumSchema(List.of("rename"))),
+                                        entry("kind", modelObjectKindSchema()),
+                                        entry("id", stringSchema()),
+                                        entry("name", stringSchema())),
+                                List.of("operation", "kind", "id", "name")),
+                        objectSchema(
+                                linked(
+                                        entry("operation", enumSchema(List.of("reparent"))),
+                                        entry("kind", modelObjectKindSchema()),
+                                        entry("id", stringSchema()),
+                                        entry("parent", parentSchema(modelObjectKindSchema())),
+                                        entry("index", Map.of("type", "integer", "minimum", -1))),
+                                List.of("operation", "kind", "id", "parent")),
+                        objectSchema(
+                                linked(
+                                        entry("operation", enumSchema(List.of("delete"))),
+                                        entry("kind", modelObjectKindSchema()),
+                                        entry("id", stringSchema()),
+                                        entry("policy", enumSchema(List.of("reject_referenced", "cascade")))),
+                                List.of("operation", "kind", "id")))));
     }
 
     private static Map<String, Object> createPartSchema() {
         return objectSchema(
-            linked(
-                entry("operation", enumSchema(List.of("create"))),
-                entry("kind", enumSchema(List.of("part"))),
-                entry("name", stringSchema()),
-                entry("parent", parentSchema(enumSchema(List.of("part"))))
-            ),
-            List.of("operation", "kind", "name")
-        );
+                linked(
+                        entry("operation", enumSchema(List.of("create"))),
+                        entry("kind", enumSchema(List.of("part"))),
+                        entry("name", stringSchema()),
+                        entry("parent", parentSchema(enumSchema(List.of("part"))))),
+                List.of("operation", "kind", "name"));
     }
 
     private static Map<String, Object> createArtMeshSchema(final boolean explicitGeometry) {
         final LinkedHashMap<String, Object> properties = linked(
-            entry("operation", enumSchema(List.of("create"))),
-            entry("kind", enumSchema(List.of("art_mesh"))),
-            entry("name", stringSchema()),
-            entry("parent", parentSchema(parentKindSchema()))
-        );
+                entry("operation", enumSchema(List.of("create"))),
+                entry("kind", enumSchema(List.of("art_mesh"))),
+                entry("name", stringSchema()),
+                entry("parent", parentSchema(parentKindSchema())));
         if (explicitGeometry) {
             properties.put("positions", pointArraySchema(3));
             properties.put("uvs", pointArraySchema(3));
-            properties.put("triangleIndices", linked(
-                entry("type", "array"),
-                entry("minItems", 3),
-                entry("items", Map.of("type", "integer", "minimum", 0))
-            ));
+            properties.put(
+                    "triangleIndices",
+                    linked(
+                            entry("type", "array"),
+                            entry("minItems", 3),
+                            entry("items", Map.of("type", "integer", "minimum", 0))));
         }
         return objectSchema(
-            properties,
-            explicitGeometry
-                ? List.of("operation", "kind", "name", "positions", "uvs", "triangleIndices")
-                : List.of("operation", "kind", "name")
-        );
+                properties,
+                explicitGeometry
+                        ? List.of("operation", "kind", "name", "positions", "uvs", "triangleIndices")
+                        : List.of("operation", "kind", "name"));
     }
 
     private static Map<String, Object> createWarpDeformerSchema() {
         return objectSchema(
-            linked(
-                entry("operation", enumSchema(List.of("create"))),
-                entry("kind", enumSchema(List.of("warp_deformer"))),
-                entry("name", stringSchema()),
-                entry("parent", parentSchema(parentKindSchema())),
-                entry("rows", Map.of("type", "integer", "minimum", 1, "maximum", 64)),
-                entry("columns", Map.of("type", "integer", "minimum", 1, "maximum", 64)),
-                entry("quadTransform", Map.of("type", "boolean")),
-                entry("controlPoints", pointArraySchema(4)),
-                entry("originX", Map.of("type", "number")),
-                entry("originY", Map.of("type", "number")),
-                entry("width", Map.of("type", "number", "exclusiveMinimum", 0)),
-                entry("height", Map.of("type", "number", "exclusiveMinimum", 0))
-            ),
-            List.of("operation", "kind", "name")
-        );
+                linked(
+                        entry("operation", enumSchema(List.of("create"))),
+                        entry("kind", enumSchema(List.of("warp_deformer"))),
+                        entry("name", stringSchema()),
+                        entry("parent", parentSchema(parentKindSchema())),
+                        entry("rows", Map.of("type", "integer", "minimum", 1, "maximum", 64)),
+                        entry("columns", Map.of("type", "integer", "minimum", 1, "maximum", 64)),
+                        entry("quadTransform", Map.of("type", "boolean")),
+                        entry("controlPoints", pointArraySchema(4)),
+                        entry("originX", Map.of("type", "number")),
+                        entry("originY", Map.of("type", "number")),
+                        entry("width", Map.of("type", "number", "exclusiveMinimum", 0)),
+                        entry("height", Map.of("type", "number", "exclusiveMinimum", 0))),
+                List.of("operation", "kind", "name"));
     }
 
     private static Map<String, Object> createRotationDeformerSchema() {
         return objectSchema(
-            linked(
-                entry("operation", enumSchema(List.of("create"))),
-                entry("kind", enumSchema(List.of("rotation_deformer"))),
-                entry("name", stringSchema()),
-                entry("parent", parentSchema(parentKindSchema())),
-                entry("originX", Map.of("type", "number")),
-                entry("originY", Map.of("type", "number")),
-                entry("angle", Map.of("type", "number")),
-                entry("scale", Map.of("type", "number", "exclusiveMinimum", 0)),
-                entry("reflectedX", Map.of("type", "boolean")),
-                entry("reflectedY", Map.of("type", "boolean"))
-            ),
-            List.of("operation", "kind", "name")
-        );
+                linked(
+                        entry("operation", enumSchema(List.of("create"))),
+                        entry("kind", enumSchema(List.of("rotation_deformer"))),
+                        entry("name", stringSchema()),
+                        entry("parent", parentSchema(parentKindSchema())),
+                        entry("originX", Map.of("type", "number")),
+                        entry("originY", Map.of("type", "number")),
+                        entry("angle", Map.of("type", "number")),
+                        entry("scale", Map.of("type", "number", "exclusiveMinimum", 0)),
+                        entry("reflectedX", Map.of("type", "boolean")),
+                        entry("reflectedY", Map.of("type", "boolean"))),
+                List.of("operation", "kind", "name"));
     }
 
     private static Map<String, Object> parentSchema(final Map<String, Object> kind) {
-        return objectSchema(
-            linked(entry("kind", kind), entry("id", stringSchema())),
-            List.of("kind", "id")
-        );
+        return objectSchema(linked(entry("kind", kind), entry("id", stringSchema())), List.of("kind", "id"));
     }
 
     private static Map<String, Object> modelObjectKindSchema() {
@@ -418,41 +385,32 @@ final class McpProductionDomainCatalog {
         return enumSchema(List.of("part", "warp_deformer", "rotation_deformer"));
     }
 
-    private static Map<String, Object> resource(
-        final String uri,
-        final String title,
-        final String description
-    ) {
+    private static Map<String, Object> resource(final String uri, final String title, final String description) {
         return linked(
-            entry("uri", uri),
-            entry("name", title.toLowerCase(java.util.Locale.ROOT).replace(' ', '-')),
-            entry("title", title),
-            entry("description", description),
-            entry("mimeType", "application/json")
-        );
+                entry("uri", uri),
+                entry("name", title.toLowerCase(java.util.Locale.ROOT).replace(' ', '-')),
+                entry("title", title),
+                entry("description", description),
+                entry("mimeType", "application/json"));
     }
 
     private static Map<String, Object> pointArraySchema(final int minimumItems) {
         return linked(
-            entry("type", "array"),
-            entry("minItems", minimumItems),
-            entry("items", objectSchema(linked(
-                entry("x", Map.of("type", "number")),
-                entry("y", Map.of("type", "number"))
-            ), List.of("x", "y")))
-        );
+                entry("type", "array"),
+                entry("minItems", minimumItems),
+                entry(
+                        "items",
+                        objectSchema(
+                                linked(entry("x", Map.of("type", "number")), entry("y", Map.of("type", "number"))),
+                                List.of("x", "y"))));
     }
 
-    private static Map<String, Object> objectSchema(
-        final Map<String, Object> properties,
-        final List<String> required
-    ) {
+    private static Map<String, Object> objectSchema(final Map<String, Object> properties, final List<String> required) {
         return linked(
-            entry("type", "object"),
-            entry("properties", properties),
-            entry("required", required),
-            entry("additionalProperties", false)
-        );
+                entry("type", "object"),
+                entry("properties", properties),
+                entry("required", required),
+                entry("additionalProperties", false));
     }
 
     private static Map<String, Object> enumSchema(final List<String> values) {
@@ -464,10 +422,7 @@ final class McpProductionDomainCatalog {
     }
 
     private static boolean optionalBoolean(
-        final Map<String, Object> values,
-        final String key,
-        final boolean defaultValue
-    ) {
+            final Map<String, Object> values, final String key, final boolean defaultValue) {
         if (!values.containsKey(key) || values.get(key) == null) return defaultValue;
         if (!(values.get(key) instanceof Boolean value)) {
             throw new IllegalArgumentException(key + " must be a boolean");
@@ -527,5 +482,4 @@ final class McpProductionDomainCatalog {
     private static Map.Entry<String, Object> entry(final String key, final Object value) {
         return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
     }
-
 }

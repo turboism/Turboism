@@ -1,7 +1,6 @@
 package dev.turboism.preview;
 
 import dev.turboism.core.event.PublicEventContractCatalog;
-
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -36,18 +35,14 @@ class PluginContractClassLoader extends URLClassLoader {
     private IOException closeFailure;
 
     PluginContractClassLoader(
-        final URL[] urls,
-        final ClassLoader parent,
-        final PublicEventContractCatalog.ContractLease contractLease
-    ) {
+            final URL[] urls, final ClassLoader parent, final PublicEventContractCatalog.ContractLease contractLease) {
         super(urls, parent);
         this.contractLease = Objects.requireNonNull(contractLease, "contractLease");
         this.contractDelegates = contractLease.delegates();
     }
 
     @Override
-    protected Class<?> loadClass(final String name, final boolean resolve)
-        throws ClassNotFoundException {
+    protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
         final ClassLoader contract = contractDelegates.get(name);
         if (contract == null) {
             return super.loadClass(name, resolve);
@@ -69,9 +64,7 @@ class PluginContractClassLoader extends URLClassLoader {
         try {
             closeDelegate();
         } catch (IOException | RuntimeException failure) {
-            closeFailure = failure instanceof IOException io
-                ? io
-                : new IOException(failure);
+            closeFailure = failure instanceof IOException io ? io : new IOException(failure);
             throw closeFailure;
         }
         contractLease.close();

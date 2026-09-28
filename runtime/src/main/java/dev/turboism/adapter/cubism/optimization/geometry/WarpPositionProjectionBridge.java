@@ -20,6 +20,7 @@ public final class WarpPositionProjectionBridge implements AutoCloseable {
     public static final String CALLBACK_PROPERTY = "turboism.warp-position-projection.callback";
     /** Payload-free statistics. */
     public static final String STATS_PROPERTY = "turboism.warp-position-projection.stats";
+
     private static final int MAX_POINTS = 131_072;
     private final Class<?> formType;
     private final MethodHandle positions, source, vector;
@@ -35,11 +36,11 @@ public final class WarpPositionProjectionBridge implements AutoCloseable {
         this.formType = formType;
         var lookup = MethodHandles.publicLookup();
         positions = lookup.unreflect(formType.getMethod("getPositions"))
-            .asType(MethodType.methodType(float[].class, Object.class));
+                .asType(MethodType.methodType(float[].class, Object.class));
         source = lookup.unreflect(formType.getMethod("getSource"))
-            .asType(MethodType.methodType(Object.class, Object.class));
+                .asType(MethodType.methodType(Object.class, Object.class));
         vector = lookup.unreflectConstructor(vectorType.getConstructor(float.class, float.class))
-            .asType(MethodType.methodType(Object.class, float.class, float.class));
+                .asType(MethodType.methodType(Object.class, float.class, float.class));
     }
 
     /** Rejects occupied slots rather than replacing another installation. */
@@ -79,9 +80,11 @@ public final class WarpPositionProjectionBridge implements AutoCloseable {
                 result.add((Object) vector.invokeExact(input[2 * i], input[2 * i + 1]));
             }
             if (input != (float[]) positions.invokeExact(form)
-                || (count != 0 && owner != (Object) source.invokeExact(form))
-                || !active.get() || !Boolean.getBoolean(ENABLE_PROPERTY)) return null;
-            projected.increment(); points.add(count);
+                    || (count != 0 && owner != (Object) source.invokeExact(form))
+                    || !active.get()
+                    || !Boolean.getBoolean(ENABLE_PROPERTY)) return null;
+            projected.increment();
+            points.add(count);
             return result;
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -93,18 +96,29 @@ public final class WarpPositionProjectionBridge implements AutoCloseable {
 
     /** Work counts only; no allocation/RAM/CPU benefit is inferred from them. */
     public Map<String, Long> snapshot() {
-        return Map.of("active", active.get() ? 1L : 0L, "calls", calls.sum(), "projected", projected.sum(),
-            "points", points.sum(), "failures", failures.sum());
+        return Map.of(
+                "active",
+                active.get() ? 1L : 0L,
+                "calls",
+                calls.sum(),
+                "projected",
+                projected.sum(),
+                "points",
+                points.sum(),
+                "failures",
+                failures.sum());
     }
 
     /** Clears owned slots; outstanding callbacks discard results after closure. */
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         active.set(false);
         Properties properties = installedProperties;
         installedProperties = null;
-        if (properties != null) synchronized (properties) {
-            properties.remove(CALLBACK_PROPERTY, callback);
-            properties.remove(STATS_PROPERTY, statistics);
-        }
+        if (properties != null)
+            synchronized (properties) {
+                properties.remove(CALLBACK_PROPERTY, callback);
+                properties.remove(STATS_PROPERTY, statistics);
+            }
     }
 }

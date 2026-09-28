@@ -9,7 +9,6 @@ import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -32,24 +31,16 @@ public final class RuntimeContextMenuRegistry implements ContextMenuRegistry {
     private final CopyOnWriteArrayList<StoredContribution> contributions = new CopyOnWriteArrayList<>();
 
     public RuntimeContextMenuRegistry(final PermissionChecker permissionChecker, final String pluginId) {
-        this(
-            permissionChecker,
-            pluginId,
-            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
-        );
+        this(permissionChecker, pluginId, new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
     }
 
     public RuntimeContextMenuRegistry(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final EditorUiContributionAuthority contributionAuthority
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final EditorUiContributionAuthority contributionAuthority) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
-        this.contributionAuthority = Objects.requireNonNull(
-            contributionAuthority,
-            "contributionAuthority"
-        );
+        this.contributionAuthority = Objects.requireNonNull(contributionAuthority, "contributionAuthority");
     }
 
     /**
@@ -64,9 +55,7 @@ public final class RuntimeContextMenuRegistry implements ContextMenuRegistry {
      *                               the current one
      * @throws NullPointerException if {@code authority} is null
      */
-    public synchronized void bindContributionAuthority(
-        final EditorUiContributionAuthority authority
-    ) {
+    public synchronized void bindContributionAuthority(final EditorUiContributionAuthority authority) {
         final EditorUiContributionAuthority requested = Objects.requireNonNull(authority, "authority");
         if (!contributions.isEmpty() && contributionAuthority != requested) {
             throw new IllegalStateException("context menu contribution authority is already in use");
@@ -78,17 +67,10 @@ public final class RuntimeContextMenuRegistry implements ContextMenuRegistry {
     public Registration contribute(final ContextMenuContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(PermissionIds.TURBOISM_UI_CONTEXT_MENU_CONTRIBUTE, contribution.id());
-        final Registration authorityRegistration = contributionAuthority.contribute(
-            new EditorUiContribution<>(
-                new EditorUiContributionIdentity(
-                    pluginId,
-                    EditorUiFamily.CONTEXT_MENU,
-                    contribution.id()
-                ),
+        final Registration authorityRegistration = contributionAuthority.contribute(new EditorUiContribution<>(
+                new EditorUiContributionIdentity(pluginId, EditorUiFamily.CONTEXT_MENU, contribution.id()),
                 contribution.priority(),
-                contribution
-            )
-        );
+                contribution));
         final StoredContribution stored = new StoredContribution(contribution, authorityRegistration);
         contributions.add(stored);
         return () -> {
@@ -113,10 +95,7 @@ public final class RuntimeContextMenuRegistry implements ContextMenuRegistry {
         return pluginId;
     }
 
-    private record StoredContribution(
-        ContextMenuContribution contribution,
-        Registration registration
-    ) {
+    private record StoredContribution(ContextMenuContribution contribution, Registration registration) {
         private StoredContribution {
             contribution = Objects.requireNonNull(contribution, "contribution");
             registration = Objects.requireNonNull(registration, "registration");

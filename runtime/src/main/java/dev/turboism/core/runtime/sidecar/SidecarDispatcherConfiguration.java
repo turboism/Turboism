@@ -17,12 +17,7 @@ import java.util.List;
  *     null or blank, or {@code timeoutMillis} is not positive
  */
 public record SidecarDispatcherConfiguration(
-    boolean enabled,
-    String javaBinary,
-    List<String> classpath,
-    String mainClass,
-    long timeoutMillis
-) {
+        boolean enabled, String javaBinary, List<String> classpath, String mainClass, long timeoutMillis) {
 
     public SidecarDispatcherConfiguration {
         if (javaBinary == null || javaBinary.isBlank()) {

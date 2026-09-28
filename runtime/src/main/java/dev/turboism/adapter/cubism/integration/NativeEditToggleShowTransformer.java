@@ -1,17 +1,16 @@
 package dev.turboism.adapter.cubism.integration;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import java.lang.instrument.ClassFileTransformer;
+import java.security.ProtectionDomain;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.lang.instrument.ClassFileTransformer;
-import java.security.ProtectionDomain;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Injects a {@link Runnable} ingress call at every {@code RETURN} of the host dialog's
@@ -71,18 +70,16 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
      * @param ingressKey        system-property key holding the {@link Runnable} ingress
      */
     public NativeEditToggleShowTransformer(
-        final String ownerInternalName,
-        final String methodName,
-        final String descriptor,
-        final ClassLoader expectedClassLoader,
-        final String ingressKey
-    ) {
+            final String ownerInternalName,
+            final String methodName,
+            final String descriptor,
+            final ClassLoader expectedClassLoader,
+            final String ingressKey) {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.methodName = requireText(methodName, "methodName");
         this.descriptor = requireText(descriptor, "descriptor");
         if (!descriptor.startsWith("(L") || !descriptor.endsWith(";)V")) {
-            throw new IllegalArgumentException(
-                "descriptor must be (L<ref>;)V: " + descriptor);
+            throw new IllegalArgumentException("descriptor must be (L<ref>;)V: " + descriptor);
         }
         // The build method is private final (0x0012); a static or public replacement is not
         // the reviewed shape and must be refused rather than patched.
@@ -104,28 +101,25 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
 
     @Override
     public byte[] transform(
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
-        return transform(null, loader, className, classBeingRedefined, protectionDomain,
-            classfileBuffer);
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
+        return transform(null, loader, className, classBeingRedefined, protectionDomain, classfileBuffer);
     }
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
         if (!ownerInternalName.equals(className)
-            || classfileBuffer == null
-            || (expectedClassLoader != null && loader != expectedClassLoader)) {
+                || classfileBuffer == null
+                || (expectedClassLoader != null && loader != expectedClassLoader)) {
             return null;
         }
         try {
@@ -142,44 +136,44 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
         final int[] matches = {0};
         final boolean[] patched = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(
-            reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-        reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String methodDescriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                final MethodVisitor delegate = super.visitMethod(
-                    access, name, methodDescriptor, signature, exceptions);
-                if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
-                    return delegate;
-                }
-                matches[0]++;
-                if ((access & requiredAccess) != requiredAccess
-                    || (access & forbiddenAccess) != 0) {
-                    return delegate;
-                }
-                patched[0] = true;
-                return new MethodVisitor(Opcodes.ASM9, delegate) {
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
-                    public void visitInsn(final int opcode) {
-                        if (opcode == Opcodes.RETURN) {
-                            injectIngress(mv);
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String methodDescriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor delegate =
+                                super.visitMethod(access, name, methodDescriptor, signature, exceptions);
+                        if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
+                            return delegate;
                         }
-                        super.visitInsn(opcode);
+                        matches[0]++;
+                        if ((access & requiredAccess) != requiredAccess || (access & forbiddenAccess) != 0) {
+                            return delegate;
+                        }
+                        patched[0] = true;
+                        return new MethodVisitor(Opcodes.ASM9, delegate) {
+                            @Override
+                            public void visitInsn(final int opcode) {
+                                if (opcode == Opcodes.RETURN) {
+                                    injectIngress(mv);
+                                }
+                                super.visitInsn(opcode);
+                            }
+                        };
                     }
-                };
-            }
-        }, ClassReader.EXPAND_FRAMES);
+                },
+                ClassReader.EXPAND_FRAMES);
         if (matches[0] != 1 || !patched[0]) {
             outcome.set(Outcome.SHAPE_REJECTED);
-            diagnostic.compareAndSet("",
-                ownerInternalName + "." + methodName + descriptor
-                    + " matches=" + matches[0] + " patched=" + patched[0]);
+            diagnostic.compareAndSet(
+                    "",
+                    ownerInternalName + "." + methodName + descriptor + " matches=" + matches[0] + " patched="
+                            + patched[0]);
             return null;
         }
         outcome.set(Outcome.PATCHED);
@@ -194,7 +188,7 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
      *   Object r = System.getProperties().get(key);
      *   if (r instanceof Runnable) ((Runnable) r).run();
      * } catch (Throwable ignored) {
-         FatalErrors.rethrowIfFatal(ignored); }
+     * FatalErrors.rethrowIfFatal(ignored); }
      * </pre>
      */
     private void injectIngress(final MethodVisitor mv) {
@@ -206,11 +200,11 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
 
         mv.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
         mv.visitLabel(start);
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System",
-            "getProperties", "()Ljava/util/Properties;", false);
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
         mv.visitLdcInsn(ingressKey);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties",
-            "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
         mv.visitInsn(Opcodes.DUP);
         mv.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/Runnable");
         mv.visitJumpInsn(Opcodes.IFNE, ingress);
@@ -218,8 +212,7 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
         mv.visitJumpInsn(Opcodes.GOTO, end);
         mv.visitLabel(ingress);
         mv.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Runnable");
-        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable",
-            "run", "()V", true);
+        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable", "run", "()V", true);
         mv.visitLabel(end);
         mv.visitJumpInsn(Opcodes.GOTO, done);
         mv.visitLabel(handler);

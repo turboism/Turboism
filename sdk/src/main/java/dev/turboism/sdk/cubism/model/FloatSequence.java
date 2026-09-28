@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 /** Immutable indexed float sequence. */
 public interface FloatSequence {
 

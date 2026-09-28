@@ -7,8 +7,6 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
-
-import javax.swing.SwingUtilities;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
@@ -18,6 +16,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.swing.SwingUtilities;
 
 /**
  * Per-plugin {@link UiScheduler} that funnels UI work through the runtime scheduler.
@@ -52,10 +51,7 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
         Objects.requireNonNull(work, "work");
         AtomicBoolean cancelled = new AtomicBoolean();
         final boolean accepted = scheduler.dispatch(
-            task("immediate UI work"),
-            () -> dispatchOnEdt(work, cancelled),
-            () -> cancelled.set(true)
-        );
+                task("immediate UI work"), () -> dispatchOnEdt(work, cancelled), () -> cancelled.set(true));
         if (!accepted) {
             throw new IllegalStateException("UI_SCHEDULER_REJECTED");
         }
@@ -68,13 +64,9 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
         Objects.requireNonNull(delay, "delay");
         AtomicBoolean cancelled = new AtomicBoolean();
         ScheduledFuture<?> scheduled = timer.schedule(
-            () -> scheduler.dispatch(
-                task("delayed UI work"),
-                () -> dispatchOnEdt(work, cancelled)
-            ),
-            Math.max(0L, delay.toMillis()),
-            TimeUnit.MILLISECONDS
-        );
+                () -> scheduler.dispatch(task("delayed UI work"), () -> dispatchOnEdt(work, cancelled)),
+                Math.max(0L, delay.toMillis()),
+                TimeUnit.MILLISECONDS);
         return () -> {
             cancelled.set(true);
             scheduled.cancel(false);
@@ -95,10 +87,7 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
      * starts, but a callback already running on the EDT is never interrupted or
      * otherwise preempted.
      */
-    private static void dispatchOnEdt(
-        final Runnable work,
-        final AtomicBoolean cancelled
-    ) {
+    private static void dispatchOnEdt(final Runnable work, final AtomicBoolean cancelled) {
         if (SwingUtilities.isEventDispatchThread()) {
             runGuarded(work, cancelled, CancellationContext.get());
             return;
@@ -117,10 +106,7 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
     }
 
     private static void runGuarded(
-        final Runnable work,
-        final AtomicBoolean cancelled,
-        final RuntimeCancellationToken token
-    ) {
+            final Runnable work, final AtomicBoolean cancelled, final RuntimeCancellationToken token) {
         if (cancelled.get()) {
             return;
         }
@@ -146,11 +132,7 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
         private final CountDownLatch settled = new CountDownLatch(1);
         private volatile Throwable failure;
 
-        private EdtCallback(
-            final Runnable work,
-            final AtomicBoolean cancelled,
-            final RuntimeCancellationToken token
-        ) {
+        private EdtCallback(final Runnable work, final AtomicBoolean cancelled, final RuntimeCancellationToken token) {
             this.work = work;
             this.cancelled = cancelled;
             this.token = token;

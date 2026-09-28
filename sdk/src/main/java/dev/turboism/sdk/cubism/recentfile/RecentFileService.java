@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.recentfile;
 
-
 import java.util.List;
 
 /** Read-only projection of the host's Recent Files menu (merged with the current project). */
@@ -31,7 +30,8 @@ public interface RecentFileService {
     enum Unavailable implements RecentFileService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 

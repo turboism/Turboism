@@ -1,7 +1,6 @@
 package dev.turboism.sdk.performance;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.time.Duration;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -60,18 +59,18 @@ public interface PerformanceProbeService {
     enum Unavailable implements PerformanceProbeService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public PerformanceSnapshot snapshot() {
+        @Override
+        public PerformanceSnapshot snapshot() {
             throw new UnsupportedOperationException("performance probe service is not available");
         }
 
-        @Override public Registration sample(
-            final Duration interval,
-            final Consumer<PerformanceSnapshot> consumer
-        ) {
+        @Override
+        public Registration sample(final Duration interval, final Consumer<PerformanceSnapshot> consumer) {
             Objects.requireNonNull(interval, "interval");
             Objects.requireNonNull(consumer, "consumer");
             throw new UnsupportedOperationException("performance probe service is not available");

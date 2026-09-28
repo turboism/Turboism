@@ -1,8 +1,7 @@
 package dev.turboism.core.runtime.work;
 
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.core.runtime.PluginTask;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -32,22 +31,17 @@ public final class PluginEventLane {
     private final ThreadPoolExecutor worker;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    PluginEventLane(
-        String pluginId,
-        int queueCapacity,
-        Consumer<PluginWorkBudgetEvent> diagnosticSink
-    ) {
+    PluginEventLane(String pluginId, int queueCapacity, Consumer<PluginWorkBudgetEvent> diagnosticSink) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.worker = new ThreadPoolExecutor(
-            1,
-            1,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(queueCapacity),
-            new PluginWorkThreadFactory(this.pluginId + "-event"),
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queueCapacity),
+                new PluginWorkThreadFactory(this.pluginId + "-event"),
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
     /**
@@ -66,38 +60,31 @@ public final class PluginEventLane {
         }
         final CompletableFuture<PluginWorkResult> completion = new CompletableFuture<>();
         try {
-            CompletableFuture.runAsync(() -> {
-                try {
-                    work.run();
-                    completion.complete(PluginWorkResult.succeeded());
-                } catch (Throwable failure) {
-                    FatalErrors.rethrowIfFatal(failure);
-                    emit(
-                        task,
-                        PluginWorkBudgetEvent.Phase.FAILED,
-                        PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
-                        PluginWorkBudgetEvent.Severity.ERROR
-                    );
-                    completion.complete(new PluginWorkResult(
-                        PluginWorkStatus.FAILED,
-                        "PLUGIN_WORK_FAILED"
-                    ));
-                }
-            }, worker);
+            CompletableFuture.runAsync(
+                    () -> {
+                        try {
+                            work.run();
+                            completion.complete(PluginWorkResult.succeeded());
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            emit(
+                                    task,
+                                    PluginWorkBudgetEvent.Phase.FAILED,
+                                    PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
+                                    PluginWorkBudgetEvent.Severity.ERROR);
+                            completion.complete(new PluginWorkResult(PluginWorkStatus.FAILED, "PLUGIN_WORK_FAILED"));
+                        }
+                    },
+                    worker);
         } catch (RejectedExecutionException exception) {
             emit(
-                task,
-                PluginWorkBudgetEvent.Phase.REJECTED,
-                PluginWorkBudgetEvent.Decision.REJECTED,
-                PluginWorkBudgetEvent.Severity.WARNING
-            );
+                    task,
+                    PluginWorkBudgetEvent.Phase.REJECTED,
+                    PluginWorkBudgetEvent.Decision.REJECTED,
+                    PluginWorkBudgetEvent.Severity.WARNING);
             return rejected(PluginWorkStatus.REJECTED_BACKPRESSURE, "BACKPRESSURE");
         }
-        return new PluginWorkSubmission(
-            true,
-            PluginWorkStatus.SUCCEEDED,
-            completion
-        );
+        return new PluginWorkSubmission(true, PluginWorkStatus.SUCCEEDED, completion);
     }
 
     /**
@@ -126,24 +113,14 @@ public final class PluginEventLane {
     }
 
     private void emit(
-        PluginTask task,
-        PluginWorkBudgetEvent.Phase phase,
-        PluginWorkBudgetEvent.Decision decision,
-        PluginWorkBudgetEvent.Severity severity
-    ) {
-        diagnosticSink.accept(new PluginWorkBudgetEvent(
-            pluginId,
-            task.taskType(),
-            phase,
-            decision,
-            severity
-        ));
+            PluginTask task,
+            PluginWorkBudgetEvent.Phase phase,
+            PluginWorkBudgetEvent.Decision decision,
+            PluginWorkBudgetEvent.Severity severity) {
+        diagnosticSink.accept(new PluginWorkBudgetEvent(pluginId, task.taskType(), phase, decision, severity));
     }
 
-    private static PluginWorkSubmission rejected(
-        PluginWorkStatus status,
-        String failureCode
-    ) {
+    private static PluginWorkSubmission rejected(PluginWorkStatus status, String failureCode) {
         PluginWorkResult result = new PluginWorkResult(status, failureCode);
         return new PluginWorkSubmission(false, status, CompletableFuture.completedFuture(result));
     }

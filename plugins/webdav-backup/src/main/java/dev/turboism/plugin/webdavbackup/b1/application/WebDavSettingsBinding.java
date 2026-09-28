@@ -10,7 +10,6 @@ import dev.turboism.sdk.config.ConfigRegistrationException;
 import dev.turboism.sdk.config.ConfigSchema;
 import dev.turboism.sdk.config.ConfigWriteResult;
 import dev.turboism.sdk.config.PluginConfigRegistry;
-
 import java.net.URI;
 import java.util.List;
 import java.util.Objects;
@@ -33,32 +32,44 @@ public final class WebDavSettingsBinding {
     public static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
     private static final ConfigKey<Boolean> ENABLED =
-        new ConfigKey<>(CONFIG_ID, "enabled", false, ConfigCodecs.booleanValue());
+            new ConfigKey<>(CONFIG_ID, "enabled", false, ConfigCodecs.booleanValue());
     private static final ConfigKey<String> URL =
-        new ConfigKey<>(CONFIG_ID, "url", DEFAULT_URL, ConfigCodecs.stringValue(512));
+            new ConfigKey<>(CONFIG_ID, "url", DEFAULT_URL, ConfigCodecs.stringValue(512));
     private static final ConfigKey<String> USERNAME =
-        new ConfigKey<>(CONFIG_ID, "username", "", ConfigCodecs.stringValue(256));
+            new ConfigKey<>(CONFIG_ID, "username", "", ConfigCodecs.stringValue(256));
     private static final ConfigKey<String> PASSWORD =
-        new ConfigKey<>(CONFIG_ID, "password", "", ConfigCodecs.stringValue(512));
+            new ConfigKey<>(CONFIG_ID, "password", "", ConfigCodecs.stringValue(512));
     private static final ConfigKey<String> REMOTE_PATH =
-        new ConfigKey<>(CONFIG_ID, "remote.path", DEFAULT_REMOTE_PATH, ConfigCodecs.stringValue(512));
+            new ConfigKey<>(CONFIG_ID, "remote.path", DEFAULT_REMOTE_PATH, ConfigCodecs.stringValue(512));
     private static final ConfigKey<Boolean> VERIFY_TLS =
-        new ConfigKey<>(CONFIG_ID, "verify.tls", true, ConfigCodecs.booleanValue());
+            new ConfigKey<>(CONFIG_ID, "verify.tls", true, ConfigCodecs.booleanValue());
     private static final ConfigKey<Integer> RETRY_MAX =
-        new ConfigKey<>(CONFIG_ID, "retry.max", DEFAULT_RETRY_MAX, ConfigCodecs.boundedInt(0, 10));
-    private static final ConfigKey<Integer> RETRY_BASE_DELAY_MS =
-        new ConfigKey<>(CONFIG_ID, "retry.base-delay-ms", (int) DEFAULT_RETRY_BASE_DELAY_MS,
-            ConfigCodecs.boundedInt(0, 60_000));
+            new ConfigKey<>(CONFIG_ID, "retry.max", DEFAULT_RETRY_MAX, ConfigCodecs.boundedInt(0, 10));
+    private static final ConfigKey<Integer> RETRY_BASE_DELAY_MS = new ConfigKey<>(
+            CONFIG_ID, "retry.base-delay-ms", (int) DEFAULT_RETRY_BASE_DELAY_MS, ConfigCodecs.boundedInt(0, 60_000));
     private static final ConfigKey<Integer> TIMEOUT_SECONDS =
-        new ConfigKey<>(CONFIG_ID, "timeout.seconds", DEFAULT_TIMEOUT_SECONDS, ConfigCodecs.boundedInt(1, 300));
-    private static final ConfigKey<String> REMOTE_TRIGGER =
-        new ConfigKey<>(CONFIG_ID, "remote.trigger",
-            WebDavConfig.RemoteTrigger.SAVE_TRIGGERED.name(), ConfigCodecs.stringValue(32));
+            new ConfigKey<>(CONFIG_ID, "timeout.seconds", DEFAULT_TIMEOUT_SECONDS, ConfigCodecs.boundedInt(1, 300));
+    private static final ConfigKey<String> REMOTE_TRIGGER = new ConfigKey<>(
+            CONFIG_ID,
+            "remote.trigger",
+            WebDavConfig.RemoteTrigger.SAVE_TRIGGERED.name(),
+            ConfigCodecs.stringValue(32));
 
-    private static final ConfigSchema SCHEMA = new ConfigSchema(CONFIG_ID, CONFIG_PATH, 1, List.of(
-        ENABLED, URL, USERNAME, PASSWORD, REMOTE_PATH, VERIFY_TLS, RETRY_MAX,
-        RETRY_BASE_DELAY_MS, TIMEOUT_SECONDS, REMOTE_TRIGGER
-    ));
+    private static final ConfigSchema SCHEMA = new ConfigSchema(
+            CONFIG_ID,
+            CONFIG_PATH,
+            1,
+            List.of(
+                    ENABLED,
+                    URL,
+                    USERNAME,
+                    PASSWORD,
+                    REMOTE_PATH,
+                    VERIFY_TLS,
+                    RETRY_MAX,
+                    RETRY_BASE_DELAY_MS,
+                    TIMEOUT_SECONDS,
+                    REMOTE_TRIGGER));
 
     private PluginConfigRegistry registry;
     private boolean initialized;
@@ -98,35 +109,56 @@ public final class WebDavSettingsBinding {
         if (!initialized || registry == null || !enabled) {
             return completedConfig(null);
         }
-        final CompletableFuture<ConfigReadResult<Boolean>> enabledRead = registry.read(ENABLED).toCompletableFuture();
-        final CompletableFuture<ConfigReadResult<String>> urlRead = registry.read(URL).toCompletableFuture();
-        final CompletableFuture<ConfigReadResult<String>> usernameRead = registry.read(USERNAME).toCompletableFuture();
-        final CompletableFuture<ConfigReadResult<String>> passwordRead = registry.read(PASSWORD).toCompletableFuture();
-        final CompletableFuture<ConfigReadResult<String>> remotePathRead = registry.read(REMOTE_PATH).toCompletableFuture();
-        final CompletableFuture<ConfigReadResult<Boolean>> verifyTlsRead = registry.read(VERIFY_TLS).toCompletableFuture();
-        final CompletableFuture<ConfigReadResult<Integer>> retryMaxRead = registry.read(RETRY_MAX).toCompletableFuture();
+        final CompletableFuture<ConfigReadResult<Boolean>> enabledRead =
+                registry.read(ENABLED).toCompletableFuture();
+        final CompletableFuture<ConfigReadResult<String>> urlRead =
+                registry.read(URL).toCompletableFuture();
+        final CompletableFuture<ConfigReadResult<String>> usernameRead =
+                registry.read(USERNAME).toCompletableFuture();
+        final CompletableFuture<ConfigReadResult<String>> passwordRead =
+                registry.read(PASSWORD).toCompletableFuture();
+        final CompletableFuture<ConfigReadResult<String>> remotePathRead =
+                registry.read(REMOTE_PATH).toCompletableFuture();
+        final CompletableFuture<ConfigReadResult<Boolean>> verifyTlsRead =
+                registry.read(VERIFY_TLS).toCompletableFuture();
+        final CompletableFuture<ConfigReadResult<Integer>> retryMaxRead =
+                registry.read(RETRY_MAX).toCompletableFuture();
         final CompletableFuture<ConfigReadResult<Integer>> retryBaseRead =
-            registry.read(RETRY_BASE_DELAY_MS).toCompletableFuture();
+                registry.read(RETRY_BASE_DELAY_MS).toCompletableFuture();
         final CompletableFuture<ConfigReadResult<Integer>> timeoutRead =
-            registry.read(TIMEOUT_SECONDS).toCompletableFuture();
+                registry.read(TIMEOUT_SECONDS).toCompletableFuture();
         final CompletableFuture<ConfigReadResult<String>> remoteTriggerRead =
-            registry.read(REMOTE_TRIGGER).toCompletableFuture();
+                registry.read(REMOTE_TRIGGER).toCompletableFuture();
 
-        return CompletableFuture
-            .allOf(enabledRead, urlRead, usernameRead, passwordRead, remotePathRead,
-                verifyTlsRead, retryMaxRead, retryBaseRead, timeoutRead, remoteTriggerRead)
-            .thenApply(ignored -> toConfig(
-                enabledRead.join(), urlRead.join(), usernameRead.join(), passwordRead.join(),
-                remotePathRead.join(), verifyTlsRead.join(), retryMaxRead.join(),
-                retryBaseRead.join(), timeoutRead.join(), remoteTriggerRead.join()
-            ))
-            .thenApply(config -> {
-                if (config != null) {
-                    confirmed = config;
-                }
-                return config;
-            })
-            .exceptionally(failure -> null);
+        return CompletableFuture.allOf(
+                        enabledRead,
+                        urlRead,
+                        usernameRead,
+                        passwordRead,
+                        remotePathRead,
+                        verifyTlsRead,
+                        retryMaxRead,
+                        retryBaseRead,
+                        timeoutRead,
+                        remoteTriggerRead)
+                .thenApply(ignored -> toConfig(
+                        enabledRead.join(),
+                        urlRead.join(),
+                        usernameRead.join(),
+                        passwordRead.join(),
+                        remotePathRead.join(),
+                        verifyTlsRead.join(),
+                        retryMaxRead.join(),
+                        retryBaseRead.join(),
+                        timeoutRead.join(),
+                        remoteTriggerRead.join()))
+                .thenApply(config -> {
+                    if (config != null) {
+                        confirmed = config;
+                    }
+                    return config;
+                })
+                .exceptionally(failure -> null);
     }
 
     /**
@@ -146,53 +178,49 @@ public final class WebDavSettingsBinding {
             return completedResult(ConfigBindingResult.UNCHANGED);
         }
         return registry.read(ENABLED)
-            .thenCompose(seed -> {
-                if (seed.error().isPresent()) {
-                    return completedResult(map(seed.error().orElseThrow().code()));
-                }
-                return writeChain(new Step(null, seed.value().revision(), false), value);
-            })
-            .exceptionally(failure -> ConfigBindingResult.RUNTIME_UNAVAILABLE);
+                .thenCompose(seed -> {
+                    if (seed.error().isPresent()) {
+                        return completedResult(map(seed.error().orElseThrow().code()));
+                    }
+                    return writeChain(new Step(null, seed.value().revision(), false), value);
+                })
+                .exceptionally(failure -> ConfigBindingResult.RUNTIME_UNAVAILABLE);
     }
 
     private CompletionStage<ConfigBindingResult> writeChain(final Step seed, final WebDavConfig value) {
         return write(ENABLED, value.enabled(), seed.revision())
-            .thenCompose(step -> next(step, URL, value.url().toString()))
-            .thenCompose(step -> next(step, USERNAME, value.username()))
-            .thenCompose(step -> next(step, PASSWORD, value.password()))
-            .thenCompose(step -> next(step, REMOTE_PATH, value.remotePath()))
-            .thenCompose(step -> next(step, VERIFY_TLS, value.verifyTls()))
-            .thenCompose(step -> next(step, RETRY_MAX, value.retryMax()))
-            .thenCompose(step -> next(step, RETRY_BASE_DELAY_MS, (int) value.retryBaseDelayMs()))
-            .thenCompose(step -> next(step, TIMEOUT_SECONDS, value.timeoutSeconds()))
-            .thenCompose(step -> next(step, REMOTE_TRIGGER, value.remoteTrigger().name()))
-            .thenCompose(step -> finish(step, value));
+                .thenCompose(step -> next(step, URL, value.url().toString()))
+                .thenCompose(step -> next(step, USERNAME, value.username()))
+                .thenCompose(step -> next(step, PASSWORD, value.password()))
+                .thenCompose(step -> next(step, REMOTE_PATH, value.remotePath()))
+                .thenCompose(step -> next(step, VERIFY_TLS, value.verifyTls()))
+                .thenCompose(step -> next(step, RETRY_MAX, value.retryMax()))
+                .thenCompose(step -> next(step, RETRY_BASE_DELAY_MS, (int) value.retryBaseDelayMs()))
+                .thenCompose(step -> next(step, TIMEOUT_SECONDS, value.timeoutSeconds()))
+                .thenCompose(
+                        step -> next(step, REMOTE_TRIGGER, value.remoteTrigger().name()))
+                .thenCompose(step -> finish(step, value));
     }
 
-    private <T> CompletionStage<Step> write(
-        final ConfigKey<T> key, final T value, final long expected
-    ) {
-        return registry.write(key, value, expected).handle((result, failure) -> failure == null
-            ? Step.from(result, false)
-            : new Step(ConfigBindingResult.RUNTIME_UNAVAILABLE, expected, false));
+    private <T> CompletionStage<Step> write(final ConfigKey<T> key, final T value, final long expected) {
+        return registry.write(key, value, expected)
+                .handle((result, failure) -> failure == null
+                        ? Step.from(result, false)
+                        : new Step(ConfigBindingResult.RUNTIME_UNAVAILABLE, expected, false));
     }
 
-    private <T> CompletionStage<Step> next(
-        final Step prior, final ConfigKey<T> key, final T value
-    ) {
+    private <T> CompletionStage<Step> next(final Step prior, final ConfigKey<T> key, final T value) {
         if (prior.result() != null) {
             return completedStep(prior);
         }
-        return write(key, value, prior.revision()).thenApply(current ->
-            new Step(current.result(), current.revision(), prior.wroteAny() || current.wroteAny())
-        );
+        return write(key, value, prior.revision())
+                .thenApply(current ->
+                        new Step(current.result(), current.revision(), prior.wroteAny() || current.wroteAny()));
     }
 
     private CompletionStage<ConfigBindingResult> finish(final Step step, final WebDavConfig value) {
         if (step.result() != null) {
-            return completedResult(step.wroteAny()
-                ? ConfigBindingResult.PARTIAL_PERSISTENCE
-                : step.result());
+            return completedResult(step.wroteAny() ? ConfigBindingResult.PARTIAL_PERSISTENCE : step.result());
         }
         // Readback confirmation: the persisted values must equal the target.
         return read().thenApply(readback -> {
@@ -216,8 +244,8 @@ public final class WebDavSettingsBinding {
     private record Step(ConfigBindingResult result, long revision, boolean wroteAny) {
         static Step from(final ConfigWriteResult value, final boolean previous) {
             return value.written()
-                ? new Step(null, value.revision(), true)
-                : new Step(map(value.error().orElseThrow().code()), value.revision(), previous);
+                    ? new Step(null, value.revision(), true)
+                    : new Step(map(value.error().orElseThrow().code()), value.revision(), previous);
         }
     }
 
@@ -248,21 +276,27 @@ public final class WebDavSettingsBinding {
     }
 
     private static WebDavConfig toConfig(
-        final ConfigReadResult<Boolean> enabledRead,
-        final ConfigReadResult<String> urlRead,
-        final ConfigReadResult<String> usernameRead,
-        final ConfigReadResult<String> passwordRead,
-        final ConfigReadResult<String> remotePathRead,
-        final ConfigReadResult<Boolean> verifyTlsRead,
-        final ConfigReadResult<Integer> retryMaxRead,
-        final ConfigReadResult<Integer> retryBaseRead,
-        final ConfigReadResult<Integer> timeoutRead,
-        final ConfigReadResult<String> remoteTriggerRead
-    ) {
+            final ConfigReadResult<Boolean> enabledRead,
+            final ConfigReadResult<String> urlRead,
+            final ConfigReadResult<String> usernameRead,
+            final ConfigReadResult<String> passwordRead,
+            final ConfigReadResult<String> remotePathRead,
+            final ConfigReadResult<Boolean> verifyTlsRead,
+            final ConfigReadResult<Integer> retryMaxRead,
+            final ConfigReadResult<Integer> retryBaseRead,
+            final ConfigReadResult<Integer> timeoutRead,
+            final ConfigReadResult<String> remoteTriggerRead) {
         for (ConfigReadResult<?> read : List.of(
-            enabledRead, urlRead, usernameRead, passwordRead, remotePathRead,
-            verifyTlsRead, retryMaxRead, retryBaseRead, timeoutRead, remoteTriggerRead
-        )) {
+                enabledRead,
+                urlRead,
+                usernameRead,
+                passwordRead,
+                remotePathRead,
+                verifyTlsRead,
+                retryMaxRead,
+                retryBaseRead,
+                timeoutRead,
+                remoteTriggerRead)) {
             if (read.error().isPresent()) {
                 return null; // fail closed: an unreadable key disables the target
             }
@@ -275,17 +309,16 @@ public final class WebDavSettingsBinding {
         }
         try {
             return new WebDavConfig(
-                enabledRead.value().value(),
-                url,
-                usernameRead.value().value(),
-                passwordRead.value().value(),
-                remotePathRead.value().value(),
-                verifyTlsRead.value().value(),
-                retryMaxRead.value().value(),
-                retryBaseRead.value().value(),
-                timeoutRead.value().value(),
-                parseRemoteTrigger(remoteTriggerRead.value().value())
-            );
+                    enabledRead.value().value(),
+                    url,
+                    usernameRead.value().value(),
+                    passwordRead.value().value(),
+                    remotePathRead.value().value(),
+                    verifyTlsRead.value().value(),
+                    retryMaxRead.value().value(),
+                    retryBaseRead.value().value(),
+                    timeoutRead.value().value(),
+                    parseRemoteTrigger(remoteTriggerRead.value().value()));
         } catch (IllegalArgumentException invalid) {
             return null;
         }
@@ -304,9 +337,9 @@ public final class WebDavSettingsBinding {
 
     private static ConfigBindingResult registration(final Throwable failure) {
         return failure instanceof ConfigRegistrationException registration
-            && registration.error() == ConfigRegistrationError.PERMISSION_DENIED
-            ? ConfigBindingResult.PERMISSION_DENIED
-            : ConfigBindingResult.RUNTIME_UNAVAILABLE;
+                        && registration.error() == ConfigRegistrationError.PERMISSION_DENIED
+                ? ConfigBindingResult.PERMISSION_DENIED
+                : ConfigBindingResult.RUNTIME_UNAVAILABLE;
     }
 
     private static Throwable unwrap(final Throwable value) {

@@ -1,9 +1,8 @@
 package dev.turboism.core.runtime.work;
 
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
-import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.time.Duration;
 import java.util.Objects;
@@ -51,34 +50,28 @@ public final class PluginLongLane {
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     PluginLongLane(
-        String pluginId,
-        int concurrency,
-        int queueCapacity,
-        Duration longRunningThreshold,
-        Duration reportInterval,
-        Consumer<PluginWorkBudgetEvent> diagnosticSink
-    ) {
+            String pluginId,
+            int concurrency,
+            int queueCapacity,
+            Duration longRunningThreshold,
+            Duration reportInterval,
+            Consumer<PluginWorkBudgetEvent> diagnosticSink) {
         this.pluginId = requireText(pluginId, "pluginId");
         if (concurrency < 1) {
             throw new IllegalArgumentException("concurrency must be positive");
         }
-        this.longRunningThreshold = Objects.requireNonNull(
-            longRunningThreshold, "longRunningThreshold");
+        this.longRunningThreshold = Objects.requireNonNull(longRunningThreshold, "longRunningThreshold");
         this.reportInterval = Objects.requireNonNull(reportInterval, "reportInterval");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.worker = new ThreadPoolExecutor(
-            concurrency,
-            concurrency,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(queueCapacity),
-            new PluginWorkThreadFactory(this.pluginId + "-long"),
-            new ThreadPoolExecutor.AbortPolicy()
-        );
-        this.monitor = new ScheduledThreadPoolExecutor(
-            1,
-            new PluginWorkThreadFactory(this.pluginId + "-long-monitor")
-        );
+                concurrency,
+                concurrency,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queueCapacity),
+                new PluginWorkThreadFactory(this.pluginId + "-long"),
+                new ThreadPoolExecutor.AbortPolicy());
+        this.monitor = new ScheduledThreadPoolExecutor(1, new PluginWorkThreadFactory(this.pluginId + "-long-monitor"));
         this.monitor.setRemoveOnCancelPolicy(true);
     }
 
@@ -93,11 +86,7 @@ public final class PluginLongLane {
      * @param work the body to run on a lane worker thread
      * @return the admission decision plus a stage completing with the work's terminal result
      */
-    public PluginWorkSubmission submit(
-        PluginTask task,
-        RuntimeCancellationToken token,
-        Runnable work
-    ) {
+    public PluginWorkSubmission submit(PluginTask task, RuntimeCancellationToken token, Runnable work) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(token, "token");
         Objects.requireNonNull(work, "work");
@@ -121,11 +110,10 @@ public final class PluginLongLane {
                 return rejected(PluginWorkStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
             }
             emit(
-                task,
-                PluginWorkBudgetEvent.Phase.REJECTED,
-                PluginWorkBudgetEvent.Decision.REJECTED,
-                PluginWorkBudgetEvent.Severity.WARNING
-            );
+                    task,
+                    PluginWorkBudgetEvent.Phase.REJECTED,
+                    PluginWorkBudgetEvent.Decision.REJECTED,
+                    PluginWorkBudgetEvent.Severity.WARNING);
             return rejected(PluginWorkStatus.REJECTED_BACKPRESSURE, "BACKPRESSURE");
         }
         return accepted(item);
@@ -159,32 +147,18 @@ public final class PluginLongLane {
     }
 
     private void emit(
-        PluginTask task,
-        PluginWorkBudgetEvent.Phase phase,
-        PluginWorkBudgetEvent.Decision decision,
-        PluginWorkBudgetEvent.Severity severity
-    ) {
-        diagnosticSink.accept(new PluginWorkBudgetEvent(
-            pluginId,
-            task.taskType(),
-            phase,
-            decision,
-            severity
-        ));
+            PluginTask task,
+            PluginWorkBudgetEvent.Phase phase,
+            PluginWorkBudgetEvent.Decision decision,
+            PluginWorkBudgetEvent.Severity severity) {
+        diagnosticSink.accept(new PluginWorkBudgetEvent(pluginId, task.taskType(), phase, decision, severity));
     }
 
     private static PluginWorkSubmission accepted(LongWorkItem item) {
-        return new PluginWorkSubmission(
-            true,
-            PluginWorkStatus.SUCCEEDED,
-            item.completion
-        );
+        return new PluginWorkSubmission(true, PluginWorkStatus.SUCCEEDED, item.completion);
     }
 
-    private static PluginWorkSubmission rejected(
-        PluginWorkStatus status,
-        String failureCode
-    ) {
+    private static PluginWorkSubmission rejected(PluginWorkStatus status, String failureCode) {
         PluginWorkResult result = new PluginWorkResult(status, failureCode);
         return new PluginWorkSubmission(false, status, CompletableFuture.completedFuture(result));
     }
@@ -222,11 +196,10 @@ public final class PluginLongLane {
             ScheduledFuture<?> report = null;
             try {
                 report = monitor.scheduleWithFixedDelay(
-                    this::reportLongRunning,
-                    longRunningThreshold.toMillis(),
-                    reportInterval.toMillis(),
-                    TimeUnit.MILLISECONDS
-                );
+                        this::reportLongRunning,
+                        longRunningThreshold.toMillis(),
+                        reportInterval.toMillis(),
+                        TimeUnit.MILLISECONDS);
             } catch (RuntimeException ignored) {
                 // A shut-down monitor loses only the slow-work diagnostic, never the work itself.
             }
@@ -236,15 +209,11 @@ public final class PluginLongLane {
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 emit(
-                    task,
-                    PluginWorkBudgetEvent.Phase.FAILED,
-                    PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
-                    PluginWorkBudgetEvent.Severity.ERROR
-                );
-                completion.complete(new PluginWorkResult(
-                    PluginWorkStatus.FAILED,
-                    "PLUGIN_WORK_FAILED"
-                ));
+                        task,
+                        PluginWorkBudgetEvent.Phase.FAILED,
+                        PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
+                        PluginWorkBudgetEvent.Severity.ERROR);
+                completion.complete(new PluginWorkResult(PluginWorkStatus.FAILED, "PLUGIN_WORK_FAILED"));
             } finally {
                 if (report != null) {
                     report.cancel(false);
@@ -262,22 +231,17 @@ public final class PluginLongLane {
             if (settled.compareAndSet(false, true)) {
                 worker.remove(this);
                 active.remove(this);
-                completion.complete(new PluginWorkResult(
-                    PluginWorkStatus.CANCELED,
-                    "TASK_CANCELED"
-                ));
+                completion.complete(new PluginWorkResult(PluginWorkStatus.CANCELED, "TASK_CANCELED"));
             }
         }
 
         private void reportLongRunning() {
-            final long elapsedMillis =
-                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+            final long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
             RuntimeDiagnostics.warn(
-                DIAGNOSTIC_COMPONENT,
-                "LONG_TASK_RUNNING plugin=" + pluginId
-                    + " task=" + task.taskType()
-                    + " elapsedMillis=" + elapsedMillis
-            );
+                    DIAGNOSTIC_COMPONENT,
+                    "LONG_TASK_RUNNING plugin=" + pluginId
+                            + " task=" + task.taskType()
+                            + " elapsedMillis=" + elapsedMillis);
         }
     }
 }

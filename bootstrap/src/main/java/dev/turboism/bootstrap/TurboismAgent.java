@@ -5,7 +5,6 @@ import dev.turboism.bootstrap.PreviewRuntimeLauncher.ResolvedHost;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.preview.PreviewRuntime;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
-
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -28,8 +27,7 @@ public final class TurboismAgent {
 
     private static final AtomicBoolean START_REQUESTED = new AtomicBoolean(false);
     private static final AtomicReference<PreviewRuntime> RUNTIME = new AtomicReference<>();
-    private static final AtomicReference<HookRegistry> HOOKS =
-        new AtomicReference<>(new HookRegistry());
+    private static final AtomicReference<HookRegistry> HOOKS = new AtomicReference<>(new HookRegistry());
 
     @FunctionalInterface
     interface ShutdownHookRegistrar {
@@ -37,10 +35,9 @@ public final class TurboismAgent {
     }
 
     private static final ShutdownHookRegistrar JVM_SHUTDOWN_HOOK_REGISTRAR =
-        hook -> Runtime.getRuntime().addShutdownHook(hook);
+            hook -> Runtime.getRuntime().addShutdownHook(hook);
 
-    private TurboismAgent() {
-    }
+    private TurboismAgent() {}
 
     /**
      * Entry point used when attached at JVM startup. This is the supported
@@ -49,11 +46,10 @@ public final class TurboismAgent {
      */
     public static void premain(final String options, final Instrumentation instrumentation) {
         requestStart(
-            StartupSuppressionInstaller.AttachmentMode.PREMAIN,
-            options,
-            instrumentation,
-            JVM_SHUTDOWN_HOOK_REGISTRAR
-        );
+                StartupSuppressionInstaller.AttachmentMode.PREMAIN,
+                options,
+                instrumentation,
+                JVM_SHUTDOWN_HOOK_REGISTRAR);
     }
 
     /**
@@ -63,66 +59,51 @@ public final class TurboismAgent {
      */
     public static void agentmain(final String options, final Instrumentation instrumentation) {
         requestStart(
-            StartupSuppressionInstaller.AttachmentMode.AGENTMAIN,
-            options,
-            instrumentation,
-            JVM_SHUTDOWN_HOOK_REGISTRAR
-        );
+                StartupSuppressionInstaller.AttachmentMode.AGENTMAIN,
+                options,
+                instrumentation,
+                JVM_SHUTDOWN_HOOK_REGISTRAR);
     }
 
     static void requestStartForTesting(
-        final StartupSuppressionInstaller.AttachmentMode attachmentMode,
-        final String rawOptions,
-        final Instrumentation instrumentation,
-        final ShutdownHookRegistrar shutdownHookRegistrar
-    ) {
+            final StartupSuppressionInstaller.AttachmentMode attachmentMode,
+            final String rawOptions,
+            final Instrumentation instrumentation,
+            final ShutdownHookRegistrar shutdownHookRegistrar) {
         requestStart(attachmentMode, rawOptions, instrumentation, shutdownHookRegistrar);
     }
 
     static void requestStartForTesting(
-        final StartupSuppressionInstaller.AttachmentMode attachmentMode,
-        final String rawOptions,
-        final Instrumentation instrumentation,
-        final ShutdownHookRegistrar shutdownHookRegistrar,
-        final Consumer<Runnable> bootstrapThreadStarter
-    ) {
-        requestStart(
-            attachmentMode,
-            rawOptions,
-            instrumentation,
-            shutdownHookRegistrar,
-            bootstrapThreadStarter
-        );
+            final StartupSuppressionInstaller.AttachmentMode attachmentMode,
+            final String rawOptions,
+            final Instrumentation instrumentation,
+            final ShutdownHookRegistrar shutdownHookRegistrar,
+            final Consumer<Runnable> bootstrapThreadStarter) {
+        requestStart(attachmentMode, rawOptions, instrumentation, shutdownHookRegistrar, bootstrapThreadStarter);
     }
 
     private static void requestStart(
-        final StartupSuppressionInstaller.AttachmentMode attachmentMode,
-        final String rawOptions,
-        final Instrumentation instrumentation,
-        final ShutdownHookRegistrar shutdownHookRegistrar
-    ) {
+            final StartupSuppressionInstaller.AttachmentMode attachmentMode,
+            final String rawOptions,
+            final Instrumentation instrumentation,
+            final ShutdownHookRegistrar shutdownHookRegistrar) {
         requestStart(
-            attachmentMode,
-            rawOptions,
-            instrumentation,
-            shutdownHookRegistrar,
-            action -> BootstrapThreadFactory.create(action).start()
-        );
+                attachmentMode,
+                rawOptions,
+                instrumentation,
+                shutdownHookRegistrar,
+                action -> BootstrapThreadFactory.create(action).start());
     }
 
     private static void requestStart(
-        final StartupSuppressionInstaller.AttachmentMode attachmentMode,
-        final String rawOptions,
-        final Instrumentation instrumentation,
-        final ShutdownHookRegistrar shutdownHookRegistrar,
-        final Consumer<Runnable> bootstrapThreadStarter
-    ) {
+            final StartupSuppressionInstaller.AttachmentMode attachmentMode,
+            final String rawOptions,
+            final Instrumentation instrumentation,
+            final ShutdownHookRegistrar shutdownHookRegistrar,
+            final Consumer<Runnable> bootstrapThreadStarter) {
         if (!START_REQUESTED.compareAndSet(false, true)) {
             try {
-                RuntimeDiagnostics.debug(
-                    "bootstrap",
-                    "Agent start ignored because the runtime was already requested"
-                );
+                RuntimeDiagnostics.debug("bootstrap", "Agent start ignored because the runtime was already requested");
             } catch (Throwable ignored) {
                 FatalErrors.rethrowIfFatal(ignored);
                 // Diagnostics must never propagate into the host JVM.
@@ -147,12 +128,12 @@ public final class TurboismAgent {
             }
             JvmShims.install(attachmentMode, instrumentation, options);
             final HookEnvironment premainEnvironment = HookEnvironment.builder()
-                .instrumentation(instrumentation)
-                .options(options)
-                .classPath(System.getProperty("java.class.path", ""))
-                .workingDirectory(Path.of(System.getProperty("user.dir", ".")))
-                .startupPolicy(dev.turboism.config.RuntimeStartupConfig.load(options.home()))
-                .build();
+                    .instrumentation(instrumentation)
+                    .options(options)
+                    .classPath(System.getProperty("java.class.path", ""))
+                    .workingDirectory(Path.of(System.getProperty("user.dir", ".")))
+                    .startupPolicy(dev.turboism.config.RuntimeStartupConfig.load(options.home()))
+                    .build();
             final boolean premain = MeshMirrorHookContributor.premainOnly(attachmentMode);
             final List<HookContributor> premainInstalled = new ArrayList<>();
             final List<HookContributor> contributors = loadHookManifest();
@@ -164,13 +145,7 @@ public final class TurboismAgent {
                 }
             }
             bootstrapThreadStarter.accept(
-                () -> start(
-                    options,
-                    instrumentation,
-                    List.copyOf(premainInstalled),
-                    contributors
-                )
-            );
+                    () -> start(options, instrumentation, List.copyOf(premainInstalled), contributors));
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             failStartSafely(failure);
@@ -186,10 +161,8 @@ public final class TurboismAgent {
      */
     private static void failStartSafely(final Throwable failure) {
         try {
-            System.err.println(
-                "Turboism agent start failed safely: " + failure.getClass().getName()
-                    + ": " + failure.getMessage()
-            );
+            System.err.println("Turboism agent start failed safely: "
+                    + failure.getClass().getName() + ": " + failure.getMessage());
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             // Even failure reporting must not reach the host JVM.
@@ -208,71 +181,64 @@ public final class TurboismAgent {
     }
 
     private static void start(
-        final AgentOptions options,
-        final Instrumentation instrumentation,
-        final List<HookContributor> premainInstalled,
-        final List<HookContributor> contributors
-    ) {
+            final AgentOptions options,
+            final Instrumentation instrumentation,
+            final List<HookContributor> premainInstalled,
+            final List<HookContributor> contributors) {
         final List<HookContributor> bound = new ArrayList<>(premainInstalled);
         final VerifiedMeshMirrorHookInstaller meshMirrorHook = MeshMirrorHookContributor.CURRENT.get();
         final VerifiedWarpAltMirrorHookInstaller warpAltMirrorHook = WarpAltMirrorHookContributor.CURRENT.get();
         boolean published = false;
         try {
-            RuntimeDiagnostics.debug(
-                "bootstrap",
-                "Agent active; waiting for the Cubism host"
-            );
-            final Optional<ResolvedHost> located =
-                PreviewRuntimeLauncher.resolveHost(instrumentation, options);
+            RuntimeDiagnostics.debug("bootstrap", "Agent active; waiting for the Cubism host");
+            final Optional<ResolvedHost> located = PreviewRuntimeLauncher.resolveHost(instrumentation, options);
             if (located.isEmpty()) {
                 System.out.println("Turboism agent stopped: Cubism host class was not observed");
                 return;
             }
             final ResolvedHost resolved = located.orElseThrow();
             bound.addAll(installPhase(
-                contributors,
-                HookContributor.Phase.HOST_RESOLVED,
-                environment(instrumentation, options, resolved, null)
-            ));
+                    contributors,
+                    HookContributor.Phase.HOST_RESOLVED,
+                    environment(instrumentation, options, resolved, null)));
             final PreviewRuntime runtime = PreviewRuntimeLauncher.startPreviewRuntime(
-                meshMirrorHook,
-                warpAltMirrorHook,
-                () -> PreviewRuntimeLauncher.start(options, resolved, prepared -> {
-                    final HookEnvironment runtimeEnvironment =
-                        environment(instrumentation, options, resolved, prepared);
-                    prepareEarlyHooks(contributors, bound,
-                        contributor -> disableHookCapabilities(contributor, runtimeEnvironment),
-                        contributor -> {
-                            for (final String hookId : contributor.runtimeHookIds()) {
-                                prepared.editorModelResolver().deferCapabilitiesRequiringHook(hookId);
-                            }
-                        },
-                        contributor -> bindRuntimeHook(contributor, runtimeEnvironment));
-                    installPhase(contributors, HookContributor.Phase.RUNTIME_STARTED, runtimeEnvironment);
-                }, prepared -> {
-                    final HookEnvironment runtimeEnvironment =
-                        environment(instrumentation, options, resolved, prepared);
-                    for (HookContributor contributor : bound) {
-                        if (contributor.phase() == HookContributor.Phase.PREMAIN) {
-                            bindRuntimeHook(contributor, runtimeEnvironment);
-                        }
-                    }
-                })
-            );
-            if (!RUNTIME.compareAndSet(null, runtime)) {
-                PreviewRuntimeLauncher.closeDuplicateRuntimeAndHooks(
-                    runtime::close,
                     meshMirrorHook,
-                    warpAltMirrorHook
-                );
+                    warpAltMirrorHook,
+                    () -> PreviewRuntimeLauncher.start(
+                            options,
+                            resolved,
+                            prepared -> {
+                                final HookEnvironment runtimeEnvironment =
+                                        environment(instrumentation, options, resolved, prepared);
+                                prepareEarlyHooks(
+                                        contributors,
+                                        bound,
+                                        contributor -> disableHookCapabilities(contributor, runtimeEnvironment),
+                                        contributor -> {
+                                            for (final String hookId : contributor.runtimeHookIds()) {
+                                                prepared.editorModelResolver().deferCapabilitiesRequiringHook(hookId);
+                                            }
+                                        },
+                                        contributor -> bindRuntimeHook(contributor, runtimeEnvironment));
+                                installPhase(contributors, HookContributor.Phase.RUNTIME_STARTED, runtimeEnvironment);
+                            },
+                            prepared -> {
+                                final HookEnvironment runtimeEnvironment =
+                                        environment(instrumentation, options, resolved, prepared);
+                                for (HookContributor contributor : bound) {
+                                    if (contributor.phase() == HookContributor.Phase.PREMAIN) {
+                                        bindRuntimeHook(contributor, runtimeEnvironment);
+                                    }
+                                }
+                            }));
+            if (!RUNTIME.compareAndSet(null, runtime)) {
+                PreviewRuntimeLauncher.closeDuplicateRuntimeAndHooks(runtime::close, meshMirrorHook, warpAltMirrorHook);
                 return;
             }
             published = true;
-            runtimeInfo(
-                "Turboism Developer Preview started: host=" + runtime.hostState()
+            runtimeInfo("Turboism Developer Preview started: host=" + runtime.hostState()
                     + ", plugins=" + runtime.loadReport().loaded().size()
-                    + ", failures=" + runtime.loadReport().failures().size()
-            );
+                    + ", failures=" + runtime.loadReport().failures().size());
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             runtimeWarn("Turboism bootstrap interrupted");
@@ -280,10 +246,8 @@ public final class TurboismAgent {
             FatalErrors.rethrowIfFatal(failure);
             final PreviewRuntime runtime = RUNTIME.get();
             if (runtime == null) {
-                System.err.println(
-                    "Turboism bootstrap failed safely: " + failure.getClass().getName()
-                        + ": " + failure.getMessage()
-                );
+                System.err.println("Turboism bootstrap failed safely: "
+                        + failure.getClass().getName() + ": " + failure.getMessage());
             } else {
                 runtime.error("bootstrap", "Turboism bootstrap failed safely", failure);
             }
@@ -291,16 +255,22 @@ public final class TurboismAgent {
             if (!published) {
                 // Also covers host lookup timeout, identity/base-capability rejection,
                 // and interruption before startPreviewRuntime owns the later cleanup.
-                HOOKS.get().closePhase(HookContributor.Phase.RUNTIME_STARTED,
-                    TurboismAgent::runtimeWarn, TurboismAgent::runtimeInfo);
-                HOOKS.get().closePhase(HookContributor.Phase.HOST_RESOLVED,
-                    TurboismAgent::runtimeWarn, TurboismAgent::runtimeInfo);
+                HOOKS.get()
+                        .closePhase(
+                                HookContributor.Phase.RUNTIME_STARTED,
+                                TurboismAgent::runtimeWarn,
+                                TurboismAgent::runtimeInfo);
+                HOOKS.get()
+                        .closePhase(
+                                HookContributor.Phase.HOST_RESOLVED,
+                                TurboismAgent::runtimeWarn,
+                                TurboismAgent::runtimeInfo);
                 try {
                     PreviewRuntimeLauncher.closePremainRuntimeHooks(meshMirrorHook, warpAltMirrorHook);
                 } catch (Throwable cleanupFailure) {
                     FatalErrors.rethrowIfFatal(cleanupFailure);
                     runtimeWarn("Turboism premain runtime-hook cleanup failed safely: "
-                        + cleanupFailure.getClass().getName());
+                            + cleanupFailure.getClass().getName());
                 }
             }
         }
@@ -310,12 +280,11 @@ public final class TurboismAgent {
     // Consumers initialize after this pass, while successful premain hooks stay pending
     // until their plugin-dependent bridge binds in the after-plugins callback.
     static void prepareEarlyHooks(
-        final List<HookContributor> contributors,
-        final List<HookContributor> installed,
-        final java.util.function.Consumer<HookContributor> unavailable,
-        final java.util.function.Consumer<HookContributor> pending,
-        final java.util.function.Consumer<HookContributor> bind
-    ) {
+            final List<HookContributor> contributors,
+            final List<HookContributor> installed,
+            final java.util.function.Consumer<HookContributor> unavailable,
+            final java.util.function.Consumer<HookContributor> pending,
+            final java.util.function.Consumer<HookContributor> bind) {
         for (final HookContributor contributor : contributors) {
             if (contributor.phase() == HookContributor.Phase.RUNTIME_STARTED) continue;
             if (!installed.contains(contributor)) {
@@ -329,10 +298,9 @@ public final class TurboismAgent {
     }
 
     private static List<HookContributor> installPhase(
-        final List<HookContributor> contributors,
-        final HookContributor.Phase phase,
-        final HookEnvironment environment
-    ) {
+            final List<HookContributor> contributors,
+            final HookContributor.Phase phase,
+            final HookEnvironment environment) {
         final List<HookContributor> installed = new ArrayList<>();
         for (HookContributor contributor : contributors) {
             if (contributor.phase() == phase && installPhaseHook(contributor, environment)) {
@@ -342,10 +310,7 @@ public final class TurboismAgent {
         return installed;
     }
 
-    private static boolean installPhaseHook(
-        final HookContributor contributor,
-        final HookEnvironment environment
-    ) {
+    private static boolean installPhaseHook(final HookContributor contributor, final HookEnvironment environment) {
         boolean installed = false;
         try {
             if (!contributor.admitted(environment)) {
@@ -373,9 +338,7 @@ public final class TurboismAgent {
         }
     }
 
-    private static void disableHookCapabilities(
-        final HookContributor contributor, final HookEnvironment environment
-    ) {
+    private static void disableHookCapabilities(final HookContributor contributor, final HookEnvironment environment) {
         environment.runtime().ifPresent(runtime -> {
             for (final String hookId : contributor.runtimeHookIds()) {
                 runtime.disableEditorCapabilitiesRequiringHook(hookId);
@@ -383,9 +346,7 @@ public final class TurboismAgent {
         });
     }
 
-    private static void bindRuntimeHook(
-        final HookContributor contributor, final HookEnvironment environment
-    ) {
+    private static void bindRuntimeHook(final HookContributor contributor, final HookEnvironment environment) {
         try {
             contributor.bind(environment);
             environment.runtime().ifPresent(runtime -> {
@@ -402,32 +363,28 @@ public final class TurboismAgent {
     }
 
     private static HookEnvironment environment(
-        final Instrumentation instrumentation,
-        final AgentOptions options,
-        final ResolvedHost resolved,
-        final PreviewRuntime runtime
-    ) {
+            final Instrumentation instrumentation,
+            final AgentOptions options,
+            final ResolvedHost resolved,
+            final PreviewRuntime runtime) {
         return HookEnvironment.builder()
-            .instrumentation(instrumentation)
-            .options(options)
-            .host(resolved.host())
-            .runtime(runtime)
-            .profile(resolved.profile())
-            .hostResolution(resolved.resolution())
-            .fullRuntimeAdmission(resolved.fullRuntimeAdmission())
-            .safeMode(JvmShims.safeModeActive())
-            .verificationDirectory(options.home().resolve("state").resolve("verification"))
-            .build();
+                .instrumentation(instrumentation)
+                .options(options)
+                .host(resolved.host())
+                .runtime(runtime)
+                .profile(resolved.profile())
+                .hostResolution(resolved.resolution())
+                .fullRuntimeAdmission(resolved.fullRuntimeAdmission())
+                .safeMode(JvmShims.safeModeActive())
+                .verificationDirectory(options.home().resolve("state").resolve("verification"))
+                .build();
     }
 
     private static List<HookContributor> loadHookManifest() {
         try {
             return HookManifest.load(TurboismAgent.class.getClassLoader());
         } catch (HookManifest.HookManifestException failure) {
-            RuntimeDiagnostics.warn(
-                "bootstrap",
-                "Turboism hooks disabled safely: " + failure.getMessage()
-            );
+            RuntimeDiagnostics.warn("bootstrap", "Turboism hooks disabled safely: " + failure.getMessage());
             return List.of();
         }
     }
@@ -460,9 +417,7 @@ public final class TurboismAgent {
             runtime.closeForProcessExit();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-            System.err.println(
-                "Turboism process-exit report cleanup failed safely: RUNTIME_CLOSE_FAILED"
-            );
+            System.err.println("Turboism process-exit report cleanup failed safely: RUNTIME_CLOSE_FAILED");
         }
     }
 
@@ -477,11 +432,7 @@ public final class TurboismAgent {
             runtime.close();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-            RuntimeDiagnostics.error(
-                "bootstrap",
-                "Shutdown hook failed safely: RUNTIME_CLOSE_FAILED",
-                failure
-            );
+            RuntimeDiagnostics.error("bootstrap", "Shutdown hook failed safely: RUNTIME_CLOSE_FAILED", failure);
         }
         return true;
     }

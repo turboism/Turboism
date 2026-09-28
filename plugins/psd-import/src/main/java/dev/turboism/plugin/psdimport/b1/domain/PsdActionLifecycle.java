@@ -19,22 +19,16 @@ public final class PsdActionLifecycle {
     public static final String IGNORE_LAYER_ID = "ignoreLayerId";
     private static final Map<String, Boolean> DEFAULTS = Map.of(OVERWRITE, false, IGNORE_LAYER_ID, true);
     private static final List<PsdActionDescriptor> INVENTORY = List.of(
-        new PsdActionDescriptor(
-            "turboism.psd-import.import-clip-masks",
-            "psd.action.import-clip-masks.label",
-            Map.of(OVERWRITE, false)
-        ),
-        new PsdActionDescriptor(
-            "turboism.psd-import.repair-layer-bindings",
-            "psd.action.repair-layer-bindings.label",
-            Map.of(IGNORE_LAYER_ID, true)
-        ),
-        new PsdActionDescriptor(
-            "turboism.psd-import.expand-canvas-aabb",
-            "psd.action.expand-canvas.label",
-            Map.of()
-        )
-    );
+            new PsdActionDescriptor(
+                    "turboism.psd-import.import-clip-masks",
+                    "psd.action.import-clip-masks.label",
+                    Map.of(OVERWRITE, false)),
+            new PsdActionDescriptor(
+                    "turboism.psd-import.repair-layer-bindings",
+                    "psd.action.repair-layer-bindings.label",
+                    Map.of(IGNORE_LAYER_ID, true)),
+            new PsdActionDescriptor(
+                    "turboism.psd-import.expand-canvas-aabb", "psd.action.expand-canvas.label", Map.of()));
     private PsdLifecycleState state = PsdLifecycleState.DISABLED;
 
     /**

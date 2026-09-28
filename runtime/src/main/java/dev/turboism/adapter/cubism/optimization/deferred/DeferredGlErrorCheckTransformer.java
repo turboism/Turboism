@@ -54,8 +54,8 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
     public static boolean enabledByPreference() {
         final String explicit = System.getProperty(ENABLE_PROPERTY);
         return explicit == null
-            ? dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()
-            : Boolean.parseBoolean(explicit);
+                ? dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()
+                : Boolean.parseBoolean(explicit);
     }
 
     private static final String GL_OWNER = "com/jogamp/opengl/GL";
@@ -64,11 +64,16 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
 
     /** Method-local slots fixed by the non-static {@code (GL,String,Z)} signature. */
     private static final int ERROR_GL_LOCAL = 1;
+
     private static final int ERROR_CONTEXT_LOCAL = 2;
     private static final int ERROR_THROWING_LOCAL = 3;
 
-    private enum Kind { ERROR_SITE, FRAME_REPORT }
-    private record MethodSpec(String owner, String method, String descriptor, Kind kind) { }
+    private enum Kind {
+        ERROR_SITE,
+        FRAME_REPORT
+    }
+
+    private record MethodSpec(String owner, String method, String descriptor, Kind kind) {}
 
     private final ClassLoader loader;
     private final Path artifact;
@@ -78,7 +83,7 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
     private final Map<String, String> beforeSha256 = new HashMap<>();
     private int matches;
     private String failure;
-    private Runnable onRejection = () -> { };
+    private Runnable onRejection = () -> {};
 
     /**
      * Creates the deferred transform from official reference bytes for both
@@ -88,32 +93,40 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
      *
      * @throws IllegalArgumentException when a reviewed method body is absent
      */
-    public DeferredGlErrorCheckTransformer(final ClassLoader loader, final Path artifact,
-                                           final byte[] errorReference, final byte[] frameReference,
-                                           final DeferredGlErrorCheckTarget target) {
+    public DeferredGlErrorCheckTransformer(
+            final ClassLoader loader,
+            final Path artifact,
+            final byte[] errorReference,
+            final byte[] frameReference,
+            final DeferredGlErrorCheckTarget target) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(errorReference, "errorReference");
         Objects.requireNonNull(frameReference, "frameReference");
         methods = List.of(
-            new MethodSpec(target.errorOwner(), DeferredGlErrorCheckTarget.ERROR_METHOD,
-                DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR, Kind.ERROR_SITE),
-            new MethodSpec(target.frameOwner(), DeferredGlErrorCheckTarget.FRAME_METHOD,
-                DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR, Kind.FRAME_REPORT));
+                new MethodSpec(
+                        target.errorOwner(),
+                        DeferredGlErrorCheckTarget.ERROR_METHOD,
+                        DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR,
+                        Kind.ERROR_SITE),
+                new MethodSpec(
+                        target.frameOwner(),
+                        DeferredGlErrorCheckTarget.FRAME_METHOD,
+                        DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR,
+                        Kind.FRAME_REPORT));
         for (final MethodSpec spec : methods) {
-            final byte[] reference =
-                spec.kind() == Kind.ERROR_SITE ? errorReference : frameReference;
+            final byte[] reference = spec.kind() == Kind.ERROR_SITE ? errorReference : frameReference;
             final List<String> shape =
-                ReviewedMethodShape.read(reference, spec.owner(), spec.method(), spec.descriptor());
+                    ReviewedMethodShape.read(reference, spec.owner(), spec.method(), spec.descriptor());
             if (shape == null) {
                 throw new IllegalArgumentException("deferred-check method absent: " + spec.owner());
             }
             officialShapes.put(spec.owner(), shape);
             final int sites = errorSites(reference, spec);
             if (spec.kind() == Kind.ERROR_SITE && sites != 1) {
-                throw new IllegalArgumentException(
-                    "reviewed glGetError call sites != 1: " + spec.owner());
+                throw new IllegalArgumentException("reviewed glGetError call sites != 1: " + spec.owner());
             }
         }
     }
@@ -129,96 +142,133 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
     }
 
     /** Registers a fail-closed action before installing this transformer. */
-    public void onRejection(final Runnable action) { onRejection = Objects.requireNonNull(action); }
+    public void onRejection(final Runnable action) {
+        onRejection = Objects.requireNonNull(action);
+    }
 
     /** Returns the latest rejection, or null. */
-    public String failure() { return failure; }
+    public String failure() {
+        return failure;
+    }
     /** Returns successful class rewrites across both owners. */
-    public int matches() { return matches; }
+    public int matches() {
+        return matches;
+    }
     /** Returns the pre-rewrite class digest per owner for restoration verification. */
-    public String beforeSha256(final String owner) { return beforeSha256.get(owner); }
+    public String beforeSha256(final String owner) {
+        return beforeSha256.get(owner);
+    }
 
-    @Override public byte[] transform(final Module module, final ClassLoader actualLoader,
-                                      final String name, final Class<?> type,
-                                      final ProtectionDomain domain, final byte[] bytes) {
+    @Override
+    public byte[] transform(
+            final Module module,
+            final ClassLoader actualLoader,
+            final String name,
+            final Class<?> type,
+            final ProtectionDomain domain,
+            final byte[] bytes) {
         if (actualLoader != loader || bytes == null) return null;
         final MethodSpec spec = spec(name);
         if (spec == null) return null;
         try {
-            if (domain == null || domain.getCodeSource() == null || !artifact.equals(
-                    Path.of(domain.getCodeSource().getLocation().toURI())
-                        .toAbsolutePath().normalize())) {
+            if (domain == null
+                    || domain.getCodeSource() == null
+                    || !artifact.equals(
+                            Path.of(domain.getCodeSource().getLocation().toURI())
+                                    .toAbsolutePath()
+                                    .normalize())) {
                 throw new IllegalArgumentException("deferred-check artifact mismatch");
             }
             final List<String> observed =
-                ReviewedMethodShape.read(bytes, spec.owner(), spec.method(), spec.descriptor());
+                    ReviewedMethodShape.read(bytes, spec.owner(), spec.method(), spec.descriptor());
             if (!officialShapes.get(spec.owner()).equals(observed)
-                && !composedShapes.getOrDefault(spec.owner(), List.of()).equals(observed)) {
+                    && !composedShapes.getOrDefault(spec.owner(), List.of()).equals(observed)) {
                 throw new IllegalArgumentException("deferred-check shape mismatch: " + spec.owner());
             }
             // Pass 1: count the kind-specific emission points (the glGetError
             // site for ERROR_SITE, RETURN opcodes for FRAME_REPORT) and read
             // the input body's local ceiling for the receiver park slot.
             final int[] scan = {0, 0};
-            new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
-                @Override public MethodVisitor visitMethod(final int access, final String method,
-                                                           final String descriptor,
-                                                           final String signature,
-                                                           final String[] exceptions) {
-                    if (!method.equals(spec.method()) || !descriptor.equals(spec.descriptor())) {
-                        return null;
-                    }
-                    return new MethodVisitor(Opcodes.ASM9) {
-                        @Override public void visitMethodInsn(final int opcode, final String owner,
-                                                              final String invoked,
-                                                              final String desc,
-                                                              final boolean itf) {
-                            if (spec.kind() == Kind.ERROR_SITE
-                                && errorQuery(opcode, owner, invoked, desc, itf)) scan[0]++;
-                        }
-                        @Override public void visitInsn(final int opcode) {
-                            if (spec.kind() == Kind.FRAME_REPORT && opcode == Opcodes.RETURN) {
-                                scan[0]++;
-                            }
-                        }
-                        @Override public void visitMaxs(final int stack, final int maxLocals) {
-                            scan[1] = maxLocals;
-                        }
-                    };
-                }
-            }, ClassReader.SKIP_DEBUG);
+            new ClassReader(bytes)
+                    .accept(
+                            new ClassVisitor(Opcodes.ASM9) {
+                                @Override
+                                public MethodVisitor visitMethod(
+                                        final int access,
+                                        final String method,
+                                        final String descriptor,
+                                        final String signature,
+                                        final String[] exceptions) {
+                                    if (!method.equals(spec.method()) || !descriptor.equals(spec.descriptor())) {
+                                        return null;
+                                    }
+                                    return new MethodVisitor(Opcodes.ASM9) {
+                                        @Override
+                                        public void visitMethodInsn(
+                                                final int opcode,
+                                                final String owner,
+                                                final String invoked,
+                                                final String desc,
+                                                final boolean itf) {
+                                            if (spec.kind() == Kind.ERROR_SITE
+                                                    && errorQuery(opcode, owner, invoked, desc, itf)) scan[0]++;
+                                        }
+
+                                        @Override
+                                        public void visitInsn(final int opcode) {
+                                            if (spec.kind() == Kind.FRAME_REPORT && opcode == Opcodes.RETURN) {
+                                                scan[0]++;
+                                            }
+                                        }
+
+                                        @Override
+                                        public void visitMaxs(final int stack, final int maxLocals) {
+                                            scan[1] = maxLocals;
+                                        }
+                                    };
+                                }
+                            },
+                            ClassReader.SKIP_DEBUG);
             if (scan[0] < 1) {
-                throw new IllegalArgumentException(
-                    "deferred-check emission point absent: " + spec.owner());
+                throw new IllegalArgumentException("deferred-check emission point absent: " + spec.owner());
             }
             if (spec.kind() == Kind.ERROR_SITE && scan[0] != 1) {
                 throw new IllegalArgumentException("deferred-check error sites != 1: " + spec.owner());
             }
             final int deferredLocal = scan[1];
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader,
-                ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override protected ClassLoader getClassLoader() { return loader; }
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader;
+                }
             };
             final int[] applied = {0};
-            reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-                @Override public MethodVisitor visitMethod(final int access, final String method,
-                                                           final String descriptor,
-                                                           final String signature,
-                                                           final String[] exceptions) {
-                    final MethodVisitor original =
-                        super.visitMethod(access, method, descriptor, signature, exceptions);
-                    return method.equals(spec.method()) && descriptor.equals(spec.descriptor())
-                        ? new DeferredVisitor(original, spec, deferredLocal, applied)
-                        : original;
-                }
-            }, ClassReader.EXPAND_FRAMES);
+            reader.accept(
+                    new ClassVisitor(Opcodes.ASM9, writer) {
+                        @Override
+                        public MethodVisitor visitMethod(
+                                final int access,
+                                final String method,
+                                final String descriptor,
+                                final String signature,
+                                final String[] exceptions) {
+                            final MethodVisitor original =
+                                    super.visitMethod(access, method, descriptor, signature, exceptions);
+                            return method.equals(spec.method()) && descriptor.equals(spec.descriptor())
+                                    ? new DeferredVisitor(original, spec, deferredLocal, applied)
+                                    : original;
+                        }
+                    },
+                    ClassReader.EXPAND_FRAMES);
             if (applied[0] != (spec.kind() == Kind.ERROR_SITE ? 1 : scan[0])) {
                 throw new IllegalArgumentException("deferred-check emission incomplete: " + spec.owner());
             }
             final byte[] result = writer.toByteArray();
-            beforeSha256.putIfAbsent(spec.owner(), HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256").digest(bytes)));
+            beforeSha256.putIfAbsent(
+                    spec.owner(),
+                    HexFormat.of()
+                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
             matches++;
             return result;
         } catch (Exception | LinkageError problem) {
@@ -235,29 +285,42 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
         return null;
     }
 
-    private static boolean errorQuery(final int opcode, final String owner, final String method,
-                                      final String desc, final boolean itf) {
-        return opcode == Opcodes.INVOKEINTERFACE && itf && GL_OWNER.equals(owner)
-            && GL_METHOD.equals(method) && GL_DESCRIPTOR.equals(desc);
+    private static boolean errorQuery(
+            final int opcode, final String owner, final String method, final String desc, final boolean itf) {
+        return opcode == Opcodes.INVOKEINTERFACE
+                && itf
+                && GL_OWNER.equals(owner)
+                && GL_METHOD.equals(method)
+                && GL_DESCRIPTOR.equals(desc);
     }
 
     private static int errorSites(final byte[] bytes, final MethodSpec spec) {
         final int[] count = {0};
-        new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override public MethodVisitor visitMethod(final int access, final String name,
-                                                       final String descriptor,
-                                                       final String signature,
-                                                       final String[] exceptions) {
-                if (!name.equals(spec.method()) || !descriptor.equals(spec.descriptor())) return null;
-                return new MethodVisitor(Opcodes.ASM9) {
-                    @Override public void visitMethodInsn(final int opcode, final String owner,
-                                                          final String method, final String desc,
-                                                          final boolean itf) {
-                        if (errorQuery(opcode, owner, method, desc, itf)) count[0]++;
-                    }
-                };
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (!name.equals(spec.method()) || !descriptor.equals(spec.descriptor())) return null;
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String method,
+                                            final String desc,
+                                            final boolean itf) {
+                                        if (errorQuery(opcode, owner, method, desc, itf)) count[0]++;
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         return count[0];
     }
 
@@ -275,31 +338,41 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
         private final MethodSpec spec;
         private final int deferredLocal;
         private final int[] applied;
-        DeferredVisitor(final MethodVisitor original, final MethodSpec spec,
-                        final int deferredLocal, final int[] applied) {
+
+        DeferredVisitor(
+                final MethodVisitor original, final MethodSpec spec, final int deferredLocal, final int[] applied) {
             super(Opcodes.ASM9, original);
             this.spec = spec;
             this.deferredLocal = deferredLocal;
             this.applied = applied;
         }
-        @Override public void visitMethodInsn(final int opcode, final String owner,
-                                              final String method, final String descriptor,
-                                              final boolean itf) {
+
+        @Override
+        public void visitMethodInsn(
+                final int opcode, final String owner, final String method, final String descriptor, final boolean itf) {
             if (spec.kind() != Kind.ERROR_SITE || !errorQuery(opcode, owner, method, descriptor, itf)) {
                 super.visitMethodInsn(opcode, owner, method, descriptor, itf);
                 return;
             }
             // Stack: [gl]. Park it so the callback arguments order (mh, gl, ctx, z).
             super.visitVarInsn(Opcodes.ASTORE, deferredLocal);
-            final Label start = new Label(), end = new Label(), miss = new Label(),
-                failure = new Label(), deferred = new Label(), done = new Label();
+            final Label start = new Label(),
+                    end = new Label(),
+                    miss = new Label(),
+                    failure = new Label(),
+                    deferred = new Label(),
+                    done = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties",
-                "()Ljava/util/Properties;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
             super.visitLdcInsn(UniformLocationHookBridge.DEFER_QUERY_PROPERTY);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get",
-                "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
             super.visitJumpInsn(Opcodes.IFEQ, miss);
@@ -307,8 +380,12 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
             super.visitVarInsn(Opcodes.ALOAD, deferredLocal);
             super.visitVarInsn(Opcodes.ALOAD, ERROR_CONTEXT_LOCAL);
             super.visitVarInsn(Opcodes.ILOAD, ERROR_THROWING_LOCAL);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/invoke/MethodHandle",
-                "invokeExact", "(Ljava/lang/Object;Ljava/lang/String;Z)I", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/lang/invoke/MethodHandle",
+                    "invokeExact",
+                    "(Ljava/lang/Object;Ljava/lang/String;Z)I",
+                    false);
             super.visitLabel(end);
             // The callback never runs the real query itself: DEFERRED_FALLBACK
             // means the checkpoint is out of scope and the emitted code runs
@@ -333,11 +410,14 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
             super.visitLabel(done);
             applied[0]++;
         }
+
         private void realQuery() {
             super.visitVarInsn(Opcodes.ALOAD, deferredLocal);
             super.visitMethodInsn(Opcodes.INVOKEINTERFACE, GL_OWNER, GL_METHOD, GL_DESCRIPTOR, true);
         }
-        @Override public void visitInsn(final int opcode) {
+
+        @Override
+        public void visitInsn(final int opcode) {
             if (spec.kind() == Kind.FRAME_REPORT && opcode == Opcodes.RETURN) {
                 emitReport();
                 applied[0]++;
@@ -351,21 +431,33 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
          * return path; a missing or failed callback consults nothing.
          */
         private void emitReport() {
-            final Label start = new Label(), end = new Label(), miss = new Label(),
-                failure = new Label(), have = new Label(), empty = new Label();
+            final Label start = new Label(),
+                    end = new Label(),
+                    miss = new Label(),
+                    failure = new Label(),
+                    have = new Label(),
+                    empty = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties",
-                "()Ljava/util/Properties;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
             super.visitLdcInsn(UniformLocationHookBridge.DEFER_REPORT_PROPERTY);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get",
-                "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
             super.visitJumpInsn(Opcodes.IFEQ, miss);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/invoke/MethodHandle");
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/invoke/MethodHandle",
-                "invokeExact", "()Ljava/lang/Object;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/lang/invoke/MethodHandle",
+                    "invokeExact",
+                    "()Ljava/lang/Object;",
+                    false);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, have);
             super.visitLabel(miss);

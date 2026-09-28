@@ -1,20 +1,23 @@
 package dev.turboism.ui.toolbar;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.WorkBudget;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -25,12 +28,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class RuntimeMainToolbarRegistryTest {
 
@@ -50,16 +49,15 @@ class RuntimeMainToolbarRegistryTest {
     void contributeWithoutPermissionThrowsCubismPermissionException() {
         // Given
         RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
-            (permissionId, operation) -> { throw new CubismPermissionException(operation + " denied"); },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID
-        );
+                (permissionId, operation) -> {
+                    throw new CubismPermissionException(operation + " denied");
+                },
+                scheduler(new RecordingPolicy()),
+                PLUGIN_ID);
 
         // When / Then
-        CubismPermissionException exception = assertThrows(
-            CubismPermissionException.class,
-            () -> registry.contribute(contribution("probe.toolbar"))
-        );
+        CubismPermissionException exception =
+                assertThrows(CubismPermissionException.class, () -> registry.contribute(contribution("probe.toolbar")));
         assertEquals("ui.main-toolbar.contribute denied", exception.getMessage());
         assertEquals(0, registry.registrationCount());
     }
@@ -68,10 +66,10 @@ class RuntimeMainToolbarRegistryTest {
     void contributeWithPermissionReturnsRegistrationAndContributionIsVisible() {
         // Given
         RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
-            (permissionId, operation) -> assertEquals(PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE, permissionId),
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID
-        );
+                (permissionId, operation) ->
+                        assertEquals(PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE, permissionId),
+                scheduler(new RecordingPolicy()),
+                PLUGIN_ID);
 
         // When
         Registration registration = registry.contribute(contribution("probe.toolbar"));
@@ -86,10 +84,7 @@ class RuntimeMainToolbarRegistryTest {
     void closingRegistrationRemovesContribution() {
         // Given
         RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
-            (permissionId, operation) -> { },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID
-        );
+                (permissionId, operation) -> {}, scheduler(new RecordingPolicy()), PLUGIN_ID);
         Registration registration = registry.contribute(contribution("probe.toolbar"));
 
         // When
@@ -103,52 +98,43 @@ class RuntimeMainToolbarRegistryTest {
     @Test
     void typedButtonDescriptorReachesAuthorityWithoutLosingVariantsOrTooltip() {
         dev.turboism.ui.host.RuntimeEditorUiHostLifecycle lifecycle =
-            new dev.turboism.ui.host.RuntimeEditorUiHostLifecycle();
+                new dev.turboism.ui.host.RuntimeEditorUiHostLifecycle();
         dev.turboism.ui.contribution.EditorUiContributionAuthority authority =
-            new dev.turboism.ui.contribution.EditorUiContributionAuthority(lifecycle);
+                new dev.turboism.ui.contribution.EditorUiContributionAuthority(lifecycle);
         RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
-            (permissionId, operation) -> { },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID,
-            null,
-            authority
-        );
+                (permissionId, operation) -> {}, scheduler(new RecordingPolicy()), PLUGIN_ID, null, authority);
         MainToolbarRegistry.MainToolbarButtonContribution contribution =
-            new MainToolbarRegistry.MainToolbarButtonContribution(
-                "probe.toolbar",
-                "probe.action",
-                "probe.label",
-                "probe.tooltip",
-                new MainToolbarRegistry.IconVariants(
-                    "/probe/icon.png",
-                    java.util.Optional.of("/probe/icon-hover.png"),
-                    java.util.Optional.empty(),
-                    java.util.Optional.empty(),
-                    java.util.Optional.of("/probe/icon-light.png"),
-                    java.util.Optional.of("/probe/icon-dark.png")
-                ),
-                MainToolbarRegistry.Placement.before(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
-                100
-            );
+                new MainToolbarRegistry.MainToolbarButtonContribution(
+                        "probe.toolbar",
+                        "probe.action",
+                        "probe.label",
+                        "probe.tooltip",
+                        new MainToolbarRegistry.IconVariants(
+                                "/probe/icon.png",
+                                java.util.Optional.of("/probe/icon-hover.png"),
+                                java.util.Optional.empty(),
+                                java.util.Optional.empty(),
+                                java.util.Optional.of("/probe/icon-light.png"),
+                                java.util.Optional.of("/probe/icon-dark.png")),
+                        MainToolbarRegistry.Placement.before(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                        100);
 
         registry.contributeButton(contribution);
 
         assertEquals(
-            contribution,
-            authority.contributions(dev.turboism.ui.host.EditorUiFamily.MAIN_TOOLBAR)
-                .get(0).descriptor()
-        );
+                contribution,
+                authority
+                        .contributions(dev.turboism.ui.host.EditorUiFamily.MAIN_TOOLBAR)
+                        .get(0)
+                        .descriptor());
     }
 
     @Test
     void visibilityUpdateIsDispatchedThroughRuntimeScheduler() throws InterruptedException {
         // Given
         RecordingPolicy policy = new RecordingPolicy();
-        RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
-            (permissionId, operation) -> { },
-            scheduler(policy),
-            PLUGIN_ID
-        );
+        RuntimeMainToolbarRegistry registry =
+                new RuntimeMainToolbarRegistry((permissionId, operation) -> {}, scheduler(policy), PLUGIN_ID);
 
         // When
         registry.contribute(contribution("probe.toolbar"));
@@ -168,17 +154,9 @@ class RuntimeMainToolbarRegistryTest {
         RecordingVisibilitySink firstSink = new RecordingVisibilitySink(1);
         RecordingVisibilitySink secondSink = new RecordingVisibilitySink(1);
         RuntimeMainToolbarRegistry first = new RuntimeMainToolbarRegistry(
-            (permissionId, operation) -> { },
-            runtimeScheduler,
-            "dev.turboism.plugin.first",
-            firstSink
-        );
+                (permissionId, operation) -> {}, runtimeScheduler, "dev.turboism.plugin.first", firstSink);
         RuntimeMainToolbarRegistry second = new RuntimeMainToolbarRegistry(
-            (permissionId, operation) -> { },
-            runtimeScheduler,
-            "dev.turboism.plugin.second",
-            secondSink
-        );
+                (permissionId, operation) -> {}, runtimeScheduler, "dev.turboism.plugin.second", secondSink);
         RecordingLocalization firstLocalization = localization("First label");
         RecordingLocalization secondLocalization = localization("Second label");
         first.bindLocalization(firstLocalization);
@@ -202,11 +180,7 @@ class RuntimeMainToolbarRegistryTest {
         // Given
         RecordingVisibilitySink sink = new RecordingVisibilitySink(1);
         RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
-            (permissionId, operation) -> { },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID,
-            sink
-        );
+                (permissionId, operation) -> {}, scheduler(new RecordingPolicy()), PLUGIN_ID, sink);
         registry.lockWithoutLocalization();
 
         // When
@@ -215,10 +189,8 @@ class RuntimeMainToolbarRegistryTest {
         // Then
         assertTrue(sink.updated.await(1, TimeUnit.SECONDS));
         assertEquals(List.of("probe.label"), sink.mainLabels);
-        IllegalStateException error = assertThrows(
-            IllegalStateException.class,
-            () -> registry.bindLocalization(localization("Late label"))
-        );
+        IllegalStateException error =
+                assertThrows(IllegalStateException.class, () -> registry.bindLocalization(localization("Late label")));
         assertEquals("localization ownership is already locked", error.getMessage());
     }
 
@@ -226,19 +198,14 @@ class RuntimeMainToolbarRegistryTest {
     void firstUnboundContributionLocksTheRawFallback() {
         // Given
         RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
-            (permissionId, operation) -> { },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID
-        );
+                (permissionId, operation) -> {}, scheduler(new RecordingPolicy()), PLUGIN_ID);
 
         // When
         registry.contribute(contribution("probe.toolbar"));
 
         // Then
-        IllegalStateException error = assertThrows(
-            IllegalStateException.class,
-            () -> registry.bindLocalization(localization("Late label"))
-        );
+        IllegalStateException error =
+                assertThrows(IllegalStateException.class, () -> registry.bindLocalization(localization("Late label")));
         assertEquals("localization ownership is already locked", error.getMessage());
     }
 
@@ -246,19 +213,14 @@ class RuntimeMainToolbarRegistryTest {
     void localizationBindingIsIdempotentOnlyForTheSameInstance() {
         // Given
         RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
-            (permissionId, operation) -> { },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID
-        );
+                (permissionId, operation) -> {}, scheduler(new RecordingPolicy()), PLUGIN_ID);
         RecordingLocalization localization = localization("Bound label");
         registry.bindLocalization(localization);
 
         // When / Then
         assertDoesNotThrow(() -> registry.bindLocalization(localization));
-        IllegalStateException error = assertThrows(
-            IllegalStateException.class,
-            () -> registry.bindLocalization(localization("Other label"))
-        );
+        IllegalStateException error =
+                assertThrows(IllegalStateException.class, () -> registry.bindLocalization(localization("Other label")));
         assertEquals("localization ownership is already locked", error.getMessage());
     }
 
@@ -267,12 +229,8 @@ class RuntimeMainToolbarRegistryTest {
         // Given
         RecordingPolicy policy = new RecordingPolicy();
         RecordingVisibilitySink sink = new RecordingVisibilitySink(2);
-        RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
-            (permissionId, operation) -> { },
-            scheduler(policy),
-            PLUGIN_ID,
-            sink
-        );
+        RuntimeMainToolbarRegistry registry =
+                new RuntimeMainToolbarRegistry((permissionId, operation) -> {}, scheduler(policy), PLUGIN_ID, sink);
 
         // When
         Registration registration = registry.contribute(contribution("probe.toolbar"));
@@ -287,11 +245,10 @@ class RuntimeMainToolbarRegistryTest {
     private RuntimeScheduler scheduler(RecordingPolicy policy) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            policy,
-            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-            SidecarDispatcher.noop(),
-            events::add
-        );
+                policy,
+                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
+                SidecarDispatcher.noop(),
+                events::add);
         return scheduler;
     }
 
@@ -301,13 +258,7 @@ class RuntimeMainToolbarRegistryTest {
 
     private static MainToolbarRegistry.MainToolbarContribution contribution(String id) {
         return new MainToolbarRegistry.MainToolbarContribution(
-            id,
-            "probe.action",
-            "probe.label",
-            "/probe/icon.png",
-            "end",
-            100
-        );
+                id, "probe.action", "probe.label", "/probe/icon.png", "end", 100);
     }
 
     private static final class RecordingPolicy implements WorkBudgetPolicy {
@@ -331,7 +282,10 @@ class RuntimeMainToolbarRegistryTest {
             this.catalog = Map.copyOf(catalog);
         }
 
-        @Override public Locale locale() { return Locale.ENGLISH; }
+        @Override
+        public Locale locale() {
+            return Locale.ENGLISH;
+        }
 
         @Override
         public String text(final String key) {
@@ -339,8 +293,15 @@ class RuntimeMainToolbarRegistryTest {
             return catalog.getOrDefault(key, key);
         }
 
-        @Override public String format(final String key, final Object... arguments) { return text(key); }
-        @Override public boolean contains(final String key) { return catalog.containsKey(key); }
+        @Override
+        public String format(final String key, final Object... arguments) {
+            return text(key);
+        }
+
+        @Override
+        public boolean contains(final String key) {
+            return catalog.containsKey(key);
+        }
     }
 
     private static final class RecordingVisibilitySink implements ToolbarVisibilitySink {
@@ -355,14 +316,12 @@ class RuntimeMainToolbarRegistryTest {
 
         @Override
         public void onMainToolbarVisibilityChanged(
-            final String pluginId,
-            final List<MainToolbarRegistry.MainToolbarContribution> contributions
-        ) {
+                final String pluginId, final List<MainToolbarRegistry.MainToolbarContribution> contributions) {
             pluginIds.add(pluginId);
             mainContributionCounts.add(contributions.size());
             contributions.stream()
-                .map(MainToolbarRegistry.MainToolbarContribution::labelKey)
-                .forEach(mainLabels::add);
+                    .map(MainToolbarRegistry.MainToolbarContribution::labelKey)
+                    .forEach(mainLabels::add);
             updated.countDown();
         }
     }

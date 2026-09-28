@@ -4,7 +4,6 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
-
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,12 +36,10 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
     /** System-property key holding the loader-neutral receiver the injected code calls. */
     public static final String CALLBACK_KEY = "dev.turboism.editor-history.begin-edit.ingress";
 
-    private static final String MODELING_EDIT_ENTRY_OWNER =
-        "com/live2d/cubism/doc/modeling/CModelingEditMode_Main";
+    private static final String MODELING_EDIT_ENTRY_OWNER = "com/live2d/cubism/doc/modeling/CModelingEditMode_Main";
     private static final String INHERITED_EDIT_ENTRY_OWNER = "com/live2d/cubism/doc/ACEditMode";
     private static final String EDIT_ENTRY_NAME = "beginEdit";
-    private static final String EDIT_ENTRY_DESCRIPTOR =
-        "(Ljava/lang/String;)Lcom/live2d/undo/GroupUndo;";
+    private static final String EDIT_ENTRY_DESCRIPTOR = "(Ljava/lang/String;)Lcom/live2d/undo/GroupUndo;";
 
     private final Instrumentation instrumentation;
     private final ClassLoader hostClassLoader;
@@ -54,22 +51,16 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
     private java.util.function.Consumer<String> publishedReceiver;
 
     private VerifiedNativeEditBeginHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final List<StaticSelector> entries
-    ) {
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final List<StaticSelector> entries) {
         this.instrumentation = instrumentation;
         this.hostClassLoader = hostClassLoader;
         this.entries = List.copyOf(entries);
         final List<NativeEditBeginTransformer> created = new ArrayList<>();
         for (final StaticSelector entry : this.entries) {
             created.add(new NativeEditBeginTransformer(
-                entry.ownerInternalName(),
-                entry.memberName(),
-                entry.descriptor(),
-                hostClassLoader,
-                CALLBACK_KEY
-            ));
+                    entry.ownerInternalName(), entry.memberName(), entry.descriptor(), hostClassLoader, CALLBACK_KEY));
         }
         this.transformers = List.copyOf(created);
     }
@@ -90,57 +81,51 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
      *                                  exact public instance method
      */
     public static VerifiedNativeEditBeginHookInstaller fromVerifiedResolver(
-        final Instrumentation instrumentation,
-        final VerifiedMemberResolver resolver,
-        final ClassLoader hostClassLoader
-    ) {
+            final Instrumentation instrumentation,
+            final VerifiedMemberResolver resolver,
+            final ClassLoader hostClassLoader) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
         if (!verified.isAdmittedCubismVersion("5.2.03")
-            && !verified.isAdmittedCubismVersion("5.3.02")
-            && !verified.isAdmittedCubismVersion("5.3.03")) {
+                && !verified.isAdmittedCubismVersion("5.3.02")
+                && !verified.isAdmittedCubismVersion("5.3.03")) {
             throw new IllegalArgumentException("Native edit entry hook version is unsupported.");
         }
         final Set<String> aliases = Set.of(
-            EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS,
-            EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS
-        );
+                EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS,
+                EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS);
         if (!verified.authorizesFeature(
-            EditorHistoryIngressSelectorContract.ADAPTER_SLICE_ID,
-            EditorHistoryIngressSelectorContract.CAPABILITY_ID,
-            aliases
-        )) {
+                EditorHistoryIngressSelectorContract.ADAPTER_SLICE_ID,
+                EditorHistoryIngressSelectorContract.CAPABILITY_ID,
+                aliases)) {
             throw new IllegalArgumentException("Native edit entry hook is not authorized.");
         }
         final List<StaticSelector> entries = new ArrayList<>();
         for (final String alias : aliases) {
             final StaticSelector selector = verified.verifiedSelector(alias);
             if (selector.kind() != StaticSelector.Kind.METHOD
-                || !EDIT_ENTRY_NAME.equals(selector.memberName())
-                || !EDIT_ENTRY_DESCRIPTOR.equals(selector.descriptor())
-                || (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
-                throw new IllegalArgumentException(
-                    "Verified native edit entry selector is invalid: " + alias
-                );
+                    || !EDIT_ENTRY_NAME.equals(selector.memberName())
+                    || !EDIT_ENTRY_DESCRIPTOR.equals(selector.descriptor())
+                    || (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
+                throw new IllegalArgumentException("Verified native edit entry selector is invalid: " + alias);
             }
             entries.add(selector);
         }
         if (entries.size() != 2
-            || count(entries, MODELING_EDIT_ENTRY_OWNER) != 1
-            || count(entries, INHERITED_EDIT_ENTRY_OWNER) != 1) {
+                || count(entries, MODELING_EDIT_ENTRY_OWNER) != 1
+                || count(entries, INHERITED_EDIT_ENTRY_OWNER) != 1) {
             throw new IllegalArgumentException(
-                "Native edit entry hook needs the modeling entry plus the inherited entry,"
-                    + " and nothing else."
-            );
+                    "Native edit entry hook needs the modeling entry plus the inherited entry," + " and nothing else.");
         }
         return new VerifiedNativeEditBeginHookInstaller(
-            Objects.requireNonNull(instrumentation, "instrumentation"),
-            Objects.requireNonNull(hostClassLoader, "hostClassLoader"),
-            entries
-        );
+                Objects.requireNonNull(instrumentation, "instrumentation"),
+                Objects.requireNonNull(hostClassLoader, "hostClassLoader"),
+                entries);
     }
 
     private static long count(final List<StaticSelector> entries, final String owner) {
-        return entries.stream().filter(entry -> owner.equals(entry.ownerInternalName())).count();
+        return entries.stream()
+                .filter(entry -> owner.equals(entry.ownerInternalName()))
+                .count();
     }
 
     /**

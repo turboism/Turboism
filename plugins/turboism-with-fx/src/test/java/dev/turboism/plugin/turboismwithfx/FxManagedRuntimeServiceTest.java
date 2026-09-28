@@ -1,9 +1,11 @@
 package dev.turboism.plugin.turboismwithfx;
 
-import dev.turboism.sdk.plugin.PluginPaths;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.plugin.PluginPaths;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -22,11 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.zip.GZIPOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class FxManagedRuntimeServiceTest {
 
@@ -38,17 +37,16 @@ final class FxManagedRuntimeServiceTest {
         final byte[] archive = archiveFixture();
         final FxRuntimeManifest.Entry entry = fixtureEntry(archive);
         final List<FxManagedRuntimeService.Code> diagnostics = new ArrayList<>();
-        final FxManagedRuntimeService service = service(
-            entry, new StaticHttpClient(archive), diagnostics, ignored -> { }
-        );
+        final FxManagedRuntimeService service =
+                service(entry, new StaticHttpClient(archive), diagnostics, ignored -> {});
 
         assertEquals(FxManagedRuntimeService.Result.INSTALLED, service.installOrRepair());
 
         assertTrue(Files.isRegularFile(target().resolve("fx")));
-        assertArrayEquals(Files.readAllBytes(packaged("LICENSE")),
-            Files.readAllBytes(target().resolve("LICENSE")));
-        assertArrayEquals(Files.readAllBytes(packaged("THIRD_PARTY_NOTICES.md")),
-            Files.readAllBytes(target().resolve("THIRD_PARTY_NOTICES.md")));
+        assertArrayEquals(Files.readAllBytes(packaged("LICENSE")), Files.readAllBytes(target().resolve("LICENSE")));
+        assertArrayEquals(
+                Files.readAllBytes(packaged("THIRD_PARTY_NOTICES.md")),
+                Files.readAllBytes(target().resolve("THIRD_PARTY_NOTICES.md")));
         assertTrue(Files.isRegularFile(target().resolve("manifest.properties")));
         assertEquals(List.of(FxManagedRuntimeService.Code.INSTALLED), diagnostics);
         assertFalse(Files.exists(staging()));
@@ -59,22 +57,18 @@ final class FxManagedRuntimeServiceTest {
     void windowsProductPayloadRequiresReinstallWithoutSendingARequestOrMutating() {
         final CountingHttpClient client = new CountingHttpClient();
         final FxManagedRuntimeService service = new FxManagedRuntimeService(
-            paths(),
-            () -> FxRuntimePlatform.detect("Windows 11", "amd64"),
-            FxRuntimeManifest::entry,
-            client,
-            ignored -> { },
-            bytes("LICENSE"),
-            bytes("THIRD_PARTY_NOTICES.md"),
-            bytes("TURBOISM-DISTRIBUTION-NOTICE.txt"),
-            bytes("manifest.properties"),
-            ignored -> { }
-        );
+                paths(),
+                () -> FxRuntimePlatform.detect("Windows 11", "amd64"),
+                FxRuntimeManifest::entry,
+                client,
+                ignored -> {},
+                bytes("LICENSE"),
+                bytes("THIRD_PARTY_NOTICES.md"),
+                bytes("TURBOISM-DISTRIBUTION-NOTICE.txt"),
+                bytes("manifest.properties"),
+                ignored -> {});
 
-        assertEquals(
-            FxManagedRuntimeService.Result.PRODUCT_PAYLOAD_ONLY,
-            service.installOrRepair()
-        );
+        assertEquals(FxManagedRuntimeService.Result.PRODUCT_PAYLOAD_ONLY, service.installOrRepair());
         assertEquals(0, client.requests);
         assertFalse(Files.exists(home.resolve("runtimes")));
         assertFalse(Files.exists(home.resolve("cache")));
@@ -89,10 +83,9 @@ final class FxManagedRuntimeServiceTest {
         Files.createSymbolicLink(home.resolve("runtimes"), outside);
 
         assertEquals(
-            FxManagedRuntimeService.Result.FAILED,
-            service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> { })
-                .installOrRepair()
-        );
+                FxManagedRuntimeService.Result.FAILED,
+                service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> {})
+                        .installOrRepair());
         assertEquals(0, client.requests);
         assertDirectoryEmpty(outside);
     }
@@ -106,10 +99,9 @@ final class FxManagedRuntimeServiceTest {
         Files.createSymbolicLink(home.resolve("cache"), outside);
 
         assertEquals(
-            FxManagedRuntimeService.Result.FAILED,
-            service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> { })
-                .installOrRepair()
-        );
+                FxManagedRuntimeService.Result.FAILED,
+                service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> {})
+                        .installOrRepair());
         assertEquals(0, client.requests);
         assertDirectoryEmpty(outside);
     }
@@ -124,10 +116,9 @@ final class FxManagedRuntimeServiceTest {
         Files.createSymbolicLink(target(), outside);
 
         assertEquals(
-            FxManagedRuntimeService.Result.FAILED,
-            service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> { })
-                .installOrRepair()
-        );
+                FxManagedRuntimeService.Result.FAILED,
+                service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> {})
+                        .installOrRepair());
         assertEquals(0, client.requests);
         assertDirectoryEmpty(outside);
     }
@@ -139,10 +130,9 @@ final class FxManagedRuntimeServiceTest {
         final StaticHttpClient client = new StaticHttpClient(archive);
 
         assertEquals(
-            FxManagedRuntimeService.Result.INSTALLED,
-            service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> { })
-                .installOrRepair()
-        );
+                FxManagedRuntimeService.Result.INSTALLED,
+                service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> {})
+                        .installOrRepair());
         assertEquals(1, client.requests);
         assertTrue(Files.isRegularFile(target().resolve("fx")));
         assertFalse(Files.exists(target().resolve("recovered-runtime")));
@@ -158,10 +148,9 @@ final class FxManagedRuntimeServiceTest {
         final FailingHttpClient client = new FailingHttpClient();
 
         assertEquals(
-            FxManagedRuntimeService.Result.FAILED,
-            service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> { })
-                .installOrRepair()
-        );
+                FxManagedRuntimeService.Result.FAILED,
+                service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> {})
+                        .installOrRepair());
         assertEquals(1, client.requests);
         assertTrue(Files.isRegularFile(target().resolve("recovered-runtime")));
         assertArrayEquals(executableFixture(), Files.readAllBytes(target().resolve("fx")));
@@ -178,10 +167,9 @@ final class FxManagedRuntimeServiceTest {
         Files.createSymbolicLink(staging(), outside);
 
         assertEquals(
-            FxManagedRuntimeService.Result.FAILED,
-            service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> { })
-                .installOrRepair()
-        );
+                FxManagedRuntimeService.Result.FAILED,
+                service(fixtureEntry(archive), client, new ArrayList<>(), ignored -> {})
+                        .installOrRepair());
         assertEquals(0, client.requests);
         assertTrue(Files.isSymbolicLink(staging()));
         assertDirectoryEmpty(outside);
@@ -194,11 +182,10 @@ final class FxManagedRuntimeServiceTest {
         Files.createDirectories(target());
         Files.writeString(target().resolve("old-runtime"), "preserve me");
         final FxManagedRuntimeService service = service(
-            entry,
-            new StaticHttpClient(archive),
-            new ArrayList<>(),
-            installed -> Files.writeString(installed.resolve("fx"), "corrupt")
-        );
+                entry,
+                new StaticHttpClient(archive),
+                new ArrayList<>(),
+                installed -> Files.writeString(installed.resolve("fx"), "corrupt"));
 
         assertEquals(FxManagedRuntimeService.Result.FAILED, service.installOrRepair());
 
@@ -214,10 +201,9 @@ final class FxManagedRuntimeServiceTest {
 
         assertRejectedRedirect(entry, "https://example.invalid" + entry.releaseAssetPath());
         assertRejectedRedirect(
-            entry,
-            "https://release-assets.githubusercontent.com/github-production-release-asset/"
-                + "1330702515/not-the-reviewed-asset"
-        );
+                entry,
+                "https://release-assets.githubusercontent.com/github-production-release-asset/"
+                        + "1330702515/not-the-reviewed-asset");
     }
 
     @Test
@@ -239,40 +225,31 @@ final class FxManagedRuntimeServiceTest {
         final byte[] license = bytes("LICENSE");
         final byte[] notices = bytes("THIRD_PARTY_NOTICES.md");
         final List<byte[]> invalidArchives = List.of(
-            archive(
-                tar("fx", executableFixture(), 0755, '2'),
-                tar("LICENSE", license, 0644, '0'),
-                tar("THIRD_PARTY_NOTICES.md", notices, 0644, '0')
-            ),
-            archive(
-                tar("fx", executableFixture(), 0755, '0'),
-                tar("fx", executableFixture(), 0755, '0'),
-                tar("LICENSE", license, 0644, '0'),
-                tar("THIRD_PARTY_NOTICES.md", notices, 0644, '0')
-            ),
-            archive(
-                tar("fx", executableFixture(), 0755, '0'),
-                tar("LICENSE", license, 0644, '0'),
-                tar("THIRD_PARTY_NOTICES.md", notices, 0644, '0'),
-                tar("README", new byte[0], 0644, '0')
-            ),
-            archive(
-                tar("../fx", executableFixture(), 0755, '0'),
-                tar("LICENSE", license, 0644, '0'),
-                tar("THIRD_PARTY_NOTICES.md", notices, 0644, '0')
-            )
-        );
+                archive(
+                        tar("fx", executableFixture(), 0755, '2'),
+                        tar("LICENSE", license, 0644, '0'),
+                        tar("THIRD_PARTY_NOTICES.md", notices, 0644, '0')),
+                archive(
+                        tar("fx", executableFixture(), 0755, '0'),
+                        tar("fx", executableFixture(), 0755, '0'),
+                        tar("LICENSE", license, 0644, '0'),
+                        tar("THIRD_PARTY_NOTICES.md", notices, 0644, '0')),
+                archive(
+                        tar("fx", executableFixture(), 0755, '0'),
+                        tar("LICENSE", license, 0644, '0'),
+                        tar("THIRD_PARTY_NOTICES.md", notices, 0644, '0'),
+                        tar("README", new byte[0], 0644, '0')),
+                archive(
+                        tar("../fx", executableFixture(), 0755, '0'),
+                        tar("LICENSE", license, 0644, '0'),
+                        tar("THIRD_PARTY_NOTICES.md", notices, 0644, '0')));
 
         for (byte[] invalidArchive : invalidArchives) {
-            final BodyHttpClient client = new BodyHttpClient(
-                invalidArchive, (long) invalidArchive.length
-            );
+            final BodyHttpClient client = new BodyHttpClient(invalidArchive, (long) invalidArchive.length);
             assertEquals(
-                FxManagedRuntimeService.Result.FAILED,
-                service(
-                    fixtureEntry(invalidArchive), client, new ArrayList<>(), ignored -> { }
-                ).installOrRepair()
-            );
+                    FxManagedRuntimeService.Result.FAILED,
+                    service(fixtureEntry(invalidArchive), client, new ArrayList<>(), ignored -> {})
+                            .installOrRepair());
             assertEquals(1, client.requests);
             assertFalse(Files.exists(target()));
             assertFalse(Files.exists(staging()));
@@ -292,33 +269,23 @@ final class FxManagedRuntimeServiceTest {
             assertTrue(source.getPath().contains("/download/v0.0.5/"));
             assertFalse(source.toString().contains("latest"));
             assertTrue(entry.archiveSize() > 0L);
-            assertTrue(entry.releaseAssetPath().startsWith(
-                "/github-production-release-asset/1330702515/"
-            ));
+            assertTrue(entry.releaseAssetPath().startsWith("/github-production-release-asset/1330702515/"));
         }
     }
 
-    private void assertRejectedRedirect(
-        final FxRuntimeManifest.Entry entry,
-        final String location
-    ) {
+    private void assertRejectedRedirect(final FxRuntimeManifest.Entry entry, final String location) {
         final RedirectHttpClient client = new RedirectHttpClient(location);
         assertEquals(
-            FxManagedRuntimeService.Result.FAILED,
-            service(entry, client, new ArrayList<>(), ignored -> { }).installOrRepair()
-        );
+                FxManagedRuntimeService.Result.FAILED,
+                service(entry, client, new ArrayList<>(), ignored -> {}).installOrRepair());
         assertEquals(1, client.requests);
         assertFalse(Files.exists(target()));
     }
 
-    private void assertDownloadRejected(
-        final FxRuntimeManifest.Entry entry,
-        final CountingHttpClient client
-    ) {
+    private void assertDownloadRejected(final FxRuntimeManifest.Entry entry, final CountingHttpClient client) {
         assertEquals(
-            FxManagedRuntimeService.Result.FAILED,
-            service(entry, client, new ArrayList<>(), ignored -> { }).installOrRepair()
-        );
+                FxManagedRuntimeService.Result.FAILED,
+                service(entry, client, new ArrayList<>(), ignored -> {}).installOrRepair());
         assertEquals(1, client.requests);
         assertFalse(Files.exists(target()));
         assertFalse(Files.exists(staging()));
@@ -331,53 +298,44 @@ final class FxManagedRuntimeServiceTest {
     }
 
     private FxManagedRuntimeService service(
-        final FxRuntimeManifest.Entry entry,
-        final HttpClient client,
-        final List<FxManagedRuntimeService.Code> diagnostics,
-        final FxManagedRuntimeService.FailureInjector failureInjector
-    ) {
+            final FxRuntimeManifest.Entry entry,
+            final HttpClient client,
+            final List<FxManagedRuntimeService.Code> diagnostics,
+            final FxManagedRuntimeService.FailureInjector failureInjector) {
         return new FxManagedRuntimeService(
-            paths(),
-            () -> FxRuntimePlatform.detect("Linux", "amd64"),
-            ignored -> Optional.of(entry),
-            client,
-            diagnostics::add,
-            bytes("LICENSE"),
-            bytes("THIRD_PARTY_NOTICES.md"),
-            bytes("TURBOISM-DISTRIBUTION-NOTICE.txt"),
-            bytes("manifest.properties"),
-            failureInjector
-        );
+                paths(),
+                () -> FxRuntimePlatform.detect("Linux", "amd64"),
+                ignored -> Optional.of(entry),
+                client,
+                diagnostics::add,
+                bytes("LICENSE"),
+                bytes("THIRD_PARTY_NOTICES.md"),
+                bytes("TURBOISM-DISTRIBUTION-NOTICE.txt"),
+                bytes("manifest.properties"),
+                failureInjector);
     }
 
     private FxRuntimeManifest.Entry fixtureEntry(final byte[] archive) throws Exception {
         final byte[] executable = executableFixture();
         return FxRuntimeManifest.Entry.upstreamArchive(
-            "linux-x86_64",
-            sha256(executable),
-            executable.length,
-            "fx-linux-x86_64.tar.gz",
-            sha256(archive),
-            archive.length,
-            "/github-production-release-asset/1330702515/268f7872-098f-462c-a154-76f644e6ec3d",
-            "test fixture"
-        );
+                "linux-x86_64",
+                sha256(executable),
+                executable.length,
+                "fx-linux-x86_64.tar.gz",
+                sha256(archive),
+                archive.length,
+                "/github-production-release-asset/1330702515/268f7872-098f-462c-a154-76f644e6ec3d",
+                "test fixture");
     }
 
     private byte[] archiveFixture() throws IOException {
         return archive(
-            tar("fx", executableFixture(), 0755, '0'),
-            tar("LICENSE", bytes("LICENSE"), 0644, '0'),
-            tar("THIRD_PARTY_NOTICES.md", bytes("THIRD_PARTY_NOTICES.md"), 0644, '0')
-        );
+                tar("fx", executableFixture(), 0755, '0'),
+                tar("LICENSE", bytes("LICENSE"), 0644, '0'),
+                tar("THIRD_PARTY_NOTICES.md", bytes("THIRD_PARTY_NOTICES.md"), 0644, '0'));
     }
 
-    private static TarEntry tar(
-        final String name,
-        final byte[] content,
-        final int mode,
-        final int type
-    ) {
+    private static TarEntry tar(final String name, final byte[] content, final int mode, final int type) {
         return new TarEntry(name, content, mode, type);
     }
 
@@ -398,17 +356,11 @@ final class FxManagedRuntimeServiceTest {
         Files.createDirectories(directory);
         Files.write(directory.resolve("fx"), executableFixture());
         Files.write(directory.resolve("LICENSE"), bytes("LICENSE"));
-        Files.write(
-            directory.resolve("THIRD_PARTY_NOTICES.md"),
-            bytes("THIRD_PARTY_NOTICES.md")
-        );
+        Files.write(directory.resolve("THIRD_PARTY_NOTICES.md"), bytes("THIRD_PARTY_NOTICES.md"));
         Files.writeString(directory.resolve(marker), marker);
     }
 
-    private static void writeTarEntry(
-        final GZIPOutputStream output,
-        final TarEntry entry
-    ) throws IOException {
+    private static void writeTarEntry(final GZIPOutputStream output, final TarEntry entry) throws IOException {
         final byte[] header = new byte[512];
         putAscii(header, 0, 100, entry.name());
         putOctal(header, 100, 8, entry.mode());
@@ -430,22 +382,12 @@ final class FxManagedRuntimeServiceTest {
         output.write(new byte[padding]);
     }
 
-    private static void putAscii(
-        final byte[] target,
-        final int offset,
-        final int length,
-        final String value
-    ) {
+    private static void putAscii(final byte[] target, final int offset, final int length, final String value) {
         final byte[] bytes = value.getBytes(StandardCharsets.US_ASCII);
         System.arraycopy(bytes, 0, target, offset, Math.min(length, bytes.length));
     }
 
-    private static void putOctal(
-        final byte[] target,
-        final int offset,
-        final int length,
-        final long value
-    ) {
+    private static void putOctal(final byte[] target, final int offset, final int length, final long value) {
         final String octal = Long.toOctalString(value);
         final int start = offset + length - octal.length() - 1;
         for (int index = offset; index < start; index++) target[index] = (byte) '0';
@@ -462,10 +404,7 @@ final class FxManagedRuntimeServiceTest {
     }
 
     private Path packaged(final String name) {
-        return Path.of(
-            System.getProperty("turboism.fxRuntimeFixtureDir"),
-            name
-        );
+        return Path.of(System.getProperty("turboism.fxRuntimeFixtureDir"), name);
     }
 
     private Path versionRoot() {
@@ -487,18 +426,36 @@ final class FxManagedRuntimeServiceTest {
     private PluginPaths paths() {
         final String plugin = "dev.turboism.plugin.turboism-with-fx";
         return new PluginPaths() {
-            @Override public Path configDir() { return home.resolve("config").resolve(plugin); }
-            @Override public Path dataDir() { return home.resolve("data").resolve(plugin); }
-            @Override public Path logsDir() { return home.resolve("logs").resolve(plugin); }
-            @Override public Path stateDir() { return home.resolve("state").resolve(plugin); }
-            @Override public Path cacheDir() { return home.resolve("cache").resolve(plugin); }
+            @Override
+            public Path configDir() {
+                return home.resolve("config").resolve(plugin);
+            }
+
+            @Override
+            public Path dataDir() {
+                return home.resolve("data").resolve(plugin);
+            }
+
+            @Override
+            public Path logsDir() {
+                return home.resolve("logs").resolve(plugin);
+            }
+
+            @Override
+            public Path stateDir() {
+                return home.resolve("state").resolve(plugin);
+            }
+
+            @Override
+            public Path cacheDir() {
+                return home.resolve("cache").resolve(plugin);
+            }
         };
     }
 
     private static String sha256(final byte[] content) throws Exception {
-        return java.util.HexFormat.of().formatHex(
-            java.security.MessageDigest.getInstance("SHA-256").digest(content)
-        );
+        return java.util.HexFormat.of()
+                .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(content));
     }
 
     private static void assertPublicRequest(final HttpRequest request) {
@@ -521,17 +478,16 @@ final class FxManagedRuntimeServiceTest {
             this.declaredLength = declaredLength;
         }
 
-        @Override public <T> HttpResponse<T> send(
-            final HttpRequest request,
-            final HttpResponse.BodyHandler<T> responseBodyHandler
-        ) {
+        @Override
+        public <T> HttpResponse<T> send(
+                final HttpRequest request, final HttpResponse.BodyHandler<T> responseBodyHandler) {
             requests++;
             assertPublicRequest(request);
             @SuppressWarnings("unchecked")
             final T responseBody = (T) new ByteArrayInputStream(body);
             final Map<String, List<String>> headers = declaredLength == null
-                ? Map.of()
-                : Map.of("Content-Length", List.of(Long.toString(declaredLength)));
+                    ? Map.of()
+                    : Map.of("Content-Length", List.of(Long.toString(declaredLength)));
             return new StaticResponse<>(request, responseBody, 200, headers);
         }
     }
@@ -543,28 +499,21 @@ final class FxManagedRuntimeServiceTest {
             this.location = location;
         }
 
-        @Override public <T> HttpResponse<T> send(
-            final HttpRequest request,
-            final HttpResponse.BodyHandler<T> responseBodyHandler
-        ) {
+        @Override
+        public <T> HttpResponse<T> send(
+                final HttpRequest request, final HttpResponse.BodyHandler<T> responseBodyHandler) {
             requests++;
             assertPublicRequest(request);
             @SuppressWarnings("unchecked")
             final T responseBody = (T) new ByteArrayInputStream(new byte[0]);
-            return new StaticResponse<>(
-                request,
-                responseBody,
-                302,
-                Map.of("Location", List.of(location))
-            );
+            return new StaticResponse<>(request, responseBody, 302, Map.of("Location", List.of(location)));
         }
     }
 
     private static final class FailingHttpClient extends CountingHttpClient {
-        @Override public <T> HttpResponse<T> send(
-            final HttpRequest request,
-            final HttpResponse.BodyHandler<T> responseBodyHandler
-        ) throws IOException {
+        @Override
+        public <T> HttpResponse<T> send(
+                final HttpRequest request, final HttpResponse.BodyHandler<T> responseBodyHandler) throws IOException {
             requests++;
             assertPublicRequest(request);
             throw new IOException("synthetic download failure");
@@ -578,61 +527,121 @@ final class FxManagedRuntimeServiceTest {
         private final HttpHeaders headers;
 
         private StaticResponse(
-            final HttpRequest request,
-            final T body,
-            final int status,
-            final Map<String, List<String>> headers
-        ) {
+                final HttpRequest request, final T body, final int status, final Map<String, List<String>> headers) {
             this.request = request;
             this.body = body;
             this.status = status;
             this.headers = HttpHeaders.of(headers, (name, value) -> true);
         }
 
-        @Override public int statusCode() { return status; }
-        @Override public HttpRequest request() { return request; }
-        @Override public Optional<HttpResponse<T>> previousResponse() { return Optional.empty(); }
-        @Override public HttpHeaders headers() { return headers; }
-        @Override public T body() { return body; }
-        @Override public Optional<javax.net.ssl.SSLSession> sslSession() { return Optional.empty(); }
-        @Override public URI uri() { return request.uri(); }
-        @Override public HttpClient.Version version() { return HttpClient.Version.HTTP_1_1; }
+        @Override
+        public int statusCode() {
+            return status;
+        }
+
+        @Override
+        public HttpRequest request() {
+            return request;
+        }
+
+        @Override
+        public Optional<HttpResponse<T>> previousResponse() {
+            return Optional.empty();
+        }
+
+        @Override
+        public HttpHeaders headers() {
+            return headers;
+        }
+
+        @Override
+        public T body() {
+            return body;
+        }
+
+        @Override
+        public Optional<javax.net.ssl.SSLSession> sslSession() {
+            return Optional.empty();
+        }
+
+        @Override
+        public URI uri() {
+            return request.uri();
+        }
+
+        @Override
+        public HttpClient.Version version() {
+            return HttpClient.Version.HTTP_1_1;
+        }
     }
 
     private static class CountingHttpClient extends HttpClient {
         int requests;
 
-        @Override public Optional<java.net.CookieHandler> cookieHandler() { return Optional.empty(); }
-        @Override public Optional<Duration> connectTimeout() { return Optional.empty(); }
-        @Override public Redirect followRedirects() { return Redirect.NEVER; }
-        @Override public Optional<java.net.ProxySelector> proxy() { return Optional.empty(); }
-        @Override public javax.net.ssl.SSLContext sslContext() { return null; }
-        @Override public javax.net.ssl.SSLParameters sslParameters() {
-            return new javax.net.ssl.SSLParameters();
-        }
-        @Override public Optional<java.net.Authenticator> authenticator() {
+        @Override
+        public Optional<java.net.CookieHandler> cookieHandler() {
             return Optional.empty();
         }
-        @Override public Version version() { return Version.HTTP_1_1; }
-        @Override public Optional<java.util.concurrent.Executor> executor() { return Optional.empty(); }
-        @Override public <T> HttpResponse<T> send(
-            final HttpRequest request,
-            final HttpResponse.BodyHandler<T> responseBodyHandler
-        ) throws IOException, InterruptedException {
+
+        @Override
+        public Optional<Duration> connectTimeout() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Redirect followRedirects() {
+            return Redirect.NEVER;
+        }
+
+        @Override
+        public Optional<java.net.ProxySelector> proxy() {
+            return Optional.empty();
+        }
+
+        @Override
+        public javax.net.ssl.SSLContext sslContext() {
+            return null;
+        }
+
+        @Override
+        public javax.net.ssl.SSLParameters sslParameters() {
+            return new javax.net.ssl.SSLParameters();
+        }
+
+        @Override
+        public Optional<java.net.Authenticator> authenticator() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Version version() {
+            return Version.HTTP_1_1;
+        }
+
+        @Override
+        public Optional<java.util.concurrent.Executor> executor() {
+            return Optional.empty();
+        }
+
+        @Override
+        public <T> HttpResponse<T> send(
+                final HttpRequest request, final HttpResponse.BodyHandler<T> responseBodyHandler)
+                throws IOException, InterruptedException {
             requests++;
             throw new AssertionError("HTTP request must not be sent");
         }
-        @Override public <T> java.util.concurrent.CompletableFuture<HttpResponse<T>> sendAsync(
-            final HttpRequest request,
-            final HttpResponse.BodyHandler<T> responseBodyHandler
-        ) {
+
+        @Override
+        public <T> java.util.concurrent.CompletableFuture<HttpResponse<T>> sendAsync(
+                final HttpRequest request, final HttpResponse.BodyHandler<T> responseBodyHandler) {
             throw new UnsupportedOperationException();
         }
-        @Override public <T> java.util.concurrent.CompletableFuture<HttpResponse<T>> sendAsync(
-            final HttpRequest request,
-            final HttpResponse.BodyHandler<T> responseBodyHandler,
-            final HttpResponse.PushPromiseHandler<T> pushPromiseHandler
-        ) {
+
+        @Override
+        public <T> java.util.concurrent.CompletableFuture<HttpResponse<T>> sendAsync(
+                final HttpRequest request,
+                final HttpResponse.BodyHandler<T> responseBodyHandler,
+                final HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
             throw new UnsupportedOperationException();
         }
     }
@@ -642,7 +651,8 @@ final class FxManagedRuntimeServiceTest {
             content = content.clone();
         }
 
-        @Override public byte[] content() {
+        @Override
+        public byte[] content() {
             return content.clone();
         }
     }

@@ -24,8 +24,7 @@ public interface FrameworkPackageInspector {
     Result inspect(Path packagePath);
 
     /** The verdict of one inspection. */
-    sealed interface Result permits Accepted, Rejected {
-    }
+    sealed interface Result permits Accepted, Rejected {}
 
     /** Inspection succeeded; carries the validated install plan. */
     final class Accepted implements Result {
@@ -36,15 +35,24 @@ public interface FrameworkPackageInspector {
         }
 
         /** @return the validated install plan; never {@code null} */
-        public FrameworkInstallPlan plan() { return plan; }
+        public FrameworkInstallPlan plan() {
+            return plan;
+        }
 
-        @Override public boolean equals(Object other) {
+        @Override
+        public boolean equals(Object other) {
             return this == other || other instanceof Accepted that && plan.equals(that.plan);
         }
 
-        @Override public int hashCode() { return plan.hashCode(); }
+        @Override
+        public int hashCode() {
+            return plan.hashCode();
+        }
 
-        @Override public String toString() { return "Accepted[plan=" + plan + "]"; }
+        @Override
+        public String toString() {
+            return "Accepted[plan=" + plan + "]";
+        }
     }
 
     /**

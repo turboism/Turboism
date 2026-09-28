@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.integration;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import dev.turboism.sdk.cubism.edit.EditAlphaBlend;
 import dev.turboism.sdk.cubism.edit.EditArtMeshData;
 import dev.turboism.sdk.cubism.edit.EditColorBlend;
@@ -25,7 +24,6 @@ import dev.turboism.sdk.cubism.edit.EditWarpDeformerData;
 import dev.turboism.sdk.cubism.edit.ParameterKeyOps;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.model.Point2;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -44,8 +42,7 @@ final class EditApiWire {
 
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
-    private EditApiWire() {
-    }
+    private EditApiWire() {}
 
     /** {@code {}} — the empty body used by the log/progress acknowledgements. */
     static ObjectNode empty() {
@@ -84,9 +81,8 @@ final class EditApiWire {
 
     /** {@code { "ParameterStructure" : {Name, Id, Entries} }} — parameter-tree body. */
     static ObjectNode parameterStructure(final EditParameterGroupNode root) {
-        final ObjectNode structure = object()
-            .put("Name", root.name())
-            .put("Id", root.id().value());
+        final ObjectNode structure =
+                object().put("Name", root.name()).put("Id", root.id().value());
         final ArrayNode entries = JSON.arrayNode();
         for (final EditParameterStructureEntry child : root.children()) {
             entries.add(parameterEntry(child));
@@ -97,21 +93,19 @@ final class EditApiWire {
 
     private static ObjectNode parameterEntry(final EditParameterStructureEntry entry) {
         if (entry instanceof EditParameterNode parameter) {
-            return object()
-                .put("EntryType", "Parameter")
-                .put("Name", parameter.name())
-                .put("Id", parameter.id().value())
-                .put("Min", parameter.min())
-                .put("Default", parameter.defaultValue())
-                .put("Max", parameter.max())
-                .put("IsRepeat", parameter.repeat())
-                .put("IsBlendShape", parameter.blendShape());
+            return object().put("EntryType", "Parameter")
+                    .put("Name", parameter.name())
+                    .put("Id", parameter.id().value())
+                    .put("Min", parameter.min())
+                    .put("Default", parameter.defaultValue())
+                    .put("Max", parameter.max())
+                    .put("IsRepeat", parameter.repeat())
+                    .put("IsBlendShape", parameter.blendShape());
         }
         final EditParameterGroupNode group = (EditParameterGroupNode) entry;
-        final ObjectNode node = object()
-            .put("EntryType", "ParameterGroup")
-            .put("Name", group.name())
-            .put("Id", group.id().value());
+        final ObjectNode node = object().put("EntryType", "ParameterGroup")
+                .put("Name", group.name())
+                .put("Id", group.id().value());
         putLabelColor(node, group.labelColor());
         final ArrayNode children = JSON.arrayNode();
         for (final EditParameterStructureEntry child : group.children()) {
@@ -132,10 +126,8 @@ final class EditApiWire {
     }
 
     private static ObjectNode objectNode(final EditObjectNode node) {
-        final ObjectNode json = object()
-            .put("Name", node.name())
-            .put("Id", node.id().value())
-            .put("Type", objectKind(node.kind()));
+        final ObjectNode json =
+                object().put("Name", node.name()).put("Id", node.id().value()).put("Type", objectKind(node.kind()));
         final ArrayNode children = JSON.arrayNode();
         for (final EditObjectNode child : node.children()) {
             children.add(objectNode(child));
@@ -148,64 +140,58 @@ final class EditApiWire {
      * {@code Result} is {@code false} when the object is absent.
      */
     static ObjectNode objectSnapshot(final EditObjectSnapshot snapshot) {
-        final ObjectNode body = result(true)
-            .put("Type", objectKind(snapshot.data().kind()));
+        final ObjectNode body =
+                result(true).put("Type", objectKind(snapshot.data().kind()));
         return body.set("Data", objectData(snapshot.object().value(), snapshot.data()));
     }
 
     private static ObjectNode objectData(final String id, final EditObjectData data) {
-        final ObjectNode json = object()
-            .put("Name", name(data))
-            .put("Id", id);
+        final ObjectNode json = object().put("Name", name(data)).put("Id", id);
         if (data instanceof EditPartData part) {
             part.parentId().ifPresent(parent -> json.put("ParentId", parent.value()));
             json.put("IsGrouped", part.grouped())
-                .put("IsGuidImage", part.guidImage())
-                .put("IsOffscreen", part.offscreen());
+                    .put("IsGuidImage", part.guidImage())
+                    .put("IsOffscreen", part.offscreen());
             putIdList(json, "ClippingIds", part.clippingIds());
             json.put("IsReverseMask", part.reverseMask())
-                .put("DrawOrder", part.drawOrder())
-                .put("Opacity", part.opacity());
+                    .put("DrawOrder", part.drawOrder())
+                    .put("Opacity", part.opacity());
             part.multiplyColor().ifPresent(v -> json.put("MultiplyColor", v));
             part.screenColor().ifPresent(v -> json.put("ScreenColor", v));
-            json.put("ColorBlend", colorBlend(part.colorBlend()))
-                .put("AlphaBlend", alphaBlend(part.alphaBlend()));
+            json.put("ColorBlend", colorBlend(part.colorBlend())).put("AlphaBlend", alphaBlend(part.alphaBlend()));
             putLabelColor(json, part.labelColor());
         } else if (data instanceof EditArtMeshData mesh) {
             mesh.parentId().ifPresent(parent -> json.put("ParentId", parent.value()));
             mesh.parentDeformerId().ifPresent(parent -> json.put("ParentDeformerId", parent.value()));
             putIdList(json, "ClippingIds", mesh.clippingIds());
             json.put("IsReverseMask", mesh.reverseMask())
-                .put("DrawOrder", mesh.drawOrder())
-                .put("Opacity", mesh.opacity());
+                    .put("DrawOrder", mesh.drawOrder())
+                    .put("Opacity", mesh.opacity());
             mesh.multiplyColor().ifPresent(v -> json.put("MultiplyColor", v));
             mesh.screenColor().ifPresent(v -> json.put("ScreenColor", v));
             json.put("ColorBlend", colorBlend(mesh.colorBlend()))
-                .put("AlphaBlend", alphaBlend(mesh.alphaBlend()))
-                .put("IsCulling", mesh.culling())
-                .put("Vertices", mesh.vertexCount());
+                    .put("AlphaBlend", alphaBlend(mesh.alphaBlend()))
+                    .put("IsCulling", mesh.culling())
+                    .put("Vertices", mesh.vertexCount());
             putLabelColor(json, mesh.labelColor());
         } else if (data instanceof EditRotationDeformerData rotation) {
             rotation.parentId().ifPresent(parent -> json.put("ParentId", parent.value()));
-            rotation.parentDeformerId()
-                .ifPresent(parent -> json.put("ParentDeformerId", parent.value()));
+            rotation.parentDeformerId().ifPresent(parent -> json.put("ParentDeformerId", parent.value()));
             json.put("Angle", rotation.angle())
-                .put("BaseAngle", rotation.baseAngle())
-                .put("Scale", rotation.scale())
-                .put("Opacity", rotation.opacity());
+                    .put("BaseAngle", rotation.baseAngle())
+                    .put("Scale", rotation.scale())
+                    .put("Opacity", rotation.opacity());
             rotation.multiplyColor().ifPresent(v -> json.put("MultiplyColor", v));
             rotation.screenColor().ifPresent(v -> json.put("ScreenColor", v));
             json.set("Position", point(rotation.position()));
             putLabelColor(json, rotation.labelColor());
         } else if (data instanceof EditWarpDeformerData warp) {
             warp.parentId().ifPresent(parent -> json.put("ParentId", parent.value()));
-            warp.parentDeformerId()
-                .ifPresent(parent -> json.put("ParentDeformerId", parent.value()));
+            warp.parentDeformerId().ifPresent(parent -> json.put("ParentDeformerId", parent.value()));
             json.put("Opacity", warp.opacity());
             warp.multiplyColor().ifPresent(v -> json.put("MultiplyColor", v));
             warp.screenColor().ifPresent(v -> json.put("ScreenColor", v));
-            json.put("WarpDivH", warp.warpDivH())
-                .put("WarpDivV", warp.warpDivV());
+            json.put("WarpDivH", warp.warpDivH()).put("WarpDivV", warp.warpDivV());
             warp.bezierDivH().ifPresent(v -> json.put("BezierDivH", v));
             warp.bezierDivV().ifPresent(v -> json.put("BezierDivV", v));
             json.set("Rectangle", rectangle(warp.rectangle()));
@@ -234,9 +220,7 @@ final class EditApiWire {
         return ((EditGlueData) data).name();
     }
 
-    private static void putIdList(
-        final ObjectNode json, final String field, final List<ModelObjectId> ids
-    ) {
+    private static void putIdList(final ObjectNode json, final String field, final List<ModelObjectId> ids) {
         final ArrayNode array = JSON.arrayNode();
         for (final ModelObjectId id : ids) {
             array.add(id.value());
@@ -282,42 +266,42 @@ final class EditApiWire {
     }
 
     private static final Map<EditLabelColorType, String> LABEL_COLOR_TYPES = Map.of(
-        EditLabelColorType.UNDEFINED, "Undefined",
-        EditLabelColorType.RED, "Red",
-        EditLabelColorType.ORANGE, "Orange",
-        EditLabelColorType.YELLOW, "Yellow",
-        EditLabelColorType.GREEN, "Green",
-        EditLabelColorType.BLUE, "Blue",
-        EditLabelColorType.PURPLE, "Purple",
-        EditLabelColorType.GRAY, "Gray",
-        EditLabelColorType.CUSTOM, "Custom");
+            EditLabelColorType.UNDEFINED, "Undefined",
+            EditLabelColorType.RED, "Red",
+            EditLabelColorType.ORANGE, "Orange",
+            EditLabelColorType.YELLOW, "Yellow",
+            EditLabelColorType.GREEN, "Green",
+            EditLabelColorType.BLUE, "Blue",
+            EditLabelColorType.PURPLE, "Purple",
+            EditLabelColorType.GRAY, "Gray",
+            EditLabelColorType.CUSTOM, "Custom");
 
     private static final Map<EditColorBlend, String> COLOR_BLENDS = Map.ofEntries(
-        Map.entry(EditColorBlend.NORMAL, "Normal"),
-        Map.entry(EditColorBlend.ADD, "Add"),
-        Map.entry(EditColorBlend.ADD_GLOW, "AddGlow"),
-        Map.entry(EditColorBlend.DARKEN, "Darken"),
-        Map.entry(EditColorBlend.MULTIPLY, "Multiply"),
-        Map.entry(EditColorBlend.COLOR_BURN, "ColorBurn"),
-        Map.entry(EditColorBlend.LINEAR_BURN, "LinearBurn"),
-        Map.entry(EditColorBlend.LIGHTEN, "Lighten"),
-        Map.entry(EditColorBlend.SCREEN, "Screen"),
-        Map.entry(EditColorBlend.COLOR_DODGE, "ColorDodge"),
-        Map.entry(EditColorBlend.OVERLAY, "Overlay"),
-        Map.entry(EditColorBlend.SOFT_LIGHT, "SoftLight"),
-        Map.entry(EditColorBlend.HARD_LIGHT, "HardLight"),
-        Map.entry(EditColorBlend.LINEAR_LIGHT, "LinearLight"),
-        Map.entry(EditColorBlend.HUE, "Hue"),
-        Map.entry(EditColorBlend.COLOR, "Color"),
-        Map.entry(EditColorBlend.ADD_5_2, "Add_5.2"),
-        Map.entry(EditColorBlend.MULTIPLY_5_2, "Multiply_5.2"));
+            Map.entry(EditColorBlend.NORMAL, "Normal"),
+            Map.entry(EditColorBlend.ADD, "Add"),
+            Map.entry(EditColorBlend.ADD_GLOW, "AddGlow"),
+            Map.entry(EditColorBlend.DARKEN, "Darken"),
+            Map.entry(EditColorBlend.MULTIPLY, "Multiply"),
+            Map.entry(EditColorBlend.COLOR_BURN, "ColorBurn"),
+            Map.entry(EditColorBlend.LINEAR_BURN, "LinearBurn"),
+            Map.entry(EditColorBlend.LIGHTEN, "Lighten"),
+            Map.entry(EditColorBlend.SCREEN, "Screen"),
+            Map.entry(EditColorBlend.COLOR_DODGE, "ColorDodge"),
+            Map.entry(EditColorBlend.OVERLAY, "Overlay"),
+            Map.entry(EditColorBlend.SOFT_LIGHT, "SoftLight"),
+            Map.entry(EditColorBlend.HARD_LIGHT, "HardLight"),
+            Map.entry(EditColorBlend.LINEAR_LIGHT, "LinearLight"),
+            Map.entry(EditColorBlend.HUE, "Hue"),
+            Map.entry(EditColorBlend.COLOR, "Color"),
+            Map.entry(EditColorBlend.ADD_5_2, "Add_5.2"),
+            Map.entry(EditColorBlend.MULTIPLY_5_2, "Multiply_5.2"));
 
     private static final Map<EditAlphaBlend, String> ALPHA_BLENDS = Map.of(
-        EditAlphaBlend.OVER, "Over",
-        EditAlphaBlend.ATOP, "Atop",
-        EditAlphaBlend.OUT, "Out",
-        EditAlphaBlend.CONJOINT, "Conjoint",
-        EditAlphaBlend.DISJOINT, "Disjoint");
+            EditAlphaBlend.OVER, "Over",
+            EditAlphaBlend.ATOP, "Atop",
+            EditAlphaBlend.OUT, "Out",
+            EditAlphaBlend.CONJOINT, "Conjoint",
+            EditAlphaBlend.DISJOINT, "Disjoint");
 
     static String labelColorType(final EditLabelColorType type) {
         return LABEL_COLOR_TYPES.get(type);
@@ -337,10 +321,7 @@ final class EditApiWire {
      * @return the enum constant, or empty for absent/unknown names
      */
     static <E extends Enum<E>> Optional<E> parseWireName(
-        final Map<E, String> names,
-        final Class<E> type,
-        final String wire
-    ) {
+            final Map<E, String> names, final Class<E> type, final String wire) {
         if (wire == null) {
             return Optional.empty();
         }
@@ -378,9 +359,7 @@ final class EditApiWire {
     }
 
     /** Parses a {@code LabelColorType}/{@code LabelCustomColor} pair. */
-    static Optional<EditLabelColor> parseLabelColor(
-        final EditApiPayload payload
-    ) throws EditApiFailure {
+    static Optional<EditLabelColor> parseLabelColor(final EditApiPayload payload) throws EditApiFailure {
         final Optional<String> typeText = payload.optionalString("LabelColorType");
         final Optional<String> custom = payload.optionalString("LabelCustomColor");
         if (typeText.isEmpty()) {
@@ -389,15 +368,16 @@ final class EditApiWire {
             }
             return Optional.empty();
         }
-        final Optional<EditLabelColorType> type = parseWireName(
-            LABEL_COLOR_TYPES, EditLabelColorType.class, typeText.orElseThrow());
+        final Optional<EditLabelColorType> type =
+                parseWireName(LABEL_COLOR_TYPES, EditLabelColorType.class, typeText.orElseThrow());
         if (type.isEmpty()) {
             throw new EditApiFailure(EditApiErrorCode.INVALID_DATA);
         }
         try {
-            return Optional.of(type.orElseThrow() == EditLabelColorType.CUSTOM
-                ? EditLabelColor.custom(custom.orElse(""))
-                : EditLabelColor.of(type.orElseThrow()));
+            return Optional.of(
+                    type.orElseThrow() == EditLabelColorType.CUSTOM
+                            ? EditLabelColor.custom(custom.orElse(""))
+                            : EditLabelColor.of(type.orElseThrow()));
         } catch (IllegalArgumentException malformed) {
             throw new EditApiFailure(EditApiErrorCode.INVALID_DATA);
         }
@@ -405,11 +385,8 @@ final class EditApiWire {
 
     /** Parses one enum-valued optional field; unknown names fail {@code InvalidData}. */
     static <E extends Enum<E>> Optional<E> optionalEnum(
-        final EditApiPayload payload,
-        final String field,
-        final Map<E, String> names,
-        final Class<E> type
-    ) throws EditApiFailure {
+            final EditApiPayload payload, final String field, final Map<E, String> names, final Class<E> type)
+            throws EditApiFailure {
         final Optional<String> text = payload.optionalString(field);
         if (text.isEmpty()) {
             return Optional.empty();

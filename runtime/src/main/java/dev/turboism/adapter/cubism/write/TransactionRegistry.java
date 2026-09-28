@@ -5,7 +5,6 @@ import dev.turboism.sdk.cubism.transaction.TransactionAlreadyActiveException;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.transaction.TransactionStatus;
 import dev.turboism.sdk.cubism.transaction.WriteValidationException;
-
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -39,9 +38,9 @@ public final class TransactionRegistry {
         final RuntimeModelTransaction previous = transactions.putIfAbsent(key, transaction);
         if (previous != null && previous.status() == TransactionStatus.OPEN) {
             throw new TransactionAlreadyActiveException(
-                transaction.transactionId(),
-                "Transaction already open for plugin " + transaction.pluginId() + " and document " + transaction.documentId().value()
-            );
+                    transaction.transactionId(),
+                    "Transaction already open for plugin " + transaction.pluginId() + " and document "
+                            + transaction.documentId().value());
         }
         if (previous != null) {
             transactions.put(key, transaction);
@@ -85,10 +84,8 @@ public final class TransactionRegistry {
      *     none, owns the slot
      */
     public void requireOwner(
-        final RuntimeModelTransaction transaction,
-        final String pluginId,
-        final DocumentId documentId
-    ) throws TransactionException {
+            final RuntimeModelTransaction transaction, final String pluginId, final DocumentId documentId)
+            throws TransactionException {
         final RuntimeModelTransaction registered = transactions.get(new TransactionKey(pluginId, documentId));
         if (registered != transaction) {
             throw error(transaction.transactionId(), "Transaction ownership mismatch");

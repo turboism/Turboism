@@ -2,7 +2,6 @@ package dev.turboism.preview.report;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
@@ -18,22 +17,15 @@ final class PreviewReportValidationSupport {
     static final int MAX_RUNTIME_ID_LENGTH = 256;
 
     private static final Pattern SHA256 = Pattern.compile("[0-9a-f]{64}");
-    private static final Pattern DRIVE_OR_URI = Pattern.compile(
-        "^[A-Za-z][A-Za-z0-9+.-]*:.*"
-    );
-    private static final Set<String> TRUNCATION_REASONS = Set.of(
-        "NONE", "ENTRY_LIMIT", "BYTE_LIMIT", "REDACTION_LIMIT", "WRITER_LIMIT"
-    );
+    private static final Pattern DRIVE_OR_URI = Pattern.compile("^[A-Za-z][A-Za-z0-9+.-]*:.*");
+    private static final Set<String> TRUNCATION_REASONS =
+            Set.of("NONE", "ENTRY_LIMIT", "BYTE_LIMIT", "REDACTION_LIMIT", "WRITER_LIMIT");
     private static final Set<String> SEVERITIES = Set.of("INFO", "WARNING", "ERROR");
-    private static final Set<String> EVIDENCE_KINDS = Set.of(
-        "DECLARED", "STATIC_VERIFIED", "SYNTHETIC", "RUNTIME_OBSERVED", "MANUAL"
-    );
-    private static final Set<String> EVIDENCE_STATES = Set.of(
-        "AVAILABLE", "UNAVAILABLE", "DEGRADED", "UNKNOWN"
-    );
+    private static final Set<String> EVIDENCE_KINDS =
+            Set.of("DECLARED", "STATIC_VERIFIED", "SYNTHETIC", "RUNTIME_OBSERVED", "MANUAL");
+    private static final Set<String> EVIDENCE_STATES = Set.of("AVAILABLE", "UNAVAILABLE", "DEGRADED", "UNKNOWN");
 
-    private PreviewReportValidationSupport() {
-    }
+    private PreviewReportValidationSupport() {}
 
     static void validateTimestamp(final JsonNode value) {
         if (value == null || !value.isTextual()) {
@@ -47,51 +39,32 @@ final class PreviewReportValidationSupport {
             Instant.parse(text);
         } catch (DateTimeParseException exception) {
             throw new PreviewReportValidationException(
-                "BAD_TIMESTAMP",
-                "createdAt is not a valid UTC instant.",
-                exception
-            );
+                    "BAD_TIMESTAMP", "createdAt is not a valid UTC instant.", exception);
         }
     }
 
     static void validateTruncation(final JsonNode value) {
         final ObjectNode truncation = object(value, "BAD_TRUNCATION", "truncation");
-        exact(
-            truncation,
-            Set.of("truncated", "droppedEntries", "reason"),
-            Set.of(),
-            "UNKNOWN_FIELD",
-            "truncation"
-        );
+        exact(truncation, Set.of("truncated", "droppedEntries", "reason"), Set.of(), "UNKNOWN_FIELD", "truncation");
         final boolean truncated = bool(truncation, "truncated", "BAD_TRUNCATION");
         final long dropped = nonnegative(truncation, "droppedEntries", "BAD_TRUNCATION");
-        final String reason = enumText(
-            truncation,
-            "reason",
-            TRUNCATION_REASONS,
-            "BAD_TRUNCATION"
-        );
-        if ((!truncated && (dropped != 0 || !reason.equals("NONE")))
-            || (truncated && reason.equals("NONE"))) {
+        final String reason = enumText(truncation, "reason", TRUNCATION_REASONS, "BAD_TRUNCATION");
+        if ((!truncated && (dropped != 0 || !reason.equals("NONE"))) || (truncated && reason.equals("NONE"))) {
             throw failure("BAD_TRUNCATION", "Truncation fields are inconsistent.");
         }
     }
 
-    static void validateFailureArray(
-        final JsonNode value,
-        final String label
-    ) {
+    static void validateFailureArray(final JsonNode value, final String label) {
         final JsonNode failures = array(value, "BAD_FAILURE", label);
         boundedArray(failures, label);
         for (JsonNode item : failures) {
             final ObjectNode failure = object(item, "BAD_FAILURE", label + " entry");
             exact(
-                failure,
-                Set.of("code", "severity", "phase", "message", "count"),
-                Set.of("pluginId", "operationId", "permissionId", "relativePath"),
-                "UNKNOWN_FIELD",
-                "failure"
-            );
+                    failure,
+                    Set.of("code", "severity", "phase", "message", "count"),
+                    Set.of("pluginId", "operationId", "permissionId", "relativePath"),
+                    "UNKNOWN_FIELD",
+                    "failure");
             boundedText(failure, "code", 256, "BAD_FAILURE");
             enumText(failure, "severity", SEVERITIES, "BAD_FAILURE");
             boundedText(failure, "phase", 256, "BAD_FAILURE");
@@ -105,78 +78,69 @@ final class PreviewReportValidationSupport {
     }
 
     static void validateShutdownCounts(final JsonNode value) {
-        final ObjectNode counts = object(
-            value,
-            "BAD_SHUTDOWN_COUNTS",
-            "shutdownCounts"
-        );
+        final ObjectNode counts = object(value, "BAD_SHUTDOWN_COUNTS", "shutdownCounts");
         exact(
-            counts,
-            Set.of("attempted", "succeeded", "failed", "timedOut"),
-            Set.of(),
-            "UNKNOWN_FIELD",
-            "shutdownCounts"
-        );
+                counts,
+                Set.of("attempted", "succeeded", "failed", "timedOut"),
+                Set.of(),
+                "UNKNOWN_FIELD",
+                "shutdownCounts");
         final long attempted = nonnegative(counts, "attempted", "BAD_SHUTDOWN_COUNTS");
         final long succeeded = nonnegative(counts, "succeeded", "BAD_SHUTDOWN_COUNTS");
         final long failed = nonnegative(counts, "failed", "BAD_SHUTDOWN_COUNTS");
         final long timedOut = nonnegative(counts, "timedOut", "BAD_SHUTDOWN_COUNTS");
         if (attempted != succeeded + failed + timedOut) {
-            throw failure(
-                "BAD_SHUTDOWN_COUNTS",
-                "Shutdown attempted count must equal all outcomes."
-            );
+            throw failure("BAD_SHUTDOWN_COUNTS", "Shutdown attempted count must equal all outcomes.");
         }
     }
 
     static void validateCleanupCounts(final JsonNode value) {
         final ObjectNode counts = object(value, "BAD_CLEANUP_COUNTS", "cleanupCounts");
         exact(
-            counts,
-            Set.of(
-                "taskHandlesCanceled", "taskCompletionsSettled",
-                "pluginContinuationsDrained", "userFileHandlesRevoked",
-                "configSchemasUnregistered", "temporaryFilesDeleted", "scopesClosed",
-                "classloadersClosed", "failures"
-            ),
-            Set.of(),
-            "UNKNOWN_FIELD",
-            "cleanupCounts"
-        );
+                counts,
+                Set.of(
+                        "taskHandlesCanceled",
+                        "taskCompletionsSettled",
+                        "pluginContinuationsDrained",
+                        "userFileHandlesRevoked",
+                        "configSchemasUnregistered",
+                        "temporaryFilesDeleted",
+                        "scopesClosed",
+                        "classloadersClosed",
+                        "failures"),
+                Set.of(),
+                "UNKNOWN_FIELD",
+                "cleanupCounts");
         for (String field : fields(counts)) {
             nonnegative(counts, field, "BAD_CLEANUP_COUNTS");
         }
     }
 
     static void validateRegistrationCounts(final JsonNode value) {
-        final ObjectNode counts = object(
-            value,
-            "BAD_REGISTRATION_COUNTS",
-            "registrationCounts"
-        );
+        final ObjectNode counts = object(value, "BAD_REGISTRATION_COUNTS", "registrationCounts");
         final Set<String> categories = Set.of(
-            "actions", "events", "menus", "toolbars", "contextMenus", "overlays",
-            "dialogs", "panels", "status", "tasks", "configSchemas", "userFileHandles"
-        );
+                "actions",
+                "events",
+                "menus",
+                "toolbars",
+                "contextMenus",
+                "overlays",
+                "dialogs",
+                "panels",
+                "status",
+                "tasks",
+                "configSchemas",
+                "userFileHandles");
         final Set<String> required = new HashSet<>(categories);
         required.add("total");
-        exact(
-            counts,
-            required,
-            Set.of(),
-            "UNKNOWN_FIELD",
-            "registrationCounts"
-        );
+        exact(counts, required, Set.of(), "UNKNOWN_FIELD", "registrationCounts");
         long sum = 0;
         for (String category : categories) {
             sum += nonnegative(counts, category, "BAD_REGISTRATION_COUNTS");
         }
         final long total = nonnegative(counts, "total", "BAD_REGISTRATION_COUNTS");
         if (sum != total) {
-            throw failure(
-                "BAD_REGISTRATION_COUNTS",
-                "Registration total does not equal category counts."
-            );
+            throw failure("BAD_REGISTRATION_COUNTS", "Registration total does not equal category counts.");
         }
     }
 
@@ -186,12 +150,11 @@ final class PreviewReportValidationSupport {
         for (JsonNode item : evidence) {
             final ObjectNode entry = object(item, "BAD_EVIDENCE", "evidence entry");
             exact(
-                entry,
-                Set.of("kind", "state", "summary"),
-                Set.of("relativeRecordPath", "digestSha256"),
-                "UNKNOWN_FIELD",
-                "evidence"
-            );
+                    entry,
+                    Set.of("kind", "state", "summary"),
+                    Set.of("relativeRecordPath", "digestSha256"),
+                    "UNKNOWN_FIELD",
+                    "evidence");
             enumText(entry, "kind", EVIDENCE_KINDS, "BAD_EVIDENCE");
             enumText(entry, "state", EVIDENCE_STATES, "BAD_EVIDENCE");
             boundedText(entry, "summary", 1024, "BAD_EVIDENCE");
@@ -217,22 +180,14 @@ final class PreviewReportValidationSupport {
         }
     }
 
-    static ObjectNode object(
-        final JsonNode value,
-        final String code,
-        final String label
-    ) {
+    static ObjectNode object(final JsonNode value, final String code, final String label) {
         if (!(value instanceof ObjectNode object)) {
             throw failure(code, label + " must be an object.");
         }
         return object;
     }
 
-    static JsonNode array(
-        final JsonNode value,
-        final String code,
-        final String label
-    ) {
+    static JsonNode array(final JsonNode value, final String code, final String label) {
         if (value == null || !value.isArray()) {
             throw failure(code, label + " must be an array.");
         }
@@ -246,12 +201,11 @@ final class PreviewReportValidationSupport {
     }
 
     static void exact(
-        final ObjectNode object,
-        final Set<String> required,
-        final Set<String> optional,
-        final String unknownCode,
-        final String label
-    ) {
+            final ObjectNode object,
+            final Set<String> required,
+            final Set<String> optional,
+            final String unknownCode,
+            final String label) {
         final Set<String> actual = fields(object);
         if (!actual.containsAll(required)) {
             final Set<String> missing = new HashSet<>(required);
@@ -276,37 +230,21 @@ final class PreviewReportValidationSupport {
         return fields;
     }
 
-    static void textEquals(
-        final ObjectNode object,
-        final String field,
-        final String expected,
-        final String code
-    ) {
+    static void textEquals(final ObjectNode object, final String field, final String expected, final String code) {
         final JsonNode value = object.get(field);
         if (value == null || !value.isTextual() || !expected.equals(value.textValue())) {
             throw failure(code, field + " has an invalid value.");
         }
     }
 
-    static void exactInteger(
-        final ObjectNode object,
-        final String field,
-        final long expected,
-        final String code
-    ) {
+    static void exactInteger(final ObjectNode object, final String field, final long expected, final String code) {
         final JsonNode value = object.get(field);
-        if (value == null || !value.isIntegralNumber()
-            || !value.canConvertToLong() || value.longValue() != expected) {
+        if (value == null || !value.isIntegralNumber() || !value.canConvertToLong() || value.longValue() != expected) {
             throw failure(code, field + " must be exact integer " + expected + ".");
         }
     }
 
-    static String boundedText(
-        final ObjectNode object,
-        final String field,
-        final int maximum,
-        final String code
-    ) {
+    static String boundedText(final ObjectNode object, final String field, final int maximum, final String code) {
         final JsonNode value = object.get(field);
         if (value == null || !value.isTextual()) {
             throw failure(code, field + " must be a string.");
@@ -318,23 +256,13 @@ final class PreviewReportValidationSupport {
         return text;
     }
 
-    static void optionalText(
-        final ObjectNode object,
-        final String field,
-        final int maximum,
-        final String code
-    ) {
+    static void optionalText(final ObjectNode object, final String field, final int maximum, final String code) {
         if (object.has(field)) {
             boundedText(object, field, maximum, code);
         }
     }
 
-    static String enumText(
-        final ObjectNode object,
-        final String field,
-        final Set<String> allowed,
-        final String code
-    ) {
+    static String enumText(final ObjectNode object, final String field, final Set<String> allowed, final String code) {
         final String value = boundedText(object, field, 128, code);
         if (!allowed.contains(value)) {
             throw failure(code, field + " has an unsupported enum value.");
@@ -343,28 +271,16 @@ final class PreviewReportValidationSupport {
     }
 
     static <E extends Enum<E>> E enumValue(
-        final ObjectNode object,
-        final String field,
-        final Class<E> enumType,
-        final String code
-    ) {
+            final ObjectNode object, final String field, final Class<E> enumType, final String code) {
         final String text = boundedText(object, field, 128, code);
         try {
             return Enum.valueOf(enumType, text);
         } catch (IllegalArgumentException exception) {
-            throw new PreviewReportValidationException(
-                code,
-                field + " has an unsupported enum value.",
-                exception
-            );
+            throw new PreviewReportValidationException(code, field + " has an unsupported enum value.", exception);
         }
     }
 
-    static boolean bool(
-        final ObjectNode object,
-        final String field,
-        final String code
-    ) {
+    static boolean bool(final ObjectNode object, final String field, final String code) {
         final JsonNode value = object.get(field);
         if (value == null || !value.isBoolean()) {
             throw failure(code, field + " must be boolean.");
@@ -372,24 +288,15 @@ final class PreviewReportValidationSupport {
         return value.booleanValue();
     }
 
-    static long nonnegative(
-        final ObjectNode object,
-        final String field,
-        final String code
-    ) {
+    static long nonnegative(final ObjectNode object, final String field, final String code) {
         final JsonNode value = object.get(field);
-        if (value == null || !value.isIntegralNumber()
-            || !value.canConvertToLong() || value.longValue() < 0) {
+        if (value == null || !value.isIntegralNumber() || !value.canConvertToLong() || value.longValue() < 0) {
             throw failure(code, field + " must be a bounded nonnegative integer.");
         }
         return value.longValue();
     }
 
-    static long positive(
-        final ObjectNode object,
-        final String field,
-        final String code
-    ) {
+    static long positive(final ObjectNode object, final String field, final String code) {
         final long value = nonnegative(object, field, code);
         if (value == 0) {
             throw failure(code, field + " must be positive.");
@@ -397,11 +304,7 @@ final class PreviewReportValidationSupport {
         return value;
     }
 
-    static void optionalNonnegative(
-        final ObjectNode object,
-        final String field,
-        final String code
-    ) {
+    static void optionalNonnegative(final ObjectNode object, final String field, final String code) {
         if (object.has(field)) {
             nonnegative(object, field, code);
         }
@@ -428,34 +331,33 @@ final class PreviewReportValidationSupport {
     }
 
     static boolean isRelativePath(final String path) {
-        if (path == null || path.isBlank() || path.startsWith("/")
-            || path.startsWith("~") || path.indexOf('\\') >= 0
-            || DRIVE_OR_URI.matcher(path).matches()) {
+        if (path == null
+                || path.isBlank()
+                || path.startsWith("/")
+                || path.startsWith("~")
+                || path.indexOf('\\') >= 0
+                || DRIVE_OR_URI.matcher(path).matches()) {
             return false;
         }
         final String[] segments = path.split("/", -1);
         for (String segment : segments) {
-            if (segment.isEmpty() || segment.equals(".") || segment.equals("..")
-                || containsControl(segment)) {
+            if (segment.isEmpty() || segment.equals(".") || segment.equals("..") || containsControl(segment)) {
                 return false;
             }
         }
         return true;
     }
 
-    static void validateTextArray(
-        final JsonNode value,
-        final String code,
-        final boolean nonempty
-    ) {
+    static void validateTextArray(final JsonNode value, final String code, final boolean nonempty) {
         final JsonNode values = array(value, code, "string array");
         boundedArray(values, "string array");
         if (nonempty && values.isEmpty()) {
             throw failure(code, "String array must not be empty.");
         }
         for (JsonNode item : values) {
-            if (!item.isTextual() || item.textValue().isBlank()
-                || item.textValue().length() > MAX_STRING_LENGTH) {
+            if (!item.isTextual()
+                    || item.textValue().isBlank()
+                    || item.textValue().length() > MAX_STRING_LENGTH) {
                 throw failure(code, "String array contains an invalid value.");
             }
         }
@@ -470,10 +372,7 @@ final class PreviewReportValidationSupport {
         return false;
     }
 
-    static PreviewReportValidationException failure(
-        final String code,
-        final String message
-    ) {
+    static PreviewReportValidationException failure(final String code, final String message) {
         return new PreviewReportValidationException(code, message);
     }
 }

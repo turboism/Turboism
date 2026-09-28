@@ -1,7 +1,6 @@
 package dev.turboism.hook.ingress;
 
 import dev.turboism.sdk.event.EventBus;
-
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -17,9 +16,18 @@ import java.util.function.Consumer;
  */
 final class BoundedHookEventMailbox {
 
-    enum OfferOutcome { ACCEPTED, QUEUE_FULL, MAILBOX_CLOSED }
+    enum OfferOutcome {
+        ACCEPTED,
+        QUEUE_FULL,
+        MAILBOX_CLOSED
+    }
 
-    enum DrainOutcome { DRAINED, EMPTY, BUSY, DOWNSTREAM_FAILED }
+    enum DrainOutcome {
+        DRAINED,
+        EMPTY,
+        BUSY,
+        DOWNSTREAM_FAILED
+    }
 
     enum DiagnosticCode {
         QUEUE_FULL,
@@ -53,18 +61,17 @@ final class BoundedHookEventMailbox {
     }
 
     record Snapshot(
-        int capacity,
-        int pending,
-        boolean closed,
-        long accepted,
-        long drained,
-        long queueFullRejected,
-        long closedRejected,
-        long pendingDroppedOnClose,
-        long downstreamFailures,
-        long diagnosticSinkFailures,
-        long busyDrains
-    ) { }
+            int capacity,
+            int pending,
+            boolean closed,
+            long accepted,
+            long drained,
+            long queueFullRejected,
+            long closedRejected,
+            long pendingDroppedOnClose,
+            long downstreamFailures,
+            long diagnosticSinkFailures,
+            long busyDrains) {}
 
     static final String MAILBOX_DIAGNOSTIC_ID = "hook-mailbox";
 
@@ -145,11 +152,10 @@ final class BoundedHookEventMailbox {
             } catch (RuntimeException downstreamFailure) {
                 downstreamFailures.increment();
                 boolean sinkFailed = !emitDiagnostic(diagnostic(
-                    DiagnosticCode.DOWNSTREAM_FAILED,
-                    DOWNSTREAM_MESSAGE,
-                    entry.spec().hookId(),
-                    1
-                ));
+                        DiagnosticCode.DOWNSTREAM_FAILED,
+                        DOWNSTREAM_MESSAGE,
+                        entry.spec().hookId(),
+                        1));
                 return new DrainResult(DrainOutcome.DOWNSTREAM_FAILED, sinkFailed);
             } catch (Error downstreamFailure) {
                 downstreamFailures.increment();
@@ -173,11 +179,7 @@ final class BoundedHookEventMailbox {
         }
         if (dropped > 0) {
             emitDiagnostic(diagnostic(
-                DiagnosticCode.PENDING_DROPPED_ON_CLOSE,
-                DROPPED_MESSAGE,
-                MAILBOX_DIAGNOSTIC_ID,
-                dropped
-            ));
+                    DiagnosticCode.PENDING_DROPPED_ON_CLOSE, DROPPED_MESSAGE, MAILBOX_DIAGNOSTIC_ID, dropped));
         }
         return dropped;
     }
@@ -185,18 +187,17 @@ final class BoundedHookEventMailbox {
     Snapshot snapshot() {
         synchronized (stateLock) {
             return new Snapshot(
-                capacity,
-                pending.size(),
-                closed,
-                accepted.sum(),
-                drained.sum(),
-                queueFullRejected.sum(),
-                closedRejected.sum(),
-                pendingDroppedOnClose.sum(),
-                downstreamFailures.sum(),
-                diagnosticSinkFailures.sum(),
-                busyDrains.sum()
-            );
+                    capacity,
+                    pending.size(),
+                    closed,
+                    accepted.sum(),
+                    drained.sum(),
+                    queueFullRejected.sum(),
+                    closedRejected.sum(),
+                    pendingDroppedOnClose.sum(),
+                    downstreamFailures.sum(),
+                    diagnosticSinkFailures.sum(),
+                    busyDrains.sum());
         }
     }
 

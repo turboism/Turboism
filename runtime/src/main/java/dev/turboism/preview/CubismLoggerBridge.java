@@ -34,11 +34,7 @@ final class CubismLoggerBridge {
         final Methods methods = resolve(loggerApi);
 
         final Class<?> levelType = Class.forName("org.apache.logging.log4j.Level", true, loader);
-        final Class<?> configurator = Class.forName(
-            "org.apache.logging.log4j.core.config.Configurator",
-            true,
-            loader
-        );
+        final Class<?> configurator = Class.forName("org.apache.logging.log4j.core.config.Configurator", true, loader);
         final Method setLevel = configurator.getMethod("setLevel", String.class, levelType);
         final Object previousLevel = loggerApi.getMethod("getLevel").invoke(logger);
         final Runnable cleanup = () -> invokeLevel(setLevel, previousLevel);
@@ -47,12 +43,7 @@ final class CubismLoggerBridge {
         return new CubismLoggerBridge(logger, methods, cleanup);
     }
 
-    void write(
-        final PreviewLog.Level level,
-        final String component,
-        final String message,
-        final Throwable failure
-    ) {
+    void write(final PreviewLog.Level level, final String component, final String message, final Throwable failure) {
         final Method method = failure == null ? plainMethods[level.ordinal()] : failureMethods[level.ordinal()];
         final String hostMessage = "[" + component + "] " + message;
         try {
@@ -97,9 +88,7 @@ final class CubismLoggerBridge {
             setLevel.invoke(null, LOGGER_NAME, level);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError exception) {
             dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                "native-notice",
-                "Cubism logger level restoration was unavailable"
-            );
+                    "native-notice", "Cubism logger level restoration was unavailable");
         }
     }
 

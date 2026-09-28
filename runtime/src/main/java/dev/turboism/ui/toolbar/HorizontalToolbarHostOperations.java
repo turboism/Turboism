@@ -1,7 +1,6 @@
 package dev.turboism.ui.toolbar;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.function.Consumer;
 
 /** Native-independent operations required by the horizontal-toolbar provider. */
@@ -14,10 +13,7 @@ public interface HorizontalToolbarHostOperations {
      * @param click receives a button's action id on activation
      * @return a registration that removes the toolbar when disposed
      */
-    Registration attach(
-        HorizontalToolbarContributionDescriptor descriptor,
-        Consumer<String> click
-    );
+    Registration attach(HorizontalToolbarContributionDescriptor descriptor, Consumer<String> click);
 
     /**
      * Registers a callback fired when the host rebuilds the toolbar area.
@@ -27,6 +23,6 @@ public interface HorizontalToolbarHostOperations {
      *         registration for hosts that never rebuild
      */
     default Registration onRebuild(final Runnable reconcile) {
-        return () -> { };
+        return () -> {};
     }
 }
