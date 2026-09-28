@@ -53,12 +53,41 @@ private val forbiddenHostUiTraversal = listOf(
     ".getTopLevelAncestor()"
 )
 
+/*
+ * The boundary check produces no artifact; the stamp file gives Gradle a persistent
+ * output for up-to-date tracking. It is written only after the check action succeeds.
+ */
+private fun Task.verificationStamp() {
+    val stamp = project.layout.buildDirectory.file("verification-stamps/$name.stamp")
+    outputs.file(stamp)
+    doLast {
+        stamp.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("ok\n")
+        }
+    }
+}
+
 tasks.register("checkModuleBoundaries") {
     group = "verification"
     description = "Verifies SDK/runtime/plugin dependency direction and host-internal import boundaries."
+    // The rules and waivers live in this script; module additions land in settings.gradle.kts.
+    inputs.file("gradle/module-boundaries.gradle.kts")
+    inputs.file("settings.gradle.kts")
+    inputs.files(
+        fileTree(rootDir) {
+            include("**/src/main/java/**/*.java")
+            exclude(".worktrees/**", ".claude/**", "**/build/**", ".git/**")
+        },
+        fileTree(rootDir) {
+            include("**/build.gradle.kts")
+            exclude(".worktrees/**", ".claude/**", "**/build/**", ".git/**")
+        }
+    )
     doLast {
         checkModuleBoundaries(rootProject)
     }
+    verificationStamp()
 }
 
 /**

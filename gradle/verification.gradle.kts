@@ -16,10 +16,35 @@ import org.gradle.jvm.toolchain.JavaToolchainService
  * Historical M1-M16/M13/M14 governance tasks are intentionally absent.
  */
 
+/*
+ * Check tasks prove a predicate over their declared inputs and produce no artifact;
+ * with no output Gradle can never mark them up-to-date and re-runs them on every
+ * build. The stamp file is that persistent output, written only after the check
+ * action succeeds. Call it after any doLast check action so the stamp cannot be
+ * written ahead of a failing check.
+ */
+private fun Task.verificationStamp() {
+    val stamp = project.layout.buildDirectory.file("verification-stamps/$name.stamp")
+    outputs.file(stamp)
+    doLast {
+        stamp.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("ok\n")
+        }
+    }
+}
+
 tasks.register<Exec>("checkMappingReviewWrapperArgs") {
     group = "verification"
     description = "Verifies mapping-review wrapper argv transport and args-file hardening offline."
     workingDir(rootDir)
+    inputs.files(
+        "scripts/test/test_mapping_review_wrapper_args.sh",
+        "scripts/dev/mapping-review.sh",
+        "scripts/dev/worktree-id.sh",
+        fileTree("gradle/internal") { include("*.java") }
+    )
+    verificationStamp()
     commandLine("bash", "scripts/test/test_mapping_review_wrapper_args.sh")
 }
 
@@ -27,6 +52,14 @@ tasks.register<Exec>("checkCubismHostValidationArguments") {
     group = "verification"
     description = "Verifies Cubism host-validation path validation and remote argument transport offline."
     workingDir(rootDir)
+    inputs.files(
+        "scripts/test/test_cubism_host_validation_arguments.sh",
+        "scripts/preview/run-cubism-host-validation.sh",
+        "scripts/preview/host-validation-env.sh",
+        "scripts/preview/host-validation-transport.sh",
+        "packaging/windows-installer/config.template.json"
+    )
+    verificationStamp()
     commandLine("bash", "scripts/test/test_cubism_host_validation_arguments.sh")
 }
 
@@ -34,6 +67,13 @@ tasks.register<Exec>("checkCubismHostValidationJavaEvidence") {
     group = "verification"
     description = "Verifies task-bound Java process evidence matching, gl-thread scan, and zero-match diagnostics offline."
     workingDir(rootDir)
+    inputs.files(
+        "scripts/test/test_cubism_host_validation_java_evidence.sh",
+        "scripts/preview/run-cubism-host-validation.sh",
+        "scripts/preview/host-validation-env.sh",
+        "scripts/preview/host-validation-transport.sh"
+    )
+    verificationStamp()
     commandLine("bash", "scripts/test/test_cubism_host_validation_java_evidence.sh")
 }
 
@@ -41,6 +81,13 @@ tasks.register<Exec>("checkCubismHostValidationLocalTransport") {
     group = "verification"
     description = "Verifies local host command/copy transport and side-effect-free dry runs."
     workingDir(rootDir)
+    inputs.files(
+        "scripts/test/test_cubism_host_validation_local_transport.sh",
+        "scripts/preview/host-validation-transport.sh",
+        "scripts/preview/host-validation-env.sh",
+        "scripts/preview/run-cubism-host-validation.sh"
+    )
+    verificationStamp()
     commandLine("bash", "scripts/test/test_cubism_host_validation_local_transport.sh")
 }
 
@@ -48,6 +95,16 @@ tasks.register<Exec>("checkHistoryValidationProbePackaging") {
     group = "verification"
     description = "Verifies history exact-host probe JARs include their descriptor-declared base i18n catalogs."
     workingDir(rootDir)
+    inputs.files(
+        "scripts/test/test_history_validation_probe_packaging.sh",
+        "scripts/preview/package-windows-history-panel-validation.sh",
+        "scripts/preview/run-history-native-ui-validation.sh",
+        "scripts/preview/run-history-primary-validation.sh",
+        "scripts/preview/run-cubism-host-validation.sh",
+        "scripts/preview/host-validation-env.sh",
+        "scripts/preview/host-validation-transport.sh"
+    )
+    verificationStamp()
     commandLine("bash", "scripts/test/test_history_validation_probe_packaging.sh")
 }
 
@@ -55,6 +112,11 @@ tasks.register<Exec>("checkFxValidationBrokerArguments") {
     group = "verification"
     description = "Verifies bounded validation-only fx broker accept lifetimes offline."
     workingDir(rootDir)
+    inputs.files(
+        "scripts/test/test_fx_validation_broker_arguments.py",
+        "scripts/preview/fx-validation-bridge/fx_validation_broker.py"
+    )
+    verificationStamp()
     commandLine("python3", "scripts/test/test_fx_validation_broker_arguments.py")
 }
 
@@ -62,6 +124,11 @@ tasks.register<Exec>("checkGraalScriptHostValidationDryRun") {
     group = "verification"
     description = "Verifies the Graal script host-validation wrapper uses configurable Java and packaged wildcard classpath."
     workingDir(rootDir)
+    inputs.files(
+        "scripts/test/test_graal_script_host_validation_dry_run.sh",
+        "scripts/preview/run-graal-script-host-validation.sh"
+    )
+    verificationStamp()
     commandLine("bash", "scripts/test/test_graal_script_host_validation_dry_run.sh")
 }
 
@@ -69,6 +136,11 @@ tasks.register<Exec>("checkGraalPreviewLauncherContract") {
     group = "verification"
     description = "Verifies ProbeOnly validates a configured Graal library closure without claiming host readiness."
     workingDir(rootDir)
+    inputs.files(
+        "scripts/test/test_graal_preview_launcher_contract.sh",
+        "scripts/preview/launch-cubism-turboism.ps1"
+    )
+    verificationStamp()
     commandLine("bash", "scripts/test/test_graal_preview_launcher_contract.sh")
 }
 
@@ -98,6 +170,7 @@ val checkAsyncHostReadStructuralBoundaries by tasks.registering(Exec::class) {
         "plugins/project-inspector/src/main/java/dev/turboism/plugin/projectinspector/ProjectInspectorPlugin.java",
         "scripts/test/test_async_host_read_foundation.py"
     )
+    verificationStamp()
     commandLine("python3", "scripts/test/test_async_host_read_foundation.py")
 }
 
@@ -127,6 +200,7 @@ val checkCubismCoreApiInventory by tasks.registering(Exec::class) {
         "compatibility/cubism/profiles/draft/cubism-5.2.03.json",
         "compatibility/cubism/profiles/draft/cubism-5.3.02.json"
     )
+    verificationStamp()
     commandLine("python3", "scripts/test/test_cubism_core_api_inventory.py")
 }
 
@@ -140,6 +214,7 @@ val checkCubismCoreMemberPolicy by tasks.registering(Exec::class) {
         "compatibility/cubism/core-api/policy/cubism-core-member-policy.json",
         fileTree("compatibility/cubism/core-api/observed") { include("*.json") }
     )
+    verificationStamp()
     commandLine("python3", "scripts/test/test_cubism_core_member_policy.py")
 }
 
@@ -154,6 +229,7 @@ val checkCubismCoreSelectorPolicy by tasks.registering(Exec::class) {
         "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
         "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
     )
+    verificationStamp()
     commandLine("python3", "scripts/test/test_cubism_core_selector_policy.py")
 }
 
@@ -172,6 +248,8 @@ val checkCodeQualitySelfTest by tasks.registering(Exec::class) {
         "scripts/test/test_check_code_quality.py",
         fileTree("scripts/test/java") { include("**/*.java") }
     )
+    inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
+    verificationStamp()
     doFirst {
         environment("TURBOISM_QUALITY_JAVA_HOME", codeQualityJavaHome.get())
     }
@@ -186,6 +264,7 @@ val checkThrowableContainmentSelfTest by tasks.registering(Exec::class) {
         "scripts/test/check_throwable_containment.py",
         "scripts/test/test_check_throwable_containment.py"
     )
+    verificationStamp()
     commandLine("python3", "scripts/test/test_check_throwable_containment.py")
 }
 
@@ -211,6 +290,7 @@ tasks.register<Exec>("checkThrowableContainment") {
         fileTree("plugins") { include("**/src/main/java/**/*.java") },
         fileTree("scripts/verification-sources/templates") { include("**/*.java") }
     )
+    verificationStamp()
     commandLine("python3", "scripts/test/check_throwable_containment.py", rootDir.absolutePath)
 }
 
@@ -232,11 +312,15 @@ tasks.register<Exec>("checkCodeQuality") {
         fileTree("sdk/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/main/java") { include("**/*.java") },
         fileTree("bootstrap/src/main/java") { include("**/*.java") },
-        fileTree("plugins") { include("**/src/main/java/**/*.java") },
+        fileTree("plugins") { include("**/src/main/**/*.java") },
         fileTree("compatibility/cubism") { include("**/*.json") }
     )
     val selectedRules = providers.gradleProperty("turboismCodeQualityRules")
     val strict = providers.gradleProperty("turboismCodeQualityStrict")
+    inputs.property("turboismCodeQualityRules", selectedRules.orElse("javadoc,digests,naming,assets"))
+    inputs.property("turboismCodeQualityStrict", strict.orElse("false"))
+    inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
+    verificationStamp()
     doFirst {
         environment("TURBOISM_QUALITY_JAVA_HOME", codeQualityJavaHome.get())
         val rules = selectedRules.getOrElse("javadoc,digests,naming,assets")
@@ -274,6 +358,7 @@ val checkEditorModelAliases by tasks.registering(Exec::class) {
         "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
         "compatibility/cubism/verification/cubism-5.3.03-editor-model.json"
     )
+    verificationStamp()
     commandLine("python3", "scripts/test/check_editor_model_aliases.py", rootDir.absolutePath)
 }
 
@@ -290,6 +375,7 @@ val checkEditorModelAliasesSelfTest by tasks.registering(Exec::class) {
         "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
         "compatibility/cubism/verification/cubism-5.3.03-editor-model.json"
     )
+    verificationStamp()
     commandLine(
         "python3", "-m", "unittest",
         "scripts.test.test_editor_model_aliases",
@@ -331,6 +417,7 @@ val checkDraftPackMetadataSelfTest by tasks.registering(Exec::class) {
         fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
         fileTree("compatibility/cubism/verification") { include("*.json") }
     )
+    verificationStamp()
     commandLine(
         "python3", "-m", "unittest",
         "scripts.test.test_sync_draft_pack_metadata",
@@ -348,6 +435,7 @@ val checkDraftPackMetadata by tasks.registering(Exec::class) {
         fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
         fileTree("compatibility/cubism/verification") { include("*.json") }
     )
+    verificationStamp()
     commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath, "--check")
 }
 
@@ -365,6 +453,7 @@ val checkVersionSetCompletenessSelfTest by tasks.registering(Exec::class) {
         "scripts/check_version_set_completeness.py",
         "scripts/test/test_check_version_set_completeness.py"
     )
+    verificationStamp()
     commandLine(
         "python3", "-m", "unittest",
         "scripts.test.test_check_version_set_completeness",
@@ -388,6 +477,7 @@ val checkVersionSetCompleteness by tasks.registering(Exec::class) {
         "compatibility/cubism/index.md",
         fileTree("compatibility/cubism/profiles/draft") { include("*.json") }
     )
+    verificationStamp()
     commandLine("python3", "scripts/check_version_set_completeness.py", rootDir.absolutePath)
 }
 
@@ -406,6 +496,7 @@ val checkVerificationRecordIndexSelfTest by tasks.registering(Exec::class) {
         "scripts/verification_record_index.py",
         "scripts/test/test_verification_record_index.py"
     )
+    verificationStamp()
     commandLine(
         "python3", "-m", "unittest",
         "scripts.test.test_verification_record_index",
@@ -424,6 +515,7 @@ val checkVerificationRecordIndex by tasks.registering(Exec::class) {
         fileTree("compatibility/cubism/verification") { include("*.json") },
         fileTree("runtime/src/main/java/dev/turboism/mapping/verification") { include("**/*.java") }
     )
+    verificationStamp()
     commandLine("python3", "scripts/verification_record_index.py", rootDir.absolutePath, "--check")
 }
 
@@ -444,6 +536,7 @@ val checkVerificationSourcesSelfTest by tasks.registering(Exec::class) {
         "scripts/generate_verification_sources.py",
         "scripts/test/test_generate_verification_sources.py"
     )
+    verificationStamp()
     commandLine(
         "python3", "-m", "unittest",
         "scripts.test.test_generate_verification_sources",
@@ -465,6 +558,7 @@ val checkVerificationSources by tasks.registering(Exec::class) {
         fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
         fileTree("runtime/src/main/java/dev/turboism/ui") { include("**/*.java") }
     )
+    verificationStamp()
     commandLine(
         "python3", "scripts/generate_verification_sources.py",
         rootDir.absolutePath, "check", "--expect", "generated"
@@ -480,6 +574,7 @@ val checkPackageLayout by tasks.registering(Exec::class) {
         fileTree("sdk/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/main/java") { include("**/*.java") }
     )
+    verificationStamp()
     commandLine("python3", "scripts/test/check_package_layout.py", rootDir.absolutePath)
 }
 
@@ -488,19 +583,24 @@ val checkModuleBoundariesSelfTest by tasks.registering(Exec::class) {
     description = "Runs negative fixtures for fail-closed module-boundary enforcement."
     workingDir(rootDir)
     inputs.files("gradle/module-boundaries.gradle.kts", "scripts/test/test_module_boundaries.py")
+    verificationStamp()
     commandLine("python3", "scripts/test/test_module_boundaries.py")
 }
 
 val checkDuplicateJavaImports by tasks.registering {
     group = "verification"
     description = "Rejects duplicate Java import declarations within one source file."
+    val sources = fileTree(rootDir) {
+        include("**/src/**/*.java")
+        exclude(".worktrees/**", ".claude/**", "**/build/**")
+    }
+    inputs.files(sources)
+    // The check logic lives in this script rather than a standalone tool.
+    inputs.file("gradle/verification.gradle.kts")
     doLast {
         val importPattern = Regex("""^\s*import\s+(static\s+)?([\w.${'$'}*]+)\s*;\s*${'$'}""")
         val duplicates = mutableListOf<String>()
-        fileTree(rootDir) {
-            include("**/src/**/*.java")
-            exclude(".worktrees/**", ".claude/**", "**/build/**")
-        }.files
+        sources.files
             .sortedBy { it.relativeTo(rootDir).invariantSeparatorsPath }
             .forEach { source ->
                 val relativePath = source.relativeTo(rootDir).invariantSeparatorsPath
@@ -546,6 +646,7 @@ val checkDuplicateJavaImports by tasks.registering {
             throw GradleException(duplicates.sorted().joinToString("\n", prefix = "Duplicate Java import declarations:\n"))
         }
     }
+    verificationStamp()
 }
 
 val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
@@ -560,6 +661,7 @@ val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
         include("*/README_ja.md")
         include("*/src/main/resources/META-INF/turboism/plugin.json")
     })
+    verificationStamp()
     commandLine("python3", "scripts/test/check_official_plugin_readmes.py")
 }
 
@@ -637,6 +739,7 @@ val checkMarketReleaseMetadata by tasks.registering(Exec::class) {
         "packaging/market-plugins.json",
         ".github/workflows/publish-selected-plugins.yml"
     )
+    verificationStamp()
     commandLine("python3", "scripts/test/test_prepare_market_release.py")
 }
 
@@ -652,7 +755,25 @@ val checkRemoteHygieneSelfTest by tasks.registering(Exec::class) {
         "scripts/check_remote_hygiene.py",
         "scripts/test/test_check_remote_hygiene.py"
     )
+    verificationStamp()
     commandLine("python3", "scripts/test/test_check_remote_hygiene.py")
+}
+
+/*
+ * --worktree scans every tracked index blob. The index file covers membership changes
+ * (`git add`/`git rm --cached` on an unchanged file) that worktree content alone cannot
+ * see; in a linked worktree .git is a pointer file, so the index lives behind gitdir.
+ */
+val repositoryHygieneIndex = provider {
+    val gitPointer = file(".git")
+    when {
+        gitPointer.isDirectory -> gitPointer.resolve("index")
+        gitPointer.isFile -> gitPointer.readLines()
+            .firstOrNull { it.startsWith("gitdir:") }
+            ?.substringAfter(':')?.trim()
+            ?.let { file(it).resolve("index") }
+        else -> null
+    }
 }
 
 val checkRepositoryHygiene by tasks.registering(Exec::class) {
@@ -660,6 +781,14 @@ val checkRepositoryHygiene by tasks.registering(Exec::class) {
     description = "Rejects tracked secrets, developer-machine paths, and local-only configuration before daily development checks pass."
     dependsOn(checkRemoteHygieneSelfTest)
     workingDir(rootDir)
+    inputs.file("scripts/check_remote_hygiene.py")
+    inputs.files(fileTree(rootDir) {
+        exclude(".git", ".git/**", "**/.git/**")
+        exclude("**/build/**", "**/.gradle/**", "**/__pycache__/**", "**/.pytest_cache/**")
+        exclude(".worktrees/**", ".codegraph/**", ".claude/**", ".idea/**")
+    })
+    inputs.files(repositoryHygieneIndex)
+    verificationStamp()
     commandLine("python3", "scripts/check_remote_hygiene.py", "--worktree")
 }
 
@@ -1083,10 +1212,16 @@ val checkExternalPluginTemplateSelfTest by tasks.registering(Exec::class) {
         "scripts/test/check_external_plugin_template.py",
         fileTree("templates/plugin-template") { include("**/*") }
     )
+    inputs.file(provider {
+        project(":sdk").tasks.named<Jar>("jar").get().archiveFile
+    })
     inputs.files(provider {
         project(":runtime").extensions.getByType<SourceSetContainer>()
             .named("main").get().runtimeClasspath
     })
+    inputs.property("sdkVersion", provider { project(":sdk").version.toString() })
+    inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
+    verificationStamp()
     doFirst {
         commandLine(
             "python3", "scripts/test/check_external_plugin_template.py", "selftest",
@@ -1121,6 +1256,9 @@ tasks.register<Exec>("checkExternalPluginTemplate") {
         project(":runtime").extensions.getByType<SourceSetContainer>()
             .named("main").get().runtimeClasspath
     })
+    inputs.property("sdkVersion", provider { project(":sdk").version.toString() })
+    inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
+    verificationStamp()
     doFirst {
         commandLine(
             "python3", "scripts/test/check_external_plugin_template.py", "check",
@@ -1151,6 +1289,7 @@ tasks.register<Exec>("checkLocalizedChangelogs") {
         fileTree("release-notes") { include("*.json") },
         "scripts/release/render_localized_changelogs.py"
     )
+    verificationStamp()
     commandLine("python3", "scripts/release/render_localized_changelogs.py", "--check")
 }
 
@@ -1162,6 +1301,7 @@ tasks.register<Exec>("checkLocalizedChangelogsSelfTest") {
         "scripts/release/render_localized_changelogs.py",
         "scripts/test/test_render_localized_changelogs.py"
     )
+    verificationStamp()
     commandLine("python3", "scripts/test/test_render_localized_changelogs.py")
 }
 
@@ -1200,6 +1340,7 @@ val checkPerformanceProbeReports by tasks.registering(Exec::class) {
         "scripts/preview/verify-cubism-performance-probe.py",
         "scripts/test/test_image_performance_probe.py"
     )
+    verificationStamp()
     commandLine("python3", "-m", "unittest", "-v", "scripts/test/test_image_performance_probe.py")
 }
 
@@ -1261,6 +1402,7 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
         "CHANGELOG.md",
         ".github/workflows/release.yml"
     )
+    verificationStamp()
     commandLine(
         "python3", "-m", "unittest", "-v",
         "scripts/test/test_release_tooling.py",

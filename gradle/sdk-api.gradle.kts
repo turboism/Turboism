@@ -1,6 +1,24 @@
 import org.gradle.api.tasks.Exec
 import org.gradle.jvm.tasks.Jar
 
+/*
+ * Check tasks prove a predicate over their declared inputs and produce no artifact;
+ * with no output Gradle can never mark them up-to-date and re-runs them on every
+ * build. The stamp file is that persistent output, written only after the check
+ * action succeeds. Call it after any doLast check action so the stamp cannot be
+ * written ahead of a failing check.
+ */
+private fun Task.verificationStamp() {
+    val stamp = project.layout.buildDirectory.file("verification-stamps/$name.stamp")
+    outputs.file(stamp)
+    doLast {
+        stamp.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("ok\n")
+        }
+    }
+}
+
 val sdkApiBaselineTool = layout.projectDirectory.file("scripts/test/sdk_api_baseline_cli.py")
 val sdkApiReferenceBuilder = layout.projectDirectory.file("scripts/test/build_sdk_api_reference.py")
 val sdkExactReferenceBuilder = layout.projectDirectory.file("scripts/test/reconstruct_sdk_gradle_jar.py")
@@ -72,6 +90,7 @@ val checkSdkApiBaselineTool by tasks.registering(Exec::class) {
     description = "Runs deterministic SDK API baseline mutation and compatibility selftests."
     workingDir(rootDir)
     inputs.files(sdkApiHelperFiles, "scripts/test/test_sdk_api_baseline.sh")
+    verificationStamp()
     commandLine("bash", "scripts/test/test_sdk_api_baseline.sh")
 }
 
@@ -80,6 +99,7 @@ val checkSdkApiReferenceBuilder by tasks.registering(Exec::class) {
     description = "Verifies deterministic SDK reference reconstruction from the immutable Git anchor."
     workingDir(rootDir)
     inputs.files(sdkApiReferenceBuilder, "scripts/test/test_sdk_api_reference_builder.sh")
+    verificationStamp()
     commandLine("bash", "scripts/test/test_sdk_api_reference_builder.sh")
 }
 
@@ -150,6 +170,7 @@ val checkSdkV8Linkage by tasks.registering(Exec::class) {
     description = "Compiles history/settings/atlas entry points against v8 and runs that bytecode on the live SDK."
     dependsOn(":sdk:jar", "prepareSdkV8ExactReference")
     inputs.files("scripts/test/test_sdk_v8_linkage.sh", sdkExactReferenceArtifact(8), sdkJarArtifact)
+    verificationStamp()
     commandLine("bash", "scripts/test/test_sdk_v8_linkage.sh",
         sdkExactReferenceArtifact(8).get().asFile.absolutePath, sdkJarArtifact.get().asFile.absolutePath)
 }
@@ -159,6 +180,7 @@ val checkTextureAtlasSdkV7Linkage by tasks.registering(Exec::class) {
     description = "Compiles the legacy texture-atlas constructors against v7 and runs that bytecode on the live SDK."
     dependsOn(":sdk:jar", "prepareSdkV7ExactReference")
     inputs.files("scripts/test/test_texture_atlas_sdk_linkage.sh", sdkExactReferenceArtifact(7), sdkJarArtifact)
+    verificationStamp()
     commandLine("bash", "scripts/test/test_texture_atlas_sdk_linkage.sh",
         sdkExactReferenceArtifact(7).get().asFile.absolutePath, sdkJarArtifact.get().asFile.absolutePath)
 }
