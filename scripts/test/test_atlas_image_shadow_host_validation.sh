@@ -46,7 +46,14 @@ jar tf "$t039_agent" | grep -qx 'dev/turboism/validation/atlasimage/t039/T039Sha
 bash -n "$builder"
 bash -n "$wrapper"
 python3 -m json.tool "$scheduler_manifest" >/dev/null
-! grep -Eq -- '--(remote-pre-launch|remote-post-launch|remote-pre-cleanup|client-script|ready-marker|failure-marker)' "$wrapper"
+! grep -Eq -- '--(remote-pre-launch|remote-post-launch|remote-pre-cleanup|client-script|failure-marker)' "$wrapper"
+# T029-READY: readiness is narrowed to exactly one fixed marker — the deferred GL gate's
+# own literal. The gate samples the runtime log once when no marker is declared; any other
+# marker would be an unreviewed wait condition.
+[[ "$(grep -cF -- "--ready-marker 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE'" "$wrapper")" -eq 1 ]] \
+  || fail 'wrapper must pin the deferred-check ready marker exactly once'
+[[ "$(grep -c -- '--ready-marker' "$wrapper")" -eq 1 ]] \
+  || fail 'wrapper must not gain a second ready marker'
 
 python3 - "$wrapper" \
   "$scene_dir/src/dev/turboism/validation/atlasimage/shadow/T040ShadowSceneDriverAgent.java" \
@@ -342,6 +349,31 @@ if env "${runner_env[@]}" \
   --dry-run > "$test_root/dry-run-atlasoff-reuseoff.log" 2>&1; then
   fail 'wrapper accepted -atlasoff combined with -reuseoff'
 fi
+
+# T029-READY: the deferred GL gate only waits when a ready marker is declared; pin the
+# single fixed marker through the prepared argv and prove no GL protection was disabled
+# to get it. The marker is in the shared unconditional argv assembly, so both the 5303
+# and 5203 profiles carry it; a 5203 prepare additionally needs the canonical opacity52
+# fixture (hash-pinned), which is not synthesizable offline.
+prepare_ready="$test_root/prepare-ready"
+run_wrapper_label offline-nolayout --prepare-dir "$prepare_ready" \
+  > "$test_root/prepare-ready.log" 2>&1 || fail 'ready-marker prepare failed'
+python3 - "$prepare_ready/runner-request.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+argv = json.loads(Path(sys.argv[1]).read_text())["argv"]
+markers = [argv[i + 1] for i, flag in enumerate(argv) if flag == "--ready-marker"]
+assert markers == ["TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE"], markers
+for forbidden in ("--failure-marker", "--remote-pre-launch", "--remote-post-launch",
+                  "--remote-pre-cleanup", "--client-script"):
+    assert forbidden not in argv, forbidden
+gl_off = [a for a in argv if ("mesaGlThread=false" in a or "mesa_glthread=false" in a
+                              or "glGetErrorElision" in a)]
+assert not gl_off, gl_off
+print("T040_READY_MARKER_PLAN PASS marker=deferred-active onceOnly=true noGlDisable=true")
+PY
 
 # The driver must accept exactly the launch property set this Runner plans.
 cat > "$test_root/T040LaunchPropertyProbe.java" <<'JAVA'
