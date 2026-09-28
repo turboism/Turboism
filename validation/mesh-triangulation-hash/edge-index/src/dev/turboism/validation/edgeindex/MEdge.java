@@ -5,7 +5,7 @@ package dev.turboism.validation.edgeindex;
  * (index1 &lt;= index2) normalization mirror what the official {@code addEdge}
  * stores; this type deliberately carries no geometry or owner state.
  */
-final class MEdge {
+class MEdge {
     final int index1;
     final int index2;
     final EdgeType type;
