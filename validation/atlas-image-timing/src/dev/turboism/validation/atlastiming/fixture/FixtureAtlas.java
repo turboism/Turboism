@@ -33,6 +33,21 @@ public class FixtureAtlas {
         }
     }
 
+    /** A sampled-metric entry that exits by throwing; the entry stack sample must still land. */
+    public void throwingUpdate(final boolean force, final Object progress) {
+        calls++;
+        throw new IllegalStateException("fixture update failure");
+    }
+
+    /** Unwoven recursion deep enough to overflow the stack-sample depth cap. */
+    public void deepDrive(final int remaining) {
+        if (remaining <= 0) {
+            updateTexture(true, null);
+            return;
+        }
+        deepDrive(remaining - 1);
+    }
+
     public abstract static class AbstractBase {
         public abstract void notConcrete();
     }
