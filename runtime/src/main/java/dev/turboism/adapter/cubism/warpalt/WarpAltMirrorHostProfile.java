@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.Map;
@@ -91,25 +92,7 @@ public record WarpAltMirrorHostProfile(
     private static final String STRIP = "com/live2d/cubism/view/context/a/b";
     private static final String GREEN_TICK = "com/live2d/cubism/doc/model/deformer/warp/a$b";
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = Map.of(
-            ReviewedHostArtifacts.CUBISM_5_2_03_VERSION,
-                    Map.of(
-                            WARP_POINT_REF, "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-                            DRAG_TICK, "1b22a324345a3f537804684c0e96044264c92de0e5da5fa85d1333351ff953eb",
-                            STRIP, "7a64d696813b44dda628487c4c47c64a9ebf99cc8bc00df01432ab8f64fc0293",
-                            GREEN_TICK, "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51"),
-            ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
-                    Map.of(
-                            WARP_POINT_REF, "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-                            DRAG_TICK, "60db25516b5466387b9f60550a24fde61c6b963b66f61e83827ea750ca48a7e6",
-                            STRIP, "f212f2797f104f2a45e4c596101c49d4b484e9cb7b2dc289412f3424135d9566",
-                            GREEN_TICK, "67aeb05e99486a9851c21d098c4d325bee106e805038037d85ca9038f0a7a271"),
-            ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
-                    Map.of(
-                            WARP_POINT_REF, "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-                            DRAG_TICK, "02f046569d3c3c83bc06cbac68dc62b3218f243bf473043c65822e1f94599e3e",
-                            STRIP, "bc29a9bca6a09b0aceeb7b61f0b68170c558870db7beec1f06ef142861d5bec4",
-                            GREEN_TICK, "d85901df5f0ae742ee7cb3d8019295240d9d9ca3d9c6deb59b8a75c50286a56a"));
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = ClassPinTable.load("warp-alt-mirror");
 
     /**
      * 5.2.03 uses a different obfuscation generation for the strip mount pass
