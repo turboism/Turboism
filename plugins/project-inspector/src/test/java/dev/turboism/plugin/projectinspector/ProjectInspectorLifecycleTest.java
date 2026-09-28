@@ -296,6 +296,7 @@ class ProjectInspectorLifecycleTest {
                         case "disposableScope" -> scope;
                         case "permissions" -> List.of();
                         case "toString" -> "FakePluginContext";
+                        case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
                         default -> null;
                     });
             plugin.init(context);

@@ -85,7 +85,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
             initialized = true;
         }
         final Registration panel =
-                context.services().get(UiHostCapabilityService.class).contributeEmbeddedPanel(embeddedPanel());
+                context.services().require(UiHostCapabilityService.class).contributeEmbeddedPanel(embeddedPanel());
         context.disposableScope().register(panel);
         context.disposableScope().register(this::stopSampling);
         context.disposableScope().register(this::disposeWindow);
@@ -175,7 +175,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
                 return;
             }
         }
-        final PerformanceProbeService stats = context.services().get(PerformanceProbeService.class);
+        final PerformanceProbeService stats = context.services().require(PerformanceProbeService.class);
         sampling = stats.sample(SAMPLE_INTERVAL, this::onSnapshot);
         synchronized (lifecycleLock) {
             enabled = true;
@@ -269,7 +269,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
             }
         }
         final Registration next = context.services()
-                .get(UiHostCapabilityService.class)
+                .require(UiHostCapabilityService.class)
                 .notifyStatus(new StatusNotification(
                         CPU_STATUS_ID, CPU_STATUS_SEVERITY, message, StatusNotification.Presentation.COMPACT_METRIC));
         final Registration previous;

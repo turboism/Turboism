@@ -61,8 +61,10 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         this.context = Objects.requireNonNull(context, "context");
         cacheIndex = new PreviewCacheIndex(context.storage());
         controller = new RecentPreviewController(
-                context.services().get(RecentFileService.class),
-                context.services().get(ScreenshotCaptureService.class),
+                java.util.Optional.ofNullable(context.services().get(RecentFileService.class))
+                        .orElseGet(RecentFileService::unavailable),
+                java.util.Optional.ofNullable(context.services().get(ScreenshotCaptureService.class))
+                        .orElseGet(ScreenshotCaptureService::unavailable),
                 cacheIndex);
         renderer =
                 new RecentPreviewRendererImpl(controller, this::requestCapture, context.logger(), loadingText(context));
@@ -295,7 +297,9 @@ public final class RecentPreviewPlugin implements CubismPlugin {
     }
 
     private void refreshPopup() {
-        final RecentPreviewContributionService service = context.services().get(RecentPreviewContributionService.class);
+        final RecentPreviewContributionService service = java.util.Optional.ofNullable(
+                        context.services().get(RecentPreviewContributionService.class))
+                .orElseGet(RecentPreviewContributionService::unavailable);
         try {
             service.refresh();
         } catch (RuntimeException unavailable) {
@@ -311,8 +315,9 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         if (active == null) return;
         try {
             contribution = context.disposableScope()
-                    .register(context.services()
-                            .get(RecentPreviewContributionService.class)
+                    .register(java.util.Optional.ofNullable(
+                                    context.services().get(RecentPreviewContributionService.class))
+                            .orElseGet(RecentPreviewContributionService::unavailable)
                             .contribute(active));
         } catch (RuntimeException unavailable) {
             // Safe mode / missing bridge: no popup contribution, capture still works.

@@ -45,7 +45,7 @@ public final class McpPlugin implements TurboismPlugin {
         Registration menu = null;
         try {
             publication = context.services()
-                    .get(McpConnectionService.class)
+                    .require(McpConnectionService.class)
                     .publish(new McpHttpConnection(started.endpoint(), McpProtocol.VERSION));
             action = context.actions().register(CONNECTION_ACTION_ID, connectionAction());
             menu = context.menus().contribute(connectionMenu());

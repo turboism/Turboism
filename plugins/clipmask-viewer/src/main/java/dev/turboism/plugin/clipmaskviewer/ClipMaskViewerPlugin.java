@@ -146,7 +146,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         final PanelView content =
                 PanelView.column(PanelView.button(BUTTON_ID, localization.text("button.open"), OPEN_VIEWER_ACTION_ID));
         return context.services()
-                .get(UiHostCapabilityService.class)
+                .require(UiHostCapabilityService.class)
                 .contributeCollapsibleSection(new CollapsibleSectionContribution(
                         EmbeddedPanelId.of(TURBOISM_PANEL_ID),
                         SECTION_ID,
@@ -233,7 +233,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         final List<ClipMaskRecord> records;
         try {
             records = List.copyOf(
-                    context.services().get(CubismClipMaskService.class).collectClipMaskRecords());
+                    context.services().require(CubismClipMaskService.class).collectClipMaskRecords());
         } catch (RuntimeException failure) {
             logger.warn("Clip Mask Viewer host snapshot failed safely: " + failure.getMessage());
             applyFailure(requestGeneration, expectedView);

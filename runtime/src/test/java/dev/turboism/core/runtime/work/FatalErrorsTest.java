@@ -28,9 +28,24 @@ class FatalErrorsTest {
     }
 
     @Test
+    void restoresInterruptFlagForInterruptedException() {
+        try {
+            FatalErrors.rethrowIfFatal(new InterruptedException("probe"));
+            assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted();
+        }
+        assertFalse(Thread.currentThread().isInterrupted());
+    }
+
+    @Test
     void returnsForContainableThrowables() {
         assertDoesNotThrow(() -> FatalErrors.rethrowIfFatal(new RuntimeException("probe")));
-        assertDoesNotThrow(() -> FatalErrors.rethrowIfFatal(new InterruptedException("probe")));
+        try {
+            assertDoesNotThrow(() -> FatalErrors.rethrowIfFatal(new InterruptedException("probe")));
+        } finally {
+            Thread.interrupted();
+        }
         assertDoesNotThrow(() -> FatalErrors.rethrowIfFatal(new LinkageError("probe")));
         assertDoesNotThrow(() -> FatalErrors.rethrowIfFatal(new AssertionError("probe")));
     }

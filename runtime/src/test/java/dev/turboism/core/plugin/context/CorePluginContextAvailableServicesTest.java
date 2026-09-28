@@ -246,6 +246,7 @@ class CorePluginContextAvailableServicesTest {
      * {@code unavailable()} sentinel.
      */
     @Test
+    @SuppressWarnings("deprecation") // Exercises the deprecated accessor bridges deliberately.
     void unconditionalMembersAreBackedByRealImplementations() {
         final CorePluginContext context = new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
         assertTrue(context.meshMirrorAxis().isAvailable());

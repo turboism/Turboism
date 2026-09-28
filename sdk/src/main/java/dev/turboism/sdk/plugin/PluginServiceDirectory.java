@@ -35,4 +35,24 @@ public interface PluginServiceDirectory {
      * @return the installed service object, or {@code null} when absent
      */
     <T> T get(Class<T> serviceType);
+
+    /**
+     * Returns the service registered for {@code serviceType}, throwing a structured
+     * {@link PluginServiceUnavailableException} when it is absent. Use this where the
+     * service is required — it preserves the typed-failure behavior the pre-directory
+     * unavailable sentinels provided, instead of surfacing a {@link NullPointerException}
+     * at the first dereference.
+     *
+     * @param <T> the service interface type
+     * @param serviceType the service interface to resolve
+     * @return the installed service object, never {@code null}
+     * @throws PluginServiceUnavailableException when the service is absent
+     */
+    default <T> T require(final Class<T> serviceType) {
+        final T service = get(serviceType);
+        if (service == null) {
+            throw new PluginServiceUnavailableException(serviceType, PluginService.forType(serviceType));
+        }
+        return service;
+    }
 }

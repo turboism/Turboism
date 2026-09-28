@@ -50,7 +50,10 @@ public final class ParameterPlugin implements CubismPlugin {
         this.logger = context.logger();
         this.localization = localization(context);
         this.csvService = new ParameterCsvService(
-                context.cubism(), context, context.services().get(UiHostCapabilityService.class), csvContentProvider);
+                context.cubism(),
+                context,
+                context.services().require(UiHostCapabilityService.class),
+                csvContentProvider);
         logger.info("ParameterPlugin initialized");
     }
 
@@ -148,7 +151,7 @@ public final class ParameterPlugin implements CubismPlugin {
             final int priority) {
         context.disposableScope()
                 .register(context.services()
-                        .get(ContextMenuRegistry.class)
+                        .require(ContextMenuRegistry.class)
                         .contribute(new ContextMenuRegistry.ContextMenuContribution(
                                 id, TRANSFER_BINDINGS_ACTION_ID, label, null, location, objectKinds, priority)));
     }
@@ -193,7 +196,7 @@ public final class ParameterPlugin implements CubismPlugin {
         final ParameterId destination = resolveDestinationParameter(source, model, snapshot, contextMenuSelection);
         if (contextMenuSelection != null
                 && !context.services()
-                        .get(UiHostCapabilityService.class)
+                        .require(UiHostCapabilityService.class)
                         .confirmDialog(new DialogRequest(
                                 "parameter.bindings.transfer.confirm",
                                 text("parameter.bindings.transfer"),
@@ -203,7 +206,7 @@ public final class ParameterPlugin implements CubismPlugin {
         }
         final boolean invert = contextMenuSelection == null
                 || context.services()
-                        .get(UiHostCapabilityService.class)
+                        .require(UiHostCapabilityService.class)
                         .confirmDialog(new DialogRequest(
                                 "parameter.bindings.transfer.invert.confirm",
                                 text("parameter.bindings.transfer"),

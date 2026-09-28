@@ -61,7 +61,7 @@ public final class BoundingBoxWarpMirrorPlugin implements TurboismPlugin {
         try {
             context.disposableScope()
                     .register(context.services()
-                            .get(UiHostCapabilityService.class)
+                            .require(UiHostCapabilityService.class)
                             .contributeBoundingBoxOverlayButton(new BoundingBoxOverlayButton(
                                     OVERLAY_BUTTON_ID,
                                     context.localization().text("overlay.tooltip"),
