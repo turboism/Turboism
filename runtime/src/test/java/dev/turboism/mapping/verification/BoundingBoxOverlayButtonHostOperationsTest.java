@@ -1,16 +1,18 @@
 package dev.turboism.mapping.verification;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.ui.overlay.BoundingBoxOverlayButtonDescriptor;
 import dev.turboism.ui.overlay.VerifiedBoundingBoxOverlayButtonHostOperations;
-import dev.turboism.ui.overlay.NativeBoundingBoxOverlayButtonBridge;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.URL;
@@ -20,14 +22,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.imageio.ImageIO;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Executable coverage for {@link VerifiedBoundingBoxOverlayButtonHostOperations} ordering,
@@ -70,10 +68,7 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         for (int index = 0; index < 9; index++) {
             nine.add(descriptor("plugin.overlay", "button-" + index, index));
         }
-        final IllegalArgumentException failure = assertThrows(
-            IllegalArgumentException.class,
-            () -> host.install(nine)
-        );
+        final IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> host.install(nine));
         assertTrue(failure.getMessage().contains("8"));
     }
 
@@ -81,10 +76,8 @@ class BoundingBoxOverlayButtonHostOperationsTest {
     void returnsCachedArrayInStableOrderAndReusesIdentitiesAcrossSnapshots() {
         final BoundingBoxOverlayButton first = button("first", 10);
         final BoundingBoxOverlayButton second = button("second", 20);
-        final Registration registration = install(List.of(
-            descriptor("plugin.overlay", first),
-            descriptor("plugin.overlay", second)
-        ));
+        final Registration registration =
+                install(List.of(descriptor("plugin.overlay", first), descriptor("plugin.overlay", second)));
 
         final Object overlay = new OverlayHost();
         final Object scene = new SceneGraph();
@@ -107,11 +100,12 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         // A changed contribution snapshot retains the live registration: unchanged button
         // identities are reused and only the new identity creates an entity.
         final BoundingBoxOverlayButton third = button("third", 30);
-        final Registration reconciled = host.reconcile(List.of(
-            descriptor("plugin.overlay", first),
-            descriptor("plugin.overlay", second),
-            descriptor("plugin.overlay", third)
-        ), registration);
+        final Registration reconciled = host.reconcile(
+                List.of(
+                        descriptor("plugin.overlay", first),
+                        descriptor("plugin.overlay", second),
+                        descriptor("plugin.overlay", third)),
+                registration);
         assertSame(registration, reconciled, "reconcile must retain the native registration");
 
         final Object[] snapshot = host.customButtonEntities(overlay, scene);
@@ -128,17 +122,13 @@ class BoundingBoxOverlayButtonHostOperationsTest {
     void removedContributionIsDetachedImmediatelyAndStaysOutOfTheArray() {
         final BoundingBoxOverlayButton first = button("first", 10);
         final BoundingBoxOverlayButton second = button("second", 20);
-        final Registration registration = install(List.of(
-            descriptor("plugin.overlay", first),
-            descriptor("plugin.overlay", second)
-        ));
+        final Registration registration =
+                install(List.of(descriptor("plugin.overlay", first), descriptor("plugin.overlay", second)));
         final Object overlay = new OverlayHost();
         final Object scene = new SceneGraph();
         final Object[] initial = host.customButtonEntities(overlay, scene);
         final Object removed = initial[1];
-        host.reconcile(List.of(
-            descriptor("plugin.overlay", first)
-        ), registration);
+        host.reconcile(List.of(descriptor("plugin.overlay", first)), registration);
 
         final Object[] snapshot = host.customButtonEntities(overlay, scene);
         assertEquals(1, snapshot.length);
@@ -178,9 +168,7 @@ class BoundingBoxOverlayButtonHostOperationsTest {
     @Test
     void closeDisablesDetachesEveryCustomEntityAndClearsTheSideTable() {
         final Registration registration = install(List.of(
-            descriptor("plugin.overlay", button("first", 10)),
-            descriptor("plugin.overlay", button("second", 20))
-        ));
+                descriptor("plugin.overlay", button("first", 10)), descriptor("plugin.overlay", button("second", 20))));
         final Object overlay = new OverlayHost();
         final Object scene = new SceneGraph();
         final Object[] buttons = host.customButtonEntities(overlay, scene);
@@ -204,18 +192,14 @@ class BoundingBoxOverlayButtonHostOperationsTest {
 
         // Close is idempotent for the side table and the bridge is reusable.
         registration.close();
-        try (Registration ignored = host.install(List.of(
-            descriptor("plugin.overlay", button("third", 30))
-        ))) {
+        try (Registration ignored = host.install(List.of(descriptor("plugin.overlay", button("third", 30))))) {
             assertEquals(1, host.customButtonEntities(overlay, scene).length);
         }
     }
 
     @Test
     void overlayChurnBoundsTheSideTableAndDetachesEvictedButtons() {
-        final Registration registration = install(List.of(
-            descriptor("plugin.overlay", button("only", 10))
-        ));
+        final Registration registration = install(List.of(descriptor("plugin.overlay", button("only", 10))));
         final Object scene = new SceneGraph();
         final List<Object> buttons = new ArrayList<>();
 
@@ -232,15 +216,12 @@ class BoundingBoxOverlayButtonHostOperationsTest {
             final Object button = buttons.get(index);
             if (index < 4) {
                 assertTrue(
-                    SceneGraph.REMOVED_VOLATILE.contains(button),
-                    "evicted overlay " + index + " detaches its button"
-                );
+                        SceneGraph.REMOVED_VOLATILE.contains(button),
+                        "evicted overlay " + index + " detaches its button");
                 assertTrue(Entities.REMOVED.contains(button));
             } else {
                 assertFalse(
-                    SceneGraph.REMOVED_VOLATILE.contains(button),
-                    "cached overlay " + index + " keeps its button"
-                );
+                        SceneGraph.REMOVED_VOLATILE.contains(button), "cached overlay " + index + " keeps its button");
             }
         }
         registration.close();
@@ -248,9 +229,7 @@ class BoundingBoxOverlayButtonHostOperationsTest {
 
     @Test
     void anEvictedOverlayRebuildsFreshButtonsOnItsNextUpdate() {
-        final Registration registration = install(List.of(
-            descriptor("plugin.overlay", button("only", 10))
-        ));
+        final Registration registration = install(List.of(descriptor("plugin.overlay", button("only", 10))));
         final Object scene = new SceneGraph();
         final Object overlayA = new OverlayHost();
         final Object firstButton = host.customButtonEntities(overlayA, scene)[0];
@@ -259,9 +238,8 @@ class BoundingBoxOverlayButtonHostOperationsTest {
             host.customButtonEntities(new OverlayHost(), scene);
         }
         assertTrue(
-            SceneGraph.REMOVED_VOLATILE.contains(firstButton),
-            "the eldest overlay was evicted once the table exceeded the bound"
-        );
+                SceneGraph.REMOVED_VOLATILE.contains(firstButton),
+                "the eldest overlay was evicted once the table exceeded the bound");
 
         final Object[] rebuilt = host.customButtonEntities(overlayA, scene);
         assertEquals(1, rebuilt.length);
@@ -271,14 +249,11 @@ class BoundingBoxOverlayButtonHostOperationsTest {
 
     @Test
     void removedContributionListenerIsClickInertImmediatelyBeforeAnyNativeUpdate() {
-        final java.util.concurrent.atomic.AtomicInteger clicks =
-            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger clicks = new java.util.concurrent.atomic.AtomicInteger();
         final BoundingBoxOverlayButton first = button("first", 10, clicks::incrementAndGet);
         final BoundingBoxOverlayButton second = button("second", 20);
-        final Registration registration = install(List.of(
-            descriptor("plugin.overlay", first),
-            descriptor("plugin.overlay", second)
-        ));
+        final Registration registration =
+                install(List.of(descriptor("plugin.overlay", first), descriptor("plugin.overlay", second)));
         final Object overlay = new OverlayHost();
         final Object scene = new SceneGraph();
         final Object[] initial = host.customButtonEntities(overlay, scene);
@@ -312,8 +287,7 @@ class BoundingBoxOverlayButtonHostOperationsTest {
 
     @Test
     void staleClickProxyCannotReactivateAcrossBridgeGenerations() {
-        final java.util.concurrent.atomic.AtomicInteger clicks =
-            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger clicks = new java.util.concurrent.atomic.AtomicInteger();
         final BoundingBoxOverlayButton button = button("same", 10, clicks::incrementAndGet);
         final BoundingBoxOverlayButtonDescriptor descriptor = descriptor("plugin.overlay", button);
         final Object overlay = new OverlayHost();
@@ -341,14 +315,12 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         System.getProperties().put(property, external);
         try {
             assertThrows(
-                IllegalStateException.class,
-                () -> host.install(List.of(descriptor("plugin.overlay", "rejected", 10)))
-            );
+                    IllegalStateException.class,
+                    () -> host.install(List.of(descriptor("plugin.overlay", "rejected", 10))));
             assertEquals(
-                0,
-                host.customButtonEntities(new OverlayHost(), new SceneGraph()).length,
-                "failed installation must not leave a partial descriptor snapshot"
-            );
+                    0,
+                    host.customButtonEntities(new OverlayHost(), new SceneGraph()).length,
+                    "failed installation must not leave a partial descriptor snapshot");
             assertSame(external, System.getProperties().get(property));
         } finally {
             System.getProperties().remove(property, external);
@@ -356,10 +328,9 @@ class BoundingBoxOverlayButtonHostOperationsTest {
 
         registration = host.install(List.of(descriptor("plugin.overlay", "accepted", 10)));
         assertEquals(
-            1,
-            host.customButtonEntities(new OverlayHost(), new SceneGraph()).length,
-            "bridge remains reusable after the rejected installation"
-        );
+                1,
+                host.customButtonEntities(new OverlayHost(), new SceneGraph()).length,
+                "bridge remains reusable after the rejected installation");
     }
 
     @Test
@@ -376,10 +347,8 @@ class BoundingBoxOverlayButtonHostOperationsTest {
 
         final List<BoundingBoxOverlayButtonDescriptor> nine = new ArrayList<>(eight);
         nine.add(descriptor("plugin.overlay", "button-9", 9));
-        final IllegalArgumentException failure = assertThrows(
-            IllegalArgumentException.class,
-            () -> host.reconcile(nine, registration)
-        );
+        final IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> host.reconcile(nine, registration));
         assertTrue(failure.getMessage().contains("8"));
 
         // Validation happens before mutation: the previous snapshot and live registration
@@ -399,9 +368,7 @@ class BoundingBoxOverlayButtonHostOperationsTest {
     @Test
     void closeCleansEveryEntityAndSurfacesAggregatedResolverFailures() {
         final Registration registration = install(List.of(
-            descriptor("plugin.overlay", button("first", 10)),
-            descriptor("plugin.overlay", button("second", 20))
-        ));
+                descriptor("plugin.overlay", button("first", 10)), descriptor("plugin.overlay", button("second", 20))));
         final Object overlay = new OverlayHost();
         final Object scene = new SceneGraph();
         final Object[] buttons = host.customButtonEntities(overlay, scene);
@@ -410,10 +377,7 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         // The first entity's volatile removal fails on close.
         SceneGraph.POISONED.add(first);
 
-        final IllegalStateException failure = assertThrows(
-            IllegalStateException.class,
-            registration::close
-        );
+        final IllegalStateException failure = assertThrows(IllegalStateException.class, registration::close);
         assertTrue(failure.getMessage().contains("cleanup"));
 
         // Later operations on the failing entity were still attempted: disable ran and the
@@ -433,31 +397,23 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         // The side table is cleared and the bridge properties are identity-removed even
         // though cleanup failed: the failure is observable and nothing is left installed.
         assertEquals(0, host.customButtonEntities(overlay, scene).length);
-        assertNull(System.getProperties().get(
-            "turboism.bounding-box-overlay.buttons"
-        ));
-        assertNull(System.getProperties().get(
-            "turboism.bounding-box-overlay.setup-failure"
-        ));
-        try (Registration ignored = host.install(List.of(
-            descriptor("plugin.overlay", button("third", 30))
-        ))) {
+        assertNull(System.getProperties().get("turboism.bounding-box-overlay.buttons"));
+        assertNull(System.getProperties().get("turboism.bounding-box-overlay.setup-failure"));
+        try (Registration ignored = host.install(List.of(descriptor("plugin.overlay", button("third", 30))))) {
             assertEquals(1, host.customButtonEntities(overlay, scene).length);
         }
     }
 
     @Test
     void removedEntityDetachFailureAttemptsEveryRemovedEntityAndSurfacesTheAggregation() {
-        final java.util.concurrent.atomic.AtomicInteger clicks =
-            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger clicks = new java.util.concurrent.atomic.AtomicInteger();
         final BoundingBoxOverlayButton first = button("first", 10);
         final BoundingBoxOverlayButton second = button("second", 20, clicks::incrementAndGet);
         final BoundingBoxOverlayButton third = button("third", 30);
         final Registration registration = install(List.of(
-            descriptor("plugin.overlay", first),
-            descriptor("plugin.overlay", second),
-            descriptor("plugin.overlay", third)
-        ));
+                descriptor("plugin.overlay", first),
+                descriptor("plugin.overlay", second),
+                descriptor("plugin.overlay", third)));
         final Object overlay = new OverlayHost();
         final Object scene = new SceneGraph();
         final Object[] initial = host.customButtonEntities(overlay, scene);
@@ -468,10 +424,8 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         // The second removed entity's volatile removal fails during the rebuild detach.
         SceneGraph.POISONED.add(removedB);
 
-        final IllegalStateException failure = assertThrows(
-            IllegalStateException.class,
-            () -> host.customButtonEntities(overlay, scene)
-        );
+        final IllegalStateException failure =
+                assertThrows(IllegalStateException.class, () -> host.customButtonEntities(overlay, scene));
         assertTrue(failure.getMessage().contains("cleanup"));
 
         // Every removed entity was still attempted even though one detach failed: disable
@@ -509,10 +463,8 @@ class BoundingBoxOverlayButtonHostOperationsTest {
     void failedRebuildDetachesItsCreatedEntitiesAndKeepsThePriorCacheRetryable() {
         final BoundingBoxOverlayButton first = button("first", 10);
         final BoundingBoxOverlayButton second = button("second", 20);
-        final Registration registration = install(List.of(
-            descriptor("plugin.overlay", first),
-            descriptor("plugin.overlay", second)
-        ));
+        final Registration registration =
+                install(List.of(descriptor("plugin.overlay", first), descriptor("plugin.overlay", second)));
         final Object overlay = new OverlayHost();
         final Object scene = new SceneGraph();
         final Object[] initial = host.customButtonEntities(overlay, scene);
@@ -521,16 +473,15 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         // The rebuild creates the third button's entity and then fails creating the fourth
         // (its icon resource is missing). The created entity must not leak untracked.
         final BoundingBoxOverlayButton third = button("third", 30);
-        host.reconcile(List.of(
-            descriptor("plugin.overlay", first),
-            descriptor("plugin.overlay", third),
-            descriptor("plugin.overlay", buttonWithMissingIcon("broken", 40))
-        ), registration);
+        host.reconcile(
+                List.of(
+                        descriptor("plugin.overlay", first),
+                        descriptor("plugin.overlay", third),
+                        descriptor("plugin.overlay", buttonWithMissingIcon("broken", 40))),
+                registration);
 
-        final IllegalStateException failure = assertThrows(
-            IllegalStateException.class,
-            () -> host.customButtonEntities(overlay, scene)
-        );
+        final IllegalStateException failure =
+                assertThrows(IllegalStateException.class, () -> host.customButtonEntities(overlay, scene));
         assertTrue(failure.getMessage().contains("icon"));
 
         final Object created = OverlayHost.CREATED.get(2);
@@ -543,10 +494,7 @@ class BoundingBoxOverlayButtonHostOperationsTest {
 
         // The prior cached state stays available: dropping the broken contribution lets the
         // next native update retry and rebuild successfully.
-        host.reconcile(List.of(
-            descriptor("plugin.overlay", first),
-            descriptor("plugin.overlay", third)
-        ), registration);
+        host.reconcile(List.of(descriptor("plugin.overlay", first), descriptor("plugin.overlay", third)), registration);
         final Object[] snapshot = host.customButtonEntities(overlay, scene);
         assertEquals(2, snapshot.length);
         assertSame(kept, snapshot[0]);
@@ -559,34 +507,28 @@ class BoundingBoxOverlayButtonHostOperationsTest {
     void creationFailureAttachesCleanupFailuresOfAlreadyCreatedEntities() {
         final BoundingBoxOverlayButton first = button("first", 10);
         final BoundingBoxOverlayButton second = button("second", 20);
-        final Registration registration = install(List.of(
-            descriptor("plugin.overlay", first),
-            descriptor("plugin.overlay", second)
-        ));
+        final Registration registration =
+                install(List.of(descriptor("plugin.overlay", first), descriptor("plugin.overlay", second)));
         final Object overlay = new OverlayHost();
         final Object scene = new SceneGraph();
         host.customButtonEntities(overlay, scene);
 
         final BoundingBoxOverlayButton third = button("third", 30);
-        host.reconcile(List.of(
-            descriptor("plugin.overlay", first),
-            descriptor("plugin.overlay", third),
-            descriptor("plugin.overlay", buttonWithMissingIcon("broken", 40))
-        ), registration);
+        host.reconcile(
+                List.of(
+                        descriptor("plugin.overlay", first),
+                        descriptor("plugin.overlay", third),
+                        descriptor("plugin.overlay", buttonWithMissingIcon("broken", 40))),
+                registration);
         // The entity this rebuild creates (the third entity, created index 2) fails its own
         // volatile removal during the created-entity cleanup.
         OverlayHost.poisonCreatedIndex = 2;
 
-        final IllegalStateException failure = assertThrows(
-            IllegalStateException.class,
-            () -> host.customButtonEntities(overlay, scene)
-        );
+        final IllegalStateException failure =
+                assertThrows(IllegalStateException.class, () -> host.customButtonEntities(overlay, scene));
         final Object created = OverlayHost.CREATED.get(2);
         assertTrue(failure.getMessage().contains("icon"));
-        assertTrue(
-            failure.getSuppressed().length >= 1,
-            "cleanup failures attach to the primary creation failure"
-        );
+        assertTrue(failure.getSuppressed().length >= 1, "cleanup failures attach to the primary creation failure");
         assertTrue(failure.getSuppressed()[0].getMessage().contains("cleanup"));
         // Disable was still attempted on the created entity before the volatile failure.
         assertTrue(Entity.ENABLED.stream().anyMatch(call -> {
@@ -613,10 +555,8 @@ class BoundingBoxOverlayButtonHostOperationsTest {
 
         // The empty-snapshot cleanup attempts every cached entity, clears the side table
         // and surfaces the aggregated failure through the fail-open diagnostic channel.
-        final IllegalStateException failure = assertThrows(
-            IllegalStateException.class,
-            () -> host.customButtonEntities(overlay, scene)
-        );
+        final IllegalStateException failure =
+                assertThrows(IllegalStateException.class, () -> host.customButtonEntities(overlay, scene));
         assertTrue(failure.getMessage().contains("cleanup"));
         assertTrue(Entity.ENABLED.stream().anyMatch(call -> {
             final Object[] entry = (Object[]) call;
@@ -628,6 +568,7 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         assertEquals(0, host.customButtonEntities(overlay, scene).length);
         registration.close();
     }
+
     @Test
     void type4ByteAbgrIconsReachTheHostConstructorNormalizedToTypeIntArgb() throws Exception {
         // The production rejection shape: ImageIO decodes common 8-bit RGBA PNGs (the
@@ -642,23 +583,20 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         final Path icon = Files.createTempFile("turboism-overlay-icon-abgr-", ".png");
         assertTrue(ImageIO.write(source, "png", icon.toFile()), "PNG writer must accept the ABGR fixture");
         assertEquals(
-            BufferedImage.TYPE_4BYTE_ABGR,
-            ImageIO.read(icon.toUri().toURL()).getType(),
-            "the fixture must decode as TYPE_4BYTE_ABGR, the rejected production shape"
-        );
+                BufferedImage.TYPE_4BYTE_ABGR,
+                ImageIO.read(icon.toUri().toURL()).getType(),
+                "the fixture must decode as TYPE_4BYTE_ABGR, the rejected production shape");
 
         final URL iconUrl = icon.toUri().toURL();
-        registry.register("plugin.overlay.abgr", new ClassLoader(
-            BoundingBoxOverlayButtonHostOperationsTest.class.getClassLoader()
-        ) {
-            @Override
-            public URL getResource(final String name) {
-                return "icons/fit.png".equals(name) ? iconUrl : super.getResource(name);
-            }
-        });
-        final Registration registration = install(List.of(
-            descriptor("plugin.overlay.abgr", button("first", 10))
-        ));
+        registry.register(
+                "plugin.overlay.abgr",
+                new ClassLoader(BoundingBoxOverlayButtonHostOperationsTest.class.getClassLoader()) {
+                    @Override
+                    public URL getResource(final String name) {
+                        return "icons/fit.png".equals(name) ? iconUrl : super.getResource(name);
+                    }
+                });
+        final Registration registration = install(List.of(descriptor("plugin.overlay.abgr", button("first", 10))));
         final Object overlay = new OverlayHost();
         final Object scene = new SceneGraph();
         host.customButtonEntities(overlay, scene);
@@ -682,161 +620,121 @@ class BoundingBoxOverlayButtonHostOperationsTest {
 
     private static BoundingBoxOverlayButton buttonWithMissingIcon(final String id, final int order) {
         return new BoundingBoxOverlayButton(
-            id,
-            "Overlay button " + id,
-            new BoundingBoxOverlayButton.IconVariants(
-                "icons/missing.png",
-                Optional.of("icons/fit.png"),
-                Optional.empty(),
-                Optional.empty()
-            ),
-            order,
-            () -> { }
-        );
+                id,
+                "Overlay button " + id,
+                new BoundingBoxOverlayButton.IconVariants(
+                        "icons/missing.png", Optional.of("icons/fit.png"), Optional.empty(), Optional.empty()),
+                order,
+                () -> {});
     }
 
     private static BoundingBoxOverlayButtonDescriptor descriptor(
-        final String pluginId,
-        final BoundingBoxOverlayButton button
-    ) {
+            final String pluginId, final BoundingBoxOverlayButton button) {
         return new BoundingBoxOverlayButtonDescriptor(pluginId, button);
     }
 
     private static BoundingBoxOverlayButtonDescriptor descriptor(
-        final String pluginId,
-        final String id,
-        final int order
-    ) {
+            final String pluginId, final String id, final int order) {
         return new BoundingBoxOverlayButtonDescriptor(pluginId, button(id, order));
     }
 
     private static BoundingBoxOverlayButton button(final String id, final int order) {
         return new BoundingBoxOverlayButton(
-            id,
-            "Overlay button " + id,
-            new BoundingBoxOverlayButton.IconVariants(
-                "icons/fit.png",
-                Optional.of("icons/fit.png"),
-                Optional.empty(),
-                Optional.empty()
-            ),
-            order,
-            () -> { }
-        );
+                id,
+                "Overlay button " + id,
+                new BoundingBoxOverlayButton.IconVariants(
+                        "icons/fit.png", Optional.of("icons/fit.png"), Optional.empty(), Optional.empty()),
+                order,
+                () -> {});
     }
 
-    private static BoundingBoxOverlayButton button(
-        final String id,
-        final int order,
-        final Runnable onClick
-    ) {
+    private static BoundingBoxOverlayButton button(final String id, final int order, final Runnable onClick) {
         return new BoundingBoxOverlayButton(
-            id,
-            "Overlay button " + id,
-            new BoundingBoxOverlayButton.IconVariants(
-                "icons/fit.png",
-                Optional.of("icons/fit.png"),
-                Optional.empty(),
-                Optional.empty()
-            ),
-            order,
-            onClick
-        );
+                id,
+                "Overlay button " + id,
+                new BoundingBoxOverlayButton.IconVariants(
+                        "icons/fit.png", Optional.of("icons/fit.png"), Optional.empty(), Optional.empty()),
+                order,
+                onClick);
     }
-
 
     private static VerifiedMemberResolver resolver() {
         return new VerifiedMemberResolver(
-            plan(
-                StaticSelector.method(
-                    "cubism.ui-bounding-box-overlay.button.create",
-                    internalName(OverlayHost.class),
-                    "createButton",
-                    "(L" + internalName(IconSet.class) + ";L" + internalName(Click.class)
-                        + ";)L" + internalName(ButtonEntity.class) + ";",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "cubism.ui-bounding-box-overlay.button.set-enabled",
-                    internalName(Entity.class),
-                    "setEnabled",
-                    "(Z)V",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "cubism.ui-bounding-box-overlay.scene.component-objects",
-                    internalName(SceneGraph.class),
-                    "getObjectsOnComponent",
-                    "()L" + internalName(Entity.class) + ";",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "cubism.ui-bounding-box-overlay.entity.children",
-                    internalName(Entity.class),
-                    "getChildren",
-                    "()L" + internalName(Entities.class) + ";",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "cubism.ui-bounding-box-overlay.scene.remove-volatile",
-                    internalName(SceneGraph.class),
-                    "removeVolatileEntity",
-                    "(L" + internalName(Entity.class) + ";)V",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "cubism.ui-bounding-box-overlay.entities.remove",
-                    internalName(Entities.class),
-                    "remove",
-                    "(L" + internalName(Entity.class) + ";)V",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.constructor(
-                    "cubism.ui-bounding-box-overlay.writable-image.create",
-                    internalName(WritableImage.class),
-                    "(Ljava/awt/image/BufferedImage;)V",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.constructor(
-                    "cubism.ui-bounding-box-overlay.icon-set.create",
-                    internalName(IconSet.class),
-                    "(" + ("L" + internalName(WritableImage.class) + ";").repeat(7) + ")V",
-                    StaticSelector.ACCESS_PUBLIC
-                )
-            ),
-            BoundingBoxOverlayButtonHostOperationsTest.class.getClassLoader()
-        );
+                plan(
+                        StaticSelector.method(
+                                "cubism.ui-bounding-box-overlay.button.create",
+                                internalName(OverlayHost.class),
+                                "createButton",
+                                "(L" + internalName(IconSet.class) + ";L" + internalName(Click.class) + ";)L"
+                                        + internalName(ButtonEntity.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-bounding-box-overlay.button.set-enabled",
+                                internalName(Entity.class),
+                                "setEnabled",
+                                "(Z)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-bounding-box-overlay.scene.component-objects",
+                                internalName(SceneGraph.class),
+                                "getObjectsOnComponent",
+                                "()L" + internalName(Entity.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-bounding-box-overlay.entity.children",
+                                internalName(Entity.class),
+                                "getChildren",
+                                "()L" + internalName(Entities.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-bounding-box-overlay.scene.remove-volatile",
+                                internalName(SceneGraph.class),
+                                "removeVolatileEntity",
+                                "(L" + internalName(Entity.class) + ";)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.ui-bounding-box-overlay.entities.remove",
+                                internalName(Entities.class),
+                                "remove",
+                                "(L" + internalName(Entity.class) + ";)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.constructor(
+                                "cubism.ui-bounding-box-overlay.writable-image.create",
+                                internalName(WritableImage.class),
+                                "(Ljava/awt/image/BufferedImage;)V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.constructor(
+                                "cubism.ui-bounding-box-overlay.icon-set.create",
+                                internalName(IconSet.class),
+                                "(" + ("L" + internalName(WritableImage.class) + ";").repeat(7) + ")V",
+                                StaticSelector.ACCESS_PUBLIC)),
+                BoundingBoxOverlayButtonHostOperationsTest.class.getClassLoader());
     }
 
     private static VerifiedAccessPlan plan(final StaticSelector... selectors) {
         final HostArtifactFingerprint fingerprint = new HostArtifactFingerprint("5.3.02", 1, "a".repeat(64));
         final StaticVerificationRecord record = new StaticVerificationRecord(
-            "fixture.overlay-buttons",
-            "adapter.editor-ui.bounding-box-overlay-button",
-            List.of("cubism.editor-ui.bounding-box-overlay-button"),
-            java.util.Map.of("cubism.editor-ui.bounding-box-overlay-button", java.util.List.of("structure")),
-            "5.3.02",
-            "cubism-5.3.02",
-            fingerprint,
-            "cubism-ref/verification/fixture.json",
-            "runtime-adapter",
-            "test",
-            Instant.parse("2026-07-10T00:00:00Z"),
-            "Fail closed.",
-            List.of(selectors)
-        );
+                "fixture.overlay-buttons",
+                "adapter.editor-ui.bounding-box-overlay-button",
+                List.of("cubism.editor-ui.bounding-box-overlay-button"),
+                java.util.Map.of("cubism.editor-ui.bounding-box-overlay-button", java.util.List.of("structure")),
+                "5.3.02",
+                "cubism-5.3.02",
+                fingerprint,
+                "cubism-ref/verification/fixture.json",
+                "runtime-adapter",
+                "test",
+                Instant.parse("2026-07-10T00:00:00Z"),
+                "Fail closed.",
+                List.of(selectors));
         final StaticVerificationReport report = new StaticVerificationReport(
-            fingerprint,
-            fingerprint,
-            true,
-            List.of(selectors).stream()
-                .map(selector -> new StaticSelectorResult(
-                    selector,
-                    StaticVerificationStatus.VERIFIED_STATIC,
-                    "verified"
-                ))
-                .toList()
-        );
+                fingerprint,
+                fingerprint,
+                true,
+                List.of(selectors).stream()
+                        .map(selector -> new StaticSelectorResult(
+                                selector, StaticVerificationStatus.VERIFIED_STATIC, "verified"))
+                        .toList());
         return VerifiedAccessPlan.from(record, report);
     }
 
@@ -857,11 +755,7 @@ class BoundingBoxOverlayButtonHostOperationsTest {
 
     private static ClassLoader iconLoader() throws IOException {
         final Path icon = Files.createTempFile("turboism-overlay-icon-", ".png");
-        ImageIO.write(
-            new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB),
-            "png",
-            icon.toFile()
-        );
+        ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), "png", icon.toFile());
         final URL iconUrl = icon.toUri().toURL();
         return new ClassLoader(BoundingBoxOverlayButtonHostOperationsTest.class.getClassLoader()) {
             @Override
@@ -887,14 +781,13 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         private final List<WritableImage> images = new ArrayList<>();
 
         public IconSet(
-            final WritableImage first,
-            final WritableImage second,
-            final WritableImage third,
-            final WritableImage fourth,
-            final WritableImage fifth,
-            final WritableImage sixth,
-            final WritableImage seventh
-        ) {
+                final WritableImage first,
+                final WritableImage second,
+                final WritableImage third,
+                final WritableImage fourth,
+                final WritableImage fifth,
+                final WritableImage sixth,
+                final WritableImage seventh) {
             images.add(first);
             images.add(second);
             images.add(third);
@@ -917,8 +810,7 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         }
     }
 
-    public static final class ButtonEntity extends Entity {
-    }
+    public static final class ButtonEntity extends Entity {}
 
     public static final class Entities {
         public static final List<Object> REMOVED = new ArrayList<>();
@@ -935,9 +827,9 @@ class BoundingBoxOverlayButtonHostOperationsTest {
 
         public void removeVolatileEntity(final Entity entity) {
             if (POISONED.remove(entity)
-                || (OverlayHost.poisonCreatedIndex >= 0
-                    && OverlayHost.CREATED.size() > OverlayHost.poisonCreatedIndex
-                    && entity == OverlayHost.CREATED.get(OverlayHost.poisonCreatedIndex))) {
+                    || (OverlayHost.poisonCreatedIndex >= 0
+                            && OverlayHost.CREATED.size() > OverlayHost.poisonCreatedIndex
+                            && entity == OverlayHost.CREATED.get(OverlayHost.poisonCreatedIndex))) {
                 throw new IllegalStateException("injected removeVolatileEntity failure");
             }
             REMOVED_VOLATILE.add(entity);

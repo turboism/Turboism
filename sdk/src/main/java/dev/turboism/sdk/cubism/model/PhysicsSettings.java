@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 import java.util.List;
 
 /** Read-only physics settings document projection of the active model. */

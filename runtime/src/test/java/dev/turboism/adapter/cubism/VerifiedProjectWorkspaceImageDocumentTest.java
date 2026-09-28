@@ -1,14 +1,15 @@
 package dev.turboism.adapter.cubism;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ResourceKind;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -16,10 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class VerifiedProjectWorkspaceImageDocumentTest {
 
@@ -31,43 +30,23 @@ class VerifiedProjectWorkspaceImageDocumentTest {
     }
 
     @Test
-    void layeredPsdDocumentUsesItsReviewedResourcePathInsteadOfUnimplementedFileContent()
-        throws Exception {
-        final Path artifact = LEGACY_EVIDENCE.resolve(
-            "Cubism-5.3.02/jars/Live2D_Cubism.jar"
-        );
+    void layeredPsdDocumentUsesItsReviewedResourcePathInsteadOfUnimplementedFileContent() throws Exception {
+        final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
         try (URLClassLoader loader = loader(artifact)) {
-            final Class<?> layeredImageType = Class.forName(
-                "com.live2d.cubism.doc.resources.CLayeredImage",
-                true,
-                loader
-            );
+            final Class<?> layeredImageType =
+                    Class.forName("com.live2d.cubism.doc.resources.CLayeredImage", true, loader);
             final Object layeredImage = layeredImageType.getConstructor().newInstance();
-            layeredImageType.getMethod("setName", String.class).invoke(
-                layeredImage,
-                "Character Source"
-            );
-            layeredImageType.getMethod("setPsdFile", File.class).invoke(
-                layeredImage,
-                new File("C:/assets/character.psd")
-            );
-            final Class<?> imageDocumentType = Class.forName(
-                "com.live2d.cubism.doc.resources.g",
-                true,
-                loader
-            );
-            final Object imageDocument = imageDocumentType
-                .getConstructor(layeredImageType)
-                .newInstance(layeredImage);
+            layeredImageType.getMethod("setName", String.class).invoke(layeredImage, "Character Source");
+            layeredImageType
+                    .getMethod("setPsdFile", File.class)
+                    .invoke(layeredImage, new File("C:/assets/character.psd"));
+            final Class<?> imageDocumentType = Class.forName("com.live2d.cubism.doc.resources.g", true, loader);
+            final Object imageDocument =
+                    imageDocumentType.getConstructor(layeredImageType).newInstance(layeredImage);
             ImageSyntheticAppCtrl.instance = new ImageSyntheticAppCtrl(
-                new ImageSyntheticProject(
-                    List.of(imageDocument),
-                    List.of(layeredImage)
-                ),
-                imageDocument
-            );
+                    new ImageSyntheticProject(List.of(imageDocument), List.of(layeredImage)), imageDocument);
             final VerifiedProjectWorkspaceHostOperations operations =
-                new VerifiedProjectWorkspaceHostOperations(resolver(loader), "5.3.02");
+                    new VerifiedProjectWorkspaceHostOperations(resolver(loader), "5.3.02");
 
             final var activeDocument = operations.activeDocument().orElseThrow();
             final var project = operations.activeProject().orElseThrow();
@@ -83,7 +62,8 @@ class VerifiedProjectWorkspaceImageDocumentTest {
             assertEquals(List.of(activeDocument.documentId()), content.documentIds());
             assertEquals(1, content.resources().size());
             assertEquals(ResourceKind.PSD, content.resources().get(0).kind());
-            assertEquals("character.psd", content.resources().get(0).relativePath().orElseThrow());
+            assertEquals(
+                    "character.psd", content.resources().get(0).relativePath().orElseThrow());
             assertFalse(activeDocument.relativePath().contains("C:"));
         }
     }
@@ -92,40 +72,34 @@ class VerifiedProjectWorkspaceImageDocumentTest {
         final String host = name(ImageSyntheticAppCtrl.class);
         final String project = name(ImageSyntheticProject.class);
         return TestVerifiedResolvers.create(
-            ProjectWorkspaceAdapter.ADAPTER_SLICE_ID,
-            java.util.Set.of(ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID),
-            List.of(
-                StaticSelector.staticMethod(
-                    "cubism.app-controller.instance",
-                    host,
-                    "instance",
-                    "()L" + host + ";",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "cubism.app-controller.current-project",
-                    host,
-                    "currentProject",
-                    "()L" + project + ";",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "cubism.app-controller.current-document",
-                    host,
-                    "currentDocument",
-                    "()Ljava/lang/Object;",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "cubism.project.documents",
-                    project,
-                    "documents",
-                    "()Ljava/util/List;",
-                    StaticSelector.ACCESS_PUBLIC
-                )
-            ),
-            classLoader
-        );
+                ProjectWorkspaceAdapter.ADAPTER_SLICE_ID,
+                java.util.Set.of(ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID),
+                List.of(
+                        StaticSelector.staticMethod(
+                                "cubism.app-controller.instance",
+                                host,
+                                "instance",
+                                "()L" + host + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.app-controller.current-project",
+                                host,
+                                "currentProject",
+                                "()L" + project + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.app-controller.current-document",
+                                host,
+                                "currentDocument",
+                                "()Ljava/lang/Object;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.project.documents",
+                                project,
+                                "documents",
+                                "()Ljava/util/List;",
+                                StaticSelector.ACCESS_PUBLIC)),
+                classLoader);
     }
 
     private static String name(final Class<?> type) {
@@ -143,28 +117,25 @@ class VerifiedProjectWorkspaceImageDocumentTest {
             current = current.getParent();
         }
         return candidates.stream()
-            .filter(Files::isDirectory)
-            .findFirst()
-            .orElseThrow(() -> new IllegalStateException("legacy Cubism evidence is unavailable"));
+                .filter(Files::isDirectory)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("legacy Cubism evidence is unavailable"));
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
         try (Stream<Path> files = Files.list(artifact.getParent())) {
-            final URL[] classpath = files
-                .filter(path -> path.getFileName().toString().endsWith(".jar"))
-                .sorted()
-                .map(path -> {
-                    try {
-                        return path.toUri().toURL();
-                    } catch (java.net.MalformedURLException exception) {
-                        throw new IllegalArgumentException(exception);
-                    }
-                })
-                .toArray(URL[]::new);
-            return new URLClassLoader(
-                classpath,
-                VerifiedProjectWorkspaceImageDocumentTest.class.getClassLoader()
-            );
+            final URL[] classpath = files.filter(
+                            path -> path.getFileName().toString().endsWith(".jar"))
+                    .sorted()
+                    .map(path -> {
+                        try {
+                            return path.toUri().toURL();
+                        } catch (java.net.MalformedURLException exception) {
+                            throw new IllegalArgumentException(exception);
+                        }
+                    })
+                    .toArray(URL[]::new);
+            return new URLClassLoader(classpath, VerifiedProjectWorkspaceImageDocumentTest.class.getClassLoader());
         }
     }
 
@@ -173,10 +144,7 @@ class VerifiedProjectWorkspaceImageDocumentTest {
         private final ImageSyntheticProject project;
         private final Object document;
 
-        private ImageSyntheticAppCtrl(
-            final ImageSyntheticProject project,
-            final Object document
-        ) {
+        private ImageSyntheticAppCtrl(final ImageSyntheticProject project, final Object document) {
             this.project = project;
             this.document = document;
         }
@@ -194,10 +162,7 @@ class VerifiedProjectWorkspaceImageDocumentTest {
         }
     }
 
-    public record ImageSyntheticProject(
-        List<Object> documents,
-        List<Object> children
-    ) {
+    public record ImageSyntheticProject(List<Object> documents, List<Object> children) {
         public List<Object> getChildren() {
             return children;
         }

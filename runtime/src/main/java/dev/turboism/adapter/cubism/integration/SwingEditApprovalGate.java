@@ -1,12 +1,12 @@
 package dev.turboism.adapter.cubism.integration;
 
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 
 /**
  * Production {@link EditApprovalGate}: shows the Turboism edit-approval dialog when the first
@@ -22,8 +22,7 @@ public final class SwingEditApprovalGate implements EditApprovalGate {
 
     private static final String TITLE = "Turboism Edit Session";
     private static final String MESSAGE_TAIL =
-        "requests permission to edit the current model.\n\n"
-            + "Allow editing for this connection?";
+            "requests permission to edit the current model.\n\n" + "Allow editing for this connection?";
 
     private final Supplier<Optional<Object>> mainWindow;
 
@@ -53,13 +52,13 @@ public final class SwingEditApprovalGate implements EditApprovalGate {
             return false;
         }
         try {
-            final Window owner = mainWindow.get()
-                .filter(Window.class::isInstance)
-                .map(Window.class::cast)
-                .orElse(null);
-            final int choice = SwingUtilities.isEventDispatchThread()
-                ? prompt(owner, connection)
-                : promptOnEdt(owner, connection);
+            final Window owner = mainWindow
+                    .get()
+                    .filter(Window.class::isInstance)
+                    .map(Window.class::cast)
+                    .orElse(null);
+            final int choice =
+                    SwingUtilities.isEventDispatchThread() ? prompt(owner, connection) : promptOnEdt(owner, connection);
             return choice == JOptionPane.YES_OPTION;
         } catch (RuntimeException failure) {
             return false;
@@ -68,14 +67,10 @@ public final class SwingEditApprovalGate implements EditApprovalGate {
 
     private int prompt(final Window owner, final EditConnectionInfo connection) {
         final String plugin = connection.pluginName().isEmpty()
-            ? "An external plugin"
-            : "The plugin \"" + connection.pluginName() + "\"";
+                ? "An external plugin"
+                : "The plugin \"" + connection.pluginName() + "\"";
         return JOptionPane.showConfirmDialog(
-            owner,
-            plugin + " " + MESSAGE_TAIL,
-            TITLE,
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.WARNING_MESSAGE);
+                owner, plugin + " " + MESSAGE_TAIL, TITLE, JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
     }
 
     private int promptOnEdt(final Window owner, final EditConnectionInfo connection) {

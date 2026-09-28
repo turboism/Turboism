@@ -2,7 +2,6 @@ package dev.turboism.sdk.hostread;
 
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -18,10 +17,8 @@ import java.util.Optional;
  * @param project the open project's snapshot, empty when the host reported no project
  * @param workspace the workspace snapshot, empty when the host reported no workspace
  */
-public record ProjectWorkspaceSnapshot(
-    Optional<ProjectSnapshot> project,
-    Optional<WorkspaceSnapshot> workspace
-) implements AsyncHostReadValue {
+public record ProjectWorkspaceSnapshot(Optional<ProjectSnapshot> project, Optional<WorkspaceSnapshot> workspace)
+        implements AsyncHostReadValue {
     public ProjectWorkspaceSnapshot {
         project = Objects.requireNonNull(project, "project");
         workspace = Objects.requireNonNull(workspace, "workspace");

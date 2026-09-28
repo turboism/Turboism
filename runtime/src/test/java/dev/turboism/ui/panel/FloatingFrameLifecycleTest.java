@@ -1,10 +1,9 @@
 package dev.turboism.ui.panel;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 class FloatingFrameLifecycleTest {
 
@@ -19,9 +18,7 @@ class FloatingFrameLifecycleTest {
         lifecycle.remember(frame, palette, sibling, originalBox);
 
         assertEquals(
-            List.of(new FloatingFrameLifecycle.Entry(palette, sibling, originalBox)),
-            lifecycle.beginClose(frame)
-        );
+                List.of(new FloatingFrameLifecycle.Entry(palette, sibling, originalBox)), lifecycle.beginClose(frame));
         assertEquals(List.of(), lifecycle.beginClose(frame));
     }
 
@@ -39,9 +36,7 @@ class FloatingFrameLifecycleTest {
         lifecycle.forget(first);
 
         assertEquals(
-            List.of(new FloatingFrameLifecycle.Entry(second, null, secondOriginal)),
-            lifecycle.beginClose(frame)
-        );
+                List.of(new FloatingFrameLifecycle.Entry(second, null, secondOriginal)), lifecycle.beginClose(frame));
     }
 
     @Test
@@ -57,8 +52,6 @@ class FloatingFrameLifecycleTest {
 
         assertEquals(List.of(), lifecycle.beginClose(firstFrame));
         assertEquals(
-            List.of(new FloatingFrameLifecycle.Entry(palette, null, original)),
-            lifecycle.beginClose(secondFrame)
-        );
+                List.of(new FloatingFrameLifecycle.Entry(palette, null, original)), lifecycle.beginClose(secondFrame));
     }
 }

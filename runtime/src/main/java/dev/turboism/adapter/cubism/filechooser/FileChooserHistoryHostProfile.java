@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.filechooser;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -18,10 +17,7 @@ import java.util.Optional;
  * Lane C slice.
  */
 public record FileChooserHistoryHostProfile(
-    String hostVersion,
-    List<SaveDialogMethod> saveDialogMethods,
-    List<String> exportContextClassNames
-) {
+        String hostVersion, List<SaveDialogMethod> saveDialogMethods, List<String> exportContextClassNames) {
 
     private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
@@ -33,16 +29,14 @@ public record FileChooserHistoryHostProfile(
     private static final String APP_CTRL_EXPORT_CONTEXT_CLASS_53 = "com.live2d.cubism.appCtrlImpl.al";
 
     private static final List<SaveDialogMethod> SAVE_DIALOG_METHODS = List.of(
-        new SaveDialogMethod("c", "(Lcom/live2d/ui/window/V;)Ljava/io/File;"),
-        new SaveDialogMethod("a", "(Ljava/awt/Component;Z)Ljava/io/File;")
-    );
+            new SaveDialogMethod("c", "(Lcom/live2d/ui/window/V;)Ljava/io/File;"),
+            new SaveDialogMethod("a", "(Ljava/awt/Component;Z)Ljava/io/File;"));
 
     public FileChooserHistoryHostProfile {
         hostVersion = requireText(hostVersion, "hostVersion");
         saveDialogMethods = List.copyOf(Objects.requireNonNull(saveDialogMethods, "saveDialogMethods"));
-        exportContextClassNames = List.copyOf(
-            Objects.requireNonNull(exportContextClassNames, "exportContextClassNames")
-        );
+        exportContextClassNames =
+                List.copyOf(Objects.requireNonNull(exportContextClassNames, "exportContextClassNames"));
         if (saveDialogMethods.isEmpty()) {
             throw new IllegalArgumentException("saveDialogMethods must not be empty");
         }
@@ -97,7 +91,7 @@ public record FileChooserHistoryHostProfile(
         if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)) {
             contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_52);
         } else if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)
-            || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
+                || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
             contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_53);
         } else {
             return Optional.empty();

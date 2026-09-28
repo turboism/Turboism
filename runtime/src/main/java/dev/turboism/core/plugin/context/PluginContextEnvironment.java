@@ -12,7 +12,6 @@ import dev.turboism.sdk.script.ScriptService;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.ui.UserFileAccessService;
-
 import java.util.Objects;
 
 /**
@@ -36,20 +35,19 @@ public final class PluginContextEnvironment {
     private final McpConnectionService mcpConnectionService;
 
     PluginContextEnvironment(
-        final RuntimeHostAdapterAccess hostAccess,
-        final RuntimeHostAdapters hostAdapters,
-        final CubismServicesFactory servicesFactory,
-        final PluginLocalization localization,
-        final PluginTaskScheduler taskScheduler,
-        final PluginStorage pluginStorage,
-        final UserFileAccessService userFileAccessService,
-        final AsyncHostReadService asyncHostReadService,
-        final RuntimeSettingsService runtimeSettings,
-        final FileChooserHistoryService fileChooserHistory,
-        final ExportSettingsContributionService exportSettings,
-        final ScriptService scriptService,
-        final McpConnectionService mcpConnectionService
-    ) {
+            final RuntimeHostAdapterAccess hostAccess,
+            final RuntimeHostAdapters hostAdapters,
+            final CubismServicesFactory servicesFactory,
+            final PluginLocalization localization,
+            final PluginTaskScheduler taskScheduler,
+            final PluginStorage pluginStorage,
+            final UserFileAccessService userFileAccessService,
+            final AsyncHostReadService asyncHostReadService,
+            final RuntimeSettingsService runtimeSettings,
+            final FileChooserHistoryService fileChooserHistory,
+            final ExportSettingsContributionService exportSettings,
+            final ScriptService scriptService,
+            final McpConnectionService mcpConnectionService) {
         this.hostAccess = hostAccess;
         this.hostAdapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.servicesFactory = Objects.requireNonNull(servicesFactory, "servicesFactory");
@@ -212,34 +210,31 @@ public final class PluginContextEnvironment {
     }
 
     static DefaultCubismServicesFactory defaultServicesFactory(
-        final RuntimeHostAdapterAccess hostAccess,
-        final UserFileAccessService userFiles
-    ) {
+            final RuntimeHostAdapterAccess hostAccess, final UserFileAccessService userFiles) {
         return new DefaultCubismServicesFactory(
-            hostAccess.adapters(),
-            hostAccess::cubismEditorVersion,
-            hostAccess::admittedCubismCapabilities,
-            hostAccess::admittedCubismGeneration,
-            hostAccess.modelAccess(),
-            hostAccess.coreRuntimeInfo(),
-            hostAccess.parameterLifecycle(),
-            hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle(),
-            hostAccess.physicsEditorCoordinator(),
-            hostAccess.modelAppearanceSource(),
-            hostAccess.paletteAppearanceCoordinator(),
-            hostAccess.textureAtlasLayouts(),
-            hostAccess.textureAtlasNativeInvocations(),
-            hostAccess.textureAtlasEditorUi(),
-            hostAccess.textureAtlasEditorSession(),
-            hostAccess.textureAtlasAlgorithms(),
-            hostAccess.editorCommands(),
-            userFiles instanceof dev.turboism.adapter.cubism.command.EditorFileCommandResolver resolver
-                ? resolver
-                : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
-            hostAccess.adapters().autoBackup(),
-            hostAccess.history()
-        );
+                hostAccess.adapters(),
+                hostAccess::cubismEditorVersion,
+                hostAccess::admittedCubismCapabilities,
+                hostAccess::admittedCubismGeneration,
+                hostAccess.modelAccess(),
+                hostAccess.coreRuntimeInfo(),
+                hostAccess.parameterLifecycle(),
+                hostAccess.partLifecycle(),
+                hostAccess.editorObjectLifecycle(),
+                hostAccess.physicsEditorCoordinator(),
+                hostAccess.modelAppearanceSource(),
+                hostAccess.paletteAppearanceCoordinator(),
+                hostAccess.textureAtlasLayouts(),
+                hostAccess.textureAtlasNativeInvocations(),
+                hostAccess.textureAtlasEditorUi(),
+                hostAccess.textureAtlasEditorSession(),
+                hostAccess.textureAtlasAlgorithms(),
+                hostAccess.editorCommands(),
+                userFiles instanceof dev.turboism.adapter.cubism.command.EditorFileCommandResolver resolver
+                        ? resolver
+                        : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
+                hostAccess.adapters().autoBackup(),
+                hostAccess.history());
     }
 
     /**
@@ -399,25 +394,24 @@ public final class PluginContextEnvironment {
          */
         public PluginContextEnvironment build() {
             final CubismServicesFactory factory = servicesFactory != null
-                ? servicesFactory
-                : (hostAccess != null
-                    ? defaultServicesFactory(hostAccess, userFiles)
-                    : new DefaultCubismServicesFactory(hostAdapters));
+                    ? servicesFactory
+                    : (hostAccess != null
+                            ? defaultServicesFactory(hostAccess, userFiles)
+                            : new DefaultCubismServicesFactory(hostAdapters));
             return new PluginContextEnvironment(
-                hostAccess,
-                hostAdapters,
-                factory,
-                localization,
-                taskScheduler,
-                pluginStorage,
-                userFiles,
-                hostReads,
-                runtimeSettings,
-                fileChooserHistory,
-                exportSettings,
-                scriptService,
-                mcpConnectionService
-            );
+                    hostAccess,
+                    hostAdapters,
+                    factory,
+                    localization,
+                    taskScheduler,
+                    pluginStorage,
+                    userFiles,
+                    hostReads,
+                    runtimeSettings,
+                    fileChooserHistory,
+                    exportSettings,
+                    scriptService,
+                    mcpConnectionService);
         }
     }
 }

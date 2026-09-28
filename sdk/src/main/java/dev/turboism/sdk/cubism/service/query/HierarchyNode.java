@@ -20,12 +20,7 @@ import java.util.Optional;
  * @param childIds ids of the node's direct children in Editor order; unmodifiable, possibly empty
  */
 public record HierarchyNode(
-    ModelObjectId id,
-    String name,
-    Kind kind,
-    Optional<ModelObjectId> parentId,
-    List<ModelObjectId> childIds
-) {
+        ModelObjectId id, String name, Kind kind, Optional<ModelObjectId> parentId, List<ModelObjectId> childIds) {
     public HierarchyNode {
         id = Objects.requireNonNull(id, "id");
         name = Objects.requireNonNull(name, "name");

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.script;
 
-
 /** Script languages currently supported by Turboism. */
 public enum ScriptLanguage {
     JAVASCRIPT("js");

@@ -1,5 +1,6 @@
 package dev.turboism.preview;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,14 +35,12 @@ final class RetainedPluginGenerations {
     private boolean drainedFired;
 
     RetainedPluginGenerations(
-        final PluginLifecycleLane lane,
-        final PluginLifecyclePolicy policy,
-        final PreviewLog log
-    ) {
+            final PluginLifecycleLane lane, final PluginLifecyclePolicy policy, final PreviewLog log) {
         this.lane = Objects.requireNonNull(lane, "lane");
         this.log = Objects.requireNonNull(log, "log");
         this.retryIntervalNanos = Objects.requireNonNull(policy, "policy")
-            .retentionRetryInterval().toNanos();
+                .retentionRetryInterval()
+                .toNanos();
         watcher = new Thread(this::run, "turboism-plugin-retention");
         watcher.setDaemon(true);
         watcher.setContextClassLoader(RetainedPluginGenerations.class.getClassLoader());
@@ -174,11 +173,8 @@ final class RetainedPluginGenerations {
             try {
                 callback.run();
             } catch (Throwable failure) {
-                log.error(
-                    "plugin-lifecycle",
-                    "Retained-generation drain callback failed safely",
-                    failure
-                );
+                FatalErrors.rethrowIfFatal(failure);
+                log.error("plugin-lifecycle", "Retained-generation drain callback failed safely", failure);
             }
         }
     }
@@ -211,9 +207,7 @@ final class RetainedPluginGenerations {
         return System.nanoTime() - generation.nextAttemptNanos >= 0L;
     }
 
-    private boolean eventQuiesced(
-        final dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner
-    ) {
+    private boolean eventQuiesced(final dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner) {
         return switch (eventOwner.lifecycle()) {
             case QUIESCED, CLOSED -> true;
             case CLOSING -> eventOwner.awaitQuiescence(Duration.ZERO);
@@ -227,11 +221,8 @@ final class RetainedPluginGenerations {
         if (!generation.cleanupRunning.compareAndSet(false, true)) {
             return;
         }
-        final PluginLifecycleLane.Invocation<Boolean> invocation = lane.submitRetained(
-            generation.pluginId,
-            "retained-cleanup",
-            generation.reclaim::call
-        );
+        final PluginLifecycleLane.Invocation<Boolean> invocation =
+                lane.submitRetained(generation.pluginId, "retained-cleanup", generation.reclaim::call);
         if (invocation.rejected) {
             // Saturated lane: back off before this generation can be selected again, or the
             // watcher would busy-spin dispatching a task the queue keeps refusing.
@@ -254,16 +245,9 @@ final class RetainedPluginGenerations {
                 monitor.notifyAll();
             }
             if (removed) {
-                log.info(
-                    generation.pluginId,
-                    "Retained plugin generation cleanup succeeded"
-                );
+                log.info(generation.pluginId, "Retained plugin generation cleanup succeeded");
             } else if (failure != null) {
-                log.error(
-                    generation.pluginId,
-                    "Retained plugin generation cleanup attempt failed safely",
-                    failure
-                );
+                log.error(generation.pluginId, "Retained plugin generation cleanup attempt failed safely", failure);
             }
         });
     }
@@ -293,13 +277,12 @@ final class RetainedPluginGenerations {
         volatile long nextAttemptNanos;
 
         RetainedGeneration(
-            final String pluginId,
-            final CompletableFuture<Void> inFlight,
-            final dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner,
-            final PluginGenerationGuard guard,
-            final java.util.function.BooleanSupplier dormant,
-            final Callable<Boolean> reclaim
-        ) {
+                final String pluginId,
+                final CompletableFuture<Void> inFlight,
+                final dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner,
+                final PluginGenerationGuard guard,
+                final java.util.function.BooleanSupplier dormant,
+                final Callable<Boolean> reclaim) {
             this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
             this.inFlight = inFlight;
             this.eventOwner = eventOwner;

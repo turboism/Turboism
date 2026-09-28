@@ -1,8 +1,8 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
+import dev.turboism.sdk.cubism.model.PartId;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;

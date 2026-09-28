@@ -1,12 +1,12 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.exportsettings.ExportSettingsHostProfile;
 import dev.turboism.exportsettings.ExportSettingsNativeMethodTransformer;
 import dev.turboism.exportsettings.NativeExportSettingsDialogBridge;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,12 +23,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
     /** Exact Cubism releases whose reviewed artifacts carry an export-settings profile. */
     static final java.util.Set<String> SUPPORTED_CUBISM_VERSIONS =
-        java.util.Set.copyOf(ExportSettingsHostProfile.supportedHostVersions());
+            java.util.Set.copyOf(ExportSettingsHostProfile.supportedHostVersions());
+
     static final String DIALOG_OWNER_ALIAS = ExportSettingsHostProfile.DIALOG_OWNER_ALIAS;
     static final String DIALOG_CONSTRUCTOR_ALIAS = ExportSettingsHostProfile.DIALOG_CONSTRUCTOR_ALIAS;
     static final String DIALOG_SHOW_ALIAS = ExportSettingsHostProfile.DIALOG_SHOW_ALIAS;
-    static final String DIALOG_CONTENT_BUILDER_ALIAS =
-        ExportSettingsHostProfile.DIALOG_CONTENT_BUILDER_ALIAS;
+    static final String DIALOG_CONTENT_BUILDER_ALIAS = ExportSettingsHostProfile.DIALOG_CONTENT_BUILDER_ALIAS;
     static final String DIALOG_WINDOW_FIELD_ALIAS = ExportSettingsHostProfile.DIALOG_WINDOW_FIELD_ALIAS;
     static final String WINDOW_CLASS_ALIAS = ExportSettingsHostProfile.WINDOW_CLASS_ALIAS;
     static final String WINDOW_JDIALOG_ALIAS = ExportSettingsHostProfile.WINDOW_JDIALOG_ALIAS;
@@ -46,6 +46,7 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
      * installer owns only the transformer (focused shape tests and the resolver-based seam).
      */
     private final NativeExportSettingsDialogBridge.Handler bridgeHandler;
+
     private final AtomicBoolean installed = new AtomicBoolean();
     private Registration bridge;
     private boolean transformerRemoved;
@@ -55,20 +56,26 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
      * focused selector-shape tests exercise bytecode transformation in isolation.
      */
     VerifiedExportSettingsHookInstaller(
-        final Instrumentation instrumentation,
-        final StaticSelector owner,
-        final StaticSelector constructor,
-        final StaticSelector show,
-        final StaticSelector contentBuilder,
-        final StaticSelector windowField,
-        final StaticSelector windowClass,
-        final StaticSelector jdialog,
-        final ClassLoader hostClassLoader
-    ) {
+            final Instrumentation instrumentation,
+            final StaticSelector owner,
+            final StaticSelector constructor,
+            final StaticSelector show,
+            final StaticSelector contentBuilder,
+            final StaticSelector windowField,
+            final StaticSelector windowClass,
+            final StaticSelector jdialog,
+            final ClassLoader hostClassLoader) {
         this(
-            instrumentation, owner, constructor, show, contentBuilder, windowField, windowClass,
-            jdialog, hostClassLoader, null
-        );
+                instrumentation,
+                owner,
+                constructor,
+                show,
+                contentBuilder,
+                windowField,
+                windowClass,
+                jdialog,
+                hostClassLoader,
+                null);
     }
 
     /**
@@ -81,64 +88,58 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
      * @param bridgeHandler runtime policy handler, or {@code null} for a transformer-only install
      */
     VerifiedExportSettingsHookInstaller(
-        final Instrumentation instrumentation,
-        final StaticSelector owner,
-        final StaticSelector constructor,
-        final StaticSelector show,
-        final StaticSelector contentBuilder,
-        final StaticSelector windowField,
-        final StaticSelector windowClass,
-        final StaticSelector jdialog,
-        final ClassLoader hostClassLoader,
-        final NativeExportSettingsDialogBridge.Handler bridgeHandler
-    ) {
+            final Instrumentation instrumentation,
+            final StaticSelector owner,
+            final StaticSelector constructor,
+            final StaticSelector show,
+            final StaticSelector contentBuilder,
+            final StaticSelector windowField,
+            final StaticSelector windowClass,
+            final StaticSelector jdialog,
+            final ClassLoader hostClassLoader,
+            final NativeExportSettingsDialogBridge.Handler bridgeHandler) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.targetClassName = requireExactDialogShape(
-            owner, constructor, show, contentBuilder, windowField, windowClass, jdialog
-        );
+        this.targetClassName =
+                requireExactDialogShape(owner, constructor, show, contentBuilder, windowField, windowClass, jdialog);
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.bridgeHandler = bridgeHandler;
         this.transformer = new ExportSettingsNativeMethodTransformer(
-            owner.ownerInternalName(),
-            contentBuilder.memberName(),
-            contentBuilder.descriptor(),
-            show.memberName(),
-            show.descriptor(),
-            windowField.memberName(),
-            windowField.descriptor(),
-            windowClass.ownerInternalName(),
-            jdialog.memberName(),
-            jdialog.descriptor(),
-            hostClassLoader
-        );
+                owner.ownerInternalName(),
+                contentBuilder.memberName(),
+                contentBuilder.descriptor(),
+                show.memberName(),
+                show.descriptor(),
+                windowField.memberName(),
+                windowField.descriptor(),
+                windowClass.ownerInternalName(),
+                jdialog.memberName(),
+                jdialog.descriptor(),
+                hostClassLoader);
     }
 
     static VerifiedExportSettingsHookInstaller fromVerifiedResolver(
-        final Instrumentation instrumentation,
-        final VerifiedMemberResolver resolver,
-        final ClassLoader hostClassLoader
-    ) {
+            final Instrumentation instrumentation,
+            final VerifiedMemberResolver resolver,
+            final ClassLoader hostClassLoader) {
         final VerifiedMemberResolver requested = Objects.requireNonNull(resolver, "resolver");
         final ClassLoader requestedLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         if (!supportsExactCubismVersion(requested.cubismVersion())) {
             throw new IllegalArgumentException(
-                "export settings hook requires exact Cubism " + SUPPORTED_CUBISM_VERSIONS
-            );
+                    "export settings hook requires exact Cubism " + SUPPORTED_CUBISM_VERSIONS);
         }
         if (requested.hostClassLoader() != requestedLoader) {
             throw new IllegalArgumentException("verified export settings host loader does not match");
         }
         return new VerifiedExportSettingsHookInstaller(
-            instrumentation,
-            requireSelector(requested, DIALOG_OWNER_ALIAS),
-            requireSelector(requested, DIALOG_CONSTRUCTOR_ALIAS),
-            requireSelector(requested, DIALOG_SHOW_ALIAS),
-            requireSelector(requested, DIALOG_CONTENT_BUILDER_ALIAS),
-            requireSelector(requested, DIALOG_WINDOW_FIELD_ALIAS),
-            requireSelector(requested, WINDOW_CLASS_ALIAS),
-            requireSelector(requested, WINDOW_JDIALOG_ALIAS),
-            requestedLoader
-        );
+                instrumentation,
+                requireSelector(requested, DIALOG_OWNER_ALIAS),
+                requireSelector(requested, DIALOG_CONSTRUCTOR_ALIAS),
+                requireSelector(requested, DIALOG_SHOW_ALIAS),
+                requireSelector(requested, DIALOG_CONTENT_BUILDER_ALIAS),
+                requireSelector(requested, DIALOG_WINDOW_FIELD_ALIAS),
+                requireSelector(requested, WINDOW_CLASS_ALIAS),
+                requireSelector(requested, WINDOW_JDIALOG_ALIAS),
+                requestedLoader);
     }
 
     /**
@@ -158,40 +159,36 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
      * @throws IllegalArgumentException if the profile is not the exact supported release
      */
     static VerifiedExportSettingsHookInstaller fromHostProfile(
-        final Instrumentation instrumentation,
-        final ExportSettingsHostProfile profile,
-        final NativeExportSettingsDialogBridge.Handler handler,
-        final ClassLoader hostClassLoader
-    ) {
+            final Instrumentation instrumentation,
+            final ExportSettingsHostProfile profile,
+            final NativeExportSettingsDialogBridge.Handler handler,
+            final ClassLoader hostClassLoader) {
         final ExportSettingsHostProfile requested = Objects.requireNonNull(profile, "profile");
         if (!supportsExactCubismVersion(requested.hostVersion())) {
             throw new IllegalArgumentException(
-                "export settings hook requires exact Cubism " + SUPPORTED_CUBISM_VERSIONS
-            );
+                    "export settings hook requires exact Cubism " + SUPPORTED_CUBISM_VERSIONS);
         }
         return new VerifiedExportSettingsHookInstaller(
-            instrumentation,
-            requested.dialogOwner(),
-            requested.dialogConstructor(),
-            requested.dialogShow(),
-            requested.dialogContentBuilder(),
-            requested.dialogWindowField(),
-            requested.windowClass(),
-            requested.windowJDialog(),
-            Objects.requireNonNull(hostClassLoader, "hostClassLoader"),
-            Objects.requireNonNull(handler, "handler")
-        );
+                instrumentation,
+                requested.dialogOwner(),
+                requested.dialogConstructor(),
+                requested.dialogShow(),
+                requested.dialogContentBuilder(),
+                requested.dialogWindowField(),
+                requested.windowClass(),
+                requested.windowJDialog(),
+                Objects.requireNonNull(hostClassLoader, "hostClassLoader"),
+                Objects.requireNonNull(handler, "handler"));
     }
 
     private static String requireExactDialogShape(
-        final StaticSelector owner,
-        final StaticSelector constructor,
-        final StaticSelector show,
-        final StaticSelector contentBuilder,
-        final StaticSelector windowField,
-        final StaticSelector windowClass,
-        final StaticSelector jdialog
-    ) {
+            final StaticSelector owner,
+            final StaticSelector constructor,
+            final StaticSelector show,
+            final StaticSelector contentBuilder,
+            final StaticSelector windowField,
+            final StaticSelector windowClass,
+            final StaticSelector jdialog) {
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(constructor, "constructor");
         Objects.requireNonNull(show, "show");
@@ -201,23 +198,22 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
         Objects.requireNonNull(jdialog, "jdialog");
         final String expectedWindowDescriptor = "L" + windowClass.ownerInternalName() + ";";
         if (owner.kind() != StaticSelector.Kind.CLASS
-            || constructor.kind() != StaticSelector.Kind.CONSTRUCTOR
-            || !constructor.ownerInternalName().equals(owner.ownerInternalName())
-            || show.kind() != StaticSelector.Kind.METHOD
-            || (show.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
-            || contentBuilder.kind() != StaticSelector.Kind.METHOD
-            || (contentBuilder.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
-            || windowField.kind() != StaticSelector.Kind.FIELD
-            || (windowField.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
-            || !windowField.ownerInternalName().equals(owner.ownerInternalName())
-            || !windowField.descriptor().equals(expectedWindowDescriptor)
-            || windowClass.kind() != StaticSelector.Kind.CLASS
-            || jdialog.kind() != StaticSelector.Kind.METHOD
-            || (jdialog.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
-            || !jdialog.ownerInternalName().equals(windowClass.ownerInternalName())) {
+                || constructor.kind() != StaticSelector.Kind.CONSTRUCTOR
+                || !constructor.ownerInternalName().equals(owner.ownerInternalName())
+                || show.kind() != StaticSelector.Kind.METHOD
+                || (show.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
+                || contentBuilder.kind() != StaticSelector.Kind.METHOD
+                || (contentBuilder.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
+                || windowField.kind() != StaticSelector.Kind.FIELD
+                || (windowField.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
+                || !windowField.ownerInternalName().equals(owner.ownerInternalName())
+                || !windowField.descriptor().equals(expectedWindowDescriptor)
+                || windowClass.kind() != StaticSelector.Kind.CLASS
+                || jdialog.kind() != StaticSelector.Kind.METHOD
+                || (jdialog.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
+                || !jdialog.ownerInternalName().equals(windowClass.ownerInternalName())) {
             throw new IllegalArgumentException(
-                "Verified export settings selectors do not match the exact dialog shape."
-            );
+                    "Verified export settings selectors do not match the exact dialog shape.");
         }
         return owner.ownerInternalName().replace('/', '.');
     }
@@ -242,9 +238,11 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
                 break;
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             try {
                 close();
             } catch (Throwable cleanupFailure) {
+                FatalErrors.rethrowIfFatal(cleanupFailure);
                 failure.addSuppressed(cleanupFailure);
             }
             if (failure instanceof Exception exception) {
@@ -272,10 +270,9 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
                 break;
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // Keep the installation live: callers must restore host bytes before removing bridge callbacks.
-            throw new IllegalStateException(
-                "Verified export settings hook restoration failed", failure
-            );
+            throw new IllegalStateException("Verified export settings hook restoration failed", failure);
         }
         // Host bytes are native again, so the runtime callback surface can be dropped safely.
         if (bridge != null) {
@@ -289,18 +286,15 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
         final List<Class<?>> targets = new ArrayList<>();
         for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
             if (loaded.getName().equals(targetClassName)
-                && loaded.getClassLoader() == hostClassLoader
-                && instrumentation.isModifiableClass(loaded)) {
+                    && loaded.getClassLoader() == hostClassLoader
+                    && instrumentation.isModifiableClass(loaded)) {
                 targets.add(loaded);
             }
         }
         return targets;
     }
 
-    private static StaticSelector requireSelector(
-        final VerifiedMemberResolver resolver,
-        final String alias
-    ) {
+    private static StaticSelector requireSelector(final VerifiedMemberResolver resolver, final String alias) {
         return Objects.requireNonNull(resolver.verifiedSelector(alias), alias);
     }
 }

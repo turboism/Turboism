@@ -4,25 +4,23 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.host.EditorUiFamily;
-
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 
 /** Runtime-normalized object context-menu contribution. */
 public record ContextMenuContributionDescriptor(
-    String pluginId,
-    String contributionId,
-    String actionId,
-    String label,
-    String icon,
-    ContextMenuRegistry.Location location,
-    Set<ContextMenuRegistry.ObjectKind> objectKinds,
-    int priority,
-    ContextMenuRegistry.ContextMenuEntry entry,
-    ContextMenuRegistry.Placement placement,
-    Predicate<ContextMenuSelection> visibleWhen
-) {
+        String pluginId,
+        String contributionId,
+        String actionId,
+        String label,
+        String icon,
+        ContextMenuRegistry.Location location,
+        Set<ContextMenuRegistry.ObjectKind> objectKinds,
+        int priority,
+        ContextMenuRegistry.ContextMenuEntry entry,
+        ContextMenuRegistry.Placement placement,
+        Predicate<ContextMenuSelection> visibleWhen) {
     public ContextMenuContributionDescriptor {
         pluginId = requireText(pluginId, "pluginId");
         contributionId = requireText(contributionId, "contributionId");
@@ -35,58 +33,64 @@ public record ContextMenuContributionDescriptor(
     }
 
     public ContextMenuContributionDescriptor(
-        final String pluginId,
-        final String contributionId,
-        final String actionId,
-        final String label,
-        final String icon,
-        final ContextMenuRegistry.Location location,
-        final Set<ContextMenuRegistry.ObjectKind> objectKinds,
-        final int priority
-    ) {
+            final String pluginId,
+            final String contributionId,
+            final String actionId,
+            final String label,
+            final String icon,
+            final ContextMenuRegistry.Location location,
+            final Set<ContextMenuRegistry.ObjectKind> objectKinds,
+            final int priority) {
         this(
-            pluginId, contributionId, actionId, label, icon, location, objectKinds, priority,
-            ContextMenuRegistry.ContextMenuEntry.item(contributionId, label, actionId),
-            ContextMenuRegistry.Placement.last(),
-            null
-        );
+                pluginId,
+                contributionId,
+                actionId,
+                label,
+                icon,
+                location,
+                objectKinds,
+                priority,
+                ContextMenuRegistry.ContextMenuEntry.item(contributionId, label, actionId),
+                ContextMenuRegistry.Placement.last(),
+                null);
     }
 
     public ContextMenuContributionDescriptor(
-        final String pluginId,
-        final String contributionId,
-        final String actionId,
-        final String label,
-        final String icon,
-        final ContextMenuRegistry.Location location,
-        final Set<ContextMenuRegistry.ObjectKind> objectKinds,
-        final int priority,
-        final ContextMenuRegistry.ContextMenuEntry entry,
-        final ContextMenuRegistry.Placement placement
-    ) {
-        this(
-            pluginId, contributionId, actionId, label, icon, location, objectKinds, priority,
-            entry, placement, null
-        );
+            final String pluginId,
+            final String contributionId,
+            final String actionId,
+            final String label,
+            final String icon,
+            final ContextMenuRegistry.Location location,
+            final Set<ContextMenuRegistry.ObjectKind> objectKinds,
+            final int priority,
+            final ContextMenuRegistry.ContextMenuEntry entry,
+            final ContextMenuRegistry.Placement placement) {
+        this(pluginId, contributionId, actionId, label, icon, location, objectKinds, priority, entry, placement, null);
     }
 
     public ContextMenuContributionDescriptor(
-        final String pluginId,
-        final String contributionId,
-        final String actionId,
-        final String label,
-        final String icon,
-        final ContextMenuRegistry.Location location,
-        final Set<ContextMenuRegistry.ObjectKind> objectKinds,
-        final int priority,
-        final Predicate<ContextMenuSelection> visibleWhen
-    ) {
+            final String pluginId,
+            final String contributionId,
+            final String actionId,
+            final String label,
+            final String icon,
+            final ContextMenuRegistry.Location location,
+            final Set<ContextMenuRegistry.ObjectKind> objectKinds,
+            final int priority,
+            final Predicate<ContextMenuSelection> visibleWhen) {
         this(
-            pluginId, contributionId, actionId, label, icon, location, objectKinds, priority,
-            ContextMenuRegistry.ContextMenuEntry.item(contributionId, label, actionId),
-            ContextMenuRegistry.Placement.last(),
-            visibleWhen
-        );
+                pluginId,
+                contributionId,
+                actionId,
+                label,
+                icon,
+                location,
+                objectKinds,
+                priority,
+                ContextMenuRegistry.ContextMenuEntry.item(contributionId, label, actionId),
+                ContextMenuRegistry.Placement.last(),
+                visibleWhen);
     }
 
     /**
@@ -103,9 +107,7 @@ public record ContextMenuContributionDescriptor(
      *                                  family, or its descriptor is not a context-menu contribution
      * @throws NullPointerException if {@code contribution} is null
      */
-    public static ContextMenuContributionDescriptor from(
-        final EditorUiContribution<?> contribution
-    ) {
+    public static ContextMenuContributionDescriptor from(final EditorUiContribution<?> contribution) {
         Objects.requireNonNull(contribution, "contribution");
         if (contribution.identity().family() != EditorUiFamily.CONTEXT_MENU) {
             throw new IllegalArgumentException("context-menu descriptor requires CONTEXT_MENU family");
@@ -114,27 +116,26 @@ public record ContextMenuContributionDescriptor(
             throw new IllegalArgumentException("context-menu contribution descriptor has the wrong type");
         }
         return new ContextMenuContributionDescriptor(
-            contribution.identity().pluginId(),
-            value.id(),
-            value.actionId(),
-            value.label(),
-            value.icon(),
-            value.location(),
-            value.objectKinds(),
-            value.priority(),
-            value.entry(),
-            value.placement(),
-            value.visibleWhen()
-        );
+                contribution.identity().pluginId(),
+                value.id(),
+                value.actionId(),
+                value.label(),
+                value.icon(),
+                value.location(),
+                value.objectKinds(),
+                value.priority(),
+                value.entry(),
+                value.placement(),
+                value.visibleWhen());
     }
 
     /** Empty selections never match; mixed selections require every item to match. */
     public boolean matches(final ContextMenuSelection selection) {
         Objects.requireNonNull(selection, "selection");
         return selection.location() == location
-            && !selection.items().isEmpty()
-            && selection.items().stream().allMatch(item -> objectKinds.contains(item.kind()))
-            && (visibleWhen == null || visibleWhen.test(selection));
+                && !selection.items().isEmpty()
+                && selection.items().stream().allMatch(item -> objectKinds.contains(item.kind()))
+                && (visibleWhen == null || visibleWhen.test(selection));
     }
 
     private static String requireText(final String value, final String name) {

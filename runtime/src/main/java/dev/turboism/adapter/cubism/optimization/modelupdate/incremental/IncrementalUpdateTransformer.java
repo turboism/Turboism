@@ -54,29 +54,35 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
     private final java.util.Map<String, String> beforeHashes = new java.util.HashMap<>();
     private final java.util.Set<String> touched = new java.util.HashSet<>();
 
-    private record Site(String owner, String method, String descriptor) { }
+    private record Site(String owner, String method, String descriptor) {}
 
     /** Binary names of every class this transformer touches, in reference order. */
     public List<String> classNames() {
         return List.of(
-            target.updater(),
-            IncrementalUpdateTarget.ROTATION_FORM.replace('.', '/'),
-            IncrementalUpdateTarget.WARP_FORM.replace('.', '/'),
-            IncrementalUpdateTarget.MESH_FORM.replace('.', '/'));
+                target.updater(),
+                IncrementalUpdateTarget.ROTATION_FORM.replace('.', '/'),
+                IncrementalUpdateTarget.WARP_FORM.replace('.', '/'),
+                IncrementalUpdateTarget.MESH_FORM.replace('.', '/'));
     }
 
     private List<Site> sites() {
         final String up = target.updater();
         return List.of(
-            new Site(up, "a", target.coreDescriptor()),
-            new Site(up, "a", target.deformerUpdateDescriptor()),
-            new Site(up, "a", target.artMeshUpdateDescriptor()),
-            new Site(IncrementalUpdateTarget.ROTATION_FORM.replace('.', '/'),
-                "interpolate__testImpl", target.deformerInterpolateDescriptor()),
-            new Site(IncrementalUpdateTarget.WARP_FORM.replace('.', '/'),
-                "interpolate__testImpl", target.deformerInterpolateDescriptor()),
-            new Site(IncrementalUpdateTarget.MESH_FORM.replace('.', '/'),
-                "interpolate__testImpl", target.meshInterpolateDescriptor()));
+                new Site(up, "a", target.coreDescriptor()),
+                new Site(up, "a", target.deformerUpdateDescriptor()),
+                new Site(up, "a", target.artMeshUpdateDescriptor()),
+                new Site(
+                        IncrementalUpdateTarget.ROTATION_FORM.replace('.', '/'),
+                        "interpolate__testImpl",
+                        target.deformerInterpolateDescriptor()),
+                new Site(
+                        IncrementalUpdateTarget.WARP_FORM.replace('.', '/'),
+                        "interpolate__testImpl",
+                        target.deformerInterpolateDescriptor()),
+                new Site(
+                        IncrementalUpdateTarget.MESH_FORM.replace('.', '/'),
+                        "interpolate__testImpl",
+                        target.meshInterpolateDescriptor()));
     }
 
     /**
@@ -86,9 +92,11 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
      * @param target the reviewed target for this artifact
      * @throws IllegalArgumentException when any reviewed method is absent from references
      */
-    public IncrementalUpdateTransformer(final ClassLoader loader, final Path artifact,
-                                        final List<byte[]> references,
-                                        final IncrementalUpdateTarget target) {
+    public IncrementalUpdateTransformer(
+            final ClassLoader loader,
+            final Path artifact,
+            final List<byte[]> references,
+            final IncrementalUpdateTarget target) {
         this.target = Objects.requireNonNull(target, "target");
         this.loader = loader;
         this.artifact = artifact == null ? null : artifact.toAbsolutePath().normalize();
@@ -103,10 +111,9 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
         }
         for (final Site site : sites()) {
             final List<String> shape = ReviewedMethodShape.read(
-                perClass.get(site.owner()), site.owner(), site.method(), site.descriptor());
+                    perClass.get(site.owner()), site.owner(), site.method(), site.descriptor());
             if (shape == null) {
-                throw new IllegalArgumentException(
-                    "reviewed method absent: " + site.owner() + "." + site.method());
+                throw new IllegalArgumentException("reviewed method absent: " + site.owner() + "." + site.method());
             }
             shapes.add(shape);
         }
@@ -132,62 +139,78 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
         return java.util.Set.copyOf(touched);
     }
 
-    @Override public byte[] transform(final Module module, final ClassLoader actualLoader,
-                                      final String name, final Class<?> type,
-                                      final ProtectionDomain domain, final byte[] bytes) {
+    @Override
+    public byte[] transform(
+            final Module module,
+            final ClassLoader actualLoader,
+            final String name,
+            final Class<?> type,
+            final ProtectionDomain domain,
+            final byte[] bytes) {
         if (actualLoader != loader || name == null || bytes == null) return null;
         final boolean isUpdater = target.updater().equals(name);
         final boolean isForm = !isUpdater && classNames().contains(name);
         if (!isUpdater && !isForm) return null;
         try {
-            if (artifact == null || domain == null
-                || !artifact.equals(Path.of(domain.getCodeSource().getLocation().toURI())
-                    .toAbsolutePath().normalize())) {
+            if (artifact == null
+                    || domain == null
+                    || !artifact.equals(
+                            Path.of(domain.getCodeSource().getLocation().toURI())
+                                    .toAbsolutePath()
+                                    .normalize())) {
                 failure = "incremental-update class source is not the reviewed artifact";
                 return null;
             }
             final List<Site> sites = sites();
             int rewritten = 0;
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader,
-                ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override protected ClassLoader getClassLoader() {
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
                     return loader;
                 }
             };
             final int[] counter = {0};
-            reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-                @Override public MethodVisitor visitMethod(final int access, final String method,
-                                                           final String descriptor,
-                                                           final String signature,
-                                                           final String[] exceptions) {
-                    final MethodVisitor visitor = super.visitMethod(
-                        access, method, descriptor, signature, exceptions);
-                    for (int i = 0; i < sites.size(); i++) {
-                        final Site site = sites.get(i);
-                        if (!site.owner().equals(name) || !site.method().equals(method)
-                            || !site.descriptor().equals(descriptor)) continue;
-                        if (!shapes.get(i).equals(ReviewedMethodShape.read(
-                                bytes, site.owner(), site.method(), site.descriptor()))) {
-                            failure = "incremental-update method shape mismatch: "
-                                + site.method() + site.descriptor();
-                            throw new IllegalStateException(failure);
+            reader.accept(
+                    new ClassVisitor(Opcodes.ASM9, writer) {
+                        @Override
+                        public MethodVisitor visitMethod(
+                                final int access,
+                                final String method,
+                                final String descriptor,
+                                final String signature,
+                                final String[] exceptions) {
+                            final MethodVisitor visitor =
+                                    super.visitMethod(access, method, descriptor, signature, exceptions);
+                            for (int i = 0; i < sites.size(); i++) {
+                                final Site site = sites.get(i);
+                                if (!site.owner().equals(name)
+                                        || !site.method().equals(method)
+                                        || !site.descriptor().equals(descriptor)) continue;
+                                if (!shapes.get(i)
+                                        .equals(ReviewedMethodShape.read(
+                                                bytes, site.owner(), site.method(), site.descriptor()))) {
+                                    failure = "incremental-update method shape mismatch: " + site.method()
+                                            + site.descriptor();
+                                    throw new IllegalStateException(failure);
+                                }
+                                counter[0]++;
+                                return inject(visitor, i, name, descriptor);
+                            }
+                            return visitor;
                         }
-                        counter[0]++;
-                        return inject(visitor, i, name, descriptor);
-                    }
-                    return visitor;
-                }
-            }, ClassReader.EXPAND_FRAMES);
+                    },
+                    ClassReader.EXPAND_FRAMES);
             rewritten = counter[0];
             final int expected = isUpdater ? 3 : 1;
             if (rewritten != expected || failure != null) {
-                failure = failure != null ? failure
-                    : "incremental-update sites absent: " + rewritten + "/" + expected;
+                failure = failure != null ? failure : "incremental-update sites absent: " + rewritten + "/" + expected;
                 return null;
             }
-            beforeHashes.putIfAbsent(name, HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256").digest(bytes)));
+            beforeHashes.putIfAbsent(
+                    name,
+                    HexFormat.of()
+                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
             touched.add(name);
             matches += rewritten;
             return writer.toByteArray();
@@ -197,8 +220,8 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
         }
     }
 
-    private MethodVisitor inject(final MethodVisitor visitor, final int site,
-                                 final String owner, final String descriptor) {
+    private MethodVisitor inject(
+            final MethodVisitor visitor, final int site, final String owner, final String descriptor) {
         return switch (site) {
             case 0 -> new CoreVisitor(visitor, descriptor);
             case 1 -> new MarkDirtyVisitor(visitor, descriptor);
@@ -209,21 +232,25 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
 
     /* ------------------------------------------------------------------ helpers */
 
-    private record Pending(int kind, int opcode, int operand, String owner, String name,
-                           String descriptor, boolean itf) {
+    private record Pending(
+            int kind, int opcode, int operand, String owner, String name, String descriptor, boolean itf) {
         static Pending insn(final int opcode) {
             return new Pending(0, opcode, 0, null, null, null, false);
         }
+
         static Pending var(final int opcode, final int slot) {
             return new Pending(1, opcode, slot, null, null, null, false);
         }
-        static Pending method(final int opcode, final String owner, final String name,
-                              final String descriptor, final boolean itf) {
+
+        static Pending method(
+                final int opcode, final String owner, final String name, final String descriptor, final boolean itf) {
             return new Pending(2, opcode, 0, owner, name, descriptor, itf);
         }
+
         static Pending typeInsn(final int opcode, final String type) {
             return new Pending(3, opcode, 0, type, null, null, false);
         }
+
         void replay(final MethodVisitor mv) {
             switch (kind) {
                 case 0 -> mv.visitInsn(opcode);
@@ -243,13 +270,13 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
     }
 
     /** {@code System.getProperties().get(key)} duplicated + instanceof-checked. */
-    private static void emitGuardHead(final MethodVisitor mv, final String property,
-                                      final String iface, final Label miss) {
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties",
-            "()Ljava/util/Properties;", false);
+    private static void emitGuardHead(
+            final MethodVisitor mv, final String property, final String iface, final Label miss) {
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
         mv.visitLdcInsn(property);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get",
-            "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
         mv.visitInsn(Opcodes.DUP);
         mv.visitTypeInsn(Opcodes.INSTANCEOF, iface);
         mv.visitJumpInsn(Opcodes.IFEQ, miss);
@@ -298,8 +325,7 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
                 if ("Lcom/live2d/cubism/doc/model/CModel;".equals(args[i].getDescriptor())) {
                     model = slots[i];
                 }
-                if ("Lcom/live2d/cubism/view/context/CEViewContext;"
-                    .equals(args[i].getDescriptor())) {
+                if ("Lcom/live2d/cubism/view/context/CEViewContext;".equals(args[i].getDescriptor())) {
                     ctx = slots[i];
                 }
             }
@@ -310,25 +336,27 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             ctxSlot = ctx;
         }
 
-        @Override public void visitTryCatchBlock(final Label start, final Label end,
-                                                 final Label handler, final String type) {
+        @Override
+        public void visitTryCatchBlock(final Label start, final Label end, final Label handler, final String type) {
             handlers.add(new Handler(start, end, handler, type));
         }
 
-        @Override public void visitCode() {
+        @Override
+        public void visitCode() {
             super.visitCode();
             emitCall(IncrementalUpdateBridge.BEGIN_PROPERTY);
         }
 
-        @Override public void visitInsn(final int opcode) {
+        @Override
+        public void visitInsn(final int opcode) {
             if (opcode == Opcodes.RETURN) emitCall(IncrementalUpdateBridge.END_PROPERTY);
             super.visitInsn(opcode);
         }
 
-        @Override public void visitMaxs(final int stack, final int locals) {
+        @Override
+        public void visitMaxs(final int stack, final int locals) {
             for (final Handler handler : handlers) {
-                super.visitTryCatchBlock(handler.start(), handler.end(), handler.target(),
-                    handler.type());
+                super.visitTryCatchBlock(handler.start(), handler.end(), handler.target(), handler.type());
             }
             super.visitMaxs(stack, locals);
         }
@@ -341,8 +369,8 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             super.visitLabel(start);
             emitGuardHead(mv, property, "java/util/function/Consumer", miss);
             emitObjectArray(mv, modelSlot, ctxSlot);
-            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/function/Consumer",
-                "accept", "(Ljava/lang/Object;)V", true);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE, "java/util/function/Consumer", "accept", "(Ljava/lang/Object;)V", true);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(miss);
@@ -374,12 +402,15 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
         private boolean matches() {
             if (pending.size() != 3) return false;
             final Pending[] p = pending.toArray(new Pending[0]);
-            return p[0].kind == 1 && p[0].opcode == Opcodes.ALOAD
-                && p[1].kind == 0 && p[1].opcode == Opcodes.ICONST_1
-                && p[2].kind == 2 && p[2].opcode == Opcodes.INVOKEVIRTUAL
-                && p[2].owner.equals(target.deformerBinary())
-                && p[2].name.equals("setDirtyDeformedForm")
-                && p[2].descriptor.equals("(Z)V");
+            return p[0].kind == 1
+                    && p[0].opcode == Opcodes.ALOAD
+                    && p[1].kind == 0
+                    && p[1].opcode == Opcodes.ICONST_1
+                    && p[2].kind == 2
+                    && p[2].opcode == Opcodes.INVOKEVIRTUAL
+                    && p[2].owner.equals(target.deformerBinary())
+                    && p[2].name.equals("setDirtyDeformedForm")
+                    && p[2].descriptor.equals("(Z)V");
         }
 
         private boolean prefix() {
@@ -387,11 +418,12 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             final Pending[] p = pending.toArray(new Pending[0]);
             for (int i = 0; i < p.length; i++) {
                 final Pending x = p[i];
-                final boolean ok = switch (i) {
-                    case 0 -> x.kind == 1 && x.opcode == Opcodes.ALOAD;
-                    case 1 -> x.kind == 0 && x.opcode == Opcodes.ICONST_1;
-                    default -> true;
-                };
+                final boolean ok =
+                        switch (i) {
+                            case 0 -> x.kind == 1 && x.opcode == Opcodes.ALOAD;
+                            case 1 -> x.kind == 0 && x.opcode == Opcodes.ICONST_1;
+                            default -> true;
+                        };
                 if (!ok) return false;
             }
             return true;
@@ -415,94 +447,107 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             while (!pending.isEmpty()) pending.removeFirst().replay(mv);
         }
 
-        @Override public void visitVarInsn(final int opcode, final int slot) {
+        @Override
+        public void visitVarInsn(final int opcode, final int slot) {
             offer(Pending.var(opcode, slot));
         }
 
-        @Override public void visitInsn(final int opcode) {
+        @Override
+        public void visitInsn(final int opcode) {
             offer(Pending.insn(opcode));
         }
 
-        @Override public void visitMethodInsn(final int opcode, final String owner,
-                                              final String name, final String descriptor,
-                                              final boolean itf) {
+        @Override
+        public void visitMethodInsn(
+                final int opcode, final String owner, final String name, final String descriptor, final boolean itf) {
             offer(Pending.method(opcode, owner, name, descriptor, itf));
         }
 
-        @Override public void visitTypeInsn(final int opcode, final String type) {
+        @Override
+        public void visitTypeInsn(final int opcode, final String type) {
             flush();
             super.visitTypeInsn(opcode, type);
         }
 
-        @Override public void visitJumpInsn(final int opcode, final Label label) {
+        @Override
+        public void visitJumpInsn(final int opcode, final Label label) {
             flush();
             super.visitJumpInsn(opcode, label);
         }
 
-        @Override public void visitLabel(final Label label) {
+        @Override
+        public void visitLabel(final Label label) {
             flush();
             super.visitLabel(label);
         }
 
-        @Override public void visitLdcInsn(final Object value) {
+        @Override
+        public void visitLdcInsn(final Object value) {
             flush();
             super.visitLdcInsn(value);
         }
 
-        @Override public void visitIincInsn(final int slot, final int amount) {
+        @Override
+        public void visitIincInsn(final int slot, final int amount) {
             flush();
             super.visitIincInsn(slot, amount);
         }
 
-        @Override public void visitIntInsn(final int opcode, final int operand) {
+        @Override
+        public void visitIntInsn(final int opcode, final int operand) {
             flush();
             super.visitIntInsn(opcode, operand);
         }
 
-        @Override public void visitFieldInsn(final int opcode, final String owner,
-                                             final String name, final String descriptor) {
+        @Override
+        public void visitFieldInsn(final int opcode, final String owner, final String name, final String descriptor) {
             flush();
             super.visitFieldInsn(opcode, owner, name, descriptor);
         }
 
-        @Override public void visitFrame(final int type, final int count,
-                                         final Object[] locals, final int stackCount,
-                                         final Object[] stack) {
+        @Override
+        public void visitFrame(
+                final int type, final int count, final Object[] locals, final int stackCount, final Object[] stack) {
             flush();
             super.visitFrame(type, count, locals, stackCount, stack);
         }
 
-        @Override public void visitTableSwitchInsn(final int min, final int max,
-                                                   final Label dflt, final Label... labels) {
+        @Override
+        public void visitTableSwitchInsn(final int min, final int max, final Label dflt, final Label... labels) {
             flush();
             super.visitTableSwitchInsn(min, max, dflt, labels);
         }
 
-        @Override public void visitLookupSwitchInsn(final Label dflt, final int[] keys,
-                                                    final Label[] labels) {
+        @Override
+        public void visitLookupSwitchInsn(final Label dflt, final int[] keys, final Label[] labels) {
             flush();
             super.visitLookupSwitchInsn(dflt, keys, labels);
         }
 
-        @Override public void visitMultiANewArrayInsn(final String descriptor, final int dims) {
+        @Override
+        public void visitMultiANewArrayInsn(final String descriptor, final int dims) {
             flush();
             super.visitMultiANewArrayInsn(descriptor, dims);
         }
 
-        @Override public void visitInvokeDynamicInsn(final String name, final String descriptor,
-                                                     final org.objectweb.asm.Handle handle,
-                                                     final Object... args) {
+        @Override
+        public void visitInvokeDynamicInsn(
+                final String name,
+                final String descriptor,
+                final org.objectweb.asm.Handle handle,
+                final Object... args) {
             flush();
             super.visitInvokeDynamicInsn(name, descriptor, handle, args);
         }
 
-        @Override public void visitTryCatchBlock(final Label start, final Label end,
-                                                 final Label handler, final String type) {
+        @Override
+        public void visitTryCatchBlock(final Label start, final Label end, final Label handler, final String type) {
             flush();
             super.visitTryCatchBlock(start, end, handler, type);
         }
 
-        @Override public void visitEnd() {
+        @Override
+        public void visitEnd() {
             flush();
             if (rewritten != 1) {
                 failure = "dirty-mark call site found " + rewritten + " times";
@@ -515,12 +560,15 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             final Label miss = new Label(), nativ = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            emitGuardHead(mv, IncrementalUpdateBridge.MARK_PROPERTY,
-                "java/util/function/BiConsumer", miss);
+            emitGuardHead(mv, IncrementalUpdateBridge.MARK_PROPERTY, "java/util/function/BiConsumer", miss);
             super.visitVarInsn(Opcodes.ALOAD, deformerSlot);
             super.visitVarInsn(Opcodes.ALOAD, modelSlot);
-            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/function/BiConsumer",
-                "accept", "(Ljava/lang/Object;Ljava/lang/Object;)V", true);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE,
+                    "java/util/function/BiConsumer",
+                    "accept",
+                    "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                    true);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(miss);
@@ -531,8 +579,8 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             super.visitLabel(nativ);
             super.visitVarInsn(Opcodes.ALOAD, deformerSlot);
             super.visitInsn(Opcodes.ICONST_1);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, target.deformerBinary(),
-                "setDirtyDeformedForm", "(Z)V", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, target.deformerBinary(), "setDirtyDeformedForm", "(Z)V", false);
             super.visitLabel(done);
         }
     }
@@ -557,8 +605,7 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             int mesh = -1;
             final Type[] args = Type.getArgumentTypes(descriptor);
             for (int i = 0; i < args.length; i++) {
-                if ("Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMesh;"
-                    .equals(args[i].getDescriptor())) {
+                if ("Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMesh;".equals(args[i].getDescriptor())) {
                     mesh = slots[i];
                 }
             }
@@ -572,18 +619,23 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             final Pending x = p[i];
             return switch (i) {
                 case 0, 1, 3 -> x.kind == 1 && x.opcode == Opcodes.ALOAD;
-                case 2 -> x.kind == 2 && x.opcode == Opcodes.INVOKEVIRTUAL
-                    && x.owner.equals(target.deformerBinary())
-                    && x.name.equals("getCreateLocalToCanvasTransform")
-                    && x.descriptor.equals("()Lcom/live2d/doc/selection/d;");
-                case 4 -> x.kind == 3 && x.opcode == Opcodes.CHECKCAST
-                    && x.owner.equals("com/live2d/cubism/doc/model/ACForm");
-                default -> x.kind == 2 && x.opcode == Opcodes.INVOKEVIRTUAL
-                    && x.owner.equals(target.meshFormBinary())
-                    && x.name.equals("transform")
-                    && x.descriptor.equals(
-                        "(Lcom/live2d/doc/selection/d;Lcom/live2d/cubism/doc/model/ACForm;)"
-                            + "Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm;");
+                case 2 ->
+                    x.kind == 2
+                            && x.opcode == Opcodes.INVOKEVIRTUAL
+                            && x.owner.equals(target.deformerBinary())
+                            && x.name.equals("getCreateLocalToCanvasTransform")
+                            && x.descriptor.equals("()Lcom/live2d/doc/selection/d;");
+                case 4 ->
+                    x.kind == 3
+                            && x.opcode == Opcodes.CHECKCAST
+                            && x.owner.equals("com/live2d/cubism/doc/model/ACForm");
+                default ->
+                    x.kind == 2
+                            && x.opcode == Opcodes.INVOKEVIRTUAL
+                            && x.owner.equals(target.meshFormBinary())
+                            && x.name.equals("transform")
+                            && x.descriptor.equals("(Lcom/live2d/doc/selection/d;Lcom/live2d/cubism/doc/model/ACForm;)"
+                                    + "Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm;");
             };
         }
 
@@ -610,93 +662,106 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             while (!pending.isEmpty()) pending.removeFirst().replay(mv);
         }
 
-        @Override public void visitVarInsn(final int opcode, final int slot) {
+        @Override
+        public void visitVarInsn(final int opcode, final int slot) {
             offer(Pending.var(opcode, slot));
         }
 
-        @Override public void visitInsn(final int opcode) {
+        @Override
+        public void visitInsn(final int opcode) {
             offer(Pending.insn(opcode));
         }
 
-        @Override public void visitMethodInsn(final int opcode, final String owner,
-                                              final String name, final String descriptor,
-                                              final boolean itf) {
+        @Override
+        public void visitMethodInsn(
+                final int opcode, final String owner, final String name, final String descriptor, final boolean itf) {
             offer(Pending.method(opcode, owner, name, descriptor, itf));
         }
 
-        @Override public void visitTypeInsn(final int opcode, final String type) {
+        @Override
+        public void visitTypeInsn(final int opcode, final String type) {
             offer(Pending.typeInsn(opcode, type));
         }
 
-        @Override public void visitJumpInsn(final int opcode, final Label label) {
+        @Override
+        public void visitJumpInsn(final int opcode, final Label label) {
             flush();
             super.visitJumpInsn(opcode, label);
         }
 
-        @Override public void visitLabel(final Label label) {
+        @Override
+        public void visitLabel(final Label label) {
             flush();
             super.visitLabel(label);
         }
 
-        @Override public void visitLdcInsn(final Object value) {
+        @Override
+        public void visitLdcInsn(final Object value) {
             flush();
             super.visitLdcInsn(value);
         }
 
-        @Override public void visitIincInsn(final int slot, final int amount) {
+        @Override
+        public void visitIincInsn(final int slot, final int amount) {
             flush();
             super.visitIincInsn(slot, amount);
         }
 
-        @Override public void visitIntInsn(final int opcode, final int operand) {
+        @Override
+        public void visitIntInsn(final int opcode, final int operand) {
             flush();
             super.visitIntInsn(opcode, operand);
         }
 
-        @Override public void visitFieldInsn(final int opcode, final String owner,
-                                             final String name, final String descriptor) {
+        @Override
+        public void visitFieldInsn(final int opcode, final String owner, final String name, final String descriptor) {
             flush();
             super.visitFieldInsn(opcode, owner, name, descriptor);
         }
 
-        @Override public void visitFrame(final int type, final int count,
-                                         final Object[] locals, final int stackCount,
-                                         final Object[] stack) {
+        @Override
+        public void visitFrame(
+                final int type, final int count, final Object[] locals, final int stackCount, final Object[] stack) {
             flush();
             super.visitFrame(type, count, locals, stackCount, stack);
         }
 
-        @Override public void visitTableSwitchInsn(final int min, final int max,
-                                                   final Label dflt, final Label... labels) {
+        @Override
+        public void visitTableSwitchInsn(final int min, final int max, final Label dflt, final Label... labels) {
             flush();
             super.visitTableSwitchInsn(min, max, dflt, labels);
         }
 
-        @Override public void visitLookupSwitchInsn(final Label dflt, final int[] keys,
-                                                    final Label[] labels) {
+        @Override
+        public void visitLookupSwitchInsn(final Label dflt, final int[] keys, final Label[] labels) {
             flush();
             super.visitLookupSwitchInsn(dflt, keys, labels);
         }
 
-        @Override public void visitMultiANewArrayInsn(final String descriptor, final int dims) {
+        @Override
+        public void visitMultiANewArrayInsn(final String descriptor, final int dims) {
             flush();
             super.visitMultiANewArrayInsn(descriptor, dims);
         }
 
-        @Override public void visitInvokeDynamicInsn(final String name, final String descriptor,
-                                                     final org.objectweb.asm.Handle handle,
-                                                     final Object... args) {
+        @Override
+        public void visitInvokeDynamicInsn(
+                final String name,
+                final String descriptor,
+                final org.objectweb.asm.Handle handle,
+                final Object... args) {
             flush();
             super.visitInvokeDynamicInsn(name, descriptor, handle, args);
         }
 
-        @Override public void visitTryCatchBlock(final Label start, final Label end,
-                                                 final Label handler, final String type) {
+        @Override
+        public void visitTryCatchBlock(final Label start, final Label end, final Label handler, final String type) {
             flush();
             super.visitTryCatchBlock(start, end, handler, type);
         }
 
-        @Override public void visitEnd() {
+        @Override
+        public void visitEnd() {
             flush();
             if (rewritten != 1) {
                 failure = "deform call site found " + rewritten + " times";
@@ -704,17 +769,19 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             super.visitEnd();
         }
 
-        private void emitReplacement(final int preDeformSlot, final int targetSlot,
-                                     final int outSlot) {
+        private void emitReplacement(final int preDeformSlot, final int targetSlot, final int outSlot) {
             final Label start = new Label(), end = new Label(), handler = new Label();
             final Label miss = new Label(), nativ = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            emitGuardHead(mv, IncrementalUpdateBridge.DEFORM_PROPERTY,
-                "java/util/function/Function", miss);
+            emitGuardHead(mv, IncrementalUpdateBridge.DEFORM_PROPERTY, "java/util/function/Function", miss);
             emitObjectArray(mv, preDeformSlot, targetSlot, outSlot, meshSlot);
-            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/function/Function",
-                "apply", "(Ljava/lang/Object;)Ljava/lang/Object;", true);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE,
+                    "java/util/function/Function",
+                    "apply",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    true);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(miss);
@@ -725,14 +792,21 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             super.visitLabel(nativ);
             super.visitVarInsn(Opcodes.ALOAD, preDeformSlot);
             super.visitVarInsn(Opcodes.ALOAD, targetSlot);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, target.deformerBinary(),
-                "getCreateLocalToCanvasTransform", "()Lcom/live2d/doc/selection/d;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    target.deformerBinary(),
+                    "getCreateLocalToCanvasTransform",
+                    "()Lcom/live2d/doc/selection/d;",
+                    false);
             super.visitVarInsn(Opcodes.ALOAD, outSlot);
             super.visitTypeInsn(Opcodes.CHECKCAST, "com/live2d/cubism/doc/model/ACForm");
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, target.meshFormBinary(),
-                "transform",
-                "(Lcom/live2d/doc/selection/d;Lcom/live2d/cubism/doc/model/ACForm;)"
-                    + "Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    target.meshFormBinary(),
+                    "transform",
+                    "(Lcom/live2d/doc/selection/d;Lcom/live2d/cubism/doc/model/ACForm;)"
+                            + "Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm;",
+                    false);
             super.visitLabel(done);
         }
     }
@@ -745,17 +819,17 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             super(Opcodes.ASM9, visitor);
         }
 
-        @Override public void visitCode() {
+        @Override
+        public void visitCode() {
             super.visitCode();
             final Label start = new Label(), end = new Label(), handler = new Label();
             final Label miss = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            emitGuardHead(mv, IncrementalUpdateBridge.FORM_PROPERTY,
-                "java/util/function/Consumer", miss);
+            emitGuardHead(mv, IncrementalUpdateBridge.FORM_PROPERTY, "java/util/function/Consumer", miss);
             super.visitVarInsn(Opcodes.ALOAD, 0);
-            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/function/Consumer",
-                "accept", "(Ljava/lang/Object;)V", true);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE, "java/util/function/Consumer", "accept", "(Ljava/lang/Object;)V", true);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(miss);
@@ -767,5 +841,5 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
         }
     }
 
-    private record Handler(Label start, Label end, Label target, String type) { }
+    private record Handler(Label start, Label end, Label target, String type) {}
 }

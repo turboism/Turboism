@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.filechooser;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
-
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
@@ -20,16 +20,13 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class NativeFileChooserHistoryBridge {
 
-    private static final AtomicReference<NativeFileChooserHistoryBridge> INSTALLED =
-        new AtomicReference<>();
+    private static final AtomicReference<NativeFileChooserHistoryBridge> INSTALLED = new AtomicReference<>();
 
     private final FileChooserHistoryService service;
     private final FileChooserHistoryHostProfile profile;
 
     public NativeFileChooserHistoryBridge(
-        final FileChooserHistoryService service,
-        final FileChooserHistoryHostProfile profile
-    ) {
+            final FileChooserHistoryService service, final FileChooserHistoryHostProfile profile) {
         this.service = Objects.requireNonNull(service, "service");
         this.profile = Objects.requireNonNull(profile, "profile");
     }
@@ -105,22 +102,17 @@ public final class NativeFileChooserHistoryBridge {
             if (!service.exportSeparationEnabled()) {
                 return;
             }
-            final Optional<Path> directory = isExportContext()
-                ? service.exportRecentDirectory()
-                : service.projectRecentDirectory();
+            final Optional<Path> directory =
+                    isExportContext() ? service.exportRecentDirectory() : service.projectRecentDirectory();
             if (directory.isEmpty()) {
                 return;
             }
             FileChooserHistoryHostAdapter.applyHistory(
-                chooser,
-                List.of(directory.orElseThrow().toFile())
-            );
+                    chooser, List.of(directory.orElseThrow().toFile()));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "file-chooser",
-                "File-chooser history apply failed safely",
-                failure
-            );
+                    "file-chooser", "File-chooser history apply failed safely", failure);
         }
     }
 
@@ -139,11 +131,9 @@ public final class NativeFileChooserHistoryBridge {
                 service.setProjectRecentDirectory(history.get(0).toPath());
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "file-chooser",
-                "File-chooser history capture failed safely",
-                failure
-            );
+                    "file-chooser", "File-chooser history capture failed safely", failure);
         }
     }
 
@@ -156,8 +146,8 @@ public final class NativeFileChooserHistoryBridge {
             if (element == null) {
                 continue;
             }
-            final String className = element.getClassName() == null
-                ? "" : element.getClassName().trim();
+            final String className =
+                    element.getClassName() == null ? "" : element.getClassName().trim();
             if (profile.exportContextClassNames().contains(className)) {
                 return true;
             }

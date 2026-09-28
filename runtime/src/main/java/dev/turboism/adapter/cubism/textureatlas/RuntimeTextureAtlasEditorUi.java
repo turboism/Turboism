@@ -3,10 +3,6 @@ package dev.turboism.adapter.cubism.textureatlas;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi;
-
-import javax.swing.BoxLayout;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
@@ -14,6 +10,9 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import javax.swing.BoxLayout;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 /**
  * Framework capability: attaches plugin-owned UI panels to the native texture-atlas
@@ -95,9 +94,8 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
 
     private static JPanel pluginPanels(final Container container) {
         for (Component component : container.getComponents()) {
-            if (component instanceof JPanel panel && Boolean.TRUE.equals(
-                panel.getClientProperty(RuntimeTextureAtlasEditorUi.class)
-            )) {
+            if (component instanceof JPanel panel
+                    && Boolean.TRUE.equals(panel.getClientProperty(RuntimeTextureAtlasEditorUi.class))) {
                 return panel;
             }
         }
@@ -119,9 +117,9 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
             }
         }
         for (Component component : container.getComponents()) {
-            if (component instanceof JPanel panel && Boolean.TRUE.equals(
-                panel.getClientProperty(RuntimeTextureAtlasEditorUi.class)
-            ) && panel.getComponentCount() == 0) {
+            if (component instanceof JPanel panel
+                    && Boolean.TRUE.equals(panel.getClientProperty(RuntimeTextureAtlasEditorUi.class))
+                    && panel.getComponentCount() == 0) {
                 container.remove(panel);
                 changed = true;
             }
@@ -194,9 +192,9 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
     public synchronized RuntimeTextureAtlasEditorSession.GenerationBinding binding() {
         if (closed || boundResolver == null) return null;
         final Object view = currentView == null ? null : currentView.get();
-        return view == null ? null : new RuntimeTextureAtlasEditorSession.GenerationBinding(
-            boundGeneration, boundResolver, view
-        );
+        return view == null
+                ? null
+                : new RuntimeTextureAtlasEditorSession.GenerationBinding(boundGeneration, boundResolver, view);
     }
 
     /** Current host editor view, for callers that only need the native component. */
@@ -249,5 +247,4 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
             }
         }
     }
-
 }

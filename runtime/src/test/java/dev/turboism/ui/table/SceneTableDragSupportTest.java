@@ -1,14 +1,13 @@
 package dev.turboism.ui.table;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.awt.Point;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
-import java.awt.Point;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import org.junit.jupiter.api.Test;
 
 final class SceneTableDragSupportTest {
 
@@ -36,9 +35,7 @@ final class SceneTableDragSupportTest {
 
     private static JTable table() {
         final JTable table = new JTable(new DefaultTableModel(
-            new Object[][] {{"a", "1"}, {"b", "2"}, {"c", "3"}},
-            new Object[] {"Name", "Duration"}
-        ));
+                new Object[][] {{"a", "1"}, {"b", "2"}, {"c", "3"}}, new Object[] {"Name", "Duration"}));
         table.setSize(240, table.getRowHeight() * 3);
         return table;
     }

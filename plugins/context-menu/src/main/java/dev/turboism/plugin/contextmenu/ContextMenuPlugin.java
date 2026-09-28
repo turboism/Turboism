@@ -3,7 +3,6 @@ package dev.turboism.plugin.contextmenu;
 import dev.turboism.plugin.contextmenu.b1.application.ContextMenuApplication;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
 import java.util.Objects;
 
 /** SDK-only migration shell; it intentionally contributes no host capability or UI. */
@@ -41,5 +40,4 @@ public final class ContextMenuPlugin implements TurboismPlugin {
     boolean isEnabled() {
         return enabled;
     }
-
 }

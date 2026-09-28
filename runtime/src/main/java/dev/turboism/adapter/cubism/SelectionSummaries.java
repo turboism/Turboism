@@ -12,7 +12,6 @@ import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.id.ProjectId;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -30,7 +29,7 @@ import java.util.Set;
  */
 public final class SelectionSummaries {
 
-    private SelectionSummaries() { }
+    private SelectionSummaries() {}
 
     /**
      * Classifies one runtime snapshot into a detached selection summary. The summary keeps
@@ -42,14 +41,11 @@ public final class SelectionSummaries {
         Objects.requireNonNull(snapshot, "snapshot");
         final SelectionSnapshot selection = snapshot.selection();
         final Set<String> parameterIds = new HashSet<>(
-            snapshot.parameters().stream().map(ParameterSnapshot::id).toList()
-        );
+                snapshot.parameters().stream().map(ParameterSnapshot::id).toList());
         final Set<String> artMeshIds = new HashSet<>(
-            snapshot.artMeshes().stream().map(ArtMeshSnapshot::id).toList()
-        );
+                snapshot.artMeshes().stream().map(ArtMeshSnapshot::id).toList());
         final Set<String> deformerIds = new HashSet<>(
-            snapshot.deformers().stream().map(DeformerSnapshot::id).toList()
-        );
+                snapshot.deformers().stream().map(DeformerSnapshot::id).toList());
         final List<ParameterId> selectedParameterIds = new ArrayList<>();
         final List<ArtMeshId> selectedArtMeshIds = new ArrayList<>();
         final List<DeformerId> selectedDeformerIds = new ArrayList<>();
@@ -65,14 +61,13 @@ public final class SelectionSummaries {
             }
         }
         return new SelectionSummary(
-            snapshot.project().map(project -> new ProjectId(project.projectId())),
-            snapshot.document().map(document -> new DocumentId(document.documentId())),
-            snapshot.model().map(model -> new ModelObjectId(model.modelId())),
-            selectedParameterIds,
-            selectedArtMeshIds,
-            selectedDeformerIds,
-            selectedModelObjectIds
-        );
+                snapshot.project().map(project -> new ProjectId(project.projectId())),
+                snapshot.document().map(document -> new DocumentId(document.documentId())),
+                snapshot.model().map(model -> new ModelObjectId(model.modelId())),
+                selectedParameterIds,
+                selectedArtMeshIds,
+                selectedDeformerIds,
+                selectedModelObjectIds);
     }
 
     /**
@@ -85,13 +80,12 @@ public final class SelectionSummaries {
     public static SelectionSummary observedIdentity(final SelectionSummary summary) {
         Objects.requireNonNull(summary, "summary");
         return new SelectionSummary(
-            Optional.empty(),
-            summary.activeDocumentId(),
-            summary.activeModelId(),
-            summary.selectedParameterIds(),
-            summary.selectedArtMeshIds(),
-            summary.selectedDeformerIds(),
-            summary.selectedModelObjectIds()
-        );
+                Optional.empty(),
+                summary.activeDocumentId(),
+                summary.activeModelId(),
+                summary.selectedParameterIds(),
+                summary.selectedArtMeshIds(),
+                summary.selectedDeformerIds(),
+                summary.selectedModelObjectIds());
     }
 }

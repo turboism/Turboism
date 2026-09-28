@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.write;
 
-
 /**
  * Base type for narrow, transaction-scoped Cubism write commands.
  *

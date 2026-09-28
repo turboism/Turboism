@@ -25,18 +25,15 @@ public final class VerifiedMemberResolver {
     // The immutable access plan and defining loader belong to this resolver's lifetime.
     // Do not make this process-global: provider replacement must release cached host members.
     private final java.util.concurrent.ConcurrentMap<String, Method> invocationMethods =
-        new java.util.concurrent.ConcurrentHashMap<>();
+            new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentMap<String, Field> invocationFields =
-        new java.util.concurrent.ConcurrentHashMap<>();
+            new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentMap<String, Constructor<?>> invocationConstructors =
-        new java.util.concurrent.ConcurrentHashMap<>();
+            new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentMap<String, Class<?>> ownerClasses =
-        new java.util.concurrent.ConcurrentHashMap<>();
+            new java.util.concurrent.ConcurrentHashMap<>();
 
-    VerifiedMemberResolver(
-        final VerifiedAccessPlan accessPlan,
-        final ClassLoader hostClassLoader
-    ) {
+    VerifiedMemberResolver(final VerifiedAccessPlan accessPlan, final ClassLoader hostClassLoader) {
         this.accessPlan = Objects.requireNonNull(accessPlan, "accessPlan");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
     }
@@ -54,26 +51,22 @@ public final class VerifiedMemberResolver {
      * @return {@code true} only when the plan covers all three completely
      */
     public boolean authorizes(
-        final String adapterSliceId,
-        final java.util.Set<String> capabilityIds,
-        final java.util.Set<String> aliases
-    ) {
+            final String adapterSliceId,
+            final java.util.Set<String> capabilityIds,
+            final java.util.Set<String> aliases) {
         return java.util.Collections.disjoint(unavailableCapabilities, capabilityIds)
-            && accessPlan.authorizes(adapterSliceId, capabilityIds, aliases);
+                && accessPlan.authorizes(adapterSliceId, capabilityIds, aliases);
     }
 
     /** Checks whether one additive feature is fully covered by this verified plan. */
     public boolean authorizesFeature(
-        final String adapterSliceId,
-        final String capabilityId,
-        final java.util.Set<String> aliases
-    ) {
+            final String adapterSliceId, final String capabilityId, final java.util.Set<String> aliases) {
         Objects.requireNonNull(capabilityId, "capabilityId");
-        return !unavailableCapabilities.contains(capabilityId) && accessPlan.authorizesFeature(
-            Objects.requireNonNull(adapterSliceId, "adapterSliceId"),
-            capabilityId,
-            java.util.Set.copyOf(Objects.requireNonNull(aliases, "aliases"))
-        );
+        return !unavailableCapabilities.contains(capabilityId)
+                && accessPlan.authorizesFeature(
+                        Objects.requireNonNull(adapterSliceId, "adapterSliceId"),
+                        capabilityId,
+                        java.util.Set.copyOf(Objects.requireNonNull(aliases, "aliases")));
     }
 
     /**
@@ -265,12 +258,10 @@ public final class VerifiedMemberResolver {
             return field.get(null);
         } catch (VerifiedAccessException exception) {
             throw exception;
-        } catch (IllegalAccessException
-                 | IllegalArgumentException | LinkageError | SecurityException exception) {
+        } catch (IllegalAccessException | IllegalArgumentException | LinkageError | SecurityException exception) {
             throw resolutionFailure(alias, "Verified host field resolution failed safely.");
         }
     }
-
 
     /**
      * Invokes a verified constructor.
@@ -287,8 +278,8 @@ public final class VerifiedMemberResolver {
             if (!constructor.canAccess(null)) {
                 final int constructorModifiers = constructor.getModifiers();
                 final boolean packagePrivateConstructor = !Modifier.isPublic(constructorModifiers)
-                    && !Modifier.isProtected(constructorModifiers)
-                    && !Modifier.isPrivate(constructorModifiers);
+                        && !Modifier.isProtected(constructorModifiers)
+                        && !Modifier.isPrivate(constructorModifiers);
                 if (!packagePrivateConstructor || !constructor.trySetAccessible()) {
                     throw resolutionFailure(alias, "Verified host constructor is not accessible.");
                 }
@@ -298,14 +289,15 @@ public final class VerifiedMemberResolver {
             throw exception;
         } catch (InvocationTargetException exception) {
             throw new VerifiedAccessException(
-                alias,
-                VerifiedAccessException.FailureKind.INVOCATION,
-                "Verified host constructor execution failed safely.",
-                null
-            );
+                    alias,
+                    VerifiedAccessException.FailureKind.INVOCATION,
+                    "Verified host constructor execution failed safely.",
+                    null);
         } catch (InstantiationException
-                 | IllegalAccessException | IllegalArgumentException | LinkageError
-                 | SecurityException exception) {
+                | IllegalAccessException
+                | IllegalArgumentException
+                | LinkageError
+                | SecurityException exception) {
             throw resolutionFailure(alias, "Verified host constructor resolution failed safely.");
         }
     }
@@ -327,8 +319,7 @@ public final class VerifiedMemberResolver {
             return field.get(target);
         } catch (VerifiedAccessException exception) {
             throw exception;
-        } catch (IllegalAccessException
-                 | IllegalArgumentException | LinkageError | SecurityException exception) {
+        } catch (IllegalAccessException | IllegalArgumentException | LinkageError | SecurityException exception) {
             throw resolutionFailure(alias, "Verified host field resolution failed safely.");
         }
     }
@@ -352,38 +343,29 @@ public final class VerifiedMemberResolver {
         if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) != 0) {
             throw resolutionFailure(alias, "Verified alias is not an instance field.");
         }
-        if ((selector.forbiddenAccessFlags()
-                & (StaticSelector.ACCESS_STATIC | ACC_FINAL)) != (StaticSelector.ACCESS_STATIC | ACC_FINAL)) {
-            throw resolutionFailure(
-                alias, "Verified instance field is not pinned writable.");
+        if ((selector.forbiddenAccessFlags() & (StaticSelector.ACCESS_STATIC | ACC_FINAL))
+                != (StaticSelector.ACCESS_STATIC | ACC_FINAL)) {
+            throw resolutionFailure(alias, "Verified instance field is not pinned writable.");
         }
         if (target == null) {
             throw resolutionFailure(alias, "Verified instance field target is unavailable.");
         }
         try {
-            final Class<?> owner = Class.forName(
-                selector.ownerInternalName().replace('/', '.'),
-                false,
-                hostClassLoader
-            );
+            final Class<?> owner =
+                    Class.forName(selector.ownerInternalName().replace('/', '.'), false, hostClassLoader);
             if (owner.getClassLoader() != hostClassLoader) {
-                throw resolutionFailure(
-                    alias,
-                    "Verified host classloader attestation no longer matches."
-                );
+                throw resolutionFailure(alias, "Verified host classloader attestation no longer matches.");
             }
             if (!owner.isInstance(target)) {
-                throw resolutionFailure(
-                    alias, "Verified instance field target type does not match.");
+                throw resolutionFailure(alias, "Verified instance field target type does not match.");
             }
             final Class<?> fieldType = MethodType.fromMethodDescriptorString(
-                "()" + selector.descriptor(),
-                hostClassLoader
-            ).returnType();
+                            "()" + selector.descriptor(), hostClassLoader)
+                    .returnType();
             final Field field = owner.getDeclaredField(selector.memberName());
             if (!field.getDeclaringClass().equals(owner)
-                || !field.getType().equals(fieldType)
-                || !matchesAccess(field.getModifiers(), selector)) {
+                    || !field.getType().equals(fieldType)
+                    || !matchesAccess(field.getModifiers(), selector)) {
                 throw resolutionFailure(alias, "Verified host field no longer matches.");
             }
             if (Modifier.isFinal(field.getModifiers())) {
@@ -395,8 +377,12 @@ public final class VerifiedMemberResolver {
             field.set(target, value);
         } catch (VerifiedAccessException exception) {
             throw exception;
-        } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException
-                 | IllegalArgumentException | LinkageError | SecurityException exception) {
+        } catch (ClassNotFoundException
+                | NoSuchFieldException
+                | IllegalAccessException
+                | IllegalArgumentException
+                | LinkageError
+                | SecurityException exception) {
             throw resolutionFailure(alias, "Verified host field resolution failed safely.");
         }
     }
@@ -413,65 +399,36 @@ public final class VerifiedMemberResolver {
      * @throws VerifiedAccessException when the alias is unknown or the proxy cannot be created
      */
     public Object createFunctionalArgumentProxy(
-        final String methodAlias,
-        final int parameterIndex,
-        final Function<Object, Object> callback
-    ) {
-        return createFunctionalArgumentProxy(
-            methodAlias,
-            methodSelector(methodAlias),
-            parameterIndex,
-            callback
-        );
+            final String methodAlias, final int parameterIndex, final Function<Object, Object> callback) {
+        return createFunctionalArgumentProxy(methodAlias, methodSelector(methodAlias), parameterIndex, callback);
     }
 
     /**
      * Creates a host-classloader proxy for one exact parameter type in a verified constructor.
      */
     public Object createFunctionalConstructorArgumentProxy(
-        final String constructorAlias,
-        final int parameterIndex,
-        final Function<Object, Object> callback
-    ) {
+            final String constructorAlias, final int parameterIndex, final Function<Object, Object> callback) {
         return createFunctionalArgumentProxy(
-            constructorAlias,
-            constructorSelector(constructorAlias),
-            parameterIndex,
-            callback
-        );
+                constructorAlias, constructorSelector(constructorAlias), parameterIndex, callback);
     }
 
     private Object createFunctionalArgumentProxy(
-        final String alias,
-        final StaticSelector selector,
-        final int parameterIndex,
-        final Function<Object, Object> callback
-    ) {
+            final String alias,
+            final StaticSelector selector,
+            final int parameterIndex,
+            final Function<Object, Object> callback) {
         Objects.requireNonNull(callback, "callback");
         try {
-            final MethodType type = MethodType.fromMethodDescriptorString(
-                selector.descriptor(),
-                hostClassLoader
-            );
+            final MethodType type = MethodType.fromMethodDescriptorString(selector.descriptor(), hostClassLoader);
             final Class<?>[] parameterTypes = type.parameterArray();
             if (parameterIndex < 0 || parameterIndex >= parameterTypes.length) {
-                throw resolutionFailure(
-                    alias,
-                    "Verified host callback parameter index is out of range."
-                );
+                throw resolutionFailure(alias, "Verified host callback parameter index is out of range.");
             }
-            return createFunctionalProxy(
-                alias,
-                parameterTypes[parameterIndex],
-                callback
-            );
+            return createFunctionalProxy(alias, parameterTypes[parameterIndex], callback);
         } catch (VerifiedAccessException exception) {
             throw exception;
         } catch (IllegalArgumentException | LinkageError exception) {
-            throw resolutionFailure(
-                alias,
-                "Verified host callback parameter resolution failed safely."
-            );
+            throw resolutionFailure(alias, "Verified host callback parameter resolution failed safely.");
         }
     }
 
@@ -482,74 +439,48 @@ public final class VerifiedMemberResolver {
      * zero-argument method. Host interfaces with more than one abstract method or more than one
      * callback argument fail closed.</p>
      */
-    public Object createFunctionalProxy(
-        final String alias,
-        final Function<Object, Object> callback
-    ) {
+    public Object createFunctionalProxy(final String alias, final Function<Object, Object> callback) {
         Objects.requireNonNull(callback, "callback");
         final StaticSelector selector = classSelector(alias);
         return createFunctionalProxy(alias, resolveOwnerClass(selector), callback);
     }
 
     private Object createFunctionalProxy(
-        final String alias,
-        final Class<?> type,
-        final Function<Object, Object> callback
-    ) {
+            final String alias, final Class<?> type, final Function<Object, Object> callback) {
         if (type.getClassLoader() != hostClassLoader) {
-            throw resolutionFailure(
-                alias,
-                "Verified host classloader attestation no longer matches."
-            );
+            throw resolutionFailure(alias, "Verified host classloader attestation no longer matches.");
         }
         if (!type.isInterface()) {
             throw resolutionFailure(alias, "Verified host callback type is not an interface.");
         }
         final Method[] abstractMethods = Arrays.stream(type.getMethods())
-            .filter(method -> Modifier.isAbstract(method.getModifiers()))
-            .filter(method -> method.getDeclaringClass() != Object.class)
-            .toArray(Method[]::new);
+                .filter(method -> Modifier.isAbstract(method.getModifiers()))
+                .filter(method -> method.getDeclaringClass() != Object.class)
+                .toArray(Method[]::new);
         if (abstractMethods.length != 1) {
-            throw resolutionFailure(
-                alias,
-                "Verified host callback type is not a single-abstract-method interface."
-            );
+            throw resolutionFailure(alias, "Verified host callback type is not a single-abstract-method interface.");
         }
         final Method functionalMethod = abstractMethods[0];
         if (functionalMethod.getParameterCount() > 1) {
-            throw resolutionFailure(
-                alias,
-                "Verified host callback method accepts too many arguments."
-            );
+            throw resolutionFailure(alias, "Verified host callback method accepts too many arguments.");
         }
-        return Proxy.newProxyInstance(
-            hostClassLoader,
-            new Class<?>[] {type},
-            (proxy, method, arguments) -> {
-                if (method.getDeclaringClass() == Object.class) {
-                    return switch (method.getName()) {
-                        case "toString" -> "VerifiedFunctionalProxy[" + alias + ']';
-                        case "hashCode" -> System.identityHashCode(proxy);
-                        case "equals" -> proxy == (arguments == null ? null : arguments[0]);
-                        default -> throw resolutionFailure(
-                            alias,
-                            "Unsupported Object method on verified host callback proxy."
-                        );
-                    };
-                }
-                if (!method.equals(functionalMethod)) {
-                    throw resolutionFailure(
-                        alias,
-                        "Verified host callback invoked an unexpected method."
-                    );
-                }
-                final Object argument = arguments == null || arguments.length == 0
-                    ? null
-                    : arguments[0];
-                final Object result = callback.apply(argument);
-                return method.getReturnType() == void.class ? null : result;
+        return Proxy.newProxyInstance(hostClassLoader, new Class<?>[] {type}, (proxy, method, arguments) -> {
+            if (method.getDeclaringClass() == Object.class) {
+                return switch (method.getName()) {
+                    case "toString" -> "VerifiedFunctionalProxy[" + alias + ']';
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "equals" -> proxy == (arguments == null ? null : arguments[0]);
+                    default ->
+                        throw resolutionFailure(alias, "Unsupported Object method on verified host callback proxy.");
+                };
             }
-        );
+            if (!method.equals(functionalMethod)) {
+                throw resolutionFailure(alias, "Verified host callback invoked an unexpected method.");
+            }
+            final Object argument = arguments == null || arguments.length == 0 ? null : arguments[0];
+            final Object result = callback.apply(argument);
+            return method.getReturnType() == void.class ? null : result;
+        });
     }
 
     /** Checks a value only against the exact owner named by a verified class alias. */
@@ -631,59 +562,49 @@ public final class VerifiedMemberResolver {
 
     private VerifiedMethodCallSite bindResolved(final StaticSelector selector) {
         try {
-            final Class<?> owner = Class.forName(
-                selector.ownerInternalName().replace('/', '.'),
-                false,
-                hostClassLoader
-            );
+            final Class<?> owner =
+                    Class.forName(selector.ownerInternalName().replace('/', '.'), false, hostClassLoader);
             if (owner.getClassLoader() != hostClassLoader) {
-                throw resolutionFailure(
-                    selector.alias(),
-                    "Verified host classloader attestation no longer matches."
-                );
+                throw resolutionFailure(selector.alias(), "Verified host classloader attestation no longer matches.");
             }
-            final MethodType type = MethodType.fromMethodDescriptorString(
-                selector.descriptor(),
-                hostClassLoader
-            );
-            final Method method = owner.getDeclaredMethod(
-                selector.memberName(),
-                type.parameterArray()
-            );
+            final MethodType type = MethodType.fromMethodDescriptorString(selector.descriptor(), hostClassLoader);
+            final Method method = owner.getDeclaredMethod(selector.memberName(), type.parameterArray());
             if (!method.getDeclaringClass().equals(owner)
-                || !method.getReturnType().equals(type.returnType())
-                || !matchesAccess(method, selector)) {
+                    || !method.getReturnType().equals(type.returnType())
+                    || !matchesAccess(method, selector)) {
                 throw resolutionFailure(
-                    selector.alias(),
-                    "Verified host selector no longer matches its runtime member."
-                );
+                        selector.alias(), "Verified host selector no longer matches its runtime member.");
             }
             return new VerifiedMethodCallSite(selector, method);
         } catch (VerifiedAccessException exception) {
             throw exception;
-        } catch (ClassNotFoundException | NoSuchMethodException | IllegalArgumentException
-                 | LinkageError | SecurityException exception) {
-            throw resolutionFailure(
-                selector.alias(),
-                "Verified host selector binding failed safely."
-            );
+        } catch (ClassNotFoundException
+                | NoSuchMethodException
+                | IllegalArgumentException
+                | LinkageError
+                | SecurityException exception) {
+            throw resolutionFailure(selector.alias(), "Verified host selector binding failed safely.");
         }
     }
 
     private Method resolveInvocationMethod(final StaticSelector selector) {
         try {
-            final Class<?> owner = Class.forName(selector.ownerInternalName().replace('/', '.'),
-                false, hostClassLoader);
+            final Class<?> owner =
+                    Class.forName(selector.ownerInternalName().replace('/', '.'), false, hostClassLoader);
             final MethodType type = MethodType.fromMethodDescriptorString(selector.descriptor(), hostClassLoader);
             final Method method = owner.getDeclaredMethod(selector.memberName(), type.parameterArray());
             if (!method.getDeclaringClass().equals(owner)
-                || !method.getReturnType().equals(type.returnType())
-                || !matchesAccess(method, selector)) {
-                throw resolutionFailure(selector.alias(), "Verified host selector no longer matches its runtime member.");
+                    || !method.getReturnType().equals(type.returnType())
+                    || !matchesAccess(method, selector)) {
+                throw resolutionFailure(
+                        selector.alias(), "Verified host selector no longer matches its runtime member.");
             }
             return method;
-        } catch (ClassNotFoundException | NoSuchMethodException | IllegalArgumentException
-                 | LinkageError | SecurityException failure) {
+        } catch (ClassNotFoundException
+                | NoSuchMethodException
+                | IllegalArgumentException
+                | LinkageError
+                | SecurityException failure) {
             throw resolutionFailure(selector.alias(), "Verified host selector resolution failed safely.");
         }
     }
@@ -696,75 +617,57 @@ public final class VerifiedMemberResolver {
         try {
             final Class<?> owner = resolveOwnerClass(selector);
             final Class<?> fieldType = MethodType.fromMethodDescriptorString(
-                "()" + selector.descriptor(),
-                hostClassLoader
-            ).returnType();
+                            "()" + selector.descriptor(), hostClassLoader)
+                    .returnType();
             final Field field = owner.getDeclaredField(selector.memberName());
             if (!field.getDeclaringClass().equals(owner)
-                || !field.getType().equals(fieldType)
-                || !matchesAccess(field.getModifiers(), selector)) {
+                    || !field.getType().equals(fieldType)
+                    || !matchesAccess(field.getModifiers(), selector)) {
                 throw resolutionFailure(selector.alias(), "Verified host field no longer matches.");
             }
             return field;
         } catch (VerifiedAccessException exception) {
             throw exception;
-        } catch (NoSuchFieldException | IllegalArgumentException
-                 | LinkageError | SecurityException exception) {
+        } catch (NoSuchFieldException | IllegalArgumentException | LinkageError | SecurityException exception) {
             throw resolutionFailure(selector.alias(), "Verified host field resolution failed safely.");
         }
     }
 
     private Constructor<?> resolveConstructor(final StaticSelector selector) {
         return invocationConstructors.computeIfAbsent(
-            selector.alias(), ignored -> resolveConstructorUncached(selector)
-        );
+                selector.alias(), ignored -> resolveConstructorUncached(selector));
     }
 
     private Constructor<?> resolveConstructorUncached(final StaticSelector selector) {
         try {
             final Class<?> owner = resolveOwnerClass(selector);
-            final MethodType type = MethodType.fromMethodDescriptorString(
-                selector.descriptor(),
-                hostClassLoader
-            );
+            final MethodType type = MethodType.fromMethodDescriptorString(selector.descriptor(), hostClassLoader);
             if (!type.returnType().equals(void.class)) {
-                throw resolutionFailure(
-                    selector.alias(),
-                    "Verified constructor descriptor must return void."
-                );
+                throw resolutionFailure(selector.alias(), "Verified constructor descriptor must return void.");
             }
             final Constructor<?> constructor = owner.getDeclaredConstructor(type.parameterArray());
             if (!constructor.getDeclaringClass().equals(owner)
-                || !matchesAccess(constructor.getModifiers(), selector)) {
+                    || !matchesAccess(constructor.getModifiers(), selector)) {
                 throw resolutionFailure(selector.alias(), "Verified host constructor no longer matches.");
             }
             return constructor;
         } catch (VerifiedAccessException exception) {
             throw exception;
-        } catch (NoSuchMethodException | IllegalArgumentException | LinkageError
-                 | SecurityException exception) {
+        } catch (NoSuchMethodException | IllegalArgumentException | LinkageError | SecurityException exception) {
             throw resolutionFailure(selector.alias(), "Verified host constructor resolution failed safely.");
         }
     }
 
     private Class<?> resolveOwnerClass(final StaticSelector selector) {
-        return ownerClasses.computeIfAbsent(
-            selector.alias(), ignored -> resolveOwnerClassUncached(selector)
-        );
+        return ownerClasses.computeIfAbsent(selector.alias(), ignored -> resolveOwnerClassUncached(selector));
     }
 
     private Class<?> resolveOwnerClassUncached(final StaticSelector selector) {
         try {
-            final Class<?> owner = Class.forName(
-                selector.ownerInternalName().replace('/', '.'),
-                false,
-                hostClassLoader
-            );
+            final Class<?> owner =
+                    Class.forName(selector.ownerInternalName().replace('/', '.'), false, hostClassLoader);
             if (owner.getClassLoader() != hostClassLoader) {
-                throw resolutionFailure(
-                    selector.alias(),
-                    "Verified host classloader attestation no longer matches."
-                );
+                throw resolutionFailure(selector.alias(), "Verified host classloader attestation no longer matches.");
             }
             return owner;
         } catch (VerifiedAccessException exception) {
@@ -774,31 +677,23 @@ public final class VerifiedMemberResolver {
         }
     }
 
-    private Object invokeResolved(
-        final StaticSelector selector,
-        final Object target,
-        final Object[] arguments
-    ) {
+    private Object invokeResolved(final StaticSelector selector, final Object target, final Object[] arguments) {
         try {
-            final Method method = invocationMethods.computeIfAbsent(selector.alias(),
-                ignored -> resolveInvocationMethod(selector));
+            final Method method =
+                    invocationMethods.computeIfAbsent(selector.alias(), ignored -> resolveInvocationMethod(selector));
             final Class<?> owner = method.getDeclaringClass();
             if (target != null && !owner.isInstance(target)) {
                 throw new VerifiedAccessException(
-                    selector.alias(),
-                    VerifiedAccessException.FailureKind.RESOLUTION,
-                    "Verified host selector target type does not match.",
-                    null
-                );
+                        selector.alias(),
+                        VerifiedAccessException.FailureKind.RESOLUTION,
+                        "Verified host selector target type does not match.",
+                        null);
             }
             if (!method.canAccess(target)) {
-                final boolean publicMethodOnNonPublicOwner = Modifier.isPublic(method.getModifiers())
-                    && !Modifier.isPublic(owner.getModifiers());
+                final boolean publicMethodOnNonPublicOwner =
+                        Modifier.isPublic(method.getModifiers()) && !Modifier.isPublic(owner.getModifiers());
                 if (!publicMethodOnNonPublicOwner || !method.trySetAccessible()) {
-                    throw resolutionFailure(
-                        selector.alias(),
-                        "Verified host method is not accessible."
-                    );
+                    throw resolutionFailure(selector.alias(), "Verified host method is not accessible.");
                 }
             }
             return method.invoke(target, arguments == null ? new Object[0] : arguments);
@@ -806,28 +701,21 @@ public final class VerifiedMemberResolver {
             throw exception;
         } catch (InvocationTargetException exception) {
             throw new VerifiedAccessException(
-                selector.alias(),
-                VerifiedAccessException.FailureKind.INVOCATION,
-                "Verified host method execution failed safely.",
-                null
-            );
+                    selector.alias(),
+                    VerifiedAccessException.FailureKind.INVOCATION,
+                    "Verified host method execution failed safely.",
+                    null);
         } catch (IllegalAccessException | IllegalArgumentException | LinkageError exception) {
             throw new VerifiedAccessException(
-                selector.alias(),
-                VerifiedAccessException.FailureKind.RESOLUTION,
-                "Verified host selector resolution failed safely.",
-                null
-            );
+                    selector.alias(),
+                    VerifiedAccessException.FailureKind.RESOLUTION,
+                    "Verified host selector resolution failed safely.",
+                    null);
         }
     }
 
     private static VerifiedAccessException resolutionFailure(final String alias, final String message) {
-        return new VerifiedAccessException(
-            alias,
-            VerifiedAccessException.FailureKind.RESOLUTION,
-            message,
-            null
-        );
+        return new VerifiedAccessException(alias, VerifiedAccessException.FailureKind.RESOLUTION, message, null);
     }
 
     private static boolean matchesAccess(final Method method, final StaticSelector selector) {
@@ -836,8 +724,8 @@ public final class VerifiedMemberResolver {
 
     private static boolean matchesAccess(final int modifiers, final StaticSelector selector) {
         return (!requires(selector, StaticSelector.ACCESS_PUBLIC) || Modifier.isPublic(modifiers))
-            && (!requires(selector, StaticSelector.ACCESS_STATIC) || Modifier.isStatic(modifiers))
-            && (!forbids(selector, StaticSelector.ACCESS_STATIC) || !Modifier.isStatic(modifiers));
+                && (!requires(selector, StaticSelector.ACCESS_STATIC) || Modifier.isStatic(modifiers))
+                && (!forbids(selector, StaticSelector.ACCESS_STATIC) || !Modifier.isStatic(modifiers));
     }
 
     private static boolean requires(final StaticSelector selector, final int flag) {

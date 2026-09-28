@@ -27,8 +27,7 @@ final class PackedPoly implements Comparable<PackedPoly> {
     double[] outCentroid;
     int lastQuery; // grid-query dedupe stamp, managed by Bin
 
-    PackedPoly(final int id, final double[][] source, final double[][] buffered,
-        final Double segmentMaxLength) {
+    PackedPoly(final int id, final double[][] source, final double[][] buffered, final Double segmentMaxLength) {
         this.id = id;
         this.source = source;
         // force a consistent (positive-area) winding, as upstream does
@@ -53,10 +52,7 @@ final class PackedPoly implements Comparable<PackedPoly> {
                     final int num = 1 + (int) (dis / segmentMaxLength);
                     for (int j = 1; j < num; j++) {
                         final double s = (double) j / num;
-                        list.add(new double[] {
-                            pa[0] + s * (pb[0] - pa[0]),
-                            pa[1] + s * (pb[1] - pa[1])
-                        });
+                        list.add(new double[] {pa[0] + s * (pb[0] - pa[0]), pa[1] + s * (pb[1] - pa[1])});
                     }
                 }
             }
@@ -86,10 +82,7 @@ final class PackedPoly implements Comparable<PackedPoly> {
         final double sin = cosSin[1];
         for (int i = 0; i < ps.length; i++) {
             final double[] p = ps[i];
-            ps[i] = new double[] {
-                dv[0] + cos * p[0] - sin * p[1],
-                dv[1] + sin * p[0] + cos * p[1]
-            };
+            ps[i] = new double[] {dv[0] + cos * p[0] - sin * p[1], dv[1] + sin * p[0] + cos * p[1]};
         }
     }
 

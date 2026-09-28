@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
@@ -28,9 +27,7 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
      */
     public synchronized void connect(final VerifiedMemberResolver resolver) {
         requireOpen();
-        adapter = new VerifiedTextureAtlasNativeInvocationAdapter(
-            Objects.requireNonNull(resolver, "resolver")
-        );
+        adapter = new VerifiedTextureAtlasNativeInvocationAdapter(Objects.requireNonNull(resolver, "resolver"));
         generation++;
     }
 
@@ -59,8 +56,8 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
     synchronized Optional<Invocation> current() {
         final Invocation invocation = active.get();
         return invocation != null && invocation.valid(ownerToken, generation, Thread.currentThread())
-            ? Optional.of(invocation)
-            : Optional.empty();
+                ? Optional.of(invocation)
+                : Optional.empty();
     }
 
     private boolean invoke(final Object receiver, final BooleanSupplier callback) {
@@ -97,8 +94,7 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
     }
 
     private synchronized boolean currentInvocation(final Invocation invocation) {
-        return !closed && adapter != null
-            && invocation.valid(ownerToken, generation, Thread.currentThread());
+        return !closed && adapter != null && invocation.valid(ownerToken, generation, Thread.currentThread());
     }
 
     /**
@@ -133,12 +129,11 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
         private boolean handled;
 
         Invocation(
-            final Object ownerToken,
-            final long generation,
-            final Object receiver,
-            final Thread thread,
-            final VerifiedTextureAtlasNativeInvocationAdapter.Session session
-        ) {
+                final Object ownerToken,
+                final long generation,
+                final Object receiver,
+                final Thread thread,
+                final VerifiedTextureAtlasNativeInvocationAdapter.Session session) {
             this.ownerToken = ownerToken;
             this.generation = generation;
             this.receiver = receiver;
@@ -150,10 +145,24 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
             return ownerToken == owner && generation == expectedGeneration && thread == expectedThread;
         }
 
-        Object receiver() { return receiver; }
-        VerifiedTextureAtlasNativeInvocationAdapter.Session session() { return session; }
-        boolean handled() { return handled; }
-        void handled(final boolean value) { handled = value; }
-        void restore() { session.restore(); }
+        Object receiver() {
+            return receiver;
+        }
+
+        VerifiedTextureAtlasNativeInvocationAdapter.Session session() {
+            return session;
+        }
+
+        boolean handled() {
+            return handled;
+        }
+
+        void handled(final boolean value) {
+            handled = value;
+        }
+
+        void restore() {
+            session.restore();
+        }
     }
 }

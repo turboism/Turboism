@@ -2,38 +2,32 @@ package dev.turboism.internal.core;
 
 import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
-
 import java.util.Objects;
 
 /** Runtime-owned service bundle handed to the framework shell at construction. */
 public record ShellServices(
-    RuntimeSettingsService settings,
-    CubismJvmSettingsService cubismJvmSettings,
-    MeshTriangulationSettingsService meshTriangulationSettings,
-    AtlasTileBboxSettingsService atlasTileBboxSettings,
-    AtlasCacheReuseSettingsService atlasCacheReuseSettings,
-    dev.turboism.sdk.ui.settings.SettingsContributionSource settingsContributions,
-    CorePluginManagement plugins,
-    FloatingPanelActions floatingPanelActions,
-    RuntimeLogReader logs,
-    CoreUpdateService update
-) {
-    public ShellServices(
-        final RuntimeSettingsService settings,
-        final CorePluginManagement plugins
-    ) {
+        RuntimeSettingsService settings,
+        CubismJvmSettingsService cubismJvmSettings,
+        MeshTriangulationSettingsService meshTriangulationSettings,
+        AtlasTileBboxSettingsService atlasTileBboxSettings,
+        AtlasCacheReuseSettingsService atlasCacheReuseSettings,
+        dev.turboism.sdk.ui.settings.SettingsContributionSource settingsContributions,
+        CorePluginManagement plugins,
+        FloatingPanelActions floatingPanelActions,
+        RuntimeLogReader logs,
+        CoreUpdateService update) {
+    public ShellServices(final RuntimeSettingsService settings, final CorePluginManagement plugins) {
         this(
-            settings,
-            CubismJvmSettingsService.unavailable(),
-            MeshTriangulationSettingsService.unavailable(),
-            AtlasTileBboxSettingsService.unavailable(),
-            AtlasCacheReuseSettingsService.unavailable(),
-            dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
-            plugins,
-            FloatingPanelActions.unavailable(),
-            RuntimeLogReader.unavailable(),
-            CoreUpdateService.unavailable()
-        );
+                settings,
+                CubismJvmSettingsService.unavailable(),
+                MeshTriangulationSettingsService.unavailable(),
+                AtlasTileBboxSettingsService.unavailable(),
+                AtlasCacheReuseSettingsService.unavailable(),
+                dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
+                plugins,
+                FloatingPanelActions.unavailable(),
+                RuntimeLogReader.unavailable(),
+                CoreUpdateService.unavailable());
     }
 
     /** Runtime-supplied panel docking actions for the framework shell. */
@@ -54,25 +48,14 @@ public record ShellServices(
             };
         }
     }
+
     public ShellServices {
         settings = Objects.requireNonNull(settings, "settings");
         cubismJvmSettings = Objects.requireNonNull(cubismJvmSettings, "cubismJvmSettings");
-        meshTriangulationSettings = Objects.requireNonNull(
-            meshTriangulationSettings,
-            "meshTriangulationSettings"
-        );
-        atlasTileBboxSettings = Objects.requireNonNull(
-            atlasTileBboxSettings,
-            "atlasTileBboxSettings"
-        );
-        atlasCacheReuseSettings = Objects.requireNonNull(
-            atlasCacheReuseSettings,
-            "atlasCacheReuseSettings"
-        );
-        settingsContributions = Objects.requireNonNull(
-            settingsContributions,
-            "settingsContributions"
-        );
+        meshTriangulationSettings = Objects.requireNonNull(meshTriangulationSettings, "meshTriangulationSettings");
+        atlasTileBboxSettings = Objects.requireNonNull(atlasTileBboxSettings, "atlasTileBboxSettings");
+        atlasCacheReuseSettings = Objects.requireNonNull(atlasCacheReuseSettings, "atlasCacheReuseSettings");
+        settingsContributions = Objects.requireNonNull(settingsContributions, "settingsContributions");
         plugins = Objects.requireNonNull(plugins, "plugins");
         floatingPanelActions = Objects.requireNonNull(floatingPanelActions, "floatingPanelActions");
         logs = Objects.requireNonNull(logs, "logs");

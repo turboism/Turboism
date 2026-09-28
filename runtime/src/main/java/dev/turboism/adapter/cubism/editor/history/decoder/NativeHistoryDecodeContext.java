@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history.decoder;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Objects;
@@ -17,8 +16,7 @@ final class NativeHistoryDecodeContext {
     private final VerifiedMemberResolver resolver;
     private final IdentityHashMap<Object, Boolean> visited = new IdentityHashMap<>();
     private final boolean livePostStateAllowed;
-    private final Set<Object> livePostStateWithheld =
-        Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Set<Object> livePostStateWithheld = Collections.newSetFromMap(new IdentityHashMap<>());
     private int nodes;
 
     /** Creates a context that refuses every live-target read, which is the safe default. */
@@ -32,10 +30,7 @@ final class NativeHistoryDecodeContext {
      * @param livePostStateAllowed whether the caller has proved the entry being decoded is the
      *     undo manager's current tip, so no later edit has overwritten it
      */
-    NativeHistoryDecodeContext(
-        final VerifiedMemberResolver resolver,
-        final boolean livePostStateAllowed
-    ) {
+    NativeHistoryDecodeContext(final VerifiedMemberResolver resolver, final boolean livePostStateAllowed) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.livePostStateAllowed = livePostStateAllowed;
     }
@@ -66,9 +61,7 @@ final class NativeHistoryDecodeContext {
      * @return whether the live target may stand in for this entry's post state
      */
     boolean mayReadLiveTarget(final Object entry) {
-        return livePostStateAllowed
-            && entry != null
-            && !livePostStateWithheld.contains(entry);
+        return livePostStateAllowed && entry != null && !livePostStateWithheld.contains(entry);
     }
 
     /**
@@ -93,9 +86,7 @@ final class NativeHistoryDecodeContext {
     String boundedLabel(final String value) {
         final String text = Objects.requireNonNull(value, "value").strip();
         final String nonBlank = text.isEmpty() ? "History entry" : text;
-        return nonBlank.length() <= MAX_STRING_LENGTH
-            ? nonBlank
-            : nonBlank.substring(0, MAX_STRING_LENGTH);
+        return nonBlank.length() <= MAX_STRING_LENGTH ? nonBlank : nonBlank.substring(0, MAX_STRING_LENGTH);
     }
 
     ProjectedValue safeValue(final Object value) {
@@ -113,20 +104,14 @@ final class NativeHistoryDecodeContext {
         if (text.length() <= MAX_STRING_LENGTH) {
             return new ProjectedValue(java.util.Optional.of(text), false);
         }
-        return new ProjectedValue(
-            java.util.Optional.of(text.substring(0, MAX_STRING_LENGTH)),
-            true
-        );
+        return new ProjectedValue(java.util.Optional.of(text.substring(0, MAX_STRING_LENGTH)), true);
     }
 
     String className(final Object value) {
         if (value == null) return "unknown";
         final String name = value.getClass().getName();
-        return name.length() <= MAX_STRING_LENGTH
-            ? name
-            : name.substring(0, MAX_STRING_LENGTH);
+        return name.length() <= MAX_STRING_LENGTH ? name : name.substring(0, MAX_STRING_LENGTH);
     }
 
-    record ProjectedValue(java.util.Optional<String> value, boolean truncated) {
-    }
+    record ProjectedValue(java.util.Optional<String> value, boolean truncated) {}
 }

@@ -4,10 +4,9 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
-import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.appearance.AppearanceHostProvider;
 import dev.turboism.ui.appearance.UnavailableAppearanceHostProvider;
-
+import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import java.util.List;
 import java.util.Objects;
 
@@ -22,8 +21,7 @@ interface HostAdapterConnection extends AutoCloseable {
      * <p>The default is intentionally a no-op so existing connection implementations retain
      * their behaviour.</p>
      */
-    default void refreshPresentation() {
-    }
+    default void refreshPresentation() {}
 
     default CubismModelAccess modelAccess() {
         return UnavailableCubismModelAccess.INSTANCE;
@@ -41,8 +39,7 @@ interface HostAdapterConnection extends AutoCloseable {
         throw new IllegalStateException("Verified Editor model resolver is unavailable.");
     }
 
-    default dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
-        textureAtlasDataModelCapture() {
+    default dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture textureAtlasDataModelCapture() {
         throw new IllegalStateException("Verified texture-atlas capture is unavailable.");
     }
 
@@ -74,8 +71,7 @@ interface HostAdapterConnection extends AutoCloseable {
     }
 
     default dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler(
-        final long hostGeneration
-    ) {
+            final long hostGeneration) {
         if (hostGeneration <= 0) {
             throw new IllegalArgumentException("hostGeneration must be positive");
         }
@@ -83,12 +79,10 @@ interface HostAdapterConnection extends AutoCloseable {
     }
 
     default dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler(
-        final long hostGeneration
-    ) {
+            final long hostGeneration) {
         if (hostGeneration <= 0) throw new IllegalArgumentException("hostGeneration must be positive");
         return null;
     }
-
 
     default dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
         return new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
@@ -101,50 +95,43 @@ interface HostAdapterConnection extends AutoCloseable {
         return of(adapters, UnavailableCubismModelAccess.INSTANCE);
     }
 
-    static HostAdapterConnection of(
-        final RuntimeHostAdapters adapters,
-        final CubismModelAccess modelAccess
-    ) {
+    static HostAdapterConnection of(final RuntimeHostAdapters adapters, final CubismModelAccess modelAccess) {
         return of(adapters, modelAccess, null);
     }
 
     static HostAdapterConnection of(
-        final RuntimeHostAdapters adapters,
-        final CubismModelAccess modelAccess,
-        final VerifiedMemberResolver editorModelResolver
-    ) {
+            final RuntimeHostAdapters adapters,
+            final CubismModelAccess modelAccess,
+            final VerifiedMemberResolver editorModelResolver) {
         return of(adapters, modelAccess, editorModelResolver, new UnavailableAppearanceHostProvider());
     }
 
     static HostAdapterConnection of(
-        final RuntimeHostAdapters adapters,
-        final CubismModelAccess modelAccess,
-        final VerifiedMemberResolver editorModelResolver,
-        final AppearanceHostProvider appearanceProvider
-    ) {
+            final RuntimeHostAdapters adapters,
+            final CubismModelAccess modelAccess,
+            final VerifiedMemberResolver editorModelResolver,
+            final AppearanceHostProvider appearanceProvider) {
         return of(
-            adapters,
-            modelAccess,
-            editorModelResolver,
-            appearanceProvider,
-            DynamicCoreRuntimeInfo.unavailableRuntime(),
-            null
-        );
+                adapters,
+                modelAccess,
+                editorModelResolver,
+                appearanceProvider,
+                DynamicCoreRuntimeInfo.unavailableRuntime(),
+                null);
     }
 
     static HostAdapterConnection of(
-        final RuntimeHostAdapters adapters,
-        final CubismModelAccess modelAccess,
-        final VerifiedMemberResolver editorModelResolver,
-        final AppearanceHostProvider appearanceProvider,
-        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo,
-        final AutoCloseable coreOwner
-    ) {
+            final RuntimeHostAdapters adapters,
+            final CubismModelAccess modelAccess,
+            final VerifiedMemberResolver editorModelResolver,
+            final AppearanceHostProvider appearanceProvider,
+            final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo,
+            final AutoCloseable coreOwner) {
         final RuntimeHostAdapters ownedAdapters = Objects.requireNonNull(adapters, "adapters");
         final CubismModelAccess ownedModelAccess = Objects.requireNonNull(modelAccess, "modelAccess");
         final AppearanceHostProvider ownedAppearance = Objects.requireNonNull(appearanceProvider, "appearanceProvider");
         final dev.turboism.sdk.cubism.core.CoreRuntimeInfo ownedCoreRuntime =
-            Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
+                Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
         return new HostAdapterConnection() {
             @Override
             public RuntimeHostAdapters adapters() {

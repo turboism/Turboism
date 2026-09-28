@@ -1,7 +1,6 @@
 package dev.turboism.userfile;
 
 import dev.turboism.sdk.ui.UserFileRequest;
-
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;

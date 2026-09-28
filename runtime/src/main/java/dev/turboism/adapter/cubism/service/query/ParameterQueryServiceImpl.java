@@ -10,7 +10,6 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.service.query.ParameterBounds;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterSummary;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,32 +47,20 @@ public final class ParameterQueryServiceImpl implements ParameterQueryService {
     @Override
     public Optional<ParameterSummary> findById(final ParameterId id) throws CubismServiceException {
         Objects.requireNonNull(id, "id");
-        permissionGate.require(
-            PARAMETER_READ_PERMISSION,
-            "parameterQuery.findById",
-            PARAMETER_READ_CAPABILITY
-        );
+        permissionGate.require(PARAMETER_READ_PERMISSION, "parameterQuery.findById", PARAMETER_READ_CAPABILITY);
         return Optional.ofNullable(index().parametersById().get(id));
     }
 
     @Override
     public List<ParameterSummary> listAll() throws CubismServiceException {
-        permissionGate.require(
-            PARAMETER_READ_PERMISSION,
-            "parameterQuery.listAll",
-            PARAMETER_READ_CAPABILITY
-        );
+        permissionGate.require(PARAMETER_READ_PERMISSION, "parameterQuery.listAll", PARAMETER_READ_CAPABILITY);
         return index().parameters();
     }
 
     @Override
     public boolean exists(final ParameterId id) throws CubismServiceException {
         Objects.requireNonNull(id, "id");
-        permissionGate.require(
-            PARAMETER_READ_PERMISSION,
-            "parameterQuery.exists",
-            PARAMETER_READ_CAPABILITY
-        );
+        permissionGate.require(PARAMETER_READ_PERMISSION, "parameterQuery.exists", PARAMETER_READ_CAPABILITY);
         return index().parametersById().containsKey(id);
     }
 
@@ -92,11 +79,13 @@ public final class ParameterQueryServiceImpl implements ParameterQueryService {
         try {
             return facade.runtimeWithVersion();
         } catch (IllegalArgumentException | IllegalStateException error) {
-            throw new CubismServiceException(ServiceError.INVALID_SNAPSHOT, "Cubism runtime snapshot is invalid.", error);
+            throw new CubismServiceException(
+                    ServiceError.INVALID_SNAPSHOT, "Cubism runtime snapshot is invalid.", error);
         }
     }
 
-    private ParameterIndex buildIndex(final long version, final CubismRuntimeSnapshot snapshot) throws CubismServiceException {
+    private ParameterIndex buildIndex(final long version, final CubismRuntimeSnapshot snapshot)
+            throws CubismServiceException {
         final Map<ParameterId, ParameterSummary> parametersById = new LinkedHashMap<>();
         for (ParameterSnapshot parameter : snapshot.parameters()) {
             final ParameterSummary summary = summary(parameter);
@@ -115,13 +104,12 @@ public final class ParameterQueryServiceImpl implements ParameterQueryService {
             throw invalidSnapshot("Invalid default value for parameter " + parameter.id());
         }
         return new ParameterSummary(
-            new ParameterId(parameter.id()),
-            parameter.name(),
-            parameter.value(),
-            new ParameterBounds(parameter.minValue(), parameter.maxValue(), parameter.defaultValue()),
-            parameter.visible(),
-            parameter.editable()
-        );
+                new ParameterId(parameter.id()),
+                parameter.name(),
+                parameter.value(),
+                new ParameterBounds(parameter.minValue(), parameter.maxValue(), parameter.defaultValue()),
+                parameter.visible(),
+                parameter.editable());
     }
 
     private CubismServiceException invalidSnapshot(final String message) {
@@ -129,10 +117,7 @@ public final class ParameterQueryServiceImpl implements ParameterQueryService {
     }
 
     private record ParameterIndex(
-        long version,
-        List<ParameterSummary> parameters,
-        Map<ParameterId, ParameterSummary> parametersById
-    ) {
+            long version, List<ParameterSummary> parameters, Map<ParameterId, ParameterSummary> parametersById) {
         private ParameterIndex {
             parameters = List.copyOf(parameters);
             parametersById = Map.copyOf(parametersById);

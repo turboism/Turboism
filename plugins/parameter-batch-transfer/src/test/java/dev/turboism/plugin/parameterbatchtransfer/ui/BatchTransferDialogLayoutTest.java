@@ -1,37 +1,28 @@
 package dev.turboism.plugin.parameterbatchtransfer.ui;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import org.junit.jupiter.api.Test;
 
 class BatchTransferDialogLayoutTest {
 
     @Test
     void fourBindingsOccupyFourDistinctGridRows() {
-        final List<String> parameterIds = List.of(
-            "ParamBodyAngleX",
-            "ParamBodyAngleY",
-            "ParamEyeROpen",
-            "ParamAngleZ"
-        );
+        final List<String> parameterIds = List.of("ParamBodyAngleX", "ParamBodyAngleY", "ParamEyeROpen", "ParamAngleZ");
         final List<BatchTransferDialog.RowComponents> components = parameterIds.stream()
-            .map(id -> new BatchTransferDialog.RowComponents(
-                new JLabel(id),
-                new JComboBox<>(new String[]{id}),
-                new JCheckBox()
-            ))
-            .toList();
+                .map(id -> new BatchTransferDialog.RowComponents(
+                        new JLabel(id), new JComboBox<>(new String[] {id}), new JCheckBox()))
+                .toList();
 
         final JPanel rows = BatchTransferDialog.layoutRows(components);
         final GridBagLayout layout = (GridBagLayout) rows.getLayout();

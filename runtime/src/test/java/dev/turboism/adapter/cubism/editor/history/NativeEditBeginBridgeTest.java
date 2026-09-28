@@ -1,16 +1,15 @@
 package dev.turboism.adapter.cubism.editor.history;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class NativeEditBeginBridgeTest {
 
@@ -95,7 +94,9 @@ class NativeEditBeginBridgeTest {
         NativeEditBeginBridge.ingress().accept(longName);
         NativeEditBeginBridge.drain(starts::add);
 
-        assertEquals(NativeEditBeginBridge.MAX_LABEL_LENGTH, starts.get(0).orElseThrow().length());
+        assertEquals(
+                NativeEditBeginBridge.MAX_LABEL_LENGTH,
+                starts.get(0).orElseThrow().length());
     }
 
     @Test
@@ -128,10 +129,7 @@ class NativeEditBeginBridgeTest {
 
         // The starts stay queued, so a later working drain publishes them instead of losing them.
         NativeEditBeginBridge.drain(starts::add);
-        assertEquals(
-            List.of(Optional.of("Add Part"), Optional.of("Second Edit")),
-            starts
-        );
+        assertEquals(List.of(Optional.of("Add Part"), Optional.of("Second Edit")), starts);
     }
 
     @Test
@@ -161,10 +159,8 @@ class NativeEditBeginBridgeTest {
 
         // The frame is per thread, so a second host thread can legitimately start an edit while the
         // first still holds its frame. Both starts must survive, in the order they were recorded.
-        final Thread other = new Thread(
-            () -> NativeEditBeginBridge.ingress().accept("Other Thread"),
-            "other-host-thread"
-        );
+        final Thread other =
+                new Thread(() -> NativeEditBeginBridge.ingress().accept("Other Thread"), "other-host-thread");
         NativeEditBeginBridge.ingress().accept("Add Part");
         other.start();
         other.join();

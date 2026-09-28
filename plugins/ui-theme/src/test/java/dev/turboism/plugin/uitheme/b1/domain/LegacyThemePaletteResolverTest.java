@@ -1,30 +1,25 @@
 package dev.turboism.plugin.uitheme.b1.domain;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 class LegacyThemePaletteResolverTest {
 
     @Test
     void resolvesWhitelistedLegacyKeysAndIgnoresHostSpecificExtras() {
         ThemePackageData data = new ThemePackageData(
-            new ThemePackageMetadata(
-                "author.demo", "Demo", "", "", "", "", null,
-                ThemeBase.DARK, ThemeIcons.LIGHT, false
-            ),
-            Map.of(
-                "CubismCommon.blue", "#112233",
-                "CubismCommon.background", "#223344",
-                "CubismCommon.gl.viewArea.background", "#334455",
-                "Some.Unsafe.Host.Key", "#FFFFFF"
-            ),
-            Map.of(),
-            null,
-            null
-        );
+                new ThemePackageMetadata(
+                        "author.demo", "Demo", "", "", "", "", null, ThemeBase.DARK, ThemeIcons.LIGHT, false),
+                Map.of(
+                        "CubismCommon.blue", "#112233",
+                        "CubismCommon.background", "#223344",
+                        "CubismCommon.gl.viewArea.background", "#334455",
+                        "Some.Unsafe.Host.Key", "#FFFFFF"),
+                Map.of(),
+                null,
+                null);
 
         var request = LegacyThemePaletteResolver.resolve(data, 7);
 

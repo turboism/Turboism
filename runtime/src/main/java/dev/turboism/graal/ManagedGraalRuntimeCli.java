@@ -16,8 +16,7 @@ public final class ManagedGraalRuntimeCli {
     private static final String INSTALL = "install";
     private static final long POLL_MILLIS = 250L;
 
-    private ManagedGraalRuntimeCli() {
-    }
+    private ManagedGraalRuntimeCli() {}
 
     /**
      * Installs the one runtime pinned by {@link ManagedGraalRuntimeService}.
@@ -32,20 +31,11 @@ public final class ManagedGraalRuntimeCli {
         System.exit(run(args, System.in, System.out, System.err));
     }
 
-    static int run(
-        final String[] args,
-        final PrintStream output,
-        final PrintStream error
-    ) {
+    static int run(final String[] args, final PrintStream output, final PrintStream error) {
         return run(args, InputStream.nullInputStream(), output, error);
     }
 
-    static int run(
-        final String[] args,
-        final InputStream input,
-        final PrintStream output,
-        final PrintStream error
-    ) {
+    static int run(final String[] args, final InputStream input, final PrintStream output, final PrintStream error) {
         Objects.requireNonNull(args, "args");
         Objects.requireNonNull(input, "input");
         Objects.requireNonNull(output, "output");
@@ -62,16 +52,13 @@ public final class ManagedGraalRuntimeCli {
             error.println("GRAAL_RUNTIME_HOME_INVALID: Turboism home is not a valid path.");
             return 2;
         }
-        if (!Files.isDirectory(home, LinkOption.NOFOLLOW_LINKS)
-            || Files.isSymbolicLink(home)) {
+        if (!Files.isDirectory(home, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(home)) {
             error.println("GRAAL_RUNTIME_HOME_INVALID: Turboism home must be an existing ordinary directory.");
             return 2;
         }
 
-        try (ManagedGraalRuntimeService service = new ManagedGraalRuntimeService(
-            home,
-            code -> error.println("DIAGNOSTIC " + bounded(code))
-        )) {
+        try (ManagedGraalRuntimeService service =
+                new ManagedGraalRuntimeService(home, code -> error.println("DIAGNOSTIC " + bounded(code)))) {
             final ManagedGraalRuntimeService.Operation operation = service.install();
             final Thread cancelReader = cancelReader(input, operation);
             cancelReader.start();
@@ -84,53 +71,49 @@ public final class ManagedGraalRuntimeCli {
                 }
                 TimeUnit.MILLISECONDS.sleep(POLL_MILLIS);
             }
-            final ManagedGraalRuntimeService.Status terminal = operation.completion()
-                .toCompletableFuture().get();
+            final ManagedGraalRuntimeService.Status terminal =
+                    operation.completion().toCompletableFuture().get();
             if (!sameProgress(last, terminal)) output.println(progress(terminal));
             if (terminalExitCode(terminal) == 0) {
-                output.println(
-                    "GRAAL_RUNTIME_READY "
-                        + terminal.javaExecutable().orElseThrow().toAbsolutePath().normalize()
-                );
+                output.println("GRAAL_RUNTIME_READY "
+                        + terminal.javaExecutable()
+                                .orElseThrow()
+                                .toAbsolutePath()
+                                .normalize());
                 return 0;
             }
-            error.println(
-                bounded(terminal.code().isBlank() ? "GRAAL_RUNTIME_INSTALL_FAILED" : terminal.code())
-                    + ": " + bounded(terminal.message())
-            );
+            error.println(bounded(terminal.code().isBlank() ? "GRAAL_RUNTIME_INSTALL_FAILED" : terminal.code()) + ": "
+                    + bounded(terminal.message()));
             return 1;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             error.println("GRAAL_RUNTIME_CANCELLED: Installer process was interrupted.");
             return 1;
         } catch (Exception failure) {
-            error.println(
-                "GRAAL_RUNTIME_INSTALL_FAILED: "
-                    + bounded(Objects.toString(failure.getMessage(), failure.getClass().getSimpleName()))
-            );
+            error.println("GRAAL_RUNTIME_INSTALL_FAILED: "
+                    + bounded(Objects.toString(
+                            failure.getMessage(), failure.getClass().getSimpleName())));
             return 1;
         }
     }
 
-    private static Thread cancelReader(
-        final InputStream input,
-        final ManagedGraalRuntimeService.Operation operation
-    ) {
-        final Thread reader = new Thread(() -> {
-            try {
-                final BufferedReader commands = new BufferedReader(
-                    new InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8)
-                );
-                for (String command; (command = commands.readLine()) != null;) {
-                    if ("cancel".equalsIgnoreCase(command.trim())) {
-                        operation.cancel();
-                        return;
+    private static Thread cancelReader(final InputStream input, final ManagedGraalRuntimeService.Operation operation) {
+        final Thread reader = new Thread(
+                () -> {
+                    try {
+                        final BufferedReader commands = new BufferedReader(
+                                new InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8));
+                        for (String command; (command = commands.readLine()) != null; ) {
+                            if ("cancel".equalsIgnoreCase(command.trim())) {
+                                operation.cancel();
+                                return;
+                            }
+                        }
+                    } catch (java.io.IOException ignored) {
+                        // Cancellation input is optional; install progress remains authoritative.
                     }
-                }
-            } catch (java.io.IOException ignored) {
-                // Cancellation input is optional; install progress remains authoritative.
-            }
-        }, "turboism-graal-runtime-cancel-reader");
+                },
+                "turboism-graal-runtime-cancel-reader");
         reader.setDaemon(true);
         return reader;
     }
@@ -140,24 +123,24 @@ public final class ManagedGraalRuntimeCli {
     }
 
     private static boolean sameProgress(
-        final ManagedGraalRuntimeService.Status left,
-        final ManagedGraalRuntimeService.Status right
-    ) {
+            final ManagedGraalRuntimeService.Status left, final ManagedGraalRuntimeService.Status right) {
         return left != null
-            && left.state() == right.state()
-            && left.completedBytes() == right.completedBytes()
-            && left.totalBytes() == right.totalBytes();
+                && left.state() == right.state()
+                && left.completedBytes() == right.completedBytes()
+                && left.totalBytes() == right.totalBytes();
     }
 
     static String progress(final ManagedGraalRuntimeService.Status status) {
         return "GRAAL_RUNTIME_PROGRESS " + status.state()
-            + " " + status.completedBytes() + "/" + status.totalBytes()
-            + " " + bounded(status.message());
+                + " " + status.completedBytes() + "/" + status.totalBytes()
+                + " " + bounded(status.message());
     }
 
     private static String bounded(final String value) {
         final String normalized = Objects.requireNonNullElse(value, "")
-            .replace('\r', ' ').replace('\n', ' ').trim();
+                .replace('\r', ' ')
+                .replace('\n', ' ')
+                .trim();
         return normalized.length() <= 512 ? normalized : normalized.substring(0, 512);
     }
 }

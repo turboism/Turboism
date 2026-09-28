@@ -1,21 +1,22 @@
 package dev.turboism.core.action;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.WorkBudget;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -26,10 +27,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class RuntimeActionRegistryTest {
 
@@ -54,14 +53,10 @@ class RuntimeActionRegistryTest {
         AtomicReference<String> workerThread = new AtomicReference<>();
         String invokerThread = Thread.currentThread().getName();
 
-        registry.register("test.action", new TestAction(
-            "test.action",
-            "Test Action",
-            context -> {
-                workerThread.set(Thread.currentThread().getName());
-                completed.countDown();
-            }
-        ));
+        registry.register("test.action", new TestAction("test.action", "Test Action", context -> {
+            workerThread.set(Thread.currentThread().getName());
+            completed.countDown();
+        }));
 
         // When
         registry.execute("test.action", new ActionRegistry.ActionContext() {});
@@ -77,9 +72,7 @@ class RuntimeActionRegistryTest {
         RuntimeActionRegistry registry = registry();
         AtomicInteger executions = new AtomicInteger();
         Registration registration = registry.register(
-            "test.action",
-            new TestAction("test.action", "Test Action", context -> executions.incrementAndGet())
-        );
+                "test.action", new TestAction("test.action", "Test Action", context -> executions.incrementAndGet()));
 
         // When
         registration.close();
@@ -98,20 +91,11 @@ class RuntimeActionRegistryTest {
         CountDownLatch completed = new CountDownLatch(1);
 
         registry.register(
-            "dup.action",
-            new TestAction("dup.action", "First", context -> firstExecutions.incrementAndGet())
-        );
-        registry.register(
-            "dup.action",
-            new TestAction(
-                "dup.action",
-                "Second",
-                context -> {
-                    secondExecutions.incrementAndGet();
-                    completed.countDown();
-                }
-            )
-        );
+                "dup.action", new TestAction("dup.action", "First", context -> firstExecutions.incrementAndGet()));
+        registry.register("dup.action", new TestAction("dup.action", "Second", context -> {
+            secondExecutions.incrementAndGet();
+            completed.countDown();
+        }));
 
         // When
         registry.execute("dup.action", new ActionRegistry.ActionContext() {});
@@ -127,14 +111,12 @@ class RuntimeActionRegistryTest {
     @Test
     void acceptedInvocationPublishesDetachedUiFact() throws Exception {
         problems.clear();
-        final List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events =
-            new CopyOnWriteArrayList<>();
+        final List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
-            SidecarDispatcher.noop(),
-            events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
+                SidecarDispatcher.noop(),
+                events::add);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner observer = broker.admit("plugin.action-observer");
         final AtomicReference<ActionInvocationEvent> observed = new AtomicReference<>();
@@ -144,18 +126,9 @@ class RuntimeActionRegistryTest {
             delivered.countDown();
         });
         observer.activate();
-        final RuntimeActionRegistry registry = new RuntimeActionRegistry(
-            scheduler,
-            problems::add,
-            PLUGIN_ID,
-            PermissionChecker.allowAll(),
-            broker
-        );
-        registry.register("test.action", new TestAction(
-            "test.action",
-            "Test Action",
-            ignored -> { }
-        ));
+        final RuntimeActionRegistry registry =
+                new RuntimeActionRegistry(scheduler, problems::add, PLUGIN_ID, PermissionChecker.allowAll(), broker);
+        registry.register("test.action", new TestAction("test.action", "Test Action", ignored -> {}));
 
         registry.execute("test.action", new ActionRegistry.ActionContext() {
             @Override
@@ -174,50 +147,27 @@ class RuntimeActionRegistryTest {
     @Test
     void rejectedInvocationPublishesNoActionFact() throws Exception {
         problems.clear();
-        final List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events =
-            new CopyOnWriteArrayList<>();
+        final List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            task -> "action.handle".equals(task.taskType())
-                ? WorkBudget.REJECTED
-                : WorkBudget.LIGHTWEIGHT,
-            new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
-            SidecarDispatcher.noop(),
-            events::add
-        );
+                task -> "action.handle".equals(task.taskType()) ? WorkBudget.REJECTED : WorkBudget.LIGHTWEIGHT,
+                new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
+                SidecarDispatcher.noop(),
+                events::add);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner observer = broker.admit("plugin.action-observer");
         final AtomicInteger deliveries = new AtomicInteger();
-        broker.subscribe(
-            observer.key(),
-            ActionInvocationEvent.class,
-            ignored -> deliveries.incrementAndGet()
-        );
+        broker.subscribe(observer.key(), ActionInvocationEvent.class, ignored -> deliveries.incrementAndGet());
         observer.activate();
-        final RuntimeActionRegistry registry = new RuntimeActionRegistry(
-            scheduler,
-            problems::add,
-            PLUGIN_ID,
-            PermissionChecker.allowAll(),
-            broker
-        );
+        final RuntimeActionRegistry registry =
+                new RuntimeActionRegistry(scheduler, problems::add, PLUGIN_ID, PermissionChecker.allowAll(), broker);
         final AtomicInteger executions = new AtomicInteger();
-        registry.register("test.action", new TestAction(
-            "test.action",
-            "Test Action",
-            ignored -> executions.incrementAndGet()
-        ));
+        registry.register(
+                "test.action", new TestAction("test.action", "Test Action", ignored -> executions.incrementAndGet()));
 
-        registry.execute("test.action", new ActionRegistry.ActionContext() { });
+        registry.execute("test.action", new ActionRegistry.ActionContext() {});
 
         scheduler.dispatch(
-            new PluginTask(
-                "event.subscribe",
-                "plugin.action-observer",
-                "admission barrier",
-                "none"
-            ),
-            () -> { }
-        );
+                new PluginTask("event.subscribe", "plugin.action-observer", "admission barrier", "none"), () -> {});
         observer.beginClosing();
         assertTrue(observer.awaitQuiescence(java.time.Duration.ofSeconds(1)));
         assertEquals(0, executions.get());
@@ -229,17 +179,14 @@ class RuntimeActionRegistryTest {
         // Given
         RuntimeActionRegistry registry = registry();
         CountDownLatch completed = new CountDownLatch(1);
-        registry.register(
-            "slow.action",
-            new TestAction("slow.action", "Slow Action", context -> {
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException exception) {
-                    Thread.currentThread().interrupt();
-                }
-                completed.countDown();
-            })
-        );
+        registry.register("slow.action", new TestAction("slow.action", "Slow Action", context -> {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            }
+            completed.countDown();
+        }));
 
         // When
         long start = System.currentTimeMillis();
@@ -256,18 +203,13 @@ class RuntimeActionRegistryTest {
         problems.clear();
         List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
-            SidecarDispatcher.noop(),
-            events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
+                SidecarDispatcher.noop(),
+                events::add);
         return new RuntimeActionRegistry(scheduler, problems::add, PLUGIN_ID, PermissionChecker.allowAll());
     }
 
-    private record TestAction(
-        String id,
-        String label,
-        Consumer<ActionRegistry.ActionContext> handler
-    ) implements ActionRegistry.Action {
-    }
+    private record TestAction(String id, String label, Consumer<ActionRegistry.ActionContext> handler)
+            implements ActionRegistry.Action {}
 }

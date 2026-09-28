@@ -1,12 +1,12 @@
 package dev.turboism.ui.appearance.control;
 
 import dev.turboism.core.reflect.MethodHandleCache;
-
-import javax.swing.JLabel;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.Component;
 import java.awt.Container;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.JLabel;
 
 /** Runtime-owned, fail-closed ingress from the verified native deformer renderer hook. */
 public final class NativeDeformerTreeAppearanceBridge {
@@ -14,8 +14,7 @@ public final class NativeDeformerTreeAppearanceBridge {
     private static final AtomicReference<Callback> CALLBACK = new AtomicReference<>();
     private static final AtomicReference<DeformerTreeControlAppearanceProvider> PROVIDER = new AtomicReference<>();
 
-    private NativeDeformerTreeAppearanceBridge() {
-    }
+    private NativeDeformerTreeAppearanceBridge() {}
 
     /**
      * Entry point the instrumented host deformer-tree renderer calls after producing a row component.
@@ -32,20 +31,14 @@ public final class NativeDeformerTreeAppearanceBridge {
      * @return {@code component}, styled where possible and otherwise untouched
      */
     public static Component afterRender(
-        final Component component,
-        final Object value,
-        final boolean selected,
-        final boolean focused
-    ) {
+            final Component component, final Object value, final boolean selected, final boolean focused) {
         if (component == null) return null;
         final Callback callback = CALLBACK.get();
         if (callback == null || !javax.swing.SwingUtilities.isEventDispatchThread()) return component;
         try {
-            return Objects.requireNonNullElse(
-                callback.apply(component, value, selected, focused),
-                component
-            );
+            return Objects.requireNonNullElse(callback.apply(component, value, selected, focused), component);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return component;
         }
     }
@@ -65,10 +58,9 @@ public final class NativeDeformerTreeAppearanceBridge {
      * @throws NullPointerException if {@code selectors} or {@code provider} is {@code null}
      */
     public static void install(
-        final long hostGeneration,
-        final Selectors selectors,
-        final DeformerTreeControlAppearanceProvider provider
-    ) {
+            final long hostGeneration,
+            final Selectors selectors,
+            final DeformerTreeControlAppearanceProvider provider) {
         Objects.requireNonNull(selectors, "selectors");
         Objects.requireNonNull(provider, "provider");
         PROVIDER.set(provider);
@@ -111,8 +103,8 @@ public final class NativeDeformerTreeAppearanceBridge {
     private static Component label(final Component component) {
         if (component instanceof JLabel) return component;
         if (component instanceof Container container
-            && container.getComponentCount() > 0
-            && container.getComponent(0) instanceof JLabel label) {
+                && container.getComponentCount() > 0
+                && container.getComponent(0) instanceof JLabel label) {
             return label;
         }
         return null;
@@ -144,15 +136,14 @@ public final class NativeDeformerTreeAppearanceBridge {
      * @throws NullPointerException if any component is {@code null}
      */
     public record Selectors(
-        String rowSourceOwner,
-        String rowSourceMethod,
-        String deformerSourceOwner,
-        String deformerIdMethod,
-        String artMeshSourceOwner,
-        String artMeshIdMethod,
-        String idStringMethod,
-        ClassLoader hostClassLoader
-    ) {
+            String rowSourceOwner,
+            String rowSourceMethod,
+            String deformerSourceOwner,
+            String deformerIdMethod,
+            String artMeshSourceOwner,
+            String artMeshIdMethod,
+            String idStringMethod,
+            ClassLoader hostClassLoader) {
         public Selectors {
             requireText(rowSourceOwner, "rowSourceOwner");
             requireText(rowSourceMethod, "rowSourceMethod");
@@ -165,8 +156,9 @@ public final class NativeDeformerTreeAppearanceBridge {
         }
 
         String deformerId(final Object row) throws ReflectiveOperationException {
-            if (row == null || row.getClass().getClassLoader() != hostClassLoader
-                || !row.getClass().getName().equals(rowSourceOwner.replace('/', '.'))) return null;
+            if (row == null
+                    || row.getClass().getClassLoader() != hostClassLoader
+                    || !row.getClass().getName().equals(rowSourceOwner.replace('/', '.'))) return null;
             final java.lang.reflect.Method rowSource = MethodHandleCache.declared(row.getClass(), rowSourceMethod);
             if (!rowSource.canAccess(row) && !rowSource.trySetAccessible()) return null;
             final Object source = rowSource.invoke(row);
@@ -180,15 +172,13 @@ public final class NativeDeformerTreeAppearanceBridge {
             return null;
         }
 
-        private static String idString(
-            final Object source,
-            final String idMethod,
-            final String idStringMethod
-        ) throws ReflectiveOperationException {
-            final Object id = MethodHandleCache.method(source.getClass(), idMethod).invoke(source);
+        private static String idString(final Object source, final String idMethod, final String idStringMethod)
+                throws ReflectiveOperationException {
+            final Object id =
+                    MethodHandleCache.method(source.getClass(), idMethod).invoke(source);
             final Object value = id == null
-                ? null
-                : MethodHandleCache.method(id.getClass(), idStringMethod).invoke(id);
+                    ? null
+                    : MethodHandleCache.method(id.getClass(), idStringMethod).invoke(id);
             return value instanceof String text && !text.isBlank() ? text : null;
         }
 

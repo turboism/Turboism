@@ -5,7 +5,6 @@ import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 
 /** Per-plugin permission and lifetime boundary over the warp Alt-mirror policy. */
@@ -16,10 +15,9 @@ public final class AuthorizedWarpAltMirrorParticipation implements WarpAltMirror
     private final DisposableScope scope;
 
     public AuthorizedWarpAltMirrorParticipation(
-        final RuntimeWarpAltMirrorParticipation delegate,
-        final PermissionChecker permissions,
-        final DisposableScope scope
-    ) {
+            final RuntimeWarpAltMirrorParticipation delegate,
+            final PermissionChecker permissions,
+            final DisposableScope scope) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.permissions = Objects.requireNonNull(permissions, "permissions");
         this.scope = Objects.requireNonNull(scope, "scope");
@@ -27,10 +25,7 @@ public final class AuthorizedWarpAltMirrorParticipation implements WarpAltMirror
 
     @Override
     public Registration participate() {
-        permissions.check(
-            PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
-            "cubism.warp.alt-symmetry.participate"
-        );
+        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "cubism.warp.alt-symmetry.participate");
         final Registration registration = delegate.participate();
         try {
             return scope.register(registration);

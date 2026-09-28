@@ -1,6 +1,10 @@
 package dev.turboism.ui.overlay;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
+import java.lang.instrument.ClassFileTransformer;
+import java.security.ProtectionDomain;
+import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -8,10 +12,6 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-
-import java.lang.instrument.ClassFileTransformer;
-import java.security.ProtectionDomain;
-import java.util.Objects;
 
 /**
  * Exact-selector transformer augmenting the native bounding-box button setup sequence.
@@ -39,10 +39,9 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
     private static final String CONSUMER = "java/util/function/Consumer";
     private static final String OBJECT_ARRAY = "[Ljava/lang/Object;";
     private static final String THROWABLE = "java/lang/Throwable";
-    private static final String PROPERTIES_GET_DESCRIPTOR =
-        "(Ljava/lang/Object;)Ljava/lang/Object;";
+    private static final String PROPERTIES_GET_DESCRIPTOR = "(Ljava/lang/Object;)Ljava/lang/Object;";
     private static final String BIFUNCTION_APPLY_DESCRIPTOR =
-        "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;";
+            "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;";
     private static final String CONSUMER_ACCEPT_DESCRIPTOR = "(Ljava/lang/Object;)V";
 
     private final ClassLoader expectedLoader;
@@ -52,12 +51,11 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
     private final StaticSelector vectorPlusSelector;
 
     public BoundingBoxOverlayButtonUpdateTransformer(
-        final ClassLoader expectedLoader,
-        final StaticSelector updateSelector,
-        final StaticSelector setupButtonSelector,
-        final StaticSelector vectorTimesSelector,
-        final StaticSelector vectorPlusSelector
-    ) {
+            final ClassLoader expectedLoader,
+            final StaticSelector updateSelector,
+            final StaticSelector setupButtonSelector,
+            final StaticSelector vectorTimesSelector,
+            final StaticSelector vectorPlusSelector) {
         this.expectedLoader = Objects.requireNonNull(expectedLoader, "expectedLoader");
         this.updateSelector = Objects.requireNonNull(updateSelector, "updateSelector");
         this.setupButtonSelector = Objects.requireNonNull(setupButtonSelector, "setupButtonSelector");
@@ -67,16 +65,13 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
-        if (loader != expectedLoader
-            || className == null
-            || !className.equals(updateSelector.ownerInternalName())) {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
+        if (loader != expectedLoader || className == null || !className.equals(updateSelector.ownerInternalName())) {
             return null;
         }
         try {
@@ -92,7 +87,7 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
     }
 
     /**
-    /**
+     * /**
      * First pass: exact owner/descriptor/access admission, the native helper call count,
      * and the original selected {@code GVector2.times}/{@code GVector2.plus} call counts of
      * the {@code update} method. Returns {@code null} when the class does not match the
@@ -119,96 +114,88 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
         final boolean[] updateAccessOk = {false};
         final boolean[] helperMatched = {false};
         final boolean[] helperAccessOk = {false};
-        classReader.accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String descriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                if (helperName.equals(name) && helperDescriptor.equals(descriptor)) {
-                    helperMatched[0] = true;
-                    helperAccessOk[0] = matchesAccess(access, setupButtonSelector);
-                    return null;
-                }
-                if (!updateSelector.memberName().equals(name)
-                    || !updateSelector.descriptor().equals(descriptor)) {
-                    return null;
-                }
-                updateMatched[0] = true;
-                updateAccessOk[0] = matchesAccess(access, updateSelector);
-                return new MethodVisitor(Opcodes.ASM9) {
+        classReader.accept(
+                new ClassVisitor(Opcodes.ASM9) {
                     @Override
-                    public void visitMethodInsn(
-                        final int opcode,
-                        final String methodOwner,
-                        final String methodName,
-                        final String methodDescriptor,
-                        final boolean isInterface
-                    ) {
-                        if (opcode == Opcodes.INVOKESTATIC
-                            && setupOwner.equals(methodOwner)
-                            && helperName.equals(methodName)
-                            && helperDescriptor.equals(methodDescriptor)) {
-                            helperCallCount[0]++;
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String descriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        if (helperName.equals(name) && helperDescriptor.equals(descriptor)) {
+                            helperMatched[0] = true;
+                            helperAccessOk[0] = matchesAccess(access, setupButtonSelector);
+                            return null;
                         }
-                        if (opcode == Opcodes.INVOKEVIRTUAL
-                            && vectorTimesSelector.ownerInternalName().equals(methodOwner)
-                            && vectorTimesSelector.memberName().equals(methodName)
-                            && vectorTimesSelector.descriptor().equals(methodDescriptor)) {
-                            timesCallCount[0]++;
+                        if (!updateSelector.memberName().equals(name)
+                                || !updateSelector.descriptor().equals(descriptor)) {
+                            return null;
                         }
-                        if (opcode == Opcodes.INVOKEVIRTUAL
-                            && vectorPlusSelector.ownerInternalName().equals(methodOwner)
-                            && vectorPlusSelector.memberName().equals(methodName)
-                            && vectorPlusSelector.descriptor().equals(methodDescriptor)) {
-                            plusCallCount[0]++;
-                        }
-                    }
+                        updateMatched[0] = true;
+                        updateAccessOk[0] = matchesAccess(access, updateSelector);
+                        return new MethodVisitor(Opcodes.ASM9) {
+                            @Override
+                            public void visitMethodInsn(
+                                    final int opcode,
+                                    final String methodOwner,
+                                    final String methodName,
+                                    final String methodDescriptor,
+                                    final boolean isInterface) {
+                                if (opcode == Opcodes.INVOKESTATIC
+                                        && setupOwner.equals(methodOwner)
+                                        && helperName.equals(methodName)
+                                        && helperDescriptor.equals(methodDescriptor)) {
+                                    helperCallCount[0]++;
+                                }
+                                if (opcode == Opcodes.INVOKEVIRTUAL
+                                        && vectorTimesSelector
+                                                .ownerInternalName()
+                                                .equals(methodOwner)
+                                        && vectorTimesSelector.memberName().equals(methodName)
+                                        && vectorTimesSelector.descriptor().equals(methodDescriptor)) {
+                                    timesCallCount[0]++;
+                                }
+                                if (opcode == Opcodes.INVOKEVIRTUAL
+                                        && vectorPlusSelector
+                                                .ownerInternalName()
+                                                .equals(methodOwner)
+                                        && vectorPlusSelector.memberName().equals(methodName)
+                                        && vectorPlusSelector.descriptor().equals(methodDescriptor)) {
+                                    plusCallCount[0]++;
+                                }
+                            }
 
-                    @Override
-                    public void visitMaxs(final int maxStack, final int maxLocals) {
-                        updateMaxLocals[0] = maxLocals;
+                            @Override
+                            public void visitMaxs(final int maxStack, final int maxLocals) {
+                                updateMaxLocals[0] = maxLocals;
+                            }
+                        };
                     }
-                };
-            }
-        }, 0);
+                },
+                0);
         if (!updateMatched[0]
-            || !updateAccessOk[0]
-            || !helperMatched[0]
-            || !helperAccessOk[0]
-            || helperCallCount[0] != 3
-            || updateMaxLocals[0] < 0) {
+                || !updateAccessOk[0]
+                || !helperMatched[0]
+                || !helperAccessOk[0]
+                || helperCallCount[0] != 3
+                || updateMaxLocals[0] < 0) {
             return null;
         }
-        return new Analysis(
-            updateMaxLocals[0],
-            helperCallCount[0],
-            timesCallCount[0],
-            plusCallCount[0]
-        );
+        return new Analysis(updateMaxLocals[0], helperCallCount[0], timesCallCount[0], plusCallCount[0]);
     }
 
     private byte[] augment(final byte[] classfileBuffer, final Analysis analysis) {
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(
-            reader,
-            ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS
-        ) {
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
             @Override
             protected String getCommonSuperClass(final String left, final String right) {
                 // Host-only types are private to the exact verified host loader; resolve
                 // frames through it (the established host-loader-aware transformer pattern).
                 try {
                     final ClassLoader loader = expectedLoader;
-                    final Class<?> leftType = Class.forName(
-                        left.replace('/', '.'), false, loader
-                    );
-                    final Class<?> rightType = Class.forName(
-                        right.replace('/', '.'), false, loader
-                    );
+                    final Class<?> leftType = Class.forName(left.replace('/', '.'), false, loader);
+                    final Class<?> rightType = Class.forName(right.replace('/', '.'), false, loader);
                     if (leftType.isAssignableFrom(rightType)) {
                         return left;
                     }
@@ -224,86 +211,84 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
                     } while (!current.isAssignableFrom(rightType));
                     return current.getName().replace('.', '/');
                 } catch (Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
                     return "java/lang/Object";
                 }
             }
         };
         final int[] slots = analysis.slots();
-        reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String descriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                final MethodVisitor delegate = super.visitMethod(
-                    access,
-                    name,
-                    descriptor,
-                    signature,
-                    exceptions
-                );
-                if (!updateSelector.memberName().equals(name)
-                    || !updateSelector.descriptor().equals(descriptor)) {
-                    return delegate;
-                }
-                return new MethodVisitor(Opcodes.ASM9, delegate) {
-                    private int helperCalls;
-
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
-                    public void visitMethodInsn(
-                        final int opcode,
-                        final String methodOwner,
-                        final String methodName,
-                        final String methodDescriptor,
-                        final boolean isInterface
-                    ) {
-                        final boolean setupCall = opcode == Opcodes.INVOKESTATIC
-                            && setupButtonSelector.ownerInternalName().equals(methodOwner)
-                            && setupButtonSelector.memberName().equals(methodName)
-                            && setupButtonSelector.descriptor().equals(methodDescriptor);
-                        if (setupCall) {
-                            helperCalls++;
-                            if (helperCalls == 2) {
-                                captureStep();
-                            } else if (helperCalls == 3) {
-                                captureThirdCall();
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String descriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor delegate =
+                                super.visitMethod(access, name, descriptor, signature, exceptions);
+                        if (!updateSelector.memberName().equals(name)
+                                || !updateSelector.descriptor().equals(descriptor)) {
+                            return delegate;
+                        }
+                        return new MethodVisitor(Opcodes.ASM9, delegate) {
+                            private int helperCalls;
+
+                            @Override
+                            public void visitMethodInsn(
+                                    final int opcode,
+                                    final String methodOwner,
+                                    final String methodName,
+                                    final String methodDescriptor,
+                                    final boolean isInterface) {
+                                final boolean setupCall = opcode == Opcodes.INVOKESTATIC
+                                        && setupButtonSelector
+                                                .ownerInternalName()
+                                                .equals(methodOwner)
+                                        && setupButtonSelector.memberName().equals(methodName)
+                                        && setupButtonSelector.descriptor().equals(methodDescriptor);
+                                if (setupCall) {
+                                    helperCalls++;
+                                    if (helperCalls == 2) {
+                                        captureStep();
+                                    } else if (helperCalls == 3) {
+                                        captureThirdCall();
+                                    }
+                                }
+                                super.visitMethodInsn(opcode, methodOwner, methodName, methodDescriptor, isInterface);
+                                if (setupCall && helperCalls == 3) {
+                                    emitAugmentation(delegate, slots);
+                                }
                             }
-                        }
-                        super.visitMethodInsn(opcode, methodOwner, methodName, methodDescriptor, isInterface);
-                        if (setupCall && helperCalls == 3) {
-                            emitAugmentation(delegate, slots);
-                        }
-                    }
 
-                    private void captureStep() {
-                        // Top of the operand stack at the second call is the native offset.
-                        super.visitInsn(Opcodes.DUP);
-                        super.visitVarInsn(Opcodes.ASTORE, slots[STEP]);
-                    }
+                            private void captureStep() {
+                                // Top of the operand stack at the second call is the native offset.
+                                super.visitInsn(Opcodes.DUP);
+                                super.visitVarInsn(Opcodes.ASTORE, slots[STEP]);
+                            }
 
-                    private void captureThirdCall() {
-                        // Operand stack at the third call: action, box, points, scene,
-                        // button, offset (top). Capture all six into ASM-allocated locals,
-                        // then re-push them so the original call is preserved unchanged.
-                        super.visitVarInsn(Opcodes.ASTORE, slots[ANCHOR]);
-                        super.visitVarInsn(Opcodes.ASTORE, slots[BUTTON]);
-                        super.visitVarInsn(Opcodes.ASTORE, slots[SCENE]);
-                        super.visitVarInsn(Opcodes.ASTORE, slots[POINTS]);
-                        super.visitVarInsn(Opcodes.ASTORE, slots[BOX]);
-                        super.visitVarInsn(Opcodes.ASTORE, slots[ACTION]);
-                        super.visitVarInsn(Opcodes.ALOAD, slots[ACTION]);
-                        super.visitVarInsn(Opcodes.ALOAD, slots[BOX]);
-                        super.visitVarInsn(Opcodes.ALOAD, slots[POINTS]);
-                        super.visitVarInsn(Opcodes.ALOAD, slots[SCENE]);
-                        super.visitVarInsn(Opcodes.ALOAD, slots[BUTTON]);
-                        super.visitVarInsn(Opcodes.ALOAD, slots[ANCHOR]);
+                            private void captureThirdCall() {
+                                // Operand stack at the third call: action, box, points, scene,
+                                // button, offset (top). Capture all six into ASM-allocated locals,
+                                // then re-push them so the original call is preserved unchanged.
+                                super.visitVarInsn(Opcodes.ASTORE, slots[ANCHOR]);
+                                super.visitVarInsn(Opcodes.ASTORE, slots[BUTTON]);
+                                super.visitVarInsn(Opcodes.ASTORE, slots[SCENE]);
+                                super.visitVarInsn(Opcodes.ASTORE, slots[POINTS]);
+                                super.visitVarInsn(Opcodes.ASTORE, slots[BOX]);
+                                super.visitVarInsn(Opcodes.ASTORE, slots[ACTION]);
+                                super.visitVarInsn(Opcodes.ALOAD, slots[ACTION]);
+                                super.visitVarInsn(Opcodes.ALOAD, slots[BOX]);
+                                super.visitVarInsn(Opcodes.ALOAD, slots[POINTS]);
+                                super.visitVarInsn(Opcodes.ALOAD, slots[SCENE]);
+                                super.visitVarInsn(Opcodes.ALOAD, slots[BUTTON]);
+                                super.visitVarInsn(Opcodes.ALOAD, slots[ANCHOR]);
+                            }
+                        };
                     }
-                };
-            }
-        }, ClassReader.EXPAND_FRAMES);
+                },
+                ClassReader.EXPAND_FRAMES);
         final byte[] candidate = writer.toByteArray();
         return verifyCandidate(candidate, analysis) ? candidate : null;
     }
@@ -321,18 +306,9 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
      * wraps into a plausible one. Any mismatch fails closed with no transformed candidate.
      */
     private boolean verifyCandidate(final byte[] candidate, final Analysis analysis) {
-        final int expectedHelpers = guardedIncrement(
-            analysis.originalHelperCalls(),
-            "setup-helper"
-        );
-        final int expectedTimes = guardedIncrement(
-            analysis.originalTimesCalls(),
-            "vector times"
-        );
-        final int expectedPlus = guardedIncrement(
-            analysis.originalPlusCalls(),
-            "vector plus"
-        );
+        final int expectedHelpers = guardedIncrement(analysis.originalHelperCalls(), "setup-helper");
+        final int expectedTimes = guardedIncrement(analysis.originalTimesCalls(), "vector times");
+        final int expectedPlus = guardedIncrement(analysis.originalPlusCalls(), "vector plus");
         final String owner = updateSelector.ownerInternalName();
         final String setupOwner = setupButtonSelector.ownerInternalName();
         final String helperName = setupButtonSelector.memberName();
@@ -345,55 +321,59 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
         final int[] timesCalls = {0};
         final int[] plusCalls = {0};
         final boolean[] updateMatched = {false};
-        classReader.accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String descriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                if (!updateSelector.memberName().equals(name)
-                    || !updateSelector.descriptor().equals(descriptor)) {
-                    return null;
-                }
-                updateMatched[0] = true;
-                return new MethodVisitor(Opcodes.ASM9) {
+        classReader.accept(
+                new ClassVisitor(Opcodes.ASM9) {
                     @Override
-                    public void visitMethodInsn(
-                        final int opcode,
-                        final String methodOwner,
-                        final String methodName,
-                        final String methodDescriptor,
-                        final boolean isInterface
-                    ) {
-                        if (opcode == Opcodes.INVOKESTATIC
-                            && setupOwner.equals(methodOwner)
-                            && helperName.equals(methodName)
-                            && helperDescriptor.equals(methodDescriptor)) {
-                            helperCalls[0]++;
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String descriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        if (!updateSelector.memberName().equals(name)
+                                || !updateSelector.descriptor().equals(descriptor)) {
+                            return null;
                         }
-                        if (opcode == Opcodes.INVOKEVIRTUAL
-                            && vectorTimesSelector.ownerInternalName().equals(methodOwner)
-                            && vectorTimesSelector.memberName().equals(methodName)
-                            && vectorTimesSelector.descriptor().equals(methodDescriptor)) {
-                            timesCalls[0]++;
-                        }
-                        if (opcode == Opcodes.INVOKEVIRTUAL
-                            && vectorPlusSelector.ownerInternalName().equals(methodOwner)
-                            && vectorPlusSelector.memberName().equals(methodName)
-                            && vectorPlusSelector.descriptor().equals(methodDescriptor)) {
-                            plusCalls[0]++;
-                        }
+                        updateMatched[0] = true;
+                        return new MethodVisitor(Opcodes.ASM9) {
+                            @Override
+                            public void visitMethodInsn(
+                                    final int opcode,
+                                    final String methodOwner,
+                                    final String methodName,
+                                    final String methodDescriptor,
+                                    final boolean isInterface) {
+                                if (opcode == Opcodes.INVOKESTATIC
+                                        && setupOwner.equals(methodOwner)
+                                        && helperName.equals(methodName)
+                                        && helperDescriptor.equals(methodDescriptor)) {
+                                    helperCalls[0]++;
+                                }
+                                if (opcode == Opcodes.INVOKEVIRTUAL
+                                        && vectorTimesSelector
+                                                .ownerInternalName()
+                                                .equals(methodOwner)
+                                        && vectorTimesSelector.memberName().equals(methodName)
+                                        && vectorTimesSelector.descriptor().equals(methodDescriptor)) {
+                                    timesCalls[0]++;
+                                }
+                                if (opcode == Opcodes.INVOKEVIRTUAL
+                                        && vectorPlusSelector
+                                                .ownerInternalName()
+                                                .equals(methodOwner)
+                                        && vectorPlusSelector.memberName().equals(methodName)
+                                        && vectorPlusSelector.descriptor().equals(methodDescriptor)) {
+                                    plusCalls[0]++;
+                                }
+                            }
+                        };
                     }
-                };
-            }
-        }, ClassReader.EXPAND_FRAMES);
+                },
+                ClassReader.EXPAND_FRAMES);
         return updateMatched[0]
-            && helperCalls[0] == expectedHelpers
-            && timesCalls[0] == expectedTimes
-            && plusCalls[0] == expectedPlus;
+                && helperCalls[0] == expectedHelpers
+                && timesCalls[0] == expectedTimes
+                && plusCalls[0] == expectedPlus;
     }
 
     /**
@@ -403,9 +383,7 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
      */
     private static int guardedIncrement(final int original, final String kind) {
         if (original == Integer.MAX_VALUE) {
-            throw new ArithmeticException(
-                "bounding-box overlay " + kind + " call count overflow is impossible"
-            );
+            throw new ArithmeticException("bounding-box overlay " + kind + " call count overflow is impossible");
         }
         return original + 1;
     }
@@ -449,20 +427,9 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
 
         // Callback acquisition: BiFunction(overlay, sceneGraph) -> Object[].
         out.visitMethodInsn(
-            Opcodes.INVOKESTATIC,
-            "java/lang/System",
-            "getProperties",
-            "()Ljava/util/Properties;",
-            false
-        );
+                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
         out.visitLdcInsn(SETUP_PROPERTY);
-        out.visitMethodInsn(
-            Opcodes.INVOKEVIRTUAL,
-            "java/util/Properties",
-            "get",
-            PROPERTIES_GET_DESCRIPTOR,
-            false
-        );
+        out.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", PROPERTIES_GET_DESCRIPTOR, false);
         out.visitTypeInsn(Opcodes.CHECKCAST, BIFUNCTION);
         out.visitInsn(Opcodes.DUP);
         out.visitJumpInsn(Opcodes.IFNULL, cbMissing);
@@ -470,13 +437,7 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
         out.visitVarInsn(Opcodes.ALOAD, callbackSlot);
         out.visitVarInsn(Opcodes.ALOAD, 0);
         out.visitVarInsn(Opcodes.ALOAD, sceneSlot);
-        out.visitMethodInsn(
-            Opcodes.INVOKEINTERFACE,
-            BIFUNCTION,
-            "apply",
-            BIFUNCTION_APPLY_DESCRIPTOR,
-            true
-        );
+        out.visitMethodInsn(Opcodes.INVOKEINTERFACE, BIFUNCTION, "apply", BIFUNCTION_APPLY_DESCRIPTOR, true);
         out.visitTypeInsn(Opcodes.CHECKCAST, OBJECT_ARRAY);
         out.visitInsn(Opcodes.DUP);
         out.visitJumpInsn(Opcodes.IFNULL, arrayMissing);
@@ -534,26 +495,23 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
         out.visitInsn(Opcodes.IADD);
         out.visitInsn(Opcodes.I2F);
         out.visitMethodInsn(
-            Opcodes.INVOKEVIRTUAL,
-            vectorTimesSelector.ownerInternalName(),
-            vectorTimesSelector.memberName(),
-            vectorTimesSelector.descriptor(),
-            false
-        );
+                Opcodes.INVOKEVIRTUAL,
+                vectorTimesSelector.ownerInternalName(),
+                vectorTimesSelector.memberName(),
+                vectorTimesSelector.descriptor(),
+                false);
         out.visitMethodInsn(
-            Opcodes.INVOKEVIRTUAL,
-            vectorPlusSelector.ownerInternalName(),
-            vectorPlusSelector.memberName(),
-            vectorPlusSelector.descriptor(),
-            false
-        );
+                Opcodes.INVOKEVIRTUAL,
+                vectorPlusSelector.ownerInternalName(),
+                vectorPlusSelector.memberName(),
+                vectorPlusSelector.descriptor(),
+                false);
         out.visitMethodInsn(
-            Opcodes.INVOKESTATIC,
-            setupButtonSelector.ownerInternalName(),
-            setupButtonSelector.memberName(),
-            setupButtonSelector.descriptor(),
-            false
-        );
+                Opcodes.INVOKESTATIC,
+                setupButtonSelector.ownerInternalName(),
+                setupButtonSelector.memberName(),
+                setupButtonSelector.descriptor(),
+                false);
         out.visitLabel(next);
         out.visitIincInsn(indexSlot, 1);
         out.visitVarInsn(Opcodes.ILOAD, indexSlot);
@@ -567,12 +525,7 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
         out.visitInsn(Opcodes.DUP);
         out.visitLdcInsn("invalid bounding-box overlay callback output");
         out.visitMethodInsn(
-            Opcodes.INVOKESPECIAL,
-            "java/lang/IllegalArgumentException",
-            "<init>",
-            "(Ljava/lang/String;)V",
-            false
-        );
+                Opcodes.INVOKESPECIAL, "java/lang/IllegalArgumentException", "<init>", "(Ljava/lang/String;)V", false);
         out.visitInsn(Opcodes.ATHROW);
 
         // Missing setup callback: drop the null callback.
@@ -593,31 +546,14 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
         out.visitVarInsn(Opcodes.ASTORE, callbackSlot);
         out.visitLabel(diagStart);
         out.visitMethodInsn(
-            Opcodes.INVOKESTATIC,
-            "java/lang/System",
-            "getProperties",
-            "()Ljava/util/Properties;",
-            false
-        );
+                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
         out.visitLdcInsn(FAILURE_PROPERTY);
-        out.visitMethodInsn(
-            Opcodes.INVOKEVIRTUAL,
-            "java/util/Properties",
-            "get",
-            PROPERTIES_GET_DESCRIPTOR,
-            false
-        );
+        out.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", PROPERTIES_GET_DESCRIPTOR, false);
         out.visitTypeInsn(Opcodes.CHECKCAST, CONSUMER);
         out.visitInsn(Opcodes.DUP);
         out.visitJumpInsn(Opcodes.IFNULL, diagMissing);
         out.visitVarInsn(Opcodes.ALOAD, callbackSlot);
-        out.visitMethodInsn(
-            Opcodes.INVOKEINTERFACE,
-            CONSUMER,
-            "accept",
-            CONSUMER_ACCEPT_DESCRIPTOR,
-            true
-        );
+        out.visitMethodInsn(Opcodes.INVOKEINTERFACE, CONSUMER, "accept", CONSUMER_ACCEPT_DESCRIPTOR, true);
         out.visitJumpInsn(Opcodes.GOTO, diagEnd);
         out.visitLabel(diagMissing);
         out.visitInsn(Opcodes.POP);
@@ -630,7 +566,7 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
 
     private static boolean matchesAccess(final int access, final StaticSelector selector) {
         return (access & selector.requiredAccessFlags()) == selector.requiredAccessFlags()
-            && (access & selector.forbiddenAccessFlags()) == 0;
+                && (access & selector.forbiddenAccessFlags()) == 0;
     }
 
     private static final int ACTION = 0;
@@ -649,11 +585,7 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
      * analyzed original {@code update} call-site counts used for delta verification.
      */
     private record Analysis(
-        int updateMaxLocals,
-        int originalHelperCalls,
-        int originalTimesCalls,
-        int originalPlusCalls
-    ) {
+            int updateMaxLocals, int originalHelperCalls, int originalTimesCalls, int originalPlusCalls) {
 
         private int[] slots() {
             final int base = updateMaxLocals;

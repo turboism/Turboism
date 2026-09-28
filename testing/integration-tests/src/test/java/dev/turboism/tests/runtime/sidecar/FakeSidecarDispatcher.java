@@ -4,7 +4,6 @@ import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.test.fake.FakeSidecarProcess;
-
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -36,8 +35,7 @@ public final class FakeSidecarDispatcher implements SidecarDispatcher {
         FakeSidecarProcess.Response response = process.nextResponse();
         if (response == null) {
             return CompletableFuture.failedFuture(
-                new IllegalStateException("No sidecar behavior configured for task: " + task.taskType())
-            );
+                    new IllegalStateException("No sidecar behavior configured for task: " + task.taskType()));
         }
 
         return switch (response.behavior()) {
@@ -45,9 +43,9 @@ public final class FakeSidecarDispatcher implements SidecarDispatcher {
                 callback.run();
                 yield CompletableFuture.completedFuture(SidecarResult.success(""));
             }
-            case ERROR -> CompletableFuture.failedFuture(
-                new RuntimeException("[" + response.errorCode() + "] " + response.errorMessage())
-            );
+            case ERROR ->
+                CompletableFuture.failedFuture(
+                        new RuntimeException("[" + response.errorCode() + "] " + response.errorMessage()));
             case TIMEOUT -> new CompletableFuture<>();
         };
     }

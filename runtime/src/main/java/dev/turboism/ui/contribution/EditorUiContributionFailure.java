@@ -1,15 +1,10 @@
 package dev.turboism.ui.contribution;
 
 import dev.turboism.ui.host.EditorUiFamily;
-
 import java.util.Objects;
 
 /** Sanitized contribution reconciliation failure retained by runtime policy. */
-public record EditorUiContributionFailure(
-    Code code,
-    EditorUiFamily family,
-    String message
-) {
+public record EditorUiContributionFailure(Code code, EditorUiFamily family, String message) {
     public EditorUiContributionFailure {
         code = Objects.requireNonNull(code, "code");
         family = Objects.requireNonNull(family, "family");

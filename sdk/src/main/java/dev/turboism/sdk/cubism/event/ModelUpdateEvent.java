@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.event;
 
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.Objects;
 
 /**
@@ -12,32 +11,37 @@ import java.util.Objects;
  * host callback returns.</p>
  */
 public sealed interface ModelUpdateEvent extends TurboismEvent
-    permits ModelUpdateEvent.Before, ModelUpdateEvent.On, ModelUpdateEvent.After {
+        permits ModelUpdateEvent.Before, ModelUpdateEvent.On, ModelUpdateEvent.After {
 
     /** Returns the detached correlation of the {@link CubismOperation#UPDATE_MODEL} operation. */
     CubismOperationEvent operation();
 
     /** State published synchronously before the update pass runs. */
     record Before(CubismOperationEvent operation) implements ModelUpdateEvent {
-        public Before { operation = requireUpdate(operation); }
+        public Before {
+            operation = requireUpdate(operation);
+        }
     }
 
     /** State published when the update pass runs. */
     record On(CubismOperationEvent operation) implements ModelUpdateEvent {
-        public On { operation = requireUpdate(operation); }
+        public On {
+            operation = requireUpdate(operation);
+        }
     }
 
     /** State published after the update pass finished. */
     record After(CubismOperationEvent operation) implements ModelUpdateEvent {
-        public After { operation = requireUpdate(operation); }
+        public After {
+            operation = requireUpdate(operation);
+        }
     }
 
     private static CubismOperationEvent requireUpdate(final CubismOperationEvent operation) {
         final CubismOperationEvent value = Objects.requireNonNull(operation, "operation");
         if (value.operation() != CubismOperation.UPDATE_MODEL) {
             throw new IllegalArgumentException(
-                "Model update event requires UPDATE_MODEL operation: " + value.operation()
-            );
+                    "Model update event requires UPDATE_MODEL operation: " + value.operation());
         }
         return value;
     }

@@ -1,23 +1,22 @@
 package dev.turboism.preview;
 
-import dev.turboism.mapping.verification.VerifiedAccessException;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.nio.file.attribute.FileTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.mapping.verification.VerifiedAccessException;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class PreviewLogTest {
 
@@ -28,12 +27,11 @@ class PreviewLogTest {
     void createsOneLogFilePerSessionUnderTheUtcDate() throws Exception {
         final Clock clock = Clock.fixed(Instant.parse("2026-01-02T03:04:05.006Z"), ZoneOffset.UTC);
 
-        try (PreviewLog log = PreviewLog.openSession(temporary, clock, 42L, (level, component, message, failure) -> {})) {
+        try (PreviewLog log =
+                PreviewLog.openSession(temporary, clock, 42L, (level, component, message, failure) -> {})) {
             final Path file = log.snapshot().currentFile().orElseThrow();
             assertEquals(temporary.resolve("2026-01-02"), file.getParent());
-            assertTrue(file.getFileName().toString().matches(
-                "turboism-03-04-05\\.006-p42-.*\\.log"
-            ));
+            assertTrue(file.getFileName().toString().matches("turboism-03-04-05\\.006-p42-.*\\.log"));
             assertEquals(temporary, log.snapshot().directory().orElseThrow());
         }
     }
@@ -50,11 +48,10 @@ class PreviewLogTest {
         Files.setLastModifiedTime(newer, FileTime.from(Instant.EPOCH.plusSeconds(1)));
 
         try (PreviewLog log = PreviewLog.openSession(
-            temporary,
-            Clock.fixed(Instant.parse("2026-01-02T03:04:05.006Z"), ZoneOffset.UTC),
-            42L,
-            (level, component, message, failure) -> {}
-        )) {
+                temporary,
+                Clock.fixed(Instant.parse("2026-01-02T03:04:05.006Z"), ZoneOffset.UTC),
+                42L,
+                (level, component, message, failure) -> {})) {
             final Path current = log.snapshot().currentFile().orElseThrow();
             log.setMaxStorageMiB(1);
 
@@ -73,11 +70,8 @@ class PreviewLogTest {
             hostRecords.add("[" + component + "] " + message);
         };
 
-        try (PreviewLog log = new PreviewLog(
-            temporary.resolve("levels.log"),
-            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-            sink
-        )) {
+        try (PreviewLog log =
+                new PreviewLog(temporary.resolve("levels.log"), Clock.fixed(Instant.EPOCH, ZoneOffset.UTC), sink)) {
             log.setMinimumLevel("TRACE");
             log.trace("probe", "trace");
             log.debug("probe", "debug");
@@ -87,22 +81,24 @@ class PreviewLogTest {
             log.fatal("probe", "fatal", null);
         }
 
-        assertEquals(List.of(
-            PreviewLog.Level.TRACE,
-            PreviewLog.Level.DEBUG,
-            PreviewLog.Level.INFO,
-            PreviewLog.Level.WARN,
-            PreviewLog.Level.ERROR,
-            PreviewLog.Level.FATAL
-        ), levels);
-        assertEquals(List.of(
-            "[probe] trace",
-            "[probe] debug",
-            "[probe] info",
-            "[probe] warn",
-            "[probe] error",
-            "[probe] fatal"
-        ), hostRecords);
+        assertEquals(
+                List.of(
+                        PreviewLog.Level.TRACE,
+                        PreviewLog.Level.DEBUG,
+                        PreviewLog.Level.INFO,
+                        PreviewLog.Level.WARN,
+                        PreviewLog.Level.ERROR,
+                        PreviewLog.Level.FATAL),
+                levels);
+        assertEquals(
+                List.of(
+                        "[probe] trace",
+                        "[probe] debug",
+                        "[probe] info",
+                        "[probe] warn",
+                        "[probe] error",
+                        "[probe] fatal"),
+                hostRecords);
     }
 
     @Test
@@ -111,10 +107,9 @@ class PreviewLogTest {
         final List<PreviewLog.Level> levels = new ArrayList<>();
 
         try (PreviewLog log = new PreviewLog(
-            path,
-            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-            (level, component, message, failure) -> levels.add(level)
-        )) {
+                path,
+                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+                (level, component, message, failure) -> levels.add(level))) {
             log.setMinimumLevel("WARN");
             log.debug("probe", "hidden");
             log.warn("probe", "visible");
@@ -127,10 +122,9 @@ class PreviewLogTest {
     @Test
     void keepsOnlyTheLatestFiveThousandLinesForTheCoreLogWindow() throws Exception {
         try (PreviewLog log = new PreviewLog(
-            temporary.resolve("recent.log"),
-            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-            (level, component, message, failure) -> {}
-        )) {
+                temporary.resolve("recent.log"),
+                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+                (level, component, message, failure) -> {})) {
             for (int index = 0; index <= 5_000; index++) {
                 log.info("probe", Integer.toString(index));
             }
@@ -150,10 +144,7 @@ class PreviewLogTest {
         System.setOut(new PrintStream(output));
         System.setErr(new PrintStream(error));
         try (PreviewLog log = new PreviewLog(
-            temporary.resolve("quiet.log"),
-            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-            PreviewLog.Sink.NONE
-        )) {
+                temporary.resolve("quiet.log"), Clock.fixed(Instant.EPOCH, ZoneOffset.UTC), PreviewLog.Sink.NONE)) {
             log.info("runtime", "normal startup record");
             assertTrue(log.snapshot().lines().get(0).endsWith("normal startup record"));
         } finally {
@@ -170,10 +161,9 @@ class PreviewLogTest {
         final List<String> hostRecords = new ArrayList<>();
         final Path path = temporary.resolve("banner.log");
         try (PreviewLog log = new PreviewLog(
-            path,
-            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-            (level, component, message, failure) -> hostRecords.add(message)
-        )) {
+                path,
+                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+                (level, component, message, failure) -> hostRecords.add(message))) {
             log.banner("line one\nline two");
         }
 
@@ -185,22 +175,19 @@ class PreviewLogTest {
     void errorLogIncludesVerifiedSelectorDiagnosticsAndCauseChain() throws Exception {
         final Path path = temporary.resolve("turboism.log");
         final VerifiedAccessException failure = new VerifiedAccessException(
-            "cubism.editor-model.parameter-group.add",
-            VerifiedAccessException.FailureKind.INVOCATION,
-            "Verified host selector invocation failed safely.",
-            new IllegalAccessException("fixture")
-        );
+                "cubism.editor-model.parameter-group.add",
+                VerifiedAccessException.FailureKind.INVOCATION,
+                "Verified host selector invocation failed safely.",
+                new IllegalAccessException("fixture"));
 
         try (PreviewLog log = new PreviewLog(path)) {
             log.error("probe", "Combined action failed", failure);
         }
 
         final String content = Files.readString(path);
-        assertTrue(content.contains(
-            "dev.turboism.mapping.verification.VerifiedAccessException: "
+        assertTrue(content.contains("dev.turboism.mapping.verification.VerifiedAccessException: "
                 + "Verified host selector invocation failed safely. "
-                + "[alias=cubism.editor-model.parameter-group.add, failureKind=INVOCATION]"
-        ));
+                + "[alias=cubism.editor-model.parameter-group.add, failureKind=INVOCATION]"));
         assertTrue(content.contains("caused by java.lang.IllegalAccessException: fixture"));
         assertTrue(content.contains("\tat dev.turboism.preview.PreviewLogTest."));
     }

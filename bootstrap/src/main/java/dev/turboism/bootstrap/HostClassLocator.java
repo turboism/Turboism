@@ -13,10 +13,8 @@ final class HostClassLocator {
     private static final long POLL_INTERVAL_MILLIS = 200L;
 
     Optional<LocatedHost> await(
-        final Instrumentation instrumentation,
-        final String hostClassName,
-        final Duration timeout
-    ) throws InterruptedException {
+            final Instrumentation instrumentation, final String hostClassName, final Duration timeout)
+            throws InterruptedException {
         Objects.requireNonNull(instrumentation, "instrumentation");
         Objects.requireNonNull(hostClassName, "hostClassName");
         Objects.requireNonNull(timeout, "timeout");
@@ -31,10 +29,7 @@ final class HostClassLocator {
         return Optional.empty();
     }
 
-    Optional<LocatedHost> findLoaded(
-        final Instrumentation instrumentation,
-        final String hostClassName
-    ) {
+    Optional<LocatedHost> findLoaded(final Instrumentation instrumentation, final String hostClassName) {
         for (Class<?> loadedClass : instrumentation.getAllLoadedClasses()) {
             if (!loadedClass.getName().equals(hostClassName)) {
                 continue;
@@ -43,23 +38,23 @@ final class HostClassLocator {
             if (classLoader == null) {
                 throw new IllegalStateException("Cubism host class was loaded by the bootstrap classloader");
             }
-            return Optional.of(new LocatedHost(
-                loadedClass,
-                classLoader,
-                artifactPath(loadedClass)
-            ));
+            return Optional.of(new LocatedHost(loadedClass, classLoader, artifactPath(loadedClass)));
         }
         return Optional.empty();
     }
 
     private static Path artifactPath(final Class<?> hostClass) {
         if (hostClass.getProtectionDomain() == null
-            || hostClass.getProtectionDomain().getCodeSource() == null
-            || hostClass.getProtectionDomain().getCodeSource().getLocation() == null) {
+                || hostClass.getProtectionDomain().getCodeSource() == null
+                || hostClass.getProtectionDomain().getCodeSource().getLocation() == null) {
             throw new IllegalStateException("Cubism host class has no code-source artifact");
         }
         try {
-            final URI location = hostClass.getProtectionDomain().getCodeSource().getLocation().toURI();
+            final URI location = hostClass
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation()
+                    .toURI();
             return Path.of(location).toAbsolutePath().normalize();
         } catch (URISyntaxException | IllegalArgumentException exception) {
             throw new IllegalStateException("Cubism host artifact path is invalid", exception);

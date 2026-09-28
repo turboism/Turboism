@@ -1,15 +1,14 @@
 package dev.turboism.tests.plugin;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.swing.JFileChooser;
-import javax.swing.filechooser.FileNameExtensionFilter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import javax.swing.JFileChooser;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** Focused coverage for the exact-host plugin chooser probe contract. */
 class PluginManagementChooserValidationProbeTest {
@@ -41,9 +40,7 @@ class PluginManagementChooserValidationProbeTest {
         final var observation = PluginManagementChooserValidationProbe.observeChooser(chooser);
         final Path result = temporary.resolve(PluginManagementChooserValidationProbe.RESULT_RELATIVE);
 
-        PluginManagementChooserValidationProbe.writeResult(
-            result, "run-1", "5302", observation, false, 42L
-        );
+        PluginManagementChooserValidationProbe.writeResult(result, "run-1", "5302", observation, false, 42L);
 
         assertFalse(observation.passed());
         final String content = Files.readString(result);

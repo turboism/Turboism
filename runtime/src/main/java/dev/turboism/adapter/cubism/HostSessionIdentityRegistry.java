@@ -47,11 +47,7 @@ final class HostSessionIdentityRegistry {
     private static final class Entry extends WeakReference<Object> {
         private final int referentHash;
 
-        private Entry(
-            final Object referent,
-            final ReferenceQueue<Object> queue,
-            final String ignored
-        ) {
+        private Entry(final Object referent, final ReferenceQueue<Object> queue, final String ignored) {
             super(referent, queue);
             this.referentHash = System.identityHashCode(referent);
         }

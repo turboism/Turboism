@@ -40,10 +40,9 @@ public final class GlGetErrorElisionTransformer implements ClassFileTransformer 
      * carries <em>this</em> reviewed elision can be told apart from foreign
      * bytecode drift; an unrecorded elided body still fails closed.
      */
-    private record Installation(ClassLoader loader, String owner) { }
+    private record Installation(ClassLoader loader, String owner) {}
 
-    private static final java.util.Set<Installation> INSTALLED =
-        java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final java.util.Set<Installation> INSTALLED = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private final ClassLoader loader;
     private final Path artifact;
@@ -61,14 +60,16 @@ public final class GlGetErrorElisionTransformer implements ClassFileTransformer 
      * @param reference official {@link ClassReader#EXPAND_FRAMES} reference bytes
      * @param target the reviewed target for the artifact digest
      */
-    public GlGetErrorElisionTransformer(final ClassLoader loader, final Path artifact,
-                                        final byte[] reference,
-                                        final GlGetErrorElisionTarget target) {
+    public GlGetErrorElisionTransformer(
+            final ClassLoader loader,
+            final Path artifact,
+            final byte[] reference,
+            final GlGetErrorElisionTarget target) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         this.target = Objects.requireNonNull(target, "target");
-        shape = ReviewedMethodShape.read(
-            reference, target.owner(), target.method(), target.descriptor());
+        shape = ReviewedMethodShape.read(reference, target.owner(), target.method(), target.descriptor());
         if (shape == null) {
             throw new IllegalArgumentException("reviewed error-check method absent");
         }
@@ -102,77 +103,100 @@ public final class GlGetErrorElisionTransformer implements ClassFileTransformer 
      * will observe. Computed by running a private probe instance over the
      * attested reference bytes; {@code null} when the rewrite cannot run.
      */
-    public static List<String> composedShape(final ClassLoader loader, final Path artifact,
-                                             final byte[] reference,
-                                             final GlGetErrorElisionTarget target,
-                                             final Class<?> type) {
+    public static List<String> composedShape(
+            final ClassLoader loader,
+            final Path artifact,
+            final byte[] reference,
+            final GlGetErrorElisionTarget target,
+            final Class<?> type) {
         try {
             final GlGetErrorElisionTransformer probe =
-                new GlGetErrorElisionTransformer(loader, artifact, reference, target);
-            final byte[] rewritten = probe.transform(type.getModule(), loader,
-                target.owner(), null, type.getProtectionDomain(), reference);
+                    new GlGetErrorElisionTransformer(loader, artifact, reference, target);
+            final byte[] rewritten = probe.transform(
+                    type.getModule(), loader, target.owner(), null, type.getProtectionDomain(), reference);
             if (rewritten == null) {
                 return null;
             }
-            return ReviewedMethodShape.read(
-                rewritten, target.owner(), target.method(), target.descriptor());
+            return ReviewedMethodShape.read(rewritten, target.owner(), target.method(), target.descriptor());
         } catch (Exception | LinkageError failure) {
             return null;
         }
     }
 
     /** Returns the latest rejection, or null. */
-    public String failure() { return failure; }
+    public String failure() {
+        return failure;
+    }
     /** Returns the successful class transform count. */
-    public int matches() { return matches; }
+    public int matches() {
+        return matches;
+    }
     /** Returns the number of {@code glGetError} sites replaced so far. */
-    public int elided() { return elided; }
+    public int elided() {
+        return elided;
+    }
     /** Returns the original full class digest for restoration verification. */
-    public String beforeSha256() { return beforeSha256; }
+    public String beforeSha256() {
+        return beforeSha256;
+    }
 
-    @Override public byte[] transform(final Module module, final ClassLoader actualLoader,
-                                      final String name, final Class<?> type,
-                                      final ProtectionDomain domain, final byte[] bytes) {
+    @Override
+    public byte[] transform(
+            final Module module,
+            final ClassLoader actualLoader,
+            final String name,
+            final Class<?> type,
+            final ProtectionDomain domain,
+            final byte[] bytes) {
         if (actualLoader != loader || !target.owner().equals(name) || bytes == null) return null;
         try {
-            if (domain == null || domain.getCodeSource() == null || !artifact.equals(
-                    Path.of(domain.getCodeSource().getLocation().toURI())
-                        .toAbsolutePath().normalize())) {
+            if (domain == null
+                    || domain.getCodeSource() == null
+                    || !artifact.equals(
+                            Path.of(domain.getCodeSource().getLocation().toURI())
+                                    .toAbsolutePath()
+                                    .normalize())) {
                 failure = "glGetError elision source mismatch";
                 return null;
             }
-            if (!shape.equals(ReviewedMethodShape.read(
-                    bytes, target.owner(), target.method(), target.descriptor()))) {
+            if (!shape.equals(ReviewedMethodShape.read(bytes, target.owner(), target.method(), target.descriptor()))) {
                 failure = "glGetError check method changed";
                 return null;
             }
             final ClassReader reader = new ClassReader(bytes);
             final int[] replaced = {0};
-            final ClassWriter writer = new ClassWriter(reader,
-                ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override protected ClassLoader getClassLoader() { return loader; }
-            };
-            reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-                @Override public MethodVisitor visitMethod(final int access, final String method,
-                                                         final String descriptor,
-                                                         final String signature,
-                                                         final String[] exceptions) {
-                    final MethodVisitor original =
-                        super.visitMethod(access, method, descriptor, signature, exceptions);
-                    return target.method().equals(method) && target.descriptor().equals(descriptor)
-                        ? new ElisionVisitor(original, replaced)
-                        : original;
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader;
                 }
-            }, ClassReader.EXPAND_FRAMES);
+            };
+            reader.accept(
+                    new ClassVisitor(Opcodes.ASM9, writer) {
+                        @Override
+                        public MethodVisitor visitMethod(
+                                final int access,
+                                final String method,
+                                final String descriptor,
+                                final String signature,
+                                final String[] exceptions) {
+                            final MethodVisitor original =
+                                    super.visitMethod(access, method, descriptor, signature, exceptions);
+                            return target.method().equals(method)
+                                            && target.descriptor().equals(descriptor)
+                                    ? new ElisionVisitor(original, replaced)
+                                    : original;
+                        }
+                    },
+                    ClassReader.EXPAND_FRAMES);
             if (replaced[0] != expectedSites) {
-                failure = "glGetError site count drift: expected=" + expectedSites
-                    + " replaced=" + replaced[0];
+                failure = "glGetError site count drift: expected=" + expectedSites + " replaced=" + replaced[0];
                 return null;
             }
             final byte[] result = writer.toByteArray();
             if (beforeSha256 == null) {
-                beforeSha256 = HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(bytes));
+                beforeSha256 = HexFormat.of()
+                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
             }
             matches++;
             elided += replaced[0];
@@ -186,26 +210,40 @@ public final class GlGetErrorElisionTransformer implements ClassFileTransformer 
     /** Counts the exact {@code GL.glGetError()I} interface call sites in the target method. */
     private int sites(final byte[] bytes) {
         final int[] count = {0};
-        new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override public MethodVisitor visitMethod(final int access, final String name,
-                                                     final String descriptor,
-                                                     final String signature,
-                                                     final String[] exceptions) {
-                if (!target.method().equals(name) || !target.descriptor().equals(descriptor)) {
-                    return null;
-                }
-                return new MethodVisitor(Opcodes.ASM9) {
-                    @Override public void visitMethodInsn(final int opcode, final String owner,
-                                                          final String method, final String desc,
-                                                          final boolean itf) {
-                        if (opcode == Opcodes.INVOKEINTERFACE && itf && GL_OWNER.equals(owner)
-                            && GL_METHOD.equals(method) && GL_DESCRIPTOR.equals(desc)) {
-                            count[0]++;
-                        }
-                    }
-                };
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (!target.method().equals(name)
+                                        || !target.descriptor().equals(descriptor)) {
+                                    return null;
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String method,
+                                            final String desc,
+                                            final boolean itf) {
+                                        if (opcode == Opcodes.INVOKEINTERFACE
+                                                && itf
+                                                && GL_OWNER.equals(owner)
+                                                && GL_METHOD.equals(method)
+                                                && GL_DESCRIPTOR.equals(desc)) {
+                                            count[0]++;
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         return count[0];
     }
 
@@ -216,15 +254,20 @@ public final class GlGetErrorElisionTransformer implements ClassFileTransformer 
      */
     private static final class ElisionVisitor extends MethodVisitor {
         private final int[] replaced;
+
         ElisionVisitor(final MethodVisitor original, final int[] replaced) {
             super(Opcodes.ASM9, original);
             this.replaced = replaced;
         }
-        @Override public void visitMethodInsn(final int opcode, final String owner,
-                                              final String name, final String descriptor,
-                                              final boolean itf) {
-            if (opcode == Opcodes.INVOKEINTERFACE && itf && GL_OWNER.equals(owner)
-                && GL_METHOD.equals(name) && GL_DESCRIPTOR.equals(descriptor)) {
+
+        @Override
+        public void visitMethodInsn(
+                final int opcode, final String owner, final String name, final String descriptor, final boolean itf) {
+            if (opcode == Opcodes.INVOKEINTERFACE
+                    && itf
+                    && GL_OWNER.equals(owner)
+                    && GL_METHOD.equals(name)
+                    && GL_DESCRIPTOR.equals(descriptor)) {
                 super.visitInsn(Opcodes.POP);
                 super.visitInsn(Opcodes.ICONST_0);
                 replaced[0]++;

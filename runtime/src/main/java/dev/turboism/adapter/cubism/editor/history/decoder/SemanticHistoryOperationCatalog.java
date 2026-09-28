@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history.decoder;
 
 import dev.turboism.sdk.cubism.history.HistoryEditContext;
-
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -17,49 +16,44 @@ import java.util.Set;
  */
 public final class SemanticHistoryOperationCatalog {
 
-    private static final Set<HistoryEditContext.Kind> FORM_SCOPES = Set.of(
-        HistoryEditContext.Kind.DEFAULT_FORM,
-        HistoryEditContext.Kind.KEYFORM
-    );
-    private static final Set<HistoryEditContext.Kind> OBJECT_SCOPE = Set.of(
-        HistoryEditContext.Kind.OBJECT
-    );
+    private static final Set<HistoryEditContext.Kind> FORM_SCOPES =
+            Set.of(HistoryEditContext.Kind.DEFAULT_FORM, HistoryEditContext.Kind.KEYFORM);
+    private static final Set<HistoryEditContext.Kind> OBJECT_SCOPE = Set.of(HistoryEditContext.Kind.OBJECT);
 
     private static final Map<Key, Descriptor> DESCRIPTORS = Map.ofEntries(
-        form("ART_MESH", "opacity", ValueKind.NUMBER),
-        form("ART_MESH", "drawOrder", ValueKind.INTEGER),
-        form("ART_MESH", "multiplyColor", ValueKind.COLOR),
-        form("ART_MESH", "screenColor", ValueKind.COLOR),
-        form("ART_MESH", "vertexPositions", ValueKind.BOUNDED_COLLECTION),
-        form("ART_MESH", "translation", ValueKind.TEXT),
-        object("ART_MESH", "name", ValueKind.TEXT),
-        object("ART_MESH", "id", ValueKind.TEXT),
-        object("ART_MESH", "visible", ValueKind.BOOLEAN),
-        object("ART_MESH", "locked", ValueKind.BOOLEAN),
-        object("ART_MESH", "labelColor", ValueKind.COLOR),
-        object("PARAMETER", "value", ValueKind.NUMBER),
-        object("GLUE", "name", ValueKind.TEXT),
-        object("GLUE", "id", ValueKind.TEXT),
-        object("GLUE", "intensity", ValueKind.NUMBER),
-        object("GLUE", "drawableA", ValueKind.TARGET_ID),
-        object("GLUE", "drawableB", ValueKind.TARGET_ID),
-        form("WARP_DEFORMER", "opacity", ValueKind.NUMBER),
-        form("WARP_DEFORMER", "multiplyColor", ValueKind.COLOR),
-        form("WARP_DEFORMER", "screenColor", ValueKind.COLOR),
-        form("WARP_DEFORMER", "controlPointPositions", ValueKind.BOUNDED_COLLECTION),
-        form("WARP_DEFORMER", "translation", ValueKind.TEXT),
-        form("ROTATION_DEFORMER", "opacity", ValueKind.NUMBER),
-        form("ROTATION_DEFORMER", "multiplyColor", ValueKind.COLOR),
-        form("ROTATION_DEFORMER", "screenColor", ValueKind.COLOR),
-        form("ROTATION_DEFORMER", "angle", ValueKind.NUMBER),
-        form("ROTATION_DEFORMER", "origin", ValueKind.TEXT),
-        form("ROTATION_DEFORMER", "scale", ValueKind.NUMBER),
-        form("ROTATION_DEFORMER", "reflectX", ValueKind.BOOLEAN),
-        form("ROTATION_DEFORMER", "reflectY", ValueKind.BOOLEAN),
-        form("ROTATION_DEFORMER", "translation", ValueKind.TEXT)
-    );
+            form("ART_MESH", "opacity", ValueKind.NUMBER),
+            form("ART_MESH", "drawOrder", ValueKind.INTEGER),
+            form("ART_MESH", "multiplyColor", ValueKind.COLOR),
+            form("ART_MESH", "screenColor", ValueKind.COLOR),
+            form("ART_MESH", "vertexPositions", ValueKind.BOUNDED_COLLECTION),
+            form("ART_MESH", "translation", ValueKind.TEXT),
+            object("ART_MESH", "name", ValueKind.TEXT),
+            object("ART_MESH", "id", ValueKind.TEXT),
+            object("ART_MESH", "visible", ValueKind.BOOLEAN),
+            object("ART_MESH", "locked", ValueKind.BOOLEAN),
+            object("ART_MESH", "labelColor", ValueKind.COLOR),
+            object("PARAMETER", "value", ValueKind.NUMBER),
+            object("GLUE", "name", ValueKind.TEXT),
+            object("GLUE", "id", ValueKind.TEXT),
+            object("GLUE", "intensity", ValueKind.NUMBER),
+            object("GLUE", "drawableA", ValueKind.TARGET_ID),
+            object("GLUE", "drawableB", ValueKind.TARGET_ID),
+            form("WARP_DEFORMER", "opacity", ValueKind.NUMBER),
+            form("WARP_DEFORMER", "multiplyColor", ValueKind.COLOR),
+            form("WARP_DEFORMER", "screenColor", ValueKind.COLOR),
+            form("WARP_DEFORMER", "controlPointPositions", ValueKind.BOUNDED_COLLECTION),
+            form("WARP_DEFORMER", "translation", ValueKind.TEXT),
+            form("ROTATION_DEFORMER", "opacity", ValueKind.NUMBER),
+            form("ROTATION_DEFORMER", "multiplyColor", ValueKind.COLOR),
+            form("ROTATION_DEFORMER", "screenColor", ValueKind.COLOR),
+            form("ROTATION_DEFORMER", "angle", ValueKind.NUMBER),
+            form("ROTATION_DEFORMER", "origin", ValueKind.TEXT),
+            form("ROTATION_DEFORMER", "scale", ValueKind.NUMBER),
+            form("ROTATION_DEFORMER", "reflectX", ValueKind.BOOLEAN),
+            form("ROTATION_DEFORMER", "reflectY", ValueKind.BOOLEAN),
+            form("ROTATION_DEFORMER", "translation", ValueKind.TEXT));
 
-    private SemanticHistoryOperationCatalog() { }
+    private SemanticHistoryOperationCatalog() {}
 
     /**
      * Looks up the admitted descriptor for a projected target and property.
@@ -68,10 +62,7 @@ public final class SemanticHistoryOperationCatalog {
      * @param property   the projected property name
      * @return the descriptor, or empty when the pair is not admitted
      */
-    public static Optional<Descriptor> descriptor(
-        final String targetType,
-        final String property
-    ) {
+    public static Optional<Descriptor> descriptor(final String targetType, final String property) {
         return Optional.ofNullable(DESCRIPTORS.get(new Key(targetType, property)));
     }
 
@@ -90,31 +81,19 @@ public final class SemanticHistoryOperationCatalog {
      */
     public static boolean isAppearanceChannel(final String targetType, final String property) {
         return descriptor(targetType, property)
-            .filter(Descriptor::formScoped)
-            .filter(descriptor -> descriptor.valueKind() != ValueKind.BOUNDED_COLLECTION)
-            .isPresent();
+                .filter(Descriptor::formScoped)
+                .filter(descriptor -> descriptor.valueKind() != ValueKind.BOUNDED_COLLECTION)
+                .isPresent();
     }
 
     private static Map.Entry<Key, Descriptor> form(
-        final String targetType,
-        final String property,
-        final ValueKind valueKind
-    ) {
-        return Map.entry(
-            new Key(targetType, property),
-            new Descriptor(targetType, property, FORM_SCOPES, valueKind)
-        );
+            final String targetType, final String property, final ValueKind valueKind) {
+        return Map.entry(new Key(targetType, property), new Descriptor(targetType, property, FORM_SCOPES, valueKind));
     }
 
     private static Map.Entry<Key, Descriptor> object(
-        final String targetType,
-        final String property,
-        final ValueKind valueKind
-    ) {
-        return Map.entry(
-            new Key(targetType, property),
-            new Descriptor(targetType, property, OBJECT_SCOPE, valueKind)
-        );
+            final String targetType, final String property, final ValueKind valueKind) {
+        return Map.entry(new Key(targetType, property), new Descriptor(targetType, property, OBJECT_SCOPE, valueKind));
     }
 
     /**
@@ -126,11 +105,7 @@ public final class SemanticHistoryOperationCatalog {
      * @param valueKind       the kind of value the channel carries
      */
     public record Descriptor(
-        String targetType,
-        String property,
-        Set<HistoryEditContext.Kind> supportedScopes,
-        ValueKind valueKind
-    ) {
+            String targetType, String property, Set<HistoryEditContext.Kind> supportedScopes, ValueKind valueKind) {
         /**
          * Reads whether this fact is trusted in one edit context.
          *
@@ -158,5 +133,5 @@ public final class SemanticHistoryOperationCatalog {
         BOUNDED_COLLECTION
     }
 
-    private record Key(String targetType, String property) { }
+    private record Key(String targetType, String property) {}
 }

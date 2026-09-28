@@ -6,9 +6,8 @@ import dev.turboism.adapter.host.HostInstanceSource;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.adapter.host.HostSessionFailure;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
-
-import java.util.Objects;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -47,14 +46,10 @@ public final class HostRuntimeIngress implements AutoCloseable {
      * runtime-owned texture-atlas automatic-layout selection.
      */
     public HostRuntimeIngress(
-        final Locale effectiveLocale,
-        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
-            textureAtlasSelectionPersistence
-    ) {
-        this(
-            () -> Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
-            textureAtlasSelectionPersistence
-        );
+            final Locale effectiveLocale,
+            final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
+                    textureAtlasSelectionPersistence) {
+        this(() -> Objects.requireNonNull(effectiveLocale, "effectiveLocale"), textureAtlasSelectionPersistence);
     }
 
     /**
@@ -62,22 +57,16 @@ public final class HostRuntimeIngress implements AutoCloseable {
      * persistent store for the runtime-owned texture-atlas automatic-layout selection.
      */
     public HostRuntimeIngress(
-        final java.util.function.Supplier<Locale> effectiveLocale,
-        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
-            textureAtlasSelectionPersistence
-    ) {
+            final java.util.function.Supplier<Locale> effectiveLocale,
+            final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
+                    textureAtlasSelectionPersistence) {
         this(source -> new HostSession(
-            source,
-            Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
-            textureAtlasSelectionPersistence
-        ));
+                source, Objects.requireNonNull(effectiveLocale, "effectiveLocale"), textureAtlasSelectionPersistence));
     }
 
     HostRuntimeIngress(final Function<HostInstanceSource, HostSession> sessionFactory) {
         session = Objects.requireNonNull(sessionFactory, "sessionFactory")
-            .apply(() -> closeRequested.get()
-                ? Optional.empty()
-                : Optional.ofNullable(current.get()));
+                .apply(() -> closeRequested.get() ? Optional.empty() : Optional.ofNullable(current.get()));
     }
 
     /**
@@ -103,9 +92,7 @@ public final class HostRuntimeIngress implements AutoCloseable {
             return session.state();
         }
         final HostSession.State refreshed = session.refresh();
-        if (refreshed == HostSession.State.FAILED
-            || refreshed == HostSession.State.CLOSED
-            || closeRequested.get()) {
+        if (refreshed == HostSession.State.FAILED || refreshed == HostSession.State.CLOSED || closeRequested.get()) {
             current.compareAndSet(published, null);
         }
         return refreshed;
@@ -174,8 +161,7 @@ public final class HostRuntimeIngress implements AutoCloseable {
      *
      * @return the capture bound to the current session
      */
-    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
-        textureAtlasDataModelCapture() {
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture textureAtlasDataModelCapture() {
         return session.textureAtlasDataModelCapture();
     }
 

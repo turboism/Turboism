@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 import java.util.Objects;
 
 /** Typed identity of one model object in the active document. */

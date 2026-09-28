@@ -6,7 +6,6 @@ import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
-
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -66,38 +65,39 @@ public final class RuntimeUpdateService implements CoreUpdateService {
     private boolean closed;
 
     public RuntimeUpdateService(
-        final Path home,
-        final RuntimeScheduler scheduler,
-        final RuntimeSettingsService runtimeSettings
-    ) {
+            final Path home, final RuntimeScheduler scheduler, final RuntimeSettingsService runtimeSettings) {
         this(home, scheduler, runtimeSettings, new HttpUpdateTransport(), Clock.systemUTC());
     }
 
     public RuntimeUpdateService(
-        final Path home,
-        final RuntimeScheduler scheduler,
-        final RuntimeSettingsService runtimeSettings,
-        final UpdateTransport transport,
-        final Clock clock
-    ) {
+            final Path home,
+            final RuntimeScheduler scheduler,
+            final RuntimeSettingsService runtimeSettings,
+            final UpdateTransport transport,
+            final Clock clock) {
         this(
-            home, scheduler, runtimeSettings, transport, clock, InstalledBuild.current(),
-            STARTUP_DELAY, AUTOMATIC_INTERVAL, ignored -> { }
-        );
+                home,
+                scheduler,
+                runtimeSettings,
+                transport,
+                clock,
+                InstalledBuild.current(),
+                STARTUP_DELAY,
+                AUTOMATIC_INTERVAL,
+                ignored -> {});
     }
 
     /** Full deterministic construction seam used by focused runtime tests. */
     public RuntimeUpdateService(
-        final Path home,
-        final RuntimeScheduler scheduler,
-        final RuntimeSettingsService runtimeSettings,
-        final UpdateTransport transport,
-        final Clock clock,
-        final InstalledBuild installed,
-        final Duration startupDelay,
-        final Duration automaticInterval,
-        final Consumer<String> diagnostic
-    ) {
+            final Path home,
+            final RuntimeScheduler scheduler,
+            final RuntimeSettingsService runtimeSettings,
+            final UpdateTransport transport,
+            final Clock clock,
+            final InstalledBuild installed,
+            final Duration startupDelay,
+            final Duration automaticInterval,
+            final Consumer<String> diagnostic) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.runtimeSettings = Objects.requireNonNull(runtimeSettings, "runtimeSettings");
         this.transport = Objects.requireNonNull(transport, "transport");
@@ -109,7 +109,8 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         this.parser = new UpdateDiscoveryParser();
         this.preferencesStore = new UpdatePreferencesStore(home, diagnostic);
         this.stateStore = new UpdateStateStore(home, diagnostic);
-        this.preferences = new UpdatePreferencesStoreState(preferencesStore.read().automaticChecksEnabled());
+        this.preferences =
+                new UpdatePreferencesStoreState(preferencesStore.read().automaticChecksEnabled());
         this.state = sanitizeState(stateStore.read());
         this.snapshot = Snapshot.idle(installed.versionText());
         this.executor = Executors.newSingleThreadExecutor(new UpdateThreadFactory());
@@ -327,10 +328,9 @@ public final class RuntimeUpdateService implements CoreUpdateService {
     }
 
     private void finishResponse(
-        final long operationGeneration,
-        final CompletableFuture<Snapshot> future,
-        final UpdateTransport.Response response
-    ) {
+            final long operationGeneration,
+            final CompletableFuture<Snapshot> future,
+            final UpdateTransport.Response response) {
         Snapshot result = null;
         long deliveryGeneration = -1;
         boolean automatic = false;
@@ -354,10 +354,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
     }
 
     private void finishFailure(
-        final long operationGeneration,
-        final CompletableFuture<Snapshot> future,
-        final String code
-    ) {
+            final long operationGeneration, final CompletableFuture<Snapshot> future, final String code) {
         Snapshot result;
         long deliveryGeneration;
         boolean automatic;
@@ -380,10 +377,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         deliver(result, deliveryGeneration);
     }
 
-    private Snapshot interpretResponseLocked(
-        final UpdateTransport.Response response,
-        final boolean userInitiated
-    ) {
+    private Snapshot interpretResponseLocked(final UpdateTransport.Response response, final boolean userInitiated) {
         if (response == null) {
             report("UPDATE_RESPONSE_INVALID");
             return unavailableSnapshot(userInitiated);
@@ -429,28 +423,33 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         }
         if (discovery.candidate().isEmpty()) {
             return new Snapshot(
-                Status.UP_TO_DATE, installed.versionText(), Optional.empty(), OptionalLong.empty(),
-                userInitiated, false
-            );
+                    Status.UP_TO_DATE,
+                    installed.versionText(),
+                    Optional.empty(),
+                    OptionalLong.empty(),
+                    userInitiated,
+                    false);
         }
         final UpdateDiscovery.Candidate candidate = discovery.candidate().orElseThrow();
         if (!isNewer(candidate)) {
             return new Snapshot(
-                Status.UP_TO_DATE, installed.versionText(), Optional.empty(), OptionalLong.empty(),
-                userInitiated, false
-            );
+                    Status.UP_TO_DATE,
+                    installed.versionText(),
+                    Optional.empty(),
+                    OptionalLong.empty(),
+                    userInitiated,
+                    false);
         }
         final String identity = candidate.identity();
         final boolean reminder = !identity.equals(lastRemindedIdentity);
         if (reminder) lastRemindedIdentity = identity;
         return new Snapshot(
-            Status.UPDATE_AVAILABLE,
-            installed.versionText(),
-            Optional.of(candidate.version().toString()),
-            candidate.buildNumber(),
-            userInitiated,
-            reminder
-        );
+                Status.UPDATE_AVAILABLE,
+                installed.versionText(),
+                Optional.of(candidate.version().toString()),
+                candidate.buildNumber(),
+                userInitiated,
+                reminder);
     }
 
     /**
@@ -481,9 +480,8 @@ public final class RuntimeUpdateService implements CoreUpdateService {
 
     private boolean persistAutomaticAttemptLocked() {
         final Instant now = clock.instant();
-        final UpdateStateStore.State requested = new UpdateStateStore.State(
-            Optional.of(now), state.cachedResult(), state.etag()
-        );
+        final UpdateStateStore.State requested =
+                new UpdateStateStore.State(Optional.of(now), state.cachedResult(), state.etag());
         final UpdateStateStore.SaveResult saved = stateStore.save(requested);
         if (saved.saved()) {
             state = requested;
@@ -522,8 +520,8 @@ public final class RuntimeUpdateService implements CoreUpdateService {
 
     private Duration nextAutomaticDelayLocked() {
         return state.lastAutomaticAttempt()
-            .map(value -> remainingUntil(value.plus(automaticInterval), startupDelay))
-            .orElse(startupDelay);
+                .map(value -> remainingUntil(value.plus(automaticInterval), startupDelay))
+                .orElse(startupDelay);
     }
 
     private Duration remainingUntil(final Instant target, final Duration dueDelay) {
@@ -581,30 +579,27 @@ public final class RuntimeUpdateService implements CoreUpdateService {
 
     private Snapshot checkingSnapshot(final boolean userInitiated) {
         return new Snapshot(
-            Status.CHECKING, installed.versionText(), Optional.empty(), OptionalLong.empty(),
-            userInitiated, false
-        );
+                Status.CHECKING, installed.versionText(), Optional.empty(), OptionalLong.empty(), userInitiated, false);
     }
 
     private Snapshot unavailableSnapshot(final boolean userInitiated) {
         return new Snapshot(
-            Status.UNAVAILABLE, installed.versionText(), Optional.empty(), OptionalLong.empty(),
-            userInitiated, false
-        );
+                Status.UNAVAILABLE,
+                installed.versionText(),
+                Optional.empty(),
+                OptionalLong.empty(),
+                userInitiated,
+                false);
     }
 
     private Snapshot disabledSnapshot(final boolean userInitiated) {
         return new Snapshot(
-            Status.DISABLED, installed.versionText(), Optional.empty(), OptionalLong.empty(),
-            userInitiated, false
-        );
+                Status.DISABLED, installed.versionText(), Optional.empty(), OptionalLong.empty(), userInitiated, false);
     }
 
     private Snapshot closedSnapshot() {
         return new Snapshot(
-            Status.CLOSED, installed.versionText(), Optional.empty(), OptionalLong.empty(),
-            false, false
-        );
+                Status.CLOSED, installed.versionText(), Optional.empty(), OptionalLong.empty(), false, false);
     }
 
     private void deliver(final Snapshot value, final long expectedGeneration) {
@@ -643,8 +638,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         return value;
     }
 
-    private record UpdatePreferencesStoreState(boolean automaticChecksEnabled) {
-    }
+    private record UpdatePreferencesStoreState(boolean automaticChecksEnabled) {}
 
     private static final class UpdateThreadFactory implements ThreadFactory {
         @Override

@@ -4,8 +4,6 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
-
-import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
@@ -19,6 +17,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.imageio.ImageIO;
 
 /**
  * Exact-host operations for red-box overlay buttons; invoked only through the verified
@@ -30,8 +29,7 @@ import java.util.Objects;
  * set up by the host's own {@code update$setupButton} helper invoked from transformed
  * bytecode at the third native call site.</p>
  */
-public final class VerifiedBoundingBoxOverlayButtonHostOperations
-    implements BoundingBoxOverlayButtonHostOperations {
+public final class VerifiedBoundingBoxOverlayButtonHostOperations implements BoundingBoxOverlayButtonHostOperations {
 
     private static final int MAX_CUSTOM_BUTTONS = 8;
     /**
@@ -41,25 +39,20 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
      * scene; a live evicted overlay simply rebuilds its buttons on its next update.
      */
     private static final int MAX_CACHED_OVERLAYS = 16;
+
     private static final Object[] EMPTY_BUTTONS = new Object[0];
 
     private static final String BUTTON_CREATE = "cubism.ui-bounding-box-overlay.button.create";
-    private static final String BUTTON_SET_ENABLED =
-        "cubism.ui-bounding-box-overlay.button.set-enabled";
-    private static final String SCENE_COMPONENT_OBJECTS =
-        "cubism.ui-bounding-box-overlay.scene.component-objects";
-    private static final String ENTITY_CHILDREN =
-        "cubism.ui-bounding-box-overlay.entity.children";
-    private static final String SCENE_REMOVE_VOLATILE =
-        "cubism.ui-bounding-box-overlay.scene.remove-volatile";
-    private static final String ENTITIES_REMOVE =
-        "cubism.ui-bounding-box-overlay.entities.remove";
-    private static final String WRITABLE_IMAGE_CREATE =
-        "cubism.ui-bounding-box-overlay.writable-image.create";
+    private static final String BUTTON_SET_ENABLED = "cubism.ui-bounding-box-overlay.button.set-enabled";
+    private static final String SCENE_COMPONENT_OBJECTS = "cubism.ui-bounding-box-overlay.scene.component-objects";
+    private static final String ENTITY_CHILDREN = "cubism.ui-bounding-box-overlay.entity.children";
+    private static final String SCENE_REMOVE_VOLATILE = "cubism.ui-bounding-box-overlay.scene.remove-volatile";
+    private static final String ENTITIES_REMOVE = "cubism.ui-bounding-box-overlay.entities.remove";
+    private static final String WRITABLE_IMAGE_CREATE = "cubism.ui-bounding-box-overlay.writable-image.create";
     private static final String ICON_SET_CREATE = "cubism.ui-bounding-box-overlay.icon-set.create";
 
     private static final System.Logger POSITION_LOG =
-        System.getLogger(VerifiedBoundingBoxOverlayButtonHostOperations.class.getName());
+            System.getLogger(VerifiedBoundingBoxOverlayButtonHostOperations.class.getName());
     private static final long POSITION_LOG_INTERVAL_NANOS = 2_000_000_000L;
 
     private final VerifiedMemberResolver resolver;
@@ -67,13 +60,12 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
     private final Map<Object, CachedButtons> buttonsByOverlay = new IdentityHashMap<>();
     /** FIFO of live {@link #buttonsByOverlay} keys; guarded by the same monitor. */
     private final Deque<Object> overlayOrder = new ArrayDeque<>();
+
     private volatile List<BoundingBoxOverlayButtonDescriptor> descriptors = List.of();
     private volatile long lastPositionLogNanos;
 
     public VerifiedBoundingBoxOverlayButtonHostOperations(
-        final VerifiedMemberResolver resolver,
-        final EditorUiPluginResourceRegistry resources
-    ) {
+            final VerifiedMemberResolver resolver, final EditorUiPluginResourceRegistry resources) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.resources = Objects.requireNonNull(resources, "resources");
     }
@@ -83,13 +75,9 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
         final List<BoundingBoxOverlayButtonDescriptor> requested = List.copyOf(descriptors);
         if (requested.size() > MAX_CUSTOM_BUTTONS) {
             throw new IllegalArgumentException(
-                "bounding-box overlay button contributions exceed the hard limit of "
-                    + MAX_CUSTOM_BUTTONS
-            );
+                    "bounding-box overlay button contributions exceed the hard limit of " + MAX_CUSTOM_BUTTONS);
         }
-        final Registration bridge = NativeBoundingBoxOverlayButtonBridge.install(
-            this::customButtonEntities
-        );
+        final Registration bridge = NativeBoundingBoxOverlayButtonBridge.install(this::customButtonEntities);
         this.descriptors = requested;
         return () -> {
             // 1. Mark callbacks inert first: the augmentation then receives no buttons and
@@ -116,15 +104,11 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
 
     @Override
     public Registration reconcile(
-        final List<BoundingBoxOverlayButtonDescriptor> descriptors,
-        final Registration existing
-    ) {
+            final List<BoundingBoxOverlayButtonDescriptor> descriptors, final Registration existing) {
         final List<BoundingBoxOverlayButtonDescriptor> requested = List.copyOf(descriptors);
         if (requested.size() > MAX_CUSTOM_BUTTONS) {
             throw new IllegalArgumentException(
-                "bounding-box overlay button contributions exceed the hard limit of "
-                    + MAX_CUSTOM_BUTTONS
-            );
+                    "bounding-box overlay button contributions exceed the hard limit of " + MAX_CUSTOM_BUTTONS);
         }
         Objects.requireNonNull(existing, "existing");
         // Retain the live native registration and bridge; the next update callback rebuilds
@@ -209,14 +193,12 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
             }
             lastPositionLogNanos = now;
             for (int i = 0; i < cached.buttons.size(); i++) {
-                final String pluginId = i < cached.snapshot.size()
-                    ? cached.snapshot.get(i).pluginId()
-                    : "unknown";
+                final String pluginId =
+                        i < cached.snapshot.size() ? cached.snapshot.get(i).pluginId() : "unknown";
                 POSITION_LOG.log(
-                    System.Logger.Level.INFO,
-                    "BBOX_OVERLAY_BUTTON_RECT plugin=" + pluginId
-                        + " index=" + i + " " + buttonBounds(cached.buttons.get(i))
-                );
+                        System.Logger.Level.INFO,
+                        "BBOX_OVERLAY_BUTTON_RECT plugin=" + pluginId + " index=" + i + " "
+                                + buttonBounds(cached.buttons.get(i)));
             }
         } catch (RuntimeException | LinkageError ignored) {
             // Observation-only diagnostic: never let a marker failure reach the
@@ -235,8 +217,8 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
             final Object rect = invokeNoArg(entity, "getRectOnComponent");
             if (rect != null) {
                 return floatGetter(rect, "getX") + "," + floatGetter(rect, "getY")
-                    + "," + floatGetter(rect, "getWidth") + ","
-                    + floatGetter(rect, "getHeight");
+                        + "," + floatGetter(rect, "getWidth") + ","
+                        + floatGetter(rect, "getHeight");
             }
         } catch (RuntimeException | LinkageError ignored) {
         }
@@ -246,8 +228,7 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
     private static String worldTranslation(final Object entity) {
         try {
             final Object transform = invokeNoArg(entity, "getTransform");
-            final Object affine = transform == null
-                ? null : invokeNoArg(transform, "getLocalToWorldAffine");
+            final Object affine = transform == null ? null : invokeNoArg(transform, "getLocalToWorldAffine");
             if (affine instanceof AffineTransform at) {
                 return at.getTranslateX() + "," + at.getTranslateY();
             }
@@ -279,13 +260,11 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
      * detaching buttons of removed contributions so they become click-inert immediately.
      */
     private CachedButtons rebuild(
-        final CachedButtons previous,
-        final Object overlay,
-        final List<BoundingBoxOverlayButtonDescriptor> current,
-        final Object sceneGraph
-    ) {
-        final Map<BoundingBoxOverlayButton, Object> reused =
-            previous == null ? Map.of() : previous.byIdentity;
+            final CachedButtons previous,
+            final Object overlay,
+            final List<BoundingBoxOverlayButtonDescriptor> current,
+            final Object sceneGraph) {
+        final Map<BoundingBoxOverlayButton, Object> reused = previous == null ? Map.of() : previous.byIdentity;
         final Map<BoundingBoxOverlayButton, Object> byIdentity = new IdentityHashMap<>();
         final List<Object> buttons = new ArrayList<>(current.size());
         final List<Object> created = new ArrayList<>();
@@ -356,24 +335,16 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
         return first;
     }
 
-    private Object createButton(
-        final Object overlay,
-        final BoundingBoxOverlayButtonDescriptor descriptor
-    ) {
+    private Object createButton(final Object overlay, final BoundingBoxOverlayButtonDescriptor descriptor) {
         final long generation = NativeBoundingBoxOverlayButtonBridge.activeGeneration();
-        final Object callback = resolver.createFunctionalArgumentProxy(
-            BUTTON_CREATE,
-            1,
-            ignored -> {
-                // Click-inert by generation and identity: hook close invalidates every proxy
-                // from that installation, while reconcile immediately invalidates removed items.
-                if (NativeBoundingBoxOverlayButtonBridge.isGenerationActive(generation)
-                    && isCurrent(descriptor.button())) {
-                    descriptor.button().onClick().run();
-                }
-                return kotlinUnit();
+        final Object callback = resolver.createFunctionalArgumentProxy(BUTTON_CREATE, 1, ignored -> {
+            // Click-inert by generation and identity: hook close invalidates every proxy
+            // from that installation, while reconcile immediately invalidates removed items.
+            if (NativeBoundingBoxOverlayButtonBridge.isGenerationActive(generation) && isCurrent(descriptor.button())) {
+                descriptor.button().onClick().run();
             }
-        );
+            return kotlinUnit();
+        });
         return resolver.invoke(BUTTON_CREATE, overlay, iconSet(descriptor), callback);
     }
 
@@ -391,39 +362,24 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
     private Object iconSet(final BoundingBoxOverlayButtonDescriptor descriptor) {
         final BoundingBoxOverlayButton.IconVariants icons = descriptor.button().icons();
         final Object normal = writableImage(descriptor.pluginId(), icons.normal());
-        final Object hover = writableImage(
-            descriptor.pluginId(),
-            icons.hover().orElse(icons.normal())
-        );
-        final Object pressed = writableImage(
-            descriptor.pluginId(),
-            icons.pressed().orElse(icons.normal())
-        );
-        final Object disabled = writableImage(
-            descriptor.pluginId(),
-            icons.disabled().orElse(icons.normal())
-        );
+        final Object hover = writableImage(descriptor.pluginId(), icons.hover().orElse(icons.normal()));
+        final Object pressed =
+                writableImage(descriptor.pluginId(), icons.pressed().orElse(icons.normal()));
+        final Object disabled =
+                writableImage(descriptor.pluginId(), icons.disabled().orElse(icons.normal()));
         // Native slot order observed from the legacy icon-set expansion of a
         // (normal, hover) pair into [n, n, h, h, n, h, h]: slots are
         // (normal, disabled, hover, pressed) then (normal, hover, pressed) for
         // the toggled set. Feeding our semantic order (normal, hover, pressed,
         // disabled) put the hover image on the disabled slot and pressed on the
         // hover slot — hover never visibly changed.
-        return resolver.construct(
-            ICON_SET_CREATE,
-            normal,
-            disabled,
-            hover,
-            pressed,
-            normal,
-            hover,
-            pressed
-        );
+        return resolver.construct(ICON_SET_CREATE, normal, disabled, hover, pressed, normal, hover, pressed);
     }
 
     private Object writableImage(final String pluginId, final String path) {
-        final URL resource = resources.resource(pluginId, path)
-            .orElseThrow(() -> new IllegalStateException("overlay icon resource is unavailable"));
+        final URL resource = resources
+                .resource(pluginId, path)
+                .orElseThrow(() -> new IllegalStateException("overlay icon resource is unavailable"));
         try {
             final BufferedImage image = ImageIO.read(resource);
             if (image == null) {
@@ -445,11 +401,8 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
         if (image.getType() == BufferedImage.TYPE_INT_ARGB) {
             return image;
         }
-        final BufferedImage normalized = new BufferedImage(
-            image.getWidth(),
-            image.getHeight(),
-            BufferedImage.TYPE_INT_ARGB
-        );
+        final BufferedImage normalized =
+                new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
         final Graphics2D graphics = normalized.createGraphics();
         try {
             graphics.drawImage(image, 0, 0, null);
@@ -491,25 +444,21 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
     private Object kotlinUnit() {
         try {
             return Class.forName("kotlin.Unit", false, resolver.hostClassLoader())
-                .getField("INSTANCE")
-                .get(null);
+                    .getField("INSTANCE")
+                    .get(null);
         } catch (ReflectiveOperationException | LinkageError exception) {
             throw new IllegalStateException("Kotlin Unit is unavailable for overlay callback", exception);
         }
     }
 
-    private static RuntimeException append(
-        final RuntimeException first,
-        final Throwable next
-    ) {
+    private static RuntimeException append(final RuntimeException first, final Throwable next) {
         if (next == null) {
             return first;
         }
         final RuntimeException failure = first == null
-            ? new IllegalStateException(
-                "bounding-box overlay cleanup failed safely: " + next.getClass().getName()
-            )
-            : first;
+                ? new IllegalStateException("bounding-box overlay cleanup failed safely: "
+                        + next.getClass().getName())
+                : first;
         failure.addSuppressed(next);
         return failure;
     }
@@ -523,11 +472,10 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
         private Object scene;
 
         private CachedButtons(
-            final List<BoundingBoxOverlayButtonDescriptor> snapshot,
-            final List<Object> buttons,
-            final Object[] array,
-            final Map<BoundingBoxOverlayButton, Object> byIdentity
-        ) {
+                final List<BoundingBoxOverlayButtonDescriptor> snapshot,
+                final List<Object> buttons,
+                final Object[] array,
+                final Map<BoundingBoxOverlayButton, Object> byIdentity) {
             this.snapshot = snapshot;
             this.buttons = buttons;
             this.array = array;

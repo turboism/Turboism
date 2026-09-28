@@ -59,24 +59,23 @@ public interface SelectionQueryService {
     enum Unavailable implements SelectionQueryService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public SelectionSummary currentSelection() throws CubismServiceException {
+        @Override
+        public SelectionSummary currentSelection() throws CubismServiceException {
             throw unavailable();
         }
 
-        @Override public List<ModelObjectId> selectedIds(final HierarchyNode.Kind kind)
-            throws CubismServiceException {
+        @Override
+        public List<ModelObjectId> selectedIds(final HierarchyNode.Kind kind) throws CubismServiceException {
             throw unavailable();
         }
 
         private static CubismServiceException unavailable() {
-            return new CubismServiceException(
-                "cubism.query.unavailable",
-                "selectionQuery service is not available"
-            );
+            return new CubismServiceException("cubism.query.unavailable", "selectionQuery service is not available");
         }
     }
 }

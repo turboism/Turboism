@@ -1,24 +1,16 @@
 package dev.turboism.sdk.cubism.model;
 
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable complete ArtMesh geometry committed as one Editor operation. */
-public record ArtMeshGeometry(
-    List<Point2> positions,
-    List<Point2> uvs,
-    List<Integer> triangleIndices
-) {
+public record ArtMeshGeometry(List<Point2> positions, List<Point2> uvs, List<Integer> triangleIndices) {
 
     public ArtMeshGeometry {
         positions = copyPoints(positions, "positions");
         uvs = copyPoints(uvs, "uvs");
-        triangleIndices = List.copyOf(Objects.requireNonNull(
-            triangleIndices,
-            "triangleIndices"
-        ));
+        triangleIndices = List.copyOf(Objects.requireNonNull(triangleIndices, "triangleIndices"));
         if (positions.size() != uvs.size()) {
             throw new IllegalArgumentException("positions and uvs must have the same size");
         }

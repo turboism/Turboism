@@ -1,5 +1,8 @@
 package dev.turboism.preview;
 
+import dev.turboism.mapping.verification.VerifiedAccessException;
+import dev.turboism.sdk.runtime.RuntimeLogReader;
+import dev.turboism.sdk.runtime.RuntimeSettings;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -20,10 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import dev.turboism.mapping.verification.VerifiedAccessException;
-import dev.turboism.sdk.runtime.RuntimeLogReader;
-import dev.turboism.sdk.runtime.RuntimeSettings;
-
 /** Small preview-owned logger that writes to a framework sink and relocatable session files. */
 public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
@@ -32,12 +31,11 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
     /** Stack frames written per throwable in a cause chain, bounded so a log cannot run away. */
     private static final int MAX_LOGGED_FRAMES = 24;
-    private static final DateTimeFormatter SESSION_DATE = DateTimeFormatter
-        .ofPattern("yyyy-MM-dd")
-        .withZone(ZoneOffset.UTC);
-    private static final DateTimeFormatter SESSION_TIME = DateTimeFormatter
-        .ofPattern("HH-mm-ss.SSS")
-        .withZone(ZoneOffset.UTC);
+
+    private static final DateTimeFormatter SESSION_DATE =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter SESSION_TIME =
+            DateTimeFormatter.ofPattern("HH-mm-ss.SSS").withZone(ZoneOffset.UTC);
 
     enum Level {
         TRACE,
@@ -50,9 +48,9 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
     @FunctionalInterface
     interface Sink {
-        Sink NONE = (level, component, message, failure) -> { };
+        Sink NONE = (level, component, message, failure) -> {};
         Sink STDERR = (level, component, message, failure) ->
-            System.err.println("[" + level + "][" + component + "] " + message);
+                System.err.println("[" + level + "][" + component + "] " + message);
 
         /** Writes one structured record to an optional secondary sink. */
         void write(Level level, String component, String message, Throwable failure);
@@ -82,15 +80,13 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         this(normalizedParent(logFile), logFile, clock, sink);
     }
 
-    private PreviewLog(
-        final Path logDirectory,
-        final Path logFile,
-        final Clock clock,
-        final Sink sink
-    ) throws IOException {
+    private PreviewLog(final Path logDirectory, final Path logFile, final Clock clock, final Sink sink)
+            throws IOException {
         this.logDirectory = Objects.requireNonNull(logDirectory, "logDirectory")
-            .toAbsolutePath().normalize();
-        this.logFile = Objects.requireNonNull(logFile, "logFile").toAbsolutePath().normalize();
+                .toAbsolutePath()
+                .normalize();
+        this.logFile =
+                Objects.requireNonNull(logFile, "logFile").toAbsolutePath().normalize();
         if (!this.logFile.startsWith(this.logDirectory)) {
             throw new IllegalArgumentException("log file escapes log directory");
         }
@@ -98,31 +94,25 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         this.sink = Objects.requireNonNull(sink, "sink");
         Files.createDirectories(this.logFile.getParent());
         writer = Files.newBufferedWriter(
-            this.logFile,
-            StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.APPEND,
-            StandardOpenOption.WRITE
-        );
+                this.logFile,
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND,
+                StandardOpenOption.WRITE);
     }
 
     static PreviewLog openSession(
-        final Path requestedDirectory,
-        final Clock clock,
-        final long processId,
-        final Sink sink
-    ) throws IOException {
+            final Path requestedDirectory, final Clock clock, final long processId, final Sink sink)
+            throws IOException {
         if (processId < 0) throw new IllegalArgumentException("processId must not be negative");
         final Path directory = Objects.requireNonNull(requestedDirectory, "requestedDirectory")
-            .toAbsolutePath().normalize();
+                .toAbsolutePath()
+                .normalize();
         final Instant startedAt = Instant.now(Objects.requireNonNull(clock, "clock"));
         final Path dateDirectory = directory.resolve(SESSION_DATE.format(startedAt));
         Files.createDirectories(dateDirectory);
         final Path file = Files.createTempFile(
-            dateDirectory,
-            "turboism-" + SESSION_TIME.format(startedAt) + "-p" + processId + "-",
-            ".log"
-        );
+                dateDirectory, "turboism-" + SESSION_TIME.format(startedAt) + "-p" + processId + "-", ".log");
         return new PreviewLog(directory, file, clock, sink);
     }
 
@@ -148,8 +138,7 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
      *     is left unchanged and nothing is pruned
      */
     public synchronized void setMaxStorageMiB(final int value) {
-        if (value < RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB
-            || value > RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB) {
+        if (value < RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB || value > RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB) {
             throw new IllegalArgumentException("unsupported maxLogStorageMiB: " + value);
         }
         maxStorageBytes = value * 1024L * 1024L;
@@ -158,11 +147,7 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
     @Override
     public synchronized RuntimeLogReader.Snapshot snapshot() {
-        return new RuntimeLogReader.Snapshot(
-            Optional.of(logDirectory),
-            Optional.of(logFile),
-            List.copyOf(recentLines)
-        );
+        return new RuntimeLogReader.Snapshot(Optional.of(logDirectory), Optional.of(logFile), List.copyOf(recentLines));
     }
 
     /**
@@ -253,11 +238,7 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
     }
 
     private synchronized void write(
-        final Level level,
-        final String component,
-        final String message,
-        final Throwable failure
-    ) {
+            final Level level, final String component, final String message, final Throwable failure) {
         if (level.ordinal() < minimumLevel.ordinal()) return;
         final String safeComponent = safe(component);
         final String safeMessage = safe(message);
@@ -289,10 +270,15 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         int depth = 0;
         while (current != null && depth < 8) {
             final StringBuilder line = new StringBuilder(depth > 0 ? "caused by " : "")
-                .append(current.getClass().getName()).append(": ").append(safe(current.getMessage()));
+                    .append(current.getClass().getName())
+                    .append(": ")
+                    .append(safe(current.getMessage()));
             if (current instanceof VerifiedAccessException verified) {
-                line.append(" [alias=").append(safe(verified.alias()))
-                    .append(", failureKind=").append(verified.failureKind()).append(']');
+                line.append(" [alias=")
+                        .append(safe(verified.alias()))
+                        .append(", failureKind=")
+                        .append(verified.failureKind())
+                        .append(']');
             }
             remember(line.toString());
             writer.write(line.toString());
@@ -325,13 +311,13 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
             try (Stream<Path> paths = Files.walk(logDirectory)) {
                 for (Path path : paths.filter(PreviewLog::isStoredLog).toList()) {
                     files.add(new StoredLog(
-                        path.toAbsolutePath().normalize(),
-                        Files.size(path),
-                        Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS)
-                    ));
+                            path.toAbsolutePath().normalize(),
+                            Files.size(path),
+                            Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS)));
                 }
             }
-            files.sort(Comparator.comparing(StoredLog::modified).thenComparing(value -> value.path().toString()));
+            files.sort(Comparator.comparing(StoredLog::modified)
+                    .thenComparing(value -> value.path().toString()));
             long total = files.stream().mapToLong(StoredLog::size).sum();
             int remaining = files.size();
             for (StoredLog file : files) {
@@ -350,11 +336,13 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
     private static boolean isStoredLog(final Path path) {
         return Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
-            && path.getFileName().toString().endsWith(".log");
+                && path.getFileName().toString().endsWith(".log");
     }
 
     private static Path normalizedParent(final Path requestedFile) {
-        final Path file = Objects.requireNonNull(requestedFile, "logFile").toAbsolutePath().normalize();
+        final Path file = Objects.requireNonNull(requestedFile, "logFile")
+                .toAbsolutePath()
+                .normalize();
         return file.getParent();
     }
 

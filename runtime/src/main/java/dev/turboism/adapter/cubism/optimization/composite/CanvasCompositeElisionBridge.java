@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.composite;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.Component;
 import java.awt.Container;
 import java.util.Map;
@@ -66,10 +67,8 @@ public final class CanvasCompositeElisionBridge implements AutoCloseable {
      *
      * @throws ReflectiveOperationException when the reviewed class is absent
      */
-    public CanvasCompositeElisionBridge(final ClassLoader loader)
-            throws ReflectiveOperationException {
-        glPanel = Class.forName(
-            CanvasCompositeElisionTarget.GL_PANEL_OWNER.replace('/', '.'), false, loader);
+    public CanvasCompositeElisionBridge(final ClassLoader loader) throws ReflectiveOperationException {
+        glPanel = Class.forName(CanvasCompositeElisionTarget.GL_PANEL_OWNER.replace('/', '.'), false, loader);
     }
 
     /** Occupies the consult/gate/stats slots; refuses to replace another installation. */
@@ -85,8 +84,10 @@ public final class CanvasCompositeElisionBridge implements AutoCloseable {
         if (active.get()) throw new IllegalStateException("canvas composite elision already installed");
         final Properties properties = System.getProperties();
         synchronized (properties) {
-            if (properties.containsKey(PAINT_PROPERTY) || properties.containsKey(FILL_PROPERTY)
-                || properties.containsKey(GATE_PROPERTY) || properties.containsKey(STATS_PROPERTY)) {
+            if (properties.containsKey(PAINT_PROPERTY)
+                    || properties.containsKey(FILL_PROPERTY)
+                    || properties.containsKey(GATE_PROPERTY)
+                    || properties.containsKey(STATS_PROPERTY)) {
                 throw new IllegalStateException("canvas composite elision slots occupied");
             }
             try {
@@ -119,11 +120,12 @@ public final class CanvasCompositeElisionBridge implements AutoCloseable {
             return false;
         }
         try {
-            final boolean elide = paintingComponent instanceof Component comp
-                && containsGLPanel(comp);
-            if (elide) paintElided++; else paintPassed++;
+            final boolean elide = paintingComponent instanceof Component comp && containsGLPanel(comp);
+            if (elide) paintElided++;
+            else paintPassed++;
             return elide;
         } catch (Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             observerFailures++;
             paintPassed++;
             return false;
@@ -138,11 +140,13 @@ public final class CanvasCompositeElisionBridge implements AutoCloseable {
             return false;
         }
         try {
-            final boolean elide = component instanceof JComponent panel
-                && panel.isOpaque() && coveredByOpaqueGLPanel(panel);
-            if (elide) fillElided++; else fillPassed++;
+            final boolean elide =
+                    component instanceof JComponent panel && panel.isOpaque() && coveredByOpaqueGLPanel(panel);
+            if (elide) fillElided++;
+            else fillPassed++;
             return elide;
         } catch (Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             observerFailures++;
             fillPassed++;
             return false;
@@ -176,9 +180,10 @@ public final class CanvasCompositeElisionBridge implements AutoCloseable {
         final int width = component.getWidth(), height = component.getHeight();
         for (Component child : container.getComponents()) {
             if (!child.isVisible()
-                || child.getX() > 0 || child.getY() > 0
-                || child.getX() + child.getWidth() < width
-                || child.getY() + child.getHeight() < height) {
+                    || child.getX() > 0
+                    || child.getY() > 0
+                    || child.getX() + child.getWidth() < width
+                    || child.getY() + child.getHeight() < height) {
                 continue;
             }
             if (glPanel.isInstance(child) && child instanceof JComponent jc && jc.isOpaque()) {
@@ -192,17 +197,19 @@ public final class CanvasCompositeElisionBridge implements AutoCloseable {
     }
 
     /** Clears owned slots; outstanding consults fall back to the native path. */
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         active.set(false);
         armed = false;
         final Properties properties = installedProperties;
         installedProperties = null;
-        if (properties != null) synchronized (properties) {
-            properties.remove(PAINT_PROPERTY, paint);
-            properties.remove(FILL_PROPERTY, fill);
-            properties.remove(GATE_PROPERTY, gate);
-            properties.remove(STATS_PROPERTY, statistics);
-        }
+        if (properties != null)
+            synchronized (properties) {
+                properties.remove(PAINT_PROPERTY, paint);
+                properties.remove(FILL_PROPERTY, fill);
+                properties.remove(GATE_PROPERTY, gate);
+                properties.remove(STATS_PROPERTY, statistics);
+            }
     }
 
     /** Work counts only; no interaction benefit is inferred from them. */

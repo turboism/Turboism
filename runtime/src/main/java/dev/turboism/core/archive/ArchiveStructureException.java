@@ -10,11 +10,7 @@ public final class ArchiveStructureException extends Exception {
     private final String code;
     private final String problemPath;
 
-    public ArchiveStructureException(
-        final String code,
-        final String message,
-        final String problemPath
-    ) {
+    public ArchiveStructureException(final String code, final String message, final String problemPath) {
         super(message);
         this.code = code;
         this.problemPath = problemPath;

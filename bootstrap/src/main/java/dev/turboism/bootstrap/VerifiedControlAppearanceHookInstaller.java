@@ -1,8 +1,8 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
 import dev.turboism.ui.appearance.control.DeformerControlRowAppearanceProvider;
 import dev.turboism.ui.appearance.control.DeformerControlRowRendererMethodTransformer;
 import dev.turboism.ui.appearance.control.DeformerTreeControlAppearanceProvider;
@@ -11,11 +11,11 @@ import dev.turboism.ui.appearance.control.NativeDeformerControlRowAppearanceBrid
 import dev.turboism.ui.appearance.control.NativeDeformerTreeAppearanceBridge;
 import dev.turboism.ui.appearance.control.NativeParameterAppearanceBridge;
 import dev.turboism.ui.appearance.control.NativePartTreeAppearanceBridge;
+import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
 import dev.turboism.ui.appearance.control.ParameterControlAppearanceProvider;
 import dev.turboism.ui.appearance.control.ParameterRowMethodTransformer;
 import dev.turboism.ui.appearance.control.PartTreeControlAppearanceProvider;
 import dev.turboism.ui.appearance.control.PartTreeRendererMethodTransformer;
-
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
@@ -42,17 +42,16 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
     private final AtomicBoolean installed = new AtomicBoolean();
 
     private VerifiedControlAppearanceHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final long hostGeneration,
-        final List<ClassFileTransformer> transformers,
-        final Set<String> targetClassNames,
-        final NativeDeformerTreeAppearanceBridge.Selectors deformerTreeSelectors,
-        final NativeDeformerControlRowAppearanceBridge.Selectors deformerControlSelectors,
-        final NativeParameterAppearanceBridge.Selectors parameterSelectors,
-        final NativePartTreeAppearanceBridge.Selectors partSelectors,
-        final PaletteAppearanceCoordinator coordinator
-    ) {
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final long hostGeneration,
+            final List<ClassFileTransformer> transformers,
+            final Set<String> targetClassNames,
+            final NativeDeformerTreeAppearanceBridge.Selectors deformerTreeSelectors,
+            final NativeDeformerControlRowAppearanceBridge.Selectors deformerControlSelectors,
+            final NativeParameterAppearanceBridge.Selectors parameterSelectors,
+            final NativePartTreeAppearanceBridge.Selectors partSelectors,
+            final PaletteAppearanceCoordinator coordinator) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.hostGeneration = hostGeneration;
@@ -66,11 +65,10 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
     }
 
     static VerifiedControlAppearanceHookInstaller fromVerifiedResolver(
-        final Instrumentation instrumentation,
-        final VerifiedMemberResolver resolver,
-        final long hostGeneration,
-        final PaletteAppearanceCoordinator coordinator
-    ) {
+            final Instrumentation instrumentation,
+            final VerifiedMemberResolver resolver,
+            final long hostGeneration,
+            final PaletteAppearanceCoordinator coordinator) {
         Objects.requireNonNull(resolver, "resolver");
         if (!supportsStaticProfile(resolver.cubismVersion()) || hostGeneration <= 0) {
             throw new IllegalArgumentException("control appearance requires an exact supported active generation");
@@ -118,75 +116,99 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
         final StaticSelector idValue = instanceMethod(resolver, "id.value");
 
         final List<ClassFileTransformer> transformers = List.of(
-            new DeformerTreeRendererMethodTransformer(
-                deformerRenderer.ownerInternalName(), deformerRenderer.memberName(), deformerRenderer.descriptor(), loader
-            ),
-            new DeformerControlRowRendererMethodTransformer(
-                deformerControlRenderer.ownerInternalName(), deformerControlRenderer.memberName(),
-                deformerControlRenderer.descriptor(), loader
-            ),
-            new ParameterRowMethodTransformer(
-                singleClass.ownerInternalName(),
-                Set.of(method(singleCreate), method(singleSelection)),
-                false,
-                loader
-            ),
-            new ParameterRowMethodTransformer(
-                doubleClass.ownerInternalName(),
-                Set.of(method(doubleCreate), method(doubleSelection)),
-                false,
-                loader
-            ),
-            new ParameterRowMethodTransformer(
-                folderClass.ownerInternalName(),
-                Set.of(method(folderCreatePrimary), method(folderCreateSecondary), method(folderSelection)),
-                true,
-                loader
-            ),
-            new PartTreeRendererMethodTransformer(
-                partRenderer.ownerInternalName(), partRenderer.memberName(), partRenderer.descriptor(), loader
-            )
-        );
+                new DeformerTreeRendererMethodTransformer(
+                        deformerRenderer.ownerInternalName(),
+                        deformerRenderer.memberName(),
+                        deformerRenderer.descriptor(),
+                        loader),
+                new DeformerControlRowRendererMethodTransformer(
+                        deformerControlRenderer.ownerInternalName(),
+                        deformerControlRenderer.memberName(),
+                        deformerControlRenderer.descriptor(),
+                        loader),
+                new ParameterRowMethodTransformer(
+                        singleClass.ownerInternalName(),
+                        Set.of(method(singleCreate), method(singleSelection)),
+                        false,
+                        loader),
+                new ParameterRowMethodTransformer(
+                        doubleClass.ownerInternalName(),
+                        Set.of(method(doubleCreate), method(doubleSelection)),
+                        false,
+                        loader),
+                new ParameterRowMethodTransformer(
+                        folderClass.ownerInternalName(),
+                        Set.of(method(folderCreatePrimary), method(folderCreateSecondary), method(folderSelection)),
+                        true,
+                        loader),
+                new PartTreeRendererMethodTransformer(
+                        partRenderer.ownerInternalName(),
+                        partRenderer.memberName(),
+                        partRenderer.descriptor(),
+                        loader));
         final Set<String> targetClassNames = new LinkedHashSet<>();
         for (StaticSelector selector : List.of(
-            deformerRenderer, deformerControlRenderer, singleClass, doubleClass, folderClass, partRenderer
-        )) {
+                deformerRenderer, deformerControlRenderer, singleClass, doubleClass, folderClass, partRenderer)) {
             targetClassNames.add(selector.ownerInternalName().replace('/', '.'));
         }
 
         return new VerifiedControlAppearanceHookInstaller(
-            instrumentation,
-            loader,
-            hostGeneration,
-            transformers,
-            targetClassNames,
-            new NativeDeformerTreeAppearanceBridge.Selectors(
-                deformerRowSource.ownerInternalName(), deformerRowSource.memberName(),
-                deformerSource.ownerInternalName(), deformerId.memberName(),
-                artMeshSource.ownerInternalName(), artMeshId.memberName(), idValue.memberName(), loader
-            ),
-            new NativeDeformerControlRowAppearanceBridge.Selectors(
-                deformerControlRenderer.ownerInternalName(), deformerControlOuter.memberName(),
-                deformerControlOuterClass.ownerInternalName(), deformerControlTree.memberName(),
-                deformerControlTreeClass.ownerInternalName(), "getPathForRow",
-                deformerRowSource.ownerInternalName(), deformerRowSource.memberName(),
-                deformerSource.ownerInternalName(), deformerId.memberName(), idValue.memberName(), loader
-            ),
-            new NativeParameterAppearanceBridge.Selectors(
-                singleClass.ownerInternalName(), doubleClass.ownerInternalName(), folderClass.ownerInternalName(),
-                parameterSource.memberName(), secondaryParameterSource.memberName(), folderSource.memberName(),
-                parameterLabel.memberName(), secondaryParameterLabel.memberName(), folderLabel.memberName(),
-                parameterSourceClass.ownerInternalName(), folderSourceClass.ownerInternalName(),
-                parameterSourceId.memberName(), folderSourceId.memberName(), idValue.memberName(),
-                labelClass.ownerInternalName(), labelSwing.memberName(), loader
-            ),
-            new NativePartTreeAppearanceBridge.Selectors(
-                partNode.ownerInternalName(), partNodeSource.memberName(), partSource.ownerInternalName(),
-                deformerSource.ownerInternalName(), artMeshSource.ownerInternalName(),
-                partSourceId.memberName(), idValue.memberName(), partChildren.memberName(), loader
-            ),
-            coordinator
-        );
+                instrumentation,
+                loader,
+                hostGeneration,
+                transformers,
+                targetClassNames,
+                new NativeDeformerTreeAppearanceBridge.Selectors(
+                        deformerRowSource.ownerInternalName(),
+                        deformerRowSource.memberName(),
+                        deformerSource.ownerInternalName(),
+                        deformerId.memberName(),
+                        artMeshSource.ownerInternalName(),
+                        artMeshId.memberName(),
+                        idValue.memberName(),
+                        loader),
+                new NativeDeformerControlRowAppearanceBridge.Selectors(
+                        deformerControlRenderer.ownerInternalName(),
+                        deformerControlOuter.memberName(),
+                        deformerControlOuterClass.ownerInternalName(),
+                        deformerControlTree.memberName(),
+                        deformerControlTreeClass.ownerInternalName(),
+                        "getPathForRow",
+                        deformerRowSource.ownerInternalName(),
+                        deformerRowSource.memberName(),
+                        deformerSource.ownerInternalName(),
+                        deformerId.memberName(),
+                        idValue.memberName(),
+                        loader),
+                new NativeParameterAppearanceBridge.Selectors(
+                        singleClass.ownerInternalName(),
+                        doubleClass.ownerInternalName(),
+                        folderClass.ownerInternalName(),
+                        parameterSource.memberName(),
+                        secondaryParameterSource.memberName(),
+                        folderSource.memberName(),
+                        parameterLabel.memberName(),
+                        secondaryParameterLabel.memberName(),
+                        folderLabel.memberName(),
+                        parameterSourceClass.ownerInternalName(),
+                        folderSourceClass.ownerInternalName(),
+                        parameterSourceId.memberName(),
+                        folderSourceId.memberName(),
+                        idValue.memberName(),
+                        labelClass.ownerInternalName(),
+                        labelSwing.memberName(),
+                        loader),
+                new NativePartTreeAppearanceBridge.Selectors(
+                        partNode.ownerInternalName(),
+                        partNodeSource.memberName(),
+                        partSource.ownerInternalName(),
+                        deformerSource.ownerInternalName(),
+                        artMeshSource.ownerInternalName(),
+                        partSourceId.memberName(),
+                        idValue.memberName(),
+                        partChildren.memberName(),
+                        loader),
+                coordinator);
     }
 
     static boolean supportsStaticProfile(final String cubismVersion) {
@@ -201,21 +223,18 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
         }
         try {
             NativeDeformerTreeAppearanceBridge.install(
-                hostGeneration, deformerTreeSelectors, new DeformerTreeControlAppearanceProvider(coordinator)
-            );
+                    hostGeneration, deformerTreeSelectors, new DeformerTreeControlAppearanceProvider(coordinator));
             NativeDeformerControlRowAppearanceBridge.install(
-                hostGeneration, deformerControlSelectors, new DeformerControlRowAppearanceProvider(coordinator)
-            );
+                    hostGeneration, deformerControlSelectors, new DeformerControlRowAppearanceProvider(coordinator));
             NativeParameterAppearanceBridge.install(
-                parameterSelectors, new ParameterControlAppearanceProvider(hostGeneration, coordinator)
-            );
+                    parameterSelectors, new ParameterControlAppearanceProvider(hostGeneration, coordinator));
             NativePartTreeAppearanceBridge.install(
-                hostGeneration, partSelectors, new PartTreeControlAppearanceProvider(coordinator)
-            );
+                    hostGeneration, partSelectors, new PartTreeControlAppearanceProvider(coordinator));
             for (ClassFileTransformer transformer : transformers) instrumentation.addTransformer(transformer, true);
             final List<Class<?>> loadedTargets = loadedTargets();
             if (!loadedTargets.isEmpty()) instrumentation.retransformClasses(loadedTargets.toArray(Class<?>[]::new));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }
@@ -233,6 +252,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
             final List<Class<?>> loadedTargets = loadedTargets();
             if (!loadedTargets.isEmpty()) instrumentation.retransformClasses(loadedTargets.toArray(Class<?>[]::new));
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Styles and callbacks are already revoked; bytecode restoration remains best-effort on shutdown.
         }
     }
@@ -241,8 +261,8 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
         final List<Class<?>> targets = new ArrayList<>();
         for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
             if (targetClassNames.contains(loaded.getName())
-                && loaded.getClassLoader() == hostClassLoader
-                && instrumentation.isModifiableClass(loaded)) {
+                    && loaded.getClassLoader() == hostClassLoader
+                    && instrumentation.isModifiableClass(loaded)) {
                 targets.add(loaded);
             }
         }
@@ -254,12 +274,10 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
     }
 
     private static StaticSelector selector(
-        final VerifiedMemberResolver resolver,
-        final String suffix,
-        final StaticSelector.Kind kind
-    ) {
+            final VerifiedMemberResolver resolver, final String suffix, final StaticSelector.Kind kind) {
         final StaticSelector selector = resolver.verifiedSelector(PREFIX + suffix);
-        if (selector.kind() != kind) throw new IllegalArgumentException("verified control-appearance selector kind mismatch");
+        if (selector.kind() != kind)
+            throw new IllegalArgumentException("verified control-appearance selector kind mismatch");
         return selector;
     }
 
