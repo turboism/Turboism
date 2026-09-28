@@ -87,7 +87,7 @@ final class StackSamples {
                 return;
             }
             final Engine created = new Engine(MAX_SAMPLES, QUEUE_CAPACITY, output,
-                null, null, null);
+                null, null, null, null);
             created.start();
             engine = created;
             state = "enabled";
@@ -115,9 +115,10 @@ final class StackSamples {
      */
     static synchronized Engine enableForTest(final int maxSamples, final int queueCapacity,
             final Path outputDir, final FrameCollector collector,
-            final CountDownLatch writerGate, final RecordSink sink) throws IOException {
-        final Engine created =
-            new Engine(maxSamples, queueCapacity, outputDir, collector, writerGate, sink);
+            final CountDownLatch writerGate, final RecordSink sink,
+            final StatusListener listener) throws IOException {
+        final Engine created = new Engine(maxSamples, queueCapacity, outputDir, collector,
+            writerGate, sink, listener);
         created.start();
         engine = created;
         state = "enabled:test";
@@ -168,6 +169,11 @@ final class StackSamples {
         void write(List<String> batch) throws IOException;
     }
 
+    /** Test handshake: invoked once per status write attempt with its committed result. */
+    interface StatusListener {
+        void statusResult(boolean ok);
+    }
+
     static final class Engine {
         private final int maxSamples;
         private final int queueCapacity;
@@ -201,11 +207,14 @@ final class StackSamples {
         private boolean incomplete;
         private boolean statusDisabled;
         private volatile String terminal;
-        private String lastAttempt;
+        private long dataVersion;
+        private long lastAttemptVersion = -1L;
+        private final StatusListener listener;
 
         private Engine(final int requestedSamples, final int requestedQueue,
                 final Path outputDir, final FrameCollector collector,
-                final CountDownLatch writerGate, final RecordSink sink) {
+                final CountDownLatch writerGate, final RecordSink sink,
+                final StatusListener listener) {
             this.outputDir = outputDir;
             this.maxSamples = Math.max(1, Math.min(requestedSamples, MAX_SAMPLES));
             this.queueCapacity = Math.max(1, Math.min(requestedQueue, QUEUE_CAPACITY));
@@ -214,6 +223,7 @@ final class StackSamples {
             this.statusFile = outputDir.resolve(STATUS_FILE);
             this.statusTmp = outputDir.resolve(STATUS_TMP);
             this.writerGate = writerGate;
+            this.listener = listener;
             if (collector != null) {
                 this.collector = collector;
             } else {
@@ -277,6 +287,7 @@ final class StackSamples {
                 final long seq;
                 synchronized (lock) {
                     attempted++;
+                    dataVersion++;
                     if (terminal != null) {
                         // Dead writer: never reserve, never walk a stack.
                         droppedStopped++;
@@ -299,6 +310,7 @@ final class StackSamples {
                     synchronized (lock) {
                         sampleError++;
                         incomplete = true;
+                        dataVersion++;
                     }
                     return;
                 }
@@ -319,6 +331,7 @@ final class StackSamples {
                         droppedQueue++;
                         incomplete = true;
                     }
+                    dataVersion++;
                 }
             } catch (Throwable failure) {
                 // Absolute last resort: a sample failure must never reach the host.
@@ -326,6 +339,7 @@ final class StackSamples {
                     synchronized (lock) {
                         sampleError++;
                         incomplete = true;
+                        dataVersion++;
                     }
                 } catch (Throwable ignored) {
                     // Even the counter update gave up; stay silent.
@@ -368,6 +382,7 @@ final class StackSamples {
                         truncated++;
                     }
                     namesTruncated += clippedNames;
+                    dataVersion++;
                 }
             }
             return line.toString();
@@ -385,10 +400,12 @@ final class StackSamples {
                         String head = queue.pollFirst();
                         if (head != null) {
                             dequeued++;
+                            dataVersion++;
                             batch.add(head);
                             String next;
                             while ((next = queue.pollFirst()) != null) {
                                 dequeued++;
+                                dataVersion++;
                                 batch.add(next);
                             }
                         }
@@ -411,6 +428,7 @@ final class StackSamples {
                         sink.write(batch);
                         synchronized (lock) {
                             written += batch.size();
+                            dataVersion++;
                         }
                     } catch (IOException | RuntimeException failure) {
                         // A failed write may have partially appended; callers must reconcile
@@ -418,6 +436,7 @@ final class StackSamples {
                         synchronized (lock) {
                             unconfirmedWrites += batch.size();
                             incomplete = true;
+                            dataVersion++;
                         }
                     }
                     batch.clear();
@@ -429,6 +448,7 @@ final class StackSamples {
                 synchronized (lock) {
                     terminal = terminalReason;
                     incomplete = true;
+                    dataVersion++;
                 }
                 writeStatusTerminal(terminalReason);
             }
@@ -448,11 +468,17 @@ final class StackSamples {
          * it: the lock protects queue ownership and counters only, never IO or stack walks.
          */
         private void writeStatus(final String runState, final boolean force) {
-            final String status;
+            // Retry only when record-flow data actually changed: the status' own error
+            // counters never bump dataVersion, so a failed attempt is not retried on idle
+            // wakes — failures map one-to-one to real sampling changes.
             synchronized (lock) {
-                if (statusDisabled) {
+                if (statusDisabled || (!force && dataVersion == lastAttemptVersion)) {
                     return;
                 }
+                lastAttemptVersion = dataVersion;
+            }
+            final String status;
+            synchronized (lock) {
                 status = "state=" + runState
                     + "\nattempted=" + attempted
                     + "\nreserved=" + reserved
@@ -477,12 +503,6 @@ final class StackSamples {
                     + "\nstatusWriteFailures=" + statusWriteFailures
                     + "\nstatusDisabled=" + (statusDisabled ? 1 : 0)
                     + '\n';
-                // Same content is attempted at most once: an identical failed status is
-                // not retried on every idle wake, so failures map to real changes.
-                if (!force && status.equals(lastAttempt)) {
-                    return;
-                }
-                lastAttempt = status;
             }
             boolean ok = false;
             try {
@@ -511,6 +531,14 @@ final class StackSamples {
                     if (statusWriteFailures >= MAX_STATUS_FAILURES) {
                         statusDisabled = true;
                     }
+                }
+            }
+            final StatusListener l = listener;
+            if (l != null) {
+                try {
+                    l.statusResult(ok);
+                } catch (Throwable ignored) {
+                    // Listener feedback must never reach the writer loop.
                 }
             }
         }

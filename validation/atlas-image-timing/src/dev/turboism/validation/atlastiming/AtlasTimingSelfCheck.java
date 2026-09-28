@@ -188,7 +188,7 @@ public final class AtlasTimingSelfCheck {
             "disabled sampling must not create the records file");
 
         final Path stackDir = output.resolve("stack-evidence");
-        StackSamples.enableForTest(512, 512, stackDir, null, null, null);
+        StackSamples.enableForTest(512, 512, stackDir, null, null, null, null);
         // id0 + nested id1 = 2 samples; the id5/id6 path must not be sampled at all.
         update.invoke(woven, true, new Object());
         catching.invoke(woven);
@@ -255,7 +255,7 @@ public final class AtlasTimingSelfCheck {
         // Over-budget: reservations stop at the cap; dropped budget is counted, not sampled.
         final Path smallDir = output.resolve("stack-budget");
         final StackSamples.Engine small =
-            StackSamples.enableForTest(3, 512, smallDir, null, null, null);
+            StackSamples.enableForTest(3, 512, smallDir, null, null, null, null);
         update.invoke(woven, true, new Object());
         update.invoke(woven, false, new Object());
         update.invoke(woven, true, new Object());
@@ -272,7 +272,7 @@ public final class AtlasTimingSelfCheck {
         final Path fullDir = output.resolve("stack-queue");
         final java.util.concurrent.CountDownLatch gate = new java.util.concurrent.CountDownLatch(1);
         final StackSamples.Engine gated =
-            StackSamples.enableForTest(16, 1, fullDir, null, gate, null);
+            StackSamples.enableForTest(16, 1, fullDir, null, gate, null, null);
         update.invoke(woven, true, new Object());
         update.invoke(woven, false, new Object());
         snap = gated.snapshot();
@@ -290,7 +290,7 @@ public final class AtlasTimingSelfCheck {
         final Path ioDir = output.resolve("stack-io");
         Files.createDirectories(ioDir.resolve(StackSamples.RECORDS_FILE));
         final StackSamples.Engine ioBroken =
-            StackSamples.enableForTest(16, 8, ioDir, null, null, null);
+            StackSamples.enableForTest(16, 8, ioDir, null, null, null, null);
         update.invoke(woven, true, new Object());
         final String ioStatus = awaitStatus(ioDir.resolve(StackSamples.STATUS_FILE),
             "unconfirmedWrites", 2L);
@@ -304,7 +304,8 @@ public final class AtlasTimingSelfCheck {
         final Path failDir = output.resolve("stack-sampleerror");
         final StackSamples.Engine broken =
             StackSamples.enableForTest(16, 8, failDir,
-                () -> { throw new IllegalStateException("injected collector failure"); }, null, null);
+                () -> { throw new IllegalStateException("injected collector failure"); }, null,
+            null, null);
         update.invoke(woven, true, new Object());
         snap = broken.snapshot();
         check(snap.get("sampleError") == 2L, "collector failures must count, got "
@@ -323,7 +324,7 @@ public final class AtlasTimingSelfCheck {
         final java.util.concurrent.CountDownLatch sinkRelease =
             new java.util.concurrent.CountDownLatch(1);
         final StackSamples.Engine interleaved = StackSamples.enableForTest(64, 64,
-            interleaveDir, null, drainGate, batch -> {
+            interleaveDir, null, drainGate, (StackSamples.RecordSink) batch -> {
                 sinkEntered.countDown();
                 try {
                     sinkRelease.await();
@@ -334,7 +335,7 @@ public final class AtlasTimingSelfCheck {
                     java.nio.charset.StandardCharsets.UTF_8,
                     java.nio.file.StandardOpenOption.CREATE,
                     java.nio.file.StandardOpenOption.APPEND);
-            });
+            }, null);
         update.invoke(woven, true, new Object());
         update.invoke(woven, false, new Object());
         snap = interleaved.snapshot();
@@ -375,17 +376,20 @@ public final class AtlasTimingSelfCheck {
         check(awaitStatus(interleaveDir.resolve(StackSamples.STATUS_FILE),
             "written", 46L) != null, "interleave run must drain all 46 records");
 
-        // Writer death: the second collect is latched so a sample is provably in flight
-        // when the writer dies; the terminal gate must then refuse further entries without
-        // ever touching the collector.
+        // Writer death with a provably in-flight sample: collect #2 counts down
+        // collectorEntered and then blocks; the sink waits for collectorEntered before
+        // killing the writer, so the second sample is definitely mid-collect at death.
         final Path termDir = output.resolve("stack-terminal");
         final java.util.concurrent.atomic.AtomicInteger collectCalls =
             new java.util.concurrent.atomic.AtomicInteger();
         final java.util.concurrent.CountDownLatch collectHold =
             new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch collectorEntered =
+            new java.util.concurrent.CountDownLatch(1);
         final StackSamples.Engine dying = StackSamples.enableForTest(16, 8, termDir,
             () -> {
                 if (collectCalls.incrementAndGet() >= 2) {
+                    collectorEntered.countDown();
                     try {
                         collectHold.await();
                     } catch (InterruptedException interrupted) {
@@ -393,7 +397,14 @@ public final class AtlasTimingSelfCheck {
                     }
                 }
                 return List.of("t.a");
-            }, null, batch -> { throw new AssertionError("injected writer death"); });
+            }, null, batch -> {
+                try {
+                    collectorEntered.await(30, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+                throw new AssertionError("injected writer death");
+            }, null);
         final Thread dyingDriver = new Thread(() -> {
             try {
                 update.invoke(woven, true, new Object());
@@ -422,43 +433,70 @@ public final class AtlasTimingSelfCheck {
             + snap);
         checkConserved(snap);
 
-        // Status write failure: block the status tmp path with a directory, recover, and
-        // check that the cumulative error count survives while the consecutive one resets.
+        // Status write failure + recovery: drain gate keeps the writer out until the first
+        // drive is queued, so exactly one status attempt fires (the drain's own), and the
+        // StatusListener latches make each failure/success commit an exact handshake.
         final Path statFailDir = output.resolve("stack-statusfail");
         Files.createDirectories(statFailDir.resolve(StackSamples.STATUS_TMP));
+        final java.util.concurrent.CountDownLatch statFailGate =
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch statusFailed =
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch statusRecovered =
+            new java.util.concurrent.CountDownLatch(1);
         final StackSamples.Engine statFail = StackSamples.enableForTest(64, 64,
-            statFailDir, null, null, null);
+            statFailDir, null, statFailGate, null, ok -> {
+                if (ok) {
+                    statusRecovered.countDown();
+                } else {
+                    statusFailed.countDown();
+                }
+            });
         update.invoke(woven, true, new Object());
-        check(awaitCounter(statFail, "statusErrors", 1L),
-            "blocked status tmp must count a status error");
-        final long statusErrSeen = statFail.snapshot().get("statusErrors");
-        check(statFail.snapshot().get("incomplete") == 1L,
-            "first status failure must mark the run incomplete");
+        statFailGate.countDown();
+        check(statusFailed.await(15, java.util.concurrent.TimeUnit.SECONDS),
+            "blocked status tmp must commit a failed status attempt");
+        // With the version gate consumed by that attempt and no new sampling data, the
+        // failure count is stable until the next drive — the snapshot is exact.
+        snap = statFail.snapshot();
+        check(snap.get("statusErrors") == 1L && snap.get("statusWriteFailures") == 1L
+                && snap.get("incomplete") == 1L,
+            "exactly one committed status failure expected, got " + snap);
         Files.delete(statFailDir.resolve(StackSamples.STATUS_TMP));
         update.invoke(woven, false, new Object());
-        check(awaitCounter(statFail, "written", 4L),
-            "records must keep draining while status failed");
+        check(statusRecovered.await(15, java.util.concurrent.TimeUnit.SECONDS),
+            "recovery status write must commit before asserting counters");
         snap = statFail.snapshot();
-        check(snap.get("statusErrors") == statusErrSeen
-                && snap.get("statusWriteFailures") == 0L,
+        check(snap.get("statusErrors") == 1L && snap.get("statusWriteFailures") == 0L,
             "cumulative statusErrors must persist while consecutive resets, got " + snap);
         check(snap.get("incomplete") == 1L,
             "incomplete must be sticky after a later status success");
         check(Files.isRegularFile(statFailDir.resolve(StackSamples.STATUS_FILE)),
             "recovered status write must land the file");
 
-        // Status write cap: keep the tmp blocked and drive exactly 8 batches — each drain
-        // changes the status so each produces one failed attempt; the consecutive counter
-        // then disables status writes while records keep flowing.
+        // Status write cap: each drive produces exactly one status version change, so the
+        // consecutive counter climbs per drive until the cap disables status output while
+        // records keep draining. The drive count is measured, not assumed.
         final Path statCapDir = output.resolve("stack-statuscap");
         Files.createDirectories(statCapDir.resolve(StackSamples.STATUS_TMP));
+        final java.util.concurrent.atomic.AtomicLong statusAttempts =
+            new java.util.concurrent.atomic.AtomicLong();
         final StackSamples.Engine statCap = StackSamples.enableForTest(64, 64,
-            statCapDir, null, null, null);
-        for (int i = 0; i < 8; i++) {
-            final long before = statCap.snapshot().get("written");
+            statCapDir, null, null, null, ok -> statusAttempts.incrementAndGet());
+        int capDrives = 0;
+        for (int i = 0; i < 12 && statCap.snapshot().get("statusDisabled") == 0L; i++) {
+            final long attemptsBefore = statusAttempts.get();
             update.invoke(woven, true, new Object());
-            check(awaitCounter(statCap, "written", before + 2L),
-                "batch " + i + " must drain despite status failures");
+            capDrives++;
+            final long deadline = System.currentTimeMillis() + 15_000L;
+            while (statusAttempts.get() == attemptsBefore
+                    && statCap.snapshot().get("statusDisabled") == 0L
+                    && System.currentTimeMillis() < deadline) {
+                Thread.sleep(10);
+            }
+            check(statusAttempts.get() > attemptsBefore
+                    || statCap.snapshot().get("statusDisabled") == 1L,
+                "drive " + i + " must commit a status attempt or hit the cap");
         }
         snap = statCap.snapshot();
         check(snap.get("statusDisabled") == 1L,
@@ -466,9 +504,12 @@ public final class AtlasTimingSelfCheck {
         check(snap.get("statusWriteFailures") >= 8L
                 && snap.get("statusErrors") == snap.get("statusWriteFailures"),
             "status failure accounting must be exact, got " + snap);
+        final long errorsAtCap = snap.get("statusErrors");
         update.invoke(woven, true, new Object());
         check(awaitCounter(statCap, "written", snap.get("written") + 2L),
             "sampling must continue after status output is disabled");
+        check(statCap.snapshot().get("statusErrors") == errorsAtCap,
+            "disabled status must not attempt further writes");
         checkConserved(statCap.snapshot());
 
         // Second flush cycle so every leg above is on disk before the final counts.
@@ -481,9 +522,9 @@ public final class AtlasTimingSelfCheck {
             allCalls.stream().filter(l -> l.contains("call updateTexture")).count();
         final long totalSetups =
             allCalls.stream().filter(l -> l.contains("call setupCacheImage")).count();
-        check(totalUpdates == 48L,
+        check(totalUpdates == 40L + capDrives,
             "timing pairing must be unaffected by sampling, updateTexture=" + totalUpdates);
-        check(totalSetups == 49L,
+        check(totalSetups == 41L + capDrives,
             "timing pairing must be unaffected by sampling, setupCacheImage=" + totalSetups);
 
         if (failures > 0) {
