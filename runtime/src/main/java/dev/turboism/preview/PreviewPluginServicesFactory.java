@@ -466,6 +466,24 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
                 failureCollector);
     }
 
+    /**
+     * The embedded host has no interactive chooser, so grants stay unavailable unless a
+     * task-scoped run pins one fixed target through {@code turboism.preview.userFileFixedGrant}.
+     * The property is set only by host-validation wrappers; a blank or malformed value keeps
+     * the source unavailable rather than granting anything.
+     */
+    static UserFileGrantSource userFileGrantSource() {
+        final String fixed = System.getProperty("turboism.preview.userFileFixedGrant", "");
+        if (fixed.isBlank()) {
+            return UserFileGrantSource.unavailable();
+        }
+        try {
+            return UserFileGrantSource.fixedSelection(Path.of(fixed));
+        } catch (RuntimeException invalid) {
+            return UserFileGrantSource.unavailable();
+        }
+    }
+
     private RuntimeAsyncHostReadService hostReads(
             final PluginDescriptor descriptor,
             final Set<String> permissions,

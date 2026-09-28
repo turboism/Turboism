@@ -1,5 +1,6 @@
 package dev.turboism.ui.context;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -47,12 +48,55 @@ public final class ObjectContextMenuNativeMethodTransformer implements ClassFile
             final Class<?> classBeingRedefined,
             final ProtectionDomain protectionDomain,
             final byte[] classfileBuffer) {
-        if (!ownerInternalName.equals(className) || loader != expectedClassLoader || classfileBuffer == null) {
+        if (!ownerInternalName.equals(className) || classfileBuffer == null) {
             return null;
         }
+        if (loader != expectedClassLoader) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                    "context-menu",
+                    "Context-menu transform skipped for " + className + " under loader " + loader + " (expected "
+                            + expectedClassLoader + ")");
+            return null;
+        }
+        try {
+            return transformMatched(className, classfileBuffer);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            // A throwing transformer must fail the weave, not the host class load.
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "context-menu",
+                    "Context-menu transform failed for " + className + " ("
+                            + failure.getClass().getName() + ": " + failure.getMessage() + ")",
+                    null);
+            return null;
+        }
+    }
+
+    private byte[] transformMatched(final String className, final byte[] classfileBuffer) {
         final int[] returnPoints = {0};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected String getCommonSuperClass(final String left, final String right) {
+                try {
+                    final Class<?> leftType = Class.forName(left.replace('/', '.'), false, expectedClassLoader);
+                    final Class<?> rightType = Class.forName(right.replace('/', '.'), false, expectedClassLoader);
+                    if (leftType.isAssignableFrom(rightType)) return left;
+                    if (rightType.isAssignableFrom(leftType)) return right;
+                    if (leftType.isInterface() || rightType.isInterface()) {
+                        return "java/lang/Object";
+                    }
+                    Class<?> current = leftType;
+                    do {
+                        current = current.getSuperclass();
+                    } while (!current.isAssignableFrom(rightType));
+                    return current.getName().replace('.', '/');
+                } catch (Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
+                    return "java/lang/Object";
+                }
+            }
+        };
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -135,7 +179,14 @@ public final class ObjectContextMenuNativeMethodTransformer implements ClassFile
                     }
                 },
                 ClassReader.EXPAND_FRAMES);
-        return returnPoints[0] == 1 ? writer.toByteArray() : null;
+        if (returnPoints[0] == 1) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                    "context-menu", "Context-menu transform applied to " + className);
+            return writer.toByteArray();
+        }
+        dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                "context-menu", "Context-menu binding found " + returnPoints[0] + " return points in " + className);
+        return null;
     }
 
     private static String requireText(final String value, final String name) {

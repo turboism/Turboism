@@ -225,7 +225,7 @@ class StaticVerificationRecordRepositoryTest {
                                     EditorModelVerificationManifest.ADAPTER_SLICE_ID,
                                     EditorModelVerificationManifest.RECORD_5_3_02.cubismVersion(),
                                     EditorModelVerificationManifest.RECORD_5_3_02.profileId(),
-                                    EditorModelVerificationManifest.CAPABILITY_IDS,
+                                    EditorModelVerificationManifest.cubism5302Capabilities(),
                                     "Live2D_Cubism.jar",
                                     EditorModelVerificationManifest.RECORD_5_3_02
                                             .artifact()
@@ -234,7 +234,7 @@ class StaticVerificationRecordRepositoryTest {
                                             .artifact()
                                             .sha256(),
                                     EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
-                                    841,
+                                    894,
                                     EditorModelVerificationManifest.cubism5302Aliases(),
                                     EditorModelVerificationManifest.cubism5302Aliases(),
                                     recordMethodAliases(
@@ -321,6 +321,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.3.03-clipmask.json",
             "cubism-5.3.03-editor-model.json",
             "cubism-5.3.03-performance-render-scene.json",
+            "cubism-5.3.03-protected-export.json",
             "cubism-5.3.03-project-workspace.json",
             "cubism-5.3.03-protected-export.json",
             "cubism-5.3.03-ui-bounding-box-overlay.json",
@@ -395,9 +396,9 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-editor-model" -> "1a777583425d8b651ce2c0b67de99e38a443594107cadd4e81baf0ca2cefa99e";
             case "cubism-5.3.03-performance-render-scene" ->
                 "1f46c24551b7b5ccc63bb379a4498d5b3166fa20916499ca9b5c8c52da307ba5";
+            case "cubism-5.3.03-protected-export" -> "de6066d86686cd3445b921086e7747167cf30b2fa89eb8efe49da064242d99b7";
             case "cubism-5.3.03-project-workspace" ->
                 "f52edde0c7d1a59d5bed7dd693f5a74e6946d0b14bbe9e13fedf2c49e6fa5613";
-            case "cubism-5.3.03-protected-export" -> "de6066d86686cd3445b921086e7747167cf30b2fa89eb8efe49da064242d99b7";
             case "cubism-5.3.03-ui-bounding-box-overlay" ->
                 "fd67451595cbf68ca3084504c730daee3b110577e67852680db64b3a6f81e000";
             case "cubism-5.3.03-ui-control-appearance" ->
@@ -1199,6 +1200,8 @@ class StaticVerificationRecordRepositoryTest {
         final Set<String> allMethods = new HashSet<>(methods);
         allMethods.addAll(ownedMocMethods);
         allMethods.addAll(versionMethods);
+        allMethods.addAll(
+                CorePublicApiSelectorContract.ownedMocMethodAliasesFor(profile).orElseThrow());
         return new SliceExpectation(
                 CorePublicApiTrustRoots.verificationId(profile),
                 CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
