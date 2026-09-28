@@ -188,7 +188,7 @@ public final class AtlasTimingSelfCheck {
             "disabled sampling must not create the records file");
 
         final Path stackDir = output.resolve("stack-evidence");
-        StackSamples.enableForTest(512, 512, stackDir, null, null);
+        StackSamples.enableForTest(512, 512, stackDir, null, null, null);
         // id0 + nested id1 = 2 samples; the id5/id6 path must not be sampled at all.
         update.invoke(woven, true, new Object());
         catching.invoke(woven);
@@ -255,7 +255,7 @@ public final class AtlasTimingSelfCheck {
         // Over-budget: reservations stop at the cap; dropped budget is counted, not sampled.
         final Path smallDir = output.resolve("stack-budget");
         final StackSamples.Engine small =
-            StackSamples.enableForTest(3, 512, smallDir, null, null);
+            StackSamples.enableForTest(3, 512, smallDir, null, null, null);
         update.invoke(woven, true, new Object());
         update.invoke(woven, false, new Object());
         update.invoke(woven, true, new Object());
@@ -272,7 +272,7 @@ public final class AtlasTimingSelfCheck {
         final Path fullDir = output.resolve("stack-queue");
         final java.util.concurrent.CountDownLatch gate = new java.util.concurrent.CountDownLatch(1);
         final StackSamples.Engine gated =
-            StackSamples.enableForTest(16, 1, fullDir, null, gate);
+            StackSamples.enableForTest(16, 1, fullDir, null, gate, null);
         update.invoke(woven, true, new Object());
         update.invoke(woven, false, new Object());
         snap = gated.snapshot();
@@ -290,11 +290,13 @@ public final class AtlasTimingSelfCheck {
         final Path ioDir = output.resolve("stack-io");
         Files.createDirectories(ioDir.resolve(StackSamples.RECORDS_FILE));
         final StackSamples.Engine ioBroken =
-            StackSamples.enableForTest(16, 8, ioDir, null, null);
+            StackSamples.enableForTest(16, 8, ioDir, null, null, null);
         update.invoke(woven, true, new Object());
         final String ioStatus = awaitStatus(ioDir.resolve(StackSamples.STATUS_FILE),
-            "ioLost", 2L);
-        check(ioStatus != null, "IO failures must surface in status ioLost");
+            "unconfirmedWrites", 2L);
+        check(ioStatus != null, "unconfirmed writes must surface in status");
+        check(ioStatus != null && ioStatus.contains("incomplete=1"),
+            "a run with unconfirmed writes must be marked incomplete");
         check(ioBroken.snapshot().get("written") == 0L,
             "no record may be counted written when writes fail");
 
@@ -302,12 +304,88 @@ public final class AtlasTimingSelfCheck {
         final Path failDir = output.resolve("stack-sampleerror");
         final StackSamples.Engine broken =
             StackSamples.enableForTest(16, 8, failDir,
-                () -> { throw new IllegalStateException("injected collector failure"); }, null);
+                () -> { throw new IllegalStateException("injected collector failure"); }, null, null);
         update.invoke(woven, true, new Object());
         snap = broken.snapshot();
         check(snap.get("sampleError") == 2L, "collector failures must count, got "
             + snap.get("sampleError"));
         check(snap.get("queued") == 0L, "failed samples must not be queued");
+        check(snap.get("incomplete") == 1L, "sample errors must mark the run incomplete");
+
+        // Deterministic offer/consume interleave: the writer gate holds the drain closed
+        // while samples queue, then the sink gate parks the writer inside the write call so
+        // snapshots observe a mid-write state exactly — no timing race.
+        final Path interleaveDir = output.resolve("stack-interleave");
+        final java.util.concurrent.CountDownLatch drainGate =
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch sinkEntered =
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch sinkRelease =
+            new java.util.concurrent.CountDownLatch(1);
+        final StackSamples.Engine interleaved = StackSamples.enableForTest(64, 64,
+            interleaveDir, null, drainGate, batch -> {
+                sinkEntered.countDown();
+                try {
+                    sinkRelease.await();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+                Files.write(interleaveDir.resolve(StackSamples.RECORDS_FILE), batch,
+                    java.nio.charset.StandardCharsets.UTF_8,
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.APPEND);
+            });
+        update.invoke(woven, true, new Object());
+        update.invoke(woven, false, new Object());
+        snap = interleaved.snapshot();
+        check(snap.get("queued") == 4L && snap.get("dequeued") == 0L,
+            "gated writer must not have consumed yet, got " + snap);
+        drainGate.countDown();
+        check(sinkEntered.await(15, java.util.concurrent.TimeUnit.SECONDS),
+            "writer must reach the gated sink");
+        // Writer holds the whole batch mid-write: inWrite=4, everything conserved.
+        snap = interleaved.snapshot();
+        checkConserved(snap);
+        check(snap.get("inWrite") == 4L && snap.get("dequeued") == 4L
+                && snap.get("pending") == 0L,
+            "mid-write batch must be inWrite, got " + snap);
+        // A concurrent offer lands while the writer is blocked inside the write call.
+        update.invoke(woven, true, new Object());
+        snap = interleaved.snapshot();
+        checkConserved(snap);
+        check(snap.get("queued") == 6L && snap.get("dequeued") == 4L
+                && snap.get("pending") == 2L,
+            "offer during mid-write must stay consistent, got " + snap);
+        sinkRelease.countDown();
+        // Concurrent snapshots during production must never go negative or lose balance.
+        final Thread producer = new Thread(() -> {
+            try {
+                for (int i = 0; i < 20; i++) {
+                    update.invoke(woven, true, new Object());
+                }
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure);
+            }
+        }, "t029-producer");
+        producer.start();
+        for (int i = 0; i < 200 && producer.isAlive(); i++) {
+            checkConserved(interleaved.snapshot());
+        }
+        producer.join();
+        check(awaitStatus(interleaveDir.resolve(StackSamples.STATUS_FILE),
+            "written", 46L) != null, "interleave run must drain all 46 records");
+
+        // Writer death: a non-IO sink failure kills the daemon; the terminal reason is
+        // observable in memory and the run is marked incomplete — disk state unguaranteed.
+        final Path termDir = output.resolve("stack-terminal");
+        final StackSamples.Engine dying = StackSamples.enableForTest(16, 8, termDir,
+            null, null, batch -> { throw new AssertionError("injected writer death"); });
+        update.invoke(woven, true, new Object());
+        check(awaitTerminal(dying), "writer death must surface a terminal reason");
+        snap = dying.snapshot();
+        check(snap.get("terminated") == 1L && snap.get("incomplete") == 1L,
+            "dead writer must report terminated+incomplete, got " + snap);
+        checkConserved(snap);
 
         // Second flush cycle so every leg above is on disk before the final counts.
         AtlasTimingProbe.flush();
@@ -319,9 +397,9 @@ public final class AtlasTimingSelfCheck {
             allCalls.stream().filter(l -> l.contains("call updateTexture")).count();
         final long totalSetups =
             allCalls.stream().filter(l -> l.contains("call setupCacheImage")).count();
-        check(totalUpdates == 12L,
+        check(totalUpdates == 36L,
             "timing pairing must be unaffected by sampling, updateTexture=" + totalUpdates);
-        check(totalSetups == 13L,
+        check(totalSetups == 37L,
             "timing pairing must be unaffected by sampling, setupCacheImage=" + totalSetups);
 
         if (failures > 0) {
@@ -338,6 +416,35 @@ public final class AtlasTimingSelfCheck {
             failures++;
             System.out.println("  FAIL " + message);
         }
+    }
+
+    /** Every counter must be non-negative and the transfer chain must conserve. */
+    private static void checkConserved(final java.util.Map<String, Long> snap) {
+        for (final java.util.Map.Entry<String, Long> entry : snap.entrySet()) {
+            check(entry.getValue() >= 0,
+                "counter " + entry.getKey() + " must never be negative: " + snap);
+        }
+        check(snap.get("reserved")
+                == snap.get("sampleError") + snap.get("droppedQueue") + snap.get("queued")
+                    + snap.get("inFlight"),
+            "reservation conservation violated: " + snap);
+        check(snap.get("queued") == snap.get("dequeued") + snap.get("pending"),
+            "queue conservation violated: " + snap);
+        check(snap.get("dequeued")
+                == snap.get("written") + snap.get("unconfirmedWrites") + snap.get("inWrite"),
+            "write conservation violated: " + snap);
+    }
+
+    private static boolean awaitTerminal(final StackSamples.Engine engine)
+            throws InterruptedException {
+        final long deadline = System.currentTimeMillis() + 15_000L;
+        while (System.currentTimeMillis() < deadline) {
+            if (engine.terminal() != null) {
+                return true;
+            }
+            Thread.sleep(25);
+        }
+        return false;
     }
 
     private static boolean threadExists(final String name) {
