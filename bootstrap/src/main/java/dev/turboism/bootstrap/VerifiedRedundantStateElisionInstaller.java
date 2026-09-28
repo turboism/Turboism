@@ -46,27 +46,31 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
     private final Path joglArtifact;
     private boolean installed, restored, registered;
 
-    VerifiedRedundantStateElisionInstaller(final Instrumentation instrumentation,
-                                           final Path artifact, final ClassLoader loader)
-            throws Exception {
+    VerifiedRedundantStateElisionInstaller(
+            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
         this.instrumentation = instrumentation;
         if (!instrumentation.isRetransformClassesSupported()) {
             throw new IllegalStateException("retransform unavailable");
         }
-        joglArtifact = artifact.toAbsolutePath().getParent()
-            .resolve("jogl/jogl-all.jar").normalize();
-        if (!ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.equals(
-                HostArtifactDigest.from(joglArtifact))) {
+        joglArtifact = artifact.toAbsolutePath()
+                .getParent()
+                .resolve("jogl/jogl-all.jar")
+                .normalize();
+        if (!ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.equals(HostArtifactDigest.from(joglArtifact))) {
             throw new IllegalArgumentException("state elision bundled JOGL identity mismatch");
         }
         entry = Class.forName(RedundantStateElisionTarget.OWNER.replace('/', '.'), false, loader);
         if (entry.getClassLoader() == null
-            || entry.getProtectionDomain() == null
-            || entry.getProtectionDomain().getCodeSource() == null
-            || !Path.of(entry.getProtectionDomain().getCodeSource().getLocation().toURI())
-                .toAbsolutePath().normalize().equals(joglArtifact)) {
-            throw new IllegalArgumentException(
-                "state elision loader/source mismatch: " + entry.getName());
+                || entry.getProtectionDomain() == null
+                || entry.getProtectionDomain().getCodeSource() == null
+                || !Path.of(entry.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI())
+                        .toAbsolutePath()
+                        .normalize()
+                        .equals(joglArtifact)) {
+            throw new IllegalArgumentException("state elision loader/source mismatch: " + entry.getName());
         }
         final byte[] reference;
         try (JarFile jar = new JarFile(joglArtifact.toFile())) {
@@ -78,8 +82,7 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
                 reference = input.readAllBytes();
             }
         }
-        transformer = new RedundantStateElisionTransformer(
-            entry.getClassLoader(), joglArtifact, reference);
+        transformer = new RedundantStateElisionTransformer(entry.getClassLoader(), joglArtifact, reference);
         bridge = new RedundantStateElisionBridge();
     }
 
@@ -93,8 +96,8 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
             registered = true;
             instrumentation.retransformClasses(entry);
             if (transformer.matches() != 1 || transformer.failure() != null) {
-                throw new IllegalStateException("state elision entry not admitted: "
-                    + entry.getName() + " " + transformer.failure());
+                throw new IllegalStateException(
+                        "state elision entry not admitted: " + entry.getName() + " " + transformer.failure());
             }
             for (final var site : transformer.invalidatorNames().entrySet()) {
                 bridge.tracker().registerInvalidator(site.getKey(), site.getValue());
@@ -116,12 +119,13 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
         return transformer.sites();
     }
 
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         final Map<String, Long> stats = bridge.tracker().snapshot(false);
         bridge.uninstall();
         if (restored || (!installed && !registered && transformer.beforeSha256() == null)) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-                "TURBOISM_STATE_ELISION closed " + report(stats) + " installed=false");
+            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                    "bootstrap", "TURBOISM_STATE_ELISION closed " + report(stats) + " installed=false");
             return;
         }
         if (registered) {
@@ -133,27 +137,26 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
             if (transformer.beforeSha256() == null) {
                 restored = true;
                 installed = false;
-                dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-                    "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=true");
+                dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                        "bootstrap", "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=true");
                 return;
             }
             final byte[] original = capture(entry);
-            final String hash = HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256").digest(original));
+            final String hash = HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(original));
             if (!hash.equals(transformer.beforeSha256())) {
-                throw new IllegalStateException("state elision restoration not proven: "
-                    + entry.getName());
+                throw new IllegalStateException("state elision restoration not proven: " + entry.getName());
             }
             restored = true;
             installed = false;
         } catch (Exception failure) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-                "TURBOISM_STATE_ELISION closed " + report(stats)
-                + " restored=false reason=" + failure);
+            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                    "bootstrap",
+                    "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=false reason=" + failure);
             throw new IllegalStateException("state elision restoration failed", failure);
         }
-        dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-            "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=true");
+        dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                "bootstrap", "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=true");
     }
 
     /** Per-method elision counters plus invalidation and clear diagnostics. */
@@ -166,9 +169,14 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
     private byte[] capture(final Class<?> type) throws Exception {
         final AtomicReference<byte[]> result = new AtomicReference<>();
         final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override public byte[] transform(final Module module, final ClassLoader loader,
-                                              final String name, final Class<?> redefined,
-                                              final ProtectionDomain domain, final byte[] bytes) {
+            @Override
+            public byte[] transform(
+                    final Module module,
+                    final ClassLoader loader,
+                    final String name,
+                    final Class<?> redefined,
+                    final ProtectionDomain domain,
+                    final byte[] bytes) {
                 if (redefined == type) result.set(bytes.clone());
                 return null;
             }

@@ -1,26 +1,25 @@
 package dev.turboism.core.action;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class RuntimeActionRegistryPermissionTest {
 
@@ -44,10 +43,8 @@ class RuntimeActionRegistryPermissionTest {
         });
 
         // When / Then
-        CubismPermissionException exception = assertThrows(
-            CubismPermissionException.class,
-            () -> registry.register("probe.action", action())
-        );
+        CubismPermissionException exception =
+                assertThrows(CubismPermissionException.class, () -> registry.register("probe.action", action()));
         assertEquals("action.register denied", exception.getMessage());
     }
 
@@ -63,9 +60,8 @@ class RuntimeActionRegistryPermissionTest {
 
         // When / Then
         CubismPermissionException exception = assertThrows(
-            CubismPermissionException.class,
-            () -> registry.execute("probe.action", new ActionRegistry.ActionContext() {})
-        );
+                CubismPermissionException.class,
+                () -> registry.execute("probe.action", new ActionRegistry.ActionContext() {}));
         assertEquals("action.execute denied", exception.getMessage());
         registration.close();
     }
@@ -73,23 +69,18 @@ class RuntimeActionRegistryPermissionTest {
     private RuntimeActionRegistry registry(dev.turboism.permissions.PermissionChecker permissionChecker) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-            SidecarDispatcher.noop(),
-            events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
+                SidecarDispatcher.noop(),
+                events::add);
         List<StartupReport.DiagnosticProblem> problems = new CopyOnWriteArrayList<>();
         return new RuntimeActionRegistry(scheduler, problems::add, PLUGIN_ID, permissionChecker);
     }
 
     private static TestAction action() {
-        return new TestAction("probe.action", "Probe Action", context -> { });
+        return new TestAction("probe.action", "Probe Action", context -> {});
     }
 
-    private record TestAction(
-        String id,
-        String label,
-        Consumer<ActionRegistry.ActionContext> handler
-    ) implements ActionRegistry.Action {
-    }
+    private record TestAction(String id, String label, Consumer<ActionRegistry.ActionContext> handler)
+            implements ActionRegistry.Action {}
 }

@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.cubism.id.ParameterId;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -64,11 +63,7 @@ public interface AnimationAttribute {
      * Inserts or overwrites a scalar keyframe with an explicit curve type on a
      * {@link AnimationAttributeKind#FLOAT} attribute.
      */
-    default void setKeyframe(
-        final int frame,
-        final double value,
-        final AnimationCurveType curveType
-    ) {
+    default void setKeyframe(final int frame, final double value, final AnimationCurveType curveType) {
         if (!Double.isFinite(value)) {
             throw new IllegalArgumentException("keyframe value must be finite");
         }
@@ -153,11 +148,7 @@ public interface AnimationAttribute {
      * {@code [fromFrame, toFrame]} in one undo step. Returns the number of keys
      * retargeted.
      */
-    default int applyCurveType(
-        final AnimationCurveType curveType,
-        final int fromFrame,
-        final int toFrame
-    ) {
+    default int applyCurveType(final AnimationCurveType curveType, final int fromFrame, final int toFrame) {
         Objects.requireNonNull(curveType, "curveType");
         if (fromFrame > toFrame) {
             throw new IllegalArgumentException("fromFrame must be <= toFrame");
@@ -196,11 +187,7 @@ public interface AnimationAttribute {
      *         verified host evidence
      */
     default int bakeEvaluated(
-        final int fromFrame,
-        final int toFrame,
-        final int stepFrames,
-        final AnimationCurveType curveType
-    ) {
+            final int fromFrame, final int toFrame, final int stepFrames, final AnimationCurveType curveType) {
         Objects.requireNonNull(curveType, "curveType");
         if (fromFrame > toFrame) {
             throw new IllegalArgumentException("fromFrame must be <= toFrame");
@@ -212,8 +199,6 @@ public interface AnimationAttribute {
     }
 
     private static UnsupportedOperationException unavailable(final String feature) {
-        return new UnsupportedOperationException(
-            feature + " is unavailable without exact verified host evidence."
-        );
+        return new UnsupportedOperationException(feature + " is unavailable without exact verified host evidence.");
     }
 }

@@ -12,12 +12,18 @@ import java.util.Optional;
  * permission to guess a source. The revision is an observation sequence, not a model revision.
  */
 public record TextureSourcesSnapshot(
-    Availability availability, String binding, long generation, long revision,
-    List<RawTexture> rawImages, List<ModelImageSource> modelImages,
-    List<ArtMeshTextureInputs> artMeshInputs
-) {
+        Availability availability,
+        String binding,
+        long generation,
+        long revision,
+        List<RawTexture> rawImages,
+        List<ModelImageSource> modelImages,
+        List<ArtMeshTextureInputs> artMeshInputs) {
     /** Whether the adapter admitted the scoped query for this host. */
-    public enum Availability { AVAILABLE, UNAVAILABLE }
+    public enum Availability {
+        AVAILABLE,
+        UNAVAILABLE
+    }
 
     /** Current source only; candidate sources must not be substituted for a missing current source. */
     public record ModelImageSource(ModelImageId id, Optional<RawImageId> currentRawImageId) {
@@ -40,7 +46,9 @@ public record TextureSourcesSnapshot(
     }
 
     /** Returns whether this snapshot represents an admitted observation. */
-    public boolean isAvailable() { return availability == Availability.AVAILABLE; }
+    public boolean isAvailable() {
+        return availability == Availability.AVAILABLE;
+    }
 
     /** Finds raw metadata within this query, not across the whole model. */
     public Optional<RawTexture> rawImage(final RawImageId id) {
@@ -56,7 +64,6 @@ public record TextureSourcesSnapshot(
 
     /** Creates the empty unavailable result without a document binding. */
     public static TextureSourcesSnapshot unavailable() {
-        return new TextureSourcesSnapshot(Availability.UNAVAILABLE, "", 0, 0,
-            List.of(), List.of(), List.of());
+        return new TextureSourcesSnapshot(Availability.UNAVAILABLE, "", 0, 0, List.of(), List.of(), List.of());
     }
 }

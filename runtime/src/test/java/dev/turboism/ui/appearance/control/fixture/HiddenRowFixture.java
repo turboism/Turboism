@@ -1,8 +1,7 @@
 package dev.turboism.ui.appearance.control.fixture;
 
 public final class HiddenRowFixture {
-    private HiddenRowFixture() {
-    }
+    private HiddenRowFixture() {}
 
     public static Object row(final String id) {
         return new HiddenRow(new PublicSource(id));

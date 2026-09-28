@@ -1,15 +1,15 @@
 package dev.turboism.preview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,11 +20,10 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * End-to-end lifecycle isolation through the real {@link LocalPluginRuntime}: a plugin whose
@@ -45,14 +44,13 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
     private static final String SCOPE_ATTEMPTS = "dev.turboism.test.failing-scope.attempts";
 
     private static final PluginLifecyclePolicy SHORT_POLICY = new PluginLifecyclePolicy(
-        2,
-        16,
-        Duration.ofMillis(300),
-        Duration.ofSeconds(2),
-        Duration.ofSeconds(3),
-        Duration.ofMillis(200),
-        Duration.ofMillis(40)
-    );
+            2,
+            16,
+            Duration.ofMillis(300),
+            Duration.ofSeconds(2),
+            Duration.ofSeconds(3),
+            Duration.ofMillis(200),
+            Duration.ofMillis(40));
 
     @TempDir
     Path temporary;
@@ -61,8 +59,13 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
     void pluginInitCanCallTheHookInstalledByTheBootstrapBarrier() throws Exception {
         final String callbackKey = "dev.turboism.test.startup-barrier.callback";
         final Path home = temporary.resolve("barrier-home");
-        writePlugin(home.resolve("plugins"), "ready.jar", "dev.example.ready",
-            "dev/example/ready/ReadyEntrypoint.java", "dev.example.ready.ReadyEntrypoint", """
+        writePlugin(
+                home.resolve("plugins"),
+                "ready.jar",
+                "dev.example.ready",
+                "dev/example/ready/ReadyEntrypoint.java",
+                "dev.example.ready.ReadyEntrypoint",
+                """
                 package dev.example.ready;
                 import dev.turboism.sdk.plugin.PluginContext;
                 import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -80,24 +83,33 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
         final java.util.List<String> observed = new java.util.concurrent.CopyOnWriteArrayList<>();
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime plugins = new LocalPluginRuntime(
-                home, scheduler, host.adapterAccess(), log, (pluginId, phase) -> { }, SHORT_POLICY);
+                    home, scheduler, host.adapterAccess(), log, (pluginId, phase) -> {}, SHORT_POLICY);
             try (PreviewRuntime runtime = PreviewRuntimeTestSupport.runtime(home, log, scheduler, plugins)) {
-                runtime.loadPluginsAfterBootstrap(prepared -> {
-                    assertTrue(plugins.loadedPlugins().isEmpty());
-                    System.getProperties().put(callbackKey, (java.util.function.Consumer<String>) observed::add);
-                }, prepared -> {
-                    assertEquals(1, prepared.loadReport().loaded().size());
-                    assertEquals(dev.turboism.core.lifecycle.PluginLifecycleState.ENABLED,
-                        prepared.loadReport().loaded().get(0).state());
-                    assertEquals(java.util.List.of("init"), observed);
-                    observed.add("consumer-bound");
-                });
+                runtime.loadPluginsAfterBootstrap(
+                        prepared -> {
+                            assertTrue(plugins.loadedPlugins().isEmpty());
+                            System.getProperties()
+                                    .put(callbackKey, (java.util.function.Consumer<String>) observed::add);
+                        },
+                        prepared -> {
+                            assertEquals(1, prepared.loadReport().loaded().size());
+                            assertEquals(
+                                    dev.turboism.core.lifecycle.PluginLifecycleState.ENABLED,
+                                    prepared.loadReport().loaded().get(0).state());
+                            assertEquals(java.util.List.of("init"), observed);
+                            observed.add("consumer-bound");
+                        });
 
-                assertTrue(runtime.loadReport().failures().isEmpty(), runtime.loadReport().failures().toString());
+                assertTrue(
+                        runtime.loadReport().failures().isEmpty(),
+                        runtime.loadReport().failures().toString());
                 assertEquals(1, runtime.loadReport().loaded().size());
                 assertEquals(java.util.List.of("init", "consumer-bound"), observed);
-                assertThrows(IllegalStateException.class, () -> runtime.loadPluginsAfterBootstrap(
-                    prepared -> { throw new AssertionError("bootstrap must not run twice"); }));
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> runtime.loadPluginsAfterBootstrap(prepared -> {
+                            throw new AssertionError("bootstrap must not run twice");
+                        }));
             }
         } finally {
             System.getProperties().remove(callbackKey);
@@ -109,19 +121,27 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
     @Test
     void aFailedBootstrapBarrierDoesNotInitializeAnyPluginOrAllowRetry() throws Exception {
         final Path home = temporary.resolve("failed-barrier-home");
-        writePlugin(home.resolve("plugins"), "normal.jar", NORMAL_ID,
-            "dev/example/normal/NormalEntrypoint.java", "dev.example.normal.NormalEntrypoint", normalSource());
+        writePlugin(
+                home.resolve("plugins"),
+                "normal.jar",
+                NORMAL_ID,
+                "dev/example/normal/NormalEntrypoint.java",
+                "dev.example.normal.NormalEntrypoint",
+                normalSource());
         final RuntimeScheduler scheduler = scheduler();
         final HostSession host = new HostSession(Optional::empty);
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime plugins = new LocalPluginRuntime(
-                home, scheduler, host.adapterAccess(), log, (pluginId, phase) -> { }, SHORT_POLICY);
+                    home, scheduler, host.adapterAccess(), log, (pluginId, phase) -> {}, SHORT_POLICY);
             try (PreviewRuntime runtime = PreviewRuntimeTestSupport.runtime(home, log, scheduler, plugins)) {
-                assertThrows(IllegalArgumentException.class, () -> runtime.loadPluginsAfterBootstrap(
-                    prepared -> { throw new IllegalArgumentException("bootstrap failed"); }));
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> runtime.loadPluginsAfterBootstrap(prepared -> {
+                            throw new IllegalArgumentException("bootstrap failed");
+                        }));
                 assertTrue(plugins.loadedPlugins().isEmpty());
                 assertTrue(runtime.loadReport().loaded().isEmpty());
-                assertThrows(IllegalStateException.class, () -> runtime.loadPluginsAfterBootstrap(prepared -> { }));
+                assertThrows(IllegalStateException.class, () -> runtime.loadPluginsAfterBootstrap(prepared -> {}));
             }
         } finally {
             host.close();
@@ -133,48 +153,44 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
     void blockingInitIsFencedLateEnableNeverActivatesAndOtherPluginsLoad() throws Exception {
         final Path home = temporary.resolve("home");
         final Path plugins = home.resolve("plugins");
-        writePlugin(plugins, "blocking.jar", BLOCKING_ID,
-            "dev/example/blocking/BlockingEntrypoint.java",
-            "dev.example.blocking.BlockingEntrypoint", blockingSource());
-        writePlugin(plugins, "normal.jar", NORMAL_ID,
-            "dev/example/normal/NormalEntrypoint.java",
-            "dev.example.normal.NormalEntrypoint", normalSource());
+        writePlugin(
+                plugins,
+                "blocking.jar",
+                BLOCKING_ID,
+                "dev/example/blocking/BlockingEntrypoint.java",
+                "dev.example.blocking.BlockingEntrypoint",
+                blockingSource());
+        writePlugin(
+                plugins,
+                "normal.jar",
+                NORMAL_ID,
+                "dev/example/normal/NormalEntrypoint.java",
+                "dev.example.normal.NormalEntrypoint",
+                normalSource());
         final RuntimeScheduler scheduler = scheduler();
         final HostSession host = new HostSession(Optional::empty);
         clearMarkers();
 
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(
-                home,
-                scheduler,
-                host.adapterAccess(),
-                log,
-                (pluginId, phase) -> { },
-                SHORT_POLICY
-            );
+                    home, scheduler, host.adapterAccess(), log, (pluginId, phase) -> {}, SHORT_POLICY);
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
 
+                assertTrue(awaitMarker(ENTERED, 5), "the blocking plugin's init must have started on the lane");
                 assertTrue(
-                    awaitMarker(ENTERED, 5),
-                    "the blocking plugin's init must have started on the lane"
-                );
+                        report.failures().stream()
+                                .anyMatch(failure -> failure.pluginId().equals(BLOCKING_ID)),
+                        "the timed-out plugin must be reported failed");
                 assertTrue(
-                    report.failures().stream().anyMatch(failure ->
-                        failure.pluginId().equals(BLOCKING_ID)),
-                    "the timed-out plugin must be reported failed"
-                );
-                assertTrue(
-                    report.loaded().stream().anyMatch(plugin ->
-                        plugin.id().equals(NORMAL_ID)
-                            && "ENABLED".equals(plugin.state().name())),
-                    "an independent plugin must still load while another blocks"
-                );
+                        report.loaded().stream()
+                                .anyMatch(plugin -> plugin.id().equals(NORMAL_ID)
+                                        && "ENABLED".equals(plugin.state().name())),
+                        "an independent plugin must still load while another blocks");
                 assertFalse(
-                    runtime.loadedPlugins().stream().anyMatch(plugin ->
-                        plugin.id().equals(BLOCKING_ID)),
-                    "the fenced generation must never publish as loaded"
-                );
+                        runtime.loadedPlugins().stream()
+                                .anyMatch(plugin -> plugin.id().equals(BLOCKING_ID)),
+                        "the fenced generation must never publish as loaded");
 
                 // Advisory interruption is not a kill: the blocked worker resumes when the
                 // plugin's own condition clears, then hits the lease fence before enable().
@@ -182,15 +198,11 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
                 assertTrue(awaitMarker(RESUMED, 5), "the blocked worker must resume");
                 Thread.sleep(300);
                 assertEquals(
-                    null,
-                    System.getProperty(LATE_ENABLE),
-                    "enable() of a timed-out generation must never run"
-                );
+                        null, System.getProperty(LATE_ENABLE), "enable() of a timed-out generation must never run");
                 assertFalse(
-                    runtime.loadedPlugins().stream().anyMatch(plugin ->
-                        plugin.id().equals(BLOCKING_ID)),
-                    "late completion must not resurrect a fenced generation"
-                );
+                        runtime.loadedPlugins().stream()
+                                .anyMatch(plugin -> plugin.id().equals(BLOCKING_ID)),
+                        "late completion must not resurrect a fenced generation");
             } finally {
                 runtime.close();
             }
@@ -204,39 +216,31 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
     @Test
     void failedInitFencesPreviouslyAcquiredContextAndClosesScope() throws Exception {
         final Path home = temporary.resolve("home");
-        writePlugin(home.resolve("plugins"), "failing.jar", FAILING_ID,
-            "dev/example/failing/FailingEntrypoint.java",
-            "dev.example.failing.FailingEntrypoint", failingSource());
+        writePlugin(
+                home.resolve("plugins"),
+                "failing.jar",
+                FAILING_ID,
+                "dev/example/failing/FailingEntrypoint.java",
+                "dev.example.failing.FailingEntrypoint",
+                failingSource());
         final RuntimeScheduler scheduler = scheduler();
         final HostSession host = new HostSession(Optional::empty);
         clearMarkers();
 
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(
-                home,
-                scheduler,
-                host.adapterAccess(),
-                log,
-                (pluginId, phase) -> { },
-                SHORT_POLICY
-            );
+                    home, scheduler, host.adapterAccess(), log, (pluginId, phase) -> {}, SHORT_POLICY);
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
 
-                assertTrue(report.failures().stream().anyMatch(failure ->
-                    failure.pluginId().equals(FAILING_ID)
-                        && "LOAD_FAILED".equals(failure.code())));
+                assertTrue(report.failures().stream()
+                        .anyMatch(failure ->
+                                failure.pluginId().equals(FAILING_ID) && "LOAD_FAILED".equals(failure.code())));
                 // The plugin's own background thread keeps calling the context it acquired in
                 // init; after the failure fence that handle must deny access.
-                assertTrue(
-                    awaitMarker(FENCED, 5),
-                    "a pre-failure context handle must be fenced after load failure"
-                );
+                assertTrue(awaitMarker(FENCED, 5), "a pre-failure context handle must be fenced after load failure");
                 assertEquals("fenced", System.getProperty(FENCED));
-                assertTrue(
-                    awaitMarker(SCOPE_CLOSED, 5),
-                    "the failed generation's scope must still be disposed"
-                );
+                assertTrue(awaitMarker(SCOPE_CLOSED, 5), "the failed generation's scope must still be disposed");
             } finally {
                 runtime.close();
             }
@@ -250,43 +254,35 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
     @Test
     void failedScopeCloseKeepsLoaderRetainedAndNeverReinvokesCloser() throws Exception {
         final Path home = temporary.resolve("home");
-        writePlugin(home.resolve("plugins"), "scope-fail.jar", "dev.example.scope-fail",
-            "dev/example/scopefail/ScopeFailEntrypoint.java",
-            "dev.example.scopefail.ScopeFailEntrypoint", scopeFailSource());
+        writePlugin(
+                home.resolve("plugins"),
+                "scope-fail.jar",
+                "dev.example.scope-fail",
+                "dev/example/scopefail/ScopeFailEntrypoint.java",
+                "dev.example.scopefail.ScopeFailEntrypoint",
+                scopeFailSource());
         final RuntimeScheduler scheduler = scheduler();
         final HostSession host = new HostSession(Optional::empty);
         clearMarkers();
 
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(
-                home,
-                scheduler,
-                host.adapterAccess(),
-                log,
-                (pluginId, phase) -> { },
-                SHORT_POLICY
-            );
+                    home, scheduler, host.adapterAccess(), log, (pluginId, phase) -> {}, SHORT_POLICY);
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
-                assertTrue(report.failures().stream().anyMatch(failure ->
-                    failure.pluginId().equals("dev.example.scope-fail")));
+                assertTrue(report.failures().stream()
+                        .anyMatch(failure -> failure.pluginId().equals("dev.example.scope-fail")));
                 assertTrue(
-                    awaitMarker(SCOPE_ATTEMPTS, 5),
-                    "the failed generation's scope close must have been attempted"
-                );
+                        awaitMarker(SCOPE_ATTEMPTS, 5), "the failed generation's scope close must have been attempted");
                 // Several retention intervals pass: the failed closer must never be re-invoked
                 // (a second DisposableScope.close() would be an empty success) and the
                 // generation stays retained because scope disposal is unproven.
                 Thread.sleep(300);
                 assertEquals(
-                    "1",
-                    System.getProperty(SCOPE_ATTEMPTS),
-                    "failed one-shot scope cleanup must not be retried into empty success"
-                );
-                assertTrue(
-                    retainedCount(runtime) >= 1,
-                    "the generation stays retained while quiescence is unproven"
-                );
+                        "1",
+                        System.getProperty(SCOPE_ATTEMPTS),
+                        "failed one-shot scope cleanup must not be retried into empty success");
+                assertTrue(retainedCount(runtime) >= 1, "the generation stays retained while quiescence is unproven");
             } finally {
                 runtime.close();
             }
@@ -298,22 +294,18 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
     }
 
     private static int retainedCount(final LocalPluginRuntime runtime) throws Exception {
-        final java.lang.reflect.Field field =
-            LocalPluginRuntime.class.getDeclaredField("retention");
+        final java.lang.reflect.Field field = LocalPluginRuntime.class.getDeclaredField("retention");
         field.setAccessible(true);
         return ((RetainedPluginGenerations) field.get(runtime)).retainedCount();
     }
 
     private static void clearMarkers() {
-        for (String key : new String[]{
-            ENTERED, RELEASE, RESUMED, LATE_ENABLE, FENCED, SCOPE_CLOSED, SCOPE_ATTEMPTS
-        }) {
+        for (String key : new String[] {ENTERED, RELEASE, RESUMED, LATE_ENABLE, FENCED, SCOPE_CLOSED, SCOPE_ATTEMPTS}) {
             System.clearProperty(key);
         }
     }
 
-    private static boolean awaitMarker(final String key, final long seconds)
-        throws InterruptedException {
+    private static boolean awaitMarker(final String key, final long seconds) throws InterruptedException {
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds);
         while (System.getProperty(key) == null) {
             if (System.nanoTime() > deadline) {
@@ -419,13 +411,13 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
     }
 
     private void writePlugin(
-        final Path pluginDirectory,
-        final String jarName,
-        final String pluginId,
-        final String sourcePath,
-        final String entrypoint,
-        final String source
-    ) throws Exception {
+            final Path pluginDirectory,
+            final String jarName,
+            final String pluginId,
+            final String sourcePath,
+            final String entrypoint,
+            final String source)
+            throws Exception {
         final Path sourceRoot = temporary.resolve("src-" + jarName);
         final Path classes = temporary.resolve("classes-" + jarName);
         final Path sourceFile = sourceRoot.resolve(sourcePath);
@@ -434,38 +426,31 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
         Files.createDirectories(classes);
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         final int result = compiler.run(
-            null,
-            null,
-            null,
-            "-classpath",
-            System.getProperty("java.class.path"),
-            "-d",
-            classes.toString(),
-            sourceFile.toString()
-        );
+                null,
+                null,
+                null,
+                "-classpath",
+                System.getProperty("java.class.path"),
+                "-d",
+                classes.toString(),
+                sourceFile.toString());
         if (result != 0) {
             throw new IllegalStateException("fixture compilation failed: " + jarName);
         }
 
         Files.createDirectories(pluginDirectory);
-        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(
-            pluginDirectory.resolve(jarName)
-        ))) {
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(pluginDirectory.resolve(jarName)))) {
             try (var paths = Files.walk(classes)) {
                 for (Path path : paths.filter(Files::isRegularFile)
-                    .sorted(Comparator.naturalOrder()).toList()) {
-                    add(
-                        output,
-                        classes.relativize(path).toString().replace('\\', '/'),
-                        Files.readAllBytes(path)
-                    );
+                        .sorted(Comparator.naturalOrder())
+                        .toList()) {
+                    add(output, classes.relativize(path).toString().replace('\\', '/'), Files.readAllBytes(path));
                 }
             }
             add(
-                output,
-                "META-INF/turboism/plugin.json",
-                descriptor(pluginId, entrypoint).getBytes(StandardCharsets.UTF_8)
-            );
+                    output,
+                    "META-INF/turboism/plugin.json",
+                    descriptor(pluginId, entrypoint).getBytes(StandardCharsets.UTF_8));
             add(output, "META-INF/turboism/i18n/messages.properties", new byte[0]);
         }
     }
@@ -485,18 +470,13 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 16, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 
-    private static void add(
-        final JarOutputStream output,
-        final String name,
-        final byte[] content
-    ) throws Exception {
+    private static void add(final JarOutputStream output, final String name, final byte[] content) throws Exception {
         output.putNextEntry(new JarEntry(name));
         output.write(content);
         output.closeEntry();

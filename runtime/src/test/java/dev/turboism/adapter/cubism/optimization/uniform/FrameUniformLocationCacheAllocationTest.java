@@ -1,12 +1,12 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
-import com.sun.management.ThreadMXBean;
-import java.lang.management.ManagementFactory;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import com.sun.management.ThreadMXBean;
+import java.lang.management.ManagementFactory;
+import org.junit.jupiter.api.Test;
 
 /** Measures the actual production cache; this is not a Cubism frame benchmark. */
 final class FrameUniformLocationCacheAllocationTest {
@@ -39,19 +39,25 @@ final class FrameUniformLocationCacheAllocationTest {
             assertEquals(expectedPerFrame * FRAMES, checksum);
             assertEquals(0, cache.retained());
             double bytesPerFrame = (double) allocatedBytes / FRAMES;
-            System.out.printf(java.util.Locale.ROOT,
-                "CACHE_MICROBENCHMARK frames=%d queriesPerFrame=%d locationsPerFrame=%d "
-                    + "allocatedBytes=%d bytesPerFrame=%.3f elapsedNanos=%d%n",
-                FRAMES, QUERIES, LOCATIONS, allocatedBytes, bytesPerFrame, elapsedNanos);
-            assertTrue(bytesPerFrame < 1024.0,
-                "cache bookkeeping must reuse warmed storage, allocated bytes/frame=" + bytesPerFrame);
+            System.out.printf(
+                    java.util.Locale.ROOT,
+                    "CACHE_MICROBENCHMARK frames=%d queriesPerFrame=%d locationsPerFrame=%d "
+                            + "allocatedBytes=%d bytesPerFrame=%.3f elapsedNanos=%d%n",
+                    FRAMES,
+                    QUERIES,
+                    LOCATIONS,
+                    allocatedBytes,
+                    bytesPerFrame,
+                    elapsedNanos);
+            assertTrue(
+                    bytesPerFrame < 1024.0,
+                    "cache bookkeeping must reuse warmed storage, allocated bytes/frame=" + bytesPerFrame);
         } finally {
             if (!wasEnabled) counters.setThreadAllocatedMemoryEnabled(false);
         }
     }
 
-    private static long runFrames(FrameUniformLocationCache cache, Object context,
-                                  String[] names, int frames) {
+    private static long runFrames(FrameUniformLocationCache cache, Object context, String[] names, int frames) {
         long checksum = 0;
         for (int frame = 0; frame < frames; frame++) {
             long token = cache.begin(context, true);

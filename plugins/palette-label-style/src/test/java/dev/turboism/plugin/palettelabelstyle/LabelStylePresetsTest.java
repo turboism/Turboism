@@ -1,23 +1,21 @@
 package dev.turboism.plugin.palettelabelstyle;
 
-import dev.turboism.sdk.ui.appearance.PresetColor;
-import dev.turboism.sdk.ui.appearance.UiColor;
-import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.ui.appearance.PresetColor;
+import dev.turboism.sdk.ui.appearance.UiColor;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
 
 class LabelStylePresetsTest {
 
     @Test
     void menuKeysCoverNoneSevenPresetsAndCustom() {
         assertEquals(
-            java.util.List.of("none", "red", "orange", "yellow", "green", "blue", "purple", "gray"),
-            LabelStylePresets.MENU_KEYS
-        );
+                java.util.List.of("none", "red", "orange", "yellow", "green", "blue", "purple", "gray"),
+                LabelStylePresets.MENU_KEYS);
     }
 
     @Test
@@ -62,8 +60,10 @@ class LabelStylePresetsTest {
 
     @Test
     void parseHexAcceptsCanonicalAndLowercase() {
-        assertEquals(Optional.of("#E53935"), LabelStylePresets.parseHex("#E53935").map(LabelStylePresets::toHex));
-        assertEquals(Optional.of("#E53935"), LabelStylePresets.parseHex("#e53935").map(LabelStylePresets::toHex));
+        assertEquals(
+                Optional.of("#E53935"), LabelStylePresets.parseHex("#E53935").map(LabelStylePresets::toHex));
+        assertEquals(
+                Optional.of("#E53935"), LabelStylePresets.parseHex("#e53935").map(LabelStylePresets::toHex));
     }
 
     @Test

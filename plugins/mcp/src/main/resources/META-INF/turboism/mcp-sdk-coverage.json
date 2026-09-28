@@ -507,6 +507,50 @@
       "undoVerification": "UNVERIFIED",
       "supportedVersions": [],
       "reason": "No verified Editor provider exists for Glue delete."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ModelTextures#relations()Ldev/turboism/sdk/cubism/model/TextureRelationsSnapshot;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": [],
+      "reason": "Texture relation graph read is surfaced through the external-psd-edit workflow, not an MCP capability."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ModelTextures#sources(Ldev/turboism/sdk/cubism/model/TextureSourceQuery;)Ldev/turboism/sdk/cubism/model/TextureSourcesSnapshot;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": [],
+      "reason": "Scoped texture-source projection for PSD-bound source resolution; not exposed over MCP."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd(Ldev/turboism/sdk/cubism/id/RawImageId;)Ljava/util/concurrent/CompletionStage;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": [],
+      "reason": "Asynchronous native PSD export owned by the external-psd-edit admission flow; not an MCP capability."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd(Ldev/turboism/sdk/cubism/id/RawImageId;Ldev/turboism/sdk/cubism/psd/PsdEditFile;Ldev/turboism/sdk/cubism/psd/PsdFileRevision;)Ljava/util/concurrent/CompletionStage;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": false,
+      "undoVerification": "EXACT_HOST_VERIFIED",
+      "supportedVersions": [],
+      "reason": "Staged native PSD replacement routed through the external-psd-edit plugin with its own admission and Undo semantics; not exposed over MCP."
     }
   ],
   "temporaryPublicExceptions": [

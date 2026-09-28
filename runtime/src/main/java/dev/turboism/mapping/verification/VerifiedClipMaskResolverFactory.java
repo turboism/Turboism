@@ -24,18 +24,13 @@ public final class VerifiedClipMaskResolverFactory implements SliceResolverFacto
      * @throws IllegalArgumentException when the artifact is not a reviewed clip-mask artifact
      */
     public VerifiedMemberResolver create(
-        final Path reviewedRecord,
-        final Path verifiedArtifact,
-        final ClassLoader hostClassLoader
-    ) throws IOException {
+            final Path reviewedRecord, final Path verifiedArtifact, final ClassLoader hostClassLoader)
+            throws IOException {
         return workflow.create(
-            reviewedRecord,
-            verifiedArtifact,
-            hostClassLoader,
-            ClipMaskVerificationManifest.forArtifact(
-                HostArtifactDigest.from(verifiedArtifact)
-            )
-        );
+                reviewedRecord,
+                verifiedArtifact,
+                hostClassLoader,
+                ClipMaskVerificationManifest.forArtifact(HostArtifactDigest.from(verifiedArtifact)));
     }
     /**
      * Creates a resolver for a slice admitted by structural compatibility. The
@@ -52,17 +47,11 @@ public final class VerifiedClipMaskResolverFactory implements SliceResolverFacto
      * @throws NullPointerException if any argument is {@code null}
      */
     public VerifiedMemberResolver createCompatible(
-        final Path reviewedRecord,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader,
-        final SliceContract contract
-    ) throws IOException {
-        return workflow.createCompatible(
-            reviewedRecord,
-            hostArtifact,
-            hostClassLoader,
-            contract
-        );
+            final Path reviewedRecord,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final SliceContract contract)
+            throws IOException {
+        return workflow.createCompatible(reviewedRecord, hostArtifact, hostClassLoader, contract);
     }
-
 }

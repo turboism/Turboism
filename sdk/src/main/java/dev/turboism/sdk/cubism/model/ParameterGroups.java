@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
-
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -46,9 +45,8 @@ public interface ParameterGroups {
      * @throws NoSuchElementException when the parameter or the folder is absent
      */
     default void moveParameter(
-        final dev.turboism.sdk.cubism.id.ParameterId parameterId,
-        final dev.turboism.sdk.cubism.id.ParameterGroupId targetGroupId
-    ) {
+            final dev.turboism.sdk.cubism.id.ParameterId parameterId,
+            final dev.turboism.sdk.cubism.id.ParameterGroupId targetGroupId) {
         java.util.Objects.requireNonNull(parameterId, "parameterId");
         java.util.Objects.requireNonNull(targetGroupId, "targetGroupId");
         throw new UnsupportedOperationException("ParameterGroup move is unavailable.");

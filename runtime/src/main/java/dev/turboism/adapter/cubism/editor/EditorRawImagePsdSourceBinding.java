@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.RawImageId;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -25,9 +24,7 @@ final class EditorRawImagePsdSourceBinding {
     private final EditorRawImagePsdIntegrityAccess integrityAccess;
 
     EditorRawImagePsdSourceBinding(
-        final VerifiedMemberResolver resolver,
-        final EditorRawImagePsdIntegrityAccess integrityAccess
-    ) {
+            final VerifiedMemberResolver resolver, final EditorRawImagePsdIntegrityAccess integrityAccess) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.integrityAccess = Objects.requireNonNull(integrityAccess, "integrityAccess");
     }
@@ -45,8 +42,8 @@ final class EditorRawImagePsdSourceBinding {
         return bindOnHostThread(modelSource, targetId, false);
     }
 
-    private BindingResult bindOnHostThread(final Object modelSource, final RawImageId targetId,
-        final boolean captureIntegrity) {
+    private BindingResult bindOnHostThread(
+            final Object modelSource, final RawImageId targetId, final boolean captureIntegrity) {
         if (!EditorHostThread.isCurrent()) {
             throw new IllegalStateException("PSD source binding must run on the Editor host thread");
         }
@@ -54,42 +51,30 @@ final class EditorRawImagePsdSourceBinding {
         Objects.requireNonNull(targetId, "targetId");
         try {
             final Object textureManager = requireObject(
-                resolver.invoke("cubism.editor-model.model-source.texture-manager", modelSource),
-                "Editor texture manager"
-            );
+                    resolver.invoke("cubism.editor-model.model-source.texture-manager", modelSource),
+                    "Editor texture manager");
             final List<?> wrappers = snapshotList(
-                resolver.invoke("cubism.editor-model.texture-manager.raw-images", textureManager),
-                "Editor raw image collection"
-            );
+                    resolver.invoke("cubism.editor-model.texture-manager.raw-images", textureManager),
+                    "Editor raw image collection");
             final ArrayList<EditorRawImagePsdAccess.RawImageCandidate<Object>> candidates =
-                new ArrayList<>(wrappers.size());
+                    new ArrayList<>(wrappers.size());
             final Set<RawImageId> ids = new HashSet<>();
             for (final Object wrapper : wrappers) {
                 if (wrapper == null) throw unavailable("Editor raw image collection contains null");
                 final Object layeredImage = requireObject(
-                    resolver.invoke("cubism.editor-model.layered-image-wrapper.image", wrapper),
-                    "Editor raw layered image"
-                );
+                        resolver.invoke("cubism.editor-model.layered-image-wrapper.image", wrapper),
+                        "Editor raw layered image");
                 if (!resolver.isInstance("cubism.editor-model.layered-image.class", layeredImage)) {
                     throw unavailable("Editor raw image collection contains an invalid CLayeredImage");
                 }
                 final RawImageId id = new RawImageId(guidValue(
-                    resolver.invoke("cubism.editor-model.layered-image.guid", layeredImage),
-                    "Editor raw image"
-                ));
+                        resolver.invoke("cubism.editor-model.layered-image.guid", layeredImage), "Editor raw image"));
                 if (!ids.add(id)) {
                     return new BindingResult(
-                        BindingStatus.DUPLICATE_ID,
-                        null,
-                        null,
-                        "Editor raw image identifiers are not unique"
-                    );
+                            BindingStatus.DUPLICATE_ID, null, null, "Editor raw image identifiers are not unique");
                 }
                 if (!targetId.equals(id)) continue;
-                final Object nameValue = resolver.invoke(
-                    "cubism.editor-model.layered-image.name",
-                    layeredImage
-                );
+                final Object nameValue = resolver.invoke("cubism.editor-model.layered-image.name", layeredImage);
                 if (!(nameValue instanceof String name)) {
                     throw unavailable("Editor raw image name is invalid");
                 }
@@ -97,39 +82,35 @@ final class EditorRawImagePsdSourceBinding {
             }
 
             final EditorRawImagePsdAccess.TargetSelection<Object> selection =
-                EditorRawImagePsdAccess.selectByRawImageId(candidates, targetId);
+                    EditorRawImagePsdAccess.selectByRawImageId(candidates, targetId);
             if (selection.status() == EditorRawImagePsdAccess.SelectionStatus.NOT_FOUND) {
                 return new BindingResult(
-                    BindingStatus.NOT_FOUND,
-                    null,
-                    null,
-                    "requested RawImageId is absent from the current model-source texture manager"
-                );
+                        BindingStatus.NOT_FOUND,
+                        null,
+                        null,
+                        "requested RawImageId is absent from the current model-source texture manager");
             }
             if (selection.status() == EditorRawImagePsdAccess.SelectionStatus.DUPLICATE) {
                 return new BindingResult(
-                    BindingStatus.DUPLICATE_ID,
-                    null,
-                    null,
-                    "requested RawImageId resolves to more than one current raw image"
-                );
+                        BindingStatus.DUPLICATE_ID,
+                        null,
+                        null,
+                        "requested RawImageId resolves to more than one current raw image");
             }
             final EditorRawImagePsdAccess.RawImageCandidate<Object> candidate = selection.candidate();
             final EditorRawImagePsdIntegrityAccess.Snapshot snapshot =
-                captureIntegrity ? integrityAccess.captureOnHostThread(candidate.nativeSource()) : null;
+                    captureIntegrity ? integrityAccess.captureOnHostThread(candidate.nativeSource()) : null;
             return new BindingResult(
-                BindingStatus.MATCHED,
-                candidate,
-                snapshot,
-                "selected current model-source raw image by exact RawImageId"
-            );
+                    BindingStatus.MATCHED,
+                    candidate,
+                    snapshot,
+                    "selected current model-source raw image by exact RawImageId");
         } catch (RuntimeException failure) {
             return new BindingResult(
-                BindingStatus.UNAVAILABLE,
-                null,
-                null,
-                "PSD source binding could not be verified: " + message(failure)
-            );
+                    BindingStatus.UNAVAILABLE,
+                    null,
+                    null,
+                    "PSD source binding could not be verified: " + message(failure));
         }
     }
 
@@ -173,11 +154,10 @@ final class EditorRawImagePsdSourceBinding {
     }
 
     record BindingResult(
-        BindingStatus status,
-        EditorRawImagePsdAccess.RawImageCandidate<Object> candidate,
-        EditorRawImagePsdIntegrityAccess.Snapshot snapshot,
-        String detail
-    ) {
+            BindingStatus status,
+            EditorRawImagePsdAccess.RawImageCandidate<Object> candidate,
+            EditorRawImagePsdIntegrityAccess.Snapshot snapshot,
+            String detail) {
         BindingResult {
             status = Objects.requireNonNull(status, "status");
             detail = Objects.requireNonNull(detail, "detail");

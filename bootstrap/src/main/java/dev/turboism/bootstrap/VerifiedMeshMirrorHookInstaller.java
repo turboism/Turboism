@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.mesh.MeshMirrorNativeMethodTransformer;
 import dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -30,97 +31,88 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
     private boolean closed;
 
     VerifiedMeshMirrorHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final MeshMirrorHostProfile profile
-    ) {
-        this(instrumentation, hostClassLoader, null, null, null, profile, ignored -> { });
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final MeshMirrorHostProfile profile) {
+        this(instrumentation, hostClassLoader, null, null, null, profile, ignored -> {});
     }
 
     VerifiedMeshMirrorHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final RuntimeMeshMirrorAxisService axis,
-        final RuntimeMeshEditUiService ui,
-        final MeshMirrorHostProfile profile,
-        final Consumer<String> diagnostic
-    ) {
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final RuntimeMeshMirrorAxisService axis,
+            final RuntimeMeshEditUiService ui,
+            final MeshMirrorHostProfile profile,
+            final Consumer<String> diagnostic) {
         this(instrumentation, hostClassLoader, null, axis, ui, profile, diagnostic);
     }
 
     VerifiedMeshMirrorHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final RuntimeMeshMirrorAxisService axis,
-        final RuntimeMeshEditUiService ui,
-        final MeshMirrorHostProfile profile
-    ) {
-        this(instrumentation, hostClassLoader, null, axis, ui, profile, ignored -> { });
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final RuntimeMeshMirrorAxisService axis,
+            final RuntimeMeshEditUiService ui,
+            final MeshMirrorHostProfile profile) {
+        this(instrumentation, hostClassLoader, null, axis, ui, profile, ignored -> {});
     }
 
     VerifiedMeshMirrorHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final Path hostArtifact,
-        final MeshMirrorHostProfile profile
-    ) {
-        this(instrumentation, hostClassLoader, hostArtifact, null, null, profile, ignored -> { });
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final Path hostArtifact,
+            final MeshMirrorHostProfile profile) {
+        this(instrumentation, hostClassLoader, hostArtifact, null, null, profile, ignored -> {});
     }
 
     VerifiedMeshMirrorHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final Path hostArtifact,
-        final RuntimeMeshMirrorAxisService axis,
-        final RuntimeMeshEditUiService ui,
-        final MeshMirrorHostProfile profile
-    ) {
-        this(instrumentation, hostClassLoader, hostArtifact, axis, ui, profile, ignored -> { });
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final Path hostArtifact,
+            final RuntimeMeshMirrorAxisService axis,
+            final RuntimeMeshEditUiService ui,
+            final MeshMirrorHostProfile profile) {
+        this(instrumentation, hostClassLoader, hostArtifact, axis, ui, profile, ignored -> {});
     }
 
     VerifiedMeshMirrorHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final Path hostArtifact,
-        final RuntimeMeshMirrorAxisService axis,
-        final RuntimeMeshEditUiService ui,
-        final MeshMirrorHostProfile profile,
-        final Consumer<String> diagnostic
-    ) {
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final Path hostArtifact,
+            final RuntimeMeshMirrorAxisService axis,
+            final RuntimeMeshEditUiService ui,
+            final MeshMirrorHostProfile profile,
+            final Consumer<String> diagnostic) {
         this(instrumentation, hostClassLoader, hostArtifact, axis, ui, profile, Map.of(), diagnostic);
     }
 
     VerifiedMeshMirrorHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final Path hostArtifact,
-        final RuntimeMeshMirrorAxisService axis,
-        final RuntimeMeshEditUiService ui,
-        final MeshMirrorHostProfile profile,
-        final Map<String, String> pinnedClassSha256,
-        final Consumer<String> diagnostic
-    ) {
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final Path hostArtifact,
+            final RuntimeMeshMirrorAxisService axis,
+            final RuntimeMeshEditUiService ui,
+            final MeshMirrorHostProfile profile,
+            final Map<String, String> pinnedClassSha256,
+            final Consumer<String> diagnostic) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = hostClassLoader;
         this.axis = axis;
         this.ui = ui;
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
         this.transformer = new MeshMirrorNativeMethodTransformer(
-            profile,
-            hostClassLoader,
-            hostArtifact == null ? null : hostArtifact.toAbsolutePath().normalize(),
-            null,
-            instrumentation,
-            pinnedClassSha256,
-            this::report
-        );
+                profile,
+                hostClassLoader,
+                hostArtifact == null ? null : hostArtifact.toAbsolutePath().normalize(),
+                null,
+                instrumentation,
+                pinnedClassSha256,
+                this::report);
         // Every owner the transformer may rewrite must be listed here, or a preloaded
         // target would go undetected and cleanup would leave it rewritten.
         final List<String> targets = new ArrayList<>(List.of(
-            profile.meshEditorOwner().replace('/', '.'),
-            profile.mirrorWidgetOwner().replace('/', '.'),
-            profile.mirrorAxisDrawOwner().replace('/', '.')
-        ));
+                profile.meshEditorOwner().replace('/', '.'),
+                profile.mirrorWidgetOwner().replace('/', '.'),
+                profile.mirrorAxisDrawOwner().replace('/', '.')));
         final MeshMirrorHostProfile.SelectedPointMove move = profile.selectedPointMove();
         if (move != null) targets.add(move.owner().replace('/', '.'));
         final MeshMirrorHostProfile.LinkedDeletion linked = profile.linkedDeletion();
@@ -146,6 +138,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                 installed = true;
                 report("MESH_MIRROR_DIAG stage=TRANSFORMER_REGISTERED");
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 rollback();
                 closed = true;
                 throw new IllegalStateException("mesh mirror hook installation failed", failure);
@@ -202,10 +195,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         bind(axis, ui);
     }
 
-    void bind(
-        final RuntimeMeshMirrorAxisService axis,
-        final RuntimeMeshEditUiService ui
-    ) {
+    void bind(final RuntimeMeshMirrorAxisService axis, final RuntimeMeshEditUiService ui) {
         Objects.requireNonNull(axis, "axis");
         Objects.requireNonNull(ui, "ui");
         synchronized (lifecycleLock) {
@@ -220,6 +210,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                 NativeMeshMirrorBridge.install(axis, ui, true);
                 bound = true;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (contributionObserver != null) {
                     contributionObserver.close();
                     contributionObserver = null;
@@ -229,9 +220,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         }
     }
 
-    private dev.turboism.sdk.plugin.Registration observeContribution(
-        final RuntimeMeshEditUiService service
-    ) {
+    private dev.turboism.sdk.plugin.Registration observeContribution(final RuntimeMeshEditUiService service) {
         return service.observeContribution(available -> {
             if (available) NativeMeshMirrorBridge.replayPendingAttach();
             else if (isBound()) close();
@@ -292,6 +281,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         try {
             NativeMeshMirrorBridge.uninstall();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.add("MESH_MIRROR_BRIDGE_UNINSTALL_FAILED");
         }
         if (installed) {
@@ -301,6 +291,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                     failures.add("MESH_MIRROR_TRANSFORMER_REMOVE_FAILED");
                 }
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 failures.add("MESH_MIRROR_TRANSFORMER_REMOVE_FAILED");
             }
             restoreLoadedTargets(failures);
@@ -309,6 +300,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             try {
                 contributionObserver.close();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 failures.add("MESH_MIRROR_CONTRIBUTION_OBSERVER_CLOSE_FAILED");
             } finally {
                 contributionObserver = null;
@@ -318,6 +310,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             try {
                 ui.resetSession();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 failures.add("MESH_MIRROR_UI_RESET_FAILED");
             }
         }
@@ -325,6 +318,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             try {
                 axis.resetSession();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 failures.add("MESH_MIRROR_AXIS_RESET_FAILED");
             }
         }
@@ -335,24 +329,25 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
     private void restoreLoadedTargets(final List<String> failures) {
         // PREMAIN cannot know the host loader yet, so a null hostClassLoader would widen
         // restoration to every loader. Prefer the loader the transformer actually admitted.
-        final ClassLoader owner = transformer.admittedClassLoader() == null
-            ? hostClassLoader
-            : transformer.admittedClassLoader();
+        final ClassLoader owner =
+                transformer.admittedClassLoader() == null ? hostClassLoader : transformer.admittedClassLoader();
         if (owner == null) return;
         try {
             for (Class<?> type : instrumentation.getAllLoadedClasses()) {
                 try {
                     if (type.getClassLoader() == owner
-                        && isTarget(safeName(type))
-                        && instrumentation.isModifiableClass(type)) {
+                            && isTarget(safeName(type))
+                            && instrumentation.isModifiableClass(type)) {
                         instrumentation.retransformClasses(type);
                     }
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     failures.add("MESH_MIRROR_RESTORE_FAILED owner=" + safeName(type));
                     failures.add("MESH_MIRROR_DIAG stage=RESTORE_FAILED owner=" + safeName(type));
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.add("MESH_MIRROR_RESTORE_ENUMERATION_FAILED");
             failures.add("MESH_MIRROR_DIAG stage=RESTORE_FAILED owner=ENUMERATION");
         }
@@ -363,6 +358,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         try {
             loaded = instrumentation.getAllLoadedClasses();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             report("MESH_MIRROR_UNAVAILABLE_LOADED_CLASS_ENUMERATION_FAILED");
             throw new IllegalStateException("mesh mirror loaded-class enumeration failed", failure);
         }
@@ -379,6 +375,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         try {
             diagnostic.accept(message);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics must not reopen a closed host boundary.
         }
     }
@@ -387,6 +384,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         try {
             return type.getName();
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return "UNKNOWN";
         }
     }

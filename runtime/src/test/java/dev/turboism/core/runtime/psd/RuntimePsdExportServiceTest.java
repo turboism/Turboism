@@ -1,16 +1,18 @@
 package dev.turboism.core.runtime.psd;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.psd.PsdExportResult;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Path;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -25,19 +27,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class RuntimePsdExportServiceTest {
     private static final RawImageId SOURCE = new RawImageId("raw-source");
     private static final List<String> REQUIRED_PERMISSIONS = List.of(
-        PermissionIds.TURBOISM_CUBISM_MODEL_READ,
-        PermissionIds.TURBOISM_FILE_WRITE,
-        PermissionIds.TURBOISM_FILE_READ
-    );
+            PermissionIds.TURBOISM_CUBISM_MODEL_READ,
+            PermissionIds.TURBOISM_FILE_WRITE,
+            PermissionIds.TURBOISM_FILE_READ);
 
     @TempDir
     Path temporaryRoot;
@@ -48,11 +46,8 @@ class RuntimePsdExportServiceTest {
         final List<String> permissionCalls = new ArrayList<>();
         final AtomicReference<Path> destination = new AtomicReference<>();
         final AtomicInteger hostCalls = new AtomicInteger();
-        final RuntimePsdExportService service = service(
-            active,
-            permissionChecker(new AtomicBoolean(true), permissionCalls),
-            Runnable::run
-        );
+        final RuntimePsdExportService service =
+                service(active, permissionChecker(new AtomicBoolean(true), permissionCalls), Runnable::run);
         try {
             final PsdExportHost host = (source, path, admission) -> {
                 destination.set(path);
@@ -68,12 +63,12 @@ class RuntimePsdExportServiceTest {
             assertTrue(result.file().isEmpty());
             assertTrue(result.initialRevision().isEmpty());
             assertEquals(
-                "PSD_NATIVE_EXPORT;status=EXPORTED_UNBOUND;integrity=MATCHED;readable=true;structure=true",
-                result.diagnostic()
-            );
+                    "PSD_NATIVE_EXPORT;status=EXPORTED_UNBOUND;integrity=MATCHED;readable=true;structure=true",
+                    result.diagnostic());
             assertEquals(1, hostCalls.get());
             for (String permission : REQUIRED_PERMISSIONS) {
-                assertEquals(5L, permissionCalls.stream().filter(permission::equals).count());
+                assertEquals(
+                        5L, permissionCalls.stream().filter(permission::equals).count());
             }
             assertNotNull(destination.get());
             assertEquals("external-edit.psd", destination.get().getFileName().toString());
@@ -89,12 +84,19 @@ class RuntimePsdExportServiceTest {
         final RuntimePsdExportService service = service(active, allowAll(), Runnable::run);
         try {
             final SessionBoundExportHost host = new SessionBoundExportHost() {
-                @Override public String sessionIdentity() { return "session-1"; }
+                @Override
+                public String sessionIdentity() {
+                    return "session-1";
+                }
 
-                @Override public long generation() { return 7L; }
+                @Override
+                public long generation() {
+                    return 7L;
+                }
 
-                @Override public PsdExportHost.Observation exportPsdTo(
-                    final RawImageId source, final Path destination, final Runnable admission) {
+                @Override
+                public PsdExportHost.Observation exportPsdTo(
+                        final RawImageId source, final Path destination, final Runnable admission) {
                     admission.run();
                     try {
                         exportedPath.set(destination);
@@ -102,23 +104,23 @@ class RuntimePsdExportServiceTest {
                     } catch (IOException failure) {
                         throw new IllegalStateException(failure);
                     }
-                    return new PsdExportHost.Observation("EXPORTED", "MATCHED", true, true,
-                        java.util.Optional.empty(), "原本 PSD.PSD");
+                    return new PsdExportHost.Observation(
+                            "EXPORTED", "MATCHED", true, true, java.util.Optional.empty(), "原本 PSD.PSD");
                 }
             };
 
             final PsdExportResult result = awaitCompletion(service.exportRawImagePsd(host, SOURCE));
 
             assertFalse(Files.exists(exportedPath.get()));
-            assertEquals("runtime PSD export fixture", Files.readString(
-                exportedPath.get().resolveSibling("原本 PSD.PSD")));
+            assertEquals(
+                    "runtime PSD export fixture",
+                    Files.readString(exportedPath.get().resolveSibling("原本 PSD.PSD")));
             assertEquals(PsdExportResult.Status.EXPORTED, result.status());
             assertTrue(result.file().isPresent());
             assertTrue(result.initialRevision().isPresent());
             assertEquals(
-                "PSD_NATIVE_EXPORT;status=EXPORTED;integrity=MATCHED;readable=true;structure=true",
-                result.diagnostic()
-            );
+                    "PSD_NATIVE_EXPORT;status=EXPORTED;integrity=MATCHED;readable=true;structure=true",
+                    result.diagnostic());
         } finally {
             service.close();
         }
@@ -142,9 +144,8 @@ class RuntimePsdExportServiceTest {
             assertTrue(result.file().isEmpty());
             assertTrue(result.initialRevision().isEmpty());
             assertEquals(
-                "PSD_NATIVE_EXPORT;status=UNAVAILABLE;integrity=UNAVAILABLE;readable=false;structure=false",
-                result.diagnostic()
-            );
+                    "PSD_NATIVE_EXPORT;status=UNAVAILABLE;integrity=UNAVAILABLE;readable=false;structure=false",
+                    result.diagnostic());
             assertEquals(1, hostCalls.get());
         } finally {
             service.close();
@@ -157,11 +158,8 @@ class RuntimePsdExportServiceTest {
         final AtomicBoolean allowed = new AtomicBoolean(false);
         final List<String> permissionCalls = new ArrayList<>();
         final AtomicInteger hostCalls = new AtomicInteger();
-        final RuntimePsdExportService service = service(
-            active,
-            permissionChecker(allowed, permissionCalls),
-            Runnable::run
-        );
+        final RuntimePsdExportService service =
+                service(active, permissionChecker(allowed, permissionCalls), Runnable::run);
         try {
             final PsdExportHost host = (source, destination, admission) -> {
                 hostCalls.incrementAndGet();
@@ -174,7 +172,9 @@ class RuntimePsdExportServiceTest {
             assertTrue(result.file().isEmpty());
             assertTrue(result.initialRevision().isEmpty());
             assertEquals(0, hostCalls.get());
-            assertEquals(List.of(PermissionIds.TURBOISM_CUBISM_MODEL_READ, PermissionIds.TURBOISM_CUBISM_MODEL_READ), permissionCalls);
+            assertEquals(
+                    List.of(PermissionIds.TURBOISM_CUBISM_MODEL_READ, PermissionIds.TURBOISM_CUBISM_MODEL_READ),
+                    permissionCalls);
         } finally {
             service.close();
         }
@@ -187,11 +187,8 @@ class RuntimePsdExportServiceTest {
         final AtomicBoolean admissionRejected = new AtomicBoolean(false);
         final AtomicInteger hostCalls = new AtomicInteger();
         final AtomicInteger nativeCalls = new AtomicInteger();
-        final RuntimePsdExportService service = service(
-            active,
-            permissionChecker(allowed, new ArrayList<>()),
-            Runnable::run
-        );
+        final RuntimePsdExportService service =
+                service(active, permissionChecker(allowed, new ArrayList<>()), Runnable::run);
         try {
             final PsdExportHost host = (source, destination, admission) -> {
                 hostCalls.incrementAndGet();
@@ -223,16 +220,15 @@ class RuntimePsdExportServiceTest {
         final AtomicInteger hostCalls = new AtomicInteger();
         final AtomicInteger allocations = new AtomicInteger();
         final RuntimePsdExportService service = new RuntimePsdExportService(
-            "test.plugin",
-            allowAll(),
-            active::get,
-            Runnable::run,
-            () -> {
-                allocations.incrementAndGet();
-                return PsdTemporaryFile.createIn(temporaryRoot);
-            },
-            file -> { }
-        );
+                "test.plugin",
+                allowAll(),
+                active::get,
+                Runnable::run,
+                () -> {
+                    allocations.incrementAndGet();
+                    return PsdTemporaryFile.createIn(temporaryRoot);
+                },
+                file -> {});
         try {
             final PsdExportHost host = (source, destination, admission) -> {
                 hostCalls.incrementAndGet();
@@ -277,11 +273,15 @@ class RuntimePsdExportServiceTest {
             }
             final CompletionStage<PsdExportResult> overflow = service.exportRawImagePsd(host, SOURCE);
 
-            assertEquals(PsdExportResult.Status.REJECTED, awaitCompletion(overflow).status());
+            assertEquals(
+                    PsdExportResult.Status.REJECTED, awaitCompletion(overflow).status());
             release.countDown();
-            assertEquals(PsdExportResult.Status.UNAVAILABLE, awaitCompletion(first).status());
+            assertEquals(
+                    PsdExportResult.Status.UNAVAILABLE, awaitCompletion(first).status());
             for (CompletionStage<PsdExportResult> request : queued) {
-                assertEquals(PsdExportResult.Status.UNAVAILABLE, awaitCompletion(request).status());
+                assertEquals(
+                        PsdExportResult.Status.UNAVAILABLE,
+                        awaitCompletion(request).status());
             }
             assertEquals(9, hostCalls.get());
         } finally {
@@ -318,8 +318,12 @@ class RuntimePsdExportServiceTest {
             assertTrue(closeMillis < 1_000, "close waited for the native worker: " + closeMillis + "ms");
 
             release.countDown();
-            assertEquals(PsdExportResult.Status.UNAVAILABLE, awaitCompletion(runningRequest).status());
-            assertEquals(PsdExportResult.Status.UNAVAILABLE, awaitCompletion(queuedRequest).status());
+            assertEquals(
+                    PsdExportResult.Status.UNAVAILABLE,
+                    awaitCompletion(runningRequest).status());
+            assertEquals(
+                    PsdExportResult.Status.UNAVAILABLE,
+                    awaitCompletion(queuedRequest).status());
             assertFalse(interrupted.get());
             assertEquals(1, hostCalls.get());
         } finally {
@@ -333,14 +337,10 @@ class RuntimePsdExportServiceTest {
         final AtomicBoolean active = new AtomicBoolean(true);
         final Queue<Runnable> pendingPublications = new ConcurrentLinkedQueue<>();
         final CountDownLatch publicationQueued = new CountDownLatch(1);
-        final RuntimePsdExportService service = service(
-            active,
-            allowAll(),
-            publication -> {
-                pendingPublications.add(publication);
-                publicationQueued.countDown();
-            }
-        );
+        final RuntimePsdExportService service = service(active, allowAll(), publication -> {
+            pendingPublications.add(publication);
+            publicationQueued.countDown();
+        });
         try {
             final PsdExportHost host = (source, destination, admission) -> {
                 admission.run();
@@ -383,7 +383,8 @@ class RuntimePsdExportServiceTest {
             });
 
             awaitLatch(callbackDone);
-            assertEquals(PsdExportResult.Status.UNAVAILABLE, awaitCompletion(stage).status());
+            assertEquals(
+                    PsdExportResult.Status.UNAVAILABLE, awaitCompletion(stage).status());
             assertEquals("plugin.tasks.test", callbackThread.get());
             assertEquals(null, callbackFailure.get());
             assertFalse(Thread.currentThread().getName().equals(callbackThread.get()));
@@ -402,20 +403,15 @@ class RuntimePsdExportServiceTest {
             final PsdExportHost host = (source, destination, admission) -> {
                 admission.run();
                 return new PsdExportHost.Observation(
-                    "/tmp/private.psd",
-                    "exception: /secret/native-message",
-                    false,
-                    false
-                );
+                        "/tmp/private.psd", "exception: /secret/native-message", false, false);
             };
 
             final PsdExportResult result = awaitCompletion(service.exportRawImagePsd(host, SOURCE));
 
             assertEquals(PsdExportResult.Status.FAILED, result.status());
             assertEquals(
-                "PSD_NATIVE_EXPORT;status=UNKNOWN;integrity=UNKNOWN;readable=false;structure=false",
-                result.diagnostic()
-            );
+                    "PSD_NATIVE_EXPORT;status=UNKNOWN;integrity=UNKNOWN;readable=false;structure=false",
+                    result.diagnostic());
             assertFalse(result.diagnostic().contains("/tmp/private.psd"));
             assertFalse(result.diagnostic().contains("/secret/native-message"));
         } finally {
@@ -423,20 +419,20 @@ class RuntimePsdExportServiceTest {
         }
     }
 
-    private interface SessionBoundExportHost extends PsdExportHost, PsdSessionBoundHost { }
+    private interface SessionBoundExportHost extends PsdExportHost, PsdSessionBoundHost {}
 
     @Test
     void publishesSafeFailureDetailsWithoutIssuingHandles() throws Exception {
         final var service = service(new AtomicBoolean(true), allowAll(), Runnable::run);
         try {
             for (final var detail : List.of(
-                new PsdExportHost.Failure("SAVE", "OUT_OF_MEMORY", false),
-                new PsdExportHost.Failure("PARSE", "IO", true),
-                new PsdExportHost.Failure("/private/path", "native.class: secret", false))) {
+                    new PsdExportHost.Failure("SAVE", "OUT_OF_MEMORY", false),
+                    new PsdExportHost.Failure("PARSE", "IO", true),
+                    new PsdExportHost.Failure("/private/path", "native.class: secret", false))) {
                 final PsdExportHost host = (source, destination, admission) -> {
                     admission.run();
-                    return new PsdExportHost.Observation("NATIVE_FAILURE", "UNAVAILABLE", false, false,
-                        java.util.Optional.of(detail));
+                    return new PsdExportHost.Observation(
+                            "NATIVE_FAILURE", "UNAVAILABLE", false, false, java.util.Optional.of(detail));
                 };
                 final var result = awaitCompletion(service.exportRawImagePsd(host, SOURCE));
                 assertEquals(PsdExportResult.Status.FAILED, result.status());
@@ -444,9 +440,11 @@ class RuntimePsdExportServiceTest {
                 assertTrue(result.initialRevision().isEmpty());
                 final String phase = detail.phase().startsWith("/") ? "UNKNOWN" : detail.phase();
                 final String category = phase.equals("UNKNOWN") ? "UNKNOWN" : detail.category();
-                assertEquals("PSD_NATIVE_EXPORT;status=NATIVE_FAILURE;integrity=UNAVAILABLE;readable=false"
-                    + ";structure=false;phase=" + phase + ";category=" + category
-                    + ";saveReturned=" + detail.saveReturned(), result.diagnostic());
+                assertEquals(
+                        "PSD_NATIVE_EXPORT;status=NATIVE_FAILURE;integrity=UNAVAILABLE;readable=false"
+                                + ";structure=false;phase=" + phase + ";category=" + category
+                                + ";saveReturned=" + detail.saveReturned(),
+                        result.diagnostic());
             }
         } finally {
             service.close();
@@ -454,28 +452,23 @@ class RuntimePsdExportServiceTest {
     }
 
     private RuntimePsdExportService service(
-        final AtomicBoolean active,
-        final PermissionChecker permissionChecker,
-        final Consumer<Runnable> dispatcher
-    ) {
+            final AtomicBoolean active,
+            final PermissionChecker permissionChecker,
+            final Consumer<Runnable> dispatcher) {
         return new RuntimePsdExportService(
-            "test.plugin",
-            permissionChecker,
-            active::get,
-            dispatcher,
-            () -> PsdTemporaryFile.createIn(temporaryRoot),
-            file -> { }
-        );
+                "test.plugin",
+                permissionChecker,
+                active::get,
+                dispatcher,
+                () -> PsdTemporaryFile.createIn(temporaryRoot),
+                file -> {});
     }
 
     private static PermissionChecker allowAll() {
-        return (permission, operation) -> { };
+        return (permission, operation) -> {};
     }
 
-    private static PermissionChecker permissionChecker(
-        final AtomicBoolean allowed,
-        final List<String> calls
-    ) {
+    private static PermissionChecker permissionChecker(final AtomicBoolean allowed, final List<String> calls) {
         return (permission, operation) -> {
             calls.add(permission);
             if (!allowed.get()) {
@@ -484,8 +477,7 @@ class RuntimePsdExportServiceTest {
         };
     }
 
-    private static PsdExportResult awaitCompletion(final CompletionStage<PsdExportResult> stage)
-        throws Exception {
+    private static PsdExportResult awaitCompletion(final CompletionStage<PsdExportResult> stage) throws Exception {
         return stage.toCompletableFuture().get(3, TimeUnit.SECONDS);
     }
 

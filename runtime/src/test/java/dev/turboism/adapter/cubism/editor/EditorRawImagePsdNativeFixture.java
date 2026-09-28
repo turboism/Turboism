@@ -28,8 +28,7 @@ public final class EditorRawImagePsdNativeFixture {
     public static SyntheticParsed lastParsed;
     public static boolean throwOnParsedImageDispose;
 
-    private EditorRawImagePsdNativeFixture() {
-    }
+    private EditorRawImagePsdNativeFixture() {}
 
     public static void reset() {
         synchronized (EVENTS) {
@@ -74,13 +73,11 @@ public final class EditorRawImagePsdNativeFixture {
     }
 
     public static final class SyntheticProgress {
-        public SyntheticProgress() {
-        }
+        public SyntheticProgress() {}
     }
 
     public static final class SyntheticProgressFactory {
-        private SyntheticProgressFactory() {
-        }
+        private SyntheticProgressFactory() {}
 
         public static SyntheticProgress e() {
             record("progress");
@@ -112,12 +109,19 @@ public final class EditorRawImagePsdNativeFixture {
 
     public static final class SyntheticParsedLayer {
         private final SyntheticParsedImage image;
-        public SyntheticParsedLayer(final SyntheticParsedImage image) { this.image = image; }
-        public SyntheticParsedImage c() { return image; }
+
+        public SyntheticParsedLayer(final SyntheticParsedImage image) {
+            this.image = image;
+        }
+
+        public SyntheticParsedImage c() {
+            return image;
+        }
     }
 
     public static final class SyntheticParsedImage {
         public int disposeCalls;
+
         public void dispose() {
             record("parsed-dispose");
             disposeCalls++;
@@ -126,14 +130,9 @@ public final class EditorRawImagePsdNativeFixture {
     }
 
     public static final class SyntheticCompanion {
-        public SyntheticCompanion() {
-        }
+        public SyntheticCompanion() {}
 
-        public SyntheticParsed a(
-            final File file,
-            final boolean firstFlag,
-            final boolean secondFlag
-        ) {
+        public SyntheticParsed a(final File file, final boolean firstFlag, final boolean secondFlag) {
             record("parse");
             parseTarget = file;
             parseFirstFlag = firstFlag;
@@ -151,8 +150,7 @@ public final class EditorRawImagePsdNativeFixture {
     public static final class SyntheticPsdDocument {
         public static final SyntheticCompanion a = new SyntheticCompanion();
 
-        private SyntheticPsdDocument() {
-        }
+        private SyntheticPsdDocument() {}
     }
 
     public static final class SyntheticLayeredImage {
@@ -196,11 +194,7 @@ public final class EditorRawImagePsdNativeFixture {
             afterSave.run();
         }
 
-        public SyntheticLayeredImage(
-            final SyntheticParsed parsed,
-            final File file,
-            final String name
-        ) {
+        public SyntheticLayeredImage(final SyntheticParsed parsed, final File file, final String name) {
             record("construct");
             constructFailure.run();
             if (parsed == null || !parsed.source().equals(file)) {

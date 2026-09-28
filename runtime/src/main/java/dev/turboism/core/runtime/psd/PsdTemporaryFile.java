@@ -79,15 +79,17 @@ final class PsdTemporaryFile {
 
     private static String safePsdName(final String sourceName) {
         final String fallback = "external-edit.psd";
-        if (sourceName == null || sourceName.isBlank() || sourceName.endsWith(".")
-            || sourceName.endsWith(" ") || sourceName.codePoints().anyMatch(c ->
-                c < 32 || "<>:\"/\\\\|?*".indexOf(c) >= 0)) return fallback;
+        if (sourceName == null
+                || sourceName.isBlank()
+                || sourceName.endsWith(".")
+                || sourceName.endsWith(" ")
+                || sourceName.codePoints().anyMatch(c -> c < 32 || "<>:\"/\\\\|?*".indexOf(c) >= 0)) return fallback;
         final String stem = sourceName.split("\\.", 2)[0].stripTrailing();
         if (stem.matches("(?iu)(CON|PRN|AUX|NUL|CONIN\\$|CONOUT\\$|COM[1-9¹²³]|LPT[1-9¹²³])")) {
             return fallback;
         }
-        final String name = sourceName.toLowerCase(java.util.Locale.ROOT).endsWith(".psd")
-            ? sourceName : sourceName + ".psd";
+        final String name =
+                sourceName.toLowerCase(java.util.Locale.ROOT).endsWith(".psd") ? sourceName : sourceName + ".psd";
         return name.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 255 ? fallback : name;
     }
 
@@ -96,11 +98,11 @@ final class PsdTemporaryFile {
         return file.getFileName().toString();
     }
 
-    private static void validateDirectory(final Path path, final Object expectedKey)
-        throws IOException {
+    private static void validateDirectory(final Path path, final Object expectedKey) throws IOException {
         final BasicFileAttributes current = attributes(path);
-        if (!current.isDirectory() || !path.toRealPath().equals(path)
-            || (expectedKey != null && !expectedKey.equals(current.fileKey()))) {
+        if (!current.isDirectory()
+                || !path.toRealPath().equals(path)
+                || (expectedKey != null && !expectedKey.equals(current.fileKey()))) {
             throw new IOException("PSD temporary directory identity changed");
         }
     }

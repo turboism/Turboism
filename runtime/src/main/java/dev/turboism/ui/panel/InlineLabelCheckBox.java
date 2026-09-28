@@ -2,11 +2,6 @@ package dev.turboism.ui.panel;
 
 import dev.turboism.sdk.ui.UiInlineLabel;
 import dev.turboism.sdk.ui.resource.UiIconRef;
-
-import javax.swing.Icon;
-import javax.swing.JCheckBox;
-import javax.swing.SwingConstants;
-import javax.swing.UIManager;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
@@ -30,6 +25,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import javax.swing.Icon;
+import javax.swing.JCheckBox;
+import javax.swing.SwingConstants;
+import javax.swing.UIManager;
 
 /**
  * Runtime-only JCheckBox that paints a typed inline label without creating input-stealing child
@@ -52,12 +51,11 @@ final class InlineLabelCheckBox extends JCheckBox {
     private List<ResolvedRun> runs;
 
     InlineLabelCheckBox(
-        final String id,
-        final UiInlineLabel label,
-        final boolean selected,
-        final boolean grayed,
-        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver
-    ) {
+            final String id,
+            final UiInlineLabel label,
+            final boolean selected,
+            final boolean grayed,
+            final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
         super("", selected);
         this.label = Objects.requireNonNull(label, "label");
         this.iconResolver = Objects.requireNonNull(iconResolver, "iconResolver");
@@ -113,20 +111,13 @@ final class InlineLabelCheckBox extends JCheckBox {
         final FontMetrics metrics = getFontMetrics(font);
         final FontRenderContext fontRenderContext = metrics.getFontRenderContext();
         final LabelLayout natural = layout(runs, font, fontRenderContext, Integer.MAX_VALUE / 4, this);
-        final int naturalWidth = Math.min(
-            MAX_NATURAL_WIDTH,
-            Math.max(1, natural.width())
-        );
+        final int naturalWidth = Math.min(MAX_NATURAL_WIDTH, Math.max(1, natural.width()));
         final boolean assignedWidth = getWidth() > 0;
-        final int contentWidth = assignedWidth
-            ? Math.max(1, getWidth() - labelStart(marker) - getInsets().right)
-            : naturalWidth;
+        final int contentWidth =
+                assignedWidth ? Math.max(1, getWidth() - labelStart(marker) - getInsets().right) : naturalWidth;
         final LabelLayout wrapped = layout(runs, font, fontRenderContext, contentWidth, this);
         final Insets insets = getInsets();
-        final int height = Math.max(
-            marker.height,
-            insets.top + wrapped.height() + insets.bottom
-        );
+        final int height = Math.max(marker.height, insets.top + wrapped.height() + insets.bottom);
         final int preferredWidth = assignedWidth ? getWidth() : labelStart(marker) + naturalWidth;
         return new Dimension(preferredWidth, height);
     }
@@ -188,24 +179,17 @@ final class InlineLabelCheckBox extends JCheckBox {
         final Stroke oldStroke = graphics.getStroke();
         final Color focus = UIManager.getColor("Component.focusColor");
         graphics.setColor(focus == null ? new Color(0x4A90E2) : focus);
-        graphics.setStroke(new BasicStroke(
-            1f,
-            BasicStroke.CAP_BUTT,
-            BasicStroke.JOIN_MITER,
-            10f,
-            new float[]{2f, 2f},
-            0f
-        ));
+        graphics.setStroke(
+                new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[] {2f, 2f}, 0f));
         graphics.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
         graphics.setStroke(oldStroke);
         graphics.setColor(oldColor);
     }
 
     private static List<ResolvedRun> resolveRuns(
-        final UiInlineLabel label,
-        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver,
-        final boolean disabled
-    ) {
+            final UiInlineLabel label,
+            final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver,
+            final boolean disabled) {
         final List<ResolvedRun> resolved = new ArrayList<>(label.runs().size());
         for (UiInlineLabel.Run run : label.runs()) {
             if (run instanceof UiInlineLabel.TextRun text) {
@@ -233,12 +217,11 @@ final class InlineLabelCheckBox extends JCheckBox {
     }
 
     private static LabelLayout layout(
-        final List<ResolvedRun> runs,
-        final Font font,
-        final FontRenderContext fontRenderContext,
-        final int maximumWidth,
-        final Component component
-    ) {
+            final List<ResolvedRun> runs,
+            final Font font,
+            final FontRenderContext fontRenderContext,
+            final int maximumWidth,
+            final Component component) {
         final int width = Math.max(1, maximumWidth);
         final ParagraphsBuilder paragraphs = new ParagraphsBuilder(component);
         for (ResolvedRun run : runs) {
@@ -273,11 +256,7 @@ final class InlineLabelCheckBox extends JCheckBox {
                 }
                 final int lineWidth = Math.max(0, (int) Math.ceil(textLayout.getAdvance()));
                 final int lineHeight = Math.max(
-                    1,
-                    (int) Math.ceil(
-                        textLayout.getAscent() + textLayout.getDescent() + textLayout.getLeading()
-                    )
-                );
+                        1, (int) Math.ceil(textLayout.getAscent() + textLayout.getDescent() + textLayout.getLeading()));
                 lines.add(new VisualLine(textLayout, lineWidth, lineHeight));
                 maximumLineWidth = Math.max(maximumLineWidth, lineWidth);
                 totalHeight += lineHeight;
@@ -293,7 +272,8 @@ final class InlineLabelCheckBox extends JCheckBox {
     }
 
     private static int emptyLineHeight(final Font font, final FontRenderContext fontRenderContext) {
-        return Math.max(1, (int) Math.ceil(font.getLineMetrics("", fontRenderContext).getHeight()));
+        return Math.max(
+                1, (int) Math.ceil(font.getLineMetrics("", fontRenderContext).getHeight()));
     }
 
     private static final class ParagraphsBuilder {
@@ -367,10 +347,7 @@ final class InlineLabelCheckBox extends JCheckBox {
         void appendIcon(final Icon icon) {
             final int start = text.length();
             text.append(ICON_PLACEHOLDER);
-            icons.add(new IconPlacement(
-                start,
-                new IconGraphicAttribute(icon, component)
-            ));
+            icons.add(new IconPlacement(start, new IconGraphicAttribute(icon, component)));
         }
 
         boolean isEmpty() {
@@ -382,16 +359,14 @@ final class InlineLabelCheckBox extends JCheckBox {
             attributed.addAttribute(TextAttribute.FONT, font);
             for (IconPlacement placement : icons) {
                 attributed.addAttribute(
-                    TextAttribute.CHAR_REPLACEMENT,
-                    placement.attribute(),
-                    placement.start(),
-                    placement.start() + 1
-                );
+                        TextAttribute.CHAR_REPLACEMENT,
+                        placement.attribute(),
+                        placement.start(),
+                        placement.start() + 1);
             }
             return attributed;
         }
     }
-
 
     private static final class IconGraphicAttribute extends GraphicAttribute {
         private final Icon icon;
@@ -420,12 +395,7 @@ final class InlineLabelCheckBox extends JCheckBox {
 
         @Override
         public Rectangle2D getBounds() {
-            return new Rectangle2D.Float(
-                ICON_GAP,
-                -LOGICAL_ICON_SIZE,
-                LOGICAL_ICON_SIZE,
-                LOGICAL_ICON_SIZE
-            );
+            return new Rectangle2D.Float(ICON_GAP, -LOGICAL_ICON_SIZE, LOGICAL_ICON_SIZE, LOGICAL_ICON_SIZE);
         }
 
         @Override
@@ -436,10 +406,7 @@ final class InlineLabelCheckBox extends JCheckBox {
             final Graphics2D iconGraphics = (Graphics2D) graphics.create();
             try {
                 iconGraphics.translate(x + ICON_GAP, y - LOGICAL_ICON_SIZE);
-                iconGraphics.scale(
-                    (double) LOGICAL_ICON_SIZE / width,
-                    (double) LOGICAL_ICON_SIZE / height
-                );
+                iconGraphics.scale((double) LOGICAL_ICON_SIZE / width, (double) LOGICAL_ICON_SIZE / height);
                 icon.paintIcon(component, iconGraphics, 0, 0);
             } finally {
                 iconGraphics.dispose();
@@ -447,13 +414,13 @@ final class InlineLabelCheckBox extends JCheckBox {
         }
     }
 
-    private record ResolvedRun(String fallbackText, Icon icon) { }
+    private record ResolvedRun(String fallbackText, Icon icon) {}
 
-    private record IconPlacement(int start, IconGraphicAttribute attribute) { }
+    private record IconPlacement(int start, IconGraphicAttribute attribute) {}
 
-    private record VisualLine(TextLayout layout, int width, int height) { }
+    private record VisualLine(TextLayout layout, int width, int height) {}
 
-    private record LabelLayout(List<VisualLine> lines, int width, int height) { }
+    private record LabelLayout(List<VisualLine> lines, int width, int height) {}
 
     private static Color disabledForeground() {
         final Color color = UIManager.getColor("Label.disabledForeground");

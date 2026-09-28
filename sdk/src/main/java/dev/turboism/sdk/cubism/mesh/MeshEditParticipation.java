@@ -38,13 +38,14 @@ public interface MeshEditParticipation {
     enum Unavailable implements MeshEditParticipation {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration participate(final MeshEditParticipant participant) {
-            throw new UnsupportedOperationException(
-                "meshEditParticipation service is not available");
+        @Override
+        public Registration participate(final MeshEditParticipant participant) {
+            throw new UnsupportedOperationException("meshEditParticipation service is not available");
         }
     }
 }

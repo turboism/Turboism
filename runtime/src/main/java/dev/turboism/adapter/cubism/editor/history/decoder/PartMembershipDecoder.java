@@ -3,10 +3,8 @@ package dev.turboism.adapter.cubism.editor.history.decoder;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
 import dev.turboism.sdk.cubism.history.HistoryAction;
-import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
-
 import java.util.Optional;
 
 /**
@@ -25,26 +23,21 @@ final class PartMembershipDecoder implements NativeHistoryDecoder {
 
     boolean supports(final VerifiedMemberResolver resolver, final Object entry) {
         return NativeHistoryDecoderRegistry.authorized(
-            resolver,
-            EditorHistorySemanticSelectorContract.PART_MEMBERSHIP_REQUIRED_ALIASES
-        ) && resolver.isExactInstance(CLASS_ALIAS, entry);
+                        resolver, EditorHistorySemanticSelectorContract.PART_MEMBERSHIP_REQUIRED_ALIASES)
+                && resolver.isExactInstance(CLASS_ALIAS, entry);
     }
 
     @Override
     public NativeHistoryDecodeResult decode(
-        final Object entry,
-        final String label,
-        final NativeHistoryDecodeContext context,
-        final int depth,
-        final NativeHistoryDecoderRegistry registry
-    ) {
+            final Object entry,
+            final String label,
+            final NativeHistoryDecodeContext context,
+            final int depth,
+            final NativeHistoryDecoderRegistry registry) {
         final VerifiedMemberResolver resolver = context.resolver();
         final Object rawPart = resolver.invoke("cubism.editor-history.semantic.part-membership.part", entry);
         final Object rawChild = resolver.invoke("cubism.editor-history.semantic.part-membership.child", entry);
-        final Object rawIsAdd = resolver.invoke(
-            "cubism.editor-history.semantic.part-membership.is-add",
-            entry
-        );
+        final Object rawIsAdd = resolver.invoke("cubism.editor-history.semantic.part-membership.is-add", entry);
         if (!(rawIsAdd instanceof Boolean isAdd)) {
             return NativeHistoryDecodeResult.failed("history.detail.part-membership-shape-invalid");
         }
@@ -61,27 +54,20 @@ final class PartMembershipDecoder implements NativeHistoryDecoder {
         if (PartMembershipRelations.sameIdentity(childTarget, partTarget)) {
             return NativeHistoryDecodeResult.failed("history.detail.part-membership-self-target");
         }
-        final HistoryRelationChange.Endpoint endpoint = new HistoryRelationChange.Endpoint(
-            HistoryRelationChange.State.TARGET,
-            Optional.of(partTarget)
-        );
+        final HistoryRelationChange.Endpoint endpoint =
+                new HistoryRelationChange.Endpoint(HistoryRelationChange.State.TARGET, Optional.of(partTarget));
         final HistoryRelationChange relation = isAdd
-            ? new HistoryRelationChange(
-                HistoryRelationChange.Kind.PART_MEMBERSHIP,
-                PartMembershipRelations.unknownEndpoint(),
-                endpoint
-            )
-            : new HistoryRelationChange(
-                HistoryRelationChange.Kind.PART_MEMBERSHIP,
-                endpoint,
-                PartMembershipRelations.unknownEndpoint()
-            );
+                ? new HistoryRelationChange(
+                        HistoryRelationChange.Kind.PART_MEMBERSHIP, PartMembershipRelations.unknownEndpoint(), endpoint)
+                : new HistoryRelationChange(
+                        HistoryRelationChange.Kind.PART_MEMBERSHIP,
+                        endpoint,
+                        PartMembershipRelations.unknownEndpoint());
         return NativeHistoryDecodeResult.decoded(PartMembershipRelations.detail(
-            context.boundedLabel(label),
-            childTarget,
-            relation,
-            HistoryAction.DetailLevel.PARTIAL,
-            Optional.of(isAdd ? "history.relation.before-unknown" : "history.relation.after-unknown")
-        ));
+                context.boundedLabel(label),
+                childTarget,
+                relation,
+                HistoryAction.DetailLevel.PARTIAL,
+                Optional.of(isAdd ? "history.relation.before-unknown" : "history.relation.after-unknown")));
     }
 }

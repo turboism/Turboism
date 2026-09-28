@@ -1,20 +1,19 @@
 package dev.turboism.core.runtime.psd;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledOnOs;
-import org.junit.jupiter.api.condition.OS;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
 
 class PsdTemporaryFileTest {
     @TempDir
@@ -54,17 +53,36 @@ class PsdTemporaryFileTest {
         final PsdTemporaryFile target = PsdTemporaryFile.createIn(temporaryRoot);
         target.useSourceName("EXTERNAL-EDIT.PSD");
         try (var paths = Files.list(target.validatedPath().getParent())) {
-            assertEquals(java.util.List.of("EXTERNAL-EDIT.PSD"),
-                paths.map(path -> path.getFileName().toString()).toList());
+            assertEquals(
+                    java.util.List.of("EXTERNAL-EDIT.PSD"),
+                    paths.map(path -> path.getFileName().toString()).toList());
         }
     }
 
     @Test
     void unsafeNamesFallBackWithoutEscapingTheAllocation() throws Exception {
-        for (final String name : new String[] {null, "", " ", ".", "..", "../outside.psd",
-            "C:\\outside.psd", "/outside.psd", "a/b.psd", "a:b.psd", "a?b", "a\u0000b",
-            "a\nb", "CON.psd", "nul", "COM1.PSD", "LPT².psd", "trailing.", "trailing ",
-            "中".repeat(100)}) {
+        for (final String name : new String[] {
+            null,
+            "",
+            " ",
+            ".",
+            "..",
+            "../outside.psd",
+            "C:\\outside.psd",
+            "/outside.psd",
+            "a/b.psd",
+            "a:b.psd",
+            "a?b",
+            "a\u0000b",
+            "a\nb",
+            "CON.psd",
+            "nul",
+            "COM1.PSD",
+            "LPT².psd",
+            "trailing.",
+            "trailing ",
+            "中".repeat(100)
+        }) {
             final PsdTemporaryFile target = PsdTemporaryFile.createIn(temporaryRoot);
             final Path original = target.validatedPath();
             target.useSourceName(name);
@@ -164,8 +182,7 @@ class PsdTemporaryFileTest {
     void invalidTemporaryRootsFailWithoutCreatingFallbackFiles() throws Exception {
         final Path notDirectory = Files.createFile(temporaryRoot.resolve("not-a-directory"));
         assertThrows(IOException.class, () -> PsdTemporaryFile.createIn(notDirectory));
-        assertThrows(IOException.class,
-            () -> PsdTemporaryFile.createIn(temporaryRoot.resolve("missing-root")));
+        assertThrows(IOException.class, () -> PsdTemporaryFile.createIn(temporaryRoot.resolve("missing-root")));
         assertThrows(NullPointerException.class, () -> PsdTemporaryFile.createIn(null));
     }
 }

@@ -1,14 +1,13 @@
 package dev.turboism.ui.panel;
 
+import java.lang.instrument.ClassFileTransformer;
+import java.security.ProtectionDomain;
+import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.lang.instrument.ClassFileTransformer;
-import java.security.ProtectionDomain;
-import java.util.Objects;
 
 /** Exact-selector transformer for a palette-frame disposal method. */
 public final class FloatingFrameDisposeNativeMethodTransformer implements ClassFileTransformer {
@@ -21,11 +20,10 @@ public final class FloatingFrameDisposeNativeMethodTransformer implements ClassF
     private final ClassLoader expectedClassLoader;
 
     public FloatingFrameDisposeNativeMethodTransformer(
-        final String ownerInternalName,
-        final String methodName,
-        final String descriptor,
-        final ClassLoader expectedClassLoader
-    ) {
+            final String ownerInternalName,
+            final String methodName,
+            final String descriptor,
+            final ClassLoader expectedClassLoader) {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.methodName = requireText(methodName, "methodName");
         this.descriptor = requireText(descriptor, "descriptor");
@@ -34,55 +32,51 @@ public final class FloatingFrameDisposeNativeMethodTransformer implements ClassF
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
-        if (!ownerInternalName.equals(className)
-            || loader != expectedClassLoader
-            || classfileBuffer == null) {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
+        if (!ownerInternalName.equals(className) || loader != expectedClassLoader || classfileBuffer == null) {
             return null;
         }
         final int[] exits = {0};
         final ClassReader reader = new ClassReader(classfileBuffer);
         final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-        reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String methodDescriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                final MethodVisitor delegate = super.visitMethod(
-                    access, name, methodDescriptor, signature, exceptions
-                );
-                if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
-                    return delegate;
-                }
-                return new MethodVisitor(Opcodes.ASM9, delegate) {
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
-                    public void visitInsn(final int opcode) {
-                        if (opcode == Opcodes.RETURN) {
-                            super.visitVarInsn(Opcodes.ALOAD, 0);
-                            super.visitMethodInsn(
-                                Opcodes.INVOKESTATIC,
-                                BRIDGE,
-                                "afterDispose",
-                                "(Ljava/lang/Object;)V",
-                                false
-                            );
-                            exits[0]++;
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String methodDescriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor delegate =
+                                super.visitMethod(access, name, methodDescriptor, signature, exceptions);
+                        if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
+                            return delegate;
                         }
-                        super.visitInsn(opcode);
+                        return new MethodVisitor(Opcodes.ASM9, delegate) {
+                            @Override
+                            public void visitInsn(final int opcode) {
+                                if (opcode == Opcodes.RETURN) {
+                                    super.visitVarInsn(Opcodes.ALOAD, 0);
+                                    super.visitMethodInsn(
+                                            Opcodes.INVOKESTATIC,
+                                            BRIDGE,
+                                            "afterDispose",
+                                            "(Ljava/lang/Object;)V",
+                                            false);
+                                    exits[0]++;
+                                }
+                                super.visitInsn(opcode);
+                            }
+                        };
                     }
-                };
-            }
-        }, ClassReader.EXPAND_FRAMES);
+                },
+                ClassReader.EXPAND_FRAMES);
         return exits[0] == 1 ? writer.toByteArray() : null;
     }
 

@@ -9631,7 +9631,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_3_02.integration_websocket.field.dispatch-registry",
+      "mappingId": "cubism.mapping.v5_3_02.integration_websocket.field.l_d",
       "alias": "cubism.integration.websocket.dispatch.registry",
       "kind": "field",
       "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
@@ -9752,7 +9752,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_3_02.integration_websocket.field.dispatch-holder-instance",
+      "mappingId": "cubism.mapping.v5_3_02.integration_websocket.field.x_a",
       "alias": "cubism.integration.websocket.dispatch.holder-instance",
       "kind": "field",
       "ownerInternalName": "com/live2d/cubism/doc/webSocket/x",
@@ -9785,7 +9785,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.dialog-remote-checkbox",
+      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.y_p",
       "alias": "cubism.integration.external-app-settings.dialog.remote-checkbox",
       "kind": "field",
       "ownerInternalName": "com/live2d/cubism/doc/webSocket/y",
@@ -9829,7 +9829,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.config-instance",
+      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.UUConfig_a",
       "alias": "cubism.integration.external-app-settings.config.instance",
       "kind": "field",
       "ownerInternalName": "com/live2d/util/UUConfig",

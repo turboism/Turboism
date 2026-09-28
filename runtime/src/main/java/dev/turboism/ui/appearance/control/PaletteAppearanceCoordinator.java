@@ -6,14 +6,13 @@ import dev.turboism.sdk.ui.appearance.UiColor;
 import java.awt.Component;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.List;
-
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Runtime owner of generation-bound, transient model-palette overrides. */
 public final class PaletteAppearanceCoordinator implements AutoCloseable {
@@ -52,13 +51,12 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
      * @throws NullPointerException if a string component is {@code null}
      */
     public record Scope(
-        String contentId,
-        long contentGeneration,
-        String modelId,
-        long modelGeneration,
-        long hostGeneration,
-        long providerGeneration
-    ) {
+            String contentId,
+            long contentGeneration,
+            String modelId,
+            long modelGeneration,
+            long hostGeneration,
+            long providerGeneration) {
         public Scope {
             contentId = requireText(contentId, "contentId");
             modelId = requireText(modelId, "modelId");
@@ -139,17 +137,13 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         }
     }
 
-    void bindParameterControl(
-        final boolean folder,
-        final String id,
-        final Component label
-    ) {
+    void bindParameterControl(final boolean folder, final String id, final Component label) {
         final String value = Objects.requireNonNull(id, "id");
         final Component component = Objects.requireNonNull(label, "label");
         synchronized (monitor) {
             if (closed) return;
-            parameterControls.removeIf(binding -> binding.label().get() == null
-                || binding.label().get() == component);
+            parameterControls.removeIf(
+                    binding -> binding.label().get() == null || binding.label().get() == component);
             parameterControls.add(new StoredParameterControlBinding(folder, value, new WeakReference<>(component)));
         }
     }
@@ -157,8 +151,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
     void unbindParameterControl(final Component label) {
         synchronized (monitor) {
             if (closed) return;
-            parameterControls.removeIf(binding -> binding.label().get() == null
-                || binding.label().get() == label);
+            parameterControls.removeIf(
+                    binding -> binding.label().get() == null || binding.label().get() == label);
         }
     }
 
@@ -193,8 +187,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         boolean changed;
         synchronized (monitor) {
             if (closed) return;
-            changed = hostGeneration != 0 || currentScope != null || !overrides.isEmpty()
-                || !parameterControls.isEmpty();
+            changed =
+                    hostGeneration != 0 || currentScope != null || !overrides.isEmpty() || !parameterControls.isEmpty();
             hostGeneration = 0;
             overrides.clear();
             parameterControls.clear();
@@ -226,14 +220,13 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
     }
 
     Registration register(
-        final String pluginId,
-        final long pluginGeneration,
-        final Scope scope,
-        final Palette palette,
-        final String objectId,
-        final Property property,
-        final Object value
-    ) {
+            final String pluginId,
+            final long pluginGeneration,
+            final Scope scope,
+            final Palette palette,
+            final String objectId,
+            final Property property,
+            final Object value) {
         final String owner = requireText(pluginId, "pluginId");
         requireGeneration(pluginGeneration, "pluginGeneration");
         Objects.requireNonNull(scope, "scope");
@@ -241,15 +234,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         final String id = requireText(objectId, "objectId");
         Objects.requireNonNull(property, "property");
         final Object checkedValue = checkValue(property, value);
-        final Key key = new Key(
-            owner,
-            pluginGeneration,
-            scope.contentId(),
-            scope.modelId(),
-            palette,
-            id,
-            property
-        );
+        final Key key = new Key(owner, pluginGeneration, scope.contentId(), scope.modelId(), palette, id, property);
         final Object token = new Object();
         synchronized (monitor) {
             requireOpen();
@@ -265,11 +250,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         };
     }
 
-    PaletteEntryState resolve(
-        final Scope scope,
-        final Palette palette,
-        final String objectId
-    ) {
+    PaletteEntryState resolve(final Scope scope, final Palette palette, final String objectId) {
         Objects.requireNonNull(scope, "scope");
         Objects.requireNonNull(palette, "palette");
         final String id = requireText(objectId, "objectId");
@@ -277,20 +258,16 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
             requireOpen();
             requireCurrent(scope);
             return new PaletteEntryState(
-                floatValue(scope, palette, id, Property.FONT_SIZE),
-                booleanValue(scope, palette, id, Property.BOLD),
-                booleanValue(scope, palette, id, Property.ITALIC),
-                colorValue(scope, palette, id, Property.TEXT_COLOR),
-                colorValue(scope, palette, id, Property.BACKGROUND_COLOR)
-            );
+                    floatValue(scope, palette, id, Property.FONT_SIZE),
+                    booleanValue(scope, palette, id, Property.BOLD),
+                    booleanValue(scope, palette, id, Property.ITALIC),
+                    colorValue(scope, palette, id, Property.TEXT_COLOR),
+                    colorValue(scope, palette, id, Property.BACKGROUND_COLOR));
         }
     }
     /** Resolves the current host scope without exposing a stale-scope exception to renderers. */
     Optional<PaletteEntryState> resolveCurrent(
-        final long hostGeneration,
-        final Palette palette,
-        final String objectId
-    ) {
+            final long hostGeneration, final Palette palette, final String objectId) {
         Objects.requireNonNull(palette, "palette");
         final String id = requireText(objectId, "objectId");
         synchronized (monitor) {
@@ -308,8 +285,9 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         boolean changed;
         synchronized (monitor) {
             if (closed) return;
-            changed = overrides.keySet().removeIf(key -> key.pluginId().equals(owner)
-                && key.pluginGeneration() == pluginGeneration);
+            changed = overrides
+                    .keySet()
+                    .removeIf(key -> key.pluginId().equals(owner) && key.pluginGeneration() == pluginGeneration);
         }
         if (changed) notifyChange();
     }
@@ -331,8 +309,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         boolean changed;
         synchronized (monitor) {
             if (closed) return;
-            changed = hostGeneration != 0 || currentScope != null || !overrides.isEmpty()
-                || !parameterControls.isEmpty();
+            changed =
+                    hostGeneration != 0 || currentScope != null || !overrides.isEmpty() || !parameterControls.isEmpty();
             closed = true;
             hostGeneration = 0;
             overrides.clear();
@@ -360,46 +338,29 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
     }
 
     private Optional<Float> floatValue(
-        final Scope scope,
-        final Palette palette,
-        final String objectId,
-        final Property property
-    ) {
+            final Scope scope, final Palette palette, final String objectId, final Property property) {
         final Object value = latest(scope, palette, objectId, property);
         return value instanceof Float floatValue ? Optional.of(floatValue) : Optional.empty();
     }
 
     private Optional<Boolean> booleanValue(
-        final Scope scope,
-        final Palette palette,
-        final String objectId,
-        final Property property
-    ) {
+            final Scope scope, final Palette palette, final String objectId, final Property property) {
         final Object value = latest(scope, palette, objectId, property);
         return value instanceof Boolean booleanValue ? Optional.of(booleanValue) : Optional.empty();
     }
 
     private Optional<UiColor> colorValue(
-        final Scope scope,
-        final Palette palette,
-        final String objectId,
-        final Property property
-    ) {
+            final Scope scope, final Palette palette, final String objectId, final Property property) {
         final Object value = latest(scope, palette, objectId, property);
         return value instanceof UiColor color ? Optional.of(color) : Optional.empty();
     }
 
-    private Object latest(
-        final Scope scope,
-        final Palette palette,
-        final String objectId,
-        final Property property
-    ) {
+    private Object latest(final Scope scope, final Palette palette, final String objectId, final Property property) {
         Stored latest = null;
         for (Map.Entry<Key, Stored> entry : overrides.entrySet()) {
             final Key key = entry.getKey();
             if (key.sameSlot(scope, palette, objectId, property)
-                && (latest == null || entry.getValue().sequence() > latest.sequence())) {
+                    && (latest == null || entry.getValue().sequence() > latest.sequence())) {
                 latest = entry.getValue();
             }
         }
@@ -420,10 +381,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         Objects.requireNonNull(value, "value");
         return switch (property) {
             case FONT_SIZE -> {
-                if (!(value instanceof Float size)
-                    || !Float.isFinite(size)
-                    || size < 6.0F
-                    || size > 96.0F) {
+                if (!(value instanceof Float size) || !Float.isFinite(size) || size < 6.0F || size > 96.0F) {
                     throw new IllegalArgumentException("font size must be between 6 and 96 points");
                 }
                 yield size;
@@ -450,29 +408,27 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
     }
 
     private record Key(
-        String pluginId,
-        long pluginGeneration,
-        String contentId,
-        String modelId,
-        Palette palette,
-        String objectId,
-        Property property
-    ) {
+            String pluginId,
+            long pluginGeneration,
+            String contentId,
+            String modelId,
+            Palette palette,
+            String objectId,
+            Property property) {
         boolean sameSlot(
-            final Scope scope,
-            final Palette expectedPalette,
-            final String expectedObjectId,
-            final Property expectedProperty
-        ) {
+                final Scope scope,
+                final Palette expectedPalette,
+                final String expectedObjectId,
+                final Property expectedProperty) {
             return contentId.equals(scope.contentId())
-                && modelId.equals(scope.modelId())
-                && palette == expectedPalette
-                && objectId.equals(expectedObjectId)
-                && property == expectedProperty;
+                    && modelId.equals(scope.modelId())
+                    && palette == expectedPalette
+                    && objectId.equals(expectedObjectId)
+                    && property == expectedProperty;
         }
     }
 
-    private record Stored(Object token, Object value, long sequence) { }
+    private record Stored(Object token, Object value, long sequence) {}
 
     /**
      * One live pairing of a host parameter or folder id with the Swing label currently displaying it.
@@ -493,10 +449,5 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         }
     }
 
-    private record StoredParameterControlBinding(
-        boolean folder,
-        String id,
-        WeakReference<Component> label
-    ) {
-    }
+    private record StoredParameterControlBinding(boolean folder, String id, WeakReference<Component> label) {}
 }

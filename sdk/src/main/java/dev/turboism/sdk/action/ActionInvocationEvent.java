@@ -1,18 +1,17 @@
 package dev.turboism.sdk.action;
 
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.Objects;
 import java.util.Optional;
 
 /** Runtime-owned observation that an action was accepted for asynchronous execution. */
 public record ActionInvocationEvent(
-    String pluginId,
-    String actionId,
-    Optional<UiActionEvent> uiEvent,
-    boolean contextMenuInvocation,
-    boolean panelTabInvocation
-) implements TurboismEvent {
+        String pluginId,
+        String actionId,
+        Optional<UiActionEvent> uiEvent,
+        boolean contextMenuInvocation,
+        boolean panelTabInvocation)
+        implements TurboismEvent {
 
     public ActionInvocationEvent {
         pluginId = requireText(pluginId, "pluginId");

@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.resource.UiRasterImage;
 import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
-
 import java.awt.image.BufferedImage;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -32,8 +32,8 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     /** Reviewed selectors, disassembly-verified identical on 5.2.03/5.3.02/5.3.03. */
     private static final String STRIP_CLASS = "com.live2d.cubism.view.context.a.b";
-    private static final String BUTTON_CLASS =
-        "com.live2d.cubism.view.context.guiEntity.GToggleIconButtonEntity";
+
+    private static final String BUTTON_CLASS = "com.live2d.cubism.view.context.guiEntity.GToggleIconButtonEntity";
     private static final String ICON_SET_CLASS = "com.live2d.cubism.view.context.guiEntity.q";
     private static final String RESOURCE_CLASS = "com.live2d.graphics.CImageResource";
     private static final String TYPE_CLASS = "com.live2d.graphics.n";
@@ -46,20 +46,19 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private boolean mountAttempted;
 
     private record Entry(
-        ViewContextMenuRegistry.StateButtonContribution contribution,
-        Object currentButton,
-        Map<Integer, Object> stateEntities
-    ) { }
+            ViewContextMenuRegistry.StateButtonContribution contribution,
+            Object currentButton,
+            Map<Integer, Object> stateEntities) {}
 
     /** Button plus the self-built per-state icon entities mounted inside it. */
-    private record BuiltButton(Object button, Map<Integer, Object> stateEntities) { }
+    private record BuiltButton(Object button, Map<Integer, Object> stateEntities) {}
 
     /** @return the process-wide registry the injected bridge calls mount through */
     public static RuntimeViewContextMenuRegistry getInstance() {
         return INSTANCE;
     }
 
-    private RuntimeViewContextMenuRegistry() { }
+    private RuntimeViewContextMenuRegistry() {}
 
     /**
      * Injected at the head of the strip's mount routine with the strip instance.
@@ -81,8 +80,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     }
 
     @Override
-    public Registration contributeStateButtons(
-        final ViewContextMenuRegistry.StateButtonContribution contribution) {
+    public Registration contributeStateButtons(final ViewContextMenuRegistry.StateButtonContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         final Runnable build = () -> buildAndMount(contribution);
         synchronized (lock) {
@@ -108,35 +106,36 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 diagnostic("BUILD_SKIPPED reason=NO_STRIP");
                 return;
             }
-            final UiRasterImage initialImage = contribution.stateIcons()
-                .getOrDefault(contribution.initialState(),
-                    contribution.stateIcons().values().iterator().next());
-            final int initialState = contribution.stateIcons()
-                .containsKey(contribution.initialState())
-                ? contribution.initialState()
-                : contribution.stateIcons().keySet().iterator().next();
+            final UiRasterImage initialImage = contribution
+                    .stateIcons()
+                    .getOrDefault(
+                            contribution.initialState(),
+                            contribution.stateIcons().values().iterator().next());
+            final int initialState = contribution.stateIcons().containsKey(contribution.initialState())
+                    ? contribution.initialState()
+                    : contribution.stateIcons().keySet().iterator().next();
             final BuiltButton built = createButton(contribution, initialImage, initialState);
             insertIntoGroup(strip, built.button());
-            entries.put(contribution.contributionId(),
-                new Entry(contribution, built.button(), built.stateEntities()));
+            entries.put(contribution.contributionId(), new Entry(contribution, built.button(), built.stateEntities()));
             applyInitialState(built.button(), built.stateEntities(), initialState);
             diagnostic("BUTTON_MOUNTED id=" + contribution.contributionId()
-                + " state=" + initialState
-                + " entities=" + built.stateEntities().size());
+                    + " state=" + initialState
+                    + " entities=" + built.stateEntities().size());
             scheduleDeferredSeat(built.button());
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             final String phase = failure instanceof PhaseTagged tagged ? tagged.phase : "UNKNOWN";
-            diagnostic("BUTTON_MOUNT_FAILED phase=" + phase
-                + " reason=" + failure.getClass().getName() + ": " + failure.getMessage());
+            diagnostic("BUTTON_MOUNT_FAILED phase=" + phase + " reason="
+                    + failure.getClass().getName() + ": " + failure.getMessage());
         }
     }
 
     /** Replicates the host's own lock-button construction with a plugin-provided icon. */
     private BuiltButton createButton(
-        final ViewContextMenuRegistry.StateButtonContribution contribution,
-        final UiRasterImage iconImage,
-        final int state
-    ) throws ReflectiveOperationException {
+            final ViewContextMenuRegistry.StateButtonContribution contribution,
+            final UiRasterImage iconImage,
+            final int state)
+            throws ReflectiveOperationException {
         final Object stripInstance = strip;
         final ClassLoader hostLoader = stripInstance.getClass().getClassLoader();
         final Class<?> barClass = stripInstance.getClass();
@@ -146,17 +145,17 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         Method factory = null;
         for (final Method method : barClass.getDeclaredMethods()) {
             if (!method.getName().equals("a")
-                || method.getParameterCount() != 9
-                || method.getReturnType() != buttonClass) {
+                    || method.getParameterCount() != 9
+                    || method.getReturnType() != buttonClass) {
                 continue;
             }
             final Class<?>[] types = method.getParameterTypes();
             if (types[0] == barClass
-                && types[1] == String.class
-                && types[3] == Class.forName("com.live2d.graphics3d.type.GRectF", false, hostLoader)
-                && types[4] == boolean.class
-                && types[5] == boolean.class
-                && types[8] == Object.class) {
+                    && types[1] == String.class
+                    && types[3] == Class.forName("com.live2d.graphics3d.type.GRectF", false, hostLoader)
+                    && types[4] == boolean.class
+                    && types[5] == boolean.class
+                    && types[8] == Object.class) {
                 factory = method;
                 break;
             }
@@ -171,8 +170,8 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         final BufferedImage horizImg = rasterImage(contribution.stateIcons().getOrDefault(2, iconImage));
         final Object[] resources = stateResources(offImg, vertImg, horizImg, hostLoader);
         final Object iconSet = iconSetFor(resources, hostLoader);
-        final Object button = factory.invoke(null,
-            stripInstance, "warpAltMirrorAxis" + state, null, null, false, false, iconSet, 30, null);
+        final Object button = factory.invoke(
+                null, stripInstance, "warpAltMirrorAxis" + state, null, null, false, false, iconSet, 30, null);
 
         final Map<Integer, Object> stateEntities = mountStateIcons(button, resources, hostLoader);
         setOnAction(button, contribution, state);
@@ -180,9 +179,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     }
 
     static BufferedImage rasterImage(final UiRasterImage source) {
-        final BufferedImage image = new BufferedImage(
-            source.width(), source.height(), BufferedImage.TYPE_INT_ARGB
-        );
+        final BufferedImage image = new BufferedImage(source.width(), source.height(), BufferedImage.TYPE_INT_ARGB);
         image.setRGB(0, 0, source.width(), source.height(), source.argb(), 0, source.width());
         return image;
     }
@@ -198,15 +195,12 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      * parser: Disabled / Normal / Selected.
      */
     private static Map<Integer, Object> mountStateIcons(
-        final Object button,
-        final Object[] resources,
-        final ClassLoader hostLoader
-    ) throws ReflectiveOperationException {
-        final Class<?> gEntityClass =
-            Class.forName("com.live2d.graphics3d.entity.GEntity", false, hostLoader);
+            final Object button, final Object[] resources, final ClassLoader hostLoader)
+            throws ReflectiveOperationException {
+        final Class<?> gEntityClass = Class.forName("com.live2d.graphics3d.entity.GEntity", false, hostLoader);
         final Object icon = button.getClass().getMethod("getIcon").invoke(button);
-        final Method createIcon = icon.getClass().getMethod("a",
-            Class.forName(RESOURCE_CLASS, false, hostLoader), String.class);
+        final Method createIcon =
+                icon.getClass().getMethod("a", Class.forName(RESOURCE_CLASS, false, hostLoader), String.class);
         final Object items = button.getClass().getMethod("getItems").invoke(button);
         final Object children = button.getClass().getMethod("getChildren").invoke(button);
         final Method addChild = children.getClass().getMethod("add", gEntityClass, int.class);
@@ -231,14 +225,14 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      * decoding is involved on the render path.
      */
     private static Object[] stateResources(
-        final BufferedImage offImage,
-        final BufferedImage verticalImage,
-        final BufferedImage horizontalImage,
-        final ClassLoader hostLoader
-    ) throws ReflectiveOperationException {
+            final BufferedImage offImage,
+            final BufferedImage verticalImage,
+            final BufferedImage horizontalImage,
+            final ClassLoader hostLoader)
+            throws ReflectiveOperationException {
         final Class<?> resourceClass = Class.forName(RESOURCE_CLASS, false, hostLoader);
         final var ctor = resourceClass.getConstructor(BufferedImage.class, boolean.class);
-        return new Object[]{
+        return new Object[] {
             ctor.newInstance(offImage, true),
             ctor.newInstance(verticalImage, true),
             ctor.newInstance(horizontalImage, true),
@@ -254,66 +248,72 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      *   a=NORMAL(vertical) b=SELECTED(horizontal) c/d=vertical hover/press
      *   e=DISABLED(off) f/g=horizontal hover/press.
      */
-    private static Object iconSetFor(
-        final Object[] resources,
-        final ClassLoader hostLoader
-    ) throws ReflectiveOperationException {
+    private static Object iconSetFor(final Object[] resources, final ClassLoader hostLoader)
+            throws ReflectiveOperationException {
         final Class<?> resourceClass = Class.forName(RESOURCE_CLASS, false, hostLoader);
         final Class<?> setClass = Class.forName(ICON_SET_CLASS, false, hostLoader);
         final Object offRes = resources[0];
         final Object vertRes = resources[1];
         final Object horizRes = resources[2];
-        return setClass.getConstructor(resourceClass, resourceClass, resourceClass,
-            resourceClass, resourceClass, resourceClass, resourceClass)
-            .newInstance(vertRes,   // a  NORMAL      (vertical)
-                horizRes,           // b  SELECTED    (horizontal)
-                vertRes,            // c  ROLLOVER    (vertical hover)
-                vertRes,            // d  PRESSED     (vertical press)
-                offRes,             // e  DISABLED    (off)
-                horizRes,           // f  SELECTEDROLLOVER
-                horizRes);          // g  SELECTEDPRESSED
+        return setClass.getConstructor(
+                        resourceClass,
+                        resourceClass,
+                        resourceClass,
+                        resourceClass,
+                        resourceClass,
+                        resourceClass,
+                        resourceClass)
+                .newInstance(
+                        vertRes, // a  NORMAL      (vertical)
+                        horizRes, // b  SELECTED    (horizontal)
+                        vertRes, // c  ROLLOVER    (vertical hover)
+                        vertRes, // d  PRESSED     (vertical press)
+                        offRes, // e  DISABLED    (off)
+                        horizRes, // f  SELECTEDROLLOVER
+                        horizRes); // g  SELECTEDPRESSED
     }
 
     private static void setOnAction(
-        final Object button,
-        final ViewContextMenuRegistry.StateButtonContribution contribution,
-        final int state
-    ) throws ReflectiveOperationException {
+            final Object button, final ViewContextMenuRegistry.StateButtonContribution contribution, final int state)
+            throws ReflectiveOperationException {
         final ClassLoader hostLoader = button.getClass().getClassLoader();
         final Class<?> function3 = Class.forName(FUNCTION3_CLASS, false, hostLoader);
         final Object handler = Proxy.newProxyInstance(
-            function3.getClassLoader(),
-            new Class<?>[]{function3},
-            (proxy, method, args) -> {
-                if (!method.getName().equals("invoke")) return null;
-                try {
-                    contribution.onClick().accept(state);
-                } catch (Throwable failure) {
-                    final StringBuilder sb = new StringBuilder();
-                    for (Throwable c = failure; c != null; c = c.getCause()) {
-                        if (sb.length() > 0) sb.append(" <- ");
-                        sb.append(c.getClass().getName()).append(": ").append(c.getMessage());
-                        for (final StackTraceElement st : c.getStackTrace()) {
-                            if (st.getClassName().contains("turboism") || st.getClassName().contains("plugin")) {
-                                sb.append(" at ").append(st.getClassName()).append(".").append(st.getMethodName()).append(":").append(st.getLineNumber());
-                                break;
+                function3.getClassLoader(), new Class<?>[] {function3}, (proxy, method, args) -> {
+                    if (!method.getName().equals("invoke")) return null;
+                    try {
+                        contribution.onClick().accept(state);
+                    } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
+                        final StringBuilder sb = new StringBuilder();
+                        for (Throwable c = failure; c != null; c = c.getCause()) {
+                            if (sb.length() > 0) sb.append(" <- ");
+                            sb.append(c.getClass().getName()).append(": ").append(c.getMessage());
+                            for (final StackTraceElement st : c.getStackTrace()) {
+                                if (st.getClassName().contains("turboism")
+                                        || st.getClassName().contains("plugin")) {
+                                    sb.append(" at ")
+                                            .append(st.getClassName())
+                                            .append(".")
+                                            .append(st.getMethodName())
+                                            .append(":")
+                                            .append(st.getLineNumber());
+                                    break;
+                                }
                             }
                         }
+                        diagnostic("CLICK_FAILED chain=" + sb);
                     }
-                    diagnostic("CLICK_FAILED chain=" + sb);
-                }
-                return null;
-            });
+                    return null;
+                });
         final Method setOnAction = button.getClass().getMethod("setOnAction", function3);
         setOnAction.invoke(button, handler);
     }
 
     /** Applies the initial state visuals so the state entity shows at mount. */
     private static void applyInitialState(
-        final Object button,
-        final Map<Integer, Object> stateEntities,
-        final int state
-    ) throws ReflectiveOperationException {
+            final Object button, final Map<Integer, Object> stateEntities, final int state)
+            throws ReflectiveOperationException {
         final boolean enabled = state != 0;
         final boolean selected = state == 2;
         final Class<?> buttonClass = button.getClass();
@@ -321,10 +321,11 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         buttonClass.getMethod("setButtonSelected", boolean.class).invoke(button, selected);
         final Object entity = stateEntities.get(state);
         if (entity != null) {
-            buttonClass.getMethod("setSelected",
-                Class.forName("com.live2d.graphics3d.entity.GEntity",
-                    false, buttonClass.getClassLoader()))
-                .invoke(button, entity);
+            buttonClass
+                    .getMethod(
+                            "setSelected",
+                            Class.forName("com.live2d.graphics3d.entity.GEntity", false, buttonClass.getClassLoader()))
+                    .invoke(button, entity);
         }
     }
 
@@ -350,9 +351,8 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      * K view cluster (▾). Appending to H seats the button between F and the
      * o/I segment, before the divider.
      */
-    private static void insertIntoGroup(
-        final Object stripInstance, final Object button)
-        throws ReflectiveOperationException {
+    private static void insertIntoGroup(final Object stripInstance, final Object button)
+            throws ReflectiveOperationException {
         final Field groupField = stripInstance.getClass().getDeclaredField("H");
         groupField.setAccessible(true);
         final Object group = groupField.get(stripInstance);
@@ -363,8 +363,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         @SuppressWarnings("unchecked")
         final List<Object> target = (List<Object>) group;
         target.add(target.size(), button);
-        diagnostic("BUTTON_INSERTED group=H index=" + target.size()
-            + " after=leftClusterEnd(F)");
+        diagnostic("BUTTON_INSERTED group=H index=" + target.size() + " after=leftClusterEnd(F)");
         reparentToStrip(stripInstance, button);
         ensureRect(button);
     }
@@ -377,29 +376,23 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      * appended too — inserting at index 0 would seat it under the strip's
      * background pane in draw order and render it invisible.
      */
-    private static void reparentToStrip(
-        final Object stripInstance, final Object button)
-        throws ReflectiveOperationException {
+    private static void reparentToStrip(final Object stripInstance, final Object button)
+            throws ReflectiveOperationException {
         final ClassLoader hostLoader = stripInstance.getClass().getClassLoader();
-        final Class<?> gEntityClass = Class.forName(
-            "com.live2d.graphics3d.entity.GEntity", false, hostLoader);
+        final Class<?> gEntityClass = Class.forName("com.live2d.graphics3d.entity.GEntity", false, hostLoader);
         final Object sceneGraph = sceneGraphOf(stripInstance);
-        final Object objects = sceneGraph.getClass()
-            .getMethod("getObjectsOnComponent").invoke(sceneGraph);
-        final Object children =
-            objects.getClass().getMethod("getChildren").invoke(objects);
-        final Object list =
-            children.getClass().getMethod("getList").invoke(children);
+        final Object objects =
+                sceneGraph.getClass().getMethod("getObjectsOnComponent").invoke(sceneGraph);
+        final Object children = objects.getClass().getMethod("getChildren").invoke(objects);
+        final Object list = children.getClass().getMethod("getList").invoke(children);
         if (list instanceof List<?> entities && entities.contains(button)) {
             diagnostic("BUTTON_REPARENT_SKIP childIndex=" + entities.indexOf(button));
             return;
         }
-        children.getClass().getMethod("add", gEntityClass, int.class)
-            .invoke(children, button, -1);
-        final Object after =
-            children.getClass().getMethod("getList").invoke(children);
-        diagnostic("BUTTON_REPARENTED childIndex="
-            + (after instanceof List<?> entities ? entities.indexOf(button) : -1));
+        children.getClass().getMethod("add", gEntityClass, int.class).invoke(children, button, -1);
+        final Object after = children.getClass().getMethod("getList").invoke(children);
+        diagnostic(
+                "BUTTON_REPARENTED childIndex=" + (after instanceof List<?> entities ? entities.indexOf(button) : -1));
     }
 
     /**
@@ -408,18 +401,15 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      * and {@code e()} on reviewed 5.3.x, so it is matched by return type rather
      * than by a version-specific name.
      */
-    static Object sceneGraphOf(final Object stripInstance)
-        throws ReflectiveOperationException {
+    static Object sceneGraphOf(final Object stripInstance) throws ReflectiveOperationException {
         final ClassLoader hostLoader = stripInstance.getClass().getClassLoader();
-        final Class<?> sceneGraphClass = Class.forName(
-            "com.live2d.graphics3d.sceneGraph.GSceneGraph", false, hostLoader);
+        final Class<?> sceneGraphClass =
+                Class.forName("com.live2d.graphics3d.sceneGraph.GSceneGraph", false, hostLoader);
         Method accessor = null;
         for (final Method method : stripInstance.getClass().getMethods()) {
-            if (method.getParameterCount() == 0
-                && method.getReturnType() == sceneGraphClass) {
+            if (method.getParameterCount() == 0 && method.getReturnType() == sceneGraphClass) {
                 if (accessor != null) {
-                    throw new IllegalStateException(
-                        "strip scene-graph accessor is ambiguous");
+                    throw new IllegalStateException("strip scene-graph accessor is ambiguous");
                 }
                 accessor = method;
             }
@@ -435,8 +425,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      * real width from {@code getRectOnComponent()} instead of a null or
      * zero-size rect (the factory is invoked with a null rect argument).
      */
-    private static void ensureRect(final Object button)
-        throws ReflectiveOperationException {
+    private static void ensureRect(final Object button) throws ReflectiveOperationException {
         final Object rect = rectOf(button);
         if (rect == null || width(rect) <= 0f || height(rect) <= 0f) {
             setBoundsOnComponent(button, newRect(0f, 0f, 40f, 24f, button));
@@ -452,22 +441,20 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
     }
 
-    private static Object newRect(
-        final float x, final float y, final float w, final float h,
-        final Object sibling) throws ReflectiveOperationException {
+    private static Object newRect(final float x, final float y, final float w, final float h, final Object sibling)
+            throws ReflectiveOperationException {
         final Class<?> rectClass = Class.forName(
-            "com.live2d.graphics3d.type.GRectF", false,
-            sibling.getClass().getClassLoader());
-        return rectClass.getConstructor(
-            float.class, float.class, float.class, float.class)
-            .newInstance(x, y, w, h);
+                "com.live2d.graphics3d.type.GRectF", false, sibling.getClass().getClassLoader());
+        return rectClass
+                .getConstructor(float.class, float.class, float.class, float.class)
+                .newInstance(x, y, w, h);
     }
 
-    private static void setBoundsOnComponent(
-        final Object entity, final Object rect)
-        throws ReflectiveOperationException {
-        entity.getClass().getMethod("setBoundsOnComponent",
-            rect.getClass(), float.class).invoke(entity, rect, 1.0f);
+    private static void setBoundsOnComponent(final Object entity, final Object rect)
+            throws ReflectiveOperationException {
+        entity.getClass()
+                .getMethod("setBoundsOnComponent", rect.getClass(), float.class)
+                .invoke(entity, rect, 1.0f);
     }
 
     private static float width(final Object rect) throws ReflectiveOperationException {
@@ -478,8 +465,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         return (Float) rect.getClass().getMethod("getHeight").invoke(rect);
     }
 
-    private static Object readField(final Object owner, final String name)
-            throws IllegalAccessException {
+    private static Object readField(final Object owner, final String name) throws IllegalAccessException {
         for (final Field field : owner.getClass().getDeclaredFields()) {
             if (!field.getName().equals(name)) continue;
             field.setAccessible(true);
@@ -491,14 +477,13 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private static void removeButton(final Object button) {
         try {
             // Remove from H
-            final Object parent = button.getClass()
-                .getMethod("getParentEntity").invoke(button);
+            final Object parent = button.getClass().getMethod("getParentEntity").invoke(button);
             if (parent == null) return;
             // Remove from scene graph
             final Object children = parent.getClass().getMethod("getChildren").invoke(parent);
-            children.getClass().getMethod("remove", Object.class)
-                .invoke(children, button);
+            children.getClass().getMethod("remove", Object.class).invoke(children, button);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // best-effort removal
         }
     }
@@ -519,20 +504,22 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                     final Class<?> buttonClass = button.getClass();
                     final boolean enabled = axis != 0;
                     final boolean selected = axis == 2;
-                    buttonClass.getMethod("setButtonEnabled", boolean.class)
-                        .invoke(button, enabled);
-                    buttonClass.getMethod("setButtonSelected", boolean.class)
-                        .invoke(button, selected);
+                    buttonClass.getMethod("setButtonEnabled", boolean.class).invoke(button, enabled);
+                    buttonClass.getMethod("setButtonSelected", boolean.class).invoke(button, selected);
                     final Object entity = entry.stateEntities().get(axis);
                     if (entity != null) {
-                        buttonClass.getMethod("setSelected",
-                            Class.forName("com.live2d.graphics3d.entity.GEntity",
-                                false, buttonClass.getClassLoader()))
-                            .invoke(button, entity);
+                        buttonClass
+                                .getMethod(
+                                        "setSelected",
+                                        Class.forName(
+                                                "com.live2d.graphics3d.entity.GEntity",
+                                                false,
+                                                buttonClass.getClassLoader()))
+                                .invoke(button, entity);
                     }
                     diagnostic("BUTTON_STATE_UPDATED axis=" + axis
-                        + " enabled=" + enabled + " selected=" + selected
-                        + " entity=" + (entity != null));
+                            + " enabled=" + enabled + " selected=" + selected
+                            + " entity=" + (entity != null));
                 } catch (ReflectiveOperationException | RuntimeException failure) {
                     diagnostic("UPDATE_STATE_FAILED " + failure.getClass().getSimpleName());
                 }
@@ -564,16 +551,15 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                     final Object our = rectOf(button);
                     final float w = our != null && width(our) > 0f ? width(our) : 40f;
                     final float h = our != null && height(our) > 0f ? height(our) : 24f;
-                    if (our != null
-                        && Math.abs(minX(our) - seatX) < 0.5f
-                        && Math.abs(minY(our) - seatY) < 0.5f) {
+                    if (our != null && Math.abs(minX(our) - seatX) < 0.5f && Math.abs(minY(our) - seatY) < 0.5f) {
                         continue;
                     }
                     setBoundsOnComponent(button, newRect(seatX, seatY, w, h, button));
-                    diagnostic("BUTTON_POSITIONED x=" + seatX + " y=" + seatY
-                        + " w=" + w + " h=" + h + " zRight=" + seatX);
+                    diagnostic("BUTTON_POSITIONED x=" + seatX + " y=" + seatY + " w=" + w + " h=" + h + " zRight="
+                            + seatX);
                 }
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 diagnostic("BUTTON_POSITION_FAILED " + failure.getClass().getSimpleName());
             }
         }
@@ -588,7 +574,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      */
     private void scheduleDeferredSeat(final Object button) {
         final Thread worker = new Thread(() -> {
-            for (final long delay : new long[]{1500, 6000, 15000, 40000}) {
+            for (final long delay : new long[] {1500, 6000, 15000, 40000}) {
                 try {
                     Thread.sleep(delay);
                 } catch (InterruptedException ignored) {
@@ -608,35 +594,51 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             final StringBuilder sb = new StringBuilder("STRIP_GEOMETRY t=").append(atMs);
             Entry owner = null;
             for (final Entry candidate : entries.values()) {
-                if (candidate.currentButton() == button) { owner = candidate; break; }
+                if (candidate.currentButton() == button) {
+                    owner = candidate;
+                    break;
+                }
             }
             if (owner != null) {
-                for (final Map.Entry<Integer, Object> state : owner.stateEntities().entrySet()) {
+                for (final Map.Entry<Integer, Object> state :
+                        owner.stateEntities().entrySet()) {
                     sb.append(" item").append(state.getKey()).append('[');
                     try {
-                        final Object transform = state.getValue().getClass()
-                            .getMethod("getTransform").invoke(state.getValue());
-                        final Object pos = transform.getClass()
-                            .getMethod("getPosition").invoke(transform);
-                        final Object scale = transform.getClass()
-                            .getMethod("getScale").invoke(transform);
-                        sb.append("pos=(").append(vec(pos, "getX"))
-                            .append(',').append(vec(pos, "getY")).append(')')
-                            .append(",scale=(").append(vec(scale, "getX"))
-                            .append(',').append(vec(scale, "getY")).append(')');
+                        final Object transform = state.getValue()
+                                .getClass()
+                                .getMethod("getTransform")
+                                .invoke(state.getValue());
+                        final Object pos =
+                                transform.getClass().getMethod("getPosition").invoke(transform);
+                        final Object scale =
+                                transform.getClass().getMethod("getScale").invoke(transform);
+                        sb.append("pos=(")
+                                .append(vec(pos, "getX"))
+                                .append(',')
+                                .append(vec(pos, "getY"))
+                                .append(')')
+                                .append(",scale=(")
+                                .append(vec(scale, "getX"))
+                                .append(',')
+                                .append(vec(scale, "getY"))
+                                .append(')');
                     } catch (ReflectiveOperationException ignored) {
                         sb.append("noTransform");
                     }
                     Object enabled = "?";
                     Object invisible = "?";
                     try {
-                        enabled = state.getValue().getClass()
-                            .getMethod("getEnabled").invoke(state.getValue());
-                        invisible = state.getValue().getClass()
-                            .getMethod("isInvisible").invoke(state.getValue());
-                    } catch (ReflectiveOperationException ignored) { }
-                    sb.append(",en=").append(enabled)
-                        .append(",inv=").append(invisible);
+                        enabled = state.getValue()
+                                .getClass()
+                                .getMethod("getEnabled")
+                                .invoke(state.getValue());
+                        invisible = state.getValue()
+                                .getClass()
+                                .getMethod("isInvisible")
+                                .invoke(state.getValue());
+                    } catch (ReflectiveOperationException ignored) {
+                    }
+                    sb.append(",en=").append(enabled).append(",inv=").append(invisible);
                     sb.append(rendererDiag(state.getValue()));
                     sb.append(']');
                 }
@@ -644,8 +646,8 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             final Object dropdown = strip == null ? null : readField(strip, "z");
             if (dropdown != null) {
                 try {
-                    final Object zItems = dropdown.getClass()
-                        .getMethod("getItems").invoke(dropdown);
+                    final Object zItems =
+                            dropdown.getClass().getMethod("getItems").invoke(dropdown);
                     if (zItems instanceof List<?> zl) {
                         int zi = 0;
                         for (final Object zItem : zl) {
@@ -653,24 +655,36 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                             sb.append(" zItem").append(zi).append('[');
                             try {
                                 final Object tr = zItem.getClass()
-                                    .getMethod("getTransform").invoke(zItem);
-                                final Object pos = tr.getClass()
-                                    .getMethod("getPosition").invoke(tr);
-                                final Object sc = tr.getClass()
-                                    .getMethod("getScale").invoke(tr);
-                                sb.append("pos=(").append(vec(pos, "getX"))
-                                    .append(',').append(vec(pos, "getY")).append(')')
-                                    .append(",sc=(").append(vec(sc, "getX"))
-                                    .append(',').append(vec(sc, "getY")).append(')');
+                                        .getMethod("getTransform")
+                                        .invoke(zItem);
+                                final Object pos =
+                                        tr.getClass().getMethod("getPosition").invoke(tr);
+                                final Object sc =
+                                        tr.getClass().getMethod("getScale").invoke(tr);
+                                sb.append("pos=(")
+                                        .append(vec(pos, "getX"))
+                                        .append(',')
+                                        .append(vec(pos, "getY"))
+                                        .append(')')
+                                        .append(",sc=(")
+                                        .append(vec(sc, "getX"))
+                                        .append(',')
+                                        .append(vec(sc, "getY"))
+                                        .append(')');
                             } catch (ReflectiveOperationException ignored) {
                                 sb.append("noTransform");
                             }
                             try {
-                                sb.append(",en=").append(zItem.getClass()
-                                    .getMethod("getEnabled").invoke(zItem))
-                                    .append(",inv=").append(zItem.getClass()
-                                        .getMethod("isInvisible").invoke(zItem));
-                            } catch (ReflectiveOperationException ignored) { }
+                                sb.append(",en=")
+                                        .append(zItem.getClass()
+                                                .getMethod("getEnabled")
+                                                .invoke(zItem))
+                                        .append(",inv=")
+                                        .append(zItem.getClass()
+                                                .getMethod("isInvisible")
+                                                .invoke(zItem));
+                            } catch (ReflectiveOperationException ignored) {
+                            }
                             sb.append(rendererDiag(zItem));
                             sb.append(']');
                         }
@@ -681,39 +695,52 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             }
             final Object zRect = dropdown == null ? null : rectOf(dropdown);
             final Object our = rectOf(button);
-            final Object parent = button.getClass()
-                .getMethod("getParentEntity").invoke(button);
+            final Object parent = button.getClass().getMethod("getParentEntity").invoke(button);
             if (zRect != null) {
-                sb.append(" z[x=").append(minX(zRect))
-                    .append(",y=").append(minY(zRect))
-                    .append(",w=").append(width(zRect)).append(']');
+                sb.append(" z[x=")
+                        .append(minX(zRect))
+                        .append(",y=")
+                        .append(minY(zRect))
+                        .append(",w=")
+                        .append(width(zRect))
+                        .append(']');
             } else {
                 sb.append(" z=null");
             }
             if (our != null) {
-                sb.append(" our[x=").append(minX(our))
-                    .append(",y=").append(minY(our))
-                    .append(",w=").append(width(our))
-                    .append(",h=").append(height(our)).append(']');
+                sb.append(" our[x=")
+                        .append(minX(our))
+                        .append(",y=")
+                        .append(minY(our))
+                        .append(",w=")
+                        .append(width(our))
+                        .append(",h=")
+                        .append(height(our))
+                        .append(']');
             } else {
                 sb.append(" our=null");
             }
             sb.append(" parent=").append(parent != null);
             try {
-                sb.append(" enabled=").append(button.getClass()
-                    .getMethod("getEnabled").invoke(button))
-                    .append(" enHier=").append(button.getClass()
-                        .getMethod("getEnabledInHierarchy").invoke(button))
-                    .append(" inv=").append(button.getClass()
-                        .getMethod("isInvisible").invoke(button));
+                sb.append(" enabled=")
+                        .append(button.getClass().getMethod("getEnabled").invoke(button))
+                        .append(" enHier=")
+                        .append(button.getClass()
+                                .getMethod("getEnabledInHierarchy")
+                                .invoke(button))
+                        .append(" inv=")
+                        .append(button.getClass().getMethod("isInvisible").invoke(button));
             } catch (ReflectiveOperationException ignored) {
                 // flags optional
             }
             if (dropdown != null) {
                 try {
-                    sb.append(" zEnHier=").append(dropdown.getClass()
-                        .getMethod("getEnabledInHierarchy").invoke(dropdown));
-                } catch (ReflectiveOperationException ignored) { }
+                    sb.append(" zEnHier=")
+                            .append(dropdown.getClass()
+                                    .getMethod("getEnabledInHierarchy")
+                                    .invoke(dropdown));
+                } catch (ReflectiveOperationException ignored) {
+                }
             }
             sb.append(" btn").append(rendererDiag(button));
             if (dropdown != null) {
@@ -721,15 +748,16 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             }
             try {
                 final Object sceneGraph = sceneGraphOf(strip);
-                final Object objects = sceneGraph.getClass()
-                    .getMethod("getObjectsOnComponent").invoke(sceneGraph);
+                final Object objects =
+                        sceneGraph.getClass().getMethod("getObjectsOnComponent").invoke(sceneGraph);
                 final Object children =
-                    objects.getClass().getMethod("getChildren").invoke(objects);
-                final Object list =
-                    children.getClass().getMethod("getList").invoke(children);
+                        objects.getClass().getMethod("getChildren").invoke(objects);
+                final Object list = children.getClass().getMethod("getList").invoke(children);
                 if (list instanceof List<?> entities) {
-                    sb.append(" childIdx=").append(entities.indexOf(button))
-                        .append('/').append(entities.size());
+                    sb.append(" childIdx=")
+                            .append(entities.indexOf(button))
+                            .append('/')
+                            .append(entities.size());
                 }
             } catch (ReflectiveOperationException ignored) {
                 // child index optional
@@ -738,16 +766,14 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 final float w = our != null && width(our) > 0f ? width(our) : 40f;
                 final float h = our != null && height(our) > 0f ? height(our) : 24f;
                 final float seatX = minX(zRect) + width(zRect);
-                if (our == null
-                    || Math.abs(minX(our) - seatX) > 0.5f
-                    || Math.abs(minY(our) - minY(zRect)) > 0.5f) {
-                    setBoundsOnComponent(button,
-                        newRect(seatX, minY(zRect), w, h, button));
+                if (our == null || Math.abs(minX(our) - seatX) > 0.5f || Math.abs(minY(our) - minY(zRect)) > 0.5f) {
+                    setBoundsOnComponent(button, newRect(seatX, minY(zRect), w, h, button));
                     sb.append(" seatedX=").append(seatX);
                 }
             }
             diagnostic(sb.toString());
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("STRIP_GEOMETRY_FAILED " + failure.getClass().getSimpleName());
         }
     }
@@ -760,37 +786,39 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      */
     private static String rendererDiag(final Object entity) {
         try {
-            final Object renderer = entity.getClass()
-                .getMethod("getMeshRenderer").invoke(entity);
+            final Object renderer =
+                    entity.getClass().getMethod("getMeshRenderer").invoke(entity);
             if (renderer == null) return ",mr=null";
             final StringBuilder sb = new StringBuilder(",mr[");
             try {
-                sb.append("lastOrder=").append(renderer.getClass()
-                    .getMethod("getLast_renderingOrder$core").invoke(renderer));
+                sb.append("lastOrder=")
+                        .append(renderer.getClass()
+                                .getMethod("getLast_renderingOrder$core")
+                                .invoke(renderer));
             } catch (ReflectiveOperationException ignored) {
                 sb.append("lastOrder=?");
             }
             try {
-                final Object layer = renderer.getClass()
-                    .getMethod("getSortingLayer").invoke(renderer);
+                final Object layer =
+                        renderer.getClass().getMethod("getSortingLayer").invoke(renderer);
                 sb.append(",layer=").append(layer != null);
             } catch (ReflectiveOperationException ignored) {
                 sb.append(",layer=?");
             }
             try {
-                sb.append(",order=").append(renderer.getClass()
-                    .getMethod("getOrderInLayer").invoke(renderer));
+                sb.append(",order=")
+                        .append(renderer.getClass().getMethod("getOrderInLayer").invoke(renderer));
             } catch (ReflectiveOperationException ignored) {
                 sb.append(",order=?");
             }
             return sb.append(']').toString();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return ",mr=ERR";
         }
     }
 
-    private static float vec(final Object vector, final String getter)
-        throws ReflectiveOperationException {
+    private static float vec(final Object vector, final String getter) throws ReflectiveOperationException {
         return (Float) vector.getClass().getMethod(getter).invoke(vector);
     }
 
@@ -804,9 +832,9 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     private static void diagnostic(final String stage) {
         try {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                "warp-alt-mirror", "STRIP_DIAG stage=" + stage);
+            dev.turboism.runtime.log.RuntimeDiagnostics.info("warp-alt-mirror", "STRIP_DIAG stage=" + stage);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // never reach the host call site
         }
     }

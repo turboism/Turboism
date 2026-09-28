@@ -1,15 +1,13 @@
 package dev.turboism.plugin.turboismwithfx;
 
-import dev.turboism.sdk.io.BoundedLineReader;
 import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.io.BoundedLineReader;
 import dev.turboism.sdk.mcp.McpHttpConnection;
-
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.math.BigDecimal;
-import java.net.URI;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -48,23 +46,18 @@ final class FxAcpClient implements AutoCloseable {
     private static final int MAX_UI_METADATA_CHARS = 8 * 1024;
     private static final int MAX_UI_CONTENT_CHARS = 256 * 1024;
     private static final int MAX_PENDING_REQUESTS = 64;
-    private static final java.util.regex.Pattern GRAPHEME =
-        java.util.regex.Pattern.compile("\\X");
-    private static final java.util.regex.Pattern CREDENTIAL_ASSIGNMENT =
-        java.util.regex.Pattern.compile(
-            "(?i)(\\b(?:authorization|token|secret|credential|password)\\s*[:=]\\s*)"
-                + "(?:bearer\\s+)?[^\\s,;]+"
-        );
+    private static final java.util.regex.Pattern GRAPHEME = java.util.regex.Pattern.compile("\\X");
+    private static final java.util.regex.Pattern CREDENTIAL_ASSIGNMENT = java.util.regex.Pattern.compile(
+            "(?i)(\\b(?:authorization|token|secret|credential|password)\\s*[:=]\\s*)" + "(?:bearer\\s+)?[^\\s,;]+");
     private static final java.util.regex.Pattern BEARER_VALUE =
-        java.util.regex.Pattern.compile("(?i)\\bbearer\\s+[^\\s,;]+");
+            java.util.regex.Pattern.compile("(?i)\\bbearer\\s+[^\\s,;]+");
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(15);
 
     private final FxAcpTransport transport;
     private final FxAcpListener listener;
     private final BufferedWriter writer;
     private final Object writeLock = new Object();
-    private final ConcurrentHashMap<Long, CompletableFuture<Object>> pending =
-        new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, CompletableFuture<Object>> pending = new ConcurrentHashMap<>();
     private final AtomicLong requestIds = new AtomicLong();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean terminationReported = new AtomicBoolean();
@@ -74,31 +67,25 @@ final class FxAcpClient implements AutoCloseable {
     private final CountDownLatch stderrFinished = new CountDownLatch(1);
     private volatile FxAcpCapabilities capabilities = FxAcpCapabilities.NONE;
     private final java.util.concurrent.ThreadPoolExecutor permissionExecutor =
-        new java.util.concurrent.ThreadPoolExecutor(
-            1,
-            1,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new java.util.concurrent.ArrayBlockingQueue<>(8),
-            runnable -> {
-                final Thread thread = new Thread(runnable, "turboism-fx-acp-permission");
-                thread.setDaemon(true);
-                return thread;
-            },
-            new java.util.concurrent.ThreadPoolExecutor.AbortPolicy()
-        );
+            new java.util.concurrent.ThreadPoolExecutor(
+                    1,
+                    1,
+                    0L,
+                    TimeUnit.MILLISECONDS,
+                    new java.util.concurrent.ArrayBlockingQueue<>(8),
+                    runnable -> {
+                        final Thread thread = new Thread(runnable, "turboism-fx-acp-permission");
+                        thread.setDaemon(true);
+                        return thread;
+                    },
+                    new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
     private final Thread stdoutThread;
     private final Thread stderrThread;
 
     /** Starts the resolved fx process and completes the ACP initialize handshake. */
-    static FxAcpClient start(
-        final FxLaunchConfiguration configuration,
-        final FxAcpListener listener
-    ) throws IOException, FxAcpException {
-        final FxAcpClient client = new FxAcpClient(
-            FxProcessTransport.start(configuration),
-            listener
-        );
+    static FxAcpClient start(final FxLaunchConfiguration configuration, final FxAcpListener listener)
+            throws IOException, FxAcpException {
+        final FxAcpClient client = new FxAcpClient(FxProcessTransport.start(configuration), listener);
         try {
             client.initialize(DEFAULT_TIMEOUT);
             return client;
@@ -111,10 +98,7 @@ final class FxAcpClient implements AutoCloseable {
     FxAcpClient(final FxAcpTransport transport, final FxAcpListener listener) {
         this.transport = Objects.requireNonNull(transport, "transport");
         this.listener = Objects.requireNonNull(listener, "listener");
-        this.writer = new BufferedWriter(new OutputStreamWriter(
-            transport.stdin(),
-            StandardCharsets.UTF_8
-        ));
+        this.writer = new BufferedWriter(new OutputStreamWriter(transport.stdin(), StandardCharsets.UTF_8));
         stdoutThread = daemon("turboism-fx-acp-stdout", this::readStdout);
         stderrThread = daemon("turboism-fx-acp-stderr", this::readStderr);
         stdoutThread.start();
@@ -140,9 +124,7 @@ final class FxAcpClient implements AutoCloseable {
             throw new FxAcpException("ACP executable is not fx");
         }
         if (!SUPPORTED_FX_VERSION.equals(string(agentInfo.get("version")))) {
-            throw new FxAcpException(
-                "fx version is unsupported; install fx " + SUPPORTED_FX_VERSION
-            );
+            throw new FxAcpException("fx version is unsupported; install fx " + SUPPORTED_FX_VERSION);
         }
         capabilities = FxAcpCapabilities.from(result.get("agentCapabilities"));
     }
@@ -153,56 +135,40 @@ final class FxAcpClient implements AutoCloseable {
     }
 
     /** Creates a new fx session using only the supplied Turboism MCP endpoint. */
-    FxAcpSession newSession(
-        final Path cwd,
-        final McpHttpConnection connection,
-        final Duration timeout
-    ) throws FxAcpException {
+    FxAcpSession newSession(final Path cwd, final McpHttpConnection connection, final Duration timeout)
+            throws FxAcpException {
         final McpHttpConnection mcp = remember(connection);
         final LinkedHashMap<String, Object> params = new LinkedHashMap<>();
         params.put("cwd", absolute(cwd));
         params.put("mcpServers", List.of(mcpServer(mcp)));
-        return newSessionResponse(
-            await(request("session/new", params), timeout),
-            capabilities
-        );
+        return newSessionResponse(await(request("session/new", params), timeout), capabilities);
     }
 
     /** Loads a durable fx session and rebinds its MCP runtime to the current Turboism endpoint. */
     FxAcpSession loadSession(
-        final String sessionId,
-        final Path cwd,
-        final McpHttpConnection connection,
-        final Duration timeout
-    ) throws FxAcpException {
+            final String sessionId, final Path cwd, final McpHttpConnection connection, final Duration timeout)
+            throws FxAcpException {
         final McpHttpConnection mcp = remember(connection);
         final LinkedHashMap<String, Object> params = new LinkedHashMap<>();
         params.put("sessionId", requireText(sessionId, "sessionId", 512));
         params.put("cwd", absolute(cwd));
         params.put("mcpServers", List.of(mcpServer(mcp)));
         return loadSessionResponse(
-            requireText(sessionId, "sessionId", 512),
-            await(request("session/load", params), timeout),
-            capabilities
-        );
+                requireText(sessionId, "sessionId", 512),
+                await(request("session/load", params), timeout),
+                capabilities);
     }
 
     /** Lists fx-owned durable sessions in the workspace established during ACP initialization. */
     List<FxAcpSessionSummary> listSessions(final Duration timeout) throws FxAcpException {
-        final Map<String, Object> response = object(await(
-            request("session/list", Map.of()),
-            timeout
-        ));
+        final Map<String, Object> response = object(await(request("session/list", Map.of()), timeout));
         final ArrayList<FxAcpSessionSummary> sessions = new ArrayList<>();
         for (Object rawSession : list(response.get("sessions"))) {
             final Map<String, Object> entry = object(rawSession);
             final String sessionId = string(entry.get("sessionId"));
             final String updatedAt = string(entry.get("updatedAt"));
             if (sessionId != null && updatedAt != null) {
-                sessions.add(new FxAcpSessionSummary(
-                    sessionId,
-                    redactedUi(updatedAt, MAX_UI_METADATA_CHARS)
-                ));
+                sessions.add(new FxAcpSessionSummary(sessionId, redactedUi(updatedAt, MAX_UI_METADATA_CHARS)));
             }
         }
         return List.copyOf(sessions);
@@ -212,33 +178,24 @@ final class FxAcpClient implements AutoCloseable {
     CompletableFuture<String> prompt(final String sessionId, final String text) {
         final LinkedHashMap<String, Object> params = new LinkedHashMap<>();
         params.put("sessionId", requireText(sessionId, "sessionId", 512));
-        params.put("prompt", List.of(Map.of(
-            "type", "text",
-            "text", requireText(text, "text", 1024 * 1024)
-        )));
+        params.put("prompt", List.of(Map.of("type", "text", "text", requireText(text, "text", 1024 * 1024))));
         return request("session/prompt", params).thenApply(result -> {
             final String stopReason = string(object(result).get("stopReason"));
-            return stopReason == null
-                ? "unknown"
-                : redactedUi(stopReason, MAX_UI_METADATA_CHARS);
+            return stopReason == null ? "unknown" : redactedUi(stopReason, MAX_UI_METADATA_CHARS);
         });
     }
 
     /** Applies an fx-owned provider/model option and returns fx's refreshed catalog. */
-    PendingConfigUpdate setConfigOption(
-        final String sessionId,
-        final String configId,
-        final String value
-    ) {
-        final CompletableFuture<Object> request = request("session/set_config_option", Map.of(
-            "sessionId", requireText(sessionId, "sessionId", 512),
-            "configId", requireText(configId, "configId", 128),
-            "value", requireText(value, "value", 8192)
-        ));
+    PendingConfigUpdate setConfigOption(final String sessionId, final String configId, final String value) {
+        final CompletableFuture<Object> request = request(
+                "session/set_config_option",
+                Map.of(
+                        "sessionId", requireText(sessionId, "sessionId", 512),
+                        "configId", requireText(configId, "configId", 128),
+                        "value", requireText(value, "value", 8192)));
         return new PendingConfigUpdate(
-            request,
-            request.thenApply(result -> configOptions(object(result).get("configOptions")))
-        );
+                request,
+                request.thenApply(result -> configOptions(object(result).get("configOptions"))));
     }
 
     /**
@@ -253,10 +210,7 @@ final class FxAcpClient implements AutoCloseable {
         future.cancel(false);
     }
 
-    record PendingConfigUpdate(
-        CompletableFuture<Object> request,
-        CompletableFuture<List<FxAcpConfigOption>> result
-    ) {
+    record PendingConfigUpdate(CompletableFuture<Object> request, CompletableFuture<List<FxAcpConfigOption>> result) {
         PendingConfigUpdate {
             Objects.requireNonNull(request, "request");
             Objects.requireNonNull(result, "result");
@@ -264,40 +218,27 @@ final class FxAcpClient implements AutoCloseable {
     }
 
     /** Closed ACP session lifecycle surface; omitted fields remain unsupported. */
-    record FxAcpCapabilities(
-        boolean loadSession,
-        boolean listSessions,
-        boolean closeSession
-    ) {
-        static final FxAcpCapabilities NONE = new FxAcpCapabilities(
-            false, false, false
-        );
+    record FxAcpCapabilities(boolean loadSession, boolean listSessions, boolean closeSession) {
+        static final FxAcpCapabilities NONE = new FxAcpCapabilities(false, false, false);
 
         private static FxAcpCapabilities from(final Object value) {
             final Map<String, Object> advertised = objectOrEmpty(value);
-            final Map<String, Object> sessions = objectOrEmpty(
-                advertised.get("sessionCapabilities")
-            );
+            final Map<String, Object> sessions = objectOrEmpty(advertised.get("sessionCapabilities"));
             return new FxAcpCapabilities(
-                Boolean.TRUE.equals(advertised.get("loadSession")),
-                sessions.containsKey("list"),
-                sessions.containsKey("close")
-            );
+                    Boolean.TRUE.equals(advertised.get("loadSession")),
+                    sessions.containsKey("list"),
+                    sessions.containsKey("close"));
         }
     }
 
     /** Best-effort notification that interrupts the active fx prompt. */
     void cancel(final String sessionId) {
-        sendNotification("session/cancel", Map.of(
-            "sessionId", requireText(sessionId, "sessionId", 512)
-        ));
+        sendNotification("session/cancel", Map.of("sessionId", requireText(sessionId, "sessionId", 512)));
     }
 
     /** Flushes and closes the active durable session before process teardown. */
     void closeSession(final String sessionId, final Duration timeout) throws FxAcpException {
-        await(request("session/close", Map.of(
-            "sessionId", requireText(sessionId, "sessionId", 512)
-        )), timeout);
+        await(request("session/close", Map.of("sessionId", requireText(sessionId, "sessionId", 512))), timeout);
     }
 
     private CompletableFuture<Object> request(final String method, final Object params) {
@@ -357,29 +298,24 @@ final class FxAcpClient implements AutoCloseable {
     }
 
     private void readStdout() {
-        try (BoundedLineReader lines = new BoundedLineReader(
-            strictUtf8(transport.stdout()),
-            MAX_ACP_LINE_CHARS
-        )) {
-            for (String line; (line = lines.readLine()) != null;) {
+        try (BoundedLineReader lines = new BoundedLineReader(strictUtf8(transport.stdout()), MAX_ACP_LINE_CHARS)) {
+            for (String line; (line = lines.readLine()) != null; ) {
                 if (line.isBlank()) continue;
                 try {
                     dispatch(StrictJson.parse(line.getBytes(StandardCharsets.UTF_8)));
                 } catch (RuntimeException failure) {
                     protocolFailureHint.compareAndSet(null, protocolLineHint(line));
-                    protocolFailurePreview.compareAndSet(
-                        null,
-                        protocolLinePreview(redact(line))
-                    );
+                    protocolFailurePreview.compareAndSet(null, protocolLinePreview(redact(line)));
                     throw failure;
                 }
             }
             if (!closed.get()) {
                 awaitStderrAfterProcessExit();
                 final String hint = stderrFailureHint.get();
-                fail(new FxAcpException(hint == null
-                    ? "fx ACP stdout closed unexpectedly"
-                    : "fx ACP stdout closed unexpectedly: " + hint));
+                fail(new FxAcpException(
+                        hint == null
+                                ? "fx ACP stdout closed unexpectedly"
+                                : "fx ACP stdout closed unexpectedly: " + hint));
             }
         } catch (IOException | RuntimeException failure) {
             if (!closed.get()) {
@@ -389,19 +325,15 @@ final class FxAcpClient implements AutoCloseable {
     }
 
     private void readStderr() {
-        try (BoundedLineReader lines = new BoundedLineReader(
-            strictUtf8(transport.stderr()),
-            MAX_STDERR_LINE_CHARS
-        )) {
-            for (BoundedLineReader.Line line; (line = lines.readLineTruncated()) != null;) {
-                stderrFailureHint.compareAndSet(
-                    null,
-                    protocolLinePreview(redact(line.text()))
-                );
+        try (BoundedLineReader lines = new BoundedLineReader(strictUtf8(transport.stderr()), MAX_STDERR_LINE_CHARS)) {
+            for (BoundedLineReader.Line line; (line = lines.readLineTruncated()) != null; ) {
+                stderrFailureHint.compareAndSet(null, protocolLinePreview(redact(line.text())));
                 final String redacted = redact(line.text());
-                listener.stderr(this, unsafeTruncatedSecret(redacted, line.truncated())
-                    ? "<redacted>…"
-                    : redacted + (line.truncated() ? "…" : ""));
+                listener.stderr(
+                        this,
+                        unsafeTruncatedSecret(redacted, line.truncated())
+                                ? "<redacted>…"
+                                : redacted + (line.truncated() ? "…" : ""));
             }
         } catch (IOException failure) {
             if (!closed.get()) listener.stderr(this, "fx stderr could not be read");
@@ -455,47 +387,33 @@ final class FxAcpClient implements AutoCloseable {
             final Map<String, Object> content = objectOrEmpty(update.get("content"));
             final String text = string(content.get("text"));
             if (text != null) {
-                listener.agentText(
-                    this,
-                    sessionId,
-                    redactedUi(text, MAX_UI_CONTENT_CHARS)
-                );
+                listener.agentText(this, sessionId, redactedUi(text, MAX_UI_CONTENT_CHARS));
             }
         } else if ("agent_thought_chunk".equals(kind)) {
             final Map<String, Object> content = objectOrEmpty(update.get("content"));
             final String text = string(content.get("text"));
             if (text != null) {
-                listener.agentThought(
-                    this,
-                    sessionId,
-                    redactedUi(text, MAX_UI_CONTENT_CHARS)
-                );
+                listener.agentThought(this, sessionId, redactedUi(text, MAX_UI_CONTENT_CHARS));
             }
         } else if ("tool_call".equals(kind)) {
             listener.toolCall(
-                this,
-                sessionId,
-                toolCallKey(update.get("toolCallId")),
-                redactedUi(display(update.get("title")), MAX_UI_METADATA_CHARS),
-                redactedUi(display(update.get("kind")), MAX_UI_METADATA_CHARS),
-                redactedUi(display(update.get("status")), MAX_UI_METADATA_CHARS)
-            );
+                    this,
+                    sessionId,
+                    toolCallKey(update.get("toolCallId")),
+                    redactedUi(display(update.get("title")), MAX_UI_METADATA_CHARS),
+                    redactedUi(display(update.get("kind")), MAX_UI_METADATA_CHARS),
+                    redactedUi(display(update.get("status")), MAX_UI_METADATA_CHARS));
         } else if ("tool_call_update".equals(kind)) {
             listener.toolCallUpdate(
-                this,
-                sessionId,
-                toolCallKey(update.get("toolCallId")),
-                redactedUi(display(update.get("status")), MAX_UI_METADATA_CHARS),
-                redactedUi(contentText(update.get("content")), MAX_UI_CONTENT_CHARS)
-            );
+                    this,
+                    sessionId,
+                    toolCallKey(update.get("toolCallId")),
+                    redactedUi(display(update.get("status")), MAX_UI_METADATA_CHARS),
+                    redactedUi(contentText(update.get("content")), MAX_UI_CONTENT_CHARS));
         }
     }
 
-    private void incomingRequest(
-        final Object id,
-        final String method,
-        final Map<String, Object> params
-    ) {
+    private void incomingRequest(final Object id, final String method, final Map<String, Object> params) {
         if (!"session/request_permission".equals(method)) {
             sendError(id, -32601L, "Method not found");
             return;
@@ -511,11 +429,10 @@ final class FxAcpClient implements AutoCloseable {
         }
         final Map<String, Object> toolCall = objectOrEmpty(params.get("toolCall"));
         final FxAcpListener.PermissionRequest request = new FxAcpListener.PermissionRequest(
-            redactedUi(display(toolCall.get("title")), MAX_UI_METADATA_CHARS),
-            redactedUi(display(toolCall.get("kind")), MAX_UI_METADATA_CHARS),
-            redactedUi(display(toolCall.get("toolCallId")), MAX_UI_METADATA_CHARS),
-            permissionDetails(toolCall.get("rawInput"))
-        );
+                redactedUi(display(toolCall.get("title")), MAX_UI_METADATA_CHARS),
+                redactedUi(display(toolCall.get("kind")), MAX_UI_METADATA_CHARS),
+                redactedUi(display(toolCall.get("toolCallId")), MAX_UI_METADATA_CHARS),
+                permissionDetails(toolCall.get("rawInput")));
         try {
             permissionExecutor.execute(() -> answerPermission(id, sessionId, request));
         } catch (java.util.concurrent.RejectedExecutionException failure) {
@@ -524,26 +441,24 @@ final class FxAcpClient implements AutoCloseable {
     }
 
     private void answerPermission(
-        final Object id,
-        final String sessionId,
-        final FxAcpListener.PermissionRequest request
-    ) {
+            final Object id, final String sessionId, final FxAcpListener.PermissionRequest request) {
         final FxAcpListener.PermissionDecision decision;
         try {
             decision = Objects.requireNonNullElse(
-                listener.permission(this, sessionId, request),
-                FxAcpListener.PermissionDecision.CANCELLED
-            );
+                    listener.permission(this, sessionId, request), FxAcpListener.PermissionDecision.CANCELLED);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             sendCancelledPermission(id);
             return;
         }
-        final Map<String, Object> outcome = switch (decision) {
-            case ALLOW_ONCE -> Map.of("outcome", "selected", "optionId", "allow_once");
-            case ALLOW_ALWAYS -> Map.of("outcome", "selected", "optionId", "allow_always");
-            case REJECT_ONCE -> Map.of("outcome", "selected", "optionId", "reject_once");
-            case CANCELLED -> Map.of("outcome", "cancelled");
-        };
+        final Map<String, Object> outcome =
+                switch (decision) {
+                    case ALLOW_ONCE -> Map.of("outcome", "selected", "optionId", "allow_once");
+                    case ALLOW_ALWAYS -> Map.of("outcome", "selected", "optionId", "allow_always");
+                    case REJECT_ONCE -> Map.of("outcome", "selected", "optionId", "reject_once");
+                    case CANCELLED -> Map.of("outcome", "cancelled");
+                };
         sendResult(id, Map.of("outcome", outcome));
     }
 
@@ -575,10 +490,7 @@ final class FxAcpClient implements AutoCloseable {
         }
     }
 
-    private FxAcpSession newSessionResponse(
-        final Object result,
-        final FxAcpCapabilities sessionCapabilities
-    ) {
+    private FxAcpSession newSessionResponse(final Object result, final FxAcpCapabilities sessionCapabilities) {
         final Map<String, Object> response = object(result);
         final String sessionId = safeSessionId(response.get("sessionId"));
         if (sessionId == null) {
@@ -588,16 +500,9 @@ final class FxAcpClient implements AutoCloseable {
     }
 
     private FxAcpSession loadSessionResponse(
-        final String sessionId,
-        final Object result,
-        final FxAcpCapabilities sessionCapabilities
-    ) {
+            final String sessionId, final Object result, final FxAcpCapabilities sessionCapabilities) {
         final Map<String, Object> response = objectOrEmpty(result);
-        return new FxAcpSession(
-            sessionId,
-            configOptions(response.get("configOptions")),
-            sessionCapabilities
-        );
+        return new FxAcpSession(sessionId, configOptions(response.get("configOptions")), sessionCapabilities);
     }
 
     private List<FxAcpConfigOption> configOptions(final Object value) {
@@ -616,28 +521,18 @@ final class FxAcpClient implements AutoCloseable {
                 final String choiceValue = string(choice.get("value"));
                 final String choiceName = string(choice.get("name"));
                 if (choiceValue != null && choiceName != null) {
-                    choices.add(new FxAcpConfigOption.Choice(
-                        choiceValue,
-                        redactedUi(choiceName, MAX_UI_METADATA_CHARS)
-                    ));
+                    choices.add(
+                            new FxAcpConfigOption.Choice(choiceValue, redactedUi(choiceName, MAX_UI_METADATA_CHARS)));
                 }
             }
             if (!choices.isEmpty()) {
-                options.add(new FxAcpConfigOption(
-                    id,
-                    redactedUi(name, MAX_UI_METADATA_CHARS),
-                    current,
-                    choices
-                ));
+                options.add(new FxAcpConfigOption(id, redactedUi(name, MAX_UI_METADATA_CHARS), current, choices));
             }
         }
         return List.copyOf(options);
     }
 
-    private Object await(
-        final CompletableFuture<Object> future,
-        final Duration timeout
-    ) throws FxAcpException {
+    private Object await(final CompletableFuture<Object> future, final Duration timeout) throws FxAcpException {
         try {
             return future.get(Objects.requireNonNull(timeout, "timeout").toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException failure) {
@@ -672,9 +567,7 @@ final class FxAcpClient implements AutoCloseable {
             final String optionId = string(object(entry).get("optionId"));
             if (optionId != null) available.add(optionId);
         }
-        return available.containsAll(java.util.Set.of(
-            "allow_once", "allow_always", "reject_once"
-        ));
+        return available.containsAll(java.util.Set.of("allow_once", "allow_always", "reject_once"));
     }
 
     private String permissionDetails(final Object rawInput) {
@@ -688,15 +581,11 @@ final class FxAcpClient implements AutoCloseable {
     }
 
     private static String redact(final String text) {
-        final String assignments = CREDENTIAL_ASSIGNMENT.matcher(text)
-            .replaceAll("$1<redacted>");
+        final String assignments = CREDENTIAL_ASSIGNMENT.matcher(text).replaceAll("$1<redacted>");
         return BEARER_VALUE.matcher(assignments).replaceAll("<redacted>");
     }
 
-    private static boolean unsafeTruncatedSecret(
-        final String redacted,
-        final boolean truncated
-    ) {
+    private static boolean unsafeTruncatedSecret(final String redacted, final boolean truncated) {
         return truncated && redacted.contains("<redacted>");
     }
 
@@ -712,9 +601,7 @@ final class FxAcpClient implements AutoCloseable {
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is unavailable", impossible);
         }
-        return java.util.HexFormat.of().formatHex(
-            digest.digest(toolCallId.getBytes(StandardCharsets.UTF_8))
-        );
+        return java.util.HexFormat.of().formatHex(digest.digest(toolCallId.getBytes(StandardCharsets.UTF_8)));
     }
 
     private static String bounded(final String text, final int maximum) {
@@ -773,11 +660,11 @@ final class FxAcpClient implements AutoCloseable {
 
     private static InputStreamReader strictUtf8(final java.io.InputStream stream) {
         return new InputStreamReader(
-            Objects.requireNonNull(stream, "stream"),
-            StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-        );
+                Objects.requireNonNull(stream, "stream"),
+                StandardCharsets.UTF_8
+                        .newDecoder()
+                        .onMalformedInput(CodingErrorAction.REPORT)
+                        .onUnmappableCharacter(CodingErrorAction.REPORT));
     }
 
     @SuppressWarnings("unchecked")
@@ -831,9 +718,7 @@ final class FxAcpClient implements AutoCloseable {
     private FxAcpException rpcError(final Object value) {
         final Map<String, Object> error = object(value);
         final String message = string(error.get("message"));
-        return new FxAcpException(message == null
-            ? "fx ACP returned an error"
-            : redact(message));
+        return new FxAcpException(message == null ? "fx ACP returned an error" : redact(message));
     }
 
     private static String absolute(final Path path) {
@@ -852,8 +737,10 @@ final class FxAcpClient implements AutoCloseable {
 
     private static String protocolLinePreview(final String line) {
         final String lower = line.toLowerCase(java.util.Locale.ROOT);
-        if (lower.contains("bearer ") || containsCredentialAssignment(lower)
-            || lower.contains("authorization:") || lower.contains("password=")) {
+        if (lower.contains("bearer ")
+                || containsCredentialAssignment(lower)
+                || lower.contains("authorization:")
+                || lower.contains("password=")) {
             return "<redacted>";
         }
         final int maximum = Math.min(line.length(), 160);
@@ -866,10 +753,13 @@ final class FxAcpClient implements AutoCloseable {
     }
 
     private static boolean containsCredentialAssignment(final String lower) {
-        return lower.contains("token=") || lower.contains("token:")
-            || lower.contains("credential=") || lower.contains("credential:")
-            || lower.contains("secret=") || lower.contains("secret:")
-            || lower.contains("authorization=");
+        return lower.contains("token=")
+                || lower.contains("token:")
+                || lower.contains("credential=")
+                || lower.contains("credential:")
+                || lower.contains("secret=")
+                || lower.contains("secret:")
+                || lower.contains("authorization=");
     }
 
     private String protocolFailureMessage() {
@@ -883,18 +773,11 @@ final class FxAcpClient implements AutoCloseable {
 
     private String safeSessionId(final Object value) {
         final String sessionId = string(value);
-        if (sessionId == null || sessionId.isBlank() || sessionId.length() > 512
-            || sessionId.indexOf('\0') >= 0) {
+        if (sessionId == null || sessionId.isBlank() || sessionId.length() > 512 || sessionId.indexOf('\0') >= 0) {
             return null;
         }
         final String redacted = redact(sessionId);
-        if (!redacted.equals(sessionId) || sessionId.regionMatches(
-            true,
-            0,
-            "Bearer ",
-            0,
-            "Bearer ".length()
-        )) {
+        if (!redacted.equals(sessionId) || sessionId.regionMatches(true, 0, "Bearer ", 0, "Bearer ".length())) {
             throw new IllegalArgumentException("fx ACP sessionId contained authorization material");
         }
         return sessionId;

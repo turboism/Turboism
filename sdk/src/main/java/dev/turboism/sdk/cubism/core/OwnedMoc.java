@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-
 /**
  * Plugin-owned Cubism Core MOC handle built from {@code .moc3} bytes.
  *

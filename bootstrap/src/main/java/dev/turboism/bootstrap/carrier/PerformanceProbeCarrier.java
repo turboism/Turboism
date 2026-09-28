@@ -17,7 +17,7 @@ public final class PerformanceProbeCarrier {
     private static volatile PerformanceProbeCallback callback;
     private static volatile long enabledMask;
 
-    private PerformanceProbeCarrier() { }
+    private PerformanceProbeCarrier() {}
 
     /**
      * Installs the single process-wide callback.

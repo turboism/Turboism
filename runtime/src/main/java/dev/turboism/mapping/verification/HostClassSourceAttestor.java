@@ -15,11 +15,8 @@ import java.util.jar.JarFile;
 /** Binds runtime owner CodeSource and exposed class-resource bytes to the verified artifact. */
 final class HostClassSourceAttestor {
 
-    void attest(
-        final Path verifiedArtifact,
-        final ClassLoader hostClassLoader,
-        final List<StaticSelector> selectors
-    ) throws IOException {
+    void attest(final Path verifiedArtifact, final ClassLoader hostClassLoader, final List<StaticSelector> selectors)
+            throws IOException {
         Objects.requireNonNull(verifiedArtifact, "verifiedArtifact");
         Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         Objects.requireNonNull(selectors, "selectors");
@@ -35,11 +32,11 @@ final class HostClassSourceAttestor {
     }
 
     private void attestOwner(
-        final Path verifiedArtifact,
-        final JarFile jar,
-        final ClassLoader hostClassLoader,
-        final String ownerInternalName
-    ) throws IOException {
+            final Path verifiedArtifact,
+            final JarFile jar,
+            final ClassLoader hostClassLoader,
+            final String ownerInternalName)
+            throws IOException {
         final String entryName = ownerInternalName + ".class";
         final JarEntry entry = jar.getJarEntry(entryName);
         if (entry == null) {
@@ -52,9 +49,11 @@ final class HostClassSourceAttestor {
             throw new IllegalArgumentException("runtime selector owner is unavailable " + ownerInternalName);
         }
         if (runtimeOwner.getClassLoader() != hostClassLoader) {
-            throw new IllegalArgumentException("runtime selector owner was not defined by the attested host classloader");
+            throw new IllegalArgumentException(
+                    "runtime selector owner was not defined by the attested host classloader");
         }
-        final java.security.CodeSource codeSource = runtimeOwner.getProtectionDomain().getCodeSource();
+        final java.security.CodeSource codeSource =
+                runtimeOwner.getProtectionDomain().getCodeSource();
         if (codeSource == null || codeSource.getLocation() == null) {
             throw new IllegalArgumentException("runtime selector owner has no attestable code source");
         }
@@ -66,17 +65,16 @@ final class HostClassSourceAttestor {
         }
         if (!runtimeSource.equals(verifiedArtifact.toRealPath())) {
             throw new IllegalArgumentException("runtime selector owner code source is not the verified artifact: "
-                + ownerInternalName + " loaded from " + runtimeSource);
+                    + ownerInternalName + " loaded from " + runtimeSource);
         }
         try (InputStream expected = jar.getInputStream(entry);
-             InputStream actual = runtimeOwner.getResourceAsStream("/" + entryName)) {
+                InputStream actual = runtimeOwner.getResourceAsStream("/" + entryName)) {
             if (actual == null) {
                 throw new IllegalArgumentException("runtime selector owner bytes are unavailable for attestation");
             }
             if (!digest(expected).equals(digest(actual))) {
                 throw new IllegalArgumentException(
-                    "runtime selector owner bytes do not match the verified artifact: " + ownerInternalName
-                );
+                        "runtime selector owner bytes do not match the verified artifact: " + ownerInternalName);
             }
         }
     }

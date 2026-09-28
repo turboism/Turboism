@@ -4,8 +4,6 @@ import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskRecordAdapter;
 import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
 import dev.turboism.sdk.i18n.PluginLocalization;
-
-import javax.swing.JComponent;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Cursor;
@@ -29,6 +27,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import javax.swing.JComponent;
 
 /**
  * 多层同心扇区图视图：三类节点（纯蒙版 | 既是也用 | 纯使用者或无关）各占
@@ -49,6 +48,7 @@ final class GraphPanel extends JComponent {
     private static final int NODE_SPACING = NODE_RADIUS * 3;
     /** 每类扇区弧长：120°（2π/3）。 */
     private static final double SECTOR_ARC = Math.PI * 2 / 3;
+
     private static final int MARGIN = 40;
 
     /** 可开关的类别（图例 5 项中 user 与 user.inverted 共享 user）。 */
@@ -69,6 +69,7 @@ final class GraphPanel extends JComponent {
     private final List<Rectangle> legendHitBounds = new ArrayList<>();
     /** 单击选中的节点 GUID；与编辑器选中高亮（highlightedGuids）并存，用户选中优先。 */
     private String selectedGuid;
+
     private NodeBox dragNode;
     private int dragNodeStartX;
     private int dragNodeStartY;
@@ -82,10 +83,9 @@ final class GraphPanel extends JComponent {
     private boolean dragMoved;
 
     GraphPanel(
-        final ClipMaskViewerState state,
-        final PluginLocalization localization,
-        final Consumer<String> onNodeClick
-    ) {
+            final ClipMaskViewerState state,
+            final PluginLocalization localization,
+            final Consumer<String> onNodeClick) {
         this.state = state;
         this.localization = localization;
         this.onNodeClick = onNodeClick;
@@ -145,9 +145,7 @@ final class GraphPanel extends JComponent {
             @Override
             public void mouseMoved(final MouseEvent event) {
                 final NodeBox hit = findNode(event.getPoint());
-                setCursor(hit == null
-                    ? Cursor.getDefaultCursor()
-                    : Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                setCursor(hit == null ? Cursor.getDefaultCursor() : Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                 setToolTipText(hit == null ? null : hit.tooltip());
             }
 
@@ -161,8 +159,8 @@ final class GraphPanel extends JComponent {
                     if (dragNode != null) {
                         // 节点拖动：屏幕位移经逆变换（/scale）转逻辑位移，移动节点本身。
                         dragNode.setPosition(
-                            dragNodeStartX + (int) Math.round(dx / scale),
-                            dragNodeStartY + (int) Math.round(dy / scale));
+                                dragNodeStartX + (int) Math.round(dx / scale),
+                                dragNodeStartY + (int) Math.round(dy / scale));
                         repaint();
                     } else {
                         offsetX = pressOffsetX + (int) Math.round(dx);
@@ -233,11 +231,17 @@ final class GraphPanel extends JComponent {
         }
     }
 
-    double scale() { return scale; }
+    double scale() {
+        return scale;
+    }
 
-    int offsetX() { return offsetX; }
+    int offsetX() {
+        return offsetX;
+    }
 
-    int offsetY() { return offsetY; }
+    int offsetY() {
+        return offsetY;
+    }
 
     void setShowUnrelated(final boolean show) {
         this.showUnrelated = show;
@@ -303,7 +307,7 @@ final class GraphPanel extends JComponent {
             }
             for (String maskGuid : record.orderedMaskGuids()) {
                 if (nodesByGuid.containsKey(maskGuid)
-                    && (maskGuid.equals(selectedGuid) || record.guid().equals(selectedGuid))) {
+                        && (maskGuid.equals(selectedGuid) || record.guid().equals(selectedGuid))) {
                     endpoints.add(maskGuid);
                     endpoints.add(record.guid());
                 }
@@ -407,12 +411,7 @@ final class GraphPanel extends JComponent {
     }
 
     /** 把 group 从内圈到外圈逐层填充在 [startDeg, startDeg + 120)° 的扇区内（屏幕坐标 y 向下）。 */
-    private void layoutSector(
-        final List<ClipMaskRecord> group,
-        final int startDeg,
-        final int cx,
-        final int cy
-    ) {
+    private void layoutSector(final List<ClipMaskRecord> group, final int startDeg, final int cx, final int cy) {
         final int count = group.size();
         if (count == 0) {
             return;
@@ -428,9 +427,10 @@ final class GraphPanel extends JComponent {
             for (int i = 0; i < take; i++) {
                 final double angle = start + step * (i + 0.5);
                 final ClipMaskRecord record = group.get(placed++);
-                final NodeBox box = new NodeBox(record,
-                    cx + (int) Math.round(radius * Math.cos(angle)),
-                    cy + (int) Math.round(radius * Math.sin(angle)));
+                final NodeBox box = new NodeBox(
+                        record,
+                        cx + (int) Math.round(radius * Math.cos(angle)),
+                        cy + (int) Math.round(radius * Math.sin(angle)));
                 nodes.add(box);
                 nodesByGuid.put(record.guid(), box);
             }
@@ -468,8 +468,7 @@ final class GraphPanel extends JComponent {
                 continue;
             }
             // 匹配判定只读 displayName 与 id，绝不读 guid。
-            if (containsIgnoreCase(record.displayName(), needle)
-                || containsIgnoreCase(record.id(), needle)) {
+            if (containsIgnoreCase(record.displayName(), needle) || containsIgnoreCase(record.id(), needle)) {
                 matches.add(record);
                 matchGuids.add(record.guid());
             }
@@ -625,12 +624,11 @@ final class GraphPanel extends JComponent {
                         continue;
                     }
                     final boolean touchesSelection = selectedGuid != null
-                        && (maskGuid.equals(selectedGuid) || record.guid().equals(selectedGuid));
-                    g2.setColor(touchesSelection
-                        ? new Color(220, 40, 40)
-                        : (record.inverted()
-                            ? new Color(200, 80, 80, 160)
-                            : new Color(80, 120, 200, 180)));
+                            && (maskGuid.equals(selectedGuid) || record.guid().equals(selectedGuid));
+                    g2.setColor(
+                            touchesSelection
+                                    ? new Color(220, 40, 40)
+                                    : (record.inverted() ? new Color(200, 80, 80, 160) : new Color(80, 120, 200, 180)));
                     g2.setStroke(touchesSelection ? new BasicStroke(2.5f) : new BasicStroke(1.2f));
                     drawArrow(g2, mask.x, mask.y, user.x, user.y, NODE_RADIUS);
                 }
@@ -648,9 +646,10 @@ final class GraphPanel extends JComponent {
                 g2.fillOval(node.x - NODE_RADIUS, node.y - NODE_RADIUS, NODE_RADIUS * 2, NODE_RADIUS * 2);
                 final boolean inSelection = selectionSet.contains(record.guid());
                 final boolean highlighted = highlightedGuids.contains(record.guid());
-                g2.setColor(inSelection
-                    ? new Color(220, 40, 40)
-                    : (highlighted ? new Color(230, 120, 20) : new Color(60, 60, 60)));
+                g2.setColor(
+                        inSelection
+                                ? new Color(220, 40, 40)
+                                : (highlighted ? new Color(230, 120, 20) : new Color(60, 60, 60)));
                 g2.setStroke(new BasicStroke(inSelection || highlighted ? 3.2f : 1.4f));
                 g2.drawOval(node.x - NODE_RADIUS, node.y - NODE_RADIUS, NODE_RADIUS * 2, NODE_RADIUS * 2);
 
@@ -659,8 +658,9 @@ final class GraphPanel extends JComponent {
                 g2.setColor(Color.BLACK);
                 g2.drawString(name, node.x - textWidth / 2, node.y + fm.getAscent() / 2 - 2);
 
-                final String countLabel = localization.format("node.mask.count", record.orderedMaskGuids().size())
-                    + (record.inverted() ? localization.text("node.inverted") : "");
+                final String countLabel = localization.format(
+                                "node.mask.count", record.orderedMaskGuids().size())
+                        + (record.inverted() ? localization.text("node.inverted") : "");
                 final int countWidth = fm.stringWidth(countLabel);
                 g2.setColor(new Color(80, 80, 80));
                 g2.drawString(countLabel, node.x - countWidth / 2, node.y + NODE_RADIUS + fm.getAscent() + 2);
@@ -731,13 +731,7 @@ final class GraphPanel extends JComponent {
     }
 
     private static void drawArrow(
-        final Graphics2D g2,
-        final int x1,
-        final int y1,
-        final int x2,
-        final int y2,
-        final int radius
-    ) {
+            final Graphics2D g2, final int x1, final int y1, final int x2, final int y2, final int radius) {
         final double dx = x2 - x1;
         final double dy = y2 - y1;
         final double length = Math.hypot(dx, dy);
@@ -761,7 +755,7 @@ final class GraphPanel extends JComponent {
         final int py2 = (int) Math.round(by - ux * arrowWidth);
         final Stroke old = g2.getStroke();
         g2.setStroke(new BasicStroke(1.0f));
-        g2.fillPolygon(new int[] { ex, px1, px2 }, new int[] { ey, py1, py2 }, 3);
+        g2.fillPolygon(new int[] {ex, px1, px2}, new int[] {ey, py1, py2}, 3);
         g2.setStroke(old);
     }
 
@@ -790,18 +784,21 @@ final class GraphPanel extends JComponent {
 
         String tooltip() {
             final StringBuilder sb = new StringBuilder("<html>");
-            sb.append("<b>").append(ClipMaskRecordAdapter.escapeHtml(record.displayName())).append("</b>");
+            sb.append("<b>")
+                    .append(ClipMaskRecordAdapter.escapeHtml(record.displayName()))
+                    .append("</b>");
             if (record.id() != null && !record.id().isEmpty() && !record.id().equals(record.displayName())) {
                 sb.append("<br/>").append(ClipMaskRecordAdapter.escapeHtml(record.id()));
             }
-            sb.append("<br/>").append(localization.format(
-                "tooltip.guid", ClipMaskRecordAdapter.shortGuid(record.guid())));
-            sb.append("<br/>").append(localization.format(
-                "tooltip.mask.count", record.orderedMaskGuids().size()));
+            sb.append("<br/>")
+                    .append(localization.format("tooltip.guid", ClipMaskRecordAdapter.shortGuid(record.guid())));
+            sb.append("<br/>")
+                    .append(localization.format(
+                            "tooltip.mask.count", record.orderedMaskGuids().size()));
             if (record.inverted()) {
                 sb.append("<br/><span style='color:#c04040'>")
-                    .append(localization.text("tooltip.inverted"))
-                    .append("</span>");
+                        .append(localization.text("tooltip.inverted"))
+                        .append("</span>");
             }
             sb.append("</html>");
             return sb.toString();

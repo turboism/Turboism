@@ -6,63 +6,54 @@ import java.util.Objects;
 
 /** Immutable, validated managed-or-custom fx process launch configuration. */
 record FxLaunchConfiguration(
-    String executable,
-    Path workingDirectory,
-    FxSecurityMode securityMode,
-    ManagedRuntimeIdentity managedRuntime,
-    java.util.Map<String, String> environment,
-    String startupModel
-) {
-    FxLaunchConfiguration(
-        final String executable,
-        final Path workingDirectory,
-        final FxSecurityMode securityMode
-    ) {
+        String executable,
+        Path workingDirectory,
+        FxSecurityMode securityMode,
+        ManagedRuntimeIdentity managedRuntime,
+        java.util.Map<String, String> environment,
+        String startupModel) {
+    FxLaunchConfiguration(final String executable, final Path workingDirectory, final FxSecurityMode securityMode) {
         this(executable, workingDirectory, securityMode, null, java.util.Map.of(), "");
     }
 
     FxLaunchConfiguration(
-        final String executable,
-        final Path workingDirectory,
-        final FxSecurityMode securityMode,
-        final ManagedRuntimeIdentity managedRuntime
-    ) {
+            final String executable,
+            final Path workingDirectory,
+            final FxSecurityMode securityMode,
+            final ManagedRuntimeIdentity managedRuntime) {
         this(executable, workingDirectory, securityMode, managedRuntime, java.util.Map.of(), "");
     }
 
     FxLaunchConfiguration(
-        final String executable,
-        final Path workingDirectory,
-        final FxSecurityMode securityMode,
-        final ManagedRuntimeIdentity managedRuntime,
-        final java.util.Map<String, String> environment
-    ) {
+            final String executable,
+            final Path workingDirectory,
+            final FxSecurityMode securityMode,
+            final ManagedRuntimeIdentity managedRuntime,
+            final java.util.Map<String, String> environment) {
         this(executable, workingDirectory, securityMode, managedRuntime, environment, "");
     }
 
     FxLaunchConfiguration {
         executable = requireExecutable(executable);
         workingDirectory = Objects.requireNonNull(workingDirectory, "workingDirectory")
-            .toAbsolutePath().normalize();
+                .toAbsolutePath()
+                .normalize();
         securityMode = Objects.requireNonNull(securityMode, "securityMode");
         if (managedRuntime != null) {
             managedRuntime = Objects.requireNonNull(managedRuntime, "managedRuntime");
         }
-        final java.util.LinkedHashMap<String, String> checkedEnvironment =
-            new java.util.LinkedHashMap<>();
+        final java.util.LinkedHashMap<String, String> checkedEnvironment = new java.util.LinkedHashMap<>();
         Objects.requireNonNull(environment, "environment").forEach((name, value) -> {
             final String key = Objects.requireNonNull(name, "environment name");
             final String text = Objects.requireNonNull(value, "environment value");
-            if (!key.matches("[A-Za-z_][A-Za-z0-9_]{0,127}")
-                || text.indexOf('\0') >= 0) {
+            if (!key.matches("[A-Za-z_][A-Za-z0-9_]{0,127}") || text.indexOf('\0') >= 0) {
                 throw new IllegalArgumentException("process environment is invalid");
             }
             checkedEnvironment.put(key, text);
         });
         environment = java.util.Map.copyOf(checkedEnvironment);
         startupModel = Objects.requireNonNullElse(startupModel, "").strip();
-        if (startupModel.length() > 512
-            || startupModel.chars().anyMatch(Character::isISOControl)) {
+        if (startupModel.length() > 512 || startupModel.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("startup model is invalid");
         }
     }
@@ -94,8 +85,9 @@ record FxLaunchConfiguration(
 
     private static String requireExecutable(final String value) {
         final String executable = Objects.requireNonNull(value, "executable").strip();
-        if (executable.isEmpty() || executable.length() > 4096
-            || executable.chars().anyMatch(Character::isISOControl)) {
+        if (executable.isEmpty()
+                || executable.length() > 4096
+                || executable.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("executable is invalid");
         }
         return executable;

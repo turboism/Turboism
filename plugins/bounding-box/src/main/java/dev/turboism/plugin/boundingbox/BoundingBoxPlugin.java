@@ -3,7 +3,6 @@ package dev.turboism.plugin.boundingbox;
 import dev.turboism.plugin.boundingbox.b1.application.BoundingBoxSettingsBinding;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
 import java.util.Objects;
 
 /** SDK-only migration shell; it intentionally contributes no host capability or UI. */

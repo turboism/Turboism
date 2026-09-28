@@ -1,19 +1,18 @@
 package dev.turboism.ui.panel;
 
-import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+
+import dev.turboism.sdk.plugin.Registration;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 class DockTabPopupNativeMethodTransformerTest {
 
@@ -21,23 +20,20 @@ class DockTabPopupNativeMethodTransformerTest {
     void augmentsOnlyTheExactPopupAppendPointAfterTheNativeItemWasAdded() throws Exception {
         final FixtureLoader loader = new FixtureLoader();
         final DockTabPopupNativeMethodTransformer transformer = new DockTabPopupNativeMethodTransformer(
-            "fixture/Popup",
-            "open",
-            "(Ljava/lang/Object;)V",
-            loader,
-            "fixture/Menu",
-            "append",
-            "(Ljava/lang/Object;)V",
-            "palette",
-            "Ljava/lang/Object;"
-        );
+                "fixture/Popup",
+                "open",
+                "(Ljava/lang/Object;)V",
+                loader,
+                "fixture/Menu",
+                "append",
+                "(Ljava/lang/Object;)V",
+                "palette",
+                "Ljava/lang/Object;");
 
         assertNull(transformer.transform(null, getClass().getClassLoader(), "fixture/Popup", null, null, popupClass()));
         assertNull(transformer.transform(null, loader, "fixture/Other", null, null, popupClass()));
 
-        final byte[] transformed = transformer.transform(
-            null, loader, "fixture/Popup", null, null, popupClass()
-        );
+        final byte[] transformed = transformer.transform(null, loader, "fixture/Popup", null, null, popupClass());
         assertNotNull(transformed);
 
         final Class<?> menuType = loader.define("fixture.Menu", menuClass());
@@ -66,11 +62,10 @@ class DockTabPopupNativeMethodTransformerTest {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/Popup", null, "java/lang/Object", null);
         writer.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "palette", "Ljava/lang/Object;", null, null)
-            .visitEnd();
+                .visitEnd();
 
-        final MethodVisitor constructor = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "<init>", "(Ljava/lang/Object;)V", null, null
-        );
+        final MethodVisitor constructor =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "(Ljava/lang/Object;)V", null, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
@@ -81,9 +76,7 @@ class DockTabPopupNativeMethodTransformerTest {
         constructor.visitMaxs(0, 0);
         constructor.visitEnd();
 
-        final MethodVisitor open = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "open", "(Ljava/lang/Object;)V", null, null
-        );
+        final MethodVisitor open = writer.visitMethod(Opcodes.ACC_PUBLIC, "open", "(Ljava/lang/Object;)V", null, null);
         open.visitCode();
         open.visitTypeInsn(Opcodes.NEW, "fixture/Menu");
         open.visitInsn(Opcodes.DUP);
@@ -91,9 +84,7 @@ class DockTabPopupNativeMethodTransformerTest {
         open.visitVarInsn(Opcodes.ASTORE, 2);
         open.visitVarInsn(Opcodes.ALOAD, 2);
         open.visitVarInsn(Opcodes.ALOAD, 1);
-        open.visitMethodInsn(
-            Opcodes.INVOKEVIRTUAL, "fixture/Menu", "append", "(Ljava/lang/Object;)V", false
-        );
+        open.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "fixture/Menu", "append", "(Ljava/lang/Object;)V", false);
         open.visitInsn(Opcodes.RETURN);
         open.visitMaxs(0, 0);
         open.visitEnd();
@@ -114,9 +105,8 @@ class DockTabPopupNativeMethodTransformerTest {
         constructor.visitMaxs(0, 0);
         constructor.visitEnd();
 
-        final MethodVisitor append = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "append", "(Ljava/lang/Object;)V", null, null
-        );
+        final MethodVisitor append =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, "append", "(Ljava/lang/Object;)V", null, null);
         append.visitCode();
         append.visitVarInsn(Opcodes.ALOAD, 0);
         append.visitInsn(Opcodes.DUP);

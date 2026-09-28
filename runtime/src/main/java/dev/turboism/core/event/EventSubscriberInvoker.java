@@ -6,10 +6,8 @@ import dev.turboism.sdk.event.EventBus;
 public final class EventSubscriberInvoker {
 
     /** Invokes a validated subscriber descriptor with the delivered event. */
-    public void invoke(
-        final EventSubscriberDescriptor descriptor,
-        final EventBus.TurboismEvent event
-    ) throws Throwable {
+    public void invoke(final EventSubscriberDescriptor descriptor, final EventBus.TurboismEvent event)
+            throws Throwable {
         descriptor.invoke(event);
     }
 }

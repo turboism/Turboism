@@ -1,7 +1,6 @@
 package dev.turboism.exportsettings;
 
 import dev.turboism.sdk.cubism.id.ModelId;
-
 import java.util.Objects;
 
 /**

@@ -11,8 +11,8 @@ import dev.turboism.adapter.cubism.integration.NativeEditToggleInjector;
 import dev.turboism.adapter.cubism.integration.SwingEditApprovalGate;
 import dev.turboism.adapter.cubism.integration.VerifiedEditApiDispatchInstaller;
 import dev.turboism.adapter.cubism.integration.VerifiedEditToggleHookInstaller;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.preview.PreviewRuntime;
-
 import java.util.Optional;
 
 /**
@@ -35,19 +35,23 @@ import java.util.Optional;
  */
 final class EditApiDispatchHookContributor implements HookContributor {
 
-    @Override public String id() {
+    @Override
+    public String id() {
         return "TURBOISM_EDIT_API_DISPATCH";
     }
 
-    @Override public Phase phase() {
+    @Override
+    public Phase phase() {
         return Phase.RUNTIME_STARTED;
     }
 
-    @Override public boolean closesOnProcessExit() {
+    @Override
+    public boolean closesOnProcessExit() {
         return true;
     }
 
-    @Override public java.util.Set<String> runtimeHookIds() {
+    @Override
+    public java.util.Set<String> runtimeHookIds() {
         return java.util.Set.of("edit-api-dispatch", "edit-toggle");
     }
 
@@ -57,53 +61,45 @@ final class EditApiDispatchHookContributor implements HookContributor {
      * which refuses without a reviewed dispatch-entry selector and keeps the
      * feature inert.
      */
-    @Override public boolean admitted(final HookEnvironment environment) {
+    @Override
+    public boolean admitted(final HookEnvironment environment) {
         return environment.runtimeSliceAdmitted("editor-model");
     }
 
-    @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
+    @Override
+    public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
         VerifiedEditApiDispatchInstaller installer = null;
         final java.util.List<AutoCloseable> toggleResources = new java.util.ArrayList<>();
         try {
             installer = VerifiedEditApiDispatchInstaller.fromVerifiedResolver(
-                environment.instrumentation(),
-                runtime.editorModelResolver(),
-                host.classLoader()
-            );
+                    environment.instrumentation(), runtime.editorModelResolver(), host.classLoader());
             final dev.turboism.sdk.cubism.edit.EditSessionService editSessions =
-                runtime.hostAccess().modelAccess()
-                    instanceof dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider provider
-                    ? provider.editSessions(
-                        "turboism.edit-api-bridge",
-                        () -> activeDocument(runtime))
-                    : dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
+                    runtime.hostAccess().modelAccess()
+                                    instanceof dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider provider
+                            ? provider.editSessions("turboism.edit-api-bridge", () -> activeDocument(runtime))
+                            : dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
             // 051 P2: the native 「编辑」 checkbox replaces the connection-time approval
             // prompt whenever the verified injector surface is admitted. The toggle state
             // is loaded from the host-domain UUConfig key before the bridge gate is chosen.
-            final Optional<EditApprovalGate> nativeToggle = installNativeEditToggle(
-                environment, host, toggleResources);
+            final Optional<EditApprovalGate> nativeToggle = installNativeEditToggle(environment, host, toggleResources);
             if (nativeToggle.isEmpty()) {
                 runtime.disableEditorCapabilitiesRequiringHook("edit-toggle");
             }
-            final EditApprovalGate approvalGate = nativeToggle
-                .orElseGet(() -> new SwingEditApprovalGate(java.util.Optional::empty));
+            final EditApprovalGate approvalGate =
+                    nativeToggle.orElseGet(() -> new SwingEditApprovalGate(java.util.Optional::empty));
             final EditProtocolBridge bridge = new EditProtocolBridge(
-                EditSocketWriter.reflective(),
-                EditBridgeEnvironment.production(
-                    runtime.editorModelResolver(),
-                    editSessions,
-                    () -> activeDocument(runtime),
-                    approvalGate));
+                    EditSocketWriter.reflective(),
+                    EditBridgeEnvironment.production(
+                            runtime.editorModelResolver(), editSessions, () -> activeDocument(runtime), approvalGate));
             if (!installer.install(bridge.receiver())) {
                 throw new IllegalStateException("Edit dispatch target was not transformed");
             }
             NativeOptimizationHookContributor.log(
-                environment,
-                "TURBOISM_EDIT_API_DISPATCH installation=COMPLETE retransformed="
-                    + String.join(",", installer.transformedClassNames())
-            );
+                    environment,
+                    "TURBOISM_EDIT_API_DISPATCH installation=COMPLETE retransformed="
+                            + String.join(",", installer.transformedClassNames()));
             final VerifiedEditApiDispatchInstaller installed = installer;
             return () -> closeResources(toggleResources, installed);
         } catch (final Throwable failure) {
@@ -113,19 +109,16 @@ final class EditApiDispatchHookContributor implements HookContributor {
                 failure.addSuppressed(cleanupFailure);
             }
             NativeOptimizationHookContributor.log(
-                environment,
-                "Turboism edit-protocol dispatch hook disabled safely: "
-                    + failure.getClass().getName() + ": " + failure.getMessage()
-            );
+                    environment,
+                    "Turboism edit-protocol dispatch hook disabled safely: "
+                            + failure.getClass().getName() + ": " + failure.getMessage());
             throw new IllegalStateException("Edit dispatch hook installation failed", failure);
         }
     }
 
     /** Removes the dispatcher first, then all optional toggle resources, despite cleanup failure. */
-    static void closeResources(
-        final java.util.List<AutoCloseable> toggleResources,
-        final AutoCloseable installer
-    ) throws Exception {
+    static void closeResources(final java.util.List<AutoCloseable> toggleResources, final AutoCloseable installer)
+            throws Exception {
         final java.util.List<AutoCloseable> resources = new java.util.ArrayList<>(toggleResources);
         if (installer != null) {
             resources.add(installer);
@@ -135,6 +128,7 @@ final class EditApiDispatchHookContributor implements HookContributor {
             try {
                 resources.get(index).close();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (first == null) {
                     first = failure;
                 } else if (first != failure) {
@@ -164,18 +158,16 @@ final class EditApiDispatchHookContributor implements HookContributor {
      * left half-installed and the native dialog stays untouched.</p>
      */
     private static Optional<EditApprovalGate> installNativeEditToggle(
-        final HookEnvironment environment,
-        final HostClassLocator.LocatedHost host,
-        final java.util.List<AutoCloseable> toggleResources
-    ) {
-        if ("false".equalsIgnoreCase(
-            System.getProperty(NativeEditToggleInjector.ENABLED_PROPERTY))) {
+            final HookEnvironment environment,
+            final HostClassLocator.LocatedHost host,
+            final java.util.List<AutoCloseable> toggleResources) {
+        if ("false".equalsIgnoreCase(System.getProperty(NativeEditToggleInjector.ENABLED_PROPERTY))) {
             return Optional.empty();
         }
         final var resolver = environment.runtime().orElseThrow().editorModelResolver();
         final EditToggleState state = new EditToggleState();
         final Optional<NativeEditToggleInjector> injector =
-            NativeEditToggleInjector.fromVerifiedResolver(resolver, state);
+                NativeEditToggleInjector.fromVerifiedResolver(resolver, state);
         if (injector.isEmpty()) {
             return Optional.empty();
         }
@@ -186,7 +178,7 @@ final class EditApiDispatchHookContributor implements HookContributor {
         VerifiedEditToggleHookInstaller hook = null;
         try {
             hook = VerifiedEditToggleHookInstaller.fromVerifiedResolver(
-                environment.instrumentation(), resolver, host.classLoader());
+                    environment.instrumentation(), resolver, host.classLoader());
             if (!hook.install(() -> injector.get().ensureInjectedOnEdt())) {
                 hook.close();
                 return Optional.empty();
@@ -201,9 +193,9 @@ final class EditApiDispatchHookContributor implements HookContributor {
                 }
             });
             NativeOptimizationHookContributor.log(
-                environment,
-                "TURBOISM_EDIT_TOGGLE_HOOK installation=COMPLETE retransformed="
-                    + String.join(",", installed.transformedClassNames()));
+                    environment,
+                    "TURBOISM_EDIT_TOGGLE_HOOK installation=COMPLETE retransformed="
+                            + String.join(",", installed.transformedClassNames()));
             return Optional.of(new EditToggleApprovalGate(state));
         } catch (final Throwable failure) {
             if (hook != null) {
@@ -214,9 +206,9 @@ final class EditApiDispatchHookContributor implements HookContributor {
                 }
             }
             NativeOptimizationHookContributor.log(
-                environment,
-                "Turboism native edit-toggle hook disabled safely: "
-                    + failure.getClass().getName());
+                    environment,
+                    "Turboism native edit-toggle hook disabled safely: "
+                            + failure.getClass().getName());
             return Optional.empty();
         }
     }
@@ -228,15 +220,16 @@ final class EditApiDispatchHookContributor implements HookContributor {
      * whenever the workspace cannot report a document, which fails engine calls
      * closed.</p>
      */
-    private static java.util.Optional<dev.turboism.sdk.cubism.id.DocumentId>
-        activeDocument(final PreviewRuntime runtime) {
-        final dev.turboism.adapter.cubism.ProjectWorkspaceAdapter
-            .AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.DocumentSnapshot>> result =
-            runtime.hostAccess().adapters().projectWorkspace().activeDocument();
+    private static java.util.Optional<dev.turboism.sdk.cubism.id.DocumentId> activeDocument(
+            final PreviewRuntime runtime) {
+        final dev.turboism.adapter.cubism.ProjectWorkspaceAdapter.AdapterResult<
+                        java.util.Optional<dev.turboism.sdk.cubism.DocumentSnapshot>>
+                result = runtime.hostAccess().adapters().projectWorkspace().activeDocument();
         if (!result.isAvailable() || result.value().isEmpty()) {
             return java.util.Optional.empty();
         }
-        return result.value().orElseThrow().map(
-            snapshot -> new dev.turboism.sdk.cubism.id.DocumentId(snapshot.documentId()));
+        return result.value()
+                .orElseThrow()
+                .map(snapshot -> new dev.turboism.sdk.cubism.id.DocumentId(snapshot.documentId()));
     }
 }

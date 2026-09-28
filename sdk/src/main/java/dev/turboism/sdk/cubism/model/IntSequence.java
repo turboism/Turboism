@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 /** Immutable indexed integer sequence. */
 public interface IntSequence {
 

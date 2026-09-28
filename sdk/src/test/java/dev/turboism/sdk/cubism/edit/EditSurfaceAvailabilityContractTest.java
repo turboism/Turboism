@@ -1,9 +1,12 @@
 package dev.turboism.sdk.cubism.edit;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.CubismFacade;
-import org.junit.jupiter.api.Test;
-
 import java.io.File;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -12,11 +15,7 @@ import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * Availability-pinning contract for the external-application editing surface.
@@ -37,9 +36,7 @@ final class EditSurfaceAvailabilityContractTest {
 
         for (final Class<?> type : topLevel) {
             final CubismEditor pin = type.getAnnotation(CubismEditor.class);
-            assertNotNull(
-                pin,
-                type.getName() + " is missing @CubismEditor and would leak onto future versions");
+            assertNotNull(pin, type.getName() + " is missing @CubismEditor and would leak onto future versions");
             assertBound(pin);
         }
     }
@@ -47,9 +44,7 @@ final class EditSurfaceAvailabilityContractTest {
     @Test
     void nestedEditTypesAreCoveredByAPinnedDeclaration() throws Exception {
         for (final Class<?> type : editPackageTypes()) {
-            assertTrue(
-                effectivelyPinned(type, new HashSet<>()),
-                type.getName() + " escapes availability pinning");
+            assertTrue(effectivelyPinned(type, new HashSet<>()), type.getName() + " escapes availability pinning");
         }
     }
 
@@ -61,12 +56,11 @@ final class EditSurfaceAvailabilityContractTest {
         assertBound(EditSessionService.class.getAnnotation(CubismEditor.class));
         assertBound(EditSession.class.getAnnotation(CubismEditor.class));
         for (final Class<?> family : List.of(
-            ParameterKeyOps.class,
-            ParameterStructureOps.class,
-            SelectionOps.class,
-            PartObjectOps.class,
-            DeformerOps.class
-        )) {
+                ParameterKeyOps.class,
+                ParameterStructureOps.class,
+                SelectionOps.class,
+                PartObjectOps.class,
+                DeformerOps.class)) {
             assertBound(family.getAnnotation(CubismEditor.class));
         }
     }
@@ -119,8 +113,7 @@ final class EditSurfaceAvailabilityContractTest {
             // package and must not be mistaken for surface types. Match the specific
             // Gradle output segment instead of any "/main/" — the build directory
             // itself can be named "main" (worktree id = branch name on CI).
-            if (!"file".equals(root.getProtocol())
-                || !root.getPath().contains("/classes/java/main/")) {
+            if (!"file".equals(root.getProtocol()) || !root.getPath().contains("/classes/java/main/")) {
                 continue;
             }
             final File directory = new File(root.toURI());

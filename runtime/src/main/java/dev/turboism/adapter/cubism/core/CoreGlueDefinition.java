@@ -3,12 +3,7 @@ package dev.turboism.adapter.cubism.core;
 import java.util.List;
 import java.util.Objects;
 
-record CoreGlueDefinition(
-    String id,
-    int drawableA,
-    int drawableB,
-    List<Integer> parameters
-) {
+record CoreGlueDefinition(String id, int drawableA, int drawableB, List<Integer> parameters) {
     CoreGlueDefinition {
         Objects.requireNonNull(id, "id");
         parameters = List.copyOf(parameters);

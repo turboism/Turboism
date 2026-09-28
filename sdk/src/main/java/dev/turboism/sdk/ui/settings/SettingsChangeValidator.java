@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.settings;
 
-
 /** Validates a proposed settings value before the runtime updates the visible control. */
 @FunctionalInterface
 public interface SettingsChangeValidator<T> {

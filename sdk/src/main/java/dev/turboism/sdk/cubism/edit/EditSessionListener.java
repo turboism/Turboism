@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+
 /**
  * Receives session-level notifications from the host while an edit session is open.
  *

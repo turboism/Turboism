@@ -1,20 +1,19 @@
 package dev.turboism.filechooser;
 
-import dev.turboism.config.RuntimeConfigRepository;
-import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
-import dev.turboism.sdk.runtime.RuntimeSettings;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Path;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.config.RuntimeConfigRepository;
+import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
+import dev.turboism.sdk.runtime.RuntimeSettings;
+import java.nio.file.Path;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class RuntimeFileChooserHistoryServiceTest {
 
@@ -26,19 +25,23 @@ class RuntimeFileChooserHistoryServiceTest {
         final AtomicReference<Path> project = new AtomicReference<>();
         final AtomicReference<Path> export = new AtomicReference<>();
 
-        @Override public Optional<Path> loadProjectDirectory() {
+        @Override
+        public Optional<Path> loadProjectDirectory() {
             return Optional.ofNullable(project.get());
         }
 
-        @Override public Optional<Path> loadExportDirectory() {
+        @Override
+        public Optional<Path> loadExportDirectory() {
             return Optional.ofNullable(export.get());
         }
 
-        @Override public void saveProjectDirectory(final Path dir) {
+        @Override
+        public void saveProjectDirectory(final Path dir) {
             project.set(dir);
         }
 
-        @Override public void saveExportDirectory(final Path dir) {
+        @Override
+        public void saveExportDirectory(final Path dir) {
             export.set(dir);
         }
     }
@@ -94,8 +97,7 @@ class RuntimeFileChooserHistoryServiceTest {
 
     @Test
     void nullProviderIsRejected() {
-        assertThrows(IllegalArgumentException.class,
-            () -> service(true).registerProvider(null));
+        assertThrows(IllegalArgumentException.class, () -> service(true).registerProvider(null));
     }
 
     @Test
@@ -103,8 +105,7 @@ class RuntimeFileChooserHistoryServiceTest {
         final RuntimeFileChooserHistoryService service = service(true);
         service.registerProvider(new RecordingProvider());
 
-        assertThrows(IllegalStateException.class,
-            () -> service.registerProvider(new RecordingProvider()));
+        assertThrows(IllegalStateException.class, () -> service.registerProvider(new RecordingProvider()));
     }
 
     @Test
@@ -121,16 +122,15 @@ class RuntimeFileChooserHistoryServiceTest {
 
     @Test
     void exportSeparationFollowsSettingsFileServiceWrites() {
-        final RuntimeConfigRepository config = new RuntimeConfigRepository(home, ignored -> { });
-        final RuntimeFileChooserHistoryService fileChooser = new RuntimeFileChooserHistoryService(
-            () -> config.read().path("hooks").path("startup")
-                .path("separateExportSaveDirectory").asBoolean(false)
-        );
+        final RuntimeConfigRepository config = new RuntimeConfigRepository(home, ignored -> {});
+        final RuntimeFileChooserHistoryService fileChooser = new RuntimeFileChooserHistoryService(() -> config.read()
+                .path("hooks")
+                .path("startup")
+                .path("separateExportSaveDirectory")
+                .asBoolean(false));
         final dev.turboism.config.RuntimeSettingsFileService settings =
-            new dev.turboism.config.RuntimeSettingsFileService(
-                config,
-                new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator()
-            );
+                new dev.turboism.config.RuntimeSettingsFileService(
+                        config, new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator());
 
         assertFalse(fileChooser.exportSeparationEnabled());
         settings.save(new RuntimeSettings(false, "INFO", 100, false, false, false, true));
@@ -152,19 +152,15 @@ class RuntimeFileChooserHistoryServiceTest {
         assertTrue(unavailable.projectRecentDirectory().isEmpty());
         assertTrue(unavailable.exportRecentDirectory().isEmpty());
         assertFalse(unavailable.exportSeparationEnabled());
-        assertThrows(UnsupportedOperationException.class,
-            () -> unavailable.setProjectRecentDirectory(home));
-        assertThrows(UnsupportedOperationException.class,
-            () -> unavailable.setExportRecentDirectory(home));
-        assertThrows(UnsupportedOperationException.class,
-            () -> unavailable.registerProvider(new RecordingProvider()));
+        assertThrows(UnsupportedOperationException.class, () -> unavailable.setProjectRecentDirectory(home));
+        assertThrows(UnsupportedOperationException.class, () -> unavailable.setExportRecentDirectory(home));
+        assertThrows(UnsupportedOperationException.class, () -> unavailable.registerProvider(new RecordingProvider()));
     }
 
     @Test
     void enabledFlagIsReadOnEveryCall() {
         final AtomicBoolean flag = new AtomicBoolean(false);
-        final RuntimeFileChooserHistoryService service =
-            new RuntimeFileChooserHistoryService(flag::get);
+        final RuntimeFileChooserHistoryService service = new RuntimeFileChooserHistoryService(flag::get);
 
         assertFalse(service.exportSeparationEnabled());
         flag.set(true);

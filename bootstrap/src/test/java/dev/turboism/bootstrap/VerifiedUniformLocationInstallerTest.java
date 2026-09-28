@@ -23,34 +23,52 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class VerifiedUniformLocationInstallerTest {
-    @Test void rejectsUnrequestedOldJvmSafeModeDisabledHookAndUnboundArtifact() {
+    @Test
+    void rejectsUnrequestedOldJvmSafeModeDisabledHookAndUnboundArtifact() {
         RuntimeStartupConfig normal = new RuntimeStartupConfig(false, false, false, false);
         Path missing = Path.of("missing-cubism-host.jar");
         assertFalse(VerifiedUniformLocationInstaller.admitted(missing, normal, false, 17));
         assertFalse(VerifiedUniformLocationInstaller.admitted(missing, normal, true, 16));
-        assertFalse(VerifiedUniformLocationInstaller.admitted(missing,
-            new RuntimeStartupConfig(true, false, false, false), true, 17));
-        assertFalse(VerifiedUniformLocationInstaller.admitted(missing,
-            new RuntimeStartupConfig(false, false, false, false, false, false, false,
-                Set.of(VerifiedUniformLocationInstaller.HOOK_ID)), true, 17));
-        assertFalse(VerifiedUniformLocationInstaller.admitted(missing, normal, true, 17),
-            "an artifact without a reviewed uniform contract must not admit");
+        assertFalse(VerifiedUniformLocationInstaller.admitted(
+                missing, new RuntimeStartupConfig(true, false, false, false), true, 17));
+        assertFalse(VerifiedUniformLocationInstaller.admitted(
+                missing,
+                new RuntimeStartupConfig(
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        Set.of(VerifiedUniformLocationInstaller.HOOK_ID)),
+                true,
+                17));
+        assertFalse(
+                VerifiedUniformLocationInstaller.admitted(missing, normal, true, 17),
+                "an artifact without a reviewed uniform contract must not admit");
     }
 
-    @Test void admitsRequestedArtifactWhoseShaderClassesMatchAReviewedContract() {
+    @Test
+    void admitsRequestedArtifactWhoseShaderClassesMatchAReviewedContract() {
         final String supplied = System.getenv("TURBOISM_UNIFORM_HOST_JAR");
-        assumeTrue(supplied != null && !supplied.isBlank()
-            && Files.isRegularFile(Path.of(supplied)),
-            "no TURBOISM_UNIFORM_HOST_JAR evidence supplied");
+        assumeTrue(
+                supplied != null && !supplied.isBlank() && Files.isRegularFile(Path.of(supplied)),
+                "no TURBOISM_UNIFORM_HOST_JAR evidence supplied");
         assertTrue(VerifiedUniformLocationInstaller.admitted(
-            Path.of(supplied), new RuntimeStartupConfig(false, false, false, false), true, 17));
+                Path.of(supplied), new RuntimeStartupConfig(false, false, false, false), true, 17));
     }
-    @Test void startupAndFailureCleanupRemainBeforeUserRuntime() throws Exception {
+
+    @Test
+    void startupAndFailureCleanupRemainBeforeUserRuntime() throws Exception {
         NativeOptimizationStartupOrder.assertBeforeRuntime();
     }
-    @Test void exactReferencesExerciseRegistrationAndRestorationWithoutRunningEditor() throws Exception {
+
+    @Test
+    void exactReferencesExerciseRegistrationAndRestorationWithoutRunningEditor() throws Exception {
         try (Fixture fixture = fixture()) {
-            VerifiedUniformLocationInstaller installer = new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
+            VerifiedUniformLocationInstaller installer =
+                    new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
             installer.install();
             assertTrue(System.getProperties().containsKey(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY));
             assertEquals(5, fixture.active.size());
@@ -60,9 +78,12 @@ class VerifiedUniformLocationInstallerTest {
             assertFalse(System.getProperties().containsKey(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY));
         }
     }
-    @Test void failedRetransformRollsBackAllOwnedSlotsAndTransforms() throws Exception {
+
+    @Test
+    void failedRetransformRollsBackAllOwnedSlotsAndTransforms() throws Exception {
         try (Fixture fixture = fixture()) {
-            VerifiedUniformLocationInstaller installer = new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
+            VerifiedUniformLocationInstaller installer =
+                    new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
             fixture.failHookRetransform = true;
             assertThrows(Exception.class, installer::install);
             assertEquals(0, fixture.active.size());
@@ -70,70 +91,83 @@ class VerifiedUniformLocationInstallerTest {
             installer.close();
         }
     }
-    @Test void incompleteMutationInventoryIsNotAdmitted(@org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+
+    @Test
+    void incompleteMutationInventoryIsNotAdmitted(@org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Path path = directory.resolve("missing-writers.jar");
         try (var output = new java.util.jar.JarOutputStream(Files.newOutputStream(path))) {
-            output.putNextEntry(new java.util.jar.JarEntry("empty.txt")); output.closeEntry();
+            output.putNextEntry(new java.util.jar.JarEntry("empty.txt"));
+            output.closeEntry();
         }
         try (var jar = new java.util.jar.JarFile(path.toFile())) {
-            assertThrows(IllegalArgumentException.class, () -> VerifiedUniformLocationInstaller.verifyMutationInventory(jar));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> VerifiedUniformLocationInstaller.verifyMutationInventory(jar));
         }
     }
-    @Test void glGetErrorElisionCompositionInstallsAndRestoresInOrder() throws Exception {
+
+    @Test
+    void glGetErrorElisionCompositionInstallsAndRestoresInOrder() throws Exception {
         try (Fixture fixture = fixture()) {
-            VerifiedGlGetErrorElisionInstaller elision = new VerifiedGlGetErrorElisionInstaller(
-                fixture.instrumentation, fixture.artifact, fixture.loader);
+            VerifiedGlGetErrorElisionInstaller elision =
+                    new VerifiedGlGetErrorElisionInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
             elision.install();
             assertEquals(1, elision.elided());
-            VerifiedUniformLocationInstaller uniform = new VerifiedUniformLocationInstaller(
-                fixture.instrumentation, fixture.artifact, fixture.loader);
+            VerifiedUniformLocationInstaller uniform =
+                    new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
             uniform.install();
             assertTrue(System.getProperties().containsKey(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY));
             uniform.close();
-            assertTrue(uniform.restored(),
-                "uniform restore must see the elided baseline it was admitted under");
+            assertTrue(uniform.restored(), "uniform restore must see the elided baseline it was admitted under");
             elision.close();
-            assertTrue(elision.restored(),
-                "elision restore must see the official baseline after uniform closed first");
+            assertTrue(elision.restored(), "elision restore must see the official baseline after uniform closed first");
         }
     }
-    @Test void foreignElidedBodyWithoutOurInstallationMarkerIsRejected() throws Exception {
+
+    @Test
+    void foreignElidedBodyWithoutOurInstallationMarkerIsRejected() throws Exception {
         try (Fixture fixture = fixture()) {
             // A byte-identical elision produced by an unregistered transformer is
             // indistinguishable from foreign instrumentation: strict admission.
             byte[] reference;
             try (var jar = new java.util.jar.JarFile(fixture.artifact.toFile());
-                 var input = jar.getInputStream(jar.getJarEntry(
-                     "com/live2d/graphics3d/shader/A.class"))) {
+                    var input = jar.getInputStream(jar.getJarEntry("com/live2d/graphics3d/shader/A.class"))) {
                 reference = input.readAllBytes();
             }
-            var foreign = new dev.turboism.adapter.cubism.optimization.glerror
-                .GlGetErrorElisionTransformer(fixture.loader, fixture.artifact, reference,
-                    dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTarget
-                        .of(dev.turboism.mapping.verification.HostArtifactDigest
-                            .from(fixture.artifact)).orElseThrow());
+            var foreign = new dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTransformer(
+                    fixture.loader,
+                    fixture.artifact,
+                    reference,
+                    dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTarget.of(
+                                    dev.turboism.mapping.verification.HostArtifactDigest.from(fixture.artifact))
+                            .orElseThrow());
             fixture.active.add(foreign);
-            IllegalStateException failure = assertThrows(IllegalStateException.class,
-                () -> new VerifiedUniformLocationInstaller(
-                    fixture.instrumentation, fixture.artifact, fixture.loader));
-            assertTrue(failure.getMessage().contains("shader/A.a"),
-                "the rejection must name the drifted method: " + failure.getMessage());
+            IllegalStateException failure = assertThrows(
+                    IllegalStateException.class,
+                    () -> new VerifiedUniformLocationInstaller(
+                            fixture.instrumentation, fixture.artifact, fixture.loader));
+            assertTrue(
+                    failure.getMessage().contains("shader/A.a"),
+                    "the rejection must name the drifted method: " + failure.getMessage());
         }
     }
-    @Test void elisionClosedBeforeUniformKeepsOfficialAdmission() throws Exception {
+
+    @Test
+    void elisionClosedBeforeUniformKeepsOfficialAdmission() throws Exception {
         try (Fixture fixture = fixture()) {
-            VerifiedGlGetErrorElisionInstaller elision = new VerifiedGlGetErrorElisionInstaller(
-                fixture.instrumentation, fixture.artifact, fixture.loader);
+            VerifiedGlGetErrorElisionInstaller elision =
+                    new VerifiedGlGetErrorElisionInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
             elision.install();
             elision.close();
             assertTrue(elision.restored());
-            VerifiedUniformLocationInstaller uniform = new VerifiedUniformLocationInstaller(
-                fixture.instrumentation, fixture.artifact, fixture.loader);
+            VerifiedUniformLocationInstaller uniform =
+                    new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
             uniform.install();
             uniform.close();
             assertTrue(uniform.restored());
         }
     }
+
     private static Fixture fixture() throws Exception {
         String supplied = System.getenv("TURBOISM_UNIFORM_HOST_JAR");
         assumeTrue(supplied != null && !supplied.isBlank(), "exact reference artifact not supplied");
@@ -146,35 +180,60 @@ class VerifiedUniformLocationInstallerTest {
         final List<ClassFileTransformer> active = new ArrayList<>();
         final Instrumentation instrumentation;
         boolean failHookRetransform;
+
         Fixture(Path artifact) throws Exception {
             this.artifact = artifact;
             List<URL> urls = new ArrayList<>();
             try (var files = Files.walk(artifact.getParent(), 3)) {
-                for (Path path : files.filter(path -> path.toString().endsWith(".jar")).toList()) urls.add(path.toUri().toURL());
+                for (Path path :
+                        files.filter(path -> path.toString().endsWith(".jar")).toList())
+                    urls.add(path.toUri().toURL());
             }
             loader = new URLClassLoader(urls.toArray(URL[]::new), getClass().getClassLoader());
-            instrumentation = (Instrumentation) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{Instrumentation.class}, (proxy, method, args) -> {
-                return switch (method.getName()) {
-                    case "isRetransformClassesSupported", "isModifiableClass" -> true;
-                    case "addTransformer" -> { active.add((ClassFileTransformer) args[0]); yield null; }
-                    case "removeTransformer" -> active.remove(args[0]);
-                    case "retransformClasses" -> {
-                        boolean containsHook = active.stream().anyMatch(value -> value instanceof UniformLocationCallSiteTransformer || value instanceof UniformLocationLifecycleTransformer);
-                        if (containsHook && failHookRetransform) { failHookRetransform = false; throw new UnmodifiableClassException("injected installation failure"); }
-                        for (Class<?> type : (Class<?>[]) args[0]) {
-                            byte[] bytes;
-                            try (var input = type.getResourceAsStream("/" + type.getName().replace('.', '/') + ".class")) { bytes = input.readAllBytes(); }
-                            for (ClassFileTransformer transformer : List.copyOf(active)) {
-                                byte[] next = transformer.transform(type.getModule(), type.getClassLoader(), type.getName().replace('.', '/'), type, type.getProtectionDomain(), bytes);
-                                if (next != null) bytes = next;
+            instrumentation = (Instrumentation) Proxy.newProxyInstance(
+                    getClass().getClassLoader(), new Class<?>[] {Instrumentation.class}, (proxy, method, args) -> {
+                        return switch (method.getName()) {
+                            case "isRetransformClassesSupported", "isModifiableClass" -> true;
+                            case "addTransformer" -> {
+                                active.add((ClassFileTransformer) args[0]);
+                                yield null;
                             }
-                        }
-                        yield null;
-                    }
-                    default -> throw new UnsupportedOperationException(method.getName());
-                };
-            });
+                            case "removeTransformer" -> active.remove(args[0]);
+                            case "retransformClasses" -> {
+                                boolean containsHook = active.stream()
+                                        .anyMatch(value -> value instanceof UniformLocationCallSiteTransformer
+                                                || value instanceof UniformLocationLifecycleTransformer);
+                                if (containsHook && failHookRetransform) {
+                                    failHookRetransform = false;
+                                    throw new UnmodifiableClassException("injected installation failure");
+                                }
+                                for (Class<?> type : (Class<?>[]) args[0]) {
+                                    byte[] bytes;
+                                    try (var input = type.getResourceAsStream(
+                                            "/" + type.getName().replace('.', '/') + ".class")) {
+                                        bytes = input.readAllBytes();
+                                    }
+                                    for (ClassFileTransformer transformer : List.copyOf(active)) {
+                                        byte[] next = transformer.transform(
+                                                type.getModule(),
+                                                type.getClassLoader(),
+                                                type.getName().replace('.', '/'),
+                                                type,
+                                                type.getProtectionDomain(),
+                                                bytes);
+                                        if (next != null) bytes = next;
+                                    }
+                                }
+                                yield null;
+                            }
+                            default -> throw new UnsupportedOperationException(method.getName());
+                        };
+                    });
         }
-        @Override public void close() throws Exception { loader.close(); }
+
+        @Override
+        public void close() throws Exception {
+            loader.close();
+        }
     }
 }

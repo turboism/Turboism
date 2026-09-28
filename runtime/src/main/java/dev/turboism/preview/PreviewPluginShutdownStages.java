@@ -2,7 +2,7 @@ package dev.turboism.preview;
 
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.runtime.ContextClassLoaderScope;
-
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,18 +25,17 @@ final class PreviewPluginShutdownStages {
     }
 
     PreviewPluginShutdownResult close(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final String id,
-        final boolean eventQuiesced,
-        final CloseProgress progress
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final String id,
+            final boolean eventQuiesced,
+            final CloseProgress progress) {
         log.info(id, "Plugin lifecycle: close started");
         final List<LocalPluginRuntime.PluginSummaryFailure> failures = new ArrayList<>();
         if (!eventQuiesced) {
             failures.add(failure(
-                "PLUGIN_EVENT_QUIESCENCE_FAILED", "event-quiescence",
-                "Plugin event callbacks did not quiesce before cleanup."
-            ));
+                    "PLUGIN_EVENT_QUIESCENCE_FAILED",
+                    "event-quiescence",
+                    "Plugin event callbacks did not quiesce before cleanup."));
             logFailure(id, "PLUGIN_EVENT_QUIESCENCE_FAILED");
             log.warn(id, "Plugin lifecycle: close deferred until event callbacks quiesce");
             return deferredResult(progress, failures);
@@ -54,9 +53,9 @@ final class PreviewPluginShutdownStages {
         final PluginGenerationGuard guard = loadedPlugin.guard();
         if (guard != null && !guard.drained()) {
             failures.add(failure(
-                "PLUGIN_SDK_DRAIN_FAILED", "sdk-drain",
-                "Plugin SDK calls admitted before fencing did not drain before teardown."
-            ));
+                    "PLUGIN_SDK_DRAIN_FAILED",
+                    "sdk-drain",
+                    "Plugin SDK calls admitted before fencing did not drain before teardown."));
             logFailure(id, "PLUGIN_SDK_DRAIN_FAILED");
             log.warn(id, "Plugin lifecycle: close deferred until admitted SDK calls drain");
             return deferredResult(progress, failures);
@@ -77,16 +76,13 @@ final class PreviewPluginShutdownStages {
         }
         if (!progress.classloaderAttempted) {
             progress.classloaderAttempted = true;
-            progress.classloaderState = closeClassLoader(
-                loadedPlugin, progress.scopeClosed, eventQuiesced, failures, id
-            );
+            progress.classloaderState =
+                    closeClassLoader(loadedPlugin, progress.scopeClosed, eventQuiesced, failures, id);
         }
         if (!progress.unloadAttempted) {
             progress.unloadAttempted = true;
-            progress.unloadState = unload(
-                loadedPlugin, progress.scopeClosed, eventQuiesced,
-                progress.classloaderState, id
-            );
+            progress.unloadState =
+                    unload(loadedPlugin, progress.scopeClosed, eventQuiesced, progress.classloaderState, id);
         }
         // Terminal tail, reached only by a non-deferred pass: the executor set captured at
         // fencing is released once scope closers and the classloader stage have run — the
@@ -97,31 +93,28 @@ final class PreviewPluginShutdownStages {
             try {
                 loadedPlugin.eventOwner().releaseExecutors();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 log.error(id, "Plugin executor release failed safely", failure);
             }
         }
         log.info(
-            id,
-            "Plugin lifecycle: close complete disable=" + progress.disableState
-                + " shutdown=" + progress.shutdownState
-                + " unload=" + progress.unloadState
-        );
+                id,
+                "Plugin lifecycle: close complete disable=" + progress.disableState
+                        + " shutdown=" + progress.shutdownState
+                        + " unload=" + progress.unloadState);
         return progress.result(failures);
     }
 
     private PreviewPluginShutdownResult deferredResult(
-        final CloseProgress progress,
-        final List<LocalPluginRuntime.PluginSummaryFailure> failures
-    ) {
+            final CloseProgress progress, final List<LocalPluginRuntime.PluginSummaryFailure> failures) {
         final List<LocalPluginRuntime.PluginSummaryFailure> all = new ArrayList<>(failures);
         return new PreviewPluginShutdownResult(
-            orNotStarted(progress.disableState),
-            orNotStarted(progress.shutdownState),
-            "FAILED",
-            orNotStarted(progress.scopeState),
-            orNotStarted(progress.classloaderState),
-            all
-        );
+                orNotStarted(progress.disableState),
+                orNotStarted(progress.shutdownState),
+                "FAILED",
+                orNotStarted(progress.scopeState),
+                orNotStarted(progress.classloaderState),
+                all);
     }
 
     private static String orNotStarted(final String state) {
@@ -129,124 +122,107 @@ final class PreviewPluginShutdownStages {
     }
 
     private boolean quiesceBackup(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final List<LocalPluginRuntime.PluginSummaryFailure> failures,
-        final String id
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final List<LocalPluginRuntime.PluginSummaryFailure> failures,
+            final String id) {
         try {
             if (loadedPlugin.context() != null) {
                 loadedPlugin.context().quiesceBackupOperations();
             }
             return true;
         } catch (Throwable exception) {
+            FatalErrors.rethrowIfFatal(exception);
             failures.add(failure(
-                "PLUGIN_BACKUP_QUIESCENCE_FAILED",
-                "backup-quiescence",
-                "Plugin backup work did not quiesce before lifecycle shutdown."
-            ));
+                    "PLUGIN_BACKUP_QUIESCENCE_FAILED",
+                    "backup-quiescence",
+                    "Plugin backup work did not quiesce before lifecycle shutdown."));
             logFailure(id, "PLUGIN_BACKUP_QUIESCENCE_FAILED");
             return false;
         }
     }
 
     private String disable(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final List<LocalPluginRuntime.PluginSummaryFailure> failures,
-        final String id
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final List<LocalPluginRuntime.PluginSummaryFailure> failures,
+            final String id) {
         if (loadedPlugin.runtime().state() != PluginLifecycleState.ENABLED) {
-            log.debug(id, "Plugin lifecycle: disable not required state=" + loadedPlugin.runtime().state());
+            log.debug(
+                    id,
+                    "Plugin lifecycle: disable not required state="
+                            + loadedPlugin.runtime().state());
             return "NOT_REQUIRED";
         }
         log.info(id, "Plugin lifecycle: disable started");
         boolean failed = false;
         for (int index = loadedPlugin.entrypoints().size() - 1; index >= 0; index--) {
-            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
-                loadedPlugin.classLoader()
-            )) {
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(loadedPlugin.classLoader())) {
                 loadedPlugin.entrypoints().get(index).disable();
             } catch (Throwable exception) {
+                FatalErrors.rethrowIfFatal(exception);
                 failed = true;
-                failures.add(failure(
-                    "PLUGIN_DISABLE_FAILED",
-                    "disable",
-                    "Plugin entrypoint disable failed safely."
-                ));
+                failures.add(failure("PLUGIN_DISABLE_FAILED", "disable", "Plugin entrypoint disable failed safely."));
                 logFailure(id, "PLUGIN_DISABLE_FAILED");
             }
         }
-        loadedPlugin.runtime().transitionTo(
-            failed ? PluginLifecycleState.DISABLE_FAILED : PluginLifecycleState.DISABLED
-        );
-        log.info(
-            id,
-            "Plugin lifecycle: disable " + (failed ? "failed" : "succeeded")
-        );
+        loadedPlugin
+                .runtime()
+                .transitionTo(failed ? PluginLifecycleState.DISABLE_FAILED : PluginLifecycleState.DISABLED);
+        log.info(id, "Plugin lifecycle: disable " + (failed ? "failed" : "succeeded"));
         return failed ? "FAILED" : "SUCCEEDED";
     }
 
     private String shutdown(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final List<LocalPluginRuntime.PluginSummaryFailure> failures,
-        final String id
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final List<LocalPluginRuntime.PluginSummaryFailure> failures,
+            final String id) {
         log.info(id, "Plugin lifecycle: shutdown started");
         boolean failed = false;
         for (int index = loadedPlugin.entrypoints().size() - 1; index >= 0; index--) {
-            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
-                loadedPlugin.classLoader()
-            )) {
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(loadedPlugin.classLoader())) {
                 loadedPlugin.entrypoints().get(index).shutdown();
             } catch (Throwable exception) {
+                FatalErrors.rethrowIfFatal(exception);
                 failed = true;
-                failures.add(failure(
-                    "PLUGIN_SHUTDOWN_FAILED",
-                    "shutdown",
-                    "Plugin entrypoint shutdown failed safely."
-                ));
+                failures.add(
+                        failure("PLUGIN_SHUTDOWN_FAILED", "shutdown", "Plugin entrypoint shutdown failed safely."));
                 logFailure(id, "PLUGIN_SHUTDOWN_FAILED");
             }
         }
-        loadedPlugin.runtime().transitionTo(
-            failed ? PluginLifecycleState.SHUTDOWN_FAILED : PluginLifecycleState.SHUTDOWN
-        );
-        log.info(
-            id,
-            "Plugin lifecycle: shutdown " + (failed ? "failed" : "succeeded")
-        );
+        loadedPlugin
+                .runtime()
+                .transitionTo(failed ? PluginLifecycleState.SHUTDOWN_FAILED : PluginLifecycleState.SHUTDOWN);
+        log.info(id, "Plugin lifecycle: shutdown " + (failed ? "failed" : "succeeded"));
         return failed ? "FAILED" : "SUCCEEDED";
     }
 
     private ScopeResult closeScope(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final List<LocalPluginRuntime.PluginSummaryFailure> failures,
-        final String id
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final List<LocalPluginRuntime.PluginSummaryFailure> failures,
+            final String id) {
         try {
             loadedPlugin.scope().close();
             return new ScopeResult(true, "SUCCEEDED");
         } catch (Throwable exception) {
+            FatalErrors.rethrowIfFatal(exception);
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
-            failures.add(failure(
-                "PLUGIN_SCOPE_CLEANUP_FAILED", "scope-cleanup", "Plugin scope cleanup failed safely."
-            ));
+            failures.add(
+                    failure("PLUGIN_SCOPE_CLEANUP_FAILED", "scope-cleanup", "Plugin scope cleanup failed safely."));
             logFailure(id, "PLUGIN_SCOPE_CLEANUP_FAILED");
             return new ScopeResult(false, "FAILED");
         }
     }
 
     private String closeClassLoader(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final boolean scopeClosed,
-        final boolean eventQuiesced,
-        final List<LocalPluginRuntime.PluginSummaryFailure> failures,
-        final String id
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final boolean scopeClosed,
+            final boolean eventQuiesced,
+            final List<LocalPluginRuntime.PluginSummaryFailure> failures,
+            final String id) {
         if (!scopeClosed || !eventQuiesced) {
             failures.add(failure(
-                "PLUGIN_CLASSLOADER_RETAINED", "classloader-cleanup",
-                "Plugin classloader was retained because cleanup did not quiesce."
-            ));
+                    "PLUGIN_CLASSLOADER_RETAINED",
+                    "classloader-cleanup",
+                    "Plugin classloader was retained because cleanup did not quiesce."));
             logFailure(id, "PLUGIN_CLASSLOADER_RETAINED");
             return "NOT_STARTED";
         }
@@ -254,57 +230,51 @@ final class PreviewPluginShutdownStages {
             loadedPlugin.classLoader().close();
             return "SUCCEEDED";
         } catch (Throwable exception) {
+            FatalErrors.rethrowIfFatal(exception);
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
             failures.add(failure(
-                "PLUGIN_CLASSLOADER_CLOSE_FAILED", "classloader-cleanup",
-                "Plugin classloader cleanup failed safely."
-            ));
+                    "PLUGIN_CLASSLOADER_CLOSE_FAILED",
+                    "classloader-cleanup",
+                    "Plugin classloader cleanup failed safely."));
             logFailure(id, "PLUGIN_CLASSLOADER_CLOSE_FAILED");
             return "FAILED";
         }
     }
 
     private String unload(
-        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final boolean scopeClosed,
-        final boolean eventQuiesced,
-        final String classloaderState,
-        final String id
-    ) {
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+            final boolean scopeClosed,
+            final boolean eventQuiesced,
+            final String classloaderState,
+            final String id) {
         if (loadedPlugin.runtime().state() == PluginLifecycleState.SHUTDOWN
-            && scopeClosed && eventQuiesced && "SUCCEEDED".equals(classloaderState)) {
+                && scopeClosed
+                && eventQuiesced
+                && "SUCCEEDED".equals(classloaderState)) {
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.UNLOADED);
             log.info(id, "Plugin lifecycle: unload succeeded");
             return "SUCCEEDED";
         }
         log.warn(
-            id,
-            "Plugin lifecycle: unload failed state=" + loadedPlugin.runtime().state()
-                + " scopeClosed=" + scopeClosed
-                + " eventQuiesced=" + eventQuiesced
-                + " classloader=" + classloaderState
-        );
+                id,
+                "Plugin lifecycle: unload failed state="
+                        + loadedPlugin.runtime().state()
+                        + " scopeClosed=" + scopeClosed
+                        + " eventQuiesced=" + eventQuiesced
+                        + " classloader=" + classloaderState);
         return "FAILED";
     }
 
     private static LocalPluginRuntime.PluginSummaryFailure failure(
-        final String code,
-        final String phase,
-        final String message
-    ) {
+            final String code, final String phase, final String message) {
         return new LocalPluginRuntime.PluginSummaryFailure(code, phase, message);
     }
 
     private void logFailure(final String component, final String code) {
-        log.error(
-            component,
-            "Plugin lifecycle stage failed safely: " + code,
-            new IllegalStateException(code)
-        );
+        log.error(component, "Plugin lifecycle stage failed safely: " + code, new IllegalStateException(code));
     }
 
-    private record ScopeResult(boolean closed, String state) {
-    }
+    private record ScopeResult(boolean closed, String state) {}
 
     /**
      * At-most-once phase outcomes for one close generation. Shared between the initial close task
@@ -343,34 +313,25 @@ final class PreviewPluginShutdownStages {
          *     with unattempted stages is not inert even when no worker is currently running.
          */
         boolean noPendingStages() {
-            return disableAttempted
-                && shutdownAttempted
-                && scopeAttempted
-                && classloaderAttempted
-                && unloadAttempted;
+            return disableAttempted && shutdownAttempted && scopeAttempted && classloaderAttempted && unloadAttempted;
         }
 
-        PreviewPluginShutdownResult result(
-            final List<LocalPluginRuntime.PluginSummaryFailure> failures
-        ) {
+        PreviewPluginShutdownResult result(final List<LocalPluginRuntime.PluginSummaryFailure> failures) {
             return new PreviewPluginShutdownResult(
-                orNotStarted(disableState),
-                orNotStarted(shutdownState),
-                orNotStarted(unloadState),
-                orNotStarted(scopeState),
-                orNotStarted(classloaderState),
-                failures
-            );
+                    orNotStarted(disableState),
+                    orNotStarted(shutdownState),
+                    orNotStarted(unloadState),
+                    orNotStarted(scopeState),
+                    orNotStarted(classloaderState),
+                    failures);
         }
     }
 }
 
 record PreviewPluginShutdownResult(
-    String disableState,
-    String shutdownState,
-    String unloadState,
-    String scopeCleanupState,
-    String classloaderCleanupState,
-    List<LocalPluginRuntime.PluginSummaryFailure> failures
-) {
-}
+        String disableState,
+        String shutdownState,
+        String unloadState,
+        String scopeCleanupState,
+        String classloaderCleanupState,
+        List<LocalPluginRuntime.PluginSummaryFailure> failures) {}

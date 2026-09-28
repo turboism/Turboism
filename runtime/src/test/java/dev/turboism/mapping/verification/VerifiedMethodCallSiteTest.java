@@ -1,13 +1,12 @@
 package dev.turboism.mapping.verification;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 class VerifiedMethodCallSiteTest {
 
@@ -25,24 +24,16 @@ class VerifiedMethodCallSiteTest {
         assertTrue(staticSite.isClosed());
         assertTrue(valueSite.isClosed());
         assertEquals(
-            VerifiedAccessException.FailureKind.RESOLUTION,
-            assertThrows(
-                VerifiedAccessException.class,
-                () -> valueSite.invoke(host)
-            ).failureKind()
-        );
+                VerifiedAccessException.FailureKind.RESOLUTION,
+                assertThrows(VerifiedAccessException.class, () -> valueSite.invoke(host))
+                        .failureKind());
     }
 
     @Test
     void descriptorDriftFailsDuringBinding() {
-        final VerifiedAccessException failure = assertThrows(
-            VerifiedAccessException.class,
-            () -> resolver().bind("fixture.host.bad-descriptor")
-        );
-        assertEquals(
-            VerifiedAccessException.FailureKind.RESOLUTION,
-            failure.failureKind()
-        );
+        final VerifiedAccessException failure =
+                assertThrows(VerifiedAccessException.class, () -> resolver().bind("fixture.host.bad-descriptor"));
+        assertEquals(VerifiedAccessException.FailureKind.RESOLUTION, failure.failureKind());
     }
 
     @Test
@@ -52,57 +43,38 @@ class VerifiedMethodCallSiteTest {
         final VerifiedMethodCallSite failureSite = resolver.bind("fixture.host.fail");
 
         assertEquals(
-            VerifiedAccessException.FailureKind.RESOLUTION,
-            assertThrows(
-                VerifiedAccessException.class,
-                () -> valueSite.invoke("wrong")
-            ).failureKind()
-        );
-        final var failure = assertThrows(VerifiedAccessException.class,
-            () -> failureSite.invoke(new FixtureHost("ready")));
+                VerifiedAccessException.FailureKind.RESOLUTION,
+                assertThrows(VerifiedAccessException.class, () -> valueSite.invoke("wrong"))
+                        .failureKind());
+        final var failure =
+                assertThrows(VerifiedAccessException.class, () -> failureSite.invoke(new FixtureHost("ready")));
         assertEquals(VerifiedAccessException.FailureKind.INVOCATION, failure.failureKind());
-        assertEquals(VerifiedAccessException.HostFailureCategory.ILLEGAL_STATE,
-            failure.hostFailureCategory());
+        assertEquals(VerifiedAccessException.HostFailureCategory.ILLEGAL_STATE, failure.hostFailureCategory());
         assertEquals(null, failure.getCause());
     }
 
     private static VerifiedMemberResolver resolver() {
         final String owner = FixtureHost.class.getName().replace('.', '/');
         return TestVerifiedResolvers.create(
-            "fixture.callsites",
-            Set.of("fixture.read"),
-            List.of(
-                StaticSelector.staticMethod(
-                    "fixture.host.create",
-                    owner,
-                    "create",
-                    "(Ljava/lang/String;)L" + owner + ";",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "fixture.host.value",
-                    owner,
-                    "value",
-                    "()Ljava/lang/String;",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "fixture.host.fail",
-                    owner,
-                    "fail",
-                    "()V",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "fixture.host.bad-descriptor",
-                    owner,
-                    "value",
-                    "()I",
-                    StaticSelector.ACCESS_PUBLIC
-                )
-            ),
-            FixtureHost.class.getClassLoader()
-        );
+                "fixture.callsites",
+                Set.of("fixture.read"),
+                List.of(
+                        StaticSelector.staticMethod(
+                                "fixture.host.create",
+                                owner,
+                                "create",
+                                "(Ljava/lang/String;)L" + owner + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "fixture.host.value",
+                                owner,
+                                "value",
+                                "()Ljava/lang/String;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method("fixture.host.fail", owner, "fail", "()V", StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "fixture.host.bad-descriptor", owner, "value", "()I", StaticSelector.ACCESS_PUBLIC)),
+                FixtureHost.class.getClassLoader());
     }
 
     public record FixtureHost(String value) {

@@ -12,19 +12,19 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
+import dev.turboism.sdk.ui.CanvasHintHandle;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
 import dev.turboism.sdk.ui.CollapsibleSectionContribution;
-import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
+import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.FileChooserRequest;
+import dev.turboism.sdk.ui.HorizontalToolbarContribution;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.CanvasHintNotification;
-import dev.turboism.sdk.ui.CanvasHintHandle;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.HorizontalToolbarContribution;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
 import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
@@ -36,10 +36,9 @@ import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.host.EditorUiFamily;
+import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 import dev.turboism.ui.panel.PanelCollapsibleContentCoordinator;
 import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
-import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -73,11 +72,20 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final DisposableScope disposableScope;
     private static final int MAX_TRANSIENT_ENTRIES = 64;
     private static final PluginLogger NOOP_LOGGER = new PluginLogger() {
-        @Override public void debug(final String message) { }
-        @Override public void info(final String message) { }
-        @Override public void warn(final String message) { }
-        @Override public void error(final String message) { }
-        @Override public void error(final String message, final Throwable throwable) { }
+        @Override
+        public void debug(final String message) {}
+
+        @Override
+        public void info(final String message) {}
+
+        @Override
+        public void warn(final String message) {}
+
+        @Override
+        public void error(final String message) {}
+
+        @Override
+        public void error(final String message, final Throwable throwable) {}
     };
 
     private final StatusToolbarAdapter statusToolbarAdapter;
@@ -92,328 +100,294 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<BoundingBoxOverlayButton> boundingBoxOverlayButtons =
-        new CopyOnWriteArrayList<>();
+            new CopyOnWriteArrayList<>();
     private final BoundedKeyedStore<String, TrackedNotification> notifications =
-        new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
+            new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
     private final BoundedKeyedStore<String, TrackedCanvasHint> canvasHints =
-        new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
-    private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus = new CopyOnWriteArrayList<>();
-    private final CopyOnWriteArrayList<MainToolbarRegistry.MainToolbarContribution> mainToolbars = new CopyOnWriteArrayList<>();
+            new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
+    private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus =
+            new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<MainToolbarRegistry.MainToolbarContribution> mainToolbars =
+            new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<VerticalToolbarContribution> verticalToolbars = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<HorizontalToolbarContribution> horizontalToolbars = new CopyOnWriteArrayList<>();
-    private final CopyOnWriteArrayList<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars = new CopyOnWriteArrayList<>();
-    private final CopyOnWriteArrayList<PaletteFilterRegistry.PaletteFilterContribution> paletteFilters = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars =
+            new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<PaletteFilterRegistry.PaletteFilterContribution> paletteFilters =
+            new CopyOnWriteArrayList<>();
     private final BoundedKeyedStore<String, SafeModeDiagnostic> statusToolbarDiagnostics =
-        new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
+            new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
 
-    public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId
-    ) {
+    public RuntimeUiHostCapabilityService(final PermissionChecker permissionChecker, final String pluginId) {
         this(permissionChecker, pluginId, UiHostStateSource.DEFAULT, new DisposableScope());
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource
-    ) {
+            final PermissionChecker permissionChecker, final String pluginId, final UiHostStateSource stateSource) {
         this(permissionChecker, pluginId, stateSource, new DisposableScope());
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope) {
         this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            StatusToolbarAdapterImpl.safeMode(),
-            UiSurfaceAdapterImpl.safeMode()
-        );
+                permissionChecker,
+                pluginId,
+                stateSource,
+                disposableScope,
+                StatusToolbarAdapterImpl.safeMode(),
+                UiSurfaceAdapterImpl.safeMode());
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter) {
         this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            UiSurfaceAdapterImpl.safeMode()
-        );
+                permissionChecker,
+                pluginId,
+                stateSource,
+                disposableScope,
+                statusToolbarAdapter,
+                UiSurfaceAdapterImpl.safeMode());
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final UiSurfaceAdapter uiSurfaceAdapter
-    ) {
-        this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            uiSurfaceAdapter,
-            null
-        );
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter,
+            final UiSurfaceAdapter uiSurfaceAdapter) {
+        this(permissionChecker, pluginId, stateSource, disposableScope, statusToolbarAdapter, uiSurfaceAdapter, null);
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final UiSurfaceAdapter uiSurfaceAdapter,
-        final PluginLocalization localization
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter,
+            final UiSurfaceAdapter uiSurfaceAdapter,
+            final PluginLocalization localization) {
         this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            uiSurfaceAdapter,
-            localization,
-            new dev.turboism.ui.settings.SettingsContributionStore()
-        );
+                permissionChecker,
+                pluginId,
+                stateSource,
+                disposableScope,
+                statusToolbarAdapter,
+                uiSurfaceAdapter,
+                localization,
+                new dev.turboism.ui.settings.SettingsContributionStore());
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final UiSurfaceAdapter uiSurfaceAdapter,
-        final PluginLocalization localization,
-        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter,
+            final UiSurfaceAdapter uiSurfaceAdapter,
+            final PluginLocalization localization,
+            final dev.turboism.ui.settings.SettingsContributionStore settingsContributions) {
         this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            uiSurfaceAdapter,
-            localization,
-            settingsContributions,
-            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
-        );
+                permissionChecker,
+                pluginId,
+                stateSource,
+                disposableScope,
+                statusToolbarAdapter,
+                uiSurfaceAdapter,
+                localization,
+                settingsContributions,
+                new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final UiSurfaceAdapter uiSurfaceAdapter,
-        final PluginLocalization localization,
-        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
-        final PluginLogger logger
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter,
+            final UiSurfaceAdapter uiSurfaceAdapter,
+            final PluginLocalization localization,
+            final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
+            final PluginLogger logger) {
         this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            uiSurfaceAdapter,
-            localization,
-            settingsContributions,
-            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()),
-            new RuntimeEmbeddedPanelActivationCoordinator(),
-            CallbackDispatcher.direct(),
-            logger
-        );
+                permissionChecker,
+                pluginId,
+                stateSource,
+                disposableScope,
+                statusToolbarAdapter,
+                uiSurfaceAdapter,
+                localization,
+                settingsContributions,
+                new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()),
+                new RuntimeEmbeddedPanelActivationCoordinator(),
+                CallbackDispatcher.direct(),
+                logger);
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final UiSurfaceAdapter uiSurfaceAdapter,
-        final PluginLocalization localization,
-        final EditorUiContributionAuthority contributionAuthority
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter,
+            final UiSurfaceAdapter uiSurfaceAdapter,
+            final PluginLocalization localization,
+            final EditorUiContributionAuthority contributionAuthority) {
         this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            uiSurfaceAdapter,
-            localization,
-            new dev.turboism.ui.settings.SettingsContributionStore(),
-            contributionAuthority
-        );
+                permissionChecker,
+                pluginId,
+                stateSource,
+                disposableScope,
+                statusToolbarAdapter,
+                uiSurfaceAdapter,
+                localization,
+                new dev.turboism.ui.settings.SettingsContributionStore(),
+                contributionAuthority);
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final UiSurfaceAdapter uiSurfaceAdapter,
-        final PluginLocalization localization,
-        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
-        final EditorUiContributionAuthority contributionAuthority
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter,
+            final UiSurfaceAdapter uiSurfaceAdapter,
+            final PluginLocalization localization,
+            final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
+            final EditorUiContributionAuthority contributionAuthority) {
         this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            uiSurfaceAdapter,
-            localization,
-            settingsContributions,
-            contributionAuthority,
-            new RuntimeEmbeddedPanelActivationCoordinator()
-        );
+                permissionChecker,
+                pluginId,
+                stateSource,
+                disposableScope,
+                statusToolbarAdapter,
+                uiSurfaceAdapter,
+                localization,
+                settingsContributions,
+                contributionAuthority,
+                new RuntimeEmbeddedPanelActivationCoordinator());
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final UiSurfaceAdapter uiSurfaceAdapter,
-        final PluginLocalization localization,
-        final EditorUiContributionAuthority contributionAuthority,
-        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter,
+            final UiSurfaceAdapter uiSurfaceAdapter,
+            final PluginLocalization localization,
+            final EditorUiContributionAuthority contributionAuthority,
+            final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator) {
         this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            uiSurfaceAdapter,
-            localization,
-            new dev.turboism.ui.settings.SettingsContributionStore(),
-            contributionAuthority,
-            panelActivationCoordinator
-        );
+                permissionChecker,
+                pluginId,
+                stateSource,
+                disposableScope,
+                statusToolbarAdapter,
+                uiSurfaceAdapter,
+                localization,
+                new dev.turboism.ui.settings.SettingsContributionStore(),
+                contributionAuthority,
+                panelActivationCoordinator);
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final UiSurfaceAdapter uiSurfaceAdapter,
-        final PluginLocalization localization,
-        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
-        final EditorUiContributionAuthority contributionAuthority,
-        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter,
+            final UiSurfaceAdapter uiSurfaceAdapter,
+            final PluginLocalization localization,
+            final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
+            final EditorUiContributionAuthority contributionAuthority,
+            final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator) {
         this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            uiSurfaceAdapter,
-            localization,
-            settingsContributions,
-            contributionAuthority,
-            panelActivationCoordinator,
-            CallbackDispatcher.direct()
-        );
+                permissionChecker,
+                pluginId,
+                stateSource,
+                disposableScope,
+                statusToolbarAdapter,
+                uiSurfaceAdapter,
+                localization,
+                settingsContributions,
+                contributionAuthority,
+                panelActivationCoordinator,
+                CallbackDispatcher.direct());
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final UiSurfaceAdapter uiSurfaceAdapter,
-        final PluginLocalization localization,
-        final EditorUiContributionAuthority contributionAuthority,
-        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
-        final CallbackDispatcher callbackDispatcher
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter,
+            final UiSurfaceAdapter uiSurfaceAdapter,
+            final PluginLocalization localization,
+            final EditorUiContributionAuthority contributionAuthority,
+            final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
+            final CallbackDispatcher callbackDispatcher) {
         this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            uiSurfaceAdapter,
-            localization,
-            new dev.turboism.ui.settings.SettingsContributionStore(),
-            contributionAuthority,
-            panelActivationCoordinator,
-            callbackDispatcher
-        );
+                permissionChecker,
+                pluginId,
+                stateSource,
+                disposableScope,
+                statusToolbarAdapter,
+                uiSurfaceAdapter,
+                localization,
+                new dev.turboism.ui.settings.SettingsContributionStore(),
+                contributionAuthority,
+                panelActivationCoordinator,
+                callbackDispatcher);
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final UiSurfaceAdapter uiSurfaceAdapter,
-        final PluginLocalization localization,
-        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
-        final EditorUiContributionAuthority contributionAuthority,
-        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
-        final CallbackDispatcher callbackDispatcher
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter,
+            final UiSurfaceAdapter uiSurfaceAdapter,
+            final PluginLocalization localization,
+            final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
+            final EditorUiContributionAuthority contributionAuthority,
+            final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
+            final CallbackDispatcher callbackDispatcher) {
         this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            uiSurfaceAdapter,
-            localization,
-            settingsContributions,
-            contributionAuthority,
-            panelActivationCoordinator,
-            callbackDispatcher,
-            NOOP_LOGGER
-        );
+                permissionChecker,
+                pluginId,
+                stateSource,
+                disposableScope,
+                statusToolbarAdapter,
+                uiSurfaceAdapter,
+                localization,
+                settingsContributions,
+                contributionAuthority,
+                panelActivationCoordinator,
+                callbackDispatcher,
+                NOOP_LOGGER);
     }
 
     public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final UiSurfaceAdapter uiSurfaceAdapter,
-        final PluginLocalization localization,
-        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
-        final EditorUiContributionAuthority contributionAuthority,
-        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
-        final CallbackDispatcher callbackDispatcher,
-        final PluginLogger logger
-    ) {
+            final PermissionChecker permissionChecker,
+            final String pluginId,
+            final UiHostStateSource stateSource,
+            final DisposableScope disposableScope,
+            final StatusToolbarAdapter statusToolbarAdapter,
+            final UiSurfaceAdapter uiSurfaceAdapter,
+            final PluginLocalization localization,
+            final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
+            final EditorUiContributionAuthority contributionAuthority,
+            final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
+            final CallbackDispatcher callbackDispatcher,
+            final PluginLogger logger) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
@@ -423,19 +397,13 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         this.localization = localization;
         this.logger = Objects.requireNonNull(logger, "logger");
         this.settingsRegistry = new dev.turboism.ui.settings.RuntimeSettingsRegistry(
-            Objects.requireNonNull(settingsContributions, "settingsContributions"),
-            this.pluginId,
-            this.permissionChecker,
-            this.disposableScope
-        );
-        this.contributionAuthority = Objects.requireNonNull(
-            contributionAuthority,
-            "contributionAuthority"
-        );
-        this.panelActivationCoordinator = Objects.requireNonNull(
-            panelActivationCoordinator,
-            "panelActivationCoordinator"
-        );
+                Objects.requireNonNull(settingsContributions, "settingsContributions"),
+                this.pluginId,
+                this.permissionChecker,
+                this.disposableScope);
+        this.contributionAuthority = Objects.requireNonNull(contributionAuthority, "contributionAuthority");
+        this.panelActivationCoordinator =
+                Objects.requireNonNull(panelActivationCoordinator, "panelActivationCoordinator");
         this.callbackDispatcher = Objects.requireNonNull(callbackDispatcher, "callbackDispatcher");
     }
 
@@ -450,33 +418,19 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_OVERLAY_CONTRIBUTE, "ui.overlay.contribute");
         return authoritativeRegistration(
-            EditorUiFamily.OVERLAY_STATUS,
-            contribution.id(),
-            contribution.priority(),
-            contribution,
-            overlays
-        );
+                EditorUiFamily.OVERLAY_STATUS, contribution.id(), contribution.priority(), contribution, overlays);
     }
 
     @Override
-    public Registration contributeBoundingBoxOverlayButton(
-        final BoundingBoxOverlayButton contribution
-    ) {
+    public Registration contributeBoundingBoxOverlayButton(final BoundingBoxOverlayButton contribution) {
         Objects.requireNonNull(contribution, "contribution");
-        permissionChecker.check(
-            UI_OVERLAY_CONTRIBUTE,
-            "ui.bounding-box-overlay-button.contribute"
-        );
+        permissionChecker.check(UI_OVERLAY_CONTRIBUTE, "ui.bounding-box-overlay-button.contribute");
         return authoritativeRegistration(
-            EditorUiFamily.BOUNDING_BOX_OVERLAY_BUTTON,
-            contribution.id(),
-            contribution.order(),
-            contribution.withOnClick(() -> callbackDispatcher.dispatch(
+                EditorUiFamily.BOUNDING_BOX_OVERLAY_BUTTON,
                 contribution.id(),
-                contribution.onClick()
-            )),
-            boundingBoxOverlayButtons
-        );
+                contribution.order(),
+                contribution.withOnClick(() -> callbackDispatcher.dispatch(contribution.id(), contribution.onClick())),
+                boundingBoxOverlayButtons);
     }
 
     @Override
@@ -519,9 +473,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
 
     @Override
     public void openChoiceDialog(
-        final ChoiceDialogRequest request,
-        final dev.turboism.sdk.ui.ChoiceDialogResultListener listener
-    ) {
+            final ChoiceDialogRequest request, final dev.turboism.sdk.ui.ChoiceDialogResultListener listener) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(listener, "listener");
         permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.choose");
@@ -530,9 +482,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
 
     @Override
     public void openFormDialog(
-        final dev.turboism.sdk.ui.FormDialogRequest request,
-        final dev.turboism.sdk.ui.FormDialogResultListener listener
-    ) {
+            final dev.turboism.sdk.ui.FormDialogRequest request,
+            final dev.turboism.sdk.ui.FormDialogResultListener listener) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(listener, "listener");
         permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
@@ -541,11 +492,10 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
 
     @Override
     public void openColorPicker(
-        final String id,
-        final String title,
-        final String initialColorHex,
-        final dev.turboism.sdk.ui.ColorPickerResultListener listener
-    ) {
+            final String id,
+            final String title,
+            final String initialColorHex,
+            final dev.turboism.sdk.ui.ColorPickerResultListener listener) {
         java.util.Objects.requireNonNull(id, "id");
         if (id.isBlank()) throw new IllegalArgumentException("id must not be blank");
         java.util.Objects.requireNonNull(title, "title");
@@ -573,9 +523,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
-    public Registration contributeSettings(
-        final dev.turboism.sdk.ui.settings.SettingsContribution contribution
-    ) {
+    public Registration contributeSettings(final dev.turboism.sdk.ui.settings.SettingsContribution contribution) {
         return settingsRegistry.contribute(contribution);
     }
 
@@ -584,22 +532,15 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
         return authoritativeRegistration(
-            EditorUiFamily.PANEL,
-            contribution.id(),
-            contribution.priority(),
-            contribution,
-            panels
-        );
+                EditorUiFamily.PANEL, contribution.id(), contribution.priority(), contribution, panels);
     }
 
     @Override
-    public Registration contributeCollapsibleSection(
-        final CollapsibleSectionContribution contribution
-    ) {
+    public Registration contributeCollapsibleSection(final CollapsibleSectionContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
         final Registration registration =
-            PanelCollapsibleContentCoordinator.shared().register(this.pluginId, contribution);
+                PanelCollapsibleContentCoordinator.shared().register(this.pluginId, contribution);
         disposableScope.register(registration);
         return registration;
     }
@@ -632,7 +573,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         permissionChecker.check(UI_STATUS_NOTIFY, "ui.status.notify");
         logStatus(notification);
         final StatusToolbarAdapter.AdapterResult<Registration> adapterResult =
-            statusToolbarAdapter.notifyStatus(scopedForAdapter(notification));
+                statusToolbarAdapter.notifyStatus(scopedForAdapter(notification));
         if (adapterResult.isAvailable()) {
             return enrollAdapterRegistration(adapterResult.value().orElseThrow());
         }
@@ -662,12 +603,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_CONTEXT_MENU_CONTRIBUTE, "ui.context-menu.contribute");
         return authoritativeRegistration(
-            EditorUiFamily.CONTEXT_MENU,
-            contribution.id(),
-            contribution.priority(),
-            contribution,
-            contextMenus
-        );
+                EditorUiFamily.CONTEXT_MENU, contribution.id(), contribution.priority(), contribution, contextMenus);
     }
 
     @Override
@@ -676,12 +612,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.main-toolbar.contribute");
         final MainToolbarRegistry.MainToolbarContribution resolved = resolveMainToolbarLabel(contribution);
         return authoritativeRegistration(
-            EditorUiFamily.MAIN_TOOLBAR,
-            resolved.contributionId(),
-            resolved.order(),
-            resolved,
-            mainToolbars
-        );
+                EditorUiFamily.MAIN_TOOLBAR, resolved.contributionId(), resolved.order(), resolved, mainToolbars);
     }
 
     @Override
@@ -689,12 +620,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.horizontal-toolbar.contribute");
         return authoritativeRegistration(
-            EditorUiFamily.HORIZONTAL_TOOLBAR,
-            contribution.contributionId(),
-            0,
-            contribution,
-            horizontalToolbars
-        );
+                EditorUiFamily.HORIZONTAL_TOOLBAR, contribution.contributionId(), 0, contribution, horizontalToolbars);
     }
 
     @Override
@@ -702,12 +628,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.vertical-toolbar.contribute");
         return authoritativeRegistration(
-            EditorUiFamily.VERTICAL_TOOLBAR,
-            contribution.contributionId(),
-            0,
-            contribution,
-            verticalToolbars
-        );
+                EditorUiFamily.VERTICAL_TOOLBAR, contribution.contributionId(), 0, contribution, verticalToolbars);
     }
 
     @Override
@@ -716,12 +637,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         permissionChecker.check(UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-toolbar.contribute");
         final PaletteToolbarRegistry.PaletteToolbarContribution resolved = resolvePaletteToolbarLabel(contribution);
         return authoritativeRegistration(
-            EditorUiFamily.PALETTE_TOOLBAR,
-            resolved.contributionId(),
-            resolved.order(),
-            resolved,
-            paletteToolbars
-        );
+                EditorUiFamily.PALETTE_TOOLBAR, resolved.contributionId(), resolved.order(), resolved, paletteToolbars);
     }
 
     @Override
@@ -730,12 +646,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         permissionChecker.check(UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-filter.contribute");
         final PaletteFilterRegistry.PaletteFilterContribution resolved = resolvePaletteFilterPlaceholder(contribution);
         return authoritativeRegistration(
-            EditorUiFamily.PALETTE_FILTER,
-            resolved.contributionId(),
-            resolved.order(),
-            resolved,
-            paletteFilters
-        );
+                EditorUiFamily.PALETTE_FILTER, resolved.contributionId(), resolved.order(), resolved, paletteFilters);
     }
 
     /**
@@ -785,8 +696,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
      */
     public List<StatusNotification> notifications() {
         return notifications.snapshot().stream()
-            .map(TrackedNotification::notification)
-            .toList();
+                .map(TrackedNotification::notification)
+                .toList();
     }
 
     /**
@@ -795,8 +706,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
      */
     public List<CanvasHintNotification> canvasHints() {
         return canvasHints.snapshot().stream()
-            .map(TrackedCanvasHint::notification)
-            .toList();
+                .map(TrackedCanvasHint::notification)
+                .toList();
     }
 
     /**
@@ -890,11 +801,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private StatusNotification scopedForAdapter(final StatusNotification notification) {
         final String scopedId = pluginId.length() + ":" + pluginId + ":" + notification.id();
         return new StatusNotification(
-            scopedId,
-            notification.severity(),
-            notification.message(),
-            notification.presentation()
-        );
+                scopedId, notification.severity(), notification.message(), notification.presentation());
     }
 
     /**
@@ -906,12 +813,11 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private CanvasHintNotification scopedForAdapter(final CanvasHintNotification notification) {
         final String scopedId = pluginId.length() + ":" + pluginId + ":" + notification.id();
         return new CanvasHintNotification(
-            scopedId,
-            notification.message(),
-            notification.durationSeconds(),
-            notification.onClick(),
-            notification.position()
-        );
+                scopedId,
+                notification.message(),
+                notification.durationSeconds(),
+                notification.onClick(),
+                notification.position());
     }
 
     private Registration trackNotification(final StatusNotification notification) {
@@ -960,7 +866,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
 
         private Registration show() {
             final StatusToolbarAdapter.AdapterResult<Registration> adapterResult =
-                statusToolbarAdapter.notifyCanvasHint(scopedNotification);
+                    statusToolbarAdapter.notifyCanvasHint(scopedNotification);
             if (adapterResult.isAvailable()) {
                 return adapterResult.value().orElseThrow();
             }
@@ -999,25 +905,17 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
 
     private void recordDiagnostic(final SafeModeDiagnostic diagnostic) {
         statusToolbarDiagnostics.put(
-            pluginId + "|" + diagnostic.code().name() + "|" + diagnostic.capability(),
-            diagnostic
-        );
+                pluginId + "|" + diagnostic.code().name() + "|" + diagnostic.capability(), diagnostic);
     }
 
     private <T> Registration authoritativeRegistration(
-        final EditorUiFamily family,
-        final String contributionId,
-        final int order,
-        final T value,
-        final CopyOnWriteArrayList<T> target
-    ) {
-        final Registration authorityRegistration = contributionAuthority.contribute(
-            new EditorUiContribution<>(
-                new EditorUiContributionIdentity(pluginId, family, contributionId),
-                order,
-                value
-            )
-        );
+            final EditorUiFamily family,
+            final String contributionId,
+            final int order,
+            final T value,
+            final CopyOnWriteArrayList<T> target) {
+        final Registration authorityRegistration = contributionAuthority.contribute(new EditorUiContribution<>(
+                new EditorUiContributionIdentity(pluginId, family, contributionId), order, value));
         target.add(value);
         Registration registration = new Registration() {
             private boolean closed;
@@ -1130,49 +1028,43 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     private MainToolbarRegistry.MainToolbarContribution resolveMainToolbarLabel(
-        final MainToolbarRegistry.MainToolbarContribution contribution
-    ) {
+            final MainToolbarRegistry.MainToolbarContribution contribution) {
         if (localization == null) {
             return contribution;
         }
         return new MainToolbarRegistry.MainToolbarContribution(
-            contribution.contributionId(),
-            contribution.actionId(),
-            localization.text(requireText(contribution.labelKey(), "labelKey")),
-            contribution.iconResourcePath(),
-            contribution.anchor(),
-            contribution.order()
-        );
+                contribution.contributionId(),
+                contribution.actionId(),
+                localization.text(requireText(contribution.labelKey(), "labelKey")),
+                contribution.iconResourcePath(),
+                contribution.anchor(),
+                contribution.order());
     }
 
     private PaletteToolbarRegistry.PaletteToolbarContribution resolvePaletteToolbarLabel(
-        final PaletteToolbarRegistry.PaletteToolbarContribution contribution
-    ) {
+            final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
         if (localization == null) {
             return contribution;
         }
         return new PaletteToolbarRegistry.PaletteToolbarContribution(
-            contribution.contributionId(),
-            contribution.actionId(),
-            localization.text(requireText(contribution.labelKey(), "labelKey")),
-            contribution.iconResourcePath(),
-            contribution.paletteId(),
-            contribution.anchor(),
-            contribution.order()
-        );
+                contribution.contributionId(),
+                contribution.actionId(),
+                localization.text(requireText(contribution.labelKey(), "labelKey")),
+                contribution.iconResourcePath(),
+                contribution.paletteId(),
+                contribution.anchor(),
+                contribution.order());
     }
 
     private PaletteFilterRegistry.PaletteFilterContribution resolvePaletteFilterPlaceholder(
-        final PaletteFilterRegistry.PaletteFilterContribution contribution
-    ) {
+            final PaletteFilterRegistry.PaletteFilterContribution contribution) {
         if (localization == null) {
             return contribution;
         }
         return new PaletteFilterRegistry.PaletteFilterContribution(
-            contribution.contributionId(),
-            contribution.paletteId(),
-            localization.text(requireText(contribution.placeholderKey(), "placeholderKey")),
-            contribution.order()
-        );
+                contribution.contributionId(),
+                contribution.paletteId(),
+                localization.text(requireText(contribution.placeholderKey(), "placeholderKey")),
+                contribution.order());
     }
 }

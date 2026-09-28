@@ -1,14 +1,16 @@
 package dev.turboism.ui.workspace;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceInfo;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.SwingUtilities;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -17,11 +19,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
 
 class WorkspaceCoordinatorTest {
 
@@ -30,21 +29,22 @@ class WorkspaceCoordinatorTest {
         RecordingProvider provider = new RecordingProvider();
         WorkspaceCoordinator coordinator = new WorkspaceCoordinator();
         coordinator.connect(provider);
-        RuntimeWorkspaceService service = new RuntimeWorkspaceService(
-            (permission, operation) -> { },
-            coordinator
-        );
+        RuntimeWorkspaceService service = new RuntimeWorkspaceService((permission, operation) -> {}, coordinator);
 
         WorkspaceStatus status = service.current().toCompletableFuture().join();
         WorkspaceOperationResult switched = service.switchTo(new WorkspaceId("animation"))
-            .toCompletableFuture().join();
-        WorkspaceOperationResult updated = service.updateDefault().toCompletableFuture().join();
-        WorkspaceOperationResult reset = service.resetToDefault().toCompletableFuture().join();
-        SwingUtilities.invokeAndWait(() -> { });
+                .toCompletableFuture()
+                .join();
+        WorkspaceOperationResult updated =
+                service.updateDefault().toCompletableFuture().join();
+        WorkspaceOperationResult reset =
+                service.resetToDefault().toCompletableFuture().join();
+        SwingUtilities.invokeAndWait(() -> {});
 
         assertEquals("modeling", status.current().orElseThrow().id().value());
-        assertEquals(List.of("modeling", "animation"), status.available().stream()
-            .map(info -> info.id().value()).toList());
+        assertEquals(
+                List.of("modeling", "animation"),
+                status.available().stream().map(info -> info.id().value()).toList());
         assertEquals(WorkspaceOperationResult.Outcome.CHANGED, switched.outcome());
         assertEquals(WorkspaceOperationResult.Outcome.CHANGED, updated.outcome());
         assertEquals(WorkspaceOperationResult.Outcome.CHANGED, reset.outcome());
@@ -57,25 +57,27 @@ class WorkspaceCoordinatorTest {
         RecordingProvider provider = new RecordingProvider();
         WorkspaceCoordinator coordinator = new WorkspaceCoordinator();
         coordinator.connect(provider);
-        RuntimeWorkspaceService allowed = new RuntimeWorkspaceService(
-            (permission, operation) -> { },
-            coordinator
-        );
+        RuntimeWorkspaceService allowed = new RuntimeWorkspaceService((permission, operation) -> {}, coordinator);
 
         assertEquals(
-            WorkspaceOperationResult.Outcome.NO_CHANGE,
-            allowed.switchTo(new WorkspaceId("modeling")).toCompletableFuture().join().outcome()
-        );
+                WorkspaceOperationResult.Outcome.NO_CHANGE,
+                allowed.switchTo(new WorkspaceId("modeling"))
+                        .toCompletableFuture()
+                        .join()
+                        .outcome());
         assertEquals(
-            WorkspaceOperationResult.Outcome.NOT_FOUND,
-            allowed.switchTo(new WorkspaceId("missing")).toCompletableFuture().join().outcome()
-        );
+                WorkspaceOperationResult.Outcome.NOT_FOUND,
+                allowed.switchTo(new WorkspaceId("missing"))
+                        .toCompletableFuture()
+                        .join()
+                        .outcome());
         assertEquals(0, provider.switchCount);
 
         RuntimeWorkspaceService denied = new RuntimeWorkspaceService(
-            (permission, operation) -> { throw new CubismPermissionException("denied"); },
-            coordinator
-        );
+                (permission, operation) -> {
+                    throw new CubismPermissionException("denied");
+                },
+                coordinator);
         assertThrows(CubismPermissionException.class, () -> denied.updateDefault());
         assertEquals(0, provider.updateCount);
         assertThrows(CubismPermissionException.class, () -> denied.current());
@@ -83,13 +85,11 @@ class WorkspaceCoordinatorTest {
 
         coordinator.disconnect(provider);
         assertEquals(
-            WorkspaceStatus.Availability.UNAVAILABLE,
-            allowed.current().toCompletableFuture().join().availability()
-        );
+                WorkspaceStatus.Availability.UNAVAILABLE,
+                allowed.current().toCompletableFuture().join().availability());
         assertEquals(
-            WorkspaceOperationResult.Outcome.UNAVAILABLE,
-            allowed.resetToDefault().toCompletableFuture().join().outcome()
-        );
+                WorkspaceOperationResult.Outcome.UNAVAILABLE,
+                allowed.resetToDefault().toCompletableFuture().join().outcome());
     }
 
     @Test
@@ -97,31 +97,32 @@ class WorkspaceCoordinatorTest {
         RecordingProvider provider = new RecordingProvider();
         WorkspaceCoordinator coordinator = new WorkspaceCoordinator();
         coordinator.connect(provider);
-        RuntimeWorkspaceService service = new RuntimeWorkspaceService(
-            (permission, operation) -> { },
-            coordinator
-        );
+        RuntimeWorkspaceService service = new RuntimeWorkspaceService((permission, operation) -> {}, coordinator);
         DisposableScope scope = new DisposableScope();
         scope.register(service);
         scope.close();
 
         assertEquals(
-            WorkspaceStatus.Availability.UNAVAILABLE,
-            service.current().toCompletableFuture().get(1, TimeUnit.SECONDS).availability()
-        );
+                WorkspaceStatus.Availability.UNAVAILABLE,
+                service.current().toCompletableFuture().get(1, TimeUnit.SECONDS).availability());
         assertEquals(
-            WorkspaceOperationResult.Outcome.UNAVAILABLE,
-            service.switchTo(new WorkspaceId("animation"))
-                .toCompletableFuture().get(1, TimeUnit.SECONDS).outcome()
-        );
+                WorkspaceOperationResult.Outcome.UNAVAILABLE,
+                service.switchTo(new WorkspaceId("animation"))
+                        .toCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .outcome());
         assertEquals(
-            WorkspaceOperationResult.Outcome.UNAVAILABLE,
-            service.updateDefault().toCompletableFuture().get(1, TimeUnit.SECONDS).outcome()
-        );
+                WorkspaceOperationResult.Outcome.UNAVAILABLE,
+                service.updateDefault()
+                        .toCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .outcome());
         assertEquals(
-            WorkspaceOperationResult.Outcome.UNAVAILABLE,
-            service.resetToDefault().toCompletableFuture().get(1, TimeUnit.SECONDS).outcome()
-        );
+                WorkspaceOperationResult.Outcome.UNAVAILABLE,
+                service.resetToDefault()
+                        .toCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .outcome());
         assertEquals(0, provider.switchCount);
         assertEquals(0, provider.updateCount);
         assertEquals(0, provider.readCount, "closed service must never touch the provider");
@@ -132,28 +133,30 @@ class WorkspaceCoordinatorTest {
         RecordingProvider provider = new RecordingProvider();
         WorkspaceCoordinator coordinator = new WorkspaceCoordinator();
         coordinator.connect(provider);
-        RuntimeWorkspaceService service = new RuntimeWorkspaceService(
-            (permission, operation) -> { },
-            coordinator
-        );
+        RuntimeWorkspaceService service = new RuntimeWorkspaceService((permission, operation) -> {}, coordinator);
         CountDownLatch edtRelease = blockEdt();
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         AtomicReference<Thread> workerRef = new AtomicReference<>();
-        CompletableFuture<WorkspaceOperationResult> queued = CompletableFuture.supplyAsync(() -> {
-            workerRef.set(Thread.currentThread());
-            return service.switchTo(new WorkspaceId("animation")).toCompletableFuture().join();
-        }, executor);
+        CompletableFuture<WorkspaceOperationResult> queued = CompletableFuture.supplyAsync(
+                () -> {
+                    workerRef.set(Thread.currentThread());
+                    return service.switchTo(new WorkspaceId("animation"))
+                            .toCompletableFuture()
+                            .join();
+                },
+                executor);
         try {
-            awaitState(workerRef, Thread.State.TIMED_WAITING,
-                "switchTo queued on the blocked EDT");
+            awaitState(workerRef, Thread.State.TIMED_WAITING, "switchTo queued on the blocked EDT");
             coordinator.disconnect(provider);
         } finally {
             edtRelease.countDown();
         }
 
         try {
-            assertEquals(WorkspaceOperationResult.Outcome.UNAVAILABLE, queued.get(5, TimeUnit.SECONDS).outcome());
+            assertEquals(
+                    WorkspaceOperationResult.Outcome.UNAVAILABLE,
+                    queued.get(5, TimeUnit.SECONDS).outcome());
             assertEquals(0, provider.switchCount, "queued mutation must not touch the disconnected provider");
         } finally {
             executor.shutdownNow();
@@ -167,15 +170,13 @@ class WorkspaceCoordinatorTest {
         coordinator.connect(provider);
 
         assertEquals(
-            WorkspaceStatus.Availability.UNAVAILABLE,
-            coordinator.current().availability()
-        );
+                WorkspaceStatus.Availability.UNAVAILABLE, coordinator.current().availability());
         assertEquals(
-            WorkspaceOperationResult.Outcome.FAILED,
-            coordinator.switchTo(new WorkspaceId("animation")).outcome()
-        );
-        assertEquals(WorkspaceStatus.Availability.UNAVAILABLE,
-            coordinator.switchTo(new WorkspaceId("animation")).status().availability());
+                WorkspaceOperationResult.Outcome.FAILED,
+                coordinator.switchTo(new WorkspaceId("animation")).outcome());
+        assertEquals(
+                WorkspaceStatus.Availability.UNAVAILABLE,
+                coordinator.switchTo(new WorkspaceId("animation")).status().availability());
     }
 
     @Test
@@ -183,42 +184,39 @@ class WorkspaceCoordinatorTest {
         BlockingProvider provider = new BlockingProvider();
         WorkspaceCoordinator coordinator = new WorkspaceCoordinator();
         coordinator.connect(provider);
-        RuntimeWorkspaceService service = new RuntimeWorkspaceService(
-            (permission, operation) -> { },
-            coordinator
-        );
+        RuntimeWorkspaceService service = new RuntimeWorkspaceService((permission, operation) -> {}, coordinator);
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         CompletableFuture<WorkspaceOperationResult> mutating = CompletableFuture.supplyAsync(
-            () -> service.switchTo(new WorkspaceId("animation")).toCompletableFuture().join(),
-            executor
-        );
+                () -> service.switchTo(new WorkspaceId("animation"))
+                        .toCompletableFuture()
+                        .join(),
+                executor);
         try {
-            assertTrue(provider.switchStarted.await(5, TimeUnit.SECONDS),
-                "the host operation must be running on the EDT");
+            assertTrue(
+                    provider.switchStarted.await(5, TimeUnit.SECONDS), "the host operation must be running on the EDT");
 
             AtomicReference<Thread> disconnectorRef = new AtomicReference<>();
             CompletableFuture<Void> disconnecting = CompletableFuture.runAsync(() -> {
                 disconnectorRef.set(Thread.currentThread());
                 coordinator.disconnect(provider);
             });
-            awaitState(disconnectorRef, Thread.State.BLOCKED,
-                "disconnect attempt to block on the coordinator monitor");
-            assertFalse(disconnecting.isDone(),
-                () -> "disconnect must not complete through an in-flight mutation");
+            awaitState(disconnectorRef, Thread.State.BLOCKED, "disconnect attempt to block on the coordinator monitor");
+            assertFalse(disconnecting.isDone(), () -> "disconnect must not complete through an in-flight mutation");
 
             provider.switchRelease.countDown();
             WorkspaceOperationResult result = mutating.get(5, TimeUnit.SECONDS);
             disconnecting.get(5, TimeUnit.SECONDS);
 
-            assertEquals(WorkspaceOperationResult.Outcome.CHANGED, result.outcome(),
-                "the in-flight mutation completes once the host operation returns");
+            assertEquals(
+                    WorkspaceOperationResult.Outcome.CHANGED,
+                    result.outcome(),
+                    "the in-flight mutation completes once the host operation returns");
             assertEquals(1, provider.switchCount);
             assertEquals(
-                WorkspaceStatus.Availability.UNAVAILABLE,
-                coordinator.current().availability(),
-                "after disconnect completes the provider is gone"
-            );
+                    WorkspaceStatus.Availability.UNAVAILABLE,
+                    coordinator.current().availability(),
+                    "after disconnect completes the provider is gone");
         } finally {
             provider.switchRelease.countDown();
             executor.shutdownNow();
@@ -230,38 +228,35 @@ class WorkspaceCoordinatorTest {
         RecordingProvider provider = new RecordingProvider();
         WorkspaceCoordinator coordinator = new WorkspaceCoordinator();
         coordinator.connect(provider);
-        RuntimeWorkspaceService service = new RuntimeWorkspaceService(
-            (permission, operation) -> { },
-            coordinator
-        );
+        RuntimeWorkspaceService service = new RuntimeWorkspaceService((permission, operation) -> {}, coordinator);
         CountDownLatch edtRelease = blockEdt();
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         AtomicReference<Thread> workerRef = new AtomicReference<>();
-        CompletableFuture<WorkspaceOperationResult> queued = CompletableFuture.supplyAsync(() -> {
-            workerRef.set(Thread.currentThread());
-            return service.switchTo(new WorkspaceId("animation")).toCompletableFuture().join();
-        }, executor);
+        CompletableFuture<WorkspaceOperationResult> queued = CompletableFuture.supplyAsync(
+                () -> {
+                    workerRef.set(Thread.currentThread());
+                    return service.switchTo(new WorkspaceId("animation"))
+                            .toCompletableFuture()
+                            .join();
+                },
+                executor);
         try {
-            awaitState(workerRef, Thread.State.TIMED_WAITING,
-                "switchTo queued on the blocked EDT");
+            awaitState(workerRef, Thread.State.TIMED_WAITING, "switchTo queued on the blocked EDT");
 
             AtomicReference<Thread> closerRef = new AtomicReference<>();
             CompletableFuture<Void> closing = CompletableFuture.runAsync(() -> {
                 closerRef.set(Thread.currentThread());
                 service.close();
             });
-            awaitState(closerRef, Thread.State.TIMED_WAITING,
-                "close attempt to block in the EDT fence");
-            assertFalse(closing.isDone(),
-                () -> "close must fence the EDT and wait for the queued operation");
+            awaitState(closerRef, Thread.State.TIMED_WAITING, "close attempt to block in the EDT fence");
+            assertFalse(closing.isDone(), () -> "close must fence the EDT and wait for the queued operation");
 
             edtRelease.countDown();
             assertEquals(
-                WorkspaceOperationResult.Outcome.UNAVAILABLE,
-                queued.get(5, TimeUnit.SECONDS).outcome(),
-                "an operation queued before close executes after close as typed UNAVAILABLE"
-            );
+                    WorkspaceOperationResult.Outcome.UNAVAILABLE,
+                    queued.get(5, TimeUnit.SECONDS).outcome(),
+                    "an operation queued before close executes after close as typed UNAVAILABLE");
             closing.get(5, TimeUnit.SECONDS);
             assertEquals(0, provider.switchCount, "closed service must never touch the provider");
             assertEquals(0, provider.readCount);
@@ -280,20 +275,18 @@ class WorkspaceCoordinatorTest {
         SwingUtilities.invokeAndWait(() -> edtThread.set(Thread.currentThread()));
         AtomicReference<Thread> permissionThread = new AtomicReference<>();
         RuntimeWorkspaceService service = new RuntimeWorkspaceService(
-            (permission, operation) -> permissionThread.set(Thread.currentThread()),
-            coordinator
-        );
+                (permission, operation) -> permissionThread.set(Thread.currentThread()), coordinator);
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
             CompletableFuture<WorkspaceStatus> status = CompletableFuture.supplyAsync(
-                () -> service.current().toCompletableFuture().join(), executor);
+                    () -> service.current().toCompletableFuture().join(), executor);
             assertEquals(
-                WorkspaceStatus.Availability.AVAILABLE,
-                status.get(5, TimeUnit.SECONDS).availability()
-            );
-            assertFalse(permissionThread.get() == edtThread.get(),
-                () -> "permission check must run on the caller thread, not the EDT");
+                    WorkspaceStatus.Availability.AVAILABLE,
+                    status.get(5, TimeUnit.SECONDS).availability());
+            assertFalse(
+                    permissionThread.get() == edtThread.get(),
+                    () -> "permission check must run on the caller thread, not the EDT");
             assertTrue(provider.allCallsOnEdt, "host calls must still run on the EDT");
         } finally {
             executor.shutdownNow();
@@ -309,8 +302,10 @@ class WorkspaceCoordinatorTest {
         throwingCoordinator.connect(throwing);
         WorkspaceOperationResult failed = throwingCoordinator.switchTo(new WorkspaceId("animation"));
         assertEquals(WorkspaceOperationResult.Outcome.FAILED, failed.outcome());
-        assertEquals(WorkspaceStatus.Availability.UNAVAILABLE, failed.status().availability(),
-            "fallback status must not be read from a stale provider");
+        assertEquals(
+                WorkspaceStatus.Availability.UNAVAILABLE,
+                failed.status().availability(),
+                "fallback status must not be read from a stale provider");
         assertEquals(Optional.of("workspace.provider.replaced"), failed.diagnosticCode());
         assertEquals(1, throwing.switchCount);
 
@@ -329,7 +324,9 @@ class WorkspaceCoordinatorTest {
         ReentrantProvider read = new ReentrantProvider(readCoordinator);
         read.replaceInRead = true;
         readCoordinator.connect(read);
-        assertEquals(WorkspaceStatus.Availability.UNAVAILABLE, readCoordinator.current().availability());
+        assertEquals(
+                WorkspaceStatus.Availability.UNAVAILABLE,
+                readCoordinator.current().availability());
     }
 
     private static final class BlockingProvider implements WorkspaceHostProvider {
@@ -338,16 +335,17 @@ class WorkspaceCoordinatorTest {
         private final CountDownLatch switchRelease = new CountDownLatch(1);
         private int switchCount;
 
-        @Override public WorkspaceStatus readStatus() {
+        @Override
+        public WorkspaceStatus readStatus() {
             return new WorkspaceStatus(
-                WorkspaceStatus.Availability.AVAILABLE,
-                Optional.of(animation),
-                List.of(animation),
-                Optional.empty()
-            );
+                    WorkspaceStatus.Availability.AVAILABLE,
+                    Optional.of(animation),
+                    List.of(animation),
+                    Optional.empty());
         }
 
-        @Override public WorkspaceOperationResult.Outcome switchTo(final WorkspaceId workspaceId) {
+        @Override
+        public WorkspaceOperationResult.Outcome switchTo(final WorkspaceId workspaceId) {
             switchCount++;
             switchStarted.countDown();
             try {
@@ -358,11 +356,13 @@ class WorkspaceCoordinatorTest {
             return WorkspaceOperationResult.Outcome.CHANGED;
         }
 
-        @Override public WorkspaceOperationResult.Outcome updateDefault() {
+        @Override
+        public WorkspaceOperationResult.Outcome updateDefault() {
             return WorkspaceOperationResult.Outcome.CHANGED;
         }
 
-        @Override public WorkspaceOperationResult.Outcome resetToDefault() {
+        @Override
+        public WorkspaceOperationResult.Outcome resetToDefault() {
             return WorkspaceOperationResult.Outcome.CHANGED;
         }
     }
@@ -383,10 +383,8 @@ class WorkspaceCoordinatorTest {
     }
 
     private static void awaitState(
-        final AtomicReference<Thread> threadRef,
-        final Thread.State expected,
-        final String description
-    ) throws InterruptedException {
+            final AtomicReference<Thread> threadRef, final Thread.State expected, final String description)
+            throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         Thread thread = null;
         while (thread == null || thread.getState() != expected) {
@@ -409,17 +407,18 @@ class WorkspaceCoordinatorTest {
             this.coordinator = coordinator;
         }
 
-        @Override public WorkspaceStatus readStatus() {
+        @Override
+        public WorkspaceStatus readStatus() {
             if (replaceInRead) coordinator.disconnect(this);
             return new WorkspaceStatus(
-                WorkspaceStatus.Availability.AVAILABLE,
-                Optional.of(animation),
-                List.of(animation),
-                Optional.empty()
-            );
+                    WorkspaceStatus.Availability.AVAILABLE,
+                    Optional.of(animation),
+                    List.of(animation),
+                    Optional.empty());
         }
 
-        @Override public WorkspaceOperationResult.Outcome switchTo(final WorkspaceId workspaceId) {
+        @Override
+        public WorkspaceOperationResult.Outcome switchTo(final WorkspaceId workspaceId) {
             switchCount++;
             if (replaceAndThrow) {
                 coordinator.disconnect(this);
@@ -428,26 +427,35 @@ class WorkspaceCoordinatorTest {
             return WorkspaceOperationResult.Outcome.CHANGED;
         }
 
-        @Override public WorkspaceOperationResult.Outcome updateDefault() {
+        @Override
+        public WorkspaceOperationResult.Outcome updateDefault() {
             return WorkspaceOperationResult.Outcome.CHANGED;
         }
 
-        @Override public WorkspaceOperationResult.Outcome resetToDefault() {
+        @Override
+        public WorkspaceOperationResult.Outcome resetToDefault() {
             return WorkspaceOperationResult.Outcome.CHANGED;
         }
     }
 
     private static final class ThrowingProvider implements WorkspaceHostProvider {
-        @Override public WorkspaceStatus readStatus() {
+        @Override
+        public WorkspaceStatus readStatus() {
             throw new IllegalStateException("host read failed");
         }
-        @Override public WorkspaceOperationResult.Outcome switchTo(final WorkspaceId workspaceId) {
+
+        @Override
+        public WorkspaceOperationResult.Outcome switchTo(final WorkspaceId workspaceId) {
             throw new IllegalStateException("host switch failed");
         }
-        @Override public WorkspaceOperationResult.Outcome updateDefault() {
+
+        @Override
+        public WorkspaceOperationResult.Outcome updateDefault() {
             throw new IllegalStateException("host update failed");
         }
-        @Override public WorkspaceOperationResult.Outcome resetToDefault() {
+
+        @Override
+        public WorkspaceOperationResult.Outcome resetToDefault() {
             throw new IllegalStateException("host reset failed");
         }
     }
@@ -461,18 +469,19 @@ class WorkspaceCoordinatorTest {
         private int updateCount;
         private int readCount;
 
-        @Override public WorkspaceStatus readStatus() {
+        @Override
+        public WorkspaceStatus readStatus() {
             recordThread();
             readCount++;
             return new WorkspaceStatus(
-                WorkspaceStatus.Availability.AVAILABLE,
-                Optional.of(current),
-                List.of(modeling, animation),
-                Optional.empty()
-            );
+                    WorkspaceStatus.Availability.AVAILABLE,
+                    Optional.of(current),
+                    List.of(modeling, animation),
+                    Optional.empty());
         }
 
-        @Override public WorkspaceOperationResult.Outcome switchTo(final WorkspaceId workspaceId) {
+        @Override
+        public WorkspaceOperationResult.Outcome switchTo(final WorkspaceId workspaceId) {
             recordThread();
             if (current.id().equals(workspaceId)) return WorkspaceOperationResult.Outcome.NO_CHANGE;
             if (!animation.id().equals(workspaceId) && !modeling.id().equals(workspaceId)) {
@@ -483,13 +492,15 @@ class WorkspaceCoordinatorTest {
             return WorkspaceOperationResult.Outcome.CHANGED;
         }
 
-        @Override public WorkspaceOperationResult.Outcome updateDefault() {
+        @Override
+        public WorkspaceOperationResult.Outcome updateDefault() {
             recordThread();
             updateCount++;
             return WorkspaceOperationResult.Outcome.CHANGED;
         }
 
-        @Override public WorkspaceOperationResult.Outcome resetToDefault() {
+        @Override
+        public WorkspaceOperationResult.Outcome resetToDefault() {
             recordThread();
             return WorkspaceOperationResult.Outcome.CHANGED;
         }

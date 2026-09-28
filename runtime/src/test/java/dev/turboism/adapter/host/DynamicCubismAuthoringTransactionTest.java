@@ -1,5 +1,9 @@
 package dev.turboism.adapter.host;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -10,18 +14,13 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class DynamicCubismAuthoringTransactionTest {
 
@@ -31,13 +30,9 @@ final class DynamicCubismAuthoringTransactionTest {
         final RecordingProvider provider = new RecordingProvider();
         dynamic.connect(provider);
 
-        final AuthoringTransactionResult<String> result =
-            ((RuntimeAuthoringTransactionProvider) dynamic)
+        final AuthoringTransactionResult<String> result = ((RuntimeAuthoringTransactionProvider) dynamic)
                 .authoringTransactions("plugin.alpha")
-                .execute(
-                    AuthoringTransactionOptions.of("Inspect"),
-                    () -> "done"
-                );
+                .execute(AuthoringTransactionOptions.of("Inspect"), () -> "done");
 
         assertEquals("plugin.alpha", provider.pluginId.get());
         assertEquals(Optional.of("done"), result.value());
@@ -49,25 +44,19 @@ final class DynamicCubismAuthoringTransactionTest {
         final DynamicCubismModelAccess dynamic = new DynamicCubismModelAccess();
         dynamic.connect(new RecordingProvider());
         final AuthoringTransactionService captured =
-            ((RuntimeAuthoringTransactionProvider) dynamic)
-                .authoringTransactions("plugin.alpha");
+                ((RuntimeAuthoringTransactionProvider) dynamic).authoringTransactions("plugin.alpha");
         dynamic.deactivate();
         final AtomicBoolean invoked = new AtomicBoolean();
 
-        final AuthoringTransactionResult<Void> result = captured.execute(
-            AuthoringTransactionOptions.of("Stale"),
-            () -> {
-                invoked.set(true);
-                return null;
-            }
-        );
+        final AuthoringTransactionResult<Void> result =
+                captured.execute(AuthoringTransactionOptions.of("Stale"), () -> {
+                    invoked.set(true);
+                    return null;
+                });
 
         assertFalse(invoked.get());
         assertEquals(AuthoringTransactionOutcome.UNAVAILABLE, result.outcome());
-        assertEquals(
-            Optional.of("cubism.authoring.transactions.host-unavailable"),
-            result.diagnosticId()
-        );
+        assertEquals(Optional.of("cubism.authoring.transactions.host-unavailable"), result.diagnosticId());
     }
 
     @Test
@@ -77,33 +66,33 @@ final class DynamicCubismAuthoringTransactionTest {
         final CountDownLatch release = new CountDownLatch(1);
         dynamic.connect(new RecordingProvider());
         final AuthoringTransactionService service =
-            ((RuntimeAuthoringTransactionProvider) dynamic)
-                .authoringTransactions("plugin.alpha");
+                ((RuntimeAuthoringTransactionProvider) dynamic).authoringTransactions("plugin.alpha");
         final AtomicReference<Throwable> transactionFailure = new AtomicReference<>();
-        final Thread transaction = new Thread(() -> {
-            try {
-                service.execute(
-                    AuthoringTransactionOptions.of("Held transaction"),
-                    () -> {
-                        entered.countDown();
-                        if (!release.await(5, TimeUnit.SECONDS)) {
-                            throw new IllegalStateException("release timed out");
-                        }
-                        return null;
+        final Thread transaction = new Thread(
+                () -> {
+                    try {
+                        service.execute(AuthoringTransactionOptions.of("Held transaction"), () -> {
+                            entered.countDown();
+                            if (!release.await(5, TimeUnit.SECONDS)) {
+                                throw new IllegalStateException("release timed out");
+                            }
+                            return null;
+                        });
+                    } catch (Throwable failure) {
+                        transactionFailure.set(failure);
                     }
-                );
-            } catch (Throwable failure) {
-                transactionFailure.set(failure);
-            }
-        }, "authoring-transaction-test");
+                },
+                "authoring-transaction-test");
         transaction.start();
         assertTrue(entered.await(5, TimeUnit.SECONDS));
 
         final AtomicBoolean disconnected = new AtomicBoolean();
-        final Thread disconnect = new Thread(() -> {
-            dynamic.deactivate();
-            disconnected.set(true);
-        }, "authoring-disconnect-test");
+        final Thread disconnect = new Thread(
+                () -> {
+                    dynamic.deactivate();
+                    disconnected.set(true);
+                },
+                "authoring-disconnect-test");
         disconnect.start();
 
         Thread.sleep(100L);
@@ -118,8 +107,7 @@ final class DynamicCubismAuthoringTransactionTest {
         assertEquals(null, transactionFailure.get());
     }
 
-    private static final class RecordingProvider
-        implements CubismModelAccess, RuntimeAuthoringTransactionProvider {
+    private static final class RecordingProvider implements CubismModelAccess, RuntimeAuthoringTransactionProvider {
 
         private final AtomicReference<String> pluginId = new AtomicReference<>();
 
@@ -134,9 +122,7 @@ final class DynamicCubismAuthoringTransactionTest {
             return new AuthoringTransactionService() {
                 @Override
                 public <T> AuthoringTransactionResult<T> execute(
-                    final AuthoringTransactionOptions options,
-                    final AuthoringTransactionWork<T> work
-                ) {
+                        final AuthoringTransactionOptions options, final AuthoringTransactionWork<T> work) {
                     final T value;
                     try {
                         value = work.run();
@@ -144,26 +130,19 @@ final class DynamicCubismAuthoringTransactionTest {
                         throw new IllegalStateException(failure);
                     }
                     final HistorySnapshot history = new HistorySnapshot(
-                        HistorySnapshot.Availability.AVAILABLE,
-                        1,
-                        1,
-                        0,
-                        List.of(),
-                        false,
-                        false,
-                        "document-binding-1",
-                        "manager-binding-1"
-                    );
+                            HistorySnapshot.Availability.AVAILABLE,
+                            1,
+                            1,
+                            0,
+                            List.of(),
+                            false,
+                            false,
+                            "document-binding-1",
+                            "manager-binding-1");
                     return AuthoringTransactionResult.noChange(
-                        value,
-                        new AuthoringTransactionReceipt(
-                            "transaction-1",
-                            options.label(),
-                            history,
-                            history,
-                            Optional.empty()
-                        )
-                    );
+                            value,
+                            new AuthoringTransactionReceipt(
+                                    "transaction-1", options.label(), history, history, Optional.empty()));
                 }
             };
         }

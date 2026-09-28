@@ -6,10 +6,6 @@ import dev.turboism.failure.RuntimeFailureDomain;
 import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.sdk.ui.UserFileMode;
 import dev.turboism.sdk.ui.UserFileRequest;
-
-import javax.swing.JFileChooser;
-import javax.swing.SwingUtilities;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.AWTError;
 import java.io.File;
 import java.util.Objects;
@@ -17,6 +13,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.swing.JFileChooser;
+import javax.swing.SwingUtilities;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 /** Runtime-owned Swing chooser-backed grant source for one plugin scope. */
 public final class SwingUserFileGrantSource implements UserFileGrantSource, AutoCloseable {
@@ -43,28 +42,23 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
         this(null, RuntimeFailureSink.noop(), new CleanupEvidenceCollector(), JFileChooser::new, EDT);
     }
 
-    SwingUserFileGrantSource(
-        final Supplier<JFileChooser> chooserFactory,
-        final EdtDispatcher edt
-    ) {
+    SwingUserFileGrantSource(final Supplier<JFileChooser> chooserFactory, final EdtDispatcher edt) {
         this(null, RuntimeFailureSink.noop(), new CleanupEvidenceCollector(), chooserFactory, edt);
     }
 
     public SwingUserFileGrantSource(
-        final String pluginId,
-        final RuntimeFailureSink failureSink,
-        final CleanupEvidenceCollector cleanupEvidence
-    ) {
+            final String pluginId,
+            final RuntimeFailureSink failureSink,
+            final CleanupEvidenceCollector cleanupEvidence) {
         this(pluginId, failureSink, cleanupEvidence, JFileChooser::new, EDT);
     }
 
     SwingUserFileGrantSource(
-        final String pluginId,
-        final RuntimeFailureSink failureSink,
-        final CleanupEvidenceCollector cleanupEvidence,
-        final Supplier<JFileChooser> chooserFactory,
-        final EdtDispatcher edt
-    ) {
+            final String pluginId,
+            final RuntimeFailureSink failureSink,
+            final CleanupEvidenceCollector cleanupEvidence,
+            final Supplier<JFileChooser> chooserFactory,
+            final EdtDispatcher edt) {
         this.pluginId = pluginId;
         this.failureSink = RuntimeFailureSink.require(failureSink);
         this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
@@ -85,11 +79,7 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
         try {
             edt.dispatch(() -> show(candidate));
         } catch (RuntimeException | LinkageError | AWTError failure) {
-            reportFailure(
-                "USER_FILE_CHOOSER_DISPATCH_FAILED",
-                "user-file.chooser.request",
-                false
-            );
+            reportFailure("USER_FILE_CHOOSER_DISPATCH_FAILED", "user-file.chooser.request", false);
             settle(candidate, Decision.unavailable());
         }
         return candidate.completion;
@@ -116,11 +106,7 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
             try {
                 edt.dispatch(() -> cancelOnEdt(chooser));
             } catch (RuntimeException | LinkageError | AWTError failure) {
-                reportFailure(
-                    "USER_FILE_CHOOSER_CANCEL_DISPATCH_FAILED",
-                    "user-file.chooser.close",
-                    true
-                );
+                reportFailure("USER_FILE_CHOOSER_CANCEL_DISPATCH_FAILED", "user-file.chooser.close", true);
             }
         }
     }
@@ -130,10 +116,7 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
             return;
         }
         try {
-            final JFileChooser chooser = Objects.requireNonNull(
-                chooserFactory.get(),
-                "chooserFactory.get()"
-            );
+            final JFileChooser chooser = Objects.requireNonNull(chooserFactory.get(), "chooserFactory.get()");
             synchronized (lifecycleLock) {
                 if (!active || pending != expected) {
                     return;
@@ -145,18 +128,12 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
                 return;
             }
             final int choice = expected.request().mode() == UserFileMode.READ
-                ? chooser.showOpenDialog(null)
-                : chooser.showSaveDialog(null);
-            final File selected = choice == JFileChooser.APPROVE_OPTION
-                ? chooser.getSelectedFile()
-                : null;
+                    ? chooser.showOpenDialog(null)
+                    : chooser.showSaveDialog(null);
+            final File selected = choice == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
             settle(expected, decisionFor(choice, selected));
         } catch (RuntimeException | LinkageError | AWTError failure) {
-            reportFailure(
-                "USER_FILE_CHOOSER_SHOW_FAILED",
-                "user-file.chooser.show",
-                false
-            );
+            reportFailure("USER_FILE_CHOOSER_SHOW_FAILED", "user-file.chooser.show", false);
             settle(expected, Decision.unavailable());
         } finally {
             synchronized (lifecycleLock) {
@@ -171,33 +148,26 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
         try {
             chooser.cancelSelection();
         } catch (RuntimeException | LinkageError | AWTError failure) {
-            reportFailure(
-                "USER_FILE_CHOOSER_CANCEL_FAILED",
-                "user-file.chooser.close",
-                true
-            );
+            reportFailure("USER_FILE_CHOOSER_CANCEL_FAILED", "user-file.chooser.close", true);
         }
     }
 
-    private void reportFailure(
-        final String code,
-        final String operationId,
-        final boolean cleanupFailed
-    ) {
+    private void reportFailure(final String code, final String operationId, final boolean cleanupFailed) {
         if (cleanupFailed) {
             cleanupEvidence.cleanupFailed();
         }
-        failureSink.record(RuntimeFailureDomain.STORAGE, new RuntimeFailure(
-            code,
-            "ERROR",
-            "user-file-chooser",
-            pluginId,
-            operationId,
-            null,
-            "User-file chooser operation failed safely.",
-            null,
-            1
-        ));
+        failureSink.record(
+                RuntimeFailureDomain.STORAGE,
+                new RuntimeFailure(
+                        code,
+                        "ERROR",
+                        "user-file-chooser",
+                        pluginId,
+                        operationId,
+                        null,
+                        "User-file chooser operation failed safely.",
+                        null,
+                        1));
     }
 
     private boolean isPending(final PendingRequest expected) {
@@ -230,10 +200,7 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
         };
     }
 
-    private static void configure(
-        final JFileChooser chooser,
-        final UserFileRequest request
-    ) {
+    private static void configure(final JFileChooser chooser, final UserFileRequest request) {
         chooser.setDialogTitle(request.title());
         chooser.setMultiSelectionEnabled(false);
         chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
@@ -244,12 +211,10 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
         }
         chooser.setAcceptAllFileFilterUsed(false);
         final String description = request.allowedExtensions().stream()
-            .map(extension -> "*." + extension)
-            .collect(Collectors.joining(", "));
+                .map(extension -> "*." + extension)
+                .collect(Collectors.joining(", "));
         chooser.setFileFilter(new FileNameExtensionFilter(
-            description,
-            request.allowedExtensions().toArray(new String[0])
-        ));
+                description, request.allowedExtensions().toArray(new String[0])));
     }
 
     private static Decision approvedDecision(final File selected) {

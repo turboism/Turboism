@@ -5,9 +5,9 @@
   - 配置校验、迁移和插件选择提交必须先于任何永久载荷写入；
   - 全新安装从当前模板创建 config.json，并由插件选择生成 disabledPlugins；
   - 已有 current v1 仅更新 disabledPlugins，其他有效用户字段保持不变；
-  - 显式 legacy v0（无 schemaVersion）先受限迁移到 v1，再应用本次插件选择；
-  - schemaVersion 必须是 JSON 整数 token，迁移结果必须满足完整 v1 约束；
-  - 未知字段、未来 schema、损坏或超限配置失败关闭，不降级也不截断原文件；
+  - 其余可解析的自有文档（旧版/未来 schemaVersion、陌生字段、非法值）容错
+    归一化到 v1：合法已知值携带、其余丢弃，再应用本次插件选择；
+  - 仅当 format 显式声明为其他产品，或文件损坏/超限/不可解析时失败关闭；
   - Full 安装始终携带全部捆绑插件 JAR；Lite 不写新 JAR 并禁用全部捆绑插件；
   - 卸载失败关闭后置顺序和精确 LICENSE 删除仍保持不变。
 
@@ -111,15 +111,10 @@ REAL_MODULES = load_manifest()  # 回归 oracle：清单漂移（增删/改序/�
 
 
 CURRENT_SCHEMA = 1
-V0_FIELDS = {
-    "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
-    "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-    "hooks", "launcher", "cubismJvm", "graalVmPath",
-}
 V1_FIELDS = {
     "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
     "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-    "hooks", "launcher", "reduceAutoBackup",
+    "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
     "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
 }
 LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
@@ -130,7 +125,8 @@ STARTUP_FIELDS = {
     "separateExportSaveDirectory",
 }
 LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread"}
-V0_LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
+TEXTURE_ATLAS_FIELDS = {"algorithmId", "parallel"}
+LEGACY_ROOT_LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
 BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread"}
 BOOLEAN_V1_FIELDS = {
     "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
@@ -213,37 +209,116 @@ def validate_v1(doc):
             if (not isinstance(path, str) or not path.strip() or len(path) > 4096
                     or any(ord(character) < 0x20 for character in path)):
                 raise ValueError("launcher.graalVmPath is invalid")
+    if "textureAtlas" in doc:
+        atlas = doc["textureAtlas"]
+        if not isinstance(atlas, dict) or set(atlas) - TEXTURE_ATLAS_FIELDS:
+            raise ValueError("textureAtlas is invalid")
+        if "algorithmId" in atlas:
+            algorithm = atlas["algorithmId"]
+            if algorithm is not None and (not isinstance(algorithm, str) or not algorithm.strip()):
+                raise ValueError("textureAtlas.algorithmId is invalid")
+        if "parallel" in atlas and type(atlas["parallel"]) is not bool:
+            raise ValueError("textureAtlas.parallel must be boolean")
     return doc
 
 
-def migrate_v0(doc):
-    unknown = set(doc) - V0_FIELDS
-    if unknown:
-        raise ValueError("unsupported legacy fields: " + ",".join(sorted(unknown)))
-    if doc.get("format") not in (None, "turboism.runtime.config"):
-        raise ValueError("unsupported legacy format")
-    migrated = {
+def _valid_graal_path(value):
+    return (isinstance(value, str) and value.strip() and len(value) <= 4096
+            and not any(ord(character) < 0x20 for character in value))
+
+
+def _string_list_or_none(value):
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        return None
+    return list(value)
+
+
+def normalize_v1(doc):
+    """容错归一化：任意可解析的自有文档提升到当前 v1。
+
+    已知字段值合法才携带；陌生字段与非法值丢弃而非拒绝；旧版根级
+    cubismJvm/graalVmPath 提升进 launcher（launcher 优先）。仅当 format
+    显式声明为其他产品的字符串时失败关闭。结果仍须通过完整 v1 校验。"""
+    if not isinstance(doc, dict):
+        raise ValueError("runtime config root must be an object")
+    if isinstance(doc.get("format"), str) and doc["format"] != "turboism.runtime.config":
+        raise ValueError("foreign config format")
+    normalized = {
         "format": "turboism.runtime.config",
         "schemaVersion": CURRENT_SCHEMA,
-        "worktreeId": "turboism-runtime",
-        "pluginDirs": ["plugins"],
     }
-    for field in (
-        "worktreeId", "pluginDirs", "disabledPlugins", "logLevel",
-        "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics", "hooks",
-    ):
-        if field in doc:
-            migrated[field] = doc[field]
-    launcher = dict(doc.get("launcher", {"cubismJvm": "graalvm"}))
-    if set(launcher) - V0_LAUNCHER_FIELDS:
-        raise ValueError("unsupported legacy launcher field")
-    for field in ("cubismJvm", "graalVmPath"):
-        if field in doc:
-            if field in launcher and "launcher" in doc:
-                raise ValueError("duplicate legacy launcher field")
-            launcher[field] = doc[field]
-    migrated["launcher"] = launcher
-    return validate_v1(migrated)
+    worktree = doc.get("worktreeId")
+    normalized["worktreeId"] = (
+        worktree if isinstance(worktree, str)
+        and re.fullmatch(r"[a-z][a-z0-9-]{2,63}", worktree)
+        else "turboism-runtime")
+    dirs = _string_list_or_none(doc.get("pluginDirs"))
+    if dirs is None:
+        normalized["pluginDirs"] = ["plugins"]
+    else:
+        normalized["pluginDirs"] = [
+            p for p in dirs
+            if not p.startswith("/") and not p.startswith("\\\\") and ".." not in p]
+    disabled = _string_list_or_none(doc.get("disabledPlugins"))
+    if disabled is not None:
+        normalized["disabledPlugins"] = [i for i in disabled if i != ""]
+    if isinstance(doc.get("logLevel"), str) and doc["logLevel"] in LOG_LEVELS:
+        normalized["logLevel"] = doc["logLevel"]
+    if (type(doc.get("maxLogStorageMiB")) is int
+            and 1 <= doc["maxLogStorageMiB"] <= 4096):
+        normalized["maxLogStorageMiB"] = doc["maxLogStorageMiB"]
+    if isinstance(doc.get("locale"), str) and doc["locale"] in LOCALES:
+        normalized["locale"] = doc["locale"]
+    for field in ("safeMode", "useTextIcon") + tuple(sorted(BOOLEAN_V1_FIELDS)):
+        if type(doc.get(field)) is bool:
+            normalized[field] = doc[field]
+    if "diagnostics" in doc:
+        normalized["diagnostics"] = doc["diagnostics"]
+    if isinstance(doc.get("hooks"), dict):
+        hooks = {}
+        for field in ("disabledIds", "denylistedClasses"):
+            values = _string_list_or_none(doc["hooks"].get(field))
+            if values is not None:
+                hooks[field] = values
+        startup = doc["hooks"].get("startup")
+        if isinstance(startup, dict):
+            hooks["startup"] = {
+                key: value for key, value in startup.items()
+                if key in STARTUP_FIELDS and type(value) is bool}
+        normalized["hooks"] = hooks
+    if isinstance(doc.get("textureAtlas"), dict):
+        atlas = {}
+        if "algorithmId" in doc["textureAtlas"]:
+            algorithm = doc["textureAtlas"]["algorithmId"]
+            if algorithm is None or (isinstance(algorithm, str) and algorithm.strip()):
+                atlas["algorithmId"] = algorithm
+        if type(doc["textureAtlas"].get("parallel")) is bool:
+            atlas["parallel"] = doc["textureAtlas"]["parallel"]
+        normalized["textureAtlas"] = atlas
+    launcher = {}
+    source_launcher = doc.get("launcher")
+    if isinstance(source_launcher, dict):
+        cubism_jvm = source_launcher.get("cubismJvm")
+        if isinstance(cubism_jvm, str) and cubism_jvm in CUBISM_JVMS:
+            launcher["cubismJvm"] = cubism_jvm
+        if _valid_graal_path(source_launcher.get("graalVmPath")):
+            launcher["graalVmPath"] = source_launcher["graalVmPath"]
+        profile = source_launcher.get("memoryProfile")
+        if isinstance(profile, str) and profile in MEMORY_PROFILES:
+            launcher["memoryProfile"] = profile
+        for field in BOOLEAN_LAUNCHER_FIELDS:
+            if type(source_launcher.get(field)) is bool:
+                launcher[field] = source_launcher[field]
+    for field in LEGACY_ROOT_LAUNCHER_FIELDS:
+        if field in doc and field not in launcher:
+            value = doc[field]
+            ok = (isinstance(value, str) and value in CUBISM_JVMS) \
+                if field == "cubismJvm" else _valid_graal_path(value)
+            if ok:
+                launcher[field] = value
+    if launcher:
+        normalized["launcher"] = launcher
+    return validate_v1(normalized)
 
 
 def desired_disabled(doc, mode, unchecked, bundled_ids):
@@ -270,16 +345,11 @@ def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_I
         }
     else:
         document = json.loads(existing_text)
-        schema = document.get("schemaVersion", 0)
-        if type(schema) is not int:
-            raise ValueError("schemaVersion must be an integer token")
-        if schema == CURRENT_SCHEMA:
+        try:
             validate_v1(document)
             current = document
-        elif schema == 0:
-            document = migrate_v0(document)
-        else:
-            raise ValueError("unsupported schema migration")
+        except ValueError:
+            document = normalize_v1(document)
 
     disabled = desired_disabled(document, mode, unchecked, bundled_ids)
     updated = dict(document)
@@ -756,7 +826,7 @@ def check_configurator_flow_contract():
     check("CF5 candidate selection resolves declared identity and admission from application artifacts",
           "Get-CubismVersionFromArtifact" in common
           and "CubismHostProbeCli" in common
-          and "CubismHostCompatibilityResolver.resolve" in (INSTALLER_NSI.parent.parent.parent / "runtime/src/main/java/dev/turboism/mapping/verification/CubismHostProbeCli.java").read_text(encoding="utf-8")
+          and "HostArtifactDigest.from" in (INSTALLER_NSI.parent.parent.parent / "runtime/src/main/java/dev/turboism/mapping/verification/CubismEditorReleaseDetector.java").read_text(encoding="utf-8")
           and "Get-CubismVersionFromPath" not in common
           and "application artifacts are selectable" in common)
     check("CF6 BAT integration is selected in the configurator after candidates",
@@ -1316,51 +1386,65 @@ def main():
     check("T6 v0 应用插件选择", doc["disabledPlugins"] == [b, UNRELATED])
     check("T6 v0 JVM 字段迁入 launcher", doc["launcher"]["cubismJvm"] == "bundled")
 
-    # T7: 未知 legacy 字段失败关闭。
-    try:
-        installer_write_config("full", [], '{"legacyUnknown":true}')
-        check("T7 未知 v0 字段失败关闭", False)
-    except ValueError:
-        check("T7 未知 v0 字段失败关闭", True)
+    # T7: 未知字段在归一化时被丢弃而不是失败关闭。
+    out = installer_write_config("full", [], '{"legacyUnknown":true}')
+    doc = json.loads(out)
+    check("T7 未知字段被丢弃并归一化为 v1",
+          "legacyUnknown" not in doc and doc["schemaVersion"] == 1
+          and doc["format"] == "turboism.runtime.config")
 
-    # T8: 未来 schema 不得被旧安装器降级。
-    try:
-        installer_write_config("full", [],
-                               '{"format":"turboism.runtime.config","schemaVersion":2}')
-        check("T8 future schema 禁止降级", False)
-    except ValueError:
-        check("T8 future schema 禁止降级", True)
+    # T8: 未来/非法 schemaVersion 归一化到当前版本而非拒绝安装。
+    out = installer_write_config("full", [],
+                                 '{"format":"turboism.runtime.config","schemaVersion":2,'
+                                 '"worktreeId":"future-test","futureField":true}')
+    doc = json.loads(out)
+    check("T8 future schema 归一化到 v1",
+          doc["schemaVersion"] == 1 and "futureField" not in doc
+          and doc["worktreeId"] == "future-test")
 
     for label, schema in (("字符串", '"1"'), ("小数", "1.0")):
-        try:
-            installer_write_config(
-                "full", [],
-                '{"format":"turboism.runtime.config","schemaVersion":' + schema
-                + ',"worktreeId":"token-test"}')
-            check("T8 schemaVersion " + label + " token 被拒绝", False)
-        except ValueError:
-            check("T8 schemaVersion " + label + " token 被拒绝", True)
+        out = installer_write_config(
+            "full", [],
+            '{"format":"turboism.runtime.config","schemaVersion":' + schema
+            + ',"worktreeId":"token-test"}')
+        doc = json.loads(out)
+        check("T8 schemaVersion " + label + " token 归一化",
+              doc["schemaVersion"] == 1 and doc["worktreeId"] == "token-test")
 
-    # T9: current v1 未知字段和迁移后的非法已知值都失败关闭。
-    invalid_current = ('{"format":"turboism.runtime.config","schemaVersion":1,'
-                       '"worktreeId":"current-test","futureCurrentField":true}')
+    # T8b: 只有显式声明其他产品 format 的文档仍失败关闭。
     try:
-        installer_write_config("full", [a], invalid_current)
-        check("T9 current schema 未知字段失败关闭", False)
+        installer_write_config("full", [],
+                               '{"format":"other.runtime.config","schemaVersion":1}')
+        check("T8b foreign format 失败关闭", False)
     except ValueError:
-        check("T9 current schema 未知字段失败关闭", True)
-    for label, legacy_invalid in (
-        ("日志级别", '{"logLevel":"BOGUS"}'),
-        ("安全模式类型", '{"safeMode":"false"}'),
-        ("文字图标类型", '{"useTextIcon":"false"}'),
-        ("启动器枚举", '{"cubismJvm":"other"}'),
-        ("插件目录类型", '{"pluginDirs":"plugins"}'),
+        check("T8b foreign format 失败关闭", True)
+
+    # T9: current v1 未知字段与非法已知值都归一化：合法值携带，其余丢弃。
+    invalid_current = ('{"format":"turboism.runtime.config","schemaVersion":1,'
+                       '"worktreeId":"current-test","futureCurrentField":true,'
+                       '"logLevel":"DEBUG"}')
+    out = installer_write_config("full", [a], invalid_current)
+    doc = json.loads(out)
+    check("T9 current schema 未知字段被丢弃",
+          "futureCurrentField" not in doc
+          and doc["worktreeId"] == "current-test" and doc["logLevel"] == "DEBUG"
+          and doc["disabledPlugins"] == [a])
+    for label, legacy_invalid, field in (
+        ("日志级别", '{"logLevel":"BOGUS"}', "logLevel"),
+        ("安全模式类型", '{"safeMode":"false"}', "safeMode"),
+        ("文字图标类型", '{"useTextIcon":"false"}', "useTextIcon"),
+        ("启动器枚举", '{"cubismJvm":"other"}', "launcher"),
+        ("插件目录类型", '{"pluginDirs":"plugins"}', None),
     ):
-        try:
-            installer_write_config("full", [], legacy_invalid)
-            check("T9 v0 非法" + label + "失败关闭", False)
-        except ValueError:
-            check("T9 v0 非法" + label + "失败关闭", True)
+        out = installer_write_config("full", [], legacy_invalid)
+        doc = json.loads(out)
+        if field is None:
+            ok = doc["pluginDirs"] == ["plugins"]
+        elif field == "launcher":
+            ok = "launcher" not in doc or "cubismJvm" not in doc.get("launcher", {})
+        else:
+            ok = field not in doc
+        check("T9 非法" + label + "被丢弃并归一化", ok and doc["schemaVersion"] == 1)
 
     # ---- 插件载荷库存模拟（隐藏载荷 Section + 勾选语义）----
     # TI1: 全新部分 Full（未勾选 {a, c}）→ JAR 全量安装；disabledPlugins=[a,c]

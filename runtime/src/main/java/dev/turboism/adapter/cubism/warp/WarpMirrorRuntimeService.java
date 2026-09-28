@@ -5,7 +5,6 @@ import dev.turboism.sdk.cubism.mirror.WarpMirrorBlockerCode;
 import dev.turboism.sdk.cubism.mirror.WarpMirrorRequest;
 import dev.turboism.sdk.cubism.mirror.WarpMirrorResult;
 import dev.turboism.sdk.cubism.mirror.WarpMirrorService;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -16,8 +15,7 @@ import java.util.Objects;
  */
 public final class WarpMirrorRuntimeService implements WarpMirrorService {
 
-    private static final System.Logger LOGGER =
-        System.getLogger(WarpMirrorRuntimeService.class.getName());
+    private static final System.Logger LOGGER = System.getLogger(WarpMirrorRuntimeService.class.getName());
 
     private final Port port;
 
@@ -31,11 +29,11 @@ public final class WarpMirrorRuntimeService implements WarpMirrorService {
         try {
             return Objects.requireNonNull(port.apply(request), "port result");
         } catch (RuntimeException failure) {
-            LOGGER.log(System.Logger.Level.ERROR,
-                "Warp mirror apply failed with an unclassified runtime error", failure);
+            LOGGER.log(
+                    System.Logger.Level.ERROR, "Warp mirror apply failed with an unclassified runtime error", failure);
             return WarpMirrorResult.blocked(List.of(new WarpMirrorBlocker(
-                WarpMirrorBlockerCode.WRITE_FAILED,
-                "The mirror operation failed with an unclassified runtime error.")));
+                    WarpMirrorBlockerCode.WRITE_FAILED,
+                    "The mirror operation failed with an unclassified runtime error.")));
         }
     }
 

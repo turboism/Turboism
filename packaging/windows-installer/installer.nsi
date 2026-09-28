@@ -1380,7 +1380,8 @@ Section "-静默发现 Cubism" SecSilentDiscovery
 SilentDiscoveryDone:
 SectionEnd
 ; 配置必须在任何永久载荷、托管运行时或插件 JAR 写入前完成。这里只将当前
-; helper 解压到 NSIS 私有临时目录；无效/未来配置会在安装树变化前失败关闭。
+; helper 解压到 NSIS 私有临时目录；可解析的自有配置（旧版/未来 schema、陌生
+; 字段、非法值）会被归一化到 v1，仅外来 format 或不可解析文件才失败关闭。
 Section "-写入配置" SecConfig
   CreateDirectory "$INSTDIR"
   StrCpy $uncheckedPluginIds ""

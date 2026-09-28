@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-
 import java.util.Objects;
 
 /**

@@ -21,10 +21,6 @@
  "verifiedBy": "turboism-core-public-api-static-verifier",
  "verifiedAt": "2026-07-21T00:00:00Z",
  "safeMode": "Fail closed and keep Core model access unavailable when the exact artifact, selector roster, runtime classloader, or version probe does not match.",
- "capabilityConditions": {
-  "cubism.geometry.read": ["structure"],
-  "cubism.core.owned-moc.read": ["declaredGeneration"]
- },
  "selectors": [
   {
    "mappingId": "cubism.mapping.v5_3_02.core_model_read.class.canvas_info",
@@ -928,5 +924,13 @@
    "forbiddenAccessFlags": 8,
    "status": "VERIFIED_STATIC"
   }
- ]
+ ],
+  "capabilityConditions": {
+    "cubism.core.owned-moc.read": [
+      "structure"
+    ],
+    "cubism.geometry.read": [
+      "structure"
+    ]
+  }
 }

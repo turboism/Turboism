@@ -1,12 +1,13 @@
 package dev.turboism.adapter.cubism.textureatlas.cache;
 
+import dev.turboism.bootstrap.atlascache.AtlasCacheReuseDelegate;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import dev.turboism.bootstrap.atlascache.AtlasCacheReuseDelegate;
 
 /**
  * Exact-selector transformer for {@code CTextureAtlas}'s redundant-rebuild guard.
@@ -34,8 +35,8 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
      * transforms the same class first and changes its bytes. A comma-separated list of at
      * most {@value #MAX_EXTRA_ADMITS} lowercase 64-hex digests; absent by default.
      */
-    static final String ADMIT_CLASS_SHA256_PROPERTY =
-        "turboism.atlasCacheReuse.admitClassSha256";
+    static final String ADMIT_CLASS_SHA256_PROPERTY = "turboism.atlasCacheReuse.admitClassSha256";
+
     private static final int MAX_EXTRA_ADMITS = 8;
 
     /** What the transformer concluded, for diagnostics and tests. */
@@ -59,20 +60,18 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
         this(java.util.Arrays.asList(AtlasCacheReuseTarget.REVIEWED), extraAdmittedDigests());
     }
 
-    AtlasCacheReuseTransformer(final AtlasCacheReuseTarget target,
-                               final java.util.Set<String> admittedSha256) {
+    AtlasCacheReuseTransformer(final AtlasCacheReuseTarget target, final java.util.Set<String> admittedSha256) {
         this(java.util.List.of(Objects.requireNonNull(target, "target")), admittedSha256);
     }
 
-    AtlasCacheReuseTransformer(final java.util.Collection<AtlasCacheReuseTarget> targets,
-                               final java.util.Set<String> admittedSha256) {
+    AtlasCacheReuseTransformer(
+            final java.util.Collection<AtlasCacheReuseTarget> targets, final java.util.Set<String> admittedSha256) {
         final java.util.Map<String, AtlasCacheReuseTarget> byName = new java.util.HashMap<>();
         for (final AtlasCacheReuseTarget target : targets) {
             byName.put(Objects.requireNonNull(target, "target").internalName(), target);
         }
         this.targets = java.util.Map.copyOf(byName);
-        this.admittedSha256 = java.util.Set.copyOf(
-            Objects.requireNonNull(admittedSha256, "admittedSha256"));
+        this.admittedSha256 = java.util.Set.copyOf(Objects.requireNonNull(admittedSha256, "admittedSha256"));
     }
 
     /** The reviewed digests plus any bounded extras admitted via the system property. */
@@ -83,8 +82,7 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
         } catch (RuntimeException unavailable) {
             return java.util.Set.of();
         }
-        return dev.turboism.adapter.cubism.textureatlas.AtlasAdmitDigests.parse(
-            raw, MAX_EXTRA_ADMITS);
+        return dev.turboism.adapter.cubism.textureatlas.AtlasAdmitDigests.parse(raw, MAX_EXTRA_ADMITS);
     }
 
     /** Latest observed outcome; {@code NONE} until a target class has been defined. */
@@ -98,39 +96,51 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
     }
 
     @Override
-    public byte[] transform(final ClassLoader loader, final String className,
-                            final Class<?> classBeingRedefined, final ProtectionDomain domain,
-                            final byte[] classfileBuffer) {
+    public byte[] transform(
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain domain,
+            final byte[] classfileBuffer) {
         return transform(null, className, classBeingRedefined, domain, classfileBuffer);
     }
 
     @Override
-    public byte[] transform(final Module module, final ClassLoader loader, final String className,
-                            final Class<?> classBeingRedefined, final ProtectionDomain domain,
-                            final byte[] classfileBuffer) {
+    public byte[] transform(
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain domain,
+            final byte[] classfileBuffer) {
         final AtlasCacheReuseTarget target = targets.get(className);
         if (target == null) return null;
         // Unconditional sighting line: the host defines this class under more than one
         // loader and a silently-skipped definition is indistinguishable from "the patch
         // never ran" in captured console evidence. One bounded line per transform call.
-        report("SEEN", target, "loader=" + String.valueOf(loader)
-            + " retransform=" + (classBeingRedefined != null)
-            + " bytes=" + (classfileBuffer == null ? -1 : classfileBuffer.length)
-            + " inSha=" + (classfileBuffer == null ? "null"
-                : Integer.toHexString(java.util.Arrays.hashCode(classfileBuffer))));
+        report(
+                "SEEN",
+                target,
+                "loader=" + String.valueOf(loader)
+                        + " retransform=" + (classBeingRedefined != null)
+                        + " bytes=" + (classfileBuffer == null ? -1 : classfileBuffer.length)
+                        + " inSha="
+                        + (classfileBuffer == null
+                                ? "null"
+                                : Integer.toHexString(java.util.Arrays.hashCode(classfileBuffer))));
         // Bounded caller stack: the host may define the same class through more than one
         // path, and only the loading call stack says which code triggered each sighting.
         if (evidenceFile() != null) {
             try {
                 final java.io.StringWriter sink = new java.io.StringWriter();
-                new Throwable("atlas-cache-reuse define-stack").printStackTrace(
-                    new java.io.PrintWriter(sink));
+                new Throwable("atlas-cache-reuse define-stack").printStackTrace(new java.io.PrintWriter(sink));
                 java.nio.file.Files.writeString(
-                    java.nio.file.Path.of(evidenceFile()),
-                    sink + System.lineSeparator(),
-                    java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.APPEND);
+                        java.nio.file.Path.of(evidenceFile()),
+                        sink + System.lineSeparator(),
+                        java.nio.file.StandardOpenOption.CREATE,
+                        java.nio.file.StandardOpenOption.APPEND);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Diagnostics only.
             }
         }
@@ -140,12 +150,13 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
             // Every sighting of a reviewed-name class is reported — the host can define
             // the same name under more than one loader, and a silently-skipped definition
             // is indistinguishable from "the patch never ran" in captured evidence.
-            report("HASH_MISMATCH", target,
-                "observed=" + observed + " loader=" + String.valueOf(loader)
-                    + " retransform=" + (classBeingRedefined != null));
+            report(
+                    "HASH_MISMATCH",
+                    target,
+                    "observed=" + observed + " loader=" + String.valueOf(loader) + " retransform="
+                            + (classBeingRedefined != null));
             if (outcome.compareAndSet(Outcome.NONE, Outcome.HASH_MISMATCH)) {
-                diagnostic.compareAndSet("",
-                    target.internalName() + " observed=" + observed);
+                diagnostic.compareAndSet("", target.internalName() + " observed=" + observed);
             }
             return null;
         }
@@ -156,9 +167,10 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
             // declines reuse whenever a member is missing.
             outcome.set(Outcome.PATCHED);
             diagnostic.set(target.internalName() + " " + target.hostLabel());
-            report("PATCHED", target,
-                "loader=" + String.valueOf(loader)
-                    + " retransform=" + (classBeingRedefined != null));
+            report(
+                    "PATCHED",
+                    target,
+                    "loader=" + String.valueOf(loader) + " retransform=" + (classBeingRedefined != null));
             return patched;
         } catch (AtlasCacheReusePatcher.NotApplicable rejected) {
             outcome.set(Outcome.SHAPE_REJECTED);
@@ -174,24 +186,26 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
      * host's wrapped stderr stream is asynchronous and can drop or reorder lines under
      * startup load, so validation evidence must not depend on it alone.
      */
-    private static void report(final String outcome, final AtlasCacheReuseTarget target,
-                               final String detail) {
+    private static void report(final String outcome, final AtlasCacheReuseTarget target, final String detail) {
         final String line = "[turboism] atlas-cache-reuse " + outcome
-            + " " + target.internalName()
-            + (detail == null || detail.isEmpty() ? "" : " " + detail);
+                + " " + target.internalName()
+                + (detail == null || detail.isEmpty() ? "" : " " + detail);
         try {
             System.err.println(line);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // The console is evidence, never a failure source.
         }
         final String evidence = evidenceFile();
         if (evidence != null && !evidence.isEmpty()) {
             try {
-                java.nio.file.Files.writeString(java.nio.file.Path.of(evidence),
-                    line + System.lineSeparator(),
-                    java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.APPEND);
+                java.nio.file.Files.writeString(
+                        java.nio.file.Path.of(evidence),
+                        line + System.lineSeparator(),
+                        java.nio.file.StandardOpenOption.CREATE,
+                        java.nio.file.StandardOpenOption.APPEND);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Evidence capture must never affect the transform outcome.
             }
         }

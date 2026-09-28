@@ -1,7 +1,6 @@
 package dev.turboism.core.runtime.sidecar;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Map;
 
 /**
@@ -10,9 +9,7 @@ import java.util.Map;
  * <p>Values are stored as strings so that only primitive, representable types cross
  * the sidecar boundary. No {@link Object} or raw maps are exposed.
  */
-public record SidecarWorkParameters(
-    @JsonProperty("values") Map<String, String> values
-) {
+public record SidecarWorkParameters(@JsonProperty("values") Map<String, String> values) {
 
     public SidecarWorkParameters {
         values = values == null ? Map.of() : Map.copyOf(values);

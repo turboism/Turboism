@@ -41,14 +41,10 @@ public final class StrictZipArchive implements AutoCloseable {
     private final Limits limits;
 
     /** Strictly parses and opens a file-backed archive. */
-    public static StrictZipArchive open(
-        final Path path,
-        final Limits limits,
-        final ArchivePathPolicy policy
-    ) throws Exception {
+    public static StrictZipArchive open(final Path path, final Limits limits, final ArchivePathPolicy policy)
+            throws Exception {
         try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
-            final List<Entry> parsed =
-                StrictZipParser.parse(channel, path.toString(), limits, policy);
+            final List<Entry> parsed = StrictZipParser.parse(channel, path.toString(), limits, policy);
             return new StrictZipArchive(new ZipFileSource(path), parsed, limits);
         }
     }
@@ -58,21 +54,13 @@ public final class StrictZipArchive implements AutoCloseable {
      * archive: trailing data, a missing EOCD, or a central/local disagreement all reject
      * exactly as they do for the file backend.
      */
-    public static StrictZipArchive open(
-        final byte[] bytes,
-        final Limits limits,
-        final ArchivePathPolicy policy
-    ) throws Exception {
-        final List<Entry> parsed = StrictZipParser.parse(
-            new ByteArrayChannel(bytes), "archive", limits, policy);
+    public static StrictZipArchive open(final byte[] bytes, final Limits limits, final ArchivePathPolicy policy)
+            throws Exception {
+        final List<Entry> parsed = StrictZipParser.parse(new ByteArrayChannel(bytes), "archive", limits, policy);
         return new StrictZipArchive(new ByteArraySource(bytes), parsed, limits);
     }
 
-    private StrictZipArchive(
-        final Source source,
-        final List<Entry> parsed,
-        final Limits limits
-    ) throws Exception {
+    private StrictZipArchive(final Source source, final List<Entry> parsed, final Limits limits) throws Exception {
         this.limits = limits;
         try {
             source.open();
@@ -117,8 +105,7 @@ public final class StrictZipArchive implements AutoCloseable {
      * recomputing the CRC; the read aborts at the per-entry bound and the entry is only
      * accepted when the counted size and CRC match the central record exactly.
      */
-    public Observation consume(final Entry entry, final OutputStream target)
-            throws Exception {
+    public Observation consume(final Entry entry, final OutputStream target) throws Exception {
         final CRC32 crc = new CRC32();
         final long size = stream(entry, target, crc);
         if (size != entry.expanded() || crc.getValue() != entry.crc()) {
@@ -127,12 +114,11 @@ public final class StrictZipArchive implements AutoCloseable {
         return new Observation(size, crc.getValue());
     }
 
-    private long stream(final Entry entry, final OutputStream target, final CRC32 crc)
-            throws Exception {
+    private long stream(final Entry entry, final OutputStream target, final CRC32 crc) throws Exception {
         long size = 0;
         final byte[] buffer = new byte[64 * 1024];
         try (InputStream input = stream(entry)) {
-            for (int read; (read = input.read(buffer)) >= 0;) {
+            for (int read; (read = input.read(buffer)) >= 0; ) {
                 if (read == 0) continue;
                 if (size > entry.expanded() - read) {
                     // The entry over-delivers beyond its central record — the same
@@ -164,16 +150,15 @@ public final class StrictZipArchive implements AutoCloseable {
      * {@code dataOffset} is where the entry's compressed data begins.
      */
     public record Entry(
-        String name,
-        boolean directory,
-        int flags,
-        int method,
-        long crc,
-        long compressed,
-        long expanded,
-        long localOffset,
-        long dataOffset
-    ) {}
+            String name,
+            boolean directory,
+            int flags,
+            int method,
+            long crc,
+            long compressed,
+            long expanded,
+            long localOffset,
+            long dataOffset) {}
 
     /** The measured result of {@link #consume}: actual expanded bytes and CRC-32. */
     public record Observation(long size, long crc) {}
@@ -184,19 +169,16 @@ public final class StrictZipArchive implements AutoCloseable {
      * {@code totalMax} the aggregate expanded bytes, {@code countMax} the entry count,
      * and {@code ratioMax} the expanded-to-compressed ratio.
      */
-    public record Limits(
-        long rawMax,
-        long entryMax,
-        long totalMax,
-        int countMax,
-        double ratioMax
-    ) {}
+    public record Limits(long rawMax, long entryMax, long totalMax, int countMax, double ratioMax) {}
 
     /** Decompression backend: opens raw streams over a parsed entry's data region. */
     private interface Source extends AutoCloseable {
         void open() throws IOException;
+
         InputStream stream(Entry entry) throws IOException;
-        @Override void close() throws IOException;
+
+        @Override
+        void close() throws IOException;
     }
 
     /**
@@ -247,8 +229,7 @@ public final class StrictZipArchive implements AutoCloseable {
         @Override
         public InputStream stream(final Entry entry) throws IOException {
             final ByteArrayInputStream window = new ByteArrayInputStream(
-                bytes, Math.toIntExact(entry.dataOffset()),
-                Math.toIntExact(entry.compressed()));
+                    bytes, Math.toIntExact(entry.dataOffset()), Math.toIntExact(entry.compressed()));
             if (entry.method() == 0) {
                 return window;
             }

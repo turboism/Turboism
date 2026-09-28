@@ -2,14 +2,13 @@ package dev.turboism.sdk.cubism.event;
 
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.Objects;
 
 /**
  * Typed states of the semantic parameter set-value event family.
  */
 public sealed interface ParameterValueEvent extends TurboismEvent
-    permits ParameterValueEvent.Before, ParameterValueEvent.On, ParameterValueEvent.After {
+        permits ParameterValueEvent.Before, ParameterValueEvent.On, ParameterValueEvent.After {
 
     /** @return the parameter participating in the operation */
     Parameter parameter();
@@ -27,20 +26,15 @@ public sealed interface ParameterValueEvent extends TurboismEvent
         private final CallbackScope callbackScope;
         private float value;
 
-        public Before(
-            final Parameter parameter,
-            final float requestedValue,
-            final float value
-        ) {
+        public Before(final Parameter parameter, final float requestedValue, final float value) {
             this(parameter, requestedValue, value, null);
         }
 
         private Before(
-            final Parameter parameter,
-            final float requestedValue,
-            final float value,
-            final CallbackScope callbackScope
-        ) {
+                final Parameter parameter,
+                final float requestedValue,
+                final float value,
+                final CallbackScope callbackScope) {
             this.parameter = Objects.requireNonNull(parameter, "parameter");
             this.requestedValue = requestedValue;
             this.value = value;
@@ -59,11 +53,7 @@ public sealed interface ParameterValueEvent extends TurboismEvent
          * @param value current valid candidate before this subscriber
          * @return the callback scope and its event
          */
-        public static Callback openCallback(
-            final Parameter parameter,
-            final float requestedValue,
-            final float value
-        ) {
+        public static Callback openCallback(final Parameter parameter, final float requestedValue, final float value) {
             return new Callback(parameter, requestedValue, value);
         }
 
@@ -103,11 +93,7 @@ public sealed interface ParameterValueEvent extends TurboismEvent
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
 
-            private Callback(
-                final Parameter parameter,
-                final float requestedValue,
-                final float value
-            ) {
+            private Callback(final Parameter parameter, final float requestedValue, final float value) {
                 event = new Before(parameter, requestedValue, value, scope);
             }
 
@@ -133,9 +119,7 @@ public sealed interface ParameterValueEvent extends TurboismEvent
 
             private void requireOpen() {
                 if (!open || Thread.currentThread() != ownerThread) {
-                    throw new IllegalStateException(
-                        "Parameter before-event mutation is outside its callback scope."
-                    );
+                    throw new IllegalStateException("Parameter before-event mutation is outside its callback scope.");
                 }
             }
 
@@ -147,11 +131,7 @@ public sealed interface ParameterValueEvent extends TurboismEvent
     }
 
     /** State published after a successful write that actually changed the value. */
-    record On(
-        Parameter parameter,
-        float oldValue,
-        float newValue
-    ) implements ParameterValueEvent {
+    record On(Parameter parameter, float oldValue, float newValue) implements ParameterValueEvent {
 
         public On {
             parameter = Objects.requireNonNull(parameter, "parameter");
@@ -159,10 +139,7 @@ public sealed interface ParameterValueEvent extends TurboismEvent
     }
 
     /** State published after every successful write, including an unchanged write. */
-    record After(
-        Parameter parameter,
-        float finalValue
-    ) implements ParameterValueEvent {
+    record After(Parameter parameter, float finalValue) implements ParameterValueEvent {
 
         public After {
             parameter = Objects.requireNonNull(parameter, "parameter");

@@ -18,12 +18,8 @@ import dev.turboism.sdk.cubism.write.CubismWriteCommand;
  * @param operation the deformer operation to perform, interpreted by the executing adapter;
  *                  must not be null or blank
  */
-public record DeformerWriteCommand(
-    String commandId,
-    ModelId modelId,
-    ModelObjectId deformerId,
-    String operation
-) implements CubismWriteCommand {
+public record DeformerWriteCommand(String commandId, ModelId modelId, ModelObjectId deformerId, String operation)
+        implements CubismWriteCommand {
 
     /**
      * Validates the record components.

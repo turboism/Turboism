@@ -7,6 +7,7 @@ import java.util.Objects;
 public record PreparedPluginPackage(PluginInstallPlan plan, Path stagedJar) {
     public PreparedPluginPackage {
         plan = Objects.requireNonNull(plan, "plan");
-        stagedJar = Objects.requireNonNull(stagedJar, "stagedJar").toAbsolutePath().normalize();
+        stagedJar =
+                Objects.requireNonNull(stagedJar, "stagedJar").toAbsolutePath().normalize();
     }
 }

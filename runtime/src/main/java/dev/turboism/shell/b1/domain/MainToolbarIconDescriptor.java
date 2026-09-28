@@ -16,12 +16,11 @@ import java.util.Objects;
  * @param tooltipKey message key for the hover tooltip text
  */
 public record MainToolbarIconDescriptor(
-    MainToolbarIconState state,
-    String resourcePath,
-    IconTintMode tintMode,
-    String ariaLabelKey,
-    String tooltipKey
-) {
+        MainToolbarIconState state,
+        String resourcePath,
+        IconTintMode tintMode,
+        String ariaLabelKey,
+        String tooltipKey) {
     public MainToolbarIconDescriptor {
         state = Objects.requireNonNull(state, "state");
         resourcePath = Objects.requireNonNull(resourcePath, "resourcePath");

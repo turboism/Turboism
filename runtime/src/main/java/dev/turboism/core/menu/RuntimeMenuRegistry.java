@@ -11,7 +11,6 @@ import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
-
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,53 +36,42 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
     private final Map<String, ContributionHolder> contributions = new ConcurrentHashMap<>();
 
     public RuntimeMenuRegistry(
-        final RuntimeScheduler scheduler,
-        final String pluginId,
-        final PermissionChecker permissionChecker
-    ) {
+            final RuntimeScheduler scheduler, final String pluginId, final PermissionChecker permissionChecker) {
         this(
-            scheduler::dispatch,
-            pluginId,
-            permissionChecker,
-            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
-        );
+                scheduler::dispatch,
+                pluginId,
+                permissionChecker,
+                new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
     }
 
     public RuntimeMenuRegistry(
-        final RuntimeScheduler scheduler,
-        final String pluginId,
-        final PermissionChecker permissionChecker,
-        final EditorUiContributionAuthority contributionAuthority
-    ) {
+            final RuntimeScheduler scheduler,
+            final String pluginId,
+            final PermissionChecker permissionChecker,
+            final EditorUiContributionAuthority contributionAuthority) {
         this(scheduler::dispatch, pluginId, permissionChecker, contributionAuthority);
     }
 
     RuntimeMenuRegistry(
-        final BiConsumer<PluginTask, Runnable> dispatcher,
-        final String pluginId,
-        final PermissionChecker permissionChecker
-    ) {
+            final BiConsumer<PluginTask, Runnable> dispatcher,
+            final String pluginId,
+            final PermissionChecker permissionChecker) {
         this(
-            dispatcher,
-            pluginId,
-            permissionChecker,
-            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
-        );
+                dispatcher,
+                pluginId,
+                permissionChecker,
+                new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
     }
 
     RuntimeMenuRegistry(
-        final BiConsumer<PluginTask, Runnable> dispatcher,
-        final String pluginId,
-        final PermissionChecker permissionChecker,
-        final EditorUiContributionAuthority contributionAuthority
-    ) {
+            final BiConsumer<PluginTask, Runnable> dispatcher,
+            final String pluginId,
+            final PermissionChecker permissionChecker,
+            final EditorUiContributionAuthority contributionAuthority) {
         this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
         this.pluginId = requireText(pluginId, "pluginId");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
-        this.contributionAuthority = Objects.requireNonNull(
-            contributionAuthority,
-            "contributionAuthority"
-        );
+        this.contributionAuthority = Objects.requireNonNull(contributionAuthority, "contributionAuthority");
     }
 
     /**
@@ -95,9 +83,7 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
      * @throws NullPointerException when {@code authority} is null
      * @throws IllegalStateException when contributions are already registered under another authority
      */
-    public synchronized void bindContributionAuthority(
-        final EditorUiContributionAuthority authority
-    ) {
+    public synchronized void bindContributionAuthority(final EditorUiContributionAuthority authority) {
         final EditorUiContributionAuthority requested = Objects.requireNonNull(authority, "authority");
         if (!contributions.isEmpty() && contributionAuthority != requested) {
             throw new IllegalStateException("menu contribution authority is already in use");
@@ -118,10 +104,9 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
         final Registration authorityRegistration;
         try {
             authorityRegistration = contributionAuthority.contribute(new EditorUiContribution<>(
-                new EditorUiContributionIdentity(pluginId, EditorUiFamily.MENU, id),
-                contribution.order(),
-                contribution
-            ));
+                    new EditorUiContributionIdentity(pluginId, EditorUiFamily.MENU, id),
+                    contribution.order(),
+                    contribution));
         } catch (RuntimeException | Error failure) {
             contributions.remove(id, holder);
             throw failure;

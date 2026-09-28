@@ -10,13 +10,7 @@ import java.util.Objects;
  */
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditParameterNode(
-        ParameterId id,
-        String name,
-        double min,
-        double defaultValue,
-        double max,
-        boolean repeat,
-        boolean blendShape)
+        ParameterId id, String name, double min, double defaultValue, double max, boolean repeat, boolean blendShape)
         implements EditParameterStructureEntry {
 
     public EditParameterNode {

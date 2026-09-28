@@ -41,19 +41,21 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
     private final DeferredGlErrorCheckTransformer transformer;
     private boolean installed, restored;
 
-    static boolean admitted(final HostArtifactDigest digest,
-                            final RuntimeStartupConfig config,
-                            final boolean requested, final int jvm) {
-        return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
-            && DeferredGlErrorCheckTarget.of(digest).isPresent();
+    static boolean admitted(
+            final HostArtifactDigest digest,
+            final RuntimeStartupConfig config,
+            final boolean requested,
+            final int jvm) {
+        return requested
+                && jvm >= 17
+                && config.hookEnabled(HOOK_ID)
+                && DeferredGlErrorCheckTarget.of(digest).isPresent();
     }
 
-    VerifiedDeferredGlErrorCheckInstaller(final Instrumentation instrumentation,
-                                        final Path artifact, final ClassLoader loader)
-            throws Exception {
+    VerifiedDeferredGlErrorCheckInstaller(
+            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
         target = DeferredGlErrorCheckTarget.of(HostArtifactDigest.from(artifact))
-            .orElseThrow(() -> new IllegalArgumentException(
-                "deferred error check unsupported host artifact"));
+                .orElseThrow(() -> new IllegalArgumentException("deferred error check unsupported host artifact"));
         if (Runtime.version().feature() < 17) {
             throw new IllegalArgumentException("deferred error check requires JVM17+");
         }
@@ -65,8 +67,7 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
             // The test-only elision already consumed the error-check site;
             // deferred checking is the production replacement, not a stacking
             // mode, so the pair stays mutually exclusive.
-            throw new IllegalStateException(
-                "deferred error check excludes the test-only elision");
+            throw new IllegalStateException("deferred error check excludes the test-only elision");
         }
         errorType = Class.forName(target.errorOwner().replace('/', '.'), false, loader);
         frameType = Class.forName(target.frameOwner().replace('/', '.'), false, loader);
@@ -80,32 +81,47 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
         try (JarFile jar = new JarFile(artifact.toFile())) {
             final byte[] errorReference = reference(jar, errorType);
             final byte[] frameReference = reference(jar, frameType);
-            transformer = new DeferredGlErrorCheckTransformer(
-                loader, artifact, errorReference, frameReference, target);
+            transformer = new DeferredGlErrorCheckTransformer(loader, artifact, errorReference, frameReference, target);
             final List<String> errorComposed = composedShape(
-                loader, artifact, errorReference,
-                UniformLocationLifecycleTransformer.Role.ERROR, errorType,
-                target.errorOwner(), DeferredGlErrorCheckTarget.ERROR_METHOD,
-                DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR);
+                    loader,
+                    artifact,
+                    errorReference,
+                    UniformLocationLifecycleTransformer.Role.ERROR,
+                    errorType,
+                    target.errorOwner(),
+                    DeferredGlErrorCheckTarget.ERROR_METHOD,
+                    DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR);
             if (errorComposed != null) {
                 transformer.acceptComposedShape(target.errorOwner(), errorComposed);
             }
             final List<String> frameComposed = composedShape(
-                loader, artifact, frameReference,
-                UniformLocationLifecycleTransformer.Role.FRAME, frameType,
-                target.frameOwner(), DeferredGlErrorCheckTarget.FRAME_METHOD,
-                DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR);
+                    loader,
+                    artifact,
+                    frameReference,
+                    UniformLocationLifecycleTransformer.Role.FRAME,
+                    frameType,
+                    target.frameOwner(),
+                    DeferredGlErrorCheckTarget.FRAME_METHOD,
+                    DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR);
             if (frameComposed != null) {
                 transformer.acceptComposedShape(target.frameOwner(), frameComposed);
             }
-            verify(errorType, capture(errorType), target.errorOwner(),
-                DeferredGlErrorCheckTarget.ERROR_METHOD,
-                DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR,
-                errorReference, errorComposed);
-            verify(frameType, capture(frameType), target.frameOwner(),
-                DeferredGlErrorCheckTarget.FRAME_METHOD,
-                DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR,
-                frameReference, frameComposed);
+            verify(
+                    errorType,
+                    capture(errorType),
+                    target.errorOwner(),
+                    DeferredGlErrorCheckTarget.ERROR_METHOD,
+                    DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR,
+                    errorReference,
+                    errorComposed);
+            verify(
+                    frameType,
+                    capture(frameType),
+                    target.frameOwner(),
+                    DeferredGlErrorCheckTarget.FRAME_METHOD,
+                    DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR,
+                    frameReference,
+                    frameComposed);
         }
     }
 
@@ -116,53 +132,69 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
      * upstream rewrite does not apply; only the official shape is then
      * admitted. The shape is derived, never trusted from chain output.
      */
-    private static List<String> composedShape(final ClassLoader loader, final Path artifact,
-                                              final byte[] reference,
-                                              final UniformLocationLifecycleTransformer.Role role,
-                                              final Class<?> type, final String owner,
-                                              final String method, final String descriptor) {
+    private static List<String> composedShape(
+            final ClassLoader loader,
+            final Path artifact,
+            final byte[] reference,
+            final UniformLocationLifecycleTransformer.Role role,
+            final Class<?> type,
+            final String owner,
+            final String method,
+            final String descriptor) {
         try {
             final var probe = new UniformLocationLifecycleTransformer(
-                loader, artifact, reference, role, HostArtifactDigest.from(artifact));
-            final byte[] output = probe.transform(type.getModule(), loader,
-                type.getName().replace('.', '/'), null, type.getProtectionDomain(), reference);
-            return output == null
-                ? null : ReviewedMethodShape.read(output, owner, method, descriptor);
+                    loader, artifact, reference, role, HostArtifactDigest.from(artifact));
+            final byte[] output = probe.transform(
+                    type.getModule(),
+                    loader,
+                    type.getName().replace('.', '/'),
+                    null,
+                    type.getProtectionDomain(),
+                    reference);
+            return output == null ? null : ReviewedMethodShape.read(output, owner, method, descriptor);
         } catch (Exception | LinkageError failure) {
             return null;
         }
     }
 
-    private static void verify(final Class<?> type, final byte[] actual,
-                               final String owner, final String method, final String descriptor,
-                               final byte[] reference, final List<String> composed)
+    private static void verify(
+            final Class<?> type,
+            final byte[] actual,
+            final String owner,
+            final String method,
+            final String descriptor,
+            final byte[] reference,
+            final List<String> composed)
             throws Exception {
         final List<String> official = ReviewedMethodShape.read(reference, owner, method, descriptor);
         final List<String> observed = ReviewedMethodShape.read(actual, owner, method, descriptor);
-        if (official == null || observed == null
-            || (!official.equals(observed) && !observed.equals(composed))) {
+        if (official == null || observed == null || (!official.equals(observed) && !observed.equals(composed))) {
             throw new IllegalStateException("deferred-check body mismatch: " + owner);
         }
     }
 
-    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact)
-            throws Exception {
+    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {
         if (type.getClassLoader() != loader
-            || type.getProtectionDomain().getCodeSource() == null
-            || !Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI())
-                .toAbsolutePath().normalize().equals(artifact.toAbsolutePath().normalize())) {
-            throw new IllegalArgumentException("deferred-check loader/source mismatch: "
-                + type.getName());
+                || type.getProtectionDomain().getCodeSource() == null
+                || !Path.of(type.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI())
+                        .toAbsolutePath()
+                        .normalize()
+                        .equals(artifact.toAbsolutePath().normalize())) {
+            throw new IllegalArgumentException("deferred-check loader/source mismatch: " + type.getName());
         }
     }
 
     private static byte[] reference(final JarFile jar, final Class<?> type) throws Exception {
         final var entry = jar.getJarEntry(type.getName().replace('.', '/') + ".class");
         if (entry == null) {
-            throw new IllegalArgumentException("deferred-check reference class missing: "
-                + type.getName());
+            throw new IllegalArgumentException("deferred-check reference class missing: " + type.getName());
         }
-        try (var input = jar.getInputStream(entry)) { return input.readAllBytes(); }
+        try (var input = jar.getInputStream(entry)) {
+            return input.readAllBytes();
+        }
     }
 
     private byte[] capture(final Class<?> type) throws Exception {
@@ -171,9 +203,14 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
         }
         final AtomicReference<byte[]> result = new AtomicReference<>();
         final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override public byte[] transform(final Module module, final ClassLoader loader,
-                                              final String name, final Class<?> redefined,
-                                              final ProtectionDomain domain, final byte[] bytes) {
+            @Override
+            public byte[] transform(
+                    final Module module,
+                    final ClassLoader loader,
+                    final String name,
+                    final Class<?> redefined,
+                    final ProtectionDomain domain,
+                    final byte[] bytes) {
                 if (redefined == type) result.set(bytes.clone());
                 return null;
             }
@@ -192,8 +229,7 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
 
     synchronized void install() throws Exception {
         if (installed) return;
-        if (!instrumentation.isModifiableClass(errorType)
-            || !instrumentation.isModifiableClass(frameType)) {
+        if (!instrumentation.isModifiableClass(errorType) || !instrumentation.isModifiableClass(frameType)) {
             throw new IllegalStateException("deferred-check class unmodifiable");
         }
         try {
@@ -201,8 +237,7 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
             installed = true;
             instrumentation.retransformClasses(errorType, frameType);
             if (transformer.matches() != 2 || transformer.failure() != null) {
-                throw new IllegalStateException("deferred-check not admitted: "
-                    + transformer.failure());
+                throw new IllegalStateException("deferred-check not admitted: " + transformer.failure());
             }
         } catch (Exception | Error failure) {
             try {
@@ -217,24 +252,24 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
     /** Returns the reviewed target description for the install marker log. */
     String targetDescription() {
         return target.errorOwner() + "." + DeferredGlErrorCheckTarget.ERROR_METHOD
-            + DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR + " + "
-            + target.frameOwner() + "." + DeferredGlErrorCheckTarget.FRAME_METHOD
-            + DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR;
+                + DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR + " + "
+                + target.frameOwner() + "." + DeferredGlErrorCheckTarget.FRAME_METHOD
+                + DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR;
     }
 
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         if (!installed) return;
         instrumentation.removeTransformer(transformer);
         restored = true;
         for (final Map.Entry<Class<?>, String> owner : Map.ofEntries(
-                Map.entry(errorType, target.errorOwner()),
-                Map.entry(frameType, target.frameOwner())).entrySet()) {
+                        Map.entry(errorType, target.errorOwner()), Map.entry(frameType, target.frameOwner()))
+                .entrySet()) {
             try {
-                final String hash = HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(capture(owner.getKey())));
+                final String hash = HexFormat.of()
+                        .formatHex(MessageDigest.getInstance("SHA-256").digest(capture(owner.getKey())));
                 if (!hash.equals(transformer.beforeSha256(owner.getValue()))) {
-                    throw new IllegalStateException(
-                        "deferred-check restoration not proven: " + owner.getValue());
+                    throw new IllegalStateException("deferred-check restoration not proven: " + owner.getValue());
                 }
             } catch (Exception failure) {
                 restored = false;

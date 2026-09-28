@@ -1,15 +1,14 @@
 package dev.turboism.adapter.cubism.mesh;
 
-import dev.turboism.sdk.cubism.mesh.MeshEditTool;
-import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.cubism.mesh.MeshEditTool;
+import dev.turboism.sdk.plugin.Registration;
+import java.util.Set;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 final class RuntimeMeshMirrorToolEligibilityTest {
 
@@ -21,15 +20,9 @@ final class RuntimeMeshMirrorToolEligibilityTest {
     @Test
     void preservesNativeTrueAndWidensOnlyRegisteredKnownTools() {
         final RuntimeMeshMirrorToolEligibility service = NativeMeshMirrorBridge.toolEligibility();
-        final Registration registration = service.extendEligibleTools(Set.of(
-            MeshEditTool.ARROW,
-            MeshEditTool.ERASER,
-            MeshEditTool.LASSO
-        ));
-        NativeMeshMirrorBridge.install(
-            new RuntimeMeshMirrorAxisService(),
-            new RuntimeMeshEditUiService()
-        );
+        final Registration registration =
+                service.extendEligibleTools(Set.of(MeshEditTool.ARROW, MeshEditTool.ERASER, MeshEditTool.LASSO));
+        NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), new RuntimeMeshEditUiService());
 
         assertTrue(NativeMeshMirrorBridge.adjustToolEligibility(true, NativeTool.RECT));
         assertTrue(NativeMeshMirrorBridge.adjustToolEligibility(false, NativeTool.ARROW));
@@ -45,10 +38,7 @@ final class RuntimeMeshMirrorToolEligibilityTest {
     @Test
     void unboundBridgeAndUnknownRegistrationFailOpen() {
         final RuntimeMeshMirrorToolEligibility service = NativeMeshMirrorBridge.toolEligibility();
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> service.extendEligibleTools(Set.of(MeshEditTool.UNKNOWN))
-        );
+        assertThrows(IllegalArgumentException.class, () -> service.extendEligibleTools(Set.of(MeshEditTool.UNKNOWN)));
         assertFalse(NativeMeshMirrorBridge.adjustToolEligibility(false, NativeTool.ARROW));
     }
 

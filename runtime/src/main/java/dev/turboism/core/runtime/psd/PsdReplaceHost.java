@@ -1,7 +1,6 @@
 package dev.turboism.core.runtime.psd;
 
 import dev.turboism.sdk.cubism.id.RawImageId;
-
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
@@ -40,16 +39,15 @@ public interface PsdReplaceHost {
      * @param failure optional bounded failure phase and category
      */
     record Replacement(
-        String nativeStatus,
-        boolean sessionCurrent,
-        boolean nativeReturned,
-        boolean mutationUnknown,
-        boolean editingRejected,
-        boolean relationsAvailable,
-        Optional<RawImageId> afterRawImageId,
-        String detail,
-        Optional<Failure> failure
-    ) {
+            String nativeStatus,
+            boolean sessionCurrent,
+            boolean nativeReturned,
+            boolean mutationUnknown,
+            boolean editingRejected,
+            boolean relationsAvailable,
+            Optional<RawImageId> afterRawImageId,
+            String detail,
+            Optional<Failure> failure) {
         public Replacement {
             Objects.requireNonNull(nativeStatus, "nativeStatus");
             Objects.requireNonNull(afterRawImageId, "afterRawImageId");
@@ -60,19 +58,38 @@ public interface PsdReplaceHost {
             }
         }
 
-        public Replacement(final String nativeStatus, final boolean sessionCurrent,
-            final boolean nativeReturned, final boolean mutationUnknown, final boolean editingRejected,
-            final boolean relationsAvailable, final Optional<RawImageId> afterRawImageId, final String detail) {
-            this(nativeStatus, sessionCurrent, nativeReturned, mutationUnknown, editingRejected,
-                relationsAvailable, afterRawImageId, detail, Optional.empty());
+        public Replacement(
+                final String nativeStatus,
+                final boolean sessionCurrent,
+                final boolean nativeReturned,
+                final boolean mutationUnknown,
+                final boolean editingRejected,
+                final boolean relationsAvailable,
+                final Optional<RawImageId> afterRawImageId,
+                final String detail) {
+            this(
+                    nativeStatus,
+                    sessionCurrent,
+                    nativeReturned,
+                    mutationUnknown,
+                    editingRejected,
+                    relationsAvailable,
+                    afterRawImageId,
+                    detail,
+                    Optional.empty());
         }
 
         /** Unsupported projections must not invoke native operations. */
         public static Replacement unavailable() {
             return new Replacement(
-                "UNAVAILABLE", false, false, false, false, false, Optional.empty(),
-                "The current model projection cannot perform a native PSD replacement."
-            );
+                    "UNAVAILABLE",
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    Optional.empty(),
+                    "The current model projection cannot perform a native PSD replacement.");
         }
     }
 

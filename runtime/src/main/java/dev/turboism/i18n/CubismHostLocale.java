@@ -15,8 +15,7 @@ import java.util.Locale;
  */
 public final class CubismHostLocale {
 
-    private CubismHostLocale() {
-    }
+    private CubismHostLocale() {}
 
     /**
      * Resolves the current Cubism UI language from the host process.

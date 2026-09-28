@@ -1,7 +1,8 @@
 package dev.turboism.distribution;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
@@ -11,35 +12,38 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class OracleStrictFinalBlockersTest {
-    @TempDir Path tempDir;
+    @TempDir
+    Path tempDir;
 
-    @Test void acceptsStoredAndDeflatedPayloadsContainingEocdSignature() throws Exception {
-        byte[] payload = new byte[]{'P', 'K', 0x05, 0x06};
-        assertEquals(List.of("dev/turboism/bootstrap/Agent.class"),
-            NestedZipDirectory.parse(storedJarBytes("dev/turboism/bootstrap/Agent.class", payload), "stored"));
-        assertEquals(List.of("dev/turboism/bootstrap/Agent.class"),
-            NestedZipDirectory.parse(PackageTestFixtures.jarBytes(
-                "dev/turboism/bootstrap/Agent.class", payload), "deflated"));
+    @Test
+    void acceptsStoredAndDeflatedPayloadsContainingEocdSignature() throws Exception {
+        byte[] payload = new byte[] {'P', 'K', 0x05, 0x06};
+        assertEquals(
+                List.of("dev/turboism/bootstrap/Agent.class"),
+                NestedZipDirectory.parse(storedJarBytes("dev/turboism/bootstrap/Agent.class", payload), "stored"));
+        assertEquals(
+                List.of("dev/turboism/bootstrap/Agent.class"),
+                NestedZipDirectory.parse(
+                        PackageTestFixtures.jarBytes("dev/turboism/bootstrap/Agent.class", payload), "deflated"));
     }
 
-    @Test void acceptsFrameworkRequiredClassesWithEocdSignaturePayloads() throws Exception {
-        byte[] payload = new byte[]{'P', 'K', 0x05, 0x06};
+    @Test
+    void acceptsFrameworkRequiredClassesWithEocdSignaturePayloads() throws Exception {
+        byte[] payload = new byte[] {'P', 'K', 0x05, 0x06};
         byte[] runtime = storedJarBytes("dev/turboism/bootstrap/Agent.class", payload);
         byte[] sdk = PackageTestFixtures.jarBytes("dev/turboism/sdk/Plugin.class", payload);
         Path input = tempDir.resolve("signature-payload.zip");
         Files.write(input, PackageTestFixtures.framework(runtime, sdk));
 
-        assertInstanceOf(FrameworkPackageInspector.Accepted.class,
-            new LocalFrameworkPackageInspector().inspect(input));
+        assertInstanceOf(FrameworkPackageInspector.Accepted.class, new LocalFrameworkPackageInspector().inspect(input));
     }
 
-    @Test void rejectsSecondCompleteCentralDirectoryAndEocd() throws Exception {
+    @Test
+    void rejectsSecondCompleteCentralDirectoryAndEocd() throws Exception {
         byte[] jar = PackageTestFixtures.jarBytes("dev/turboism/bootstrap/Agent.class", "one");
         int central = centralOffset(jar);
         byte[] suffix = Arrays.copyOfRange(jar, central, jar.length);
@@ -51,7 +55,8 @@ class OracleStrictFinalBlockersTest {
         assertJarRejected(forged);
     }
 
-    @Test void rejectsGapBeforeCentralDirectory() throws Exception {
+    @Test
+    void rejectsGapBeforeCentralDirectory() throws Exception {
         byte[] jar = PackageTestFixtures.jarBytes("dev/turboism/bootstrap/Agent.class", "one");
         int central = centralOffset(jar);
         byte[] forged = new byte[jar.length + 1];
@@ -62,18 +67,21 @@ class OracleStrictFinalBlockersTest {
         assertJarRejected(forged);
     }
 
-    @Test void rejectsAbaReplacementDuringSnapshotCopy() throws Exception {
+    @Test
+    void rejectsAbaReplacementDuringSnapshotCopy() throws Exception {
         Path input = tempDir.resolve("package.zip");
         byte[] a = PackageTestFixtures.framework("a");
         byte[] b = PackageTestFixtures.framework("b");
         Files.write(input, a);
         PackageAccess access = new PackageAccess() {
-            @Override public java.io.InputStream open(Path path) throws java.io.IOException {
+            @Override
+            public java.io.InputStream open(Path path) throws java.io.IOException {
                 byte[] mixed = Arrays.copyOf(a, a.length);
                 System.arraycopy(b, 0, mixed, 0, Math.min(mixed.length, b.length) / 2);
                 Files.write(input, b);
                 return new java.io.ByteArrayInputStream(mixed) {
-                    @Override public void close() throws java.io.IOException {
+                    @Override
+                    public void close() throws java.io.IOException {
                         super.close();
                         Files.write(input, a);
                     }
@@ -82,17 +90,21 @@ class OracleStrictFinalBlockersTest {
         };
         var result = new LocalFrameworkPackageInspector(access).inspect(input);
         var rejected = assertInstanceOf(FrameworkPackageInspector.Rejected.class, result);
-        assertEquals(DistributionErrors.PACKAGE_CHANGED, rejected.problems().get(0).code());
+        assertEquals(
+                DistributionErrors.PACKAGE_CHANGED, rejected.problems().get(0).code());
     }
 
-    @Test void fifoIsRejectedWithoutOpeningStream() throws Exception {
+    @Test
+    void fifoIsRejectedWithoutOpeningStream() throws Exception {
         Path fifo = tempDir.resolve("package.fifo");
         Process process = new ProcessBuilder("mkfifo", fifo.toString()).start();
         assertEquals(0, process.waitFor());
         assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
             var result = new LocalFrameworkPackageInspector().inspect(fifo);
             var rejected = assertInstanceOf(FrameworkPackageInspector.Rejected.class, result);
-            assertEquals(DistributionErrors.PACKAGE_PATH_INVALID, rejected.problems().get(0).code());
+            assertEquals(
+                    DistributionErrors.PACKAGE_PATH_INVALID,
+                    rejected.problems().get(0).code());
         });
     }
 
@@ -128,8 +140,10 @@ class OracleStrictFinalBlockersTest {
     }
 
     private static long uint(byte[] bytes, int at) {
-        return (bytes[at] & 255L) | (bytes[at + 1] & 255L) << 8
-            | (bytes[at + 2] & 255L) << 16 | (bytes[at + 3] & 255L) << 24;
+        return (bytes[at] & 255L)
+                | (bytes[at + 1] & 255L) << 8
+                | (bytes[at + 2] & 255L) << 16
+                | (bytes[at + 3] & 255L) << 24;
     }
 
     private static void putInt(byte[] bytes, int at, int value) {

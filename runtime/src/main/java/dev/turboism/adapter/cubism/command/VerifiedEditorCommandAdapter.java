@@ -4,11 +4,6 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
-
-import javax.swing.JMenu;
-import javax.swing.JMenuBar;
-import javax.swing.JMenuItem;
-import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.util.EnumSet;
 import java.util.Objects;
@@ -16,6 +11,10 @@ import java.util.Set;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.SwingUtilities;
 
 /** Invokes only enabled exact-version native menu items from the verified top-menu root. */
 public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter {
@@ -143,10 +142,7 @@ public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter 
         return null;
     }
 
-    private static EditorCommandResult result(
-        final EditorCommand command,
-        final EditorCommandResult.Status status
-    ) {
+    private static EditorCommandResult result(final EditorCommand command, final EditorCommandResult.Status status) {
         return new EditorCommandResult(status, command.id());
     }
 
@@ -155,8 +151,7 @@ public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter 
      * reported to {@code System.err} so host-validation evidence (cubism-console.txt) keeps it.
      */
     private static void reportFailure(final String commandId, final RuntimeException exception) {
-        System.err.println(
-            "TURBOISM_EDITOR_COMMAND_FAILED command=" + commandId
+        System.err.println("TURBOISM_EDITOR_COMMAND_FAILED command=" + commandId
                 + " cause=" + exception.getClass().getName()
                 + " message=" + exception.getMessage());
     }

@@ -1,11 +1,10 @@
 package dev.turboism.ui.toolbar;
 
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class VerifiedMainToolbarHostOperationsTest {
 
@@ -21,16 +20,12 @@ class VerifiedMainToolbarHostOperationsTest {
         final List<Object> children = List.of(home, divider, new Object());
 
         assertEquals(
-            2,
-            VerifiedMainToolbarHostOperations.insertionIndex(
-                children,
-                MainToolbarRegistry.Placement.after(
-                    MainToolbarRegistry.Anchor.HOST_HOME_ENTRY
-                ),
-                home,
-                value -> value == divider
-            )
-        );
+                2,
+                VerifiedMainToolbarHostOperations.insertionIndex(
+                        children,
+                        MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                        home,
+                        value -> value == divider));
     }
 
     @Test
@@ -41,16 +36,12 @@ class VerifiedMainToolbarHostOperationsTest {
         final List<Object> children = List.of(home, divider, turboismHome, new Object());
 
         assertEquals(
-            2,
-            VerifiedMainToolbarHostOperations.insertionIndex(
-                children,
-                MainToolbarRegistry.Placement.after(
-                    MainToolbarRegistry.Anchor.HOST_HOME_ENTRY
-                ),
-                home,
-                value -> value == divider
-            )
-        );
+                2,
+                VerifiedMainToolbarHostOperations.insertionIndex(
+                        children,
+                        MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                        home,
+                        value -> value == divider));
     }
 
     @Test
@@ -59,15 +50,11 @@ class VerifiedMainToolbarHostOperationsTest {
         final List<Object> children = List.of(home, new Object());
 
         assertEquals(
-            1,
-            VerifiedMainToolbarHostOperations.insertionIndex(
-                children,
-                MainToolbarRegistry.Placement.after(
-                    MainToolbarRegistry.Anchor.HOST_HOME_ENTRY
-                ),
-                home,
-                ignored -> false
-            )
-        );
+                1,
+                VerifiedMainToolbarHostOperations.insertionIndex(
+                        children,
+                        MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                        home,
+                        ignored -> false));
     }
 }

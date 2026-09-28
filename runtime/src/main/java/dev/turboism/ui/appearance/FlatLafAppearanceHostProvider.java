@@ -4,7 +4,6 @@ import dev.turboism.sdk.appearance.AppearanceBase;
 import dev.turboism.sdk.appearance.AppearancePalette;
 import dev.turboism.sdk.appearance.AppearanceRequest;
 import dev.turboism.sdk.appearance.AppearanceStatus;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -49,13 +48,12 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
         host.refresh();
         lastRequest = request;
         status = new AppearanceStatus(
-            AppearanceStatus.Availability.AVAILABLE,
-            AppearanceStatus.Source.PLUGIN_OVERLAY,
-            Optional.of(request.appearanceId()),
-            request.base(),
-            status.revision() + 1,
-            Optional.empty()
-        );
+                AppearanceStatus.Availability.AVAILABLE,
+                AppearanceStatus.Source.PLUGIN_OVERLAY,
+                Optional.of(request.appearanceId()),
+                request.base(),
+                status.revision() + 1,
+                Optional.empty());
         return ApplyOutcome.APPLIED;
     }
 
@@ -86,48 +84,83 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
 
     static java.util.Set<String> ownedKeys() {
         return defaults(new AppearancePalette(
-            "#000000", "#000000", "#000000", "#000000", "#000000",
-            "#000000", "#000000", "#000000", "#000000", "#000000"
-        )).keySet();
+                        "#000000", "#000000", "#000000", "#000000", "#000000", "#000000", "#000000", "#000000",
+                        "#000000", "#000000"))
+                .keySet();
     }
 
     private static Map<String, String> defaults(final AppearancePalette palette) {
         final LinkedHashMap<String, String> values = new LinkedHashMap<>();
-        put(values, palette.accent(),
-            "CubismCommon.blue", "CubismCommon.selectedColor", "CubismCommon.progressColor",
-            "Component.accentColor", "ToggleButton.selectedBackground");
-        put(values, palette.selectionBackground(),
-            "CubismCommon.activeColor", "CubismCommon.selectionBackground",
-            "Table.selectionBackground", "List.selectionBackground", "Button.hoverBackground");
-        put(values, palette.background(),
-            "CubismCommon.background", "Panel.background", "Viewport.background",
-            "ScrollBar.track", "CubismCommon.editor.background");
-        put(values, palette.surface(),
-            "CubismCommon.surface", "ScrollBar.background", "CubismCommon.toolbar.background",
-            "ToolBar.background", "TabbedPane.background", "Table.background",
-            "Tree.background", "List.background");
-        put(values, palette.inputBackground(),
-            "CubismCommon.inputBackground", "Button.background", "TextField.background",
-            "TextArea.background", "ComboBox.background");
-        put(values, palette.foreground(),
-            "CubismCommon.foreground", "ToolBar.foreground", "TabbedPane.foreground",
-            "Table.foreground");
+        put(
+                values,
+                palette.accent(),
+                "CubismCommon.blue",
+                "CubismCommon.selectedColor",
+                "CubismCommon.progressColor",
+                "Component.accentColor",
+                "ToggleButton.selectedBackground");
+        put(
+                values,
+                palette.selectionBackground(),
+                "CubismCommon.activeColor",
+                "CubismCommon.selectionBackground",
+                "Table.selectionBackground",
+                "List.selectionBackground",
+                "Button.hoverBackground");
+        put(
+                values,
+                palette.background(),
+                "CubismCommon.background",
+                "Panel.background",
+                "Viewport.background",
+                "ScrollBar.track",
+                "CubismCommon.editor.background");
+        put(
+                values,
+                palette.surface(),
+                "CubismCommon.surface",
+                "ScrollBar.background",
+                "CubismCommon.toolbar.background",
+                "ToolBar.background",
+                "TabbedPane.background",
+                "Table.background",
+                "Tree.background",
+                "List.background");
+        put(
+                values,
+                palette.inputBackground(),
+                "CubismCommon.inputBackground",
+                "Button.background",
+                "TextField.background",
+                "TextArea.background",
+                "ComboBox.background");
+        put(
+                values,
+                palette.foreground(),
+                "CubismCommon.foreground",
+                "ToolBar.foreground",
+                "TabbedPane.foreground",
+                "Table.foreground");
         put(values, palette.mutedForeground(), "CubismCommon.mutedForeground");
-        put(values, palette.selectionForeground(),
-            "CubismCommon.selectionForeground", "Table.selectionForeground",
-            "List.selectionForeground");
-        put(values, palette.border(),
-            "CubismCommon.border", "Component.borderColor", "Separator.foreground",
-            "Table.gridColor", "ScrollBar.thumb");
+        put(
+                values,
+                palette.selectionForeground(),
+                "CubismCommon.selectionForeground",
+                "Table.selectionForeground",
+                "List.selectionForeground");
+        put(
+                values,
+                palette.border(),
+                "CubismCommon.border",
+                "Component.borderColor",
+                "Separator.foreground",
+                "Table.gridColor",
+                "ScrollBar.thumb");
         put(values, palette.viewportBackground(), "CubismCommon.gl.viewArea.background");
         return Map.copyOf(values);
     }
 
-    private static void put(
-        final Map<String, String> target,
-        final String value,
-        final String... keys
-    ) {
+    private static void put(final Map<String, String> target, final String value, final String... keys) {
         for (String key : keys) {
             target.put(key, value);
         }
@@ -135,13 +168,12 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
 
     private static AppearanceStatus nativeStatus(final long revision) {
         return new AppearanceStatus(
-            AppearanceStatus.Availability.AVAILABLE,
-            AppearanceStatus.Source.NATIVE,
-            Optional.empty(),
-            AppearanceBase.NATIVE,
-            revision,
-            Optional.empty()
-        );
+                AppearanceStatus.Availability.AVAILABLE,
+                AppearanceStatus.Source.NATIVE,
+                Optional.empty(),
+                AppearanceBase.NATIVE,
+                revision,
+                Optional.empty());
     }
 
     private static String requireVersion(final String value) {

@@ -1,16 +1,15 @@
 package dev.turboism.config;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class RuntimeStartupConfigTest {
 
@@ -75,7 +74,6 @@ class RuntimeStartupConfigTest {
         assertFalse(config.skipStartupInformation());
     }
 
-
     @Test
     void loadsExplicitStartupControlsFromTheCanonicalGlobalConfig() throws Exception {
         Files.writeString(temporaryHome.resolve("config.json"), """
@@ -123,7 +121,6 @@ class RuntimeStartupConfigTest {
             }
             """.formatted(safeMode);
     }
-
 
     @Test
     void rejectsTheWholeStartupPolicyWhenAnyStartupFieldHasTheWrongType() throws Exception {
@@ -193,7 +190,6 @@ class RuntimeStartupConfigTest {
         assertFalse(config.hookEnabled("cubism.mesh.mirror-axis"));
         assertTrue(config.hookEnabled("cubism.parameter.lifecycle"));
     }
-
 
     @Test
     void safeModeOverridesEveryRequestedStartupSuppression() throws Exception {

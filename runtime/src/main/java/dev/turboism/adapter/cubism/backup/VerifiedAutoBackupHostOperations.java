@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.backup;
 
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -57,17 +56,19 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         static final String COMPLETE_PACK_CLASS = "cubism.auto-backup.complete-pack.class";
         static final String COMPLETE_PACK_FILE_CONTENTS = "cubism.auto-backup.complete-pack.file-contents";
         static final String FILE_CONTENT_CLASS = "cubism.auto-backup.file-content.class";
-        static final String FILE_CONTENT_LAST_AUTO_BACKUP_TIME = "cubism.auto-backup.file-content.last-auto-backup-time";
-        static final String FILE_CONTENT_SET_LAST_AUTO_BACKUP_TIME = "cubism.auto-backup.file-content.set-last-auto-backup-time";
+        static final String FILE_CONTENT_LAST_AUTO_BACKUP_TIME =
+                "cubism.auto-backup.file-content.last-auto-backup-time";
+        static final String FILE_CONTENT_SET_LAST_AUTO_BACKUP_TIME =
+                "cubism.auto-backup.file-content.set-last-auto-backup-time";
         static final String FILE_CONTENT_LAST_SAVED_TIME = "cubism.auto-backup.file-content.last-saved-time";
-        static final String FILE_CONTENT_MODIFIED_AFTER_SAVING = "cubism.auto-backup.file-content.modified-after-saving";
+        static final String FILE_CONTENT_MODIFIED_AFTER_SAVING =
+                "cubism.auto-backup.file-content.modified-after-saving";
         static final String FILE_CONTENT_FILE = "cubism.auto-backup.file-content.file";
         static final String DOCUMENT_UID_MODELING = "cubism.auto-backup.document-uid.modeling";
         static final String SCENE_DOCS = "cubism.auto-backup.scene-docs";
         static final String DOCUMENT_UID_SCENE = "cubism.auto-backup.document-uid.scene";
 
-        private Aliases() {
-        }
+        private Aliases() {}
     }
 
     static final String APP_INSTANCE = "cubism.auto-backup.app-controller.instance";
@@ -77,6 +78,7 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
 
     /** Bounded retries for the backup file copy (the host may still hold the file). */
     static final int COPY_ATTEMPTS = 3;
+
     static final long COPY_RETRY_DELAY_MILLIS = 200L;
 
     private final VerifiedMemberResolver resolver;
@@ -88,9 +90,12 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
     @Override
     public AutoBackupAdapter.Snapshot settings() {
         requireResolvable(
-            Aliases.MANAGER_CLASS, Aliases.MANAGER_INSTANCE, Aliases.IS_ENABLED,
-            Aliases.GET_INTERVAL_MINUTE, Aliases.GET_MAX_MB, Aliases.BACKUP_DIR
-        );
+                Aliases.MANAGER_CLASS,
+                Aliases.MANAGER_INSTANCE,
+                Aliases.IS_ENABLED,
+                Aliases.GET_INTERVAL_MINUTE,
+                Aliases.GET_MAX_MB,
+                Aliases.BACKUP_DIR);
         final Object manager = manager();
         final boolean enabled = (Boolean) resolver.invoke(Aliases.IS_ENABLED, manager);
         final int interval = (Integer) resolver.invoke(Aliases.GET_INTERVAL_MINUTE, manager);
@@ -103,19 +108,22 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
     public AutoBackupAdapter.Snapshot applySettings(final AutoBackupAdapter.Snapshot target) {
         Objects.requireNonNull(target, "target");
         requireResolvable(
-            Aliases.MANAGER_CLASS, Aliases.MANAGER_INSTANCE, Aliases.IS_ENABLED,
-            Aliases.SET_ENABLED, Aliases.SET_INTERVAL_MINUTE, Aliases.GET_INTERVAL_MINUTE,
-            Aliases.SET_MAX_MB, Aliases.GET_MAX_MB, Aliases.BACKUP_DIR
-        );
+                Aliases.MANAGER_CLASS,
+                Aliases.MANAGER_INSTANCE,
+                Aliases.IS_ENABLED,
+                Aliases.SET_ENABLED,
+                Aliases.SET_INTERVAL_MINUTE,
+                Aliases.GET_INTERVAL_MINUTE,
+                Aliases.SET_MAX_MB,
+                Aliases.GET_MAX_MB,
+                Aliases.BACKUP_DIR);
         final Object manager = manager();
         resolver.invoke(Aliases.SET_ENABLED, manager, target.enabled());
         resolver.invoke(Aliases.SET_INTERVAL_MINUTE, manager, target.intervalMinutes());
         resolver.invoke(Aliases.SET_MAX_MB, manager, target.maxMB());
         final AutoBackupAdapter.Snapshot readback = settings();
         if (!matches(target, readback)) {
-            throw new IllegalStateException(
-                "auto-backup settings readback does not match the applied target"
-            );
+            throw new IllegalStateException("auto-backup settings readback does not match the applied target");
         }
         return readback;
     }
@@ -123,13 +131,18 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
     @Override
     public List<AutoBackupAdapter.Document> documents() {
         requireResolvable(
-            Aliases.MANAGER_CLASS, Aliases.MANAGER_INSTANCE, Aliases.APP_CONTROLLER_CLASS,
-            Aliases.APP_CONTROLLER_GET_COMPLETE_PACK, Aliases.COMPLETE_PACK_CLASS,
-            Aliases.COMPLETE_PACK_FILE_CONTENTS, Aliases.FILE_CONTENT_CLASS,
-            Aliases.FILE_CONTENT_LAST_AUTO_BACKUP_TIME, Aliases.FILE_CONTENT_LAST_SAVED_TIME,
-            Aliases.FILE_CONTENT_MODIFIED_AFTER_SAVING, Aliases.FILE_CONTENT_FILE,
-            APP_INSTANCE
-        );
+                Aliases.MANAGER_CLASS,
+                Aliases.MANAGER_INSTANCE,
+                Aliases.APP_CONTROLLER_CLASS,
+                Aliases.APP_CONTROLLER_GET_COMPLETE_PACK,
+                Aliases.COMPLETE_PACK_CLASS,
+                Aliases.COMPLETE_PACK_FILE_CONTENTS,
+                Aliases.FILE_CONTENT_CLASS,
+                Aliases.FILE_CONTENT_LAST_AUTO_BACKUP_TIME,
+                Aliases.FILE_CONTENT_LAST_SAVED_TIME,
+                Aliases.FILE_CONTENT_MODIFIED_AFTER_SAVING,
+                Aliases.FILE_CONTENT_FILE,
+                APP_INSTANCE);
         final Object app = resolver.invokeStatic(APP_INSTANCE);
         if (app == null) {
             return List.of();
@@ -149,18 +162,10 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
             }
             final File file = (File) resolver.invoke(Aliases.FILE_CONTENT_FILE, content);
             final String name = file == null ? "unnamed" : file.getName();
-            final long lastAutoBackup = (Long) resolver.invoke(
-                Aliases.FILE_CONTENT_LAST_AUTO_BACKUP_TIME, content
-            );
-            final long lastSaved = (Long) resolver.invoke(
-                Aliases.FILE_CONTENT_LAST_SAVED_TIME, content
-            );
-            final boolean modified = (Boolean) resolver.invoke(
-                Aliases.FILE_CONTENT_MODIFIED_AFTER_SAVING, content
-            );
-            documents.add(new AutoBackupAdapter.Document(
-                name, file, lastAutoBackup, lastSaved, modified
-            ));
+            final long lastAutoBackup = (Long) resolver.invoke(Aliases.FILE_CONTENT_LAST_AUTO_BACKUP_TIME, content);
+            final long lastSaved = (Long) resolver.invoke(Aliases.FILE_CONTENT_LAST_SAVED_TIME, content);
+            final boolean modified = (Boolean) resolver.invoke(Aliases.FILE_CONTENT_MODIFIED_AFTER_SAVING, content);
+            documents.add(new AutoBackupAdapter.Document(name, file, lastAutoBackup, lastSaved, modified));
         }
         return List.copyOf(documents);
     }
@@ -168,19 +173,18 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
     @Override
     public void triggerBackupNow() {
         requireResolvable(
-            Aliases.MANAGER_CLASS, Aliases.MANAGER_INSTANCE, Aliases.ATTACH_PACK,
-            Aliases.UPDATE, Aliases.APP_CONTROLLER_CLASS,
-            Aliases.APP_CONTROLLER_GET_COMPLETE_PACK, Aliases.COMPLETE_PACK_CLASS,
-            APP_INSTANCE
-        );
+                Aliases.MANAGER_CLASS,
+                Aliases.MANAGER_INSTANCE,
+                Aliases.ATTACH_PACK,
+                Aliases.UPDATE,
+                Aliases.APP_CONTROLLER_CLASS,
+                Aliases.APP_CONTROLLER_GET_COMPLETE_PACK,
+                Aliases.COMPLETE_PACK_CLASS,
+                APP_INSTANCE);
         final Object app = resolver.invokeStatic(APP_INSTANCE);
-        final Object pack = app == null
-            ? null
-            : resolver.invoke(Aliases.APP_CONTROLLER_GET_COMPLETE_PACK, app);
+        final Object pack = app == null ? null : resolver.invoke(Aliases.APP_CONTROLLER_GET_COMPLETE_PACK, app);
         if (pack == null) {
-            throw new IllegalStateException(
-                "auto-backup cannot trigger without an attached complete pack"
-            );
+            throw new IllegalStateException("auto-backup cannot trigger without an attached complete pack");
         }
         // Idempotent attach: the host manager ignores a pack that is already mounted.
         final Object manager = manager();
@@ -189,27 +193,26 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
     }
 
     @Override
-    public File saveDocumentFor(
-        final File matchFile, final List<String> documentUids, final long timestampMillis
-    ) {
+    public File saveDocumentFor(final File matchFile, final List<String> documentUids, final long timestampMillis) {
         Objects.requireNonNull(matchFile, "matchFile");
         Objects.requireNonNull(documentUids, "documentUids");
         requireResolvable(
-            Aliases.DOCUMENT_UID_MODELING, Aliases.SCENE_DOCS, Aliases.DOCUMENT_UID_SCENE,
-            Aliases.MANAGER_CLASS, Aliases.MANAGER_INSTANCE,
-            Aliases.APP_CONTROLLER_CLASS, Aliases.APP_CONTROLLER_GET_COMPLETE_PACK,
-            Aliases.COMPLETE_PACK_CLASS, Aliases.COMPLETE_PACK_FILE_CONTENTS,
-            Aliases.FILE_CONTENT_CLASS, Aliases.FILE_CONTENT_FILE,
-            APP_INSTANCE
-        );
+                Aliases.DOCUMENT_UID_MODELING,
+                Aliases.SCENE_DOCS,
+                Aliases.DOCUMENT_UID_SCENE,
+                Aliases.MANAGER_CLASS,
+                Aliases.MANAGER_INSTANCE,
+                Aliases.APP_CONTROLLER_CLASS,
+                Aliases.APP_CONTROLLER_GET_COMPLETE_PACK,
+                Aliases.COMPLETE_PACK_CLASS,
+                Aliases.COMPLETE_PACK_FILE_CONTENTS,
+                Aliases.FILE_CONTENT_CLASS,
+                Aliases.FILE_CONTENT_FILE,
+                APP_INSTANCE);
         final Object app = resolver.invokeStatic(APP_INSTANCE);
-        final Object pack = app == null
-            ? null
-            : resolver.invoke(Aliases.APP_CONTROLLER_GET_COMPLETE_PACK, app);
+        final Object pack = app == null ? null : resolver.invoke(Aliases.APP_CONTROLLER_GET_COMPLETE_PACK, app);
         if (pack == null) {
-            throw new IllegalStateException(
-                "auto-backup save-triggered backup requires an attached complete pack"
-            );
+            throw new IllegalStateException("auto-backup save-triggered backup requires an attached complete pack");
         }
         final List<?> contents = (List<?>) resolver.invoke(Aliases.COMPLETE_PACK_FILE_CONTENTS, pack);
         if (contents == null) {
@@ -283,27 +286,24 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         final File source = (File) resolver.invoke(Aliases.FILE_CONTENT_FILE, content);
         if (source == null || !source.isFile()) {
             throw new IllegalStateException(
-                "auto-backup source file is unavailable: " + (source == null ? "<null>" : source)
-            );
+                    "auto-backup source file is unavailable: " + (source == null ? "<null>" : source));
         }
         final String name = source.getName();
         final String base = baseName(name);
         final String ext = extension(name);
-        final String stamp = BACKUP_TIMESTAMP.format(
-            Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault())
-        );
+        final String stamp =
+                BACKUP_TIMESTAMP.format(Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()));
         try {
             final Path tempDir = Files.createTempDirectory("turboism-backup-");
-            final Path target = tempDir.resolve(
-                base + "_backup" + stamp + (ext.isEmpty() ? "" : "." + ext)
-            );
+            final Path target = tempDir.resolve(base + "_backup" + stamp + (ext.isEmpty() ? "" : "." + ext));
             IOException last = null;
             for (int attempt = 1; attempt <= COPY_ATTEMPTS; attempt++) {
                 try {
                     Files.copy(
-                        source.toPath(), target,
-                        StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES
-                    );
+                            source.toPath(),
+                            target,
+                            StandardCopyOption.REPLACE_EXISTING,
+                            StandardCopyOption.COPY_ATTRIBUTES);
                     return target.toFile();
                 } catch (IOException failure) {
                     last = failure;
@@ -317,29 +317,20 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
                     }
                 }
             }
-            throw new IllegalStateException(
-                "auto-backup copy failed: " + source + " -> " + target, last
-            );
+            throw new IllegalStateException("auto-backup copy failed: " + source + " -> " + target, last);
         } catch (IOException failure) {
-            throw new IllegalStateException(
-                "auto-backup temp backup directory unavailable", failure
-            );
+            throw new IllegalStateException("auto-backup temp backup directory unavailable", failure);
         }
     }
 
     private boolean isOwnerInstance(final String alias, final Object content) {
         final StaticSelector selector = resolver.verifiedSelector(alias);
         try {
-            final Class<?> owner = Class.forName(
-                selector.ownerInternalName().replace('/', '.'),
-                false,
-                resolver.hostClassLoader()
-            );
+            final Class<?> owner =
+                    Class.forName(selector.ownerInternalName().replace('/', '.'), false, resolver.hostClassLoader());
             return owner.isInstance(content);
         } catch (ClassNotFoundException | LinkageError failure) {
-            throw new IllegalStateException(
-                "verified saveDocument owner cannot be loaded for alias " + alias, failure
-            );
+            throw new IllegalStateException("verified saveDocument owner cannot be loaded for alias " + alias, failure);
         }
     }
 
@@ -378,13 +369,10 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         return resolver.readStaticField(Aliases.MANAGER_INSTANCE);
     }
 
-    private static boolean matches(
-        final AutoBackupAdapter.Snapshot expected,
-        final AutoBackupAdapter.Snapshot actual
-    ) {
+    private static boolean matches(final AutoBackupAdapter.Snapshot expected, final AutoBackupAdapter.Snapshot actual) {
         return expected.enabled() == actual.enabled()
-            && expected.intervalMinutes() == actual.intervalMinutes()
-            && expected.maxMB() == actual.maxMB();
+                && expected.intervalMinutes() == actual.intervalMinutes()
+                && expected.maxMB() == actual.maxMB();
     }
 
     /**
@@ -405,22 +393,17 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
                 case FIELD -> {
                     if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
                         throw new IllegalStateException(
-                            "instance-field alias is not supported by auto-backup operations: " + alias
-                        );
+                                "instance-field alias is not supported by auto-backup operations: " + alias);
                     }
                     resolver.readStaticField(alias);
                 }
                 case CONSTRUCTOR, CLASS -> {
                     try {
                         Class.forName(
-                            selector.ownerInternalName().replace('/', '.'),
-                            false,
-                            resolver.hostClassLoader()
-                        );
+                                selector.ownerInternalName().replace('/', '.'), false, resolver.hostClassLoader());
                     } catch (ClassNotFoundException | LinkageError failure) {
                         throw new IllegalStateException(
-                            "verified host type cannot be loaded for alias " + alias, failure
-                        );
+                                "verified host type cannot be loaded for alias " + alias, failure);
                     }
                 }
             }

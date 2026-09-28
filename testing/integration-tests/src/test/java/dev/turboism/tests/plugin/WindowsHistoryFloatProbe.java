@@ -6,21 +6,19 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
-
 import java.awt.AWTException;
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
-import javax.imageio.ImageIO;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import javax.imageio.ImageIO;
 
 /** Manual-test-only probe: contributes a panel and floats it via the SDK API. */
 public final class WindowsHistoryFloatProbe implements CubismPlugin {
@@ -43,20 +41,20 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
                 throw new IllegalStateException("History float evidence already exists");
             }
             write(evidence, "status=RUNNING at=" + Instant.now() + "\n");
-            final Registration panel = context.uiHost().contributeEmbeddedPanel(
-                new EmbeddedPanelContribution(
-                    PANEL_ID,
-                    "History Float Probe",
-                    "side",
-                    90,
-                    PanelView.column(PanelView.text("Float probe panel"))
-                )
-            );
+            final Registration panel = context.uiHost()
+                    .contributeEmbeddedPanel(new EmbeddedPanelContribution(
+                            PANEL_ID,
+                            "History Float Probe",
+                            "side",
+                            90,
+                            PanelView.column(PanelView.text("Float probe panel"))));
             try {
                 context.uiHost().activateEmbeddedPanelFloating(EmbeddedPanelId.of(PANEL_ID));
-                write(evidence, "status=PASS\npanelId=" + PANEL_ID
-                    + "\nfloating=activated via SDK activateEmbeddedPanelFloating\n"
-                    + "at=" + Instant.now() + "\n");
+                write(
+                        evidence,
+                        "status=PASS\npanelId=" + PANEL_ID
+                                + "\nfloating=activated via SDK activateEmbeddedPanelFloating\n"
+                                + "at=" + Instant.now() + "\n");
                 // Poll the Swing tree for the history tool strip over ~18s:
                 // Cubism may rebuild the main-frame layout after fixture load.
                 String last = "ABSENT";
@@ -76,15 +74,18 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
                     panel.close();
                     append(evidence, "cleanup=closed\n");
                 } catch (Exception cleanupFailure) {
-                    append(evidence, "cleanup=FAIL:" + cleanupFailure.getClass().getSimpleName()
-                        + ":" + cleanupFailure.getMessage() + "\n");
+                    append(
+                            evidence,
+                            "cleanup=FAIL:" + cleanupFailure.getClass().getSimpleName() + ":"
+                                    + cleanupFailure.getMessage() + "\n");
                 }
             }
         } catch (Exception failure) {
             context.logger().error("History float probe failed", failure);
             try {
-                write(evidence, "status=FAIL\nerror=" + failure.getClass().getName()
-                    + ": " + failure.getMessage() + "\n");
+                write(
+                        evidence,
+                        "status=FAIL\nerror=" + failure.getClass().getName() + ": " + failure.getMessage() + "\n");
             } catch (Exception ignored) {
             }
         }
@@ -149,26 +150,19 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
     }
 
     @Override
-    public void disable() {
-    }
+    public void disable() {}
 
     private static void append(final Path artifact, final String value) throws Exception {
         Files.writeString(
-            artifact,
-            value,
-            StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.APPEND
-        );
+                artifact, value, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     }
 
     private static void write(final Path artifact, final String value) throws Exception {
         Files.writeString(
-            artifact,
-            value,
-            StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.TRUNCATE_EXISTING
-        );
+                artifact,
+                value,
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING);
     }
 }

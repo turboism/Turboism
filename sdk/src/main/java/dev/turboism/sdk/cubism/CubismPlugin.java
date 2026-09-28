@@ -18,13 +18,12 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
  * required.</p>
  */
 public interface CubismPlugin
-    extends TurboismPlugin,
-            ParameterHooks,
-            PartHooks,
-            DrawableHooks,
-            DeformerHooks,
-            ModelFileHooks,
-            AnimationFileHooks,
-            EditorLifecycleHooks,
-            SemanticOperationHooks {
-}
+        extends TurboismPlugin,
+                ParameterHooks,
+                PartHooks,
+                DrawableHooks,
+                DeformerHooks,
+                ModelFileHooks,
+                AnimationFileHooks,
+                EditorLifecycleHooks,
+                SemanticOperationHooks {}

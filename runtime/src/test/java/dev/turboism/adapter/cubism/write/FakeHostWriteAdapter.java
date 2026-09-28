@@ -3,16 +3,15 @@ package dev.turboism.adapter.cubism.write;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.sdk.cubism.boundingbox.BoundingBoxWriteCommand;
 import dev.turboism.sdk.cubism.deformer.DeformerWriteCommand;
+import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.psd.PsdBindingWriteCommand;
-import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 import dev.turboism.sdk.cubism.write.WriteCanvasCommand;
 import dev.turboism.sdk.cubism.write.WriteClipMaskCommand;
 import dev.turboism.sdk.cubism.write.WriteModelObjectCommand;
 import dev.turboism.sdk.cubism.write.WriteParameterCommand;
-
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -77,7 +76,7 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
 
     @Override
     public synchronized void apply(final DocumentId documentId, final List<CubismWriteCommand> commands)
-        throws TransactionException {
+            throws TransactionException {
         final FakeDocument document = document(documentId);
         for (CubismWriteCommand command : commands) {
             applyCommand(document, command);
@@ -100,8 +99,11 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
 
     @Override
     public synchronized Optional<HostProject> activeProject() {
-        return Optional.of(new HostProject("fake-project", "Fake Project", Optional.of(Path.of("projects/fake")),
-            documents.values().stream().map(this::hostDocument).toList()));
+        return Optional.of(new HostProject(
+                "fake-project",
+                "Fake Project",
+                Optional.of(Path.of("projects/fake")),
+                documents.values().stream().map(this::hostDocument).toList()));
     }
 
     @Override
@@ -132,7 +134,8 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
         return version;
     }
 
-    private void applyCommand(final FakeDocument document, final CubismWriteCommand command) throws TransactionException {
+    private void applyCommand(final FakeDocument document, final CubismWriteCommand command)
+            throws TransactionException {
         if (command instanceof WriteParameterCommand parameterCommand) {
             applyParameterCommand(document, parameterCommand);
         } else if (command instanceof WriteCanvasCommand canvasCommand) {
@@ -143,7 +146,10 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
             document.addOperation(modelObjectCommand.commandId());
         } else if (command instanceof WriteClipMaskCommand clipMaskCommand) {
             if (clipMaskCommand.clippedMeshIds().isEmpty()) {
-                throw error(clipMaskCommand.commandId(), INVALID_COMMAND, "Clip-mask command requires at least one clipped mesh");
+                throw error(
+                        clipMaskCommand.commandId(),
+                        INVALID_COMMAND,
+                        "Clip-mask command requires at least one clipped mesh");
             }
             document.addOperation(clipMaskCommand.commandId());
         } else if (command instanceof DeformerWriteCommand deformerCommand) {
@@ -156,32 +162,40 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
             validateModel(document, boundingBoxCommand.modelId(), boundingBoxCommand.commandId());
             document.addOperation(boundingBoxCommand.commandId());
         } else {
-            throw error(command.commandId(), INVALID_COMMAND, "Unknown write command type " + command.getClass().getName());
+            throw error(
+                    command.commandId(),
+                    INVALID_COMMAND,
+                    "Unknown write command type " + command.getClass().getName());
         }
     }
 
-    private void applyParameterCommand(final FakeDocument document, final WriteParameterCommand command) throws TransactionException {
+    private void applyParameterCommand(final FakeDocument document, final WriteParameterCommand command)
+            throws TransactionException {
         validateModel(document, command.modelId(), command.commandId());
         if (!Float.isFinite(command.value())) {
             throw error(command.commandId(), NON_FINITE_VALUE, "Parameter value must be finite");
         }
-        final FakeParameter parameter = document.model().parameters().get(command.parameterId().value());
+        final FakeParameter parameter =
+                document.model().parameters().get(command.parameterId().value());
         if (parameter == null) {
-            throw error(command.commandId(), UNKNOWN_PARAMETER, "Unknown parameter " + command.parameterId().value());
+            throw error(
+                    command.commandId(),
+                    UNKNOWN_PARAMETER,
+                    "Unknown parameter " + command.parameterId().value());
         }
         final double value = command.value();
         if (value < parameter.minValue() || value > parameter.maxValue()) {
             throw error(
-                command.commandId(),
-                OUT_OF_RANGE,
-                "Parameter value out of range [" + parameter.minValue() + "," + parameter.maxValue() + "]"
-            );
+                    command.commandId(),
+                    OUT_OF_RANGE,
+                    "Parameter value out of range [" + parameter.minValue() + "," + parameter.maxValue() + "]");
         }
         parameter.setValue(value);
         document.addOperation(command.commandId());
     }
 
-    private void validateModel(final FakeDocument document, final ModelId modelId, final String commandId) throws TransactionException {
+    private void validateModel(final FakeDocument document, final ModelId modelId, final String commandId)
+            throws TransactionException {
         if (!document.model().id().equals(modelId.value())) {
             throw error(commandId, UNKNOWN_MODEL, "Unknown model " + modelId.value());
         }
@@ -209,29 +223,32 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
 
     private HostDocument hostDocument(final FakeDocument document) {
         return new HostDocument(
-            document.id(),
-            document.name(),
-            "documents/" + document.id() + ".cdi3.json",
-            Optional.of(Path.of("documents", document.id() + ".cdi3.json")),
-            Optional.of(hostModel(document.model()))
-        );
+                document.id(),
+                document.name(),
+                "documents/" + document.id() + ".cdi3.json",
+                Optional.of(Path.of("documents", document.id() + ".cdi3.json")),
+                Optional.of(hostModel(document.model())));
     }
 
     private HostModel hostModel(final FakeModel model) {
-        return new HostModel(model.id(), model.name(), model.parameters().values().stream().map(this::hostParameter).toList(), List.of(), List.of());
+        return new HostModel(
+                model.id(),
+                model.name(),
+                model.parameters().values().stream().map(this::hostParameter).toList(),
+                List.of(),
+                List.of());
     }
 
     private HostParameter hostParameter(final FakeParameter parameter) {
         return new HostParameter(
-            parameter.id(),
-            parameter.name(),
-            parameter.value(),
-            parameter.defaultValue(),
-            parameter.minValue(),
-            parameter.maxValue(),
-            true,
-            true
-        );
+                parameter.id(),
+                parameter.name(),
+                parameter.value(),
+                parameter.defaultValue(),
+                parameter.minValue(),
+                parameter.maxValue(),
+                true,
+                true);
     }
 
     private static TransactionException error(final String id, final int code, final String message) {
@@ -261,13 +278,12 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
         }
 
         public FakeParameter(
-            final String id,
-            final String name,
-            final double value,
-            final double minValue,
-            final double maxValue,
-            final double defaultValue
-        ) {
+                final String id,
+                final String name,
+                final double value,
+                final double minValue,
+                final double maxValue,
+                final double defaultValue) {
             this.id = Objects.requireNonNull(id, "id");
             this.name = Objects.requireNonNull(name, "name");
             if (minValue > maxValue) {
@@ -312,7 +328,8 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
         }
     }
 
-    private record FakeDocument(String id, String name, FakeModel model, List<String> operations, int canvasWidth, int canvasHeight) {
+    private record FakeDocument(
+            String id, String name, FakeModel model, List<String> operations, int canvasWidth, int canvasHeight) {
         private FakeDocument {
             operations = new ArrayList<>(operations);
         }
@@ -336,8 +353,8 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
         }
     }
 
-    private record FakeHostSnapshot(DocumentId documentId, FakeDocument document, long version) implements HostSnapshot {
-    }
+    private record FakeHostSnapshot(DocumentId documentId, FakeDocument document, long version)
+            implements HostSnapshot {}
 
     private static Map<String, FakeParameter> keyed(final List<FakeParameter> parameters) {
         final Map<String, FakeParameter> keyed = new LinkedHashMap<>();

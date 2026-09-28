@@ -15,17 +15,19 @@ final class GlGetErrorElisionHookContributor extends NativeOptimizationHookContr
         super("TURBOISM_GL_ERROR_ELISION");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!Boolean.getBoolean(GlGetErrorElisionTransformer.ENABLE_PROPERTY)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
         final var host = environment.host().orElseThrow();
         final VerifiedGlGetErrorElisionInstaller installer = new VerifiedGlGetErrorElisionInstaller(
-            environment.instrumentation(), host.artifact(), host.classLoader());
+                environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
-        log(environment, id() + " elision=ACTIVE sites=" + installer.elided()
-            + " target=" + installer.targetDescription());
+        log(
+                environment,
+                id() + " elision=ACTIVE sites=" + installer.elided() + " target=" + installer.targetDescription());
         return installer;
     }
 }

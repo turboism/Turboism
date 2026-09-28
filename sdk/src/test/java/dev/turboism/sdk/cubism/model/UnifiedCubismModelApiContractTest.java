@@ -1,5 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
@@ -7,20 +12,18 @@ import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
-import dev.turboism.sdk.cubism.hook.ParameterHooks;
-import dev.turboism.sdk.cubism.hook.PartHooks;
-import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
+import dev.turboism.sdk.cubism.hook.ParameterHooks;
+import dev.turboism.sdk.cubism.hook.PartHooks;
+import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -29,11 +32,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class UnifiedCubismModelApiContractTest {
 
@@ -44,22 +43,21 @@ class UnifiedCubismModelApiContractTest {
         assertEquals(CubismModelAccess.class, model.getReturnType());
         assertTrue(model.isDefault());
         assertFalseAbstract(model);
-        assertThrows(NoSuchMethodException.class, () ->
-            CubismFacade.class.getMethod("callbacks")
-        );
+        assertThrows(NoSuchMethodException.class, () -> CubismFacade.class.getMethod("callbacks"));
     }
 
     @Test
     void modelEditLevelIsAThreeValuePreviewModelContract() throws Exception {
-        assertEquals(List.of(
-            ModelEditLevel.LEVEL_1,
-            ModelEditLevel.LEVEL_2,
-            ModelEditLevel.LEVEL_3
-        ), List.of(ModelEditLevel.values()));
-        assertEquals(ModelEditLevel.class, CubismModel.class.getMethod("editLevel").getReturnType());
-        assertEquals(void.class, CubismModel.class
-            .getMethod("setEditLevel", ModelEditLevel.class)
-            .getReturnType());
+        assertEquals(
+                List.of(ModelEditLevel.LEVEL_1, ModelEditLevel.LEVEL_2, ModelEditLevel.LEVEL_3),
+                List.of(ModelEditLevel.values()));
+        assertEquals(
+                ModelEditLevel.class, CubismModel.class.getMethod("editLevel").getReturnType());
+        assertEquals(
+                void.class,
+                CubismModel.class
+                        .getMethod("setEditLevel", ModelEditLevel.class)
+                        .getReturnType());
     }
 
     @Test
@@ -69,7 +67,7 @@ class UnifiedCubismModelApiContractTest {
         assertTrue(PartHooks.class.isAssignableFrom(CubismPlugin.class));
         assertTrue(SemanticOperationHooks.class.isAssignableFrom(CubismPlugin.class));
 
-        final CubismPlugin plugin = new CubismPlugin() { };
+        final CubismPlugin plugin = new CubismPlugin() {};
         assertEquals(12.0f, plugin.beforeSetParameterValue(null, 12.0f));
         assertEquals(0.5f, plugin.beforeSetPartOpacity(null, 0.5f));
         assertDoesNotThrow(() -> plugin.onParameterValueChanged(null, 0.0f, 1.0f));
@@ -77,23 +75,21 @@ class UnifiedCubismModelApiContractTest {
         assertDoesNotThrow(() -> plugin.onPartOpacityChanged(null, 0.0f, 1.0f));
         assertDoesNotThrow(() -> plugin.afterSetPartOpacity(null, 1.0f));
         final CubismOperationEvent operation = new CubismOperationEvent(
-            1L,
-            CubismOperation.OPEN_DOCUMENT,
-            CubismOperationOrigin.UNKNOWN,
-            Optional.of("DocumentA"),
-            Optional.empty()
-        );
+                1L,
+                CubismOperation.OPEN_DOCUMENT,
+                CubismOperationOrigin.UNKNOWN,
+                Optional.of("DocumentA"),
+                Optional.empty());
         assertDoesNotThrow(() -> plugin.beforeCubismOperation(operation));
         assertDoesNotThrow(() -> plugin.onCubismOperationConfirmed(operation));
         assertDoesNotThrow(() -> plugin.afterCubismOperation(operation));
     }
 
-
     @Test
     void semanticOperationCatalogHasStableUniqueIdsForModelAndEditorActions() {
         final Set<String> ids = java.util.Arrays.stream(CubismOperation.values())
-            .map(CubismOperation::id)
-            .collect(Collectors.toSet());
+                .map(CubismOperation::id)
+                .collect(Collectors.toSet());
 
         assertEquals(CubismOperation.values().length, ids.size());
         assertEquals("cubism.model.parameter.set-value", CubismOperation.SET_PARAMETER_VALUE.id());
@@ -104,20 +100,24 @@ class UnifiedCubismModelApiContractTest {
         assertTrue(ids.contains("cubism.editor.project.export"));
     }
 
-
     @Test
     void deformersApplyToChildrenIsExact5302SurfaceWithFailClosedDefault() throws Exception {
         final Method method = Deformers.class.getMethod("applyToChildren", Deformer.class);
         assertEquals(void.class, method.getReturnType());
         assertTrue(method.isDefault());
         assertEquals(
-            List.of("5.3.02"),
-            List.of(method.getAnnotation(dev.turboism.sdk.CubismEditor.class).value())
-        );
+                List.of("5.3.02"),
+                List.of(method.getAnnotation(dev.turboism.sdk.CubismEditor.class)
+                        .value()));
 
         final Deformers stub = new Deformers() {
-            @Override public List<Deformer> all() { return List.of(); }
-            @Override public Deformer find(final DeformerId id) {
+            @Override
+            public List<Deformer> all() {
+                return List.of();
+            }
+
+            @Override
+            public Deformer find(final DeformerId id) {
                 throw new NoSuchElementException(id.value());
             }
         };
@@ -127,63 +127,52 @@ class UnifiedCubismModelApiContractTest {
     @Test
     void semanticOperationEventsValidateCorrelationAndPreserveOpaqueSubjects() {
         final CubismOperationEvent event = new CubismOperationEvent(
-            1L,
-            CubismOperation.OPEN_DOCUMENT,
-            CubismOperationOrigin.HOST_UI,
-            Optional.of(" Document A "),
-            Optional.of(" Open Document ")
-        );
+                1L,
+                CubismOperation.OPEN_DOCUMENT,
+                CubismOperationOrigin.HOST_UI,
+                Optional.of(" Document A "),
+                Optional.of(" Open Document "));
 
         assertEquals(Optional.of(" Document A "), event.subjectId());
         assertEquals(Optional.of(" Open Document "), event.label());
-        assertThrows(IllegalArgumentException.class, () -> new CubismOperationEvent(
-            0L,
-            CubismOperation.OPEN_DOCUMENT,
-            CubismOperationOrigin.HOST_UI,
-            Optional.empty(),
-            Optional.empty()
-        ));
-        assertThrows(IllegalArgumentException.class, () -> new CubismOperationEvent(
-            1L,
-            CubismOperation.OPEN_DOCUMENT,
-            CubismOperationOrigin.HOST_UI,
-            Optional.of(" "),
-            Optional.empty()
-        ));
-        assertThrows(IllegalArgumentException.class, () -> new CubismOperationEvent(
-            1L,
-            CubismOperation.OPEN_DOCUMENT,
-            CubismOperationOrigin.HOST_UI,
-            Optional.empty(),
-            Optional.of(" ")
-        ));
-        assertThrows(NullPointerException.class, () -> new CubismOperationEvent(
-            1L,
-            CubismOperation.OPEN_DOCUMENT,
-            CubismOperationOrigin.HOST_UI,
-            Optional.empty(),
-            null
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CubismOperationEvent(
+                        0L,
+                        CubismOperation.OPEN_DOCUMENT,
+                        CubismOperationOrigin.HOST_UI,
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CubismOperationEvent(
+                        1L,
+                        CubismOperation.OPEN_DOCUMENT,
+                        CubismOperationOrigin.HOST_UI,
+                        Optional.of(" "),
+                        Optional.empty()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CubismOperationEvent(
+                        1L,
+                        CubismOperation.OPEN_DOCUMENT,
+                        CubismOperationOrigin.HOST_UI,
+                        Optional.empty(),
+                        Optional.of(" ")));
+        assertThrows(
+                NullPointerException.class,
+                () -> new CubismOperationEvent(
+                        1L, CubismOperation.OPEN_DOCUMENT, CubismOperationOrigin.HOST_UI, Optional.empty(), null));
     }
 
     @Test
     void sdkOnlyConsumerUsesOverrideHooksInPluginLoadOrder() {
         final List<String> events = new ArrayList<>();
-        final List<ParameterHooks> hooks = List.of(
-            new HalvingPlugin(),
-            new RecordingPlugin(events)
-        );
-        final FakeParameter parameter = new FakeParameter(
-            new ParameterId("ParamAngleX"),
-            hooks
-        );
+        final List<ParameterHooks> hooks = List.of(new HalvingPlugin(), new RecordingPlugin(events));
+        final FakeParameter parameter = new FakeParameter(new ParameterId("ParamAngleX"), hooks);
         final CubismFacade facade = new FakeFacade(new FakeModel(parameter));
 
-        final Parameter selected = facade
-            .model()
-            .active()
-            .parameters()
-            .find(new ParameterId("ParamAngleX"));
+        final Parameter selected = facade.model().active().parameters().find(new ParameterId("ParamAngleX"));
 
         selected.setValue(100.0f);
         assertEquals(20.0f, selected.getValue());
@@ -197,21 +186,14 @@ class UnifiedCubismModelApiContractTest {
 
     @Test
     void modelCollectionsUseDirectFindAndImmutableSequences() {
-        final FakeParameter parameter = new FakeParameter(
-            new ParameterId("ParamAngleX"),
-            List.of()
-        );
+        final FakeParameter parameter = new FakeParameter(new ParameterId("ParamAngleX"), List.of());
         final CubismModel model = new FakeModel(parameter);
 
         assertEquals(1, model.parameters().all().size());
         assertThrows(
-            UnsupportedOperationException.class,
-            () -> model.parameters().all().add(parameter)
-        );
-        assertThrows(
-            NoSuchElementException.class,
-            () -> model.parameters().find(new ParameterId("Missing"))
-        );
+                UnsupportedOperationException.class,
+                () -> model.parameters().all().add(parameter));
+        assertThrows(NoSuchElementException.class, () -> model.parameters().find(new ParameterId("Missing")));
 
         final FloatSequence floats = sequence(1.0f, 2.0f);
         final IntSequence ints = sequence(1, 2, 3);
@@ -258,10 +240,7 @@ class UnifiedCubismModelApiContractTest {
 
     private static final class HalvingPlugin implements CubismPlugin {
         @Override
-        public float beforeSetParameterValue(
-            final Parameter parameter,
-            final float value
-        ) {
+        public float beforeSetParameterValue(final Parameter parameter, final float value) {
             return value * 0.5f;
         }
     }
@@ -274,27 +253,17 @@ class UnifiedCubismModelApiContractTest {
         }
 
         @Override
-        public float beforeSetParameterValue(
-            final Parameter parameter,
-            final float value
-        ) {
+        public float beforeSetParameterValue(final Parameter parameter, final float value) {
             return Math.min(value, 20.0f);
         }
 
         @Override
-        public void onParameterValueChanged(
-            final Parameter parameter,
-            final float oldValue,
-            final float newValue
-        ) {
+        public void onParameterValueChanged(final Parameter parameter, final float oldValue, final float newValue) {
             events.add("on:" + oldValue + "->" + newValue);
         }
 
         @Override
-        public void afterSetParameterValue(
-            final Parameter parameter,
-            final float value
-        ) {
+        public void afterSetParameterValue(final Parameter parameter, final float value) {
             events.add("after:" + value);
         }
     }
@@ -304,10 +273,7 @@ class UnifiedCubismModelApiContractTest {
         private final List<ParameterHooks> hooks;
         private float value;
 
-        private FakeParameter(
-            final ParameterId id,
-            final List<ParameterHooks> hooks
-        ) {
+        private FakeParameter(final ParameterId id, final List<ParameterHooks> hooks) {
             this.id = id;
             this.hooks = List.copyOf(hooks);
         }
@@ -372,9 +338,9 @@ class UnifiedCubismModelApiContractTest {
                 @Override
                 public Parameter find(final ParameterId id) {
                     return all.stream()
-                        .filter(candidate -> candidate.id().equals(id))
-                        .findFirst()
-                        .orElseThrow(NoSuchElementException::new);
+                            .filter(candidate -> candidate.id().equals(id))
+                            .findFirst()
+                            .orElseThrow(NoSuchElementException::new);
                 }
             };
         }
@@ -392,8 +358,13 @@ class UnifiedCubismModelApiContractTest {
         @Override
         public Parts parts() {
             return new Parts() {
-                @Override public List<Part> all() { return List.of(); }
-                @Override public Part find(final PartId id) {
+                @Override
+                public List<Part> all() {
+                    return List.of();
+                }
+
+                @Override
+                public Part find(final PartId id) {
                     throw new NoSuchElementException();
                 }
             };
@@ -402,8 +373,13 @@ class UnifiedCubismModelApiContractTest {
         @Override
         public Drawables drawables() {
             return new Drawables() {
-                @Override public List<Drawable> all() { return List.of(); }
-                @Override public Drawable find(final ArtMeshId id) {
+                @Override
+                public List<Drawable> all() {
+                    return List.of();
+                }
+
+                @Override
+                public Drawable find(final ArtMeshId id) {
                     throw new NoSuchElementException();
                 }
             };
@@ -412,8 +388,13 @@ class UnifiedCubismModelApiContractTest {
         @Override
         public Deformers deformers() {
             return new Deformers() {
-                @Override public List<Deformer> all() { return List.of(); }
-                @Override public Deformer find(final DeformerId id) {
+                @Override
+                public List<Deformer> all() {
+                    return List.of();
+                }
+
+                @Override
+                public Deformer find(final DeformerId id) {
                     throw new NoSuchElementException();
                 }
             };
@@ -422,16 +403,20 @@ class UnifiedCubismModelApiContractTest {
         @Override
         public Glues glues() {
             return new Glues() {
-                @Override public List<Glue> all() { return List.of(); }
-                @Override public Glue find(final GlueId id) {
+                @Override
+                public List<Glue> all() {
+                    return List.of();
+                }
+
+                @Override
+                public Glue find(final GlueId id) {
                     throw new NoSuchElementException();
                 }
             };
         }
 
         @Override
-        public void update() {
-        }
+        public void update() {}
     }
 
     private static final class FakeFacade implements CubismFacade {
@@ -444,43 +429,43 @@ class UnifiedCubismModelApiContractTest {
         @Override
         public CubismRuntimeSnapshot runtime() {
             return new CubismRuntimeSnapshot(
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                new SelectionSnapshot(
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    new SelectionSnapshot(List.of(), Optional.empty(), Optional.empty(), Optional.empty()),
                     List.of(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty()
-                ),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of()
-            );
+                    List.of(),
+                    List.of(),
+                    List.of());
         }
 
-        @Override public Optional<ProjectSnapshot> activeProject() {
+        @Override
+        public Optional<ProjectSnapshot> activeProject() {
             return Optional.empty();
         }
 
-        @Override public Optional<DocumentSnapshot> activeDocument() {
+        @Override
+        public Optional<DocumentSnapshot> activeDocument() {
             return Optional.empty();
         }
 
-        @Override public Optional<ModelSnapshot> activeModel() {
+        @Override
+        public Optional<ModelSnapshot> activeModel() {
             return Optional.empty();
         }
 
-        @Override public boolean isHostPresent() {
+        @Override
+        public boolean isHostPresent() {
             return true;
         }
 
-        @Override public CubismModelAccess model() {
+        @Override
+        public CubismModelAccess model() {
             return () -> model;
         }
 
-        @Override public TransactionManager transactionManager() {
+        @Override
+        public TransactionManager transactionManager() {
             return (context, documentId) -> {
                 throw new UnsupportedOperationException();
             };

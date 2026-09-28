@@ -1,11 +1,14 @@
 package dev.turboism.tests.distribution;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.distribution.FrameworkInstallPlan;
 import dev.turboism.distribution.FrameworkPackageInspector;
 import dev.turboism.distribution.LocalFrameworkPackageInspector;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -16,12 +19,8 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class FrameworkPackageInspectionIntegrationTest {
 
@@ -45,10 +44,8 @@ class FrameworkPackageInspectionIntegrationTest {
 
         FrameworkPackageInspector.Result result = new LocalFrameworkPackageInspector().inspect(packagePath);
 
-        FrameworkPackageInspector.Accepted accepted = assertInstanceOf(
-            FrameworkPackageInspector.Accepted.class,
-            result
-        );
+        FrameworkPackageInspector.Accepted accepted =
+                assertInstanceOf(FrameworkPackageInspector.Accepted.class, result);
         FrameworkInstallPlan plan = accepted.plan();
         assertPlan(plan, archive, runtime, sdk);
         assertArrayEquals(before, Files.readAllBytes(packagePath));
@@ -57,8 +54,8 @@ class FrameworkPackageInspectionIntegrationTest {
         assertTrue(Files.list(inputDirectory).map(Path::getFileName).toList().contains(packagePath.getFileName()));
     }
 
-    private static void assertPlan(FrameworkInstallPlan plan, byte[] archive,
-                                   byte[] runtime, byte[] sdk) throws Exception {
+    private static void assertPlan(FrameworkInstallPlan plan, byte[] archive, byte[] runtime, byte[] sdk)
+            throws Exception {
         assertEquals(sha256(archive), plan.packageIdentity().sha256());
         assertEquals(archive.length, plan.packageIdentity().size());
         assertEquals("dev.turboism.framework", plan.packageIdentity().id());
@@ -74,8 +71,7 @@ class FrameworkPackageInspectionIntegrationTest {
         assertEquals(sha256(sdk), plan.files().get(1).sha256());
         assertEquals(sdk.length, plan.files().get(1).size());
         assertEquals("lib/sdk.jar", plan.files().get(1).installPath());
-        assertEquals(FrameworkInstallPlan.Requirement.PREFLIGHT_REVALIDATION_REQUIRED,
-            plan.requirement());
+        assertEquals(FrameworkInstallPlan.Requirement.PREFLIGHT_REVALIDATION_REQUIRED, plan.requirement());
     }
 
     @Test
@@ -83,16 +79,13 @@ class FrameworkPackageInspectionIntegrationTest {
         byte[] runtime = jar("dev/turboism/bootstrap/Agent.class", "runtime");
         byte[] sdk = jar("dev/turboism/sdk/Plugin.class", "sdk");
         byte[] archive = frameworkZip(runtime, sdk, "");
-        archive = replaceZipEntry(archive, "payload/runtime.jar", jar(
-            "dev/turboism/bootstrap/Agent.class", "tampered"
-        ));
+        archive =
+                replaceZipEntry(archive, "payload/runtime.jar", jar("dev/turboism/bootstrap/Agent.class", "tampered"));
         Path packagePath = tempDir.resolve("hash-mismatch.zip");
         Files.write(packagePath, archive);
 
         FrameworkPackageInspector.Rejected rejected = assertInstanceOf(
-            FrameworkPackageInspector.Rejected.class,
-            new LocalFrameworkPackageInspector().inspect(packagePath)
-        );
+                FrameworkPackageInspector.Rejected.class, new LocalFrameworkPackageInspector().inspect(packagePath));
 
         assertEquals("ARTIFACT_HASH_MISMATCH", rejected.problems().get(0).code());
         assertEquals("artifacts[0].sha256", rejected.problems().get(0).path());
@@ -106,9 +99,7 @@ class FrameworkPackageInspectionIntegrationTest {
         Files.write(packagePath, frameworkZip(runtime, sdk, ",\"unexpected\":true"));
 
         FrameworkPackageInspector.Rejected rejected = assertInstanceOf(
-            FrameworkPackageInspector.Rejected.class,
-            new LocalFrameworkPackageInspector().inspect(packagePath)
-        );
+                FrameworkPackageInspector.Rejected.class, new LocalFrameworkPackageInspector().inspect(packagePath));
 
         assertEquals("MANIFEST_UNKNOWN_FIELD", rejected.problems().get(0).code());
         assertEquals("unexpected", rejected.problems().get(0).path());
@@ -135,7 +126,7 @@ class FrameworkPackageInspectionIntegrationTest {
     private static byte[] replaceZipEntry(byte[] archive, String name, byte[] replacement) throws Exception {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (var input = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(archive));
-             var zip = new ZipOutputStream(output)) {
+                var zip = new ZipOutputStream(output)) {
             ZipEntry entry;
             while ((entry = input.getNextEntry()) != null) {
                 add(zip, entry.getName(), entry.getName().equals(name) ? replacement : input.readAllBytes());

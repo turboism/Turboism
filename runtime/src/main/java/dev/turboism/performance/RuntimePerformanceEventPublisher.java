@@ -8,7 +8,6 @@ import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSampleEvent;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.time.Duration;
 import java.util.Objects;
 
@@ -29,36 +28,23 @@ public final class RuntimePerformanceEventPublisher implements AutoCloseable {
     private boolean closed;
 
     public RuntimePerformanceEventPublisher(
-        final PerformanceProbeService source,
-        final RuntimeEventBroker eventBroker,
-        final RuntimeScheduler scheduler
-    ) {
-        this(
-            source,
-            eventBroker,
-            scheduler,
-            DEFAULT_SAMPLE_INTERVAL,
-            DEFAULT_PUBLICATION_INTERVAL
-        );
+            final PerformanceProbeService source,
+            final RuntimeEventBroker eventBroker,
+            final RuntimeScheduler scheduler) {
+        this(source, eventBroker, scheduler, DEFAULT_SAMPLE_INTERVAL, DEFAULT_PUBLICATION_INTERVAL);
     }
 
     RuntimePerformanceEventPublisher(
-        final PerformanceProbeService source,
-        final RuntimeEventBroker eventBroker,
-        final RuntimeScheduler scheduler,
-        final Duration sampleInterval,
-        final Duration publicationInterval
-    ) {
+            final PerformanceProbeService source,
+            final RuntimeEventBroker eventBroker,
+            final RuntimeScheduler scheduler,
+            final Duration sampleInterval,
+            final Duration publicationInterval) {
         this.eventBroker = Objects.requireNonNull(eventBroker, "eventBroker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
-        this.publicationInterval = requirePositive(
-            publicationInterval,
-            "publicationInterval"
-        );
-        this.sampling = Objects.requireNonNull(source, "source").sample(
-            requirePositive(sampleInterval, "sampleInterval"),
-            this::offer
-        );
+        this.publicationInterval = requirePositive(publicationInterval, "publicationInterval");
+        this.sampling = Objects.requireNonNull(source, "source")
+                .sample(requirePositive(sampleInterval, "sampleInterval"), this::offer);
     }
 
     void offer(final PerformanceSnapshot snapshot) {
@@ -71,10 +57,7 @@ public final class RuntimePerformanceEventPublisher implements AutoCloseable {
             }
             latest = Objects.requireNonNull(snapshot, "snapshot");
             if (publicationTimer == null) {
-                final RuntimeTimerSubmission submission = scheduler.schedule(
-                    publicationInterval,
-                    this::publishLatest
-                );
+                final RuntimeTimerSubmission submission = scheduler.schedule(publicationInterval, this::publishLatest);
                 if (submission.accepted()) {
                     publicationTimer = submission.handle();
                 } else {

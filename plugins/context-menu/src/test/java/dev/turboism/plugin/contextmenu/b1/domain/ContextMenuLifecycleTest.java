@@ -11,12 +11,13 @@ final class ContextMenuLifecycleTest {
     void exposesFrozenInventoryAndCompleteLifecycleMatrix() {
         final ContextMenuLifecycle lifecycle = new ContextMenuLifecycle();
         assertEquals(ContextMenuLifecycleState.DISABLED, lifecycle.state());
-        assertEquals(List.of(
-            "turboism.context-menu.parts.dispatch",
-            "turboism.context-menu.deformer.dispatch",
-            "turboism.context-menu.parameter.dispatch",
-            "turboism.context-menu.workspace-object.dispatch"
-        ), lifecycle.inventory().stream().map(ContextMenuContribution::id).toList());
+        assertEquals(
+                List.of(
+                        "turboism.context-menu.parts.dispatch",
+                        "turboism.context-menu.deformer.dispatch",
+                        "turboism.context-menu.parameter.dispatch",
+                        "turboism.context-menu.workspace-object.dispatch"),
+                lifecycle.inventory().stream().map(ContextMenuContribution::id).toList());
         assertEquals(LifecycleOperationResult.CHANGED, lifecycle.enable());
         assertEquals(LifecycleOperationResult.UNCHANGED, lifecycle.enable());
         assertEquals(LifecycleOperationResult.CHANGED, lifecycle.disable());
@@ -36,7 +37,7 @@ final class ContextMenuLifecycleTest {
         lifecycle.disable();
         lifecycle.enable();
         assertEquals(original, lifecycle.inventory());
-        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class,
-            () -> lifecycle.inventory().add(original.get(0)));
+        org.junit.jupiter.api.Assertions.assertThrows(
+                UnsupportedOperationException.class, () -> lifecycle.inventory().add(original.get(0)));
     }
 }

@@ -2,7 +2,6 @@ package dev.turboism.core.runtime.psd;
 
 import dev.turboism.sdk.cubism.psd.PsdEditFile;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
-
 import java.io.IOException;
 import java.util.IdentityHashMap;
 import java.util.Objects;
@@ -41,17 +40,21 @@ final class PsdEditRegistry implements AutoCloseable {
      * this registry never guesses which active/pending revision may be discarded.
      */
     synchronized PsdFileRevision issueRevision(
-        final Binding binding, final PsdEditFile file, final PsdStableSnapshot.Snapshot snapshot
-    ) throws IOException {
+            final Binding binding, final PsdEditFile file, final PsdStableSnapshot.Snapshot snapshot)
+            throws IOException {
         final Entry entry = requireEntry(binding, file);
         Objects.requireNonNull(snapshot, "snapshot");
         final var live = entry.allocation.validatedPath();
-        if (snapshot.path() == null || !live.getParent().equals(snapshot.path().getParent())
-            || live.equals(snapshot.path()) || !snapshot.path().equals(snapshot.path().toAbsolutePath().normalize())) {
+        if (snapshot.path() == null
+                || !live.getParent().equals(snapshot.path().getParent())
+                || live.equals(snapshot.path())
+                || !snapshot.path().equals(snapshot.path().toAbsolutePath().normalize())) {
             throw new SecurityException("PSD revision stage is outside this allocation");
         }
-        if (snapshot.size() <= 0 || snapshot.size() > PsdStableSnapshot.MAX_BYTES
-            || snapshot.sha256() == null || !snapshot.sha256().matches("[0-9a-f]{64}")) {
+        if (snapshot.size() <= 0
+                || snapshot.size() > PsdStableSnapshot.MAX_BYTES
+                || snapshot.sha256() == null
+                || !snapshot.sha256().matches("[0-9a-f]{64}")) {
             throw new IllegalArgumentException("invalid PSD stage metadata");
         }
         if (entry.revisions.size() >= MAX_REVISIONS_PER_HANDLE) {
@@ -72,8 +75,7 @@ final class PsdEditRegistry implements AutoCloseable {
      * re-admission is required after any async wait, permission change, stop or model transition.
      */
     synchronized PsdStableSnapshot.Snapshot requireRevision(
-        final Binding binding, final PsdEditFile file, final PsdFileRevision revision
-    ) {
+            final Binding binding, final PsdEditFile file, final PsdFileRevision revision) {
         final Entry entry = requireEntry(binding, file);
         final PsdStableSnapshot.Snapshot snapshot = entry.revisions.get(Objects.requireNonNull(revision, "revision"));
         if (snapshot == null) throw new SecurityException("PSD revision is foreign, retired or forged");
@@ -146,5 +148,5 @@ final class PsdEditRegistry implements AutoCloseable {
         }
     }
 
-    private static final class Revision implements PsdFileRevision { }
+    private static final class Revision implements PsdFileRevision {}
 }

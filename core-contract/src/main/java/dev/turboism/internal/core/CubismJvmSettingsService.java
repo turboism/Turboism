@@ -228,8 +228,13 @@ public interface CubismJvmSettingsService {
      */
     static CubismJvmSettingsService unavailable() {
         return new CubismJvmSettingsService() {
-            @Override public CubismJvm read() { return CubismJvm.GRAALVM; }
-            @Override public CubismJvm save(final CubismJvm value) {
+            @Override
+            public CubismJvm read() {
+                return CubismJvm.GRAALVM;
+            }
+
+            @Override
+            public CubismJvm save(final CubismJvm value) {
                 throw new IllegalStateException("Cubism JVM settings are unavailable");
             }
         };
@@ -258,15 +263,14 @@ public interface CubismJvmSettingsService {
      * {@code 0 <= completedBytes <= totalBytes}.
      */
     record ManagedRuntimeStatus(
-        ManagedRuntimeState state,
-        String version,
-        String javaVersion,
-        Optional<Path> javaExecutable,
-        long completedBytes,
-        long totalBytes,
-        String code,
-        String message
-    ) {
+            ManagedRuntimeState state,
+            String version,
+            String javaVersion,
+            Optional<Path> javaExecutable,
+            long completedBytes,
+            long totalBytes,
+            String code,
+            String message) {
         public ManagedRuntimeStatus {
             state = java.util.Objects.requireNonNull(state, "state");
             version = java.util.Objects.requireNonNullElse(version, "");
@@ -281,9 +285,14 @@ public interface CubismJvmSettingsService {
 
         static ManagedRuntimeStatus unavailable() {
             return new ManagedRuntimeStatus(
-                ManagedRuntimeState.UNSUPPORTED, "", "", Optional.empty(), 0L, 0L,
-                "GRAAL_RUNTIME_UNAVAILABLE", "Managed GraalVM installation is unavailable."
-            );
+                    ManagedRuntimeState.UNSUPPORTED,
+                    "",
+                    "",
+                    Optional.empty(),
+                    0L,
+                    0L,
+                    "GRAAL_RUNTIME_UNAVAILABLE",
+                    "Managed GraalVM installation is unavailable.");
         }
     }
 
@@ -329,9 +338,7 @@ public interface CubismJvmSettingsService {
          * @throws IllegalArgumentException when the value is unsupported
          */
         public static CubismJvm fromConfig(final String value) {
-            final String normalized = value == null
-                ? ""
-                : value.trim().toLowerCase(Locale.ROOT);
+            final String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
             for (CubismJvm candidate : values()) {
                 if (candidate.configValue.equals(normalized)) return candidate;
             }

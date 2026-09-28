@@ -2,15 +2,10 @@ package dev.turboism.pluginmanagement;
 
 import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
-import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
+import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import dev.turboism.ui.host.EdtDispatch;
-
-import javax.swing.JDialog;
-import javax.swing.JFileChooser;
-import javax.swing.SwingUtilities;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.Component;
 import java.awt.HeadlessException;
 import java.nio.file.Files;
@@ -33,6 +28,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import javax.swing.JDialog;
+import javax.swing.JFileChooser;
+import javax.swing.SwingUtilities;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 /** Runtime-owned desired-state manager; package mutation is applied only before next discovery. */
 public final class RuntimePluginManagementService implements CorePluginManagement {
@@ -44,6 +43,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
          */
         Locale get();
     }
+
     private final Path pluginsDirectory;
     private final Supplier<Optional<Path>> synchronousPackageChooser;
     private final PackageChooser packageChooser;
@@ -57,17 +57,24 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     private final LocalizationDiagnosticSink metadataDiagnostics;
 
     public RuntimePluginManagementService(final Path home, final Supplier<List<PluginInfo>> runtimePlugins) {
-        this(home, RuntimePluginManagementService::choosePluginPackage, new SwingPackageChooser(), runtimePlugins,
-            () -> Locale.getDefault(Locale.Category.DISPLAY));
+        this(
+                home,
+                RuntimePluginManagementService::choosePluginPackage,
+                new SwingPackageChooser(),
+                runtimePlugins,
+                () -> Locale.getDefault(Locale.Category.DISPLAY));
     }
 
     public RuntimePluginManagementService(
-        final Path home,
-        final Supplier<Optional<Path>> packageChooser,
-        final Supplier<List<PluginInfo>> runtimePlugins
-    ) {
-        this(home, packageChooser, completion -> completion.accept(packageChooser.get()), runtimePlugins,
-            () -> Locale.getDefault(Locale.Category.DISPLAY));
+            final Path home,
+            final Supplier<Optional<Path>> packageChooser,
+            final Supplier<List<PluginInfo>> runtimePlugins) {
+        this(
+                home,
+                packageChooser,
+                completion -> completion.accept(packageChooser.get()),
+                runtimePlugins,
+                () -> Locale.getDefault(Locale.Category.DISPLAY));
     }
 
     /**
@@ -80,87 +87,91 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
      * @return a service instance with the Swing package chooser installed
      */
     public static RuntimePluginManagementService withMetadataLocale(
-        final Path home,
-        final Supplier<List<PluginInfo>> runtimePlugins,
-        final MetadataLocaleProvider metadataLocale
-    ) {
-        return withMetadataLocale(home, runtimePlugins, metadataLocale, ignored -> { });
+            final Path home,
+            final Supplier<List<PluginInfo>> runtimePlugins,
+            final MetadataLocaleProvider metadataLocale) {
+        return withMetadataLocale(home, runtimePlugins, metadataLocale, ignored -> {});
     }
 
     /** Production factory: metadata i18n diagnostics reach the supplied runtime log sink. */
     public static RuntimePluginManagementService withMetadataLocale(
-        final Path home,
-        final Supplier<List<PluginInfo>> runtimePlugins,
-        final MetadataLocaleProvider metadataLocale,
-        final Consumer<String> diagnostics
-    ) {
+            final Path home,
+            final Supplier<List<PluginInfo>> runtimePlugins,
+            final MetadataLocaleProvider metadataLocale,
+            final Consumer<String> diagnostics) {
         return new RuntimePluginManagementService(
-            home, RuntimePluginManagementService::choosePluginPackage,
-            new SwingPackageChooser(), runtimePlugins, metadataLocale,
-            java.util.Objects.requireNonNull(diagnostics, "diagnostics")
-        );
+                home,
+                RuntimePluginManagementService::choosePluginPackage,
+                new SwingPackageChooser(),
+                runtimePlugins,
+                metadataLocale,
+                java.util.Objects.requireNonNull(diagnostics, "diagnostics"));
     }
 
     RuntimePluginManagementService(
-        final Path home,
-        final PackageChooser packageChooser,
-        final Supplier<List<PluginInfo>> runtimePlugins
-    ) {
+            final Path home, final PackageChooser packageChooser, final Supplier<List<PluginInfo>> runtimePlugins) {
         this(home, Optional::empty, packageChooser, runtimePlugins, () -> Locale.getDefault(Locale.Category.DISPLAY));
     }
 
     RuntimePluginManagementService(
-        final Path home,
-        final PackageChooser packageChooser,
-        final Supplier<List<PluginInfo>> runtimePlugins,
-        final ExecutorService installExecutor
-    ) {
-        this(home, Optional::empty, packageChooser, runtimePlugins,
-            () -> Locale.getDefault(Locale.Category.DISPLAY), ignored -> { }, installExecutor);
+            final Path home,
+            final PackageChooser packageChooser,
+            final Supplier<List<PluginInfo>> runtimePlugins,
+            final ExecutorService installExecutor) {
+        this(
+                home,
+                Optional::empty,
+                packageChooser,
+                runtimePlugins,
+                () -> Locale.getDefault(Locale.Category.DISPLAY),
+                ignored -> {},
+                installExecutor);
     }
 
     private RuntimePluginManagementService(
-        final Path home,
-        final Supplier<Optional<Path>> synchronousPackageChooser,
-        final PackageChooser packageChooser,
-        final Supplier<List<PluginInfo>> runtimePlugins,
-        final MetadataLocaleProvider metadataLocale
-    ) {
-        this(home, synchronousPackageChooser, packageChooser, runtimePlugins, metadataLocale, ignored -> { });
+            final Path home,
+            final Supplier<Optional<Path>> synchronousPackageChooser,
+            final PackageChooser packageChooser,
+            final Supplier<List<PluginInfo>> runtimePlugins,
+            final MetadataLocaleProvider metadataLocale) {
+        this(home, synchronousPackageChooser, packageChooser, runtimePlugins, metadataLocale, ignored -> {});
     }
 
     private RuntimePluginManagementService(
-        final Path home,
-        final Supplier<Optional<Path>> synchronousPackageChooser,
-        final PackageChooser packageChooser,
-        final Supplier<List<PluginInfo>> runtimePlugins,
-        final MetadataLocaleProvider metadataLocale,
-        final Consumer<String> diagnostics
-    ) {
-        this(home, synchronousPackageChooser, packageChooser, runtimePlugins, metadataLocale, diagnostics,
-            Executors.newSingleThreadExecutor(new InstallThreadFactory()));
+            final Path home,
+            final Supplier<Optional<Path>> synchronousPackageChooser,
+            final PackageChooser packageChooser,
+            final Supplier<List<PluginInfo>> runtimePlugins,
+            final MetadataLocaleProvider metadataLocale,
+            final Consumer<String> diagnostics) {
+        this(
+                home,
+                synchronousPackageChooser,
+                packageChooser,
+                runtimePlugins,
+                metadataLocale,
+                diagnostics,
+                Executors.newSingleThreadExecutor(new InstallThreadFactory()));
     }
 
     private RuntimePluginManagementService(
-        final Path home,
-        final Supplier<Optional<Path>> synchronousPackageChooser,
-        final PackageChooser packageChooser,
-        final Supplier<List<PluginInfo>> runtimePlugins,
-        final MetadataLocaleProvider metadataLocale,
-        final Consumer<String> diagnostics,
-        final ExecutorService installExecutor
-    ) {
+            final Path home,
+            final Supplier<Optional<Path>> synchronousPackageChooser,
+            final PackageChooser packageChooser,
+            final Supplier<List<PluginInfo>> runtimePlugins,
+            final MetadataLocaleProvider metadataLocale,
+            final Consumer<String> diagnostics,
+            final ExecutorService installExecutor) {
         final Path normalized = home.toAbsolutePath().normalize();
         pluginsDirectory = normalized.resolve("plugins");
-        this.synchronousPackageChooser = java.util.Objects.requireNonNull(
-            synchronousPackageChooser, "synchronousPackageChooser"
-        );
+        this.synchronousPackageChooser =
+                java.util.Objects.requireNonNull(synchronousPackageChooser, "synchronousPackageChooser");
         this.packageChooser = java.util.Objects.requireNonNull(packageChooser, "packageChooser");
         this.runtimePlugins = java.util.Objects.requireNonNull(runtimePlugins, "runtimePlugins");
         this.metadataLocale = java.util.Objects.requireNonNull(metadataLocale, "metadataLocale");
         final Consumer<String> diagnostic = java.util.Objects.requireNonNull(diagnostics, "diagnostics");
         this.metadataDiagnostics = value -> diagnostic.accept(value.code() + ": " + value.message());
-        config = new RuntimeConfigRepository(normalized, ignored -> { });
+        config = new RuntimeConfigRepository(normalized, ignored -> {});
         pending = new PendingPluginOperations(normalized);
         this.installExecutor = java.util.Objects.requireNonNull(installExecutor, "installExecutor");
     }
@@ -184,32 +195,41 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             final String pendingLabel = operation.type().equals("INSTALL") ? "INSTALL" : "UNINSTALL";
             if (existing != null) catalog.put(existing.id(), withDesired(existing, disabled, pendingLabel));
             if (existing == null && operation.type().equals("INSTALL")) {
-                catalog.put(operation.pluginId(), new PluginInfo(
-                    operation.pluginId(), operation.pluginId(), operation.version(), "Pending plugin installation",
-                    "NOT_INSTALLED", "ENABLED", false, Optional.of("INSTALL"),
-                    PluginCategoryRegistry.FALLBACK, List.of()
-                ));
+                catalog.put(
+                        operation.pluginId(),
+                        new PluginInfo(
+                                operation.pluginId(),
+                                operation.pluginId(),
+                                operation.version(),
+                                "Pending plugin installation",
+                                "NOT_INSTALLED",
+                                "ENABLED",
+                                false,
+                                Optional.of("INSTALL"),
+                                PluginCategoryRegistry.FALLBACK,
+                                List.of()));
             }
         }
         return catalog.values().stream()
-            .map(plugin -> withDesired(plugin, disabled, plugin.pendingOperation().orElse(null)))
-            .sorted(Comparator.comparing(PluginInfo::core).reversed().thenComparing(PluginInfo::id))
-            .toList();
+                .map(plugin ->
+                        withDesired(plugin, disabled, plugin.pendingOperation().orElse(null)))
+                .sorted(Comparator.comparing(PluginInfo::core).reversed().thenComparing(PluginInfo::id))
+                .toList();
     }
 
     @Override
     public synchronized Optional<PluginDetails> details(final String pluginId) {
         if (pluginId == null || pluginId.isBlank()) return Optional.empty();
         final PluginInfo plugin = plugins().stream()
-            .filter(candidate -> candidate.id().equals(pluginId))
-            .findFirst()
-            .orElse(null);
+                .filter(candidate -> candidate.id().equals(pluginId))
+                .findFirst()
+                .orElse(null);
         if (plugin == null) return Optional.empty();
         if (plugin.core()) return Optional.of(coreDetails(plugin));
         return installedArchive(pluginId)
-            .flatMap(path -> PluginArchiveMetadata.read(path, metadataLocale.get(), metadataDiagnostics))
-            .map(metadata -> details(plugin, metadata))
-            .or(() -> Optional.of(PluginDetails.summary(plugin)));
+                .flatMap(path -> PluginArchiveMetadata.read(path, metadataLocale.get(), metadataDiagnostics))
+                .map(metadata -> details(plugin, metadata))
+                .or(() -> Optional.of(PluginDetails.summary(plugin)));
     }
 
     @Override
@@ -232,8 +252,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final InstallRequest request = new InstallRequest(requested);
         if (!currentInstall.compareAndSet(null, request)) {
             requested.accept(OperationResult.rejected(
-                "PLUGIN_INSTALL_BUSY", "Another plugin installation is already in progress."
-            ));
+                    "PLUGIN_INSTALL_BUSY", "Another plugin installation is already in progress."));
             return;
         }
         if (!active.get()) {
@@ -278,44 +297,37 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
 
     private synchronized OperationResult stage(final Optional<Path> selected) {
         if (selected.isEmpty()) {
-            return OperationResult.rejected(
-                "PLUGIN_INSTALL_CANCELLED", "Plugin installation was cancelled."
-            );
+            return OperationResult.rejected("PLUGIN_INSTALL_CANCELLED", "Plugin installation was cancelled.");
         }
         final PendingPluginOperations.StagedInstall result = pending.stage(selected.orElseThrow());
         if (result.accepted()) {
             return OperationResult.accepted(
-                result.code(), "Plugin installation is pending; restart Cubism to apply it."
-            );
+                    result.code(), "Plugin installation is pending; restart Cubism to apply it.");
         }
         return result.code().equals("PLUGIN_PENDING_RECOVERY_REQUIRED")
-            ? pendingRecoveryRequired()
-            : OperationResult.rejected(result.code(), "Plugin package was rejected safely.");
+                ? pendingRecoveryRequired()
+                : OperationResult.rejected(result.code(), "Plugin package was rejected safely.");
     }
 
     private static OperationResult cancelledInstall() {
-        return OperationResult.rejected(
-            "PLUGIN_INSTALL_CANCELLED", "Plugin installation was cancelled."
-        );
+        return OperationResult.rejected("PLUGIN_INSTALL_CANCELLED", "Plugin installation was cancelled.");
     }
 
     private static OperationResult failedInstall() {
-        return OperationResult.rejected(
-            "PLUGIN_INSTALL_FAILED", "Plugin package was rejected safely."
-        );
+        return OperationResult.rejected("PLUGIN_INSTALL_FAILED", "Plugin package was rejected safely.");
     }
 
     private static OperationResult pendingRecoveryRequired() {
         return OperationResult.rejected(
-            "PLUGIN_PENDING_RECOVERY_REQUIRED",
-            "Plugin changes are blocked until the pending operations journal is recovered."
-        );
+                "PLUGIN_PENDING_RECOVERY_REQUIRED",
+                "Plugin changes are blocked until the pending operations journal is recovered.");
     }
 
     @Override
     public synchronized OperationResult uninstall(final String pluginId) {
         if (CORE_PLUGIN_ID.equals(pluginId)) {
-            return OperationResult.rejected("PLUGIN_CORE_PROTECTED", "The Turboism framework component cannot be uninstalled.");
+            return OperationResult.rejected(
+                    "PLUGIN_CORE_PROTECTED", "The Turboism framework component cannot be uninstalled.");
         }
         if (pending.recoveryRequired()) return pendingRecoveryRequired();
         if (installedArchive(pluginId).isEmpty()) {
@@ -323,19 +335,18 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         }
         final PendingPluginOperations.StagedUninstall result = pending.stageUninstall(pluginId);
         if (result.accepted()) {
-            return OperationResult.accepted(
-                result.code(), "Plugin uninstall is pending; restart Cubism to apply it."
-            );
+            return OperationResult.accepted(result.code(), "Plugin uninstall is pending; restart Cubism to apply it.");
         }
         return result.code().equals("PLUGIN_PENDING_RECOVERY_REQUIRED")
-            ? pendingRecoveryRequired()
-            : OperationResult.rejected(result.code(), "Plugin uninstall could not be staged.");
+                ? pendingRecoveryRequired()
+                : OperationResult.rejected(result.code(), "Plugin uninstall could not be staged.");
     }
 
     @Override
     public synchronized OperationResult setEnabled(final String pluginId, final boolean enabled) {
         if (CORE_PLUGIN_ID.equals(pluginId)) {
-            return OperationResult.rejected("PLUGIN_CORE_PROTECTED", "The Turboism framework component cannot be disabled.");
+            return OperationResult.rejected(
+                    "PLUGIN_CORE_PROTECTED", "The Turboism framework component cannot be disabled.");
         }
         if (pending.recoveryRequired()) return pendingRecoveryRequired();
         if (installedArchive(pluginId).isEmpty()) {
@@ -344,9 +355,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         try {
             config.setPluginEnabled(pluginId, enabled);
             return OperationResult.accepted(
-                enabled ? "PLUGIN_ENABLE_PENDING" : "PLUGIN_DISABLE_PENDING",
-                (enabled ? "Enable" : "Disable") + " is pending; restart Cubism to apply it."
-            );
+                    enabled ? "PLUGIN_ENABLE_PENDING" : "PLUGIN_DISABLE_PENDING",
+                    (enabled ? "Enable" : "Disable") + " is pending; restart Cubism to apply it.");
         } catch (RuntimeException failure) {
             return OperationResult.rejected("PLUGIN_CONFIG_REJECTED", "Plugin state was not changed.");
         }
@@ -399,20 +409,31 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final List<PluginInfo> result = new ArrayList<>();
         try (var files = Files.list(pluginsDirectory)) {
             for (Path path : files.filter(candidate -> Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
-                .filter(candidate -> candidate.getFileName().toString().endsWith(".jar")).sorted().toList()) {
-                final Optional<PluginArchiveMetadata> metadata = PluginArchiveMetadata.read(
-                    path, metadataLocale.get(), metadataDiagnostics
-                );
+                    .filter(candidate -> candidate.getFileName().toString().endsWith(".jar"))
+                    .sorted()
+                    .toList()) {
+                final Optional<PluginArchiveMetadata> metadata =
+                        PluginArchiveMetadata.read(path, metadataLocale.get(), metadataDiagnostics);
                 if (metadata.isPresent()) {
                     final var value = metadata.orElseThrow();
                     if (CORE_PLUGIN_ID.equals(value.id())) continue;
-                    result.add(new PluginInfo(value.id(), value.name(), value.version(), value.description(),
-                        PluginLifecycleState.DISCOVERED.name(), "ENABLED", false, Optional.empty(),
-                        PluginCategoryRegistry.presentation(value.id(), value.category(), metadataDiagnostics),
-                        value.tags(), value.authors()));
+                    result.add(new PluginInfo(
+                            value.id(),
+                            value.name(),
+                            value.version(),
+                            value.description(),
+                            PluginLifecycleState.DISCOVERED.name(),
+                            "ENABLED",
+                            false,
+                            Optional.empty(),
+                            PluginCategoryRegistry.presentation(value.id(), value.category(), metadataDiagnostics),
+                            value.tags(),
+                            value.authors()));
                 }
             }
-        } catch (Exception ignored) { return List.of(); }
+        } catch (Exception ignored) {
+            return List.of();
+        }
         return result;
     }
 
@@ -424,88 +445,131 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         if (!Files.isDirectory(pluginsDirectory, LinkOption.NOFOLLOW_LINKS)) return List.of();
         try (var files = Files.list(pluginsDirectory)) {
             return files.filter(candidate -> Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
-                .filter(candidate -> candidate.getFileName().toString().endsWith(".jar"))
-                .filter(candidate -> PluginArchiveMetadata.read(candidate).map(PluginArchiveMetadata::id)
-                    .filter(pluginId::equals).isPresent())
-                .sorted().toList();
-        } catch (Exception ignored) { return List.of(); }
+                    .filter(candidate -> candidate.getFileName().toString().endsWith(".jar"))
+                    .filter(candidate -> PluginArchiveMetadata.read(candidate)
+                            .map(PluginArchiveMetadata::id)
+                            .filter(pluginId::equals)
+                            .isPresent())
+                    .sorted()
+                    .toList();
+        } catch (Exception ignored) {
+            return List.of();
+        }
     }
 
     private static PluginInfo withDesired(
-        final PluginInfo plugin,
-        final Set<String> disabled,
-        final String pendingOperation
-    ) {
+            final PluginInfo plugin, final Set<String> disabled, final String pendingOperation) {
         final String desired = plugin.core() || !disabled.contains(plugin.id()) ? "ENABLED" : "DISABLED";
-        return new PluginInfo(plugin.id(), plugin.name(), plugin.version(), plugin.description(),
-            plugin.effectiveState(), desired, plugin.core(), Optional.ofNullable(pendingOperation),
-            plugin.category(), plugin.tags(), plugin.authors());
+        return new PluginInfo(
+                plugin.id(),
+                plugin.name(),
+                plugin.version(),
+                plugin.description(),
+                plugin.effectiveState(),
+                desired,
+                plugin.core(),
+                Optional.ofNullable(pendingOperation),
+                plugin.category(),
+                plugin.tags(),
+                plugin.authors());
     }
 
     private static PluginInfo withCoreFlag(final PluginInfo plugin) {
         return new PluginInfo(
-            plugin.id(), plugin.name(), plugin.version(), plugin.description(),
-            plugin.effectiveState(), plugin.desiredState(), true, plugin.pendingOperation(),
-            plugin.category(), plugin.tags(), plugin.authors()
-        );
+                plugin.id(),
+                plugin.name(),
+                plugin.version(),
+                plugin.description(),
+                plugin.effectiveState(),
+                plugin.desiredState(),
+                true,
+                plugin.pendingOperation(),
+                plugin.category(),
+                plugin.tags(),
+                plugin.authors());
     }
 
     private static PluginInfo corePlugin() {
         final dev.turboism.sdk.plugin.PluginDescriptor shell = dev.turboism.preview.ShellManifest.descriptor();
-        return new PluginInfo(shell.id(), shell.name(), shell.version(), shell.description(),
-            PluginLifecycleState.ENABLED.name(), "ENABLED", true, Optional.empty(),
-            shell.category().orElse("system"), shell.tags(),
-            shell.authors().stream()
-                .map(author -> new Author(author.name(), author.email()))
-                .toList());
+        return new PluginInfo(
+                shell.id(),
+                shell.name(),
+                shell.version(),
+                shell.description(),
+                PluginLifecycleState.ENABLED.name(),
+                "ENABLED",
+                true,
+                Optional.empty(),
+                shell.category().orElse("system"),
+                shell.tags(),
+                shell.authors().stream()
+                        .map(author -> new Author(author.name(), author.email()))
+                        .toList());
     }
 
-    private static PluginDetails details(
-        final PluginInfo plugin,
-        final PluginArchiveMetadata metadata
-    ) {
+    private static PluginDetails details(final PluginInfo plugin, final PluginArchiveMetadata metadata) {
         return new PluginDetails(
-            plugin, metadata.turboismApi(), metadata.authors(), metadata.license(), metadata.website(),
-            metadata.dependencies(), metadata.permissions(), metadata.capabilities(),
-            metadata.requiresCubism(), metadata.ui(), metadata.entrypoints(), metadata.resources(),
-            metadata.i18nBaseName(), metadata.locales(), metadata.eventExports(), metadata.eventImports(),
-            metadata.readme()
-        );
+                plugin,
+                metadata.turboismApi(),
+                metadata.authors(),
+                metadata.license(),
+                metadata.website(),
+                metadata.dependencies(),
+                metadata.permissions(),
+                metadata.capabilities(),
+                metadata.requiresCubism(),
+                metadata.ui(),
+                metadata.entrypoints(),
+                metadata.resources(),
+                metadata.i18nBaseName(),
+                metadata.locales(),
+                metadata.eventExports(),
+                metadata.eventImports(),
+                metadata.readme());
     }
 
     private PluginDetails coreDetails(final PluginInfo plugin) {
         final dev.turboism.sdk.plugin.PluginDescriptor shell = dev.turboism.preview.ShellManifest.descriptor();
         return new PluginDetails(
-            plugin, shell.turboismApi(),
-            shell.authors().stream()
-                .map(author -> new Author(author.name(), author.email()))
-                .toList(),
-            shell.license(), shell.website(),
-            shell.dependencies().stream()
-                .map(dependency -> new Dependency(
-                    dependency.id(), dependency.type(), dependency.version(),
-                    dependency.ordering(), dependency.reason()))
-                .toList(),
-            shell.permissions().stream()
-                .map(permission -> new Permission(
-                    permission.id(), permission.scope(), permission.reason()))
-                .toList(),
-            List.copyOf(shell.capabilities()), shell.environment().requiresCubism(),
-            shell.environment().ui(), List.copyOf(shell.entrypoints()),
-            List.copyOf(shell.resources()), shell.i18n().baseName(),
-            List.copyOf(shell.i18n().locales()),
-            shell.eventExports().stream()
-                .map(exported -> new EventExport(
-                    exported.id(), exported.contractVersion(), exported.eventType(),
-                    exported.abiSha256()))
-                .toList(),
-            shell.eventImports().stream()
-                .map(imported -> new EventImport(
-                    imported.providerId(), imported.eventId(), imported.contractVersion(),
-                    imported.eventType(), imported.abiSha256(), imported.required()))
-                .toList(),
-            Optional.empty()
-        );
+                plugin,
+                shell.turboismApi(),
+                shell.authors().stream()
+                        .map(author -> new Author(author.name(), author.email()))
+                        .toList(),
+                shell.license(),
+                shell.website(),
+                shell.dependencies().stream()
+                        .map(dependency -> new Dependency(
+                                dependency.id(),
+                                dependency.type(),
+                                dependency.version(),
+                                dependency.ordering(),
+                                dependency.reason()))
+                        .toList(),
+                shell.permissions().stream()
+                        .map(permission -> new Permission(permission.id(), permission.scope(), permission.reason()))
+                        .toList(),
+                List.copyOf(shell.capabilities()),
+                shell.environment().requiresCubism(),
+                shell.environment().ui(),
+                List.copyOf(shell.entrypoints()),
+                List.copyOf(shell.resources()),
+                shell.i18n().baseName(),
+                List.copyOf(shell.i18n().locales()),
+                shell.eventExports().stream()
+                        .map(exported -> new EventExport(
+                                exported.id(), exported.contractVersion(), exported.eventType(), exported.abiSha256()))
+                        .toList(),
+                shell.eventImports().stream()
+                        .map(imported -> new EventImport(
+                                imported.providerId(),
+                                imported.eventId(),
+                                imported.contractVersion(),
+                                imported.eventType(),
+                                imported.abiSha256(),
+                                imported.required()))
+                        .toList(),
+                Optional.empty());
     }
 
     static void configurePluginJarChooser(final JFileChooser chooser) {
@@ -519,31 +583,29 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final AtomicReference<JFileChooser> active = new AtomicReference<>();
         try {
             return EdtDispatch.call(
-                "plugin-package chooser",
-                EdtDispatch.DEFAULT_ACCEPT_TIMEOUT,
-                () -> {
-                    final JFileChooser chooser = new TurboismFileChooser();
-                    active.set(chooser);
-                    configurePluginJarChooser(chooser);
-                    if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                        return Optional.of(chooser.getSelectedFile().toPath());
-                    }
-                    return Optional.<Path>empty();
-                },
-                () -> {
-                    // Post-start interrupt: cancelSelection releases the modal pump so the
-                    // caller stops waiting instead of leaving an orphaned chooser behind.
-                    final JFileChooser chooser = active.get();
-                    if (chooser != null) {
-                        chooser.cancelSelection();
-                    }
-                }
-            );
+                    "plugin-package chooser",
+                    EdtDispatch.DEFAULT_ACCEPT_TIMEOUT,
+                    () -> {
+                        final JFileChooser chooser = new TurboismFileChooser();
+                        active.set(chooser);
+                        configurePluginJarChooser(chooser);
+                        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                            return Optional.of(chooser.getSelectedFile().toPath());
+                        }
+                        return Optional.<Path>empty();
+                    },
+                    () -> {
+                        // Post-start interrupt: cancelSelection releases the modal pump so the
+                        // caller stops waiting instead of leaving an orphaned chooser behind.
+                        final JFileChooser chooser = active.get();
+                        if (chooser != null) {
+                            chooser.cancelSelection();
+                        }
+                    });
         } catch (RuntimeException failure) {
             return Optional.empty();
         }
     }
-
 
     private final class InstallRequest {
         private final Consumer<OperationResult> completion;
@@ -562,7 +624,9 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
 
     interface PackageChooser extends AutoCloseable {
         void choose(Consumer<Optional<Path>> completion);
-        @Override default void close() { }
+
+        @Override
+        default void close() {}
     }
 
     static final class SwingPackageChooser implements PackageChooser {
@@ -575,21 +639,18 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         private JFileChooser visible;
 
         SwingPackageChooser() {
-            this(TurboismFileChooser::new, () -> { }, () -> { });
+            this(TurboismFileChooser::new, () -> {}, () -> {});
         }
 
         SwingPackageChooser(
-            final Supplier<JFileChooser> chooserFactory,
-            final Runnable afterInitialActiveCheck,
-            final Runnable afterCloseDeactivated
-        ) {
+                final Supplier<JFileChooser> chooserFactory,
+                final Runnable afterInitialActiveCheck,
+                final Runnable afterCloseDeactivated) {
             this.chooserFactory = java.util.Objects.requireNonNull(chooserFactory, "chooserFactory");
-            this.afterInitialActiveCheck = java.util.Objects.requireNonNull(
-                afterInitialActiveCheck, "afterInitialActiveCheck"
-            );
-            this.afterCloseDeactivated = java.util.Objects.requireNonNull(
-                afterCloseDeactivated, "afterCloseDeactivated"
-            );
+            this.afterInitialActiveCheck =
+                    java.util.Objects.requireNonNull(afterInitialActiveCheck, "afterInitialActiveCheck");
+            this.afterCloseDeactivated =
+                    java.util.Objects.requireNonNull(afterCloseDeactivated, "afterCloseDeactivated");
         }
 
         @Override
@@ -615,8 +676,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                 }
                 configurePluginJarChooser(chooser);
                 final Optional<Path> selected = chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION
-                    ? Optional.of(chooser.getSelectedFile().toPath())
-                    : Optional.empty();
+                        ? Optional.of(chooser.getSelectedFile().toPath())
+                        : Optional.empty();
                 final Consumer<Optional<Path>> terminal;
                 synchronized (lifecycleLock) {
                     visible = null;
@@ -663,7 +724,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     }
 
     private static final class InstallThreadFactory implements ThreadFactory {
-        @Override public Thread newThread(final Runnable work) {
+        @Override
+        public Thread newThread(final Runnable work) {
             final Thread thread = new Thread(work, "turboism-plugin-install");
             thread.setDaemon(true);
             return thread;

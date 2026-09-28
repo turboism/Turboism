@@ -1,7 +1,6 @@
 package dev.turboism.pluginmanagement;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -10,11 +9,12 @@ import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class PendingPluginOperationsSecurityTest {
-    @TempDir Path home;
+    @TempDir
+    Path home;
 
     @Test
     void failedApplyRestoresPreviousArtifactAndKeepsOperationPending() throws Exception {
@@ -23,9 +23,8 @@ final class PendingPluginOperationsSecurityTest {
         Files.writeString(plugins.resolve("example.plugin.jar"), "old");
         final Path packageFile = home.resolve("update.jar");
         Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
-        final RuntimePluginManagementService service = new RuntimePluginManagementService(
-            home, () -> Optional.of(packageFile), List::of
-        );
+        final RuntimePluginManagementService service =
+                new RuntimePluginManagementService(home, () -> Optional.of(packageFile), List::of);
         assertTrue(service.install().accepted());
         final PendingPluginOperations pending = new PendingPluginOperations(home);
         final Path staged = Path.of(pending.operations().get(0).stagedJar());
@@ -47,9 +46,8 @@ final class PendingPluginOperationsSecurityTest {
         Files.write(plugins.resolve("b.jar"), PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final Path packageFile = home.resolve("update.jar");
         Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
-        final RuntimePluginManagementService service = new RuntimePluginManagementService(
-            home, () -> Optional.of(packageFile), List::of
-        );
+        final RuntimePluginManagementService service =
+                new RuntimePluginManagementService(home, () -> Optional.of(packageFile), List::of);
         assertTrue(service.install().accepted());
         final String beforeA = hash(plugins.resolve("a.jar"));
         final String beforeB = hash(plugins.resolve("b.jar"));
@@ -70,9 +68,8 @@ final class PendingPluginOperationsSecurityTest {
         final String installedHash = hash(installed);
         final Path packageFile = home.resolve("update.jar");
         Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
-        final RuntimePluginManagementService service = new RuntimePluginManagementService(
-            home, () -> Optional.of(packageFile), List::of
-        );
+        final RuntimePluginManagementService service =
+                new RuntimePluginManagementService(home, () -> Optional.of(packageFile), List::of);
         assertTrue(service.install().accepted());
         service.close();
         final PendingPluginOperations journal = new PendingPluginOperations(home);
@@ -103,12 +100,11 @@ final class PendingPluginOperationsSecurityTest {
         final Path packageFile = home.resolve("sample.jar");
         Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
 
-        final var result = new RuntimePluginManagementService(
-            home, () -> Optional.of(packageFile), List::of
-        ).install();
+        final var result = new RuntimePluginManagementService(home, () -> Optional.of(packageFile), List::of).install();
 
         assertFalse(result.accepted());
-        assertTrue(Files.list(outside).noneMatch(path -> path.getFileName().toString().endsWith(".jar")));
+        assertTrue(Files.list(outside)
+                .noneMatch(path -> path.getFileName().toString().endsWith(".jar")));
     }
 
     @Test
@@ -127,21 +123,25 @@ final class PendingPluginOperationsSecurityTest {
     void corruptedJournalPreservesServiceListingAndBlocksMutations() throws Exception {
         final Path plugins = home.resolve("plugins");
         Files.createDirectories(plugins);
-        Files.write(plugins.resolve("example.plugin.jar"),
-            PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
+        Files.write(
+                plugins.resolve("example.plugin.jar"),
+                PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final Path journal = home.resolve("state/runtime/plugin-management/pending.json");
         Files.createDirectories(journal.getParent());
         Files.writeString(journal, "not-json");
-        final RuntimePluginManagementService service = new RuntimePluginManagementService(
-            home, Optional::empty, List::of
-        );
+        final RuntimePluginManagementService service =
+                new RuntimePluginManagementService(home, Optional::empty, List::of);
 
         assertTrue(service.plugins().stream().anyMatch(plugin -> plugin.id().equals("example.plugin")));
         assertEquals("PLUGIN_PENDING_RECOVERY_REQUIRED", service.install().code());
-        assertEquals("PLUGIN_PENDING_RECOVERY_REQUIRED", service.uninstall("example.plugin").code());
-        assertEquals("PLUGIN_PENDING_RECOVERY_REQUIRED", service.setEnabled("example.plugin", false).code());
-        final PendingPluginOperations.StagedUninstall direct = new PendingPluginOperations(home)
-            .stageUninstall("example.plugin");
+        assertEquals(
+                "PLUGIN_PENDING_RECOVERY_REQUIRED",
+                service.uninstall("example.plugin").code());
+        assertEquals(
+                "PLUGIN_PENDING_RECOVERY_REQUIRED",
+                service.setEnabled("example.plugin", false).code());
+        final PendingPluginOperations.StagedUninstall direct =
+                new PendingPluginOperations(home).stageUninstall("example.plugin");
         assertFalse(direct.accepted());
         assertEquals("PLUGIN_PENDING_RECOVERY_REQUIRED", direct.code());
         assertEquals("not-json", Files.readString(journal));
@@ -154,14 +154,15 @@ final class PendingPluginOperationsSecurityTest {
         final Path second = home.resolve("second.jar");
         Files.write(first, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         Files.write(second, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
-        final RuntimePluginManagementService firstService = new RuntimePluginManagementService(
-            home, () -> Optional.of(first), List::of
-        );
+        final RuntimePluginManagementService firstService =
+                new RuntimePluginManagementService(home, () -> Optional.of(first), List::of);
         assertTrue(firstService.install().accepted());
         final PendingPluginOperations pending = new PendingPluginOperations(home);
         final Path oldStaged = Path.of(pending.operations().get(0).stagedJar());
 
-        assertTrue(new RuntimePluginManagementService(home, () -> Optional.of(second), List::of).install().accepted());
+        assertTrue(new RuntimePluginManagementService(home, () -> Optional.of(second), List::of)
+                .install()
+                .accepted());
 
         assertFalse(Files.exists(oldStaged));
         assertEquals("2.0.0", pending.operations().get(0).version());

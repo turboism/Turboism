@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -39,30 +38,19 @@ final class EditorRawImagePsdIntegrityAccess {
             throw new IllegalStateException("PSD integrity capture must run on the Editor host thread");
         }
         Objects.requireNonNull(layeredImage, "layeredImage");
-        requireInstance(
-            "cubism.editor-model.layered-image.class",
-            layeredImage,
-            "layered image"
-        );
-        final String name = string(
-            resolver.invoke("cubism.editor-model.layered-image.name", layeredImage),
-            "layered image name"
-        );
+        requireInstance("cubism.editor-model.layered-image.class", layeredImage, "layered image");
+        final String name =
+                string(resolver.invoke("cubism.editor-model.layered-image.name", layeredImage), "layered image name");
         final int width = dimension(
-            resolver.invoke("cubism.editor-model.layered-image.width", layeredImage),
-            "layered image width"
-        );
+                resolver.invoke("cubism.editor-model.layered-image.width", layeredImage), "layered image width");
         final int height = dimension(
-            resolver.invoke("cubism.editor-model.layered-image.height", layeredImage),
-            "layered image height"
-        );
+                resolver.invoke("cubism.editor-model.layered-image.height", layeredImage), "layered image height");
         final ObservationBudget budget = new ObservationBudget();
         final List<LayerNode> layers = readLayers(
-            resolver.invoke("cubism.editor-model.layered-image.children", layeredImage),
-            new IdentityHashMap<>(),
-            budget,
-            0
-        );
+                resolver.invoke("cubism.editor-model.layered-image.children", layeredImage),
+                new IdentityHashMap<>(),
+                budget,
+                0);
         return new Snapshot(name, width, height, layers);
     }
 
@@ -75,257 +63,186 @@ final class EditorRawImagePsdIntegrityAccess {
             return Verification.unavailable("PSD integrity comparison lacks a before or after snapshot");
         }
         final boolean rootNameMatches = before.name().equals(after.name());
-        final boolean dimensionsMatch = before.width() == after.width()
-            && before.height() == after.height();
+        final boolean dimensionsMatch = before.width() == after.width() && before.height() == after.height();
         final boolean layerTreeMatches = sameTree(before.layers(), after.layers());
-        final boolean editorLayerIdsObserved = hasEditorLayerIds(before.layers())
-            && hasEditorLayerIds(after.layers());
+        final boolean editorLayerIdsObserved = hasEditorLayerIds(before.layers()) && hasEditorLayerIds(after.layers());
 
         final Comparison comparison = new Comparison();
         compareLayerFacts(before.layers(), after.layers(), "root", comparison);
 
         final boolean psdLayerIdsVerified = comparison.verified(
-            comparison.psdLayerIdsAny,
-            comparison.psdLayerIdsComplete,
-            comparison.psdLayerIdsMatch
-        );
-        final boolean pixelLayerBoundsVerified = comparison.verified(
-            comparison.boundsAny,
-            comparison.boundsComplete,
-            comparison.boundsMatch
-        );
+                comparison.psdLayerIdsAny, comparison.psdLayerIdsComplete, comparison.psdLayerIdsMatch);
+        final boolean pixelLayerBoundsVerified =
+                comparison.verified(comparison.boundsAny, comparison.boundsComplete, comparison.boundsMatch);
         // Kept for internal result-shape compatibility; runtime pixel observation is not performed.
         final boolean usablePixelsVerified = false;
-        final boolean opacityVerified = comparison.verified(
-            comparison.opacityAny,
-            comparison.opacityComplete,
-            comparison.opacityMatch
-        );
-        final boolean visibleVerified = comparison.verified(
-            comparison.visibleAny,
-            comparison.visibleComplete,
-            comparison.visibleMatch
-        );
-        final boolean blendVerified = comparison.verified(
-            comparison.blendAny,
-            comparison.blendComplete,
-            comparison.blendMatch
-        );
+        final boolean opacityVerified =
+                comparison.verified(comparison.opacityAny, comparison.opacityComplete, comparison.opacityMatch);
+        final boolean visibleVerified =
+                comparison.verified(comparison.visibleAny, comparison.visibleComplete, comparison.visibleMatch);
+        final boolean blendVerified =
+                comparison.verified(comparison.blendAny, comparison.blendComplete, comparison.blendMatch);
         final boolean transparencyShapesVerified = comparison.verified(
-            comparison.transparencyShapesAny,
-            comparison.transparencyShapesComplete,
-            comparison.transparencyShapesMatch
-        );
+                comparison.transparencyShapesAny,
+                comparison.transparencyShapesComplete,
+                comparison.transparencyShapesMatch);
         final boolean clippingObserved = comparison.clippingAny && comparison.clippingComplete;
         final boolean clippingMatches = clippingObserved && comparison.clippingMatch;
         final boolean structuralMatch = rootNameMatches && dimensionsMatch && layerTreeMatches;
         final boolean serializedObservationsMatch = comparison.differences.isEmpty();
         final VerificationStatus status = structuralMatch && serializedObservationsMatch
-            ? VerificationStatus.MATCHED_UNVERIFIED
-            : VerificationStatus.MISMATCH;
+                ? VerificationStatus.MATCHED_UNVERIFIED
+                : VerificationStatus.MISMATCH;
         return new Verification(
-            status,
-            rootNameMatches,
-            dimensionsMatch,
-            layerTreeMatches,
-            editorLayerIdsObserved,
-            comparison.psdLayerIdsAny,
-            comparison.psdLayerIdsMatch,
-            psdLayerIdsVerified,
-            comparison.boundsAny,
-            comparison.boundsMatch,
-            pixelLayerBoundsVerified,
-            false,
-            false,
-            usablePixelsVerified,
-            comparison.opacityAny,
-            comparison.opacityMatch,
-            opacityVerified,
-            comparison.visibleAny,
-            comparison.visibleMatch,
-            visibleVerified,
-            comparison.blendAny,
-            comparison.blendMatch,
-            blendVerified,
-            comparison.transparencyShapesAny,
-            comparison.transparencyShapesMatch,
-            transparencyShapesVerified,
-            clippingObserved,
-            clippingMatches,
-            false,
-            blendVerified,
-            detail(
                 status,
                 rootNameMatches,
                 dimensionsMatch,
                 layerTreeMatches,
+                editorLayerIdsObserved,
+                comparison.psdLayerIdsAny,
+                comparison.psdLayerIdsMatch,
                 psdLayerIdsVerified,
+                comparison.boundsAny,
+                comparison.boundsMatch,
                 pixelLayerBoundsVerified,
+                false,
+                false,
                 usablePixelsVerified,
+                comparison.opacityAny,
+                comparison.opacityMatch,
                 opacityVerified,
+                comparison.visibleAny,
+                comparison.visibleMatch,
                 visibleVerified,
+                comparison.blendAny,
+                comparison.blendMatch,
                 blendVerified,
+                comparison.transparencyShapesAny,
+                comparison.transparencyShapesMatch,
                 transparencyShapesVerified,
                 clippingObserved,
                 clippingMatches,
-                comparison
-            )
-        );
+                false,
+                blendVerified,
+                detail(
+                        status,
+                        rootNameMatches,
+                        dimensionsMatch,
+                        layerTreeMatches,
+                        psdLayerIdsVerified,
+                        pixelLayerBoundsVerified,
+                        usablePixelsVerified,
+                        opacityVerified,
+                        visibleVerified,
+                        blendVerified,
+                        transparencyShapesVerified,
+                        clippingObserved,
+                        clippingMatches,
+                        comparison));
     }
 
     private List<LayerNode> readLayers(
-        final Object rawEntries,
-        final IdentityHashMap<Object, Boolean> visited,
-        final ObservationBudget budget,
-        final int parentDepth
-    ) {
+            final Object rawEntries,
+            final IdentityHashMap<Object, Boolean> visited,
+            final ObservationBudget budget,
+            final int parentDepth) {
         final List<?> entries = list(rawEntries, "layered image children");
         final ArrayList<LayerNode> values = new ArrayList<>();
         for (final Object entry : entries) {
             if (entry == null) throw unavailable("layered image contains a null layer entry");
             final int depth = parentDepth + 1;
             if (depth > MAX_TREE_DEPTH) {
-                throw unavailable(
-                    "layer tree depth " + depth + " exceeds capture limit of " + MAX_TREE_DEPTH
-                );
+                throw unavailable("layer tree depth " + depth + " exceeds capture limit of " + MAX_TREE_DEPTH);
             }
             if (!budget.tryVisitNode()) {
-                throw unavailable(
-                    "layer node budget exceeded at " + MAX_LAYER_NODES + " nodes; capture is unverified"
-                );
+                throw unavailable("layer node budget exceeded at " + MAX_LAYER_NODES + " nodes; capture is unverified");
             }
             if (visited.put(entry, Boolean.TRUE) != null) {
                 throw unavailable("layered image layer tree contains a repeated or cyclic entry");
             }
             requireInstance("cubism.editor-model.layer-entry.class", entry, "layer entry");
             final String editorLayerGuid = editorLayerGuid(entry);
-            final String name = string(
-                resolver.invoke("cubism.editor-model.layer-entry.name", entry),
-                "layer entry name"
-            );
+            final String name =
+                    string(resolver.invoke("cubism.editor-model.layer-entry.name", entry), "layer entry name");
             final LayerAttributes attributes = readAttributes(entry);
             if (resolver.isInstance("cubism.editor-model.layer-group.class", entry)) {
                 values.add(new LayerNode(
-                    LayerKind.GROUP,
-                    editorLayerGuid,
-                    name,
-                    readLayerId(
-                        "cubism.editor-model.layer-group.layer-identifier",
-                        entry,
-                        "group"
-                    ),
-                    attributes,
-                    BoundsObservation.notApplicable(),
-                    readLayers(
-                        resolver.invoke("cubism.editor-model.layer-group.children", entry),
-                        visited,
-                        budget,
-                        depth
-                    )
-                ));
+                        LayerKind.GROUP,
+                        editorLayerGuid,
+                        name,
+                        readLayerId("cubism.editor-model.layer-group.layer-identifier", entry, "group"),
+                        attributes,
+                        BoundsObservation.notApplicable(),
+                        readLayers(
+                                resolver.invoke("cubism.editor-model.layer-group.children", entry),
+                                visited,
+                                budget,
+                                depth)));
             } else {
                 requireInstance("cubism.editor-model.layer.class", entry, "pixel layer");
                 values.add(new LayerNode(
-                    LayerKind.PIXEL,
-                    editorLayerGuid,
-                    name,
-                    readLayerId(
-                        "cubism.editor-model.layer.layer-identifier",
-                        entry,
-                        "pixel layer"
-                    ),
-                    attributes,
-                    readBounds(entry),
-                    List.of()
-                ));
+                        LayerKind.PIXEL,
+                        editorLayerGuid,
+                        name,
+                        readLayerId("cubism.editor-model.layer.layer-identifier", entry, "pixel layer"),
+                        attributes,
+                        readBounds(entry),
+                        List.of()));
             }
         }
         return List.copyOf(values);
     }
 
-    private LayerIdObservation readLayerId(
-        final String identifierAlias,
-        final Object entry,
-        final String label
-    ) {
+    private LayerIdObservation readLayerId(final String identifierAlias, final Object entry, final String label) {
         try {
             final Object identifier = resolver.invoke(identifierAlias, entry);
             if (identifier == null) {
                 return LayerIdObservation.unavailable(
-                    label + " has no verified CLayerIdentifier; editor layer-entry GUID is not a fallback"
-                );
+                        label + " has no verified CLayerIdentifier; editor layer-entry GUID is not a fallback");
             }
-            requireInstance(
-                "cubism.editor-model.layer-identifier.class",
-                identifier,
-                label + " layer identifier"
-            );
-            final Object rawId = resolver.invoke(
-                "cubism.editor-model.layer-identifier.id",
-                identifier
-            );
+            requireInstance("cubism.editor-model.layer-identifier.class", identifier, label + " layer identifier");
+            final Object rawId = resolver.invoke("cubism.editor-model.layer-identifier.id", identifier);
             if (rawId == null) {
                 return new LayerIdObservation(
-                    true,
-                    null,
-                    "CLayerIdentifier.getLayerId() returned null; no editor layer-entry GUID fallback"
-                );
+                        true, null, "CLayerIdentifier.getLayerId() returned null; no editor layer-entry GUID fallback");
             }
             if (!(rawId instanceof String id)) {
-                return LayerIdObservation.unavailable(
-                    label + " CLayerIdentifier.getLayerId() is not a String"
-                );
+                return LayerIdObservation.unavailable(label + " CLayerIdentifier.getLayerId() is not a String");
             }
             return new LayerIdObservation(true, id, "CLayerIdentifier.getLayerId() observed");
         } catch (RuntimeException failure) {
-            return LayerIdObservation.unavailable(
-                label + " PSD layer ID observation failed: " + message(failure)
-            );
+            return LayerIdObservation.unavailable(label + " PSD layer ID observation failed: " + message(failure));
         }
     }
 
     private LayerAttributes readAttributes(final Object entry) {
         try {
-            final int opacity255 = integer(
-                resolver.invoke("cubism.editor-model.layer-entry.opacity", entry),
-                "layer opacity"
-            );
-            final boolean visible = bool(
-                resolver.invoke("cubism.editor-model.layer-entry.visible", entry),
-                "layer visibility"
-            );
+            final int opacity255 =
+                    integer(resolver.invoke("cubism.editor-model.layer-entry.opacity", entry), "layer opacity");
+            final boolean visible =
+                    bool(resolver.invoke("cubism.editor-model.layer-entry.visible", entry), "layer visibility");
             final Object blend = resolver.invoke("cubism.editor-model.layer-entry.blend", entry);
             requireInstance("cubism.editor-model.blend.class", blend, "layer blend");
-            final Object psdBlend = resolver.invoke(
-                "cubism.editor-model.blend.psd-value",
-                blend
-            );
+            final Object psdBlend = resolver.invoke("cubism.editor-model.blend.psd-value", blend);
             requireInstance("cubism.editor-model.psd-blend.class", psdBlend, "PSD blend value");
-            final String serializedBlendKey = string(
-                resolver.invoke("cubism.editor-model.psd-blend.key", psdBlend),
-                "PSD blend key"
-            );
-            final boolean clipping = bool(
-                resolver.invoke("cubism.editor-model.layer-entry.clipping", entry),
-                "layer clipping"
-            );
+            final String serializedBlendKey =
+                    string(resolver.invoke("cubism.editor-model.psd-blend.key", psdBlend), "PSD blend key");
+            final boolean clipping =
+                    bool(resolver.invoke("cubism.editor-model.layer-entry.clipping", entry), "layer clipping");
             final boolean transparencyShapes = bool(
-                resolver.invoke("cubism.editor-model.layer-entry.transparency-shapes", entry),
-                "transparency-shape state"
-            );
+                    resolver.invoke("cubism.editor-model.layer-entry.transparency-shapes", entry),
+                    "transparency-shape state");
             return new LayerAttributes(
-                true,
-                opacity255,
-                visible,
-                serializedBlendKey,
-                clipping,
-                transparencyShapes,
-                "all save-written layer attributes observed"
-            );
+                    true,
+                    opacity255,
+                    visible,
+                    serializedBlendKey,
+                    clipping,
+                    transparencyShapes,
+                    "all save-written layer attributes observed");
         } catch (RuntimeException failure) {
             return LayerAttributes.unavailable(
-                "save-written layer attributes could not be observed: " + message(failure)
-            );
+                    "save-written layer attributes could not be observed: " + message(failure));
         }
     }
 
@@ -337,21 +254,17 @@ final class EditorRawImagePsdIntegrityAccess {
             }
             requireInstance("cubism.editor-model.rect.class", bounds, "pixel layer bounds");
             return new BoundsObservation(
-                true,
-                true,
-                integer(resolver.invoke("cubism.editor-model.rect.x", bounds), "bounds x"),
-                integer(resolver.invoke("cubism.editor-model.rect.y", bounds), "bounds y"),
-                integer(resolver.invoke("cubism.editor-model.rect.width", bounds), "bounds width"),
-                integer(resolver.invoke("cubism.editor-model.rect.height", bounds), "bounds height"),
-                "CRect bounds observed"
-            );
+                    true,
+                    true,
+                    integer(resolver.invoke("cubism.editor-model.rect.x", bounds), "bounds x"),
+                    integer(resolver.invoke("cubism.editor-model.rect.y", bounds), "bounds y"),
+                    integer(resolver.invoke("cubism.editor-model.rect.width", bounds), "bounds width"),
+                    integer(resolver.invoke("cubism.editor-model.rect.height", bounds), "bounds height"),
+                    "CRect bounds observed");
         } catch (RuntimeException failure) {
-            return BoundsObservation.unavailable(
-                "pixel layer bounds could not be observed: " + message(failure)
-            );
+            return BoundsObservation.unavailable("pixel layer bounds could not be observed: " + message(failure));
         }
     }
-
 
     private String editorLayerGuid(final Object entry) {
         try {
@@ -365,11 +278,7 @@ final class EditorRawImagePsdIntegrityAccess {
     }
 
     private void compareLayerFacts(
-        final List<LayerNode> before,
-        final List<LayerNode> after,
-        final String path,
-        final Comparison comparison
-    ) {
+            final List<LayerNode> before, final List<LayerNode> after, final String path, final Comparison comparison) {
         final int commonSize = Math.min(before.size(), after.size());
         for (int index = 0; index < commonSize; index++) {
             final LayerNode left = before.get(index);
@@ -386,11 +295,10 @@ final class EditorRawImagePsdIntegrityAccess {
     }
 
     private static void compareLayerId(
-        final LayerIdObservation left,
-        final LayerIdObservation right,
-        final String path,
-        final Comparison comparison
-    ) {
+            final LayerIdObservation left,
+            final LayerIdObservation right,
+            final String path,
+            final Comparison comparison) {
         comparison.psdLayerIdsAny = true;
         if (!left.observed() || !right.observed()) {
             comparison.psdLayerIdsComplete = false;
@@ -404,11 +312,7 @@ final class EditorRawImagePsdIntegrityAccess {
     }
 
     private static void compareAttributes(
-        final LayerAttributes left,
-        final LayerAttributes right,
-        final String path,
-        final Comparison comparison
-    ) {
+            final LayerAttributes left, final LayerAttributes right, final String path, final Comparison comparison) {
         comparison.opacityAny = true;
         comparison.visibleAny = true;
         comparison.blendAny = true;
@@ -441,16 +345,16 @@ final class EditorRawImagePsdIntegrityAccess {
         }
         if (left.clipping() != right.clipping()) {
             comparison.clippingMatch = false;
-            comparison.note(path + " clipping observation differs; exact save bytecode does not serialize isClipping()");
+            comparison.note(
+                    path + " clipping observation differs; exact save bytecode does not serialize isClipping()");
         }
     }
 
     private static void compareBounds(
-        final BoundsObservation left,
-        final BoundsObservation right,
-        final String path,
-        final Comparison comparison
-    ) {
+            final BoundsObservation left,
+            final BoundsObservation right,
+            final String path,
+            final Comparison comparison) {
         comparison.boundsAny = true;
         if (!left.applicable() || !right.applicable()) {
             comparison.boundsComplete = false;
@@ -463,14 +367,13 @@ final class EditorRawImagePsdIntegrityAccess {
             return;
         }
         if (left.x() != right.x()
-            || left.y() != right.y()
-            || left.width() != right.width()
-            || left.height() != right.height()) {
+                || left.y() != right.y()
+                || left.width() != right.width()
+                || left.height() != right.height()) {
             comparison.boundsMatch = false;
             comparison.difference(path + " pixel bounds");
         }
     }
-
 
     private static boolean sameTree(final List<LayerNode> before, final List<LayerNode> after) {
         if (before.size() != after.size()) return false;
@@ -492,26 +395,26 @@ final class EditorRawImagePsdIntegrityAccess {
     }
 
     private static String detail(
-        final VerificationStatus status,
-        final boolean rootNameMatches,
-        final boolean dimensionsMatch,
-        final boolean layerTreeMatches,
-        final boolean psdLayerIdsVerified,
-        final boolean pixelLayerBoundsVerified,
-        final boolean usablePixelsVerified,
-        final boolean opacityVerified,
-        final boolean visibleVerified,
-        final boolean blendVerified,
-        final boolean transparencyShapesVerified,
-        final boolean clippingObserved,
-        final boolean clippingMatches,
-        final Comparison comparison
-    ) {
+            final VerificationStatus status,
+            final boolean rootNameMatches,
+            final boolean dimensionsMatch,
+            final boolean layerTreeMatches,
+            final boolean psdLayerIdsVerified,
+            final boolean pixelLayerBoundsVerified,
+            final boolean usablePixelsVerified,
+            final boolean opacityVerified,
+            final boolean visibleVerified,
+            final boolean blendVerified,
+            final boolean transparencyShapesVerified,
+            final boolean clippingObserved,
+            final boolean clippingMatches,
+            final Comparison comparison) {
         final ArrayList<String> validated = new ArrayList<>();
         if (rootNameMatches) validated.add("root name");
         if (dimensionsMatch) validated.add("canvas dimensions");
         if (layerTreeMatches) validated.add("ordered layer/group tree and layer names");
-        if (psdLayerIdsVerified) validated.add("PSD layer IDs via CLayerIdentifier.getLayerId (null preserved without GUID fallback)");
+        if (psdLayerIdsVerified)
+            validated.add("PSD layer IDs via CLayerIdentifier.getLayerId (null preserved without GUID fallback)");
         if (pixelLayerBoundsVerified) validated.add("pixel layer bounds");
         if (opacityVerified) validated.add("opacity255");
         if (visibleVerified) validated.add("visibility");
@@ -527,10 +430,9 @@ final class EditorRawImagePsdIntegrityAccess {
         if (!blendVerified) unverified.add("serialized PSD blend value");
         if (!transparencyShapesVerified) unverified.add("transparency-shape state");
         unverified.add(
-            clippingObserved
-                ? "clipping state (observed only; exact save bytecode does not read isClipping())"
-                : "clipping state (not observed; exact save bytecode does not read isClipping())"
-        );
+                clippingObserved
+                        ? "clipping state (observed only; exact save bytecode does not read isClipping())"
+                        : "clipping state (not observed; exact save bytecode does not read isClipping())");
         unverified.add("unexposed special PSD features");
 
         final ArrayList<String> facts = new ArrayList<>();
@@ -547,15 +449,15 @@ final class EditorRawImagePsdIntegrityAccess {
             facts.add("notes: " + String.join(", ", comparison.notes));
         }
         return status == VerificationStatus.MISMATCH
-            ? "export observations differ; " + String.join("; ", facts)
-                + "; Editor layer-entry GUIDs were observed for diagnostics only and were not compared; reparsing allocates fresh GUIDs"
-                + "; validated " + joinOrNone(validated)
-                + "; unverified " + joinOrNone(unverified) + " remain unverified"
-            : "validated " + joinOrNone(validated)
-                + "; Editor layer-entry GUIDs were observed for diagnostics only and were not compared; reparsing allocates fresh GUIDs"
-                + "; clipping matches=" + clippingMatches
-                + "; unverified " + joinOrNone(unverified) + " remain unverified"
-                + (facts.isEmpty() ? "" : "; " + String.join("; ", facts));
+                ? "export observations differ; " + String.join("; ", facts)
+                        + "; Editor layer-entry GUIDs were observed for diagnostics only and were not compared; reparsing allocates fresh GUIDs"
+                        + "; validated " + joinOrNone(validated)
+                        + "; unverified " + joinOrNone(unverified) + " remain unverified"
+                : "validated " + joinOrNone(validated)
+                        + "; Editor layer-entry GUIDs were observed for diagnostics only and were not compared; reparsing allocates fresh GUIDs"
+                        + "; clipping matches=" + clippingMatches
+                        + "; unverified " + joinOrNone(unverified) + " remain unverified"
+                        + (facts.isEmpty() ? "" : "; " + String.join("; ", facts));
     }
 
     private static String joinOrNone(final List<String> values) {
@@ -601,7 +503,6 @@ final class EditorRawImagePsdIntegrityAccess {
         return number;
     }
 
-
     private static String message(final Throwable failure) {
         return failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
     }
@@ -619,6 +520,7 @@ final class EditorRawImagePsdIntegrityAccess {
             return true;
         }
     }
+
     private interface Observation {
         boolean observed();
 
@@ -636,14 +538,13 @@ final class EditorRawImagePsdIntegrityAccess {
     }
 
     record LayerNode(
-        LayerKind kind,
-        String editorLayerGuid,
-        String name,
-        LayerIdObservation psdLayerId,
-        LayerAttributes attributes,
-        BoundsObservation bounds,
-        List<LayerNode> children
-    ) {
+            LayerKind kind,
+            String editorLayerGuid,
+            String name,
+            LayerIdObservation psdLayerId,
+            LayerAttributes attributes,
+            BoundsObservation bounds,
+            List<LayerNode> children) {
         LayerNode {
             kind = Objects.requireNonNull(kind, "kind");
             name = Objects.requireNonNull(name, "name");
@@ -668,14 +569,14 @@ final class EditorRawImagePsdIntegrityAccess {
     }
 
     record LayerAttributes(
-        boolean observed,
-        int opacity255,
-        boolean visible,
-        String serializedBlendKey,
-        boolean clipping,
-        boolean transparencyShapes,
-        String detail
-    ) implements Observation {
+            boolean observed,
+            int opacity255,
+            boolean visible,
+            String serializedBlendKey,
+            boolean clipping,
+            boolean transparencyShapes,
+            String detail)
+            implements Observation {
         LayerAttributes {
             detail = Objects.requireNonNull(detail, "detail");
         }
@@ -685,15 +586,8 @@ final class EditorRawImagePsdIntegrityAccess {
         }
     }
 
-    record BoundsObservation(
-        boolean applicable,
-        boolean observed,
-        int x,
-        int y,
-        int width,
-        int height,
-        String detail
-    ) implements Observation {
+    record BoundsObservation(boolean applicable, boolean observed, int x, int y, int width, int height, String detail)
+            implements Observation {
         BoundsObservation {
             detail = Objects.requireNonNull(detail, "detail");
             if (width < 0 || height < 0) throw new IllegalArgumentException("bounds dimensions must be non-negative");
@@ -708,7 +602,6 @@ final class EditorRawImagePsdIntegrityAccess {
         }
     }
 
-
     enum LayerKind {
         PIXEL,
         GROUP
@@ -721,38 +614,37 @@ final class EditorRawImagePsdIntegrityAccess {
     }
 
     record Verification(
-        VerificationStatus status,
-        boolean rootNameMatches,
-        boolean dimensionsMatch,
-        boolean layerTreeMatches,
-        boolean editorLayerIdsObserved,
-        boolean psdLayerIdsObserved,
-        boolean psdLayerIdsMatch,
-        boolean psdLayerIdsVerified,
-        boolean pixelLayerBoundsObserved,
-        boolean pixelLayerBoundsMatch,
-        boolean pixelLayerBoundsVerified,
-        boolean usablePixelsObserved,
-        boolean usablePixelsMatch,
-        boolean usablePixelsVerified,
-        boolean opacityObserved,
-        boolean opacityMatch,
-        boolean opacityVerified,
-        boolean visibleObserved,
-        boolean visibleMatch,
-        boolean visibleVerified,
-        boolean blendObserved,
-        boolean blendMatch,
-        boolean blendVerified,
-        boolean transparencyShapesObserved,
-        boolean transparencyShapesMatch,
-        boolean transparencyShapesVerified,
-        boolean clippingObserved,
-        boolean clippingMatch,
-        boolean clippingVerified,
-        boolean specialBlendVerified,
-        String detail
-    ) {
+            VerificationStatus status,
+            boolean rootNameMatches,
+            boolean dimensionsMatch,
+            boolean layerTreeMatches,
+            boolean editorLayerIdsObserved,
+            boolean psdLayerIdsObserved,
+            boolean psdLayerIdsMatch,
+            boolean psdLayerIdsVerified,
+            boolean pixelLayerBoundsObserved,
+            boolean pixelLayerBoundsMatch,
+            boolean pixelLayerBoundsVerified,
+            boolean usablePixelsObserved,
+            boolean usablePixelsMatch,
+            boolean usablePixelsVerified,
+            boolean opacityObserved,
+            boolean opacityMatch,
+            boolean opacityVerified,
+            boolean visibleObserved,
+            boolean visibleMatch,
+            boolean visibleVerified,
+            boolean blendObserved,
+            boolean blendMatch,
+            boolean blendVerified,
+            boolean transparencyShapesObserved,
+            boolean transparencyShapesMatch,
+            boolean transparencyShapesVerified,
+            boolean clippingObserved,
+            boolean clippingMatch,
+            boolean clippingVerified,
+            boolean specialBlendVerified,
+            String detail) {
         Verification {
             status = Objects.requireNonNull(status, "status");
             detail = Objects.requireNonNull(detail, "detail");
@@ -760,38 +652,37 @@ final class EditorRawImagePsdIntegrityAccess {
 
         static Verification unavailable(final String detail) {
             return new Verification(
-                VerificationStatus.UNAVAILABLE,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                detail
-            );
+                    VerificationStatus.UNAVAILABLE,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    detail);
         }
     }
 

@@ -1,28 +1,26 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
 import dev.turboism.sdk.cubism.model.AtlasTexture;
 import dev.turboism.sdk.cubism.model.ModelImageEntry;
-
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.RawTexture;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Editor texture-library projection: CTextureManager reads and
@@ -36,9 +34,7 @@ class EditorTextureAccessTest {
     void readsTextureLibraryProjection(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final ModelTextures textures = access(version, true).textures(
-            "session-a", fixture.source, fixture.model
-        );
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
 
         final List<RawTexture> rawImages = textures.rawImages();
         assertEquals(1, rawImages.size());
@@ -73,9 +69,7 @@ class EditorTextureAccessTest {
     void addsModelImageGroupInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final ModelTextures textures = access(version, true).textures(
-            "session-a", fixture.source, fixture.model
-        );
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
 
         textures.addModelImageGroup("New Group");
         assertEquals(2, fixture.manager.modelImageGroups.size());
@@ -98,9 +92,7 @@ class EditorTextureAccessTest {
     void addsTextureAtlasInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final ModelTextures textures = access(version, true).textures(
-            "session-a", fixture.source, fixture.model
-        );
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
 
         final TextureAtlasId id = textures.addTextureAtlas("Atlas B", 512, 256);
         assertEquals("atlas-new", id.value());
@@ -121,9 +113,7 @@ class EditorTextureAccessTest {
     void removesModelImageInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final ModelTextures textures = access(version, true).textures(
-            "session-a", fixture.source, fixture.model
-        );
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
 
         textures.removeModelImage(new ModelImageId("image-1"));
         assertTrue(fixture.manager.allModelImages.isEmpty());
@@ -140,9 +130,7 @@ class EditorTextureAccessTest {
     void removesTextureAtlasInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final ModelTextures textures = access(version, true).textures(
-            "session-a", fixture.source, fixture.model
-        );
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
 
         textures.removeTextureAtlas(new TextureAtlasId("atlas-1"));
         assertTrue(fixture.manager.textureAtlases.isEmpty());
@@ -156,16 +144,11 @@ class EditorTextureAccessTest {
     void absentTextureIdsFailClosed(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final ModelTextures textures = access(version, true).textures(
-            "session-a", fixture.source, fixture.model
-        );
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
 
-        assertThrows(NoSuchElementException.class,
-            () -> textures.removeModelImage(new ModelImageId("missing")));
-        assertThrows(NoSuchElementException.class,
-            () -> textures.removeTextureAtlas(new TextureAtlasId("missing")));
-        assertThrows(NoSuchElementException.class,
-            () -> textures.removeRawImage(new RawImageId("missing")));
+        assertThrows(NoSuchElementException.class, () -> textures.removeModelImage(new ModelImageId("missing")));
+        assertThrows(NoSuchElementException.class, () -> textures.removeTextureAtlas(new TextureAtlasId("missing")));
+        assertThrows(NoSuchElementException.class, () -> textures.removeRawImage(new RawImageId("missing")));
     }
 
     @ParameterizedTest
@@ -174,8 +157,8 @@ class EditorTextureAccessTest {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final EditorTextureAccess access = access(version, false);
-        assertThrows(UnsupportedOperationException.class,
-            () -> access.textures("session-a", fixture.source, fixture.model));
+        assertThrows(
+                UnsupportedOperationException.class, () -> access.textures("session-a", fixture.source, fixture.model));
     }
 
     @ParameterizedTest
@@ -183,19 +166,13 @@ class EditorTextureAccessTest {
     void textureWritesFailClosedWithoutWriteCapability(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final ModelTextures textures = readOnly(version).textures(
-            "session-a", fixture.source, fixture.model
-        );
-        assertThrows(UnsupportedOperationException.class,
-            () -> textures.addModelImageGroup("Blocked"));
-        assertThrows(UnsupportedOperationException.class,
-            () -> textures.addTextureAtlas("Blocked", 64, 64));
-        assertThrows(UnsupportedOperationException.class,
-            () -> textures.removeModelImage(new ModelImageId("image-1")));
-        assertThrows(UnsupportedOperationException.class,
-            () -> textures.removeTextureAtlas(new TextureAtlasId("atlas-1")));
-        assertThrows(UnsupportedOperationException.class,
-            () -> textures.removeRawImage(new RawImageId("raw-1")));
+        final ModelTextures textures = readOnly(version).textures("session-a", fixture.source, fixture.model);
+        assertThrows(UnsupportedOperationException.class, () -> textures.addModelImageGroup("Blocked"));
+        assertThrows(UnsupportedOperationException.class, () -> textures.addTextureAtlas("Blocked", 64, 64));
+        assertThrows(UnsupportedOperationException.class, () -> textures.removeModelImage(new ModelImageId("image-1")));
+        assertThrows(
+                UnsupportedOperationException.class, () -> textures.removeTextureAtlas(new TextureAtlasId("atlas-1")));
+        assertThrows(UnsupportedOperationException.class, () -> textures.removeRawImage(new RawImageId("raw-1")));
     }
 
     @ParameterizedTest
@@ -204,9 +181,7 @@ class EditorTextureAccessTest {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         fixture.editMode.rejectUndo = true;
-        final ModelTextures textures = access(version, true).textures(
-            "session-a", fixture.source, fixture.model
-        );
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
 
         assertThrows(IllegalStateException.class, () -> textures.addModelImageGroup("Rejected"));
         assertEquals(1, fixture.manager.modelImageGroups.size(), "no partial state survives");
@@ -218,13 +193,17 @@ class EditorTextureAccessTest {
     void removeRawImageFailsClosedWithoutThe52NativeUndoSelectors(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final ModelTextures textures = new EditorTextureAccess(resolver(version, true,
-            java.util.Set.of(EditorTextureSelectorContract.READ_CAPABILITY_ID,
-                EditorTextureSelectorContract.WRITE_CAPABILITY_ID), false), (identity, model) -> { }).textures(
-            "session-a", fixture.source, fixture.model
-        );
-        assertThrows(UnsupportedOperationException.class,
-            () -> textures.removeRawImage(new RawImageId("raw-1")));
+        final ModelTextures textures = new EditorTextureAccess(
+                        resolver(
+                                version,
+                                true,
+                                java.util.Set.of(
+                                        EditorTextureSelectorContract.READ_CAPABILITY_ID,
+                                        EditorTextureSelectorContract.WRITE_CAPABILITY_ID),
+                                false),
+                        (identity, model) -> {})
+                .textures("session-a", fixture.source, fixture.model);
+        assertThrows(UnsupportedOperationException.class, () -> textures.removeRawImage(new RawImageId("raw-1")));
     }
 
     @ParameterizedTest
@@ -232,9 +211,7 @@ class EditorTextureAccessTest {
     void removeRawImageUsesUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final ModelTextures textures = access(version, true).textures(
-            "session-a", fixture.source, fixture.model
-        );
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
 
         textures.removeRawImage(new RawImageId("raw-1"));
         assertTrue(fixture.manager.rawImages.isEmpty());
@@ -300,7 +277,7 @@ class EditorTextureAccessTest {
     }
 
     private static EditorTextureAccess access(final String version, final boolean includeCapability) {
-        return new EditorTextureAccess(resolver(version, includeCapability), (identity, model) -> { });
+        return new EditorTextureAccess(resolver(version, includeCapability), (identity, model) -> {});
     }
 
     @ParameterizedTest
@@ -308,11 +285,16 @@ class EditorTextureAccessTest {
     void compatibleHostUsesItsMatchedTextureUndoRoute(final String sourceVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final VerifiedMemberResolver resolver = resolver(sourceVersion, true,
-            java.util.Set.of(EditorTextureSelectorContract.READ_CAPABILITY_ID,
-                EditorTextureSelectorContract.WRITE_CAPABILITY_ID), true, "5.3.99");
-        final ModelTextures textures = new EditorTextureAccess(resolver, (identity, model) -> { })
-            .textures("compatible-session", fixture.source, fixture.model);
+        final VerifiedMemberResolver resolver = resolver(
+                sourceVersion,
+                true,
+                java.util.Set.of(
+                        EditorTextureSelectorContract.READ_CAPABILITY_ID,
+                        EditorTextureSelectorContract.WRITE_CAPABILITY_ID),
+                true,
+                "5.3.99");
+        final ModelTextures textures = new EditorTextureAccess(resolver, (identity, model) -> {})
+                .textures("compatible-session", fixture.source, fixture.model);
 
         assertEquals("5.3.99", resolver.cubismVersion());
         assertEquals(sourceVersion, resolver.admittedCubismVersion());
@@ -325,20 +307,29 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "cubism.editor-model.edit-mode.begin", "cubism.editor-model.edit-mode.end",
-        "cubism.editor-model.undo.add", "cubism.editor-model.texture-undo.undo",
-        "cubism.editor-model.model-source.update-instances",
-        "cubism.editor-model.app-controller.current-document"
-    })
+    @ValueSource(
+            strings = {
+                "cubism.editor-model.edit-mode.begin",
+                "cubism.editor-model.edit-mode.end",
+                "cubism.editor-model.undo.add",
+                "cubism.editor-model.texture-undo.undo",
+                "cubism.editor-model.model-source.update-instances",
+                "cubism.editor-model.app-controller.current-document"
+            })
     void compatibleWriteRequiresEveryTransactionDependency(final String omittedAlias) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final VerifiedMemberResolver resolver = resolver("5.3.02", true,
-            java.util.Set.of(EditorTextureSelectorContract.READ_CAPABILITY_ID,
-                EditorTextureSelectorContract.WRITE_CAPABILITY_ID), true, "5.3.99", omittedAlias);
-        final ModelTextures textures = new EditorTextureAccess(resolver, (identity, model) -> { })
-            .textures("compatible-session", fixture.source, fixture.model);
+        final VerifiedMemberResolver resolver = resolver(
+                "5.3.02",
+                true,
+                java.util.Set.of(
+                        EditorTextureSelectorContract.READ_CAPABILITY_ID,
+                        EditorTextureSelectorContract.WRITE_CAPABILITY_ID),
+                true,
+                "5.3.99",
+                omittedAlias);
+        final ModelTextures textures = new EditorTextureAccess(resolver, (identity, model) -> {})
+                .textures("compatible-session", fixture.source, fixture.model);
 
         assertThrows(UnsupportedOperationException.class, () -> textures.addModelImageGroup("blocked"));
         assertEquals(1, fixture.manager.modelImageGroups.size());
@@ -347,159 +338,264 @@ class EditorTextureAccessTest {
 
     private static EditorTextureAccess readOnly(final String version) {
         return new EditorTextureAccess(
-            resolver(version, true, java.util.Set.of(
-                EditorTextureSelectorContract.READ_CAPABILITY_ID
-            )),
-            (identity, model) -> { }
-        );
+                resolver(version, true, java.util.Set.of(EditorTextureSelectorContract.READ_CAPABILITY_ID)),
+                (identity, model) -> {});
     }
 
-    private static VerifiedMemberResolver resolver(
-        final String version,
-        final boolean includeCapability
-    ) {
+    private static VerifiedMemberResolver resolver(final String version, final boolean includeCapability) {
         final java.util.Set<String> capabilities = includeCapability
-            ? java.util.Set.of(
-                EditorTextureSelectorContract.READ_CAPABILITY_ID,
-                EditorTextureSelectorContract.WRITE_CAPABILITY_ID)
-            : java.util.Set.of("cubism.editor-model.read");
+                ? java.util.Set.of(
+                        EditorTextureSelectorContract.READ_CAPABILITY_ID,
+                        EditorTextureSelectorContract.WRITE_CAPABILITY_ID)
+                : java.util.Set.of("cubism.editor-model.read");
         return resolver(version, includeCapability, capabilities);
     }
 
     private static VerifiedMemberResolver resolver(
-        final String version,
-        final boolean includeCapability,
-        final java.util.Set<String> capabilities
-    ) {
+            final String version, final boolean includeCapability, final java.util.Set<String> capabilities) {
         return resolver(version, includeCapability, capabilities, true);
     }
 
     private static VerifiedMemberResolver resolver(
-        final String version,
-        final boolean includeCapability,
-        final java.util.Set<String> capabilities,
-        final boolean include52Removal
-    ) {
+            final String version,
+            final boolean includeCapability,
+            final java.util.Set<String> capabilities,
+            final boolean include52Removal) {
         return resolver(version, includeCapability, capabilities, include52Removal, version);
     }
 
     private static VerifiedMemberResolver resolver(
-        final String version,
-        final boolean includeCapability,
-        final java.util.Set<String> capabilities,
-        final boolean include52Removal,
-        final String declaredVersion
-    ) {
+            final String version,
+            final boolean includeCapability,
+            final java.util.Set<String> capabilities,
+            final boolean include52Removal,
+            final String declaredVersion) {
         return resolver(version, includeCapability, capabilities, include52Removal, declaredVersion, "");
     }
 
     private static VerifiedMemberResolver resolver(
-        final String version,
-        final boolean includeCapability,
-        final java.util.Set<String> capabilities,
-        final boolean include52Removal,
-        final String declaredVersion,
-        final String omittedAlias
-    ) {
+            final String version,
+            final boolean includeCapability,
+            final java.util.Set<String> capabilities,
+            final boolean include52Removal,
+            final String declaredVersion,
+            final String omittedAlias) {
         final List<StaticSelector> values = new ArrayList<>();
         values.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
-        values.add(StaticSelector.staticMethod("cubism.editor-model.app-controller.instance", internal(Host.class), "instance",
-            "()L" + internal(Host.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        values.add(method("cubism.editor-model.app-controller.current-document", Host.class, "currentDocument", desc(Document.class)));
-        values.add(method("cubism.editor-model.app-controller.complete-pack", Host.class, "completePack", desc(CompletePack.class)));
-        values.add(StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
-        values.add(method("cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
+        values.add(StaticSelector.staticMethod(
+                "cubism.editor-model.app-controller.instance",
+                internal(Host.class),
+                "instance",
+                "()L" + internal(Host.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        values.add(method(
+                "cubism.editor-model.app-controller.current-document",
+                Host.class,
+                "currentDocument",
+                desc(Document.class)));
+        values.add(method(
+                "cubism.editor-model.app-controller.complete-pack",
+                Host.class,
+                "completePack",
+                desc(CompletePack.class)));
+        values.add(
+                StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
+        values.add(method(
+                "cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
         values.add(method("cubism.editor-model.modeling-document.mark-dirty", Document.class, "markDirty", "()V"));
-        values.add(method("cubism.editor-model.edit-mode.begin", EditMode.class, "begin", "(Ljava/lang/String;)" + type(GroupUndo.class)));
+        values.add(method(
+                "cubism.editor-model.edit-mode.begin",
+                EditMode.class,
+                "begin",
+                "(Ljava/lang/String;)" + type(GroupUndo.class)));
         values.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "end", "(ZLjava/lang/Object;)V"));
         values.add(method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(" + type(Undo.class) + "Z)Z"));
-        values.add(method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
+        values.add(method(
+                "cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
         values.add(method("cubism.editor-model.texture-undo.undo", Undo.class, "undo", "()V"));
         values.add(StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
-        values.add(method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
-        values.add(method("cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updateParts", "(Z)V"));
+        values.add(method(
+                "cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
+        values.add(method(
+                "cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updateParts", "(Z)V"));
         values.add(method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"));
-        values.add(method("cubism.editor-model.model-source.texture-manager", ModelSource.class, "textureManager", desc(TextureManager.class)));
-        values.add(method("cubism.editor-model.texture-manager.raw-images", TextureManager.class, "rawImages", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.texture-manager.model-image-groups", TextureManager.class, "modelImageGroups", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.texture-manager.all-model-images", TextureManager.class, "allModelImages", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.texture-manager.texture-atlases", TextureManager.class, "textureAtlases", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.texture-manager.handler", TextureManager.class, "handler", desc(HostTextureManagerHandler.class)));
-        values.add(method("cubism.editor-model.layered-image-wrapper.image", HostLayeredImageWrapper.class, "image", desc(HostLayeredImage.class)));
-        values.add(StaticSelector.classSelector("cubism.editor-model.layered-image.class", internal(HostLayeredImage.class)));
+        values.add(method(
+                "cubism.editor-model.model-source.texture-manager",
+                ModelSource.class,
+                "textureManager",
+                desc(TextureManager.class)));
+        values.add(method(
+                "cubism.editor-model.texture-manager.raw-images",
+                TextureManager.class,
+                "rawImages",
+                "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.texture-manager.model-image-groups",
+                TextureManager.class,
+                "modelImageGroups",
+                "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.texture-manager.all-model-images",
+                TextureManager.class,
+                "allModelImages",
+                "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.texture-manager.texture-atlases",
+                TextureManager.class,
+                "textureAtlases",
+                "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.texture-manager.handler",
+                TextureManager.class,
+                "handler",
+                desc(HostTextureManagerHandler.class)));
+        values.add(method(
+                "cubism.editor-model.layered-image-wrapper.image",
+                HostLayeredImageWrapper.class,
+                "image",
+                desc(HostLayeredImage.class)));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.layered-image.class", internal(HostLayeredImage.class)));
         values.add(method("cubism.editor-model.layered-image.guid", HostLayeredImage.class, "guid", desc(Id.class)));
-        values.add(method("cubism.editor-model.layered-image.name", HostLayeredImage.class, "name", "()Ljava/lang/String;"));
+        values.add(method(
+                "cubism.editor-model.layered-image.name", HostLayeredImage.class, "name", "()Ljava/lang/String;"));
         values.add(method("cubism.editor-model.layered-image.width", HostLayeredImage.class, "width", "()I"));
         values.add(method("cubism.editor-model.layered-image.height", HostLayeredImage.class, "height", "()I"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.model-image-group.class", internal(HostModelImageGroup.class)));
-        values.add(method("cubism.editor-model.model-image-group.group-name", HostModelImageGroup.class, "groupName", "()Ljava/lang/String;"));
-        values.add(method("cubism.editor-model.model-image-group.memo", HostModelImageGroup.class, "memo", "()Ljava/lang/String;"));
-        values.add(method("cubism.editor-model.model-image-group.model-images", HostModelImageGroup.class, "modelImages", "()Ljava/util/List;"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.model-image.class", internal(HostModelImage.class)));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.model-image-group.class", internal(HostModelImageGroup.class)));
+        values.add(method(
+                "cubism.editor-model.model-image-group.group-name",
+                HostModelImageGroup.class,
+                "groupName",
+                "()Ljava/lang/String;"));
+        values.add(method(
+                "cubism.editor-model.model-image-group.memo",
+                HostModelImageGroup.class,
+                "memo",
+                "()Ljava/lang/String;"));
+        values.add(method(
+                "cubism.editor-model.model-image-group.model-images",
+                HostModelImageGroup.class,
+                "modelImages",
+                "()Ljava/util/List;"));
+        values.add(
+                StaticSelector.classSelector("cubism.editor-model.model-image.class", internal(HostModelImage.class)));
         values.add(method("cubism.editor-model.model-image.guid", HostModelImage.class, "guid", desc(Id.class)));
-        values.add(method("cubism.editor-model.model-image.name", HostModelImage.class, "name", "()Ljava/lang/String;"));
+        values.add(
+                method("cubism.editor-model.model-image.name", HostModelImage.class, "name", "()Ljava/lang/String;"));
         values.add(method("cubism.editor-model.model-image.width", HostModelImage.class, "width", "()I"));
         values.add(method("cubism.editor-model.model-image.height", HostModelImage.class, "height", "()I"));
-        values.add(StaticSelector.classSelector("cubism.editor-model.texture-atlas.class", internal(HostTextureAtlas.class)));
+        values.add(StaticSelector.classSelector(
+                "cubism.editor-model.texture-atlas.class", internal(HostTextureAtlas.class)));
         values.add(method("cubism.editor-model.texture-atlas.guid", HostTextureAtlas.class, "guid", desc(Id.class)));
-        values.add(method("cubism.editor-model.texture-atlas.name", HostTextureAtlas.class, "name", "()Ljava/lang/String;"));
+        values.add(method(
+                "cubism.editor-model.texture-atlas.name", HostTextureAtlas.class, "name", "()Ljava/lang/String;"));
         values.add(method("cubism.editor-model.texture-atlas.width", HostTextureAtlas.class, "width", "()I"));
         values.add(method("cubism.editor-model.texture-atlas.height", HostTextureAtlas.class, "height", "()I"));
-        values.add(method("cubism.editor-model.texture-atlas.atlas-version", HostTextureAtlas.class, "atlasVersion", "()I"));
-        values.add(method("cubism.editor-model.texture-atlas.model-images", HostTextureAtlas.class, "modelImages", "()Ljava/util/List;"));
+        values.add(method(
+                "cubism.editor-model.texture-atlas.atlas-version", HostTextureAtlas.class, "atlasVersion", "()I"));
+        values.add(method(
+                "cubism.editor-model.texture-atlas.model-images",
+                HostTextureAtlas.class,
+                "modelImages",
+                "()Ljava/util/List;"));
         values.add(method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"));
-        values.add(StaticSelector.constructor("cubism.editor-model.model-image-group.create", internal(HostModelImageGroup.class),
-            "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC));
-        values.add(StaticSelector.constructor("cubism.editor-model.texture-atlas.create", internal(HostTextureAtlas.class),
-            "(L" + internal(ModelSource.class) + ";Ljava/lang/String;II)V", StaticSelector.ACCESS_PUBLIC));
-        values.add(method("cubism.editor-model.texture-handler.add-model-image-group", HostTextureManagerHandler.class, "addGroup",
-            "(" + type(HostModelImageGroup.class) + "I)" + type(Undo.class)));
-        values.add(method("cubism.editor-model.texture-handler.remove-model-image", HostTextureManagerHandler.class, "removeImage",
-            "(" + type(Id.class) + ")" + type(Undo.class)));
-        values.add(method("cubism.editor-model.texture-handler.add-texture-atlas", HostTextureManagerHandler.class, "addAtlas",
-            "(" + type(HostTextureAtlas.class) + "I)" + type(Undo.class)));
-        values.add(method("cubism.editor-model.texture-handler.remove-texture-atlas", HostTextureManagerHandler.class, "removeAtlas",
-            "(" + type(HostTextureAtlas.class) + ")" + type(Undo.class)));
+        values.add(StaticSelector.constructor(
+                "cubism.editor-model.model-image-group.create",
+                internal(HostModelImageGroup.class),
+                "(Ljava/lang/String;)V",
+                StaticSelector.ACCESS_PUBLIC));
+        values.add(StaticSelector.constructor(
+                "cubism.editor-model.texture-atlas.create",
+                internal(HostTextureAtlas.class),
+                "(L" + internal(ModelSource.class) + ";Ljava/lang/String;II)V",
+                StaticSelector.ACCESS_PUBLIC));
+        values.add(method(
+                "cubism.editor-model.texture-handler.add-model-image-group",
+                HostTextureManagerHandler.class,
+                "addGroup",
+                "(" + type(HostModelImageGroup.class) + "I)" + type(Undo.class)));
+        values.add(method(
+                "cubism.editor-model.texture-handler.remove-model-image",
+                HostTextureManagerHandler.class,
+                "removeImage",
+                "(" + type(Id.class) + ")" + type(Undo.class)));
+        values.add(method(
+                "cubism.editor-model.texture-handler.add-texture-atlas",
+                HostTextureManagerHandler.class,
+                "addAtlas",
+                "(" + type(HostTextureAtlas.class) + "I)" + type(Undo.class)));
+        values.add(method(
+                "cubism.editor-model.texture-handler.remove-texture-atlas",
+                HostTextureManagerHandler.class,
+                "removeAtlas",
+                "(" + type(HostTextureAtlas.class) + ")" + type(Undo.class)));
         if (!version.equals("5.2.03")) {
-            values.add(method("cubism.editor-model.texture-handler.remove-raw-image", HostTextureManagerHandler.class, "removeRawImage",
-                "(" + type(Id.class) + "Z)" + type(Undo.class)));
+            values.add(method(
+                    "cubism.editor-model.texture-handler.remove-raw-image",
+                    HostTextureManagerHandler.class,
+                    "removeRawImage",
+                    "(" + type(Id.class) + "Z)" + type(Undo.class)));
         }
         if (version.equals("5.2.03") && include52Removal) {
-            values.add(method("cubism.editor-model.model-image.input-filter-env", HostModelImage.class,
-                "inputFilterEnv", desc(HostFilterEnv.class)));
-            values.add(method("cubism.editor-model.model-image-filter-env.layer-input-data", HostFilterEnv.class,
-                "layerInputData", desc(HostLayerSelectorMap.class)));
-            values.add(method("cubism.editor-model.layer-selector-map.get", HostLayerSelectorMap.class,
-                "get", "(" + type(Id.class) + ")Ljava/util/List;"));
-            values.add(StaticSelector.constructor("cubism.editor-model.texture-undo.layer-input.create",
-                internal(PreparedLayerInputUndo.class), "(" + type(HostLayerSelectorMap.class)
-                    + type(Id.class) + "Ljava/util/List;Z)V", StaticSelector.ACCESS_PUBLIC));
-            values.add(StaticSelector.constructor("cubism.editor-model.texture-undo.raw-image.create",
-                internal(PreparedRawImageUndo.class), "(" + type(ModelSource.class)
-                    + type(HostLayeredImage.class) + "IZ)V", StaticSelector.ACCESS_PUBLIC));
-            values.add(method("cubism.editor-model.texture-undo.force-redo", Undo.class, "forceRedo", desc(Undo.class)));
+            values.add(method(
+                    "cubism.editor-model.model-image.input-filter-env",
+                    HostModelImage.class,
+                    "inputFilterEnv",
+                    desc(HostFilterEnv.class)));
+            values.add(method(
+                    "cubism.editor-model.model-image-filter-env.layer-input-data",
+                    HostFilterEnv.class,
+                    "layerInputData",
+                    desc(HostLayerSelectorMap.class)));
+            values.add(method(
+                    "cubism.editor-model.layer-selector-map.get",
+                    HostLayerSelectorMap.class,
+                    "get",
+                    "(" + type(Id.class) + ")Ljava/util/List;"));
+            values.add(StaticSelector.constructor(
+                    "cubism.editor-model.texture-undo.layer-input.create",
+                    internal(PreparedLayerInputUndo.class),
+                    "(" + type(HostLayerSelectorMap.class) + type(Id.class) + "Ljava/util/List;Z)V",
+                    StaticSelector.ACCESS_PUBLIC));
+            values.add(StaticSelector.constructor(
+                    "cubism.editor-model.texture-undo.raw-image.create",
+                    internal(PreparedRawImageUndo.class),
+                    "(" + type(ModelSource.class) + type(HostLayeredImage.class) + "IZ)V",
+                    StaticSelector.ACCESS_PUBLIC));
+            values.add(
+                    method("cubism.editor-model.texture-undo.force-redo", Undo.class, "forceRedo", desc(Undo.class)));
         }
         values.removeIf(selector -> selector.alias().equals(omittedAlias));
         if (!version.equals(declaredVersion)) {
             return TestVerifiedResolvers.createCompatible(
-                version, declaredVersion, "adapter.editor-model.readwrite", capabilities, values,
-                Host.class.getClassLoader()
-            );
+                    version,
+                    declaredVersion,
+                    "adapter.editor-model.readwrite",
+                    capabilities,
+                    values,
+                    Host.class.getClassLoader());
         }
         return TestVerifiedResolvers.create(
-            version, "adapter.editor-model.readwrite", capabilities, values, Host.class.getClassLoader()
-        );
+                version, "adapter.editor-model.readwrite", capabilities, values, Host.class.getClassLoader());
     }
 
     private static StaticSelector method(
-        final String alias, final Class<?> owner, final String name, final String descriptor
-    ) {
+            final String alias, final Class<?> owner, final String name, final String descriptor) {
         return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
-    private static String internal(final Class<?> type) { return type.getName().replace('.', '/'); }
-    private static String type(final Class<?> type) { return "L" + internal(type) + ";"; }
-    private static String desc(final Class<?> type) { return "()" + type(type); }
+    private static String internal(final Class<?> type) {
+        return type.getName().replace('.', '/');
+    }
+
+    private static String type(final Class<?> type) {
+        return "L" + internal(type) + ";";
+    }
+
+    private static String desc(final Class<?> type) {
+        return "()" + type(type);
+    }
 
     private static final class Fixture {
         final Document document = new Document();
@@ -513,9 +609,18 @@ class EditorTextureAccessTest {
     public static final class Host {
         private static final Host INSTANCE = new Host();
         static Document document;
-        public static Host instance() { return INSTANCE; }
-        public Document currentDocument() { return document; }
-        public CompletePack completePack() { return document.pack; }
+
+        public static Host instance() {
+            return INSTANCE;
+        }
+
+        public Document currentDocument() {
+            return document;
+        }
+
+        public CompletePack completePack() {
+            return document.pack;
+        }
     }
 
     public static final class Document {
@@ -523,27 +628,49 @@ class EditorTextureAccessTest {
         final EditMode editMode = new EditMode();
         final CompletePack pack = new CompletePack();
         boolean dirty;
-        public ModelSource modelSource() { return source; }
-        public EditMode editMode() { return editMode; }
-        public void markDirty() { dirty = true; }
+
+        public ModelSource modelSource() {
+            return source;
+        }
+
+        public EditMode editMode() {
+            return editMode;
+        }
+
+        public void markDirty() {
+            dirty = true;
+        }
     }
 
     public static final class CompletePack {
         boolean repainted;
-        public void updateParts(final boolean value) { }
-        public void repaint(final boolean value) { repainted = true; }
+
+        public void updateParts(final boolean value) {}
+
+        public void repaint(final boolean value) {
+            repainted = true;
+        }
     }
 
     public static final class ModelSource {
         final TextureManager manager = new TextureManager();
         final Model model = new Model();
         boolean instancesUpdated;
-        public TextureManager textureManager() { return manager; }
-        public Model currentInstance() { return model; }
-        public void updateInstances() { instancesUpdated = true; }
+
+        public TextureManager textureManager() {
+            return manager;
+        }
+
+        public Model currentInstance() {
+            return model;
+        }
+
+        public void updateInstances() {
+            instancesUpdated = true;
+        }
     }
 
-    public static final class Model { }
+    public static final class Model {}
 
     public static final class TextureManager {
         final List<HostLayeredImageWrapper> rawImages = new ArrayList<>();
@@ -559,20 +686,41 @@ class EditorTextureAccessTest {
             allModelImages.add(image);
             modelImageGroups.add(new HostModelImageGroup("Group A", "memo A", new ArrayList<>(List.of(image))));
             rawImages.add(new HostLayeredImageWrapper(new HostLayeredImage("raw-1", "Raw A", 1024, 512)));
-            textureAtlases.add(new HostTextureAtlas("atlas-1", "Atlas A", 2048, 1024, 3, new ArrayList<>(List.of(image))));
+            textureAtlases.add(
+                    new HostTextureAtlas("atlas-1", "Atlas A", 2048, 1024, 3, new ArrayList<>(List.of(image))));
         }
 
-        public List<HostLayeredImageWrapper> rawImages() { return rawImages; }
-        public List<HostModelImageGroup> modelImageGroups() { return modelImageGroups; }
-        public List<HostModelImage> allModelImages() { return allModelImages; }
-        public List<HostTextureAtlas> textureAtlases() { return textureAtlases; }
-        public HostTextureManagerHandler handler() { return handler; }
+        public List<HostLayeredImageWrapper> rawImages() {
+            return rawImages;
+        }
+
+        public List<HostModelImageGroup> modelImageGroups() {
+            return modelImageGroups;
+        }
+
+        public List<HostModelImage> allModelImages() {
+            return allModelImages;
+        }
+
+        public List<HostTextureAtlas> textureAtlases() {
+            return textureAtlases;
+        }
+
+        public HostTextureManagerHandler handler() {
+            return handler;
+        }
     }
 
     public static final class HostLayeredImageWrapper {
         final HostLayeredImage image;
-        HostLayeredImageWrapper(final HostLayeredImage image) { this.image = image; }
-        public HostLayeredImage image() { return image; }
+
+        HostLayeredImageWrapper(final HostLayeredImage image) {
+            this.image = image;
+        }
+
+        public HostLayeredImage image() {
+            return image;
+        }
     }
 
     public static final class HostLayeredImage {
@@ -580,87 +728,148 @@ class EditorTextureAccessTest {
         final String name;
         final int width;
         final int height;
+
         HostLayeredImage(final String guid, final String name, final int width, final int height) {
             this.guid = new Id(guid);
             this.name = name;
             this.width = width;
             this.height = height;
         }
-        public Id guid() { return guid; }
-        public String name() { return name; }
-        public int width() { return width; }
-        public int height() { return height; }
+
+        public Id guid() {
+            return guid;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public int width() {
+            return width;
+        }
+
+        public int height() {
+            return height;
+        }
     }
 
     public static final class HostModelImageGroup {
         final String groupName;
         final String memo;
         final List<HostModelImage> modelImages;
+
         public HostModelImageGroup(final String groupName) {
             this.groupName = groupName;
             this.memo = "";
             this.modelImages = new ArrayList<>();
         }
+
         public HostModelImageGroup(final String groupName, final String memo, final List<HostModelImage> modelImages) {
             this.groupName = groupName;
             this.memo = memo;
             this.modelImages = modelImages;
         }
-        public String groupName() { return groupName; }
-        public String memo() { return memo; }
-        public List<HostModelImage> modelImages() { return modelImages; }
+
+        public String groupName() {
+            return groupName;
+        }
+
+        public String memo() {
+            return memo;
+        }
+
+        public List<HostModelImage> modelImages() {
+            return modelImages;
+        }
     }
 
     public static final class HostModelImage {
         final HostFilterEnv filterEnv = new HostFilterEnv();
-        public HostFilterEnv inputFilterEnv() { return filterEnv; }
+
+        public HostFilterEnv inputFilterEnv() {
+            return filterEnv;
+        }
+
         final Id guid;
         final String name;
         final int width;
         final int height;
+
         HostModelImage(final String guid, final String name, final int width, final int height) {
             this.guid = new Id(guid);
             this.name = name;
             this.width = width;
             this.height = height;
         }
-        public Id guid() { return guid; }
-        public String name() { return name; }
-        public int width() { return width; }
-        public int height() { return height; }
+
+        public Id guid() {
+            return guid;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public int width() {
+            return width;
+        }
+
+        public int height() {
+            return height;
+        }
     }
 
     public static final class HostFilterEnv {
         HostLayerSelectorMap inputs = new HostLayerSelectorMap();
-        public HostLayerSelectorMap layerInputData() { return inputs; }
+
+        public HostLayerSelectorMap layerInputData() {
+            return inputs;
+        }
     }
 
     public static final class HostLayerSelectorMap {
         final java.util.Map<String, List<String>> entries = new java.util.LinkedHashMap<>();
-        public List<String> get(final Id id) { return entries.get(id.value()); }
+
+        public List<String> get(final Id id) {
+            return entries.get(id.value());
+        }
     }
 
     public static final class PreparedLayerInputUndo extends Undo {
-        public PreparedLayerInputUndo(final HostLayerSelectorMap inputs, final Id id,
-                                      final List<?> ignored, final boolean add) {
+        public PreparedLayerInputUndo(
+                final HostLayerSelectorMap inputs, final Id id, final List<?> ignored, final boolean add) {
             this(inputs, id.value(), inputs.entries.get(id.value()));
             if (add) throw new IllegalArgumentException("expected removal");
         }
-        private PreparedLayerInputUndo(final HostLayerSelectorMap inputs, final String id, final List<String> previous) {
+
+        private PreparedLayerInputUndo(
+                final HostLayerSelectorMap inputs, final String id, final List<String> previous) {
             super(() -> inputs.entries.remove(id), () -> inputs.entries.put(id, previous));
         }
     }
 
     public static final class PreparedRawImageUndo extends Undo {
-        public PreparedRawImageUndo(final ModelSource source, final HostLayeredImage image,
-                                    final int ignoredIndex, final boolean add) {
-            this(source.manager, source.manager.rawImages.stream()
-                .filter(wrapper -> wrapper.image == image).findFirst().orElseThrow());
+        public PreparedRawImageUndo(
+                final ModelSource source, final HostLayeredImage image, final int ignoredIndex, final boolean add) {
+            this(
+                    source.manager,
+                    source.manager.rawImages.stream()
+                            .filter(wrapper -> wrapper.image == image)
+                            .findFirst()
+                            .orElseThrow());
             if (add) throw new IllegalArgumentException("expected removal");
         }
+
         private PreparedRawImageUndo(final TextureManager manager, final HostLayeredImageWrapper wrapper) {
-            super(() -> { manager.rawImages.remove(wrapper); manager.rawImageRemoved = true; },
-                () -> { manager.rawImages.add(wrapper); manager.rawImageRestored = true; });
+            super(
+                    () -> {
+                        manager.rawImages.remove(wrapper);
+                        manager.rawImageRemoved = true;
+                    },
+                    () -> {
+                        manager.rawImages.add(wrapper);
+                        manager.rawImageRestored = true;
+                    });
         }
     }
 
@@ -671,6 +880,7 @@ class EditorTextureAccessTest {
         final int height;
         final int atlasVersion;
         final List<?> modelImages;
+
         public HostTextureAtlas(final ModelSource source, final String name, final int width, final int height) {
             this.guid = new Id("atlas-new");
             this.name = name;
@@ -679,8 +889,14 @@ class EditorTextureAccessTest {
             this.atlasVersion = 0;
             this.modelImages = List.of();
         }
-        HostTextureAtlas(final String guid, final String name, final int width, final int height,
-                     final int atlasVersion, final List<?> modelImages) {
+
+        HostTextureAtlas(
+                final String guid,
+                final String name,
+                final int width,
+                final int height,
+                final int atlasVersion,
+                final List<?> modelImages) {
             this.guid = new Id(guid);
             this.name = name;
             this.width = width;
@@ -688,18 +904,42 @@ class EditorTextureAccessTest {
             this.atlasVersion = atlasVersion;
             this.modelImages = modelImages;
         }
-        public Id guid() { return guid; }
-        public String name() { return name; }
-        public int width() { return width; }
-        public int height() { return height; }
-        public int atlasVersion() { return atlasVersion; }
-        public List<?> modelImages() { return modelImages; }
+
+        public Id guid() {
+            return guid;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public int width() {
+            return width;
+        }
+
+        public int height() {
+            return height;
+        }
+
+        public int atlasVersion() {
+            return atlasVersion;
+        }
+
+        public List<?> modelImages() {
+            return modelImages;
+        }
     }
 
     public static final class Id {
         final String value;
-        public Id(final String value) { this.value = value; }
-        public String value() { return value; }
+
+        public Id(final String value) {
+            this.value = value;
+        }
+
+        public String value() {
+            return value;
+        }
     }
 
     public static final class EditMode {
@@ -708,11 +948,13 @@ class EditorTextureAccessTest {
         boolean rejectUndo;
         boolean finished;
         GroupUndo current;
+
         public GroupUndo begin(final String label) {
             labels.add(label);
             current = new GroupUndo(rejectUndo);
             return current;
         }
+
         public void end(final boolean rollback, final Object callback) {
             if (rollback && current != null) {
                 current.discard();
@@ -722,9 +964,11 @@ class EditorTextureAccessTest {
             current = null;
             finished = true;
         }
+
         public void undo() {
             for (int i = edits.size() - 1; i >= 0; i--) edits.get(i).undo();
         }
+
         public void redo() {
             for (GroupUndo edit : edits) edit.redo();
         }
@@ -734,8 +978,16 @@ class EditorTextureAccessTest {
         final List<Undo> entries = new ArrayList<>();
         final boolean reject;
         boolean discarded;
-        GroupUndo() { this(false); }
-        GroupUndo(final boolean reject) { super(() -> { }, () -> { }); this.reject = reject; }
+
+        GroupUndo() {
+            this(false);
+        }
+
+        GroupUndo(final boolean reject) {
+            super(() -> {}, () -> {});
+            this.reject = reject;
+        }
+
         public boolean add(final Undo undo, final boolean force) {
             if (undo == this) throw new IllegalArgumentException("a group cannot contain itself");
             if (discarded || reject) return false;
@@ -743,23 +995,49 @@ class EditorTextureAccessTest {
             entries.add(undo);
             return true;
         }
-        void discard() { undo(); discarded = true; }
-        @Override public void undo() { for (int i = entries.size() - 1; i >= 0; i--) entries.get(i).undo(); }
-        @Override public void redo() { for (Undo entry : entries) entry.redo(); }
+
+        void discard() {
+            undo();
+            discarded = true;
+        }
+
+        @Override
+        public void undo() {
+            for (int i = entries.size() - 1; i >= 0; i--) entries.get(i).undo();
+        }
+
+        @Override
+        public void redo() {
+            for (Undo entry : entries) entry.redo();
+        }
     }
 
     /** Native factories explicitly forceRedo before returning; registration never replays it. */
     public static class Undo {
         final Runnable apply;
         final Runnable revert;
+
         Undo(final Runnable apply, final Runnable revert) {
             this.apply = apply;
             this.revert = revert;
         }
-        public boolean addListener(final Listener listener) { return true; }
-        public Undo forceRedo() { redo(); return this; }
-        public void redo() { apply.run(); }
-        public void undo() { revert.run(); }
+
+        public boolean addListener(final Listener listener) {
+            return true;
+        }
+
+        public Undo forceRedo() {
+            redo();
+            return this;
+        }
+
+        public void redo() {
+            apply.run();
+        }
+
+        public void undo() {
+            revert.run();
+        }
     }
 
     @FunctionalInterface
@@ -769,59 +1047,62 @@ class EditorTextureAccessTest {
 
     public static final class HostTextureManagerHandler {
         final TextureManager manager;
-        HostTextureManagerHandler(final TextureManager manager) { this.manager = manager; }
+
+        HostTextureManagerHandler(final TextureManager manager) {
+            this.manager = manager;
+        }
 
         public Undo addGroup(final HostModelImageGroup group, final int index) {
             return new Undo(
-                () -> manager.modelImageGroups.add(index, group),
-                () -> manager.modelImageGroups.remove(group)
-            ).forceRedo();
+                            () -> manager.modelImageGroups.add(index, group),
+                            () -> manager.modelImageGroups.remove(group))
+                    .forceRedo();
         }
 
         public Undo removeImage(final Id guid) {
             final HostModelImage target = manager.allModelImages.stream()
-                .filter(image -> image.guid.value.equals(guid.value)).findFirst().orElseThrow();
+                    .filter(image -> image.guid.value.equals(guid.value))
+                    .findFirst()
+                    .orElseThrow();
             return new Undo(
-                () -> {
-                    manager.allModelImages.remove(target);
-                    manager.modelImageGroups.forEach(group -> group.modelImages.remove(target));
-                },
-                () -> {
-                    manager.allModelImages.add(target);
-                    manager.modelImageGroups.forEach(group -> {
-                        if (!group.modelImages.contains(target)) group.modelImages.add(target);
-                    });
-                }
-            ).forceRedo();
+                            () -> {
+                                manager.allModelImages.remove(target);
+                                manager.modelImageGroups.forEach(group -> group.modelImages.remove(target));
+                            },
+                            () -> {
+                                manager.allModelImages.add(target);
+                                manager.modelImageGroups.forEach(group -> {
+                                    if (!group.modelImages.contains(target)) group.modelImages.add(target);
+                                });
+                            })
+                    .forceRedo();
         }
 
         public Undo addAtlas(final HostTextureAtlas atlas, final int index) {
-            return new Undo(
-                () -> manager.textureAtlases.add(index, atlas),
-                () -> manager.textureAtlases.remove(atlas)
-            ).forceRedo();
+            return new Undo(() -> manager.textureAtlases.add(index, atlas), () -> manager.textureAtlases.remove(atlas))
+                    .forceRedo();
         }
 
         public Undo removeAtlas(final HostTextureAtlas atlas) {
-            return new Undo(
-                () -> manager.textureAtlases.remove(atlas),
-                () -> manager.textureAtlases.add(atlas)
-            ).forceRedo();
+            return new Undo(() -> manager.textureAtlases.remove(atlas), () -> manager.textureAtlases.add(atlas))
+                    .forceRedo();
         }
 
         public Undo removeRawImage(final Id guid, final boolean flag) {
             final HostLayeredImageWrapper wrapper = manager.rawImages.stream()
-                .filter(value -> value.image.guid.value.equals(guid.value)).findFirst().orElseThrow();
+                    .filter(value -> value.image.guid.value.equals(guid.value))
+                    .findFirst()
+                    .orElseThrow();
             return new Undo(
-                () -> {
-                    manager.rawImages.remove(wrapper);
-                    manager.rawImageRemoved = true;
-                },
-                () -> {
-                    manager.rawImages.add(wrapper);
-                    manager.rawImageRestored = true;
-                }
-            ).forceRedo();
+                            () -> {
+                                manager.rawImages.remove(wrapper);
+                                manager.rawImageRemoved = true;
+                            },
+                            () -> {
+                                manager.rawImages.add(wrapper);
+                                manager.rawImageRestored = true;
+                            })
+                    .forceRedo();
         }
     }
 }

@@ -92,8 +92,7 @@ interface HookContributor {
      * @throws Exception when binding fails closed; the install handle is still
      *     closed by the agent
      */
-    default void bind(HookEnvironment environment) throws Exception {
-    }
+    default void bind(HookEnvironment environment) throws Exception {}
 
     /**
      * @return {@code true} when the returned handle also closes on the

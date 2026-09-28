@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-
 /** Host-neutral identity of a native mesh-edit subtool. */
 public enum MeshEditTool {
     ARROW,

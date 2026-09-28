@@ -1,14 +1,13 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import org.junit.jupiter.api.Test;
-import org.objectweb.asm.Type;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.objectweb.asm.Type;
 
 /** Pins sanitized selector and argument-slot shapes consumed by lifecycle transformers. */
 final class LifecycleTransformerShapeContractTest {
@@ -16,8 +15,8 @@ final class LifecycleTransformerShapeContractTest {
     @Test
     void exact5303ProjectProfileCarriesOnlyThePublicSanitizedBindingShapes() {
         final ProjectLifecycleHostProfile profile = ProjectLifecycleHostProfile.forArtifact(
-            ReviewedHostArtifacts.CUBISM_5_3_03
-        ).orElseThrow();
+                        ReviewedHostArtifacts.CUBISM_5_3_03)
+                .orElseThrow();
 
         assertEquals("5.3.03", profile.hostVersion());
         assertEquals(7, profile.bindings().size());
@@ -33,16 +32,13 @@ final class LifecycleTransformerShapeContractTest {
 
     @Test
     void exact5303StaticContractCarriesParameterLifecycleAliasForTheAdmittedRuntime() {
-        assertTrue(dev.turboism.mapping.verification.EditorModelVerificationManifest
-            .cubism5303StaticAliases()
-            .contains("cubism.editor-model.parameter-operation.set-value"));
+        assertTrue(dev.turboism.mapping.verification.EditorModelVerificationManifest.cubism5303StaticAliases()
+                .contains("cubism.editor-model.parameter-operation.set-value"));
         assertEquals(List.of(1, 2), argumentSlots("(Ljava/lang/Object;F)V"));
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 
-    private static List<Integer> argumentSlots(
-        final ProjectLifecycleNativeMethodTransformer.Binding binding
-    ) {
+    private static List<Integer> argumentSlots(final ProjectLifecycleNativeMethodTransformer.Binding binding) {
         return argumentSlots(binding.descriptor());
     }
 

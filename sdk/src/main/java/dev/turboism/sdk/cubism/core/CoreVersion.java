@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-
 /** Normalized semantic Cubism Core version. */
 public record CoreVersion(int major, int minor, int patch) {
 

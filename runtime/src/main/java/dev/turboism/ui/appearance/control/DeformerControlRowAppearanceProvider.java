@@ -32,9 +32,8 @@ public final class DeformerControlRowAppearanceProvider implements AutoCloseable
         Objects.requireNonNull(id, "id");
         final Component target = Objects.requireNonNull(component, "component");
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) return target;
-        styles.apply(target, coordinator.resolveCurrent(
-            hostGeneration, PaletteAppearanceCoordinator.Palette.DEFORMER, id
-        ));
+        styles.apply(
+                target, coordinator.resolveCurrent(hostGeneration, PaletteAppearanceCoordinator.Palette.DEFORMER, id));
         return target;
     }
 
@@ -46,7 +45,10 @@ public final class DeformerControlRowAppearanceProvider implements AutoCloseable
 
     @Override
     public void close() {
-        try { changeSubscription.close(); } catch (Exception ignored) { }
+        try {
+            changeSubscription.close();
+        } catch (Exception ignored) {
+        }
         restore();
     }
 }

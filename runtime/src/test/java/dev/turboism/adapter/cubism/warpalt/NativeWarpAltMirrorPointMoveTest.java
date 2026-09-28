@@ -1,14 +1,12 @@
 package dev.turboism.adapter.cubism.warpalt;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Behaviour contract of the converged point-write mirror ({@code mirrorPointMove})
@@ -147,8 +145,7 @@ final class NativeWarpAltMirrorPointMoveTest {
         final StubPointRef counterpart = moved.sibling(5, 0);
         final var registration = participate();
 
-        NativeWarpAltMirrorBridge.mirrorPointMove(
-            moved, new StubVector(5.0e-4f, 5.0e-4f), 1.0f);
+        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(5.0e-4f, 5.0e-4f), 1.0f);
 
         // Sub-epsilon jitter leaves both the dragged point and its counterpart
         // untouched (the stub's old positions are 0.0/5.0 for (r5,c0)).
@@ -159,8 +156,7 @@ final class NativeWarpAltMirrorPointMoveTest {
 
     @Test
     void participationRegistryTracksRegistrations() {
-        final RuntimeWarpAltMirrorParticipation participation =
-            NativeWarpAltMirrorBridge.moveParticipation();
+        final RuntimeWarpAltMirrorParticipation participation = NativeWarpAltMirrorBridge.moveParticipation();
         assertFalse(participation.hasParticipants());
         final var first = participation.participate();
         final var second = participation.participate();
@@ -185,9 +181,13 @@ final class NativeWarpAltMirrorPointMoveTest {
             this.y = y;
         }
 
-        public float getX() { return x; }
+        public float getX() {
+            return x;
+        }
 
-        public float getY() { return y; }
+        public float getY() {
+            return y;
+        }
     }
 
     /** Minimal doc-level point reference over a 6x6 grid (5x5 divisions). */
@@ -226,10 +226,16 @@ final class NativeWarpAltMirrorPointMoveTest {
             return ref(row, column);
         }
 
-        public int a() { return index; }
+        public int a() {
+            return index;
+        }
 
-        public int h() { return step; }
+        public int h() {
+            return step;
+        }
 
-        public float[] g() { return positions; }
+        public float[] g() {
+            return positions;
+        }
     }
 }

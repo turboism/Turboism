@@ -1,20 +1,21 @@
 package dev.turboism.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.WorkBudget;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -29,11 +30,9 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class RuntimePluginConfigRegistryTest {
 
@@ -54,10 +53,8 @@ class RuntimePluginConfigRegistryTest {
         RuntimePluginConfigRegistry registry = registry(dataDir, denied(), new RecordingPolicy());
 
         // When / Then
-        CubismPermissionException exception = assertThrows(
-            CubismPermissionException.class,
-            () -> registry.readScope("probe/config.properties")
-        );
+        CubismPermissionException exception =
+                assertThrows(CubismPermissionException.class, () -> registry.readScope("probe/config.properties"));
         assertEquals("config.readScope denied", exception.getMessage());
     }
 
@@ -67,17 +64,16 @@ class RuntimePluginConfigRegistryTest {
         RuntimePluginConfigRegistry registry = registry(dataDir, denied(), new RecordingPolicy());
 
         // When / Then
-        CubismPermissionException exception = assertThrows(
-            CubismPermissionException.class,
-            () -> registry.writeScope("probe/config.properties")
-        );
+        CubismPermissionException exception =
+                assertThrows(CubismPermissionException.class, () -> registry.writeScope("probe/config.properties"));
         assertEquals("config.writeScope denied", exception.getMessage());
     }
 
     @Test
     void sandboxPathWithParentSegmentIsRejected(@TempDir Path dataDir) {
         // Given
-        RuntimePluginConfigRegistry registry = registry(dataDir, (permissionId, operation) -> { }, new RecordingPolicy());
+        RuntimePluginConfigRegistry registry =
+                registry(dataDir, (permissionId, operation) -> {}, new RecordingPolicy());
 
         // When / Then
         assertThrows(IllegalArgumentException.class, () -> registry.readScope("../outside.properties"));
@@ -93,18 +89,14 @@ class RuntimePluginConfigRegistryTest {
             } catch (UnsupportedOperationException | java.nio.file.FileSystemException unavailable) {
                 org.junit.jupiter.api.Assumptions.abort("symbolic links are unavailable");
             }
-            final RuntimePluginConfigRegistry registry = registry(
-                dataDir,
-                (permissionId, operation) -> { },
-                new RecordingPolicy()
-            );
+            final RuntimePluginConfigRegistry registry =
+                    registry(dataDir, (permissionId, operation) -> {}, new RecordingPolicy());
             final Registration read = registry.readScope("linked/config.properties");
             final Registration write = registry.writeScope("linked/config.properties");
 
             assertThrows(
-                PluginConfigException.class,
-                () -> registry.writeString("linked/config.properties", "name", "Turboism")
-            );
+                    PluginConfigException.class,
+                    () -> registry.writeString("linked/config.properties", "name", "Turboism"));
             assertTrue(registry.readString("linked/config.properties", "name").isEmpty());
             assertFalse(Files.exists(outside.resolve("config.properties")));
             write.close();
@@ -119,32 +111,25 @@ class RuntimePluginConfigRegistryTest {
     @Test
     void readStringBeforeRegisteringScopeThrows(@TempDir Path dataDir) {
         // Given
-        RuntimePluginConfigRegistry registry = registry(dataDir, (permissionId, operation) -> { }, new RecordingPolicy());
+        RuntimePluginConfigRegistry registry =
+                registry(dataDir, (permissionId, operation) -> {}, new RecordingPolicy());
 
         // When / Then
         assertThrows(IllegalStateException.class, () -> registry.readString("probe/config.properties", "name"));
     }
 
     @Test
-    void readAndWriteSucceedWhenSchedulerRejectsAllWork(@TempDir Path dataDir)
-        throws PluginConfigException {
+    void readAndWriteSucceedWhenSchedulerRejectsAllWork(@TempDir Path dataDir) throws PluginConfigException {
         final List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics =
-            new CopyOnWriteArrayList<>();
-        final RuntimePluginConfigRegistry registry = registry(
-            dataDir,
-            (permissionId, operation) -> { },
-            task -> WorkBudget.REJECTED,
-            diagnostics
-        );
+                new CopyOnWriteArrayList<>();
+        final RuntimePluginConfigRegistry registry =
+                registry(dataDir, (permissionId, operation) -> {}, task -> WorkBudget.REJECTED, diagnostics);
         final Registration read = registry.readScope("probe/config.properties");
         final Registration write = registry.writeScope("probe/config.properties");
 
         registry.writeString("probe/config.properties", "name", "Turboism");
 
-        assertEquals(
-            Optional.of("Turboism"),
-            registry.readString("probe/config.properties", "name")
-        );
+        assertEquals(Optional.of("Turboism"), registry.readString("probe/config.properties", "name"));
         assertTrue(diagnostics.isEmpty());
         write.close();
         read.close();
@@ -152,22 +137,14 @@ class RuntimePluginConfigRegistryTest {
     }
 
     @Test
-    void legacyConfigDoesNotDispatchThroughTheRuntimeScheduler(@TempDir Path dataDir)
-        throws PluginConfigException {
+    void legacyConfigDoesNotDispatchThroughTheRuntimeScheduler(@TempDir Path dataDir) throws PluginConfigException {
         final RecordingPolicy policy = new RecordingPolicy();
-        final RuntimePluginConfigRegistry registry = registry(
-            dataDir,
-            (permissionId, operation) -> { },
-            policy
-        );
+        final RuntimePluginConfigRegistry registry = registry(dataDir, (permissionId, operation) -> {}, policy);
         final Registration read = registry.readScope("probe/config.properties");
         final Registration write = registry.writeScope("probe/config.properties");
 
         registry.writeString("probe/config.properties", "name", "Turboism");
-        assertEquals(
-            Optional.of("Turboism"),
-            registry.readString("probe/config.properties", "name")
-        );
+        assertEquals(Optional.of("Turboism"), registry.readString("probe/config.properties", "name"));
 
         assertEquals(1L, policy.dispatched.getCount());
         assertEquals(null, policy.task.get());
@@ -177,19 +154,16 @@ class RuntimePluginConfigRegistryTest {
     }
 
     @Test
-    void diagnosticsUseFixedRedactedLocationAndMessageWithoutScopeOrExceptionText(
-        @TempDir Path dataDir
-    ) {
+    void diagnosticsUseFixedRedactedLocationAndMessageWithoutScopeOrExceptionText(@TempDir Path dataDir) {
         final List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics =
-            new CopyOnWriteArrayList<>();
+                new CopyOnWriteArrayList<>();
         final RuntimePluginConfigRegistry registry = registry(
-            dataDir,
-            (permissionId, operation) -> { },
-            new RecordingPolicy(),
-            diagnostics,
-            new RuntimeFailureCollector(),
-            new RejectingExecutor()
-        );
+                dataDir,
+                (permissionId, operation) -> {},
+                new RecordingPolicy(),
+                diagnostics,
+                new RuntimeFailureCollector(),
+                new RejectingExecutor());
         final String secretScope = "SECRET/legacy.properties";
         final Registration readScope = registry.readScope(secretScope);
 
@@ -208,24 +182,19 @@ class RuntimePluginConfigRegistryTest {
     }
 
     @Test
-    void legacyConfigFailuresAreCollectedOnceWithoutExposingScopePaths(
-        @TempDir Path dataDir
-    ) throws Exception {
+    void legacyConfigFailuresAreCollectedOnceWithoutExposingScopePaths(@TempDir Path dataDir) throws Exception {
         final RuntimeFailureCollector failures = new RuntimeFailureCollector();
         final RuntimePluginConfigRegistry registry = registry(
-            dataDir,
-            (permissionId, operation) -> { },
-            new RecordingPolicy(),
-            new CopyOnWriteArrayList<>(),
-            failures,
-            new RejectingExecutor()
-        );
+                dataDir,
+                (permissionId, operation) -> {},
+                new RecordingPolicy(),
+                new CopyOnWriteArrayList<>(),
+                failures,
+                new RejectingExecutor());
         final Registration scope = registry.readScope("private/C:/Users/secret.properties");
 
-        assertTrue(registry.readString(
-            "private/C:/Users/secret.properties",
-            "private-value"
-        ).isEmpty());
+        assertTrue(registry.readString("private/C:/Users/secret.properties", "private-value")
+                .isEmpty());
 
         final var collected = failures.snapshot().configFailures();
         assertEquals(1, collected.size());
@@ -239,34 +208,24 @@ class RuntimePluginConfigRegistryTest {
 
     @Test
     void legacyConfigCompletesInsideSinglePluginWorker(@TempDir Path dataDir) throws Exception {
-        final RuntimePluginConfigRegistry registry = registry(
-            dataDir,
-            (permissionId, operation) -> { },
-            task -> WorkBudget.LIGHTWEIGHT
-        );
+        final RuntimePluginConfigRegistry registry =
+                registry(dataDir, (permissionId, operation) -> {}, task -> WorkBudget.LIGHTWEIGHT);
         final Registration read = registry.readScope("probe/config.properties");
         final Registration write = registry.writeScope("probe/config.properties");
         final CountDownLatch completed = new CountDownLatch(1);
         final AtomicReference<Throwable> failure = new AtomicReference<>();
 
-        scheduler.dispatch(new PluginTask(
-            "action.handle",
-            "dev.turboism.plugin.config-test",
-            "config round trip",
-            "none"
-        ), () -> {
-            try {
-                registry.writeString("probe/config.properties", "name", "Turboism");
-                assertEquals(
-                    Optional.of("Turboism"),
-                    registry.readString("probe/config.properties", "name")
-                );
-            } catch (Throwable throwable) {
-                failure.set(throwable);
-            } finally {
-                completed.countDown();
-            }
-        });
+        scheduler.dispatch(
+                new PluginTask("action.handle", "dev.turboism.plugin.config-test", "config round trip", "none"), () -> {
+                    try {
+                        registry.writeString("probe/config.properties", "name", "Turboism");
+                        assertEquals(Optional.of("Turboism"), registry.readString("probe/config.properties", "name"));
+                    } catch (Throwable throwable) {
+                        failure.set(throwable);
+                    } finally {
+                        completed.countDown();
+                    }
+                });
 
         assertTrue(completed.await(2, TimeUnit.SECONDS));
         assertEquals(null, failure.get());
@@ -279,13 +238,12 @@ class RuntimePluginConfigRegistryTest {
     void interruptedWriteCannotPublishAfterRegistryClose(@TempDir Path dataDir) throws Exception {
         final InterruptibleWriteExecutor io = new InterruptibleWriteExecutor();
         final RuntimePluginConfigRegistry registry = registry(
-            dataDir,
-            (permissionId, operation) -> { },
-            new RecordingPolicy(),
-            new CopyOnWriteArrayList<>(),
-            new RuntimeFailureCollector(),
-            io
-        );
+                dataDir,
+                (permissionId, operation) -> {},
+                new RecordingPolicy(),
+                new CopyOnWriteArrayList<>(),
+                new RuntimeFailureCollector(),
+                io);
         final Registration scope = registry.writeScope("probe/config.properties");
         final AtomicReference<Throwable> writeFailure = new AtomicReference<>();
         final Thread writer = new Thread(() -> {
@@ -312,11 +270,8 @@ class RuntimePluginConfigRegistryTest {
     void closeWinsAgainstWriteAtThePublicationBoundary(@TempDir Path dataDir) throws Exception {
         final CountDownLatch publicationReached = new CountDownLatch(1);
         final CountDownLatch publicationRelease = new CountDownLatch(1);
-        final RuntimePluginConfigRegistry registry = registryWithPublicationBarrier(
-            dataDir,
-            publicationReached,
-            publicationRelease
-        );
+        final RuntimePluginConfigRegistry registry =
+                registryWithPublicationBarrier(dataDir, publicationReached, publicationRelease);
         final Registration scope = registry.writeScope("probe/config.properties");
         final AtomicReference<Throwable> writeFailure = new AtomicReference<>();
         final Thread writer = new Thread(() -> {
@@ -346,160 +301,120 @@ class RuntimePluginConfigRegistryTest {
 
     @Test
     void writeAfterCloseIsRejectedWithoutCreatingAFile(@TempDir Path dataDir) {
-        final RuntimePluginConfigRegistry registry = registry(
-            dataDir,
-            (permissionId, operation) -> { },
-            new RecordingPolicy()
-        );
+        final RuntimePluginConfigRegistry registry =
+                registry(dataDir, (permissionId, operation) -> {}, new RecordingPolicy());
         final Registration scope = registry.writeScope("probe/config.properties");
         registry.close();
 
         assertThrows(
-            IllegalStateException.class,
-            () -> registry.writeString("probe/config.properties", "name", "Turboism")
-        );
+                IllegalStateException.class, () -> registry.writeString("probe/config.properties", "name", "Turboism"));
         assertFalse(Files.exists(dataDir.resolve("probe/config.properties")));
         scope.close();
     }
 
     @Test
     void scopesCannotBeOpenedAfterRegistryClose(@TempDir Path dataDir) {
-        final RuntimePluginConfigRegistry registry = registry(
-            dataDir,
-            (permissionId, operation) -> { },
-            new RecordingPolicy()
-        );
+        final RuntimePluginConfigRegistry registry =
+                registry(dataDir, (permissionId, operation) -> {}, new RecordingPolicy());
         registry.close();
 
-        assertThrows(
-            IllegalStateException.class,
-            () -> registry.readScope("probe/config.properties")
-        );
-        assertThrows(
-            IllegalStateException.class,
-            () -> registry.writeScope("probe/config.properties")
-        );
+        assertThrows(IllegalStateException.class, () -> registry.readScope("probe/config.properties"));
+        assertThrows(IllegalStateException.class, () -> registry.writeScope("probe/config.properties"));
     }
 
     private RuntimePluginConfigRegistry registry(
-        Path dataDir,
-        dev.turboism.permissions.PermissionChecker permissionChecker,
-        RecordingPolicy policy
-    ) {
+            Path dataDir, dev.turboism.permissions.PermissionChecker permissionChecker, RecordingPolicy policy) {
         return registry(dataDir, permissionChecker, policy, new CopyOnWriteArrayList<>());
     }
 
     private RuntimePluginConfigRegistry registry(
-        Path dataDir,
-        dev.turboism.permissions.PermissionChecker permissionChecker,
-        WorkBudgetPolicy policy
-    ) {
+            Path dataDir, dev.turboism.permissions.PermissionChecker permissionChecker, WorkBudgetPolicy policy) {
         return registry(dataDir, permissionChecker, policy, new CopyOnWriteArrayList<>());
     }
 
     private RuntimePluginConfigRegistry registry(
-        Path dataDir,
-        dev.turboism.permissions.PermissionChecker permissionChecker,
-        WorkBudgetPolicy policy,
-        List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics
-    ) {
-        return registry(
-            dataDir,
-            permissionChecker,
-            policy,
-            diagnostics,
-            new RuntimeFailureCollector()
-        );
+            Path dataDir,
+            dev.turboism.permissions.PermissionChecker permissionChecker,
+            WorkBudgetPolicy policy,
+            List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics) {
+        return registry(dataDir, permissionChecker, policy, diagnostics, new RuntimeFailureCollector());
     }
 
     private RuntimePluginConfigRegistry registry(
-        Path dataDir,
-        dev.turboism.permissions.PermissionChecker permissionChecker,
-        WorkBudgetPolicy policy,
-        List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics,
-        RuntimeFailureCollector failures
-    ) {
+            Path dataDir,
+            dev.turboism.permissions.PermissionChecker permissionChecker,
+            WorkBudgetPolicy policy,
+            List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics,
+            RuntimeFailureCollector failures) {
         return registry(dataDir, permissionChecker, policy, diagnostics, failures, null);
     }
 
     private RuntimePluginConfigRegistry registry(
-        Path dataDir,
-        dev.turboism.permissions.PermissionChecker permissionChecker,
-        WorkBudgetPolicy policy,
-        List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics,
-        RuntimeFailureCollector failures,
-        java.util.concurrent.ExecutorService io
-    ) {
+            Path dataDir,
+            dev.turboism.permissions.PermissionChecker permissionChecker,
+            WorkBudgetPolicy policy,
+            List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics,
+            RuntimeFailureCollector failures,
+            java.util.concurrent.ExecutorService io) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            policy,
-            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-            availableSidecar(),
-            events::add
-        );
+                policy, new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), availableSidecar(), events::add);
         return io == null
-            ? new RuntimePluginConfigRegistry(
-                permissionChecker,
-                scheduler,
-                dataDir,
-                "dev.turboism.plugin.config-test",
-                diagnostics::add,
-                failures
-            )
-            : new RuntimePluginConfigRegistry(
-                permissionChecker,
-                scheduler,
-                dataDir,
-                "dev.turboism.plugin.config-test",
-                diagnostics::add,
-                failures,
-                io
-            );
+                ? new RuntimePluginConfigRegistry(
+                        permissionChecker,
+                        scheduler,
+                        dataDir,
+                        "dev.turboism.plugin.config-test",
+                        diagnostics::add,
+                        failures)
+                : new RuntimePluginConfigRegistry(
+                        permissionChecker,
+                        scheduler,
+                        dataDir,
+                        "dev.turboism.plugin.config-test",
+                        diagnostics::add,
+                        failures,
+                        io);
     }
 
     private RuntimePluginConfigRegistry registryWithPublicationBarrier(
-        final Path dataDir,
-        final CountDownLatch reached,
-        final CountDownLatch release
-    ) {
+            final Path dataDir, final CountDownLatch reached, final CountDownLatch release) {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            new RecordingPolicy(),
-            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-            availableSidecar(),
-            events::add
-        );
+                new RecordingPolicy(),
+                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
+                availableSidecar(),
+                events::add);
         return new RuntimePluginConfigRegistry(
-            (permissionId, operation) -> { },
-            scheduler,
-            dataDir,
-            "dev.turboism.plugin.config-test",
-            ignored -> { },
-            new RuntimeFailureCollector(),
-            null,
-            () -> {
-                reached.countDown();
-                try {
-                    release.await();
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        );
+                (permissionId, operation) -> {},
+                scheduler,
+                dataDir,
+                "dev.turboism.plugin.config-test",
+                ignored -> {},
+                new RuntimeFailureCollector(),
+                null,
+                () -> {
+                    reached.countDown();
+                    try {
+                        release.await();
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
     }
-
 
     private static SidecarDispatcher availableSidecar() {
         return (task, callback) -> {
             callback.run();
             return java.util.concurrent.CompletableFuture.completedFuture(
-                dev.turboism.core.runtime.sidecar.SidecarResult.success("")
-            );
+                    dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
         };
     }
 
     private static dev.turboism.permissions.PermissionChecker denied() {
-        return (permissionId, operation) -> { throw new CubismPermissionException(operation + " denied"); };
+        return (permissionId, operation) -> {
+            throw new CubismPermissionException(operation + " denied");
+        };
     }
 
     private static final class RecordingPolicy implements WorkBudgetPolicy {
@@ -535,16 +450,19 @@ class RuntimePluginConfigRegistryTest {
             return List.of();
         }
 
-        @Override public boolean isShutdown() { return shutdown.get(); }
+        @Override
+        public boolean isShutdown() {
+            return shutdown.get();
+        }
 
-        @Override public boolean isTerminated() {
+        @Override
+        public boolean isTerminated() {
             final Thread running = worker.get();
             return shutdown.get() && (running == null || !running.isAlive());
         }
 
         @Override
-        public boolean awaitTermination(final long timeout, final TimeUnit unit)
-            throws InterruptedException {
+        public boolean awaitTermination(final long timeout, final TimeUnit unit) throws InterruptedException {
             final Thread running = worker.get();
             if (running == null) return shutdown.get();
             running.join(unit.toMillis(timeout));

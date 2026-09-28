@@ -1,7 +1,6 @@
 package dev.turboism.sdk.runtime;
 
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.Objects;
 
 /**
@@ -36,12 +35,8 @@ import java.util.Objects;
  *       {@code turboism.plugin.lifecycle.observe} permission.</li>
  * </ul>
  */
-public record PluginLifecycleEvent(
-    String pluginId,
-    long generation,
-    Phase phase,
-    Outcome outcome
-) implements TurboismEvent {
+public record PluginLifecycleEvent(String pluginId, long generation, Phase phase, Outcome outcome)
+        implements TurboismEvent {
 
     /**
      * {@link #generation()} value reported when a load failed before the runtime

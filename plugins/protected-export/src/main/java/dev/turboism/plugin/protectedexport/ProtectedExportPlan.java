@@ -5,7 +5,6 @@ import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.PartId;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,14 +22,13 @@ import java.util.regex.Pattern;
  * strings and are not host-issued {@link ArtMeshId} values.</p>
  */
 record ProtectedExportPlan(
-    List<DeformerId> deformerOrder,
-    List<ArtMeshId> artMeshOrder,
-    List<PartId> partIds,
-    List<ParameterId> parameterIds,
-    Map<ArtMeshId, ArtMeshTarget> artMeshTargets,
-    List<PartSnapshot> partSnapshots,
-    List<GlueSnapshot> glueSnapshots
-) {
+        List<DeformerId> deformerOrder,
+        List<ArtMeshId> artMeshOrder,
+        List<PartId> partIds,
+        List<ParameterId> parameterIds,
+        Map<ArtMeshId, ArtMeshTarget> artMeshTargets,
+        List<PartSnapshot> partSnapshots,
+        List<GlueSnapshot> glueSnapshots) {
     private static final Pattern TARGET_ID_PATTERN = Pattern.compile("[0-9a-zA-Z_@]+");
 
     ProtectedExportPlan {
@@ -76,10 +74,10 @@ record ProtectedExportPlan(
                 throw new IllegalArgumentException("ArtMesh target name must not be blank");
             }
             if (idToken == null
-                || idToken.length() >= 64
-                || idToken.isEmpty()
-                || Character.isDigit(idToken.charAt(0))
-                || !TARGET_ID_PATTERN.matcher(idToken).matches()) {
+                    || idToken.length() >= 64
+                    || idToken.isEmpty()
+                    || Character.isDigit(idToken.charAt(0))
+                    || !TARGET_ID_PATTERN.matcher(idToken).matches()) {
                 throw new IllegalArgumentException("ArtMesh target ID token is invalid");
             }
         }
@@ -92,29 +90,17 @@ record ProtectedExportPlan(
      * {@code parameterIds} the Glue's bound parameters — both verified against the
      * model census before admission.
      */
-    record GlueSnapshot(
-        GlueId id,
-        ArtMeshId drawableA,
-        ArtMeshId drawableB,
-        List<ParameterId> parameterIds
-    ) {
+    record GlueSnapshot(GlueId id, ArtMeshId drawableA, ArtMeshId drawableB, List<ParameterId> parameterIds) {
         GlueSnapshot {
             id = Objects.requireNonNull(id, "id");
             drawableA = Objects.requireNonNull(drawableA, "drawableA");
             drawableB = Objects.requireNonNull(drawableB, "drawableB");
-            parameterIds = List.copyOf(
-                Objects.requireNonNull(parameterIds, "parameterIds"));
+            parameterIds = List.copyOf(Objects.requireNonNull(parameterIds, "parameterIds"));
         }
     }
 
     /** Read-only structural evidence for a Part that must remain unchanged later. */
-    record PartSnapshot(
-        PartId id,
-        String name,
-        Optional<PartId> parentId,
-        List<PartId> childIds,
-        float opacity
-    ) {
+    record PartSnapshot(PartId id, String name, Optional<PartId> parentId, List<PartId> childIds, float opacity) {
         PartSnapshot {
             id = Objects.requireNonNull(id, "id");
             if (name == null || name.isBlank()) {
@@ -128,16 +114,11 @@ record ProtectedExportPlan(
         }
     }
 
-    private static <K, V> Map<K, V> immutableOrderedMap(
-        final Map<K, V> values,
-        final String name
-    ) {
+    private static <K, V> Map<K, V> immutableOrderedMap(final Map<K, V> values, final String name) {
         Objects.requireNonNull(values, name);
         final LinkedHashMap<K, V> copy = new LinkedHashMap<>();
-        values.forEach((key, value) -> copy.put(
-            Objects.requireNonNull(key, name + " key"),
-            Objects.requireNonNull(value, name + " value")
-        ));
+        values.forEach((key, value) ->
+                copy.put(Objects.requireNonNull(key, name + " key"), Objects.requireNonNull(value, name + " value")));
         return Collections.unmodifiableMap(copy);
     }
 }

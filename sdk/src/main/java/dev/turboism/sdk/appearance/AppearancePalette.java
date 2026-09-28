@@ -1,23 +1,21 @@
 package dev.turboism.sdk.appearance;
 
-
 import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
 /** Bounded semantic colors understood by the Editor appearance capability. */
 public record AppearancePalette(
-    String accent,
-    String background,
-    String surface,
-    String inputBackground,
-    String foreground,
-    String mutedForeground,
-    String selectionBackground,
-    String selectionForeground,
-    String border,
-    String viewportBackground
-) {
+        String accent,
+        String background,
+        String surface,
+        String inputBackground,
+        String foreground,
+        String mutedForeground,
+        String selectionBackground,
+        String selectionForeground,
+        String border,
+        String viewportBackground) {
     private static final Pattern COLOR = Pattern.compile("#[0-9A-F]{6}");
 
     public AppearancePalette {
@@ -34,8 +32,7 @@ public record AppearancePalette(
     }
 
     private static String color(final String value, final String name) {
-        final String normalized = Objects.requireNonNull(value, name)
-            .toUpperCase(Locale.ROOT);
+        final String normalized = Objects.requireNonNull(value, name).toUpperCase(Locale.ROOT);
         if (!COLOR.matcher(normalized).matches()) {
             throw new IllegalArgumentException(name + " must be a #RRGGBB color");
         }

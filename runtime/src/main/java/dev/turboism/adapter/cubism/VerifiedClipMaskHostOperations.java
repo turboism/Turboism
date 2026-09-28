@@ -6,7 +6,6 @@ import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -33,25 +32,23 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
     private static final String GUID_VALUE = "cubism.clipmask.guid.value";
 
     private static final Set<String> METHOD_ALIASES_USED = Set.of(
-        APP_INSTANCE,
-        CURRENT_DOCUMENT,
-        MODEL_SOURCE,
-        ALL_ART_MESHES,
-        DRAWABLE_GUID,
-        CLIP_GUID_LIST,
-        INVERTED,
-        GUID_VALUE
-    );
+            APP_INSTANCE,
+            CURRENT_DOCUMENT,
+            MODEL_SOURCE,
+            ALL_ART_MESHES,
+            DRAWABLE_GUID,
+            CLIP_GUID_LIST,
+            INVERTED,
+            GUID_VALUE);
     private static final Set<String> CLASS_ALIASES_REQUIRED = Set.of(
-        APP_CONTROLLER_CLASS,
-        DOCUMENT_CLASS,
-        MODELING_DOCUMENT_CLASS,
-        MODEL_SOURCE_CLASS,
-        ART_MESH_SOURCE_CLASS,
-        DRAWABLE_SOURCE_CLASS,
-        DRAWABLE_GUID_CLASS,
-        GUID_CLASS
-    );
+            APP_CONTROLLER_CLASS,
+            DOCUMENT_CLASS,
+            MODELING_DOCUMENT_CLASS,
+            MODEL_SOURCE_CLASS,
+            ART_MESH_SOURCE_CLASS,
+            DRAWABLE_SOURCE_CLASS,
+            DRAWABLE_GUID_CLASS,
+            GUID_CLASS);
 
     /** Aliases independently required by this implementation, not copied from its trust manifest. */
     public static final Set<String> REQUIRED_ALIASES = requiredAliases();
@@ -75,10 +72,7 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
     private final VerifiedMemberResolver resolver;
     private final String hostVersion;
 
-    public VerifiedClipMaskHostOperations(
-        final VerifiedMemberResolver resolver,
-        final String hostVersion
-    ) {
+    public VerifiedClipMaskHostOperations(final VerifiedMemberResolver resolver, final String hostVersion) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.hostVersion = requireText(hostVersion, "hostVersion");
     }
@@ -186,18 +180,16 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
 
     private static AdapterHostException mappingFailure() {
         return new AdapterHostException(
-            SafeModeDiagnostic.Code.MAPPING_NOT_VERIFIED,
-            ClipMaskReadAdapter.CAPABILITY_ID,
-            "Verified clip-mask selector could not be resolved at runtime."
-        );
+                SafeModeDiagnostic.Code.MAPPING_NOT_VERIFIED,
+                ClipMaskReadAdapter.CAPABILITY_ID,
+                "Verified clip-mask selector could not be resolved at runtime.");
     }
 
     private static AdapterHostException validationFailure() {
         return new AdapterHostException(
-            SafeModeDiagnostic.Code.VALIDATION_FAILURE,
-            ClipMaskReadAdapter.CAPABILITY_ID,
-            "Clip-mask host data could not be converted safely."
-        );
+                SafeModeDiagnostic.Code.VALIDATION_FAILURE,
+                ClipMaskReadAdapter.CAPABILITY_ID,
+                "Clip-mask host data could not be converted safely.");
     }
 
     private static String requireText(final String value, final String name) {

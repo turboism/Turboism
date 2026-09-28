@@ -1,12 +1,11 @@
 package dev.turboism.core.event;
 
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.event.EventSubscriberHandler;
 import dev.turboism.sdk.event.EventSubscriberRegistrar;
 import dev.turboism.sdk.event.GeneratedSubscriberCatalog;
-import dev.turboism.runtime.log.RuntimeDiagnostics;
-
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -18,16 +17,12 @@ import java.util.ServiceLoader;
 /** Loads generated catalogs from one plugin artifact and falls back to reviewed reflection. */
 public final class GeneratedSubscriberCatalogLoader {
 
-    private static final String COMPONENT =
-        "dev.turboism.core.event.GeneratedSubscriberCatalogLoader";
+    private static final String COMPONENT = "dev.turboism.core.event.GeneratedSubscriberCatalogLoader";
 
     private final EntrypointSubscriberCatalog fallback = new EntrypointSubscriberCatalog();
 
     /** Loads a generated subscriber catalog, falling back to validated reflection when absent. */
-    public List<EventSubscriberDescriptor> inspect(
-        final List<?> entrypoints,
-        final ClassLoader pluginClassLoader
-    ) {
+    public List<EventSubscriberDescriptor> inspect(final List<?> entrypoints, final ClassLoader pluginClassLoader) {
         return inspect(entrypoints, pluginClassLoader, java.util.Set.of());
     }
 
@@ -38,29 +33,25 @@ public final class GeneratedSubscriberCatalogLoader {
      * @param contractLoaders the session-bound contract loaders visible to this plugin
      */
     public List<EventSubscriberDescriptor> inspect(
-        final List<?> entrypoints,
-        final ClassLoader pluginClassLoader,
-        final java.util.Collection<ClassLoader> contractLoaders
-    ) {
+            final List<?> entrypoints,
+            final ClassLoader pluginClassLoader,
+            final java.util.Collection<ClassLoader> contractLoaders) {
         final java.util.Set<ClassLoader> allowed =
-            java.util.Set.copyOf(Objects.requireNonNull(contractLoaders, "contractLoaders"));
+                java.util.Set.copyOf(Objects.requireNonNull(contractLoaders, "contractLoaders"));
         final List<?> values = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
-        final Map<Class<?>, GeneratedSubscriberCatalog<?>> catalogs = pluginClassLoader == null
-            ? Map.of()
-            : load(pluginClassLoader);
+        final Map<Class<?>, GeneratedSubscriberCatalog<?>> catalogs =
+                pluginClassLoader == null ? Map.of() : load(pluginClassLoader);
         // A catalog can only ever serve an entrypoint instance; one that matches none of the
         // declared entrypoints indicates a stale or misplaced provider file. Diagnose it but
         // keep registration semantics unchanged.
-        final java.util.Set<Class<?>> entrypointTypes = values.stream()
-            .map(Object::getClass)
-            .collect(java.util.stream.Collectors.toSet());
+        final java.util.Set<Class<?>> entrypointTypes =
+                values.stream().map(Object::getClass).collect(java.util.stream.Collectors.toSet());
         for (Class<?> catalogEntrypointType : catalogs.keySet()) {
             if (!entrypointTypes.contains(catalogEntrypointType)) {
                 RuntimeDiagnostics.warn(
-                    COMPONENT,
-                    "Generated subscriber catalog matches no plugin entrypoint instance: "
-                        + catalogEntrypointType.getName()
-                );
+                        COMPONENT,
+                        "Generated subscriber catalog matches no plugin entrypoint instance: "
+                                + catalogEntrypointType.getName());
             }
         }
         final List<EventSubscriberDescriptor> descriptors = new ArrayList<>();
@@ -73,12 +64,9 @@ public final class GeneratedSubscriberCatalogLoader {
             }
             final int ordinal = entrypointOrdinal;
             final List<EventSubscriberDescriptor> generated = new ArrayList<>();
-            register(catalog, entrypoint, new DescriptorRegistrar(
-                entrypoint, ordinal, generated, allowed
-            ));
-            generated.sort(java.util.Comparator
-                .comparingInt(EventSubscriberDescriptor::methodOrdinal)
-                .thenComparing(EventSubscriberDescriptor::canonicalSignature));
+            register(catalog, entrypoint, new DescriptorRegistrar(entrypoint, ordinal, generated, allowed));
+            generated.sort(java.util.Comparator.comparingInt(EventSubscriberDescriptor::methodOrdinal)
+                    .thenComparing(EventSubscriberDescriptor::canonicalSignature));
             validateGenerated(generated, entrypoint.getClass());
             descriptors.addAll(generated);
         }
@@ -86,55 +74,43 @@ public final class GeneratedSubscriberCatalogLoader {
     }
 
     private static void validateGenerated(
-        final List<EventSubscriberDescriptor> descriptors,
-        final Class<?> entrypointType
-    ) {
+            final List<EventSubscriberDescriptor> descriptors, final Class<?> entrypointType) {
         int expectedOrdinal = 0;
         final java.util.Set<String> signatures = new java.util.HashSet<>();
         for (EventSubscriberDescriptor descriptor : descriptors) {
             if (descriptor.methodOrdinal() != expectedOrdinal) {
                 throw new IllegalArgumentException(
-                    "Generated subscriber method ordinals must be contiguous for "
-                        + entrypointType.getName()
-                );
+                        "Generated subscriber method ordinals must be contiguous for " + entrypointType.getName());
             }
             if (!signatures.add(descriptor.canonicalSignature())) {
                 throw new IllegalArgumentException(
-                    "Duplicate generated subscriber signature for " + entrypointType.getName()
-                );
+                        "Duplicate generated subscriber signature for " + entrypointType.getName());
             }
             expectedOrdinal++;
         }
     }
 
     private static void register(
-        final GeneratedSubscriberCatalog<?> catalog,
-        final Object entrypoint,
-        final EventSubscriberRegistrar registrar
-    ) {
+            final GeneratedSubscriberCatalog<?> catalog,
+            final Object entrypoint,
+            final EventSubscriberRegistrar registrar) {
         registerCaptured(catalog, entrypoint, registrar);
     }
 
     private static <T> void registerCaptured(
-        final GeneratedSubscriberCatalog<T> catalog,
-        final Object entrypoint,
-        final EventSubscriberRegistrar registrar
-    ) {
+            final GeneratedSubscriberCatalog<T> catalog,
+            final Object entrypoint,
+            final EventSubscriberRegistrar registrar) {
         catalog.register(catalog.entrypointType().cast(entrypoint), registrar);
     }
 
     private static Map<Class<?>, GeneratedSubscriberCatalog<?>> load(final ClassLoader loader) {
         final Map<Class<?>, GeneratedSubscriberCatalog<?>> catalogs = new IdentityHashMap<>();
         try {
-            for (GeneratedSubscriberCatalog<?> catalog : ServiceLoader.load(
-                GeneratedSubscriberCatalog.class,
-                loader
-            )) {
+            for (GeneratedSubscriberCatalog<?> catalog : ServiceLoader.load(GeneratedSubscriberCatalog.class, loader)) {
                 final Class<?> catalogType = catalog.getClass();
-                final Class<?> entrypointType = Objects.requireNonNull(
-                    catalog.entrypointType(),
-                    "generated catalog entrypointType"
-                );
+                final Class<?> entrypointType =
+                        Objects.requireNonNull(catalog.entrypointType(), "generated catalog entrypointType");
                 if (catalogType.getClassLoader() != loader) {
                     // Parent classpaths may publish catalogs for other plugins. They are not
                     // candidates for this artifact and must not make an otherwise valid plugin
@@ -143,14 +119,12 @@ public final class GeneratedSubscriberCatalogLoader {
                 }
                 if (entrypointType.getClassLoader() != loader) {
                     throw new IllegalArgumentException(
-                        "Generated subscriber catalog entrypoint must belong to the plugin artifact: "
-                            + catalogType.getName()
-                    );
+                            "Generated subscriber catalog entrypoint must belong to the plugin artifact: "
+                                    + catalogType.getName());
                 }
                 if (catalogs.put(entrypointType, catalog) != null) {
                     throw new IllegalArgumentException(
-                        "Duplicate generated subscriber catalog for " + entrypointType.getName()
-                    );
+                            "Duplicate generated subscriber catalog for " + entrypointType.getName());
                 }
             }
         } catch (ServiceConfigurationError failure) {
@@ -174,11 +148,10 @@ public final class GeneratedSubscriberCatalogLoader {
         private final java.util.Set<ClassLoader> contractLoaders;
 
         private DescriptorRegistrar(
-            final Object entrypoint,
-            final int entrypointOrdinal,
-            final List<EventSubscriberDescriptor> descriptors,
-            final java.util.Set<ClassLoader> contractLoaders
-        ) {
+                final Object entrypoint,
+                final int entrypointOrdinal,
+                final List<EventSubscriberDescriptor> descriptors,
+                final java.util.Set<ClassLoader> contractLoaders) {
             this.entrypoint = entrypoint;
             this.entrypointOrdinal = entrypointOrdinal;
             this.descriptors = descriptors;
@@ -187,33 +160,29 @@ public final class GeneratedSubscriberCatalogLoader {
 
         @Override
         public <T extends EventBus.TurboismEvent> void register(
-            final Class<T> eventType,
-            final EventPriority priority,
-            final int methodOrdinal,
-            final String canonicalSignature,
-            final EventSubscriberHandler<T> handler
-        ) {
+                final Class<T> eventType,
+                final EventPriority priority,
+                final int methodOrdinal,
+                final String canonicalSignature,
+                final EventSubscriberHandler<T> handler) {
             final Class<T> type = Objects.requireNonNull(eventType, "eventType");
             if (type.getClassLoader() != entrypoint.getClass().getClassLoader()
-                && type.getClassLoader() != EventBus.class.getClassLoader()
-                && !contractLoaders.contains(type.getClassLoader())) {
-                throw new IllegalArgumentException(
-                    "Generated subscriber event type must belong to the plugin artifact,"
-                        + " the SDK, or a bound event contract: " + type.getName()
-                );
+                    && type.getClassLoader() != EventBus.class.getClassLoader()
+                    && !contractLoaders.contains(type.getClassLoader())) {
+                throw new IllegalArgumentException("Generated subscriber event type must belong to the plugin artifact,"
+                        + " the SDK, or a bound event contract: " + type.getName());
             }
             if (methodOrdinal < 0) {
                 throw new IllegalArgumentException("methodOrdinal must not be negative");
             }
             descriptors.add(EventSubscriberDescriptor.generated(
-                entrypoint,
-                type,
-                Objects.requireNonNull(priority, "priority"),
-                entrypointOrdinal,
-                methodOrdinal,
-                requireText(canonicalSignature, "canonicalSignature"),
-                Objects.requireNonNull(handler, "handler")
-            ));
+                    entrypoint,
+                    type,
+                    Objects.requireNonNull(priority, "priority"),
+                    entrypointOrdinal,
+                    methodOrdinal,
+                    requireText(canonicalSignature, "canonicalSignature"),
+                    Objects.requireNonNull(handler, "handler")));
         }
     }
 }

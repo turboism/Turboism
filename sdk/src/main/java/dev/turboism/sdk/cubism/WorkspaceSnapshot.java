@@ -18,17 +18,10 @@ import java.util.List;
  *     ordering as supplied by the host
  */
 public record WorkspaceSnapshot(
-    String workspaceId,
-    String displayName,
-    String rootRelativePath,
-    List<String> recentProjectIds
-) {
+        String workspaceId, String displayName, String rootRelativePath, List<String> recentProjectIds) {
     /** Convenience constructor that uses the workspace identifier as its display name. */
     public WorkspaceSnapshot(
-        final String workspaceId,
-        final String rootRelativePath,
-        final List<String> recentProjectIds
-    ) {
+            final String workspaceId, final String rootRelativePath, final List<String> recentProjectIds) {
         this(workspaceId, workspaceId, rootRelativePath, recentProjectIds);
     }
 
@@ -46,8 +39,12 @@ public record WorkspaceSnapshot(
         if (displayName == null || displayName.isBlank()) {
             throw new IllegalArgumentException("displayName must not be null or blank");
         }
-        if (rootRelativePath == null || rootRelativePath.isBlank() || rootRelativePath.startsWith("/") || rootRelativePath.contains("..")) {
-            throw new IllegalArgumentException("rootRelativePath must be relative and must not contain parent segments");
+        if (rootRelativePath == null
+                || rootRelativePath.isBlank()
+                || rootRelativePath.startsWith("/")
+                || rootRelativePath.contains("..")) {
+            throw new IllegalArgumentException(
+                    "rootRelativePath must be relative and must not contain parent segments");
         }
         recentProjectIds = List.copyOf(recentProjectIds);
     }

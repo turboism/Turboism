@@ -10,11 +10,7 @@ import java.util.Optional;
  * block of {@code GetObject}.
  */
 @CubismEditor(from = "5.2.03", to = "5.3.99")
-public record EditGlueData(
-        String name,
-        Optional<PartId> parentId,
-        double intensity,
-        EditLabelColor labelColor)
+public record EditGlueData(String name, Optional<PartId> parentId, double intensity, EditLabelColor labelColor)
         implements EditObjectData {
 
     public EditGlueData {

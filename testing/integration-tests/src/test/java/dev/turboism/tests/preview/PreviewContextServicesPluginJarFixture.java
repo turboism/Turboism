@@ -7,19 +7,15 @@ import java.util.Map;
 final class PreviewContextServicesPluginJarFixture {
 
     static final String PLUGIN_ID = "dev.example.preview-context-services";
-    static final String MARKER_DIRECTORY_PROPERTY =
-        "dev.turboism.tests.preview.context-services.marker-directory";
+    static final String MARKER_DIRECTORY_PROPERTY = "dev.turboism.tests.preview.context-services.marker-directory";
     static final String READY_FILE_NAME = "preview-context-services.ready";
     static final Map<String, String> EXPECTED_MARKER_VALUES =
-        PreviewContextServicesFixtureResources.expectedMarkerValues();
+            PreviewContextServicesFixtureResources.expectedMarkerValues();
 
-    private PreviewContextServicesPluginJarFixture() {
-    }
+    private PreviewContextServicesPluginJarFixture() {}
 
     static Path write(final Path plugins, final Path temporary) throws Exception {
-        return PreviewContextServicesFixtureArchive.write(
-            plugins, temporary, MARKER_DIRECTORY_PROPERTY
-        );
+        return PreviewContextServicesFixtureArchive.write(plugins, temporary, MARKER_DIRECTORY_PROPERTY);
     }
 
     static Path readyFile(final Path markerDirectory) {

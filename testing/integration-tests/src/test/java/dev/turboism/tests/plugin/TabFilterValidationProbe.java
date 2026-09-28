@@ -2,16 +2,6 @@ package dev.turboism.tests.plugin;
 
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
-import javax.swing.AbstractButton;
-import javax.swing.JComponent;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextField;
-import javax.swing.JTextPane;
-import javax.swing.JLabel;
-import javax.swing.JViewport;
-import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Window;
@@ -21,6 +11,14 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.AbstractButton;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.JTextPane;
+import javax.swing.JViewport;
+import javax.swing.SwingUtilities;
 
 /**
  * Manual-test-only plugin for the palette tab filter validation.
@@ -69,8 +67,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
     private void runValidation() {
         final Path output = Path.of(System.getProperty("turboism.tabFilterProbe.output", "tab-filter-probe.tsv"));
         final List<String> required = List.of(
-            System.getProperty(REQUIRED_PROPERTY, "parameter,deformer,log").split(",")
-        );
+                System.getProperty(REQUIRED_PROPERTY, "parameter,deformer,log").split(","));
         final StringBuilder report = new StringBuilder();
         try {
             // Early window-tree dump so evidence survives a short-lived session.
@@ -87,8 +84,11 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
             }
             palettes = snapshotPalettes();
 
-            report.append("probe=tab-filter status=started required=").append(required)
-                .append(" output=").append(output).append('\n');
+            report.append("probe=tab-filter status=started required=")
+                    .append(required)
+                    .append(" output=")
+                    .append(output)
+                    .append('\n');
             report.append(dumpWindows());
             for (PaletteProbe palette : palettes) {
                 report.append(palette.describe());
@@ -107,10 +107,13 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
                 Thread.sleep(2_000);
                 final int rowsRestored = sceneTableRowCount(scene);
                 report.append("scene-filter ")
-                    .append("rows-before=").append(rowsBefore)
-                    .append(" rows-filtered=").append(rowsFiltered)
-                    .append(" rows-restored=").append(rowsRestored)
-                    .append('\n');
+                        .append("rows-before=")
+                        .append(rowsBefore)
+                        .append(" rows-filtered=")
+                        .append(rowsFiltered)
+                        .append(" rows-restored=")
+                        .append(rowsRestored)
+                        .append('\n');
             }
 
             final PaletteProbe parameter = palette(palettes, "parameter");
@@ -130,14 +133,20 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
                 Thread.sleep(2_000);
                 final int rowsRestored = parameterRowCount(parameter.root);
                 report.append("parameter-filter ")
-                    .append("rows-before=").append(rowsBefore)
-                    .append(" rows-no-match=").append(rowsNoMatch)
-                    .append(" name-keyword=").append(nameKeyword)
-                    .append(" rows-by-name=").append(rowsByName)
-                    .append(" id-keyword=ParamAngleX")
-                    .append(" rows-by-id=").append(rowsById)
-                    .append(" rows-restored=").append(rowsRestored)
-                    .append('\n');
+                        .append("rows-before=")
+                        .append(rowsBefore)
+                        .append(" rows-no-match=")
+                        .append(rowsNoMatch)
+                        .append(" name-keyword=")
+                        .append(nameKeyword)
+                        .append(" rows-by-name=")
+                        .append(rowsByName)
+                        .append(" id-keyword=ParamAngleX")
+                        .append(" rows-by-id=")
+                        .append(rowsById)
+                        .append(" rows-restored=")
+                        .append(rowsRestored)
+                        .append('\n');
             }
 
             final PaletteProbe deformer = palette(palettes, "deformer");
@@ -159,15 +168,22 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
                 Thread.sleep(3_000);
                 final int rowsRestored = treeTableRowCount(deformer);
                 report.append("deformer-filter ")
-                    .append("rows-before=").append(rowsBefore)
-                    .append(" id-keyword=ArtMesh16")
-                    .append(" rows-by-id=").append(rowsById)
-                    .append(" names-by-id=").append(namesById)
-                    .append(" name-keyword=").append(nameKeyword)
-                    .append(" rows-by-name=").append(rowsByName)
-                    .append(" names-by-name=").append(namesByName)
-                    .append(" rows-restored=").append(rowsRestored)
-                    .append('\n');
+                        .append("rows-before=")
+                        .append(rowsBefore)
+                        .append(" id-keyword=ArtMesh16")
+                        .append(" rows-by-id=")
+                        .append(rowsById)
+                        .append(" names-by-id=")
+                        .append(namesById)
+                        .append(" name-keyword=")
+                        .append(nameKeyword)
+                        .append(" rows-by-name=")
+                        .append(rowsByName)
+                        .append(" names-by-name=")
+                        .append(namesByName)
+                        .append(" rows-restored=")
+                        .append(rowsRestored)
+                        .append('\n');
             }
 
             final PaletteProbe log = palette(palettes, "log");
@@ -180,10 +196,13 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
                 Thread.sleep(2_000);
                 final int linesRestored = logPaneLines(log);
                 report.append("log-filter ")
-                    .append("lines-before=").append(linesBefore)
-                    .append(" lines-filtered=").append(linesFiltered)
-                    .append(" lines-restored=").append(linesRestored)
-                    .append('\n');
+                        .append("lines-before=")
+                        .append(linesBefore)
+                        .append(" lines-filtered=")
+                        .append(linesFiltered)
+                        .append(" lines-restored=")
+                        .append(linesRestored)
+                        .append('\n');
             }
 
             report.append("probe=tab-filter status=completed\n");
@@ -192,15 +211,18 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
             Thread.currentThread().interrupt();
         } catch (Throwable throwable) {
             report.append("probe=tab-filter status=failed error=")
-                .append(throwable.getClass().getSimpleName())
-                .append(':').append(throwable.getMessage()).append('\n');
+                    .append(throwable.getClass().getSimpleName())
+                    .append(':')
+                    .append(throwable.getMessage())
+                    .append('\n');
         } finally {
             try {
                 Files.writeString(
-                    output,
-                    report.toString(),
-                    StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.WRITE
-                );
+                        output,
+                        report.toString(),
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND,
+                        StandardOpenOption.WRITE);
             } catch (Exception writeFailure) {
                 context.logger().error("tab-filter probe evidence write failed", writeFailure);
             }
@@ -211,10 +233,11 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
     private static void writeEarly(final Path output, final String content) {
         try {
             Files.writeString(
-                output,
-                content,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE
-            );
+                    output,
+                    content,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE);
         } catch (Exception ignored) {
         }
     }
@@ -225,11 +248,16 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
             SwingUtilities.invokeAndWait(() -> {
                 final java.util.Set<String> seen = new java.util.LinkedHashSet<>();
                 for (Window window : Window.getWindows()) {
-                    builder.append("window class=").append(window.getClass().getName())
-                        .append(" visible=").append(window.isVisible())
-                        .append(" title=").append(window instanceof java.awt.Frame
-                            ? String.valueOf(((java.awt.Frame) window).getTitle()) : "-")
-                        .append('\n');
+                    builder.append("window class=")
+                            .append(window.getClass().getName())
+                            .append(" visible=")
+                            .append(window.isVisible())
+                            .append(" title=")
+                            .append(
+                                    window instanceof java.awt.Frame
+                                            ? String.valueOf(((java.awt.Frame) window).getTitle())
+                                            : "-")
+                            .append('\n');
                     dumpTree(window, 0, builder, seen);
                     dumpAnchors(window, builder);
                     dumpButtons(window, builder);
@@ -244,13 +272,20 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
     /** Prints every AbstractButton with its action command, tooltip and text for toolbar identification. */
     private static void dumpButtons(final Component component, final StringBuilder builder) {
         if (component instanceof AbstractButton button) {
-            builder.append("  button class=").append(button.getClass().getName())
-                .append(" action=").append(String.valueOf(button.getActionCommand()))
-                .append(" tooltip=").append(String.valueOf(button.getToolTipText()))
-                .append(" text=").append(String.valueOf(button.getText()))
-                .append(" parent=").append(button.getParent() == null
-                    ? "-" : button.getParent().getClass().getName())
-                .append('\n');
+            builder.append("  button class=")
+                    .append(button.getClass().getName())
+                    .append(" action=")
+                    .append(String.valueOf(button.getActionCommand()))
+                    .append(" tooltip=")
+                    .append(String.valueOf(button.getToolTipText()))
+                    .append(" text=")
+                    .append(String.valueOf(button.getText()))
+                    .append(" parent=")
+                    .append(
+                            button.getParent() == null
+                                    ? "-"
+                                    : button.getParent().getClass().getName())
+                    .append('\n');
         }
         if (component instanceof Container container) {
             for (Component child : container.getComponents()) {
@@ -262,11 +297,16 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
     /** Prints every JTable/JTextPane anchor with its parent chain for palette identification. */
     private static void dumpAnchors(final Component component, final StringBuilder builder) {
         if (component instanceof JTable || component instanceof JTextPane) {
-            builder.append("  anchor class=").append(component.getClass().getName())
-                .append(" kind=").append(component instanceof JTable ? "TABLE" : "TEXTPANE")
-                .append(" rows=").append(component instanceof JTable
-                    ? ((JTable) component).getRowCount() : lineCount((JTextPane) component))
-                .append(" parents=");
+            builder.append("  anchor class=")
+                    .append(component.getClass().getName())
+                    .append(" kind=")
+                    .append(component instanceof JTable ? "TABLE" : "TEXTPANE")
+                    .append(" rows=")
+                    .append(
+                            component instanceof JTable
+                                    ? ((JTable) component).getRowCount()
+                                    : lineCount((JTextPane) component))
+                    .append(" parents=");
             Component parent = component.getParent();
             int depth = 0;
             while (parent != null && depth < 6) {
@@ -288,33 +328,50 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         if (component instanceof Container container) {
             if (isParameterToolbar(container) || containsDirectFilterPanel(container)) {
                 builder.append("  toolbar-layout kind=")
-                    .append(isParameterToolbar(container) ? "parameter" : "filtered")
-                    .append(" class=").append(container.getClass().getName())
-                    .append(" layout=").append(container.getLayout() == null
-                        ? "null" : container.getLayout().getClass().getName())
-                    .append(" bounds=").append(container.getBounds())
-                    .append(" showing=").append(container.isShowing())
-                    .append(" children=").append(container.getComponentCount())
-                    .append('\n');
+                        .append(isParameterToolbar(container) ? "parameter" : "filtered")
+                        .append(" class=")
+                        .append(container.getClass().getName())
+                        .append(" layout=")
+                        .append(
+                                container.getLayout() == null
+                                        ? "null"
+                                        : container.getLayout().getClass().getName())
+                        .append(" bounds=")
+                        .append(container.getBounds())
+                        .append(" showing=")
+                        .append(container.isShowing())
+                        .append(" children=")
+                        .append(container.getComponentCount())
+                        .append('\n');
                 for (int index = 0; index < container.getComponentCount(); index++) {
                     final Component child = container.getComponent(index);
-                    builder.append("    child index=").append(index)
-                        .append(" class=").append(child.getClass().getName())
-                        .append(" name=").append(child instanceof JComponent
-                            ? String.valueOf(((JComponent) child).getName()) : "-")
-                        .append(" bounds=").append(child.getBounds())
-                        .append(" preferred=").append(child.getPreferredSize())
-                        .append(" maximum=").append(child.getMaximumSize())
-                        .append('\n');
+                    builder.append("    child index=")
+                            .append(index)
+                            .append(" class=")
+                            .append(child.getClass().getName())
+                            .append(" name=")
+                            .append(child instanceof JComponent ? String.valueOf(((JComponent) child).getName()) : "-")
+                            .append(" bounds=")
+                            .append(child.getBounds())
+                            .append(" preferred=")
+                            .append(child.getPreferredSize())
+                            .append(" maximum=")
+                            .append(child.getMaximumSize())
+                            .append('\n');
                 }
                 Component ancestor = container.getParent();
                 int depth = 0;
                 while (ancestor != null && depth++ < 6) {
-                    builder.append("    ancestor class=").append(ancestor.getClass().getName())
-                        .append(" layout=").append(ancestor instanceof Container parent && parent.getLayout() != null
-                            ? parent.getLayout().getClass().getName() : "null")
-                        .append(" bounds=").append(ancestor.getBounds())
-                        .append('\n');
+                    builder.append("    ancestor class=")
+                            .append(ancestor.getClass().getName())
+                            .append(" layout=")
+                            .append(
+                                    ancestor instanceof Container parent && parent.getLayout() != null
+                                            ? parent.getLayout().getClass().getName()
+                                            : "null")
+                            .append(" bounds=")
+                            .append(ancestor.getBounds())
+                            .append('\n');
                     ancestor = ancestor.getParent();
                 }
             }
@@ -326,8 +383,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
 
     private static boolean containsDirectFilterPanel(final Container container) {
         for (Component child : container.getComponents()) {
-            if (child instanceof JComponent component
-                && "turboismPaletteFilterPanel".equals(component.getName())) {
+            if (child instanceof JComponent component && "turboismPaletteFilterPanel".equals(component.getName())) {
                 return true;
             }
         }
@@ -342,24 +398,26 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         boolean folder = false;
         boolean delete = false;
         for (AbstractButton button : buttons) {
-            final String value = (String.valueOf(button.getActionCommand()) + ' '
-                + String.valueOf(button.getToolTipText()) + ' ' + String.valueOf(button.getText()))
-                .toLowerCase(java.util.Locale.ROOT);
+            final String value = (String.valueOf(button.getActionCommand())
+                            + ' '
+                            + String.valueOf(button.getToolTipText())
+                            + ' '
+                            + String.valueOf(button.getText()))
+                    .toLowerCase(java.util.Locale.ROOT);
             add |= value.contains("cmd_parameter_palette_add_new_parameter")
-                || value.contains("创建新参数") || value.contains("create parameter");
+                    || value.contains("创建新参数")
+                    || value.contains("create parameter");
             folder |= value.contains("cmd_parameter_palette_new_folder")
-                || value.contains("创建新文件夹") || value.contains("create folder");
+                    || value.contains("创建新文件夹")
+                    || value.contains("create folder");
             delete |= value.contains("cmd_parameter_palette_delete_object")
-                || value.contains("删除选定的元素") || value.contains("delete selected");
+                    || value.contains("删除选定的元素")
+                    || value.contains("delete selected");
         }
         return add && folder && delete;
     }
 
-    private static void collectButtons(
-        final Component component,
-        final int depth,
-        final List<AbstractButton> buttons
-    ) {
+    private static void collectButtons(final Component component, final int depth, final List<AbstractButton> buttons) {
         if (component == null || depth < 0) return;
         if (component instanceof AbstractButton button) {
             buttons.add(button);
@@ -373,20 +431,18 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
     }
 
     private static String dumpTree(
-        final Component component,
-        final int depth,
-        final StringBuilder builder,
-        final java.util.Set<String> seen
-    ) {
+            final Component component, final int depth, final StringBuilder builder, final java.util.Set<String> seen) {
         if (component == null || depth > 10 || seen.size() > 400) {
             return builder.toString();
         }
         seen.add(component.getClass().getName());
-        builder.append("  tree:").append(depth)
-            .append(" class=").append(component.getClass().getName())
-            .append(" name=").append(component instanceof JComponent
-                ? String.valueOf(((JComponent) component).getName()) : "-")
-            .append('\n');
+        builder.append("  tree:")
+                .append(depth)
+                .append(" class=")
+                .append(component.getClass().getName())
+                .append(" name=")
+                .append(component instanceof JComponent ? String.valueOf(((JComponent) component).getName()) : "-")
+                .append('\n');
         if (component instanceof Container container) {
             for (Component child : container.getComponents()) {
                 dumpTree(child, depth + 1, builder, seen);
@@ -404,10 +460,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         return null;
     }
 
-    private static boolean filtersReady(
-        final List<PaletteProbe> palettes,
-        final List<String> required
-    ) {
+    private static boolean filtersReady(final List<PaletteProbe> palettes, final List<String> required) {
         for (String kind : required) {
             final PaletteProbe probe = palette(palettes, kind.trim());
             if (probe == null || !probe.filterBoxFound) {
@@ -416,6 +469,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         }
         return true;
     }
+
     private static List<PaletteProbe> snapshotPalettes() {
         final AtomicReference<List<PaletteProbe>> result = new AtomicReference<>();
         try {
@@ -426,9 +480,8 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
                         if (paletteKindFound(probes, kind)) {
                             continue;
                         }
-                        final JComponent root = "parameter".equals(kind)
-                            ? findParameterRoot(window)
-                            : findPaletteRoot(window, kind);
+                        final JComponent root =
+                                "parameter".equals(kind) ? findParameterRoot(window) : findPaletteRoot(window, kind);
                         if (root != null) {
                             probes.add(probePalette(kind, root));
                         }
@@ -456,21 +509,19 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         final JTable table = findTable(root);
         final JTextPane pane = findLogPane(root);
         return new PaletteProbe(
-            kind,
-            field != null,
-            field == null ? "" : field.getToolTipText(),
-            table == null ? -1 : table.getRowCount(),
-            pane == null ? -1 : lineCount(pane),
-            field,
-            table,
-            pane,
-            root
-        );
+                kind,
+                field != null,
+                field == null ? "" : field.getToolTipText(),
+                table == null ? -1 : table.getRowCount(),
+                pane == null ? -1 : lineCount(pane),
+                field,
+                table,
+                pane,
+                root);
     }
 
     private static JComponent findPaletteRoot(final Component component, final String kind) {
-        if (component instanceof JComponent
-            && component.getClass().getName().contains("palette." + kind)) {
+        if (component instanceof JComponent && component.getClass().getName().contains("palette." + kind)) {
             return (JComponent) component;
         }
         if (component instanceof Container container) {
@@ -486,9 +537,9 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
 
     private static JComponent findParameterRoot(final Component component) {
         if (component instanceof JViewport viewport
-            && viewport.getView() instanceof JComponent root
-            && containsParameterRow(root)
-            && findFilterFieldNear(root) != null) {
+                && viewport.getView() instanceof JComponent root
+                && containsParameterRow(root)
+                && findFilterFieldNear(root) != null) {
             return root;
         }
         if (component instanceof Container container) {
@@ -504,8 +555,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
 
     private static boolean containsParameterRow(final Component component) {
         final String className = component.getClass().getName();
-        if (className.equals("com.live2d.ui.swingImpl.p")
-            || className.equals("com.live2d.ui.swingImpl.n")) {
+        if (className.equals("com.live2d.ui.swingImpl.p") || className.equals("com.live2d.ui.swingImpl.n")) {
             return true;
         }
         if (component instanceof Container container) {
@@ -572,8 +622,8 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
 
     private static JTextPane findLogPane(final Component component) {
         if (component instanceof JTextPane pane
-            && !pane.isEditable()
-            && !Boolean.TRUE.equals(pane.getClientProperty("turboism.paletteFilter.filteredTextPane"))) {
+                && !pane.isEditable()
+                && !Boolean.TRUE.equals(pane.getClientProperty("turboism.paletteFilter.filteredTextPane"))) {
             return pane;
         }
         if (component instanceof Container container) {
@@ -621,8 +671,11 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
 
     private static int countVisibleParameterRows(final Component component) {
         final String className = component.getClass().getName();
-        int count = component.isShowing() && (className.equals("com.live2d.ui.swingImpl.p")
-            || className.equals("com.live2d.ui.swingImpl.n")) ? 1 : 0;
+        int count = component.isShowing()
+                        && (className.equals("com.live2d.ui.swingImpl.p")
+                                || className.equals("com.live2d.ui.swingImpl.n"))
+                ? 1
+                : 0;
         if (component instanceof Container container) {
             for (Component child : container.getComponents()) {
                 count += countVisibleParameterRows(child);
@@ -660,9 +713,9 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
 
     private static String findParameterLabelText(final Component component) {
         if (component instanceof JLabel label
-            && component.getClass().getName().equals("com.live2d.ui.control.y")
-            && label.getText() != null
-            && !label.getText().isBlank()) {
+                && component.getClass().getName().equals("com.live2d.ui.control.y")
+                && label.getText() != null
+                && !label.getText().isBlank()) {
             return label.getText();
         }
         if (component instanceof Container container) {
@@ -689,8 +742,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
     }
 
     private static JTable findTreeTableIn(final Component component) {
-        if (component instanceof JTable table
-            && table.getClass().getName().contains("CDeformerTreeTable")) {
+        if (component instanceof JTable table && table.getClass().getName().contains("CDeformerTreeTable")) {
             return table;
         }
         if (component instanceof Container container) {
@@ -749,16 +801,15 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         final String tree;
 
         PaletteProbe(
-            final String kind,
-            final boolean filterBoxFound,
-            final String placeholder,
-            final int tableRowCount,
-            final int lines,
-            final JTextField filterField,
-            final JTable table,
-            final JTextPane logPane,
-            final JComponent root
-        ) {
+                final String kind,
+                final boolean filterBoxFound,
+                final String placeholder,
+                final int tableRowCount,
+                final int lines,
+                final JTextField filterField,
+                final JTable table,
+                final JTextPane logPane,
+                final JComponent root) {
             this.kind = kind;
             this.filterBoxFound = filterBoxFound;
             this.placeholder = placeholder;
@@ -773,13 +824,13 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
 
         String describe() {
             return "palette=" + kind
-                + " filter-box=" + filterBoxFound
-                + " placeholder=" + placeholder
-                + " table-rows=" + tableRowCount
-                + " log-lines=" + lines
-                + " root-class=" + (root == null ? "MISSING" : root.getClass().getName())
-                + "\n" + tree;
+                    + " filter-box=" + filterBoxFound
+                    + " placeholder=" + placeholder
+                    + " table-rows=" + tableRowCount
+                    + " log-lines=" + lines
+                    + " root-class="
+                    + (root == null ? "MISSING" : root.getClass().getName())
+                    + "\n" + tree;
         }
     }
-
 }

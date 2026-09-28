@@ -10,7 +10,6 @@ import dev.turboism.sdk.hostread.AsyncHostReadSubmission;
 import dev.turboism.sdk.hostread.AsyncHostReadSubmissionStatus;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.task.RuntimePluginTaskScheduler;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -26,7 +25,7 @@ public final class RuntimeAsyncHostReadService implements AsyncHostReadService, 
     public static final String PROJECT_READ_PERMISSION = "turboism.cubism.project.read";
     private static final Duration CLOSE_TIMEOUT = Duration.ofSeconds(5);
     private static final String QUIESCENCE_FAILURE =
-        "Async host-read operations did not quiesce before plugin scope close.";
+            "Async host-read operations did not quiesce before plugin scope close.";
 
     private final String pluginId;
     private final Set<String> permissions;
@@ -36,30 +35,28 @@ public final class RuntimeAsyncHostReadService implements AsyncHostReadService, 
     private final Object lifecycleLock = new Object();
     private final Duration closeTimeout;
     private final Map<AsyncHostReadIntent, RuntimeAsyncHostReadHandle> active =
-        new EnumMap<>(AsyncHostReadIntent.class);
+            new EnumMap<>(AsyncHostReadIntent.class);
     private boolean open = true;
     private int physicalOperations;
 
     public RuntimeAsyncHostReadService(
-        final String pluginId,
-        final Set<String> permissions,
-        final ProjectWorkspaceHostReadSource source,
-        final SharedAsyncHostReadLane lane,
-        final RuntimePluginTaskScheduler tasks,
-        final DisposableScope scope
-    ) {
+            final String pluginId,
+            final Set<String> permissions,
+            final ProjectWorkspaceHostReadSource source,
+            final SharedAsyncHostReadLane lane,
+            final RuntimePluginTaskScheduler tasks,
+            final DisposableScope scope) {
         this(pluginId, permissions, source, lane, tasks, scope, CLOSE_TIMEOUT);
     }
 
     RuntimeAsyncHostReadService(
-        final String pluginId,
-        final Set<String> permissions,
-        final ProjectWorkspaceHostReadSource source,
-        final SharedAsyncHostReadLane lane,
-        final RuntimePluginTaskScheduler tasks,
-        final DisposableScope scope,
-        final Duration closeTimeout
-    ) {
+            final String pluginId,
+            final Set<String> permissions,
+            final ProjectWorkspaceHostReadSource source,
+            final SharedAsyncHostReadLane lane,
+            final RuntimePluginTaskScheduler tasks,
+            final DisposableScope scope,
+            final Duration closeTimeout) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
         this.source = Objects.requireNonNull(source, "source");
@@ -82,32 +79,21 @@ public final class RuntimeAsyncHostReadService implements AsyncHostReadService, 
             final RuntimeAsyncHostReadHandle existing = active.get(validated.intent());
             if (existing != null) {
                 return new AsyncHostReadSubmission(
-                    AsyncHostReadSubmissionStatus.COALESCED,
-                    Optional.of(existing),
-                    Optional.empty()
-                );
+                        AsyncHostReadSubmissionStatus.COALESCED, Optional.of(existing), Optional.empty());
             }
-            final RuntimeAsyncHostReadHandle handle = new RuntimeAsyncHostReadHandle(
-                this,
-                validated.intent()
-            );
+            final RuntimeAsyncHostReadHandle handle = new RuntimeAsyncHostReadHandle(this, validated.intent());
             active.put(validated.intent(), handle);
-            final SharedAsyncHostReadLane.Admission admission = lane.admit(
-                handle,
-                validated.timeout(),
-                () -> execute(handle)
-            );
+            final SharedAsyncHostReadLane.Admission admission =
+                    lane.admit(handle, validated.timeout(), () -> execute(handle));
             if (admission != SharedAsyncHostReadLane.Admission.ACCEPTED) {
                 active.remove(validated.intent(), handle);
-                return rejected(admission == SharedAsyncHostReadLane.Admission.BACKPRESSURE
-                    ? AsyncHostReadErrorCode.BACKPRESSURE
-                    : AsyncHostReadErrorCode.RUNTIME_UNAVAILABLE);
+                return rejected(
+                        admission == SharedAsyncHostReadLane.Admission.BACKPRESSURE
+                                ? AsyncHostReadErrorCode.BACKPRESSURE
+                                : AsyncHostReadErrorCode.RUNTIME_UNAVAILABLE);
             }
             return new AsyncHostReadSubmission(
-                AsyncHostReadSubmissionStatus.ACCEPTED,
-                Optional.of(handle),
-                Optional.empty()
-            );
+                    AsyncHostReadSubmissionStatus.ACCEPTED, Optional.of(handle), Optional.empty());
         }
     }
 
@@ -124,9 +110,7 @@ public final class RuntimeAsyncHostReadService implements AsyncHostReadService, 
     public boolean cancel(final AsyncHostReadHandle handle) {
         Objects.requireNonNull(handle, "handle");
         if (!(handle instanceof RuntimeAsyncHostReadHandle runtimeHandle)) {
-            throw new IllegalArgumentException(
-                "Handle was not issued by the runtime async host-read service."
-            );
+            throw new IllegalArgumentException("Handle was not issued by the runtime async host-read service.");
         }
         return cancelOwned(runtimeHandle);
     }
@@ -159,9 +143,7 @@ public final class RuntimeAsyncHostReadService implements AsyncHostReadService, 
 
     boolean cancelOwned(final RuntimeAsyncHostReadHandle handle) {
         if (handle == null || !handle.ownedBy(this)) {
-            throw new IllegalArgumentException(
-                "Handle belongs to another async host-read service."
-            );
+            throw new IllegalArgumentException("Handle belongs to another async host-read service.");
         }
         return handle.cancelInternal();
     }
@@ -189,27 +171,26 @@ public final class RuntimeAsyncHostReadService implements AsyncHostReadService, 
     }
 
     AsyncHostReadError error(final AsyncHostReadErrorCode code) {
-        final String message = switch (code) {
-            case CAPABILITY_UNAVAILABLE -> "Host read capability is unavailable.";
-            case PERMISSION_DENIED -> "Permission denied for async host read.";
-            case HOST_VERSION_UNSUPPORTED -> "Host version is unsupported.";
-            case MAPPING_NOT_VERIFIED -> "Required host mapping is not verified.";
-            case VALIDATION_FAILURE -> "Host read result failed validation.";
-            case TIMEOUT -> "Host read timed out.";
-            case CANCELED -> "Host read was canceled.";
-            case BACKPRESSURE -> "Async host read queue is full.";
-            case RUNTIME_UNAVAILABLE -> "Async host read runtime is unavailable.";
-            case RUNTIME_FAILURE -> "Async host read failed safely.";
-        };
+        final String message =
+                switch (code) {
+                    case CAPABILITY_UNAVAILABLE -> "Host read capability is unavailable.";
+                    case PERMISSION_DENIED -> "Permission denied for async host read.";
+                    case HOST_VERSION_UNSUPPORTED -> "Host version is unsupported.";
+                    case MAPPING_NOT_VERIFIED -> "Required host mapping is not verified.";
+                    case VALIDATION_FAILURE -> "Host read result failed validation.";
+                    case TIMEOUT -> "Host read timed out.";
+                    case CANCELED -> "Host read was canceled.";
+                    case BACKPRESSURE -> "Async host read queue is full.";
+                    case RUNTIME_UNAVAILABLE -> "Async host read runtime is unavailable.";
+                    case RUNTIME_FAILURE -> "Async host read failed safely.";
+                };
         return new AsyncHostReadError(code, message);
     }
 
     private void execute(final RuntimeAsyncHostReadHandle handle) {
         try {
-            final ProjectWorkspaceHostReadResult result = Objects.requireNonNull(
-                source.read(),
-                "project/workspace host read result"
-            );
+            final ProjectWorkspaceHostReadResult result =
+                    Objects.requireNonNull(source.read(), "project/workspace host read result");
             if (result.value().isPresent()) {
                 handle.succeed(result.value().orElseThrow());
             } else {
@@ -255,10 +236,7 @@ public final class RuntimeAsyncHostReadService implements AsyncHostReadService, 
 
     private AsyncHostReadSubmission rejected(final AsyncHostReadErrorCode code) {
         return new AsyncHostReadSubmission(
-            AsyncHostReadSubmissionStatus.REJECTED,
-            Optional.empty(),
-            Optional.of(error(code))
-        );
+                AsyncHostReadSubmissionStatus.REJECTED, Optional.empty(), Optional.of(error(code)));
     }
 
     private static String requireText(final String value, final String name) {

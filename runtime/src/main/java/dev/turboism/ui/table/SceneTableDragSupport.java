@@ -1,11 +1,5 @@
 package dev.turboism.ui.table;
 
-import javax.swing.JLayeredPane;
-import javax.swing.JPanel;
-import javax.swing.JRootPane;
-import javax.swing.JTable;
-import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -13,19 +7,24 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import javax.swing.JLayeredPane;
+import javax.swing.JPanel;
+import javax.swing.JRootPane;
+import javax.swing.JTable;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 /** Runtime-private Scene row drag visuals ported from the validated legacy implementation. */
 final class SceneTableDragSupport {
 
-    private SceneTableDragSupport() {
-    }
+    private SceneTableDragSupport() {}
 
     static Rectangle getRowBounds(final JTable table, final int rowIndex) {
         if (table == null || rowIndex < 0 || rowIndex >= table.getRowCount() || table.getColumnCount() <= 0) {
             return null;
         }
         return table.getCellRect(rowIndex, 0, true)
-            .union(table.getCellRect(rowIndex, table.getColumnCount() - 1, true));
+                .union(table.getCellRect(rowIndex, table.getColumnCount() - 1, true));
     }
 
     static int resolveDropRow(final JTable table, final Point point) {
@@ -175,8 +174,8 @@ final class SceneTableDragSupport {
                     g.drawRoundRect(target.x + 3, target.y + 3, target.width - 7, target.height - 7, 10, 10);
                 }
                 final Rectangle ghost = source == null
-                    ? new Rectangle(0, Math.round(currentGhostY), ghostImage.getWidth(), ghostImage.getHeight())
-                    : new Rectangle(source.x, Math.round(currentGhostY), source.width, source.height);
+                        ? new Rectangle(0, Math.round(currentGhostY), ghostImage.getWidth(), ghostImage.getHeight())
+                        : new Rectangle(source.x, Math.round(currentGhostY), source.width, source.height);
                 g.setColor(new Color(0, 0, 0, 28));
                 g.fillRoundRect(ghost.x + 4, ghost.y + 5, ghost.width, ghost.height, 12, 12);
                 g.setColor(new Color(255, 255, 255, 245));

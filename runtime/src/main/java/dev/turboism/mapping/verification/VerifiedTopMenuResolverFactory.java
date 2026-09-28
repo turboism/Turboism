@@ -27,16 +27,13 @@ public final class VerifiedTopMenuResolverFactory implements SliceResolverFactor
      * @throws NullPointerException if any argument is {@code null}
      */
     public VerifiedMemberResolver create(
-        final Path reviewedRecord,
-        final Path verifiedArtifact,
-        final ClassLoader hostClassLoader
-    ) throws IOException {
+            final Path reviewedRecord, final Path verifiedArtifact, final ClassLoader hostClassLoader)
+            throws IOException {
         return workflow.create(
-            reviewedRecord,
-            verifiedArtifact,
-            hostClassLoader,
-            TopMenuVerificationManifest.forArtifact(HostArtifactDigest.from(verifiedArtifact))
-        );
+                reviewedRecord,
+                verifiedArtifact,
+                hostClassLoader,
+                TopMenuVerificationManifest.forArtifact(HostArtifactDigest.from(verifiedArtifact)));
     }
     /**
      * Creates a resolver for a slice admitted by structural compatibility. The
@@ -53,17 +50,11 @@ public final class VerifiedTopMenuResolverFactory implements SliceResolverFactor
      * @throws NullPointerException if any argument is {@code null}
      */
     public VerifiedMemberResolver createCompatible(
-        final Path reviewedRecord,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader,
-        final SliceContract contract
-    ) throws IOException {
-        return workflow.createCompatible(
-            reviewedRecord,
-            hostArtifact,
-            hostClassLoader,
-            contract
-        );
+            final Path reviewedRecord,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final SliceContract contract)
+            throws IOException {
+        return workflow.createCompatible(reviewedRecord, hostArtifact, hostClassLoader, contract);
     }
-
 }

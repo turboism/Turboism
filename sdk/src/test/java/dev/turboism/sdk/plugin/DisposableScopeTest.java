@@ -16,7 +16,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
 import org.junit.jupiter.api.Test;
 
 /**
@@ -81,7 +80,9 @@ class DisposableScopeTest {
         third.close();
         scope.close();
 
-        assertEquals(List.of("third", "second", "first"), order,
+        assertEquals(
+                List.of("third", "second", "first"),
+                order,
                 "scope must close still-registered entries in reverse registration order");
     }
 
@@ -114,14 +115,12 @@ class DisposableScopeTest {
         first.close();
         first.close();
 
-        assertEquals(1, shared.closes.get(),
-                "a duplicate handle close must not consume the other registration");
+        assertEquals(1, shared.closes.get(), "a duplicate handle close must not consume the other registration");
 
         scope.close();
         second.close();
 
-        assertEquals(2, shared.closes.get(),
-                "two registrations of the same object are two independent ownerships");
+        assertEquals(2, shared.closes.get(), "two registrations of the same object are two independent ownerships");
     }
 
     @Test
@@ -135,10 +134,8 @@ class DisposableScopeTest {
         handle.close();
         scope.close();
 
-        assertFalse(handleHeldMonitor.get(),
-                "handle-driven close must not run under the scope monitor");
-        assertFalse(scopeHeldMonitor.get(),
-                "scope-driven close must not run under the scope monitor");
+        assertFalse(handleHeldMonitor.get(), "handle-driven close must not run under the scope monitor");
+        assertFalse(scopeHeldMonitor.get(), "scope-driven close must not run under the scope monitor");
     }
 
     @Test
@@ -151,22 +148,22 @@ class DisposableScopeTest {
         Registration handle = scope.register(gated(scope, closes, entered, proceed, heldMonitor));
 
         AtomicReference<Throwable> scopeError = new AtomicReference<>();
-        Thread scopeThread = new Thread(() -> {
-            try {
-                scope.close();
-            } catch (Throwable failure) {
-                scopeError.set(failure);
-            }
-        }, "scope-close");
+        Thread scopeThread = new Thread(
+                () -> {
+                    try {
+                        scope.close();
+                    } catch (Throwable failure) {
+                        scopeError.set(failure);
+                    }
+                },
+                "scope-close");
         try {
             scopeThread.start();
-            assertTrue(entered.await(WAIT_SECONDS, TimeUnit.SECONDS),
-                    "scope close must reach the user closeable");
+            assertTrue(entered.await(WAIT_SECONDS, TimeUnit.SECONDS), "scope close must reach the user closeable");
 
             handle.close();
 
-            assertEquals(1, closes.get(),
-                    "handle close must not release an entry already claimed by the scope");
+            assertEquals(1, closes.get(), "handle close must not release an entry already claimed by the scope");
         } finally {
             proceed.countDown();
             joinBounded(scopeThread);
@@ -188,22 +185,22 @@ class DisposableScopeTest {
         Registration handle = scope.register(gated(scope, closes, entered, proceed, heldMonitor));
 
         AtomicReference<Throwable> handleError = new AtomicReference<>();
-        Thread handleThread = new Thread(() -> {
-            try {
-                handle.close();
-            } catch (Throwable failure) {
-                handleError.set(failure);
-            }
-        }, "handle-close");
+        Thread handleThread = new Thread(
+                () -> {
+                    try {
+                        handle.close();
+                    } catch (Throwable failure) {
+                        handleError.set(failure);
+                    }
+                },
+                "handle-close");
         try {
             handleThread.start();
-            assertTrue(entered.await(WAIT_SECONDS, TimeUnit.SECONDS),
-                    "handle close must reach the user closeable");
+            assertTrue(entered.await(WAIT_SECONDS, TimeUnit.SECONDS), "handle close must reach the user closeable");
 
             scope.close();
 
-            assertEquals(1, closes.get(),
-                    "scope close must not release an entry already claimed by a handle");
+            assertEquals(1, closes.get(), "scope close must not release an entry already claimed by a handle");
         } finally {
             proceed.countDown();
             joinBounded(handleThread);
@@ -226,32 +223,35 @@ class DisposableScopeTest {
 
         AtomicReference<Throwable> firstError = new AtomicReference<>();
         AtomicReference<Throwable> secondError = new AtomicReference<>();
-        Thread first = new Thread(() -> {
-            try {
-                handle.close();
-            } catch (Throwable failure) {
-                firstError.set(failure);
-            }
-        }, "handle-close-1");
-        Thread second = new Thread(() -> {
-            try {
-                handle.close();
-            } catch (Throwable failure) {
-                secondError.set(failure);
-            }
-        }, "handle-close-2");
+        Thread first = new Thread(
+                () -> {
+                    try {
+                        handle.close();
+                    } catch (Throwable failure) {
+                        firstError.set(failure);
+                    }
+                },
+                "handle-close-1");
+        Thread second = new Thread(
+                () -> {
+                    try {
+                        handle.close();
+                    } catch (Throwable failure) {
+                        secondError.set(failure);
+                    }
+                },
+                "handle-close-2");
         try {
             first.start();
-            assertTrue(entered.await(WAIT_SECONDS, TimeUnit.SECONDS),
+            assertTrue(
+                    entered.await(WAIT_SECONDS, TimeUnit.SECONDS),
                     "the first handle close must reach the user closeable");
 
             second.start();
             second.join(WAIT_MILLIS);
 
-            assertFalse(second.isAlive(),
-                    "the second handle close must return while the claimed close is in flight");
-            assertEquals(1, closes.get(),
-                    "the losing handle close must not release the registration again");
+            assertFalse(second.isAlive(), "the second handle close must return while the claimed close is in flight");
+            assertEquals(1, closes.get(), "the losing handle close must not release the registration again");
         } finally {
             proceed.countDown();
             joinBounded(first);
@@ -342,7 +342,9 @@ class DisposableScopeTest {
         Exception thrown = assertThrows(Exception.class, scope::close);
 
         assertSame(lastFailure, thrown, "scope rethrows the first failure in reverse close order");
-        assertArrayEquals(new Throwable[]{firstFailure}, thrown.getSuppressed(),
+        assertArrayEquals(
+                new Throwable[] {firstFailure},
+                thrown.getSuppressed(),
                 "later failures stay suppressed on the first one");
         assertEquals(1, firstThrows.get());
         assertEquals(1, normal.closes.get(), "other entries are still released");
@@ -379,7 +381,8 @@ class DisposableScopeTest {
             closes.incrementAndGet();
             heldMonitor.set(Thread.holdsLock(scope));
             entered.countDown();
-            assertTrue(proceed.await(WAIT_SECONDS, TimeUnit.SECONDS),
+            assertTrue(
+                    proceed.await(WAIT_SECONDS, TimeUnit.SECONDS),
                     "the in-flight close was not released within the bound");
         };
     }

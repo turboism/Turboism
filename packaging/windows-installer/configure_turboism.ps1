@@ -190,13 +190,23 @@ function Assert-RuntimeStringArray {
     }
 }
 
+function Test-RuntimeStringArrayValue {
+    param([object]$Value)
+
+    if ($Value -is [string] -or $Value -isnot [System.Collections.IList]) { return $false }
+    foreach ($item in @($Value)) {
+        if ($item -isnot [string]) { return $false }
+    }
+    return $true
+}
+
 function Assert-RuntimeConfigV1 {
     param([object]$Document)
 
     Assert-RuntimeAllowedProperties $Document @(
         "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-        "hooks", "launcher", "reduceAutoBackup",
+        "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse"
     ) "config.json"
 
@@ -331,66 +341,273 @@ function Assert-RuntimeConfigV1 {
             }
         }
     }
-}
 
-function Convert-RuntimeConfigV0ToV1 {
-    param([object]$Document)
-
-    $allowed = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
-    foreach ($name in @(
-        "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
-        "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-        "hooks", "launcher", "cubismJvm", "graalVmPath"
-    )) { [void]$allowed.Add($name) }
-    foreach ($property in $Document.PSObject.Properties) {
-        if (-not $allowed.Contains($property.Name)) {
-            throw "legacy config.json contains an unsupported field: $($property.Name)"
+    $textureAtlasProperty = $Document.PSObject.Properties["textureAtlas"]
+    if ($null -ne $textureAtlasProperty) {
+        $textureAtlas = $textureAtlasProperty.Value
+        Assert-RuntimeAllowedProperties $textureAtlas @(
+            "algorithmId", "parallel"
+        ) "textureAtlas"
+        $algorithm = $textureAtlas.PSObject.Properties["algorithmId"]
+        if ($null -ne $algorithm -and $null -ne $algorithm.Value `
+            -and ($algorithm.Value -isnot [string] -or [string]::IsNullOrWhiteSpace($algorithm.Value))) {
+            throw "textureAtlas.algorithmId is invalid"
+        }
+        $parallel = $textureAtlas.PSObject.Properties["parallel"]
+        if ($null -ne $parallel -and $parallel.Value -isnot [bool]) {
+            throw "textureAtlas.parallel must be a boolean"
         }
     }
+}
 
+function Test-RuntimeConfigGraalVmPathValue {
+    param([object]$Value)
+
+    return $Value -is [string] -and -not [string]::IsNullOrWhiteSpace($Value) `
+        -and $Value.Length -le 4096 -and -not [regex]::IsMatch($Value, '[\x00-\x1f]')
+}
+
+# 兼容归一化：可解析的自有文档（任何旧版或新版 schema）提升到当前 v1。
+# 已知字段值合法才携带；陌生字段与非法值一律丢弃而非拒绝；结果仍须通过
+# 完整 v1 校验。仅当 format 显式声明为其他产品的字符串时失败关闭 ——
+# 那不是本产品的文档，绝不能被改写。
+function Convert-RuntimeConfigToV1 {
+    param([object]$Document)
+
+    if ($null -eq $Document -or $Document -isnot [pscustomobject]) {
+        throw "config.json root must be an object"
+    }
     $format = $Document.PSObject.Properties["format"]
-    if ($null -ne $format -and $format.Value -ne "turboism.runtime.config") {
-        throw "legacy config.json format is unsupported"
+    if ($null -ne $format -and $format.Value -is [string] `
+        -and $format.Value -cne "turboism.runtime.config") {
+        throw "config.json declares an unsupported format: $($format.Value)"
     }
 
-    $migrated = [ordered]@{
+    $dropped = New-Object 'System.Collections.Generic.List[string]'
+    $normalized = [ordered]@{
         format = "turboism.runtime.config"
         schemaVersion = 1
         worktreeId = "turboism-runtime"
         pluginDirs = @("plugins")
     }
+
+    $known = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($name in @(
-        "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB",
-        "locale", "safeMode", "useTextIcon", "diagnostics", "hooks"
-    )) {
-        $property = $Document.PSObject.Properties[$name]
-        if ($null -ne $property) { $migrated[$name] = $property.Value }
+        "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
+        "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
+        "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
+        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
+        "cubismJvm", "graalVmPath"
+    )) { [void]$known.Add($name) }
+    foreach ($property in $Document.PSObject.Properties) {
+        if (-not $known.Contains($property.Name)) { [void]$dropped.Add($property.Name) }
     }
 
-    $launcher = [ordered]@{ cubismJvm = "graalvm" }
-    $launcherProperty = $Document.PSObject.Properties["launcher"]
-    if ($null -ne $launcherProperty) {
-        if ($null -eq $launcherProperty.Value -or $launcherProperty.Value -isnot [pscustomobject]) {
-            throw "legacy config.json launcher must be an object"
+    $worktree = $Document.PSObject.Properties["worktreeId"]
+    if ($null -ne $worktree -and $worktree.Value -is [string] `
+        -and $worktree.Value -cmatch '^[a-z][a-z0-9-]{2,63}$') {
+        $normalized["worktreeId"] = $worktree.Value
+    }
+    elseif ($null -ne $worktree) { [void]$dropped.Add("worktreeId") }
+
+    $pluginDirs = $Document.PSObject.Properties["pluginDirs"]
+    if ($null -ne $pluginDirs) {
+        if (Test-RuntimeStringArrayValue $pluginDirs.Value) {
+            $normalized["pluginDirs"] = @($pluginDirs.Value | Where-Object {
+                -not $_.StartsWith("/") -and -not $_.StartsWith("\\") -and -not $_.Contains("..")
+            })
         }
-        foreach ($property in $launcherProperty.Value.PSObject.Properties) {
-            if (@("cubismJvm", "graalVmPath") -cnotcontains $property.Name) {
-                throw "legacy config.json contains an unsupported launcher field: $($property.Name)"
-            }
-            $launcher[$property.Name] = $property.Value
+        else { [void]$dropped.Add("pluginDirs") }
+    }
+
+    $disabledPlugins = $Document.PSObject.Properties["disabledPlugins"]
+    if ($null -ne $disabledPlugins) {
+        if (Test-RuntimeStringArrayValue $disabledPlugins.Value) {
+            # 空 id 对插件选择合并没有意义；丢弃它们，避免损坏项在后续
+            # merge 阶段再次中断安装。
+            $normalized["disabledPlugins"] = @($disabledPlugins.Value | Where-Object { $_ -ne "" })
+        }
+        else { [void]$dropped.Add("disabledPlugins") }
+    }
+
+    $logLevel = $Document.PSObject.Properties["logLevel"]
+    if ($null -ne $logLevel) {
+        if ($logLevel.Value -is [string] -and @(
+            "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"
+        ) -ccontains $logLevel.Value) {
+            $normalized["logLevel"] = $logLevel.Value
+        }
+        else { [void]$dropped.Add("logLevel") }
+    }
+
+    $maxLogStorage = $Document.PSObject.Properties["maxLogStorageMiB"]
+    if ($null -ne $maxLogStorage) {
+        $limit = 0L
+        if ((Test-RuntimeConfigIntegerToken $maxLogStorage.Value) `
+            -and [long]::TryParse([string]$maxLogStorage.Value, [ref]$limit) `
+            -and $limit -ge 1 -and $limit -le 4096) {
+            $normalized["maxLogStorageMiB"] = $limit
+        }
+        else { [void]$dropped.Add("maxLogStorageMiB") }
+    }
+
+    $locale = $Document.PSObject.Properties["locale"]
+    if ($null -ne $locale) {
+        if ($locale.Value -is [string] -and @(
+            "system", "en", "ja", "ko", "zh-Hans", "zh-Hant"
+        ) -ccontains $locale.Value) {
+            $normalized["locale"] = $locale.Value
+        }
+        else { [void]$dropped.Add("locale") }
+    }
+
+    foreach ($name in @(
+        "safeMode", "useTextIcon", "reduceAutoBackup",
+        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse"
+    )) {
+        $property = $Document.PSObject.Properties[$name]
+        if ($null -ne $property) {
+            if ($property.Value -is [bool]) { $normalized[$name] = $property.Value }
+            else { [void]$dropped.Add($name) }
         }
     }
+
+    $diagnostics = $Document.PSObject.Properties["diagnostics"]
+    if ($null -ne $diagnostics) {
+        $normalized["diagnostics"] = $diagnostics.Value
+    }
+
+    $hooksProperty = $Document.PSObject.Properties["hooks"]
+    if ($null -ne $hooksProperty) {
+        if ($hooksProperty.Value -is [pscustomobject]) {
+            $hooks = [ordered]@{}
+            foreach ($property in $hooksProperty.Value.PSObject.Properties) {
+                if (@("disabledIds", "denylistedClasses", "startup") -cnotcontains $property.Name) {
+                    [void]$dropped.Add("hooks." + $property.Name)
+                }
+            }
+            foreach ($name in @("disabledIds", "denylistedClasses")) {
+                $property = $hooksProperty.Value.PSObject.Properties[$name]
+                if ($null -ne $property) {
+                    if (Test-RuntimeStringArrayValue $property.Value) {
+                        $hooks[$name] = @($property.Value)
+                    }
+                    else { [void]$dropped.Add("hooks." + $name) }
+                }
+            }
+            $startupProperty = $hooksProperty.Value.PSObject.Properties["startup"]
+            if ($null -ne $startupProperty) {
+                if ($startupProperty.Value -is [pscustomobject]) {
+                    $startup = [ordered]@{}
+                    foreach ($property in $startupProperty.Value.PSObject.Properties) {
+                        if (@("skipUpdateCheck", "skipSplash", "skipInformation",
+                              "separateExportSaveDirectory") -cnotcontains $property.Name) {
+                            [void]$dropped.Add("hooks.startup." + $property.Name)
+                        }
+                        elseif ($property.Value -is [bool]) {
+                            $startup[$property.Name] = $property.Value
+                        }
+                        else { [void]$dropped.Add("hooks.startup." + $property.Name) }
+                    }
+                    $hooks["startup"] = [pscustomobject]$startup
+                }
+                else { [void]$dropped.Add("hooks.startup") }
+            }
+            $normalized["hooks"] = [pscustomobject]$hooks
+        }
+        else { [void]$dropped.Add("hooks") }
+    }
+
+    $textureAtlasProperty = $Document.PSObject.Properties["textureAtlas"]
+    if ($null -ne $textureAtlasProperty) {
+        if ($textureAtlasProperty.Value -is [pscustomobject]) {
+            $textureAtlas = [ordered]@{}
+            $algorithm = $textureAtlasProperty.Value.PSObject.Properties["algorithmId"]
+            if ($null -ne $algorithm) {
+                if ($null -eq $algorithm.Value -or ($algorithm.Value -is [string] `
+                    -and -not [string]::IsNullOrWhiteSpace($algorithm.Value))) {
+                    $textureAtlas["algorithmId"] = $algorithm.Value
+                }
+                else { [void]$dropped.Add("textureAtlas.algorithmId") }
+            }
+            $parallel = $textureAtlasProperty.Value.PSObject.Properties["parallel"]
+            if ($null -ne $parallel) {
+                if ($parallel.Value -is [bool]) { $textureAtlas["parallel"] = $parallel.Value }
+                else { [void]$dropped.Add("textureAtlas.parallel") }
+            }
+            $normalized["textureAtlas"] = [pscustomobject]$textureAtlas
+        }
+        else { [void]$dropped.Add("textureAtlas") }
+    }
+
+    $launcher = [ordered]@{}
+    $launcherProperty = $Document.PSObject.Properties["launcher"]
+    if ($null -ne $launcherProperty -and $launcherProperty.Value -is [pscustomobject]) {
+        $source = $launcherProperty.Value
+        $cubismJvm = $source.PSObject.Properties["cubismJvm"]
+        if ($null -ne $cubismJvm) {
+            if ($cubismJvm.Value -is [string] -and @("graalvm", "bundled") -ccontains $cubismJvm.Value) {
+                $launcher["cubismJvm"] = $cubismJvm.Value
+            }
+            else { [void]$dropped.Add("launcher.cubismJvm") }
+        }
+        $graalVmPath = $source.PSObject.Properties["graalVmPath"]
+        if ($null -ne $graalVmPath) {
+            if (Test-RuntimeConfigGraalVmPathValue $graalVmPath.Value) {
+                $launcher["graalVmPath"] = $graalVmPath.Value
+            }
+            else { [void]$dropped.Add("launcher.graalVmPath") }
+        }
+        $memoryProfile = $source.PSObject.Properties["memoryProfile"]
+        if ($null -ne $memoryProfile) {
+            if ($memoryProfile.Value -is [string] -and @(
+                "system", "balanced4g", "balanced4gFastSoft"
+            ) -ccontains $memoryProfile.Value) {
+                $launcher["memoryProfile"] = $memoryProfile.Value
+            }
+            else { [void]$dropped.Add("launcher.memoryProfile") }
+        }
+        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate",
+            "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread")) {
+            $property = $source.PSObject.Properties[$name]
+            if ($null -ne $property) {
+                if ($property.Value -is [bool]) { $launcher[$name] = $property.Value }
+                else { [void]$dropped.Add("launcher." + $name) }
+            }
+        }
+        foreach ($property in $source.PSObject.Properties) {
+            if (@("cubismJvm", "graalVmPath", "zgc", "memoryProfile",
+                "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache",
+                "uploadElision", "inputPathElision", "mesaGlThread") -cnotcontains $property.Name) {
+                [void]$dropped.Add("launcher." + $property.Name)
+            }
+        }
+    }
+    elseif ($null -ne $launcherProperty) { [void]$dropped.Add("launcher") }
+
+    # 旧版根级 JVM 字段提升进 launcher；launcher 已携带同名设置时以 launcher 为准。
     foreach ($name in @("cubismJvm", "graalVmPath")) {
         $legacy = $Document.PSObject.Properties[$name]
-        if ($null -ne $legacy) {
-            if ($null -ne $launcherProperty -and $null -ne $launcherProperty.Value.PSObject.Properties[$name]) {
-                throw "legacy config.json defines $name twice"
+        if ($null -ne $legacy -and -not $launcher.Contains($name)) {
+            $valid = if ($name -eq "cubismJvm") {
+                $legacy.Value -is [string] -and @("graalvm", "bundled") -ccontains $legacy.Value
             }
-            $launcher[$name] = $legacy.Value
+            else { Test-RuntimeConfigGraalVmPathValue $legacy.Value }
+            if ($valid) { $launcher[$name] = $legacy.Value }
+            else { [void]$dropped.Add($name) }
+        }
+        elseif ($null -ne $legacy -and $launcher.Contains($name)) {
+            [void]$dropped.Add($name)
         }
     }
-    $migrated["launcher"] = [pscustomobject]$launcher
-    $result = [pscustomobject]$migrated
+    if ($launcher.Count -gt 0) {
+        $normalized["launcher"] = [pscustomobject]$launcher
+    }
+
+    if ($dropped.Count -gt 0) {
+        Write-Host ("TURBOISM_CONFIG normalized dropped=" + ($dropped -join ","))
+    }
+    $result = [pscustomobject]$normalized
     Assert-RuntimeConfigV1 $result
     return $result
 }
@@ -399,6 +616,9 @@ function Write-RuntimeConfigAtomic {
     param([object]$Document)
 
     $json = $Document | ConvertTo-Json -Depth 16
+    # PowerShell 将单元素数组序列化为标量，会破坏这些字符串数组字段的
+    # 下次读取；写回前把已知数组字段重新包成 JSON 数组。
+    $json = $json -replace '"(pluginDirs|disabledPlugins|disabledIds|denylistedClasses)":\s*"([^"]+)"', '"$1": ["$2"]'
     $encoding = New-Object System.Text.UTF8Encoding($false)
     $bytes = $encoding.GetBytes($json + "`r`n")
     if ($bytes.Length -gt 65536) { throw "updated config.json exceeds 64 KiB" }
@@ -435,17 +655,17 @@ function Invoke-RuntimeConfigMigration {
         return
     }
     $document = Read-RuntimeConfigForMigration
-    $schema = Get-RuntimeConfigSchemaVersion $document
-    if ($schema -eq 1) {
+    $schema = $null
+    try { $schema = Get-RuntimeConfigSchemaVersion $document } catch { }
+    try {
         Assert-RuntimeConfigV1 $document
         Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1"
         return
     }
-    if ($schema -ne 0) { throw "no runtime config migration is available from schemaVersion $schema" }
-    $migrated = Convert-RuntimeConfigV0ToV1 $document
-    Assert-RuntimeConfigV1 $migrated
+    catch { }
+    $migrated = Convert-RuntimeConfigToV1 $document
     Write-RuntimeConfigAtomic $migrated
-    Write-Host "TURBOISM_CONFIG migrated from=0 to=1"
+    Write-Host ("TURBOISM_CONFIG migrated from={0} to=1" -f $(if ($null -ne $schema) { $schema } else { "unknown" }))
 }
 
 function Convert-InstallerPluginIdList {
@@ -495,18 +715,17 @@ function Invoke-InstallerPluginSelection {
     }
 
     $hadConfig = Test-Path -LiteralPath $configPath
-    $schema = 0L
+    $wasValid = $false
     if ($hadConfig) {
         $document = Read-RuntimeConfigForMigration
-        $schema = Get-RuntimeConfigSchemaVersion $document
-        if ($schema -eq 1) {
+        try {
             Assert-RuntimeConfigV1 $document
+            $wasValid = $true
         }
-        elseif ($schema -eq 0) {
-            $document = Convert-RuntimeConfigV0ToV1 $document
-        }
-        else {
-            throw "no runtime config migration is available from schemaVersion $schema"
+        catch {
+            # 兼容路径：旧版/新版 schema、陌生字段、非法值都归一化为 v1，
+            # 而不是在载荷写入前中止安装。
+            $document = Convert-RuntimeConfigToV1 $document
         }
     }
     else {
@@ -533,7 +752,8 @@ function Invoke-InstallerPluginSelection {
         "dev.turboism.plugin.logfilter",
         "dev.turboism.plugin.clipmask",
         "dev.turboism.plugin.perfopt",
-        "dev.turboism.plugin.renderopt"
+        "dev.turboism.plugin.renderopt",
+        "dev.turboism.plugin.backup"
     )) { [void]$retired.Add($id) }
     $desiredSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($id in $existing) {
@@ -547,7 +767,7 @@ function Invoke-InstallerPluginSelection {
     $desiredList.Sort([System.StringComparer]::Ordinal)
     $desired = [string[]]$desiredList.ToArray()
 
-    if ($hadConfig -and $schema -eq 1 `
+    if ($hadConfig -and $wasValid `
         -and (Test-RuntimeStringSetEquals ([string[]]$existing) $desired)) {
         Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1 selection=current"
         return

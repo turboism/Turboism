@@ -8,7 +8,6 @@ import dev.turboism.sdk.cubism.psd.PsdEditFile;
 import dev.turboism.sdk.cubism.psd.PsdExportResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -76,15 +75,12 @@ public interface ModelTextures {
     @CubismEditor({"5.3.02"})
     default CompletionStage<PsdExportResult> exportRawImagePsd(final RawImageId source) {
         Objects.requireNonNull(source, "source");
-        return CompletableFuture.completedFuture(
-            new PsdExportResult(
+        return CompletableFuture.completedFuture(new PsdExportResult(
                 PsdExportResult.Status.UNAVAILABLE,
                 "PSD raw-image export is unavailable.",
                 source,
                 Optional.empty(),
-                Optional.empty()
-            )
-        );
+                Optional.empty()));
     }
 
     /**
@@ -100,23 +96,17 @@ public interface ModelTextures {
      */
     @CubismEditor({"5.3.02"})
     default CompletionStage<PsdReplaceResult> replaceRawImagePsd(
-        final RawImageId target,
-        final PsdEditFile file,
-        final PsdFileRevision revision
-    ) {
+            final RawImageId target, final PsdEditFile file, final PsdFileRevision revision) {
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(file, "file");
         Objects.requireNonNull(revision, "revision");
-        return CompletableFuture.completedFuture(
-            new PsdReplaceResult(
+        return CompletableFuture.completedFuture(new PsdReplaceResult(
                 PsdReplaceResult.Status.UNAVAILABLE,
                 "PSD raw-image replacement is unavailable.",
                 target,
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty()
-            )
-        );
+                Optional.empty()));
     }
 
     /**

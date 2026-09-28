@@ -5,7 +5,6 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,8 +31,8 @@ public final class TabFilterPlugin implements TurboismPlugin {
         if (context == null) {
             throw new IllegalStateException("TabFilterPlugin must be initialized before enable.");
         }
-        final PaletteFilterRegistry registry = context.paletteFilter();
-        if (!registry.isAvailable()) {
+        final PaletteFilterRegistry registry = context.services().get(PaletteFilterRegistry.class);
+        if (registry == null || !registry.isAvailable()) {
             logger.warn("tab-filter: palette filter registry is unavailable; filter boxes are not installed");
             return;
         }
@@ -42,8 +41,8 @@ public final class TabFilterPlugin implements TurboismPlugin {
             enrolled.add(registry.contribute(contribution));
         }
         registrations = List.copyOf(enrolled);
-        logger.info("TabFilterPlugin enabled: palette filter boxes enrolled for "
-            + registrations.size() + " palette tabs");
+        logger.info(
+                "TabFilterPlugin enabled: palette filter boxes enrolled for " + registrations.size() + " palette tabs");
     }
 
     @Override
@@ -63,44 +62,23 @@ public final class TabFilterPlugin implements TurboismPlugin {
 
     private static List<PaletteFilterRegistry.PaletteFilterContribution> contributions() {
         return List.of(
-            contribution(
-                "tab-filter.parameter",
-                PaletteFilterRegistry.PALETTE_PARAMETER,
-                "tab-filter.placeholder.parameter",
-                10
-            ),
-            contribution(
-                "tab-filter.deformer",
-                PaletteFilterRegistry.PALETTE_DEFORMER,
-                "tab-filter.placeholder.deformer",
-                10
-            ),
-            contribution(
-                "tab-filter.scene",
-                PaletteFilterRegistry.PALETTE_SCENE,
-                "tab-filter.placeholder.scene",
-                10
-            ),
-            contribution(
-                "tab-filter.log",
-                PaletteFilterRegistry.PALETTE_LOG,
-                "tab-filter.placeholder.log",
-                10
-            )
-        );
+                contribution(
+                        "tab-filter.parameter",
+                        PaletteFilterRegistry.PALETTE_PARAMETER,
+                        "tab-filter.placeholder.parameter",
+                        10),
+                contribution(
+                        "tab-filter.deformer",
+                        PaletteFilterRegistry.PALETTE_DEFORMER,
+                        "tab-filter.placeholder.deformer",
+                        10),
+                contribution(
+                        "tab-filter.scene", PaletteFilterRegistry.PALETTE_SCENE, "tab-filter.placeholder.scene", 10),
+                contribution("tab-filter.log", PaletteFilterRegistry.PALETTE_LOG, "tab-filter.placeholder.log", 10));
     }
 
     private static PaletteFilterRegistry.PaletteFilterContribution contribution(
-        final String contributionId,
-        final String paletteId,
-        final String placeholderKey,
-        final int order
-    ) {
-        return new PaletteFilterRegistry.PaletteFilterContribution(
-            contributionId,
-            paletteId,
-            placeholderKey,
-            order
-        );
+            final String contributionId, final String paletteId, final String placeholderKey, final int order) {
+        return new PaletteFilterRegistry.PaletteFilterContribution(contributionId, paletteId, placeholderKey, order);
     }
 }

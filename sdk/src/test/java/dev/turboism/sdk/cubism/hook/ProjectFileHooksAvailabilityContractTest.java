@@ -1,22 +1,18 @@
 package dev.turboism.sdk.cubism.hook;
 
-import dev.turboism.sdk.CubismEditor;
-import org.junit.jupiter.api.Test;
-
-import java.lang.reflect.Method;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+
+import dev.turboism.sdk.CubismEditor;
+import java.lang.reflect.Method;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 class ProjectFileHooksAvailabilityContractTest {
 
     private static final String[] EXACT_5_3 = {"5.3.02", "5.3.03"};
-    private static final Set<String> UNPROVEN_MODEL_CREATE = Set.of(
-        "beforeCreateModel",
-        "onModelCreated",
-        "afterCreateModel"
-    );
+    private static final Set<String> UNPROVEN_MODEL_CREATE =
+            Set.of("beforeCreateModel", "onModelCreated", "afterCreateModel");
 
     @Test
     void declaresOnlyExactHostProvenProjectFileMethods() {
@@ -44,10 +40,6 @@ class ProjectFileHooksAvailabilityContractTest {
     }
 
     private static void assertExact53(final Method method) {
-        assertArrayEquals(
-            EXACT_5_3,
-            method.getAnnotation(CubismEditor.class).value(),
-            method.getName()
-        );
+        assertArrayEquals(EXACT_5_3, method.getAnnotation(CubismEditor.class).value(), method.getName());
     }
 }

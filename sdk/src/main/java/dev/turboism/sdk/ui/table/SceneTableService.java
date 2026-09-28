@@ -22,8 +22,7 @@ public interface SceneTableService {
     }
 
     /** Enables native manual row dragging while the plugin is in manual-order mode. */
-    default void setManualReordering(final String tableId, final boolean enabled) {
-    }
+    default void setManualReordering(final String tableId, final boolean enabled) {}
 
     /**
      * Reports whether a live runtime surface backs this instance.
@@ -34,15 +33,13 @@ public interface SceneTableService {
         return true;
     }
 
-
     /** Returns a fail-closed service: every call is a no-op. */
     static SceneTableService unavailable() {
         return Unavailable.INSTANCE;
     }
 
     /** Notification that a table column header was clicked. */
-    record HeaderClick(String tableId, String columnId) {
-    }
+    record HeaderClick(String tableId, String columnId) {}
 
     /** Notification that manual dragging reordered items within one scope. */
     record ItemOrderChanged(String tableId, String scopeId, List<String> itemIds) {
@@ -52,8 +49,7 @@ public interface SceneTableService {
     }
 
     /** One table column descriptor. */
-    record Column(String id, String label) {
-    }
+    record Column(String id, String label) {}
 
     /** One table row: an item id plus cell text keyed by column id. */
     record Item(String id, Map<String, String> cells) {
@@ -79,20 +75,18 @@ public interface SceneTableService {
     enum Unavailable implements SceneTableService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
         @Override
-        public void setHeader(final String tableId, final String columnId, final String label) {
-        }
+        public void setHeader(final String tableId, final String columnId, final String label) {}
 
         @Override
-        public void setItemPosition(final String tableId, final String itemId, final int position) {
-        }
+        public void setItemPosition(final String tableId, final String itemId, final int position) {}
 
         @Override
-        public void setManualReordering(final String tableId, final boolean enabled) {
-        }
+        public void setManualReordering(final String tableId, final boolean enabled) {}
     }
 }

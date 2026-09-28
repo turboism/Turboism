@@ -2,13 +2,11 @@ package dev.turboism.plugin.clipmaskviewer.b1.domain;
 
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * 查看器窗口的只读数据状态：从 SDK 服务收集记录并建立索引/反向索引/重复桶。
@@ -74,8 +72,7 @@ public final class ClipMaskViewerState {
         final List<ClipMaskRecord> records = collected == null ? List.of() : List.copyOf(collected);
         final Map<String, ClipMaskRecord> byGuid = ClipMaskAnalyzer.indexByGuid(records);
         final Map<String, List<ClipMaskRecord>> maskUsers = ClipMaskAnalyzer.buildMaskUsers(records);
-        final Map<String, List<ClipMaskRecord>> dupeBuckets =
-            ClipMaskAnalyzer.groupByUnorderedMaskSet(records);
+        final Map<String, List<ClipMaskRecord>> dupeBuckets = ClipMaskAnalyzer.groupByUnorderedMaskSet(records);
         final List<ClipMaskRecord> related = new ArrayList<>();
         int withMasks = 0;
         for (ClipMaskRecord record : records) {
@@ -90,15 +87,14 @@ public final class ClipMaskViewerState {
             }
         }
         return new Snapshot(
-            records,
-            byGuid,
-            maskUsers,
-            dupeBuckets,
-            related,
-            withMasks,
-            ClipMaskAnalyzer.countUniqueMasks(records),
-            countOrderConflicts(dupeBuckets)
-        );
+                records,
+                byGuid,
+                maskUsers,
+                dupeBuckets,
+                related,
+                withMasks,
+                ClipMaskAnalyzer.countUniqueMasks(records),
+                countOrderConflicts(dupeBuckets));
     }
 
     /** 原子替换窗口消费的所有派生数据；必须在 EDT 上由窗口调用。 */
@@ -134,9 +130,7 @@ public final class ClipMaskViewerState {
         return countOrderConflicts;
     }
 
-    private static int countOrderConflicts(
-        final Map<String, List<ClipMaskRecord>> duplicateBuckets
-    ) {
+    private static int countOrderConflicts(final Map<String, List<ClipMaskRecord>> duplicateBuckets) {
         int count = 0;
         for (List<ClipMaskRecord> bucket : duplicateBuckets.values()) {
             if (bucket.size() < 2) {
@@ -154,15 +148,14 @@ public final class ClipMaskViewerState {
 
     /** 完整、不可变且可跨线程交付的查看器数据。 */
     public record Snapshot(
-        List<ClipMaskRecord> records,
-        Map<String, ClipMaskRecord> byGuid,
-        Map<String, List<ClipMaskRecord>> maskUsers,
-        Map<String, List<ClipMaskRecord>> dupeBuckets,
-        List<ClipMaskRecord> relatedRecords,
-        int countWithMasks,
-        int countUniqueMasks,
-        int countOrderConflicts
-    ) {
+            List<ClipMaskRecord> records,
+            Map<String, ClipMaskRecord> byGuid,
+            Map<String, List<ClipMaskRecord>> maskUsers,
+            Map<String, List<ClipMaskRecord>> dupeBuckets,
+            List<ClipMaskRecord> relatedRecords,
+            int countWithMasks,
+            int countUniqueMasks,
+            int countOrderConflicts) {
         public Snapshot {
             records = List.copyOf(records);
             byGuid = Collections.unmodifiableMap(new LinkedHashMap<>(byGuid));
@@ -180,8 +173,7 @@ public final class ClipMaskViewerState {
         }
 
         private static Map<String, List<ClipMaskRecord>> immutableLists(
-            final Map<String, List<ClipMaskRecord>> source
-        ) {
+                final Map<String, List<ClipMaskRecord>> source) {
             final Map<String, List<ClipMaskRecord>> copy = new LinkedHashMap<>();
             source.forEach((key, value) -> copy.put(key, List.copyOf(value)));
             return Collections.unmodifiableMap(copy);

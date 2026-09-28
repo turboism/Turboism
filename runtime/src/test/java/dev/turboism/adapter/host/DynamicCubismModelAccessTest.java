@@ -1,31 +1,20 @@
 package dev.turboism.adapter.host;
-import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 
-import dev.turboism.sdk.cubism.id.ModelId;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.adapter.cubism.model.ModelObjectProviderUnavailableException;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
-import dev.turboism.sdk.cubism.id.ParameterGroupId;
-import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
-import dev.turboism.sdk.cubism.model.PartId;
-import dev.turboism.sdk.cubism.model.Color;
-import dev.turboism.sdk.ui.appearance.NativeLabelColor;
-import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
-import dev.turboism.sdk.cubism.model.CubismModel;
-import dev.turboism.sdk.cubism.model.CubismModelAccess;
-import dev.turboism.sdk.cubism.model.ModelEditLevel;
-import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
-import dev.turboism.sdk.cubism.model.ModelObjectKind;
-import dev.turboism.sdk.cubism.model.ModelObjectReference;
-import dev.turboism.sdk.cubism.model.Parameter;
-import dev.turboism.sdk.cubism.model.ParameterDefinition;
-import dev.turboism.sdk.cubism.model.ParameterGroup;
-import dev.turboism.sdk.cubism.model.ParameterGroups;
-import dev.turboism.sdk.cubism.model.ParameterType;
-import dev.turboism.sdk.cubism.model.Parameters;
+import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.id.ParameterGroupId;
+import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.AnimationAttribute;
 import dev.turboism.sdk.cubism.model.AnimationAttributeKind;
 import dev.turboism.sdk.cubism.model.AnimationCurveType;
@@ -34,19 +23,33 @@ import dev.turboism.sdk.cubism.model.AnimationKeyframe;
 import dev.turboism.sdk.cubism.model.AnimationScene;
 import dev.turboism.sdk.cubism.model.AnimationTrack;
 import dev.turboism.sdk.cubism.model.AnimationTrackKind;
-import dev.turboism.sdk.cubism.model.AutoYure;
-import dev.turboism.sdk.cubism.model.ModelProfile;
-import dev.turboism.sdk.cubism.model.MorphTargets;
-import dev.turboism.sdk.cubism.model.Part;
-import dev.turboism.sdk.cubism.model.PhysicsSettings;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
-import dev.turboism.sdk.cubism.model.Deformers;
+import dev.turboism.sdk.cubism.model.AutoYure;
+import dev.turboism.sdk.cubism.model.Color;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Deformer;
-import dev.turboism.sdk.cubism.model.Glues;
-import dev.turboism.sdk.cubism.model.IntSequence;
-import dev.turboism.sdk.cubism.model.Parts;
+import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
+import dev.turboism.sdk.cubism.model.Glues;
+import dev.turboism.sdk.cubism.model.IntSequence;
+import dev.turboism.sdk.cubism.model.ModelEditLevel;
+import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
+import dev.turboism.sdk.cubism.model.ModelObjectKind;
+import dev.turboism.sdk.cubism.model.ModelObjectReference;
+import dev.turboism.sdk.cubism.model.ModelProfile;
+import dev.turboism.sdk.cubism.model.MorphTargets;
+import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.model.ParameterDefinition;
+import dev.turboism.sdk.cubism.model.ParameterGroup;
+import dev.turboism.sdk.cubism.model.ParameterGroups;
+import dev.turboism.sdk.cubism.model.ParameterType;
+import dev.turboism.sdk.cubism.model.Parameters;
+import dev.turboism.sdk.cubism.model.Part;
+import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.sdk.cubism.model.Parts;
+import dev.turboism.sdk.cubism.model.PhysicsSettings;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
@@ -54,19 +57,15 @@ import dev.turboism.sdk.cubism.model.RotationDeformers;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpDeformers;
 import dev.turboism.sdk.cubism.model.WarpGrid;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import org.junit.jupiter.api.Test;
 
 class DynamicCubismModelAccessTest {
 
@@ -79,26 +78,30 @@ class DynamicCubismModelAccessTest {
         final String sourceName = "外部 编辑.psd";
         final var recording = new RecordingModel();
         recording.textures = (dev.turboism.sdk.cubism.model.ModelTextures) java.lang.reflect.Proxy.newProxyInstance(
-            getClass().getClassLoader(),
-            new Class<?>[] { dev.turboism.sdk.cubism.model.ModelTextures.class,
-                dev.turboism.core.runtime.psd.PsdReplaceHost.class },
-            (proxy, method, args) -> {
-                if (!"replaceWithStagedPsd".equals(method.getName())) {
-                    throw new AssertionError("unexpected texture operation: " + method.getName());
-                }
-                ((Runnable) args[3]).run();
-                calls.add(List.of(args[0], args[1], args[2]));
-                return dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement.unavailable();
-            });
+                getClass().getClassLoader(),
+                new Class<?>[] {
+                    dev.turboism.sdk.cubism.model.ModelTextures.class,
+                    dev.turboism.core.runtime.psd.PsdReplaceHost.class
+                },
+                (proxy, method, args) -> {
+                    if (!"replaceWithStagedPsd".equals(method.getName())) {
+                        throw new AssertionError("unexpected texture operation: " + method.getName());
+                    }
+                    ((Runnable) args[3]).run();
+                    calls.add(List.of(args[0], args[1], args[2]));
+                    return dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement.unavailable();
+                });
         final var access = new DynamicCubismModelAccess();
         access.connect(() -> recording);
-        final var host = (dev.turboism.core.runtime.psd.PsdReplaceHost) access.active().textures();
+        final var host =
+                (dev.turboism.core.runtime.psd.PsdReplaceHost) access.active().textures();
         host.replaceWithStagedPsd(target, stage, sourceName, admissions::incrementAndGet);
         assertEquals(List.of(List.of(target, stage, sourceName)), calls);
         assertEquals(1, admissions.get());
         access.deactivate();
-        assertThrows(IllegalStateException.class,
-            () -> host.replaceWithStagedPsd(target, stage, sourceName, admissions::incrementAndGet));
+        assertThrows(
+                IllegalStateException.class,
+                () -> host.replaceWithStagedPsd(target, stage, sourceName, admissions::incrementAndGet));
         assertEquals(1, calls.size());
         assertEquals(1, admissions.get());
     }
@@ -121,15 +124,9 @@ class DynamicCubismModelAccessTest {
 
         assertThrows(IllegalStateException.class, staleModel::id);
         assertThrows(IllegalStateException.class, staleModel::defaultKeyformLocked);
-        assertThrows(
-            IllegalStateException.class,
-            () -> staleModel.setDefaultKeyformLocked(false)
-        );
+        assertThrows(IllegalStateException.class, () -> staleModel.setDefaultKeyformLocked(false));
         assertThrows(IllegalStateException.class, staleModel::editLevel);
-        assertThrows(
-            IllegalStateException.class,
-            () -> staleModel.setEditLevel(ModelEditLevel.LEVEL_3)
-        );
+        assertThrows(IllegalStateException.class, () -> staleModel.setEditLevel(ModelEditLevel.LEVEL_3));
         assertThrows(IllegalStateException.class, staleParameters::all);
         assertThrows(IllegalStateException.class, staleParameter::getValue);
         assertEquals(new ModelId("model-b"), access.active().id());
@@ -141,23 +138,16 @@ class DynamicCubismModelAccessTest {
         final RecordingCreateAccess provider = new RecordingCreateAccess("model-a");
         access.connect(provider);
         final CubismModel captured = access.active();
-        final ModelObjectCreateRequest request = new ModelObjectCreateRequest.Part(
-            "Created",
-            Optional.empty()
-        );
+        final ModelObjectCreateRequest request = new ModelObjectCreateRequest.Part("Created", Optional.empty());
 
         access.requireCreateSupported(request);
         assertEquals(
-            new ModelObjectReference(ModelObjectKind.PART, "PartStable"),
-            access.createModelObject(captured, request)
-        );
+                new ModelObjectReference(ModelObjectKind.PART, "PartStable"),
+                access.createModelObject(captured, request));
         assertSame(provider.model, provider.createdAgainst);
 
         access.connect(modelAccess("model-b", 2.0F));
-        assertThrows(
-            IllegalStateException.class,
-            () -> access.createModelObject(captured, request)
-        );
+        assertThrows(IllegalStateException.class, () -> access.createModelObject(captured, request));
     }
 
     @Test
@@ -166,12 +156,8 @@ class DynamicCubismModelAccessTest {
         access.connect(modelAccess("model-a", 1.0F));
 
         assertThrows(
-            ModelObjectProviderUnavailableException.class,
-            () -> access.requireCreateSupported(new ModelObjectCreateRequest.Part(
-                "Blocked",
-                Optional.empty()
-            ))
-        );
+                ModelObjectProviderUnavailableException.class,
+                () -> access.requireCreateSupported(new ModelObjectCreateRequest.Part("Blocked", Optional.empty())));
     }
 
     @Test
@@ -180,20 +166,48 @@ class DynamicCubismModelAccessTest {
         final List<List<ClipMaskReplacement>> calls = new ArrayList<>();
         final CubismModel base = model("model-a", parameter(1.0F));
         final CubismModel delegate = new CubismModel() {
-            @Override public ModelId id() { return base.id(); }
-            @Override public Parameters parameters() { return base.parameters(); }
-            @Override public Parts parts() { return base.parts(); }
-            @Override public Drawables drawables() { return base.drawables(); }
-            @Override public Deformers deformers() { return base.deformers(); }
-            @Override public Glues glues() { return base.glues(); }
-            @Override public void update() { base.update(); }
-            @Override public void replaceArtMeshClipMasks(final List<ClipMaskReplacement> replacements) {
+            @Override
+            public ModelId id() {
+                return base.id();
+            }
+
+            @Override
+            public Parameters parameters() {
+                return base.parameters();
+            }
+
+            @Override
+            public Parts parts() {
+                return base.parts();
+            }
+
+            @Override
+            public Drawables drawables() {
+                return base.drawables();
+            }
+
+            @Override
+            public Deformers deformers() {
+                return base.deformers();
+            }
+
+            @Override
+            public Glues glues() {
+                return base.glues();
+            }
+
+            @Override
+            public void update() {
+                base.update();
+            }
+
+            @Override
+            public void replaceArtMeshClipMasks(final List<ClipMaskReplacement> replacements) {
                 calls.add(List.copyOf(replacements));
             }
         };
         final ClipMaskReplacement replacement = new ClipMaskReplacement(
-            new ArtMeshId("target"), List.of(), false, List.of(new ArtMeshId("mask")), false
-        );
+                new ArtMeshId("target"), List.of(), false, List.of(new ArtMeshId("mask")), false);
 
         access.connect(() -> delegate);
         final CubismModel session = access.active();
@@ -235,34 +249,80 @@ class DynamicCubismModelAccessTest {
         assertThrows(UnsupportedOperationException.class, unsupported::guid);
     }
 
-
     @Test
     void sessionDeformersForwardApplyToChildrenOnceAndRejectStaleWrapper() {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         final Deformer backend = new Deformer() {
-            @Override public DeformerId id() { return new DeformerId("WarpA"); }
-            @Override public int parentDeformerIndex() { return -1; }
-            @Override public IntSequence parameters() { return emptyInts(); }
+            @Override
+            public DeformerId id() {
+                return new DeformerId("WarpA");
+            }
+
+            @Override
+            public int parentDeformerIndex() {
+                return -1;
+            }
+
+            @Override
+            public IntSequence parameters() {
+                return emptyInts();
+            }
         };
         final AtomicReference<Deformer> forwarded = new AtomicReference<>();
         final int[] calls = {0};
         final Deformers backendDeformers = new Deformers() {
-            @Override public List<Deformer> all() { return List.of(backend); }
-            @Override public Deformer find(final DeformerId id) { return backend; }
-            @Override public void applyToChildren(final Deformer deformer) {
+            @Override
+            public List<Deformer> all() {
+                return List.of(backend);
+            }
+
+            @Override
+            public Deformer find(final DeformerId id) {
+                return backend;
+            }
+
+            @Override
+            public void applyToChildren(final Deformer deformer) {
                 calls[0]++;
                 forwarded.set(deformer);
             }
         };
         final CubismModel base = model("model-a", parameter(1.0F));
         final CubismModel backendModel = new CubismModel() {
-            @Override public ModelId id() { return base.id(); }
-            @Override public Parameters parameters() { return base.parameters(); }
-            @Override public Parts parts() { throw unsupported(); }
-            @Override public Drawables drawables() { throw unsupported(); }
-            @Override public Deformers deformers() { return backendDeformers; }
-            @Override public Glues glues() { throw unsupported(); }
-            @Override public void update() { throw unsupported(); }
+            @Override
+            public ModelId id() {
+                return base.id();
+            }
+
+            @Override
+            public Parameters parameters() {
+                return base.parameters();
+            }
+
+            @Override
+            public Parts parts() {
+                throw unsupported();
+            }
+
+            @Override
+            public Drawables drawables() {
+                throw unsupported();
+            }
+
+            @Override
+            public Deformers deformers() {
+                return backendDeformers;
+            }
+
+            @Override
+            public Glues glues() {
+                throw unsupported();
+            }
+
+            @Override
+            public void update() {
+                throw unsupported();
+            }
         };
         access.connect(() -> backendModel);
 
@@ -274,8 +334,7 @@ class DynamicCubismModelAccessTest {
         assertEquals(1, calls[0]);
         assertSame(backend, forwarded.get());
         access.deactivate();
-        assertThrows(IllegalStateException.class,
-            () -> sessionDeformers.applyToChildren(wrapped));
+        assertThrows(IllegalStateException.class, () -> sessionDeformers.applyToChildren(wrapped));
     }
 
     @Test
@@ -285,9 +344,7 @@ class DynamicCubismModelAccessTest {
         access.connect(() -> recording);
 
         final Part added = access.active().parts().add(new PartId("PartAdded"));
-        final Part addedUnder = access.active().parts().add(
-            new PartId("PartAdded"), new PartId("PartRoot")
-        );
+        final Part addedUnder = access.active().parts().add(new PartId("PartAdded"), new PartId("PartRoot"));
         final Part copied = access.active().parts().copy(new PartId("PartSource"));
         access.active().parts().remove(new PartId("PartGone"));
         assertEquals(new PartId("PartReturned"), added.id());
@@ -295,9 +352,8 @@ class DynamicCubismModelAccessTest {
         assertEquals(new PartId("PartReturned"), copied.id());
 
         final Parameter created = access.active().parameters().create(definition());
-        final Parameter createdInFolder = access.active().parameters().create(
-            definition(), Optional.of(new ParameterGroupId("GroupNew"))
-        );
+        final Parameter createdInFolder =
+                access.active().parameters().create(definition(), Optional.of(new ParameterGroupId("GroupNew")));
         final Parameter duplicated = access.active().parameters().copy(new ParameterId("ParamA"));
         access.active().parameters().remove(new ParameterId("ParamA"));
         assertEquals(new ParameterId("ParamA"), created.id());
@@ -306,21 +362,28 @@ class DynamicCubismModelAccessTest {
 
         final ParameterGroup addedGroup = access.active().parameterGroups().addGroup("GroupNew");
         access.active().parameterGroups().removeGroup(new ParameterGroupId("GroupGone"));
-        access.active().parameterGroups().moveParameter(
-            new ParameterId("ParamA"), new ParameterGroupId("GroupNew")
-        );
+        access.active().parameterGroups().moveParameter(new ParameterId("ParamA"), new ParameterGroupId("GroupNew"));
         assertEquals(new ParameterGroupId("GroupNew"), addedGroup.id());
 
-        final ParameterGroup wrappedGroup =
-            access.active().parameterGroups().find(new ParameterGroupId("GroupNew"));
+        final ParameterGroup wrappedGroup = access.active().parameterGroups().find(new ParameterGroupId("GroupNew"));
         wrappedGroup.rename("Renamed");
         assertEquals(Optional.of("Renamed"), wrappedGroup.name());
 
-        assertEquals(List.of(
-            "parts.add", "parts.add.parent", "parts.copy", "parts.remove",
-            "parameters.create", "parameters.create.folder", "parameters.copy", "parameters.remove",
-            "groups.addGroup", "groups.removeGroup", "groups.moveParameter", "group.rename"
-        ), recording.calls);
+        assertEquals(
+                List.of(
+                        "parts.add",
+                        "parts.add.parent",
+                        "parts.copy",
+                        "parts.remove",
+                        "parameters.create",
+                        "parameters.create.folder",
+                        "parameters.copy",
+                        "parameters.remove",
+                        "groups.addGroup",
+                        "groups.removeGroup",
+                        "groups.moveParameter",
+                        "group.rename"),
+                recording.calls);
 
         access.deactivate();
         assertThrows(IllegalStateException.class, added::id);
@@ -338,30 +401,25 @@ class DynamicCubismModelAccessTest {
         final Parts parts = access.active().parts();
         final Parameters parameters = access.active().parameters();
         final ParameterGroups groups = access.active().parameterGroups();
-        final ParameterGroup group =
-            groups.find(new ParameterGroupId("GroupNew"));
+        final ParameterGroup group = groups.find(new ParameterGroupId("GroupNew"));
 
         access.deactivate();
 
         assertThrows(IllegalStateException.class, () -> parts.add(new PartId("PartAdded")));
-        assertThrows(IllegalStateException.class, () -> parts.add(
-            new PartId("PartAdded"), new PartId("PartRoot")
-        ));
+        assertThrows(IllegalStateException.class, () -> parts.add(new PartId("PartAdded"), new PartId("PartRoot")));
         assertThrows(IllegalStateException.class, () -> parts.copy(new PartId("PartSource")));
         assertThrows(IllegalStateException.class, () -> parts.remove(new PartId("PartGone")));
         assertThrows(IllegalStateException.class, () -> parameters.create(definition()));
-        assertThrows(IllegalStateException.class, () -> parameters.create(
-            definition(), Optional.of(new ParameterGroupId("GroupNew"))
-        ));
+        assertThrows(
+                IllegalStateException.class,
+                () -> parameters.create(definition(), Optional.of(new ParameterGroupId("GroupNew"))));
         assertThrows(IllegalStateException.class, () -> parameters.copy(new ParameterId("ParamA")));
         assertThrows(IllegalStateException.class, () -> parameters.remove(new ParameterId("ParamA")));
         assertThrows(IllegalStateException.class, () -> groups.addGroup("GroupNew"));
-        assertThrows(IllegalStateException.class, () -> groups.removeGroup(
-            new ParameterGroupId("GroupGone")
-        ));
-        assertThrows(IllegalStateException.class, () -> groups.moveParameter(
-            new ParameterId("ParamA"), new ParameterGroupId("GroupNew")
-        ));
+        assertThrows(IllegalStateException.class, () -> groups.removeGroup(new ParameterGroupId("GroupGone")));
+        assertThrows(
+                IllegalStateException.class,
+                () -> groups.moveParameter(new ParameterId("ParamA"), new ParameterGroupId("GroupNew")));
         assertThrows(IllegalStateException.class, () -> group.rename("Renamed"));
 
         assertEquals(List.of(), recording.calls);
@@ -384,29 +442,26 @@ class DynamicCubismModelAccessTest {
         assertEquals(recording.textures.rawImages(), sessionTextures.rawImages());
         assertEquals(recording.textures.relations(), sessionTextures.relations());
         assertSame(
-            recording.partTargets,
-            model.parts().find(new PartId("PartReturned")).morphTargets()
-        );
+                recording.partTargets,
+                model.parts().find(new PartId("PartReturned")).morphTargets());
         assertSame(
-            recording.drawableTargets,
-            model.drawables().find(new ArtMeshId("ArtMeshA")).morphTargets()
-        );
+                recording.drawableTargets,
+                model.drawables().find(new ArtMeshId("ArtMeshA")).morphTargets());
 
         access.deactivate();
         assertThrows(IllegalStateException.class, model::profile);
         assertThrows(IllegalStateException.class, model::physicsSettings);
         assertThrows(IllegalStateException.class, model::autoYure);
         assertThrows(IllegalStateException.class, model::animationDocuments);
-        assertThrows(IllegalStateException.class,
-            sessionAnimations.get(0)::animationName);
+        assertThrows(IllegalStateException.class, sessionAnimations.get(0)::animationName);
         assertThrows(IllegalStateException.class, model::textures);
         assertThrows(IllegalStateException.class, sessionTextures::relations);
-        assertThrows(IllegalStateException.class, () -> model.parts().find(
-            new PartId("PartReturned")
-        ).morphTargets());
-        assertThrows(IllegalStateException.class, () -> model.drawables().find(
-            new ArtMeshId("ArtMeshA")
-        ).morphTargets());
+        assertThrows(
+                IllegalStateException.class,
+                () -> model.parts().find(new PartId("PartReturned")).morphTargets());
+        assertThrows(
+                IllegalStateException.class,
+                () -> model.drawables().find(new ArtMeshId("ArtMeshA")).morphTargets());
     }
 
     @Test
@@ -436,24 +491,25 @@ class DynamicCubismModelAccessTest {
         attribute.setKeyframe(5, 0.5);
         attribute.offsetKeyframes(3);
         attribute.removeKeyframe(60);
-        assertEquals(List.of(
-            "model.animationDocuments",
-            "doc.scenes",
-            "scene.tracks",
-            "scene.tracks",
-            "track.children",
-            "track.attributes",
-            "doc.animationName",
-            "scene.name",
-            "track.name",
-            "track.name",
-            "attr.id",
-            "scene.rename",
-            "scene.seekTo",
-            "attr.setKeyframe",
-            "attr.offsetKeyframes",
-            "attr.removeKeyframe"
-        ), calls);
+        assertEquals(
+                List.of(
+                        "model.animationDocuments",
+                        "doc.scenes",
+                        "scene.tracks",
+                        "scene.tracks",
+                        "track.children",
+                        "track.attributes",
+                        "doc.animationName",
+                        "scene.name",
+                        "track.name",
+                        "track.name",
+                        "attr.id",
+                        "scene.rename",
+                        "scene.seekTo",
+                        "attr.setKeyframe",
+                        "attr.offsetKeyframes",
+                        "attr.removeKeyframe"),
+                calls);
 
         calls.clear();
         access.deactivate();
@@ -475,8 +531,7 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, attribute::keyframes);
         assertThrows(IllegalStateException.class, () -> attribute.setKeyframe(6, 0.5));
         assertThrows(IllegalStateException.class, () -> attribute.offsetKeyframes(1));
-        assertThrows(IllegalStateException.class,
-            () -> attribute.copyKeyframesFrom(attribute, false));
+        assertThrows(IllegalStateException.class, () -> attribute.copyKeyframesFrom(attribute, false));
         assertEquals(List.of(), calls);
     }
 
@@ -484,15 +539,40 @@ class DynamicCubismModelAccessTest {
     void sessionAnimationCopyRejectsStaleAndForeignSources() {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         access.connect(() -> animationGraphModel(new ArrayList<>()));
-        final AnimationAttribute staleSource = access.active().animationDocuments().get(0)
-            .scenes().get(0).tracks().get(1).children().get(0).attributes().get(0);
+        final AnimationAttribute staleSource = access.active()
+                .animationDocuments()
+                .get(0)
+                .scenes()
+                .get(0)
+                .tracks()
+                .get(1)
+                .children()
+                .get(0)
+                .attributes()
+                .get(0);
 
         final List<String> calls = new ArrayList<>();
         access.connect(() -> animationGraphModel(calls));
-        final AnimationAttribute target = access.active().animationDocuments().get(0)
-            .scenes().get(0).tracks().get(1).children().get(0).attributes().get(0);
-        final AnimationAttribute sameGeneration = access.active().animationDocuments().get(0)
-            .scenes().get(0).tracks().get(0).attributes().get(0);
+        final AnimationAttribute target = access.active()
+                .animationDocuments()
+                .get(0)
+                .scenes()
+                .get(0)
+                .tracks()
+                .get(1)
+                .children()
+                .get(0)
+                .attributes()
+                .get(0);
+        final AnimationAttribute sameGeneration = access.active()
+                .animationDocuments()
+                .get(0)
+                .scenes()
+                .get(0)
+                .tracks()
+                .get(0)
+                .attributes()
+                .get(0);
         final AnimationAttribute foreign = rawAnimationAttribute("foreign");
 
         final List<String> foreignCalls = new ArrayList<>();
@@ -501,28 +581,32 @@ class DynamicCubismModelAccessTest {
         // Align the captured generation number with the target session so only
         // ownership, not the numeric generation, can reject this source.
         foreignAccess.connect(() -> animationGraphModel(foreignCalls));
-        final AnimationAttribute foreignAccessSource = foreignAccess.active()
-            .animationDocuments().get(0).scenes().get(0).tracks().get(1)
-            .children().get(0).attributes().get(0);
+        final AnimationAttribute foreignAccessSource = foreignAccess
+                .active()
+                .animationDocuments()
+                .get(0)
+                .scenes()
+                .get(0)
+                .tracks()
+                .get(1)
+                .children()
+                .get(0)
+                .attributes()
+                .get(0);
         calls.clear();
         foreignCalls.clear();
 
-        assertThrows(IllegalStateException.class,
-            () -> target.copyKeyframesFrom(staleSource, false));
-        assertThrows(IllegalStateException.class,
-            () -> target.copyKeyframesFrom(foreign, false));
+        assertThrows(IllegalStateException.class, () -> target.copyKeyframesFrom(staleSource, false));
+        assertThrows(IllegalStateException.class, () -> target.copyKeyframesFrom(foreign, false));
 
         // A source from a different DynamicCubismModelAccess is not owned by
         // this session even when both captured the same generation number;
         // it must be rejected without touching either backend.
-        assertThrows(IllegalStateException.class,
-            () -> target.copyKeyframesFrom(foreignAccessSource, false));
+        assertThrows(IllegalStateException.class, () -> target.copyKeyframesFrom(foreignAccessSource, false));
         foreignAccess.deactivate();
-        assertThrows(IllegalStateException.class,
-            () -> target.copyKeyframesFrom(foreignAccessSource, false));
+        assertThrows(IllegalStateException.class, () -> target.copyKeyframesFrom(foreignAccessSource, false));
 
-        assertThrows(NullPointerException.class,
-            () -> target.copyKeyframesFrom(null, false));
+        assertThrows(NullPointerException.class, () -> target.copyKeyframesFrom(null, false));
 
         assertEquals(0, target.copyKeyframesFrom(sameGeneration, false));
         assertEquals(List.of("attr.copyKeyframesFrom"), calls);
@@ -531,84 +615,187 @@ class DynamicCubismModelAccessTest {
 
     private static CubismModel animationGraphModel(final List<String> calls) {
         final AnimationAttribute leaf = animationAttribute("attr-leaf", calls);
-        final AnimationTrack childTrack = animationTrack(
-            "track-child", AnimationTrackKind.IMAGE, List.of(), List.of(leaf), calls
-        );
+        final AnimationTrack childTrack =
+                animationTrack("track-child", AnimationTrackKind.IMAGE, List.of(), List.of(leaf), calls);
         final AnimationTrack modelTrack = animationTrack(
-            "track-model", AnimationTrackKind.LIVE2D_MODEL,
-            List.of(), List.of(animationAttribute("attr-model", calls)), calls
-        );
-        final AnimationTrack groupTrack = animationTrack(
-            "track-group", AnimationTrackKind.GROUP, List.of(childTrack), List.of(), calls
-        );
+                "track-model",
+                AnimationTrackKind.LIVE2D_MODEL,
+                List.of(),
+                List.of(animationAttribute("attr-model", calls)),
+                calls);
+        final AnimationTrack groupTrack =
+                animationTrack("track-group", AnimationTrackKind.GROUP, List.of(childTrack), List.of(), calls);
         final AnimationScene scene = new AnimationScene() {
-            @Override public String name() {
+            @Override
+            public String name() {
                 calls.add("scene.name");
                 return "SceneA";
             }
-            @Override public String guid() { return "scene-guid"; }
-            @Override public Optional<String> tag() { return Optional.empty(); }
-            @Override public java.util.Map<Integer, String> markers() {
+
+            @Override
+            public String guid() {
+                return "scene-guid";
+            }
+
+            @Override
+            public Optional<String> tag() {
+                return Optional.empty();
+            }
+
+            @Override
+            public java.util.Map<Integer, String> markers() {
                 return java.util.Map.of();
             }
-            @Override public int startFrame() { return 0; }
-            @Override public int durationFrames() { return 120; }
-            @Override public double framesPerSecond() { return 30.0; }
-            @Override public int width() { return 100; }
-            @Override public int height() { return 100; }
-            @Override public boolean loopMotion() { return false; }
-            @Override public int workspaceStartFrame() { return 0; }
-            @Override public int workspaceEndFrame() { return 60; }
-            @Override public List<AnimationTrack> tracks() {
+
+            @Override
+            public int startFrame() {
+                return 0;
+            }
+
+            @Override
+            public int durationFrames() {
+                return 120;
+            }
+
+            @Override
+            public double framesPerSecond() {
+                return 30.0;
+            }
+
+            @Override
+            public int width() {
+                return 100;
+            }
+
+            @Override
+            public int height() {
+                return 100;
+            }
+
+            @Override
+            public boolean loopMotion() {
+                return false;
+            }
+
+            @Override
+            public int workspaceStartFrame() {
+                return 0;
+            }
+
+            @Override
+            public int workspaceEndFrame() {
+                return 60;
+            }
+
+            @Override
+            public List<AnimationTrack> tracks() {
                 calls.add("scene.tracks");
                 return List.of(modelTrack, groupTrack);
             }
-            @Override public int playheadFrame() {
+
+            @Override
+            public int playheadFrame() {
                 calls.add("scene.playheadFrame");
                 return 7;
             }
-            @Override public void seekTo(final int frame) {
+
+            @Override
+            public void seekTo(final int frame) {
                 calls.add("scene.seekTo");
             }
-            @Override public boolean current() { return true; }
-            @Override public void activate() { calls.add("scene.activate"); }
-            @Override public AnimationCurveType defaultCurveType() {
+
+            @Override
+            public boolean current() {
+                return true;
+            }
+
+            @Override
+            public void activate() {
+                calls.add("scene.activate");
+            }
+
+            @Override
+            public AnimationCurveType defaultCurveType() {
                 return AnimationCurveType.LINEAR;
             }
-            @Override public void setDefaultCurveType(final AnimationCurveType curveType) {
+
+            @Override
+            public void setDefaultCurveType(final AnimationCurveType curveType) {
                 calls.add("scene.setDefaultCurveType");
             }
-            @Override public void rename(final String name) {
+
+            @Override
+            public void rename(final String name) {
                 calls.add("scene.rename");
             }
         };
         final AnimationDocument document = new AnimationDocument() {
-            @Override public String animationName() {
+            @Override
+            public String animationName() {
                 calls.add("doc.animationName");
                 return "AnimDoc";
             }
-            @Override public int sceneCount() { return 1; }
-            @Override public Optional<String> currentSceneName() {
+
+            @Override
+            public int sceneCount() {
+                return 1;
+            }
+
+            @Override
+            public Optional<String> currentSceneName() {
                 return Optional.of("SceneA");
             }
-            @Override public List<String> sceneNames() {
+
+            @Override
+            public List<String> sceneNames() {
                 calls.add("doc.sceneNames");
                 return List.of("SceneA");
             }
-            @Override public List<AnimationScene> scenes() {
+
+            @Override
+            public List<AnimationScene> scenes() {
                 calls.add("doc.scenes");
                 return List.of(scene);
             }
         };
         return new CubismModel() {
-            @Override public ModelId id() { return new ModelId("model-anim"); }
-            @Override public Parameters parameters() { throw unsupported(); }
-            @Override public Parts parts() { throw unsupported(); }
-            @Override public Drawables drawables() { throw unsupported(); }
-            @Override public Deformers deformers() { throw unsupported(); }
-            @Override public Glues glues() { throw unsupported(); }
-            @Override public void update() { throw unsupported(); }
-            @Override public List<AnimationDocument> animationDocuments() {
+            @Override
+            public ModelId id() {
+                return new ModelId("model-anim");
+            }
+
+            @Override
+            public Parameters parameters() {
+                throw unsupported();
+            }
+
+            @Override
+            public Parts parts() {
+                throw unsupported();
+            }
+
+            @Override
+            public Drawables drawables() {
+                throw unsupported();
+            }
+
+            @Override
+            public Deformers deformers() {
+                throw unsupported();
+            }
+
+            @Override
+            public Glues glues() {
+                throw unsupported();
+            }
+
+            @Override
+            public void update() {
+                throw unsupported();
+            }
+
+            @Override
+            public List<AnimationDocument> animationDocuments() {
                 calls.add("model.animationDocuments");
                 return List.of(document);
             }
@@ -616,122 +803,200 @@ class DynamicCubismModelAccessTest {
     }
 
     private static AnimationTrack animationTrack(
-        final String name,
-        final AnimationTrackKind kind,
-        final List<AnimationTrack> children,
-        final List<AnimationAttribute> attributes,
-        final List<String> calls
-    ) {
+            final String name,
+            final AnimationTrackKind kind,
+            final List<AnimationTrack> children,
+            final List<AnimationAttribute> attributes,
+            final List<String> calls) {
         return new AnimationTrack() {
-            @Override public String guid() { return name + "-guid"; }
-            @Override public String name() {
+            @Override
+            public String guid() {
+                return name + "-guid";
+            }
+
+            @Override
+            public String name() {
                 calls.add("track.name");
                 return name;
             }
-            @Override public AnimationTrackKind kind() { return kind; }
-            @Override public int startFrame() { return 0; }
-            @Override public int durationFrames() { return 60; }
-            @Override public List<Integer> keyframeFrames() { return List.of(); }
-            @Override public boolean visible() { return true; }
-            @Override public boolean editable() { return true; }
-            @Override public boolean muted() { return false; }
-            @Override public boolean repeat() { return false; }
-            @Override public List<AnimationTrack> children() {
+
+            @Override
+            public AnimationTrackKind kind() {
+                return kind;
+            }
+
+            @Override
+            public int startFrame() {
+                return 0;
+            }
+
+            @Override
+            public int durationFrames() {
+                return 60;
+            }
+
+            @Override
+            public List<Integer> keyframeFrames() {
+                return List.of();
+            }
+
+            @Override
+            public boolean visible() {
+                return true;
+            }
+
+            @Override
+            public boolean editable() {
+                return true;
+            }
+
+            @Override
+            public boolean muted() {
+                return false;
+            }
+
+            @Override
+            public boolean repeat() {
+                return false;
+            }
+
+            @Override
+            public List<AnimationTrack> children() {
                 calls.add("track.children");
                 return children;
             }
-            @Override public List<AnimationAttribute> attributes() {
+
+            @Override
+            public List<AnimationAttribute> attributes() {
                 calls.add("track.attributes");
                 return attributes;
             }
-            @Override public Optional<String> linkedModelGuid() { return Optional.empty(); }
-            @Override public Optional<String> linkedSceneGuid() { return Optional.empty(); }
+
+            @Override
+            public Optional<String> linkedModelGuid() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<String> linkedSceneGuid() {
+                return Optional.empty();
+            }
         };
     }
 
-    private static AnimationAttribute animationAttribute(
-        final String id,
-        final List<String> calls
-    ) {
+    private static AnimationAttribute animationAttribute(final String id, final List<String> calls) {
         return new AnimationAttribute() {
-            @Override public String id() {
+            @Override
+            public String id() {
                 calls.add("attr.id");
                 return id;
             }
-            @Override public String name() { return id; }
-            @Override public String guid() { return id + "-guid"; }
-            @Override public String effectId() { return "effect-param"; }
-            @Override public Optional<ParameterId> parameterId() {
+
+            @Override
+            public String name() {
+                return id;
+            }
+
+            @Override
+            public String guid() {
+                return id + "-guid";
+            }
+
+            @Override
+            public String effectId() {
+                return "effect-param";
+            }
+
+            @Override
+            public Optional<ParameterId> parameterId() {
                 return Optional.of(new ParameterId("ParamAngleX"));
             }
-            @Override public AnimationAttributeKind kind() {
+
+            @Override
+            public AnimationAttributeKind kind() {
                 return AnimationAttributeKind.FLOAT;
             }
-            @Override public boolean active() { return true; }
-            @Override public boolean editable() { return true; }
-            @Override public List<AnimationKeyframe> keyframes() {
+
+            @Override
+            public boolean active() {
+                return true;
+            }
+
+            @Override
+            public boolean editable() {
+                return true;
+            }
+
+            @Override
+            public List<AnimationKeyframe> keyframes() {
                 calls.add("attr.keyframes");
                 return List.of();
             }
-            @Override public void setKeyframe(final int frame, final double value) {
+
+            @Override
+            public void setKeyframe(final int frame, final double value) {
                 calls.add("attr.setKeyframe");
             }
-            @Override public void setKeyframe(
-                final int frame,
-                final double value,
-                final AnimationCurveType curveType
-            ) {
+
+            @Override
+            public void setKeyframe(final int frame, final double value, final AnimationCurveType curveType) {
                 calls.add("attr.setKeyframeCurve");
             }
-            @Override public void setKeyframe(final int frame, final float x, final float y) {
+
+            @Override
+            public void setKeyframe(final int frame, final float x, final float y) {
                 calls.add("attr.setKeyframePoint");
             }
-            @Override public void removeKeyframe(final int frame) {
+
+            @Override
+            public void removeKeyframe(final int frame) {
                 calls.add("attr.removeKeyframe");
             }
-            @Override public int offsetKeyframes(final int frameDelta) {
+
+            @Override
+            public int offsetKeyframes(final int frameDelta) {
                 calls.add("attr.offsetKeyframes");
                 return 0;
             }
-            @Override public int scaleKeyframeTimes(final double factor, final int originFrame) {
+
+            @Override
+            public int scaleKeyframeTimes(final double factor, final int originFrame) {
                 calls.add("attr.scaleKeyframeTimes");
                 return 0;
             }
-            @Override public int quantizeKeyframes(final int stepFrames) {
+
+            @Override
+            public int quantizeKeyframes(final int stepFrames) {
                 calls.add("attr.quantizeKeyframes");
                 return 0;
             }
-            @Override public int copyKeyframesFrom(
-                final AnimationAttribute source,
-                final boolean replace
-            ) {
+
+            @Override
+            public int copyKeyframesFrom(final AnimationAttribute source, final boolean replace) {
                 calls.add("attr.copyKeyframesFrom");
                 return 0;
             }
-            @Override public int applyCurveType(final AnimationCurveType curveType) {
+
+            @Override
+            public int applyCurveType(final AnimationCurveType curveType) {
                 calls.add("attr.applyCurveType");
                 return 0;
             }
-            @Override public int applyCurveType(
-                final AnimationCurveType curveType,
-                final int fromFrame,
-                final int toFrame
-            ) {
+
+            @Override
+            public int applyCurveType(final AnimationCurveType curveType, final int fromFrame, final int toFrame) {
                 calls.add("attr.applyCurveTypeRange");
                 return 0;
             }
-            @Override public void recordKeyframe(
-                final int frame,
-                final AnimationCurveType curveType
-            ) {
+
+            @Override
+            public void recordKeyframe(final int frame, final AnimationCurveType curveType) {
                 calls.add("attr.recordKeyframe");
             }
-            @Override public int bakeEvaluated(
-                final int fromFrame,
-                final int toFrame,
-                final int stepFrames,
-                final AnimationCurveType curveType
-            ) {
+
+            @Override
+            public int bakeEvaluated(
+                    final int fromFrame, final int toFrame, final int stepFrames, final AnimationCurveType curveType) {
                 calls.add("attr.bakeEvaluated");
                 return 0;
             }
@@ -744,63 +1009,157 @@ class DynamicCubismModelAccessTest {
 
     private static CubismModel modelWithDrawable(final Drawable drawable) {
         return new CubismModel() {
-            @Override public ModelId id() { return new ModelId("model-a"); }
-            @Override public Parameters parameters() { throw unsupported(); }
-            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
-            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() {
+            @Override
+            public ModelId id() {
+                return new ModelId("model-a");
+            }
+
+            @Override
+            public Parameters parameters() {
+                throw unsupported();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Parts parts() {
+                throw unsupported();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Drawables drawables() {
                 return new dev.turboism.sdk.cubism.model.Drawables() {
-                    @Override public List<Drawable> all() { return List.of(drawable); }
-                    @Override public Drawable find(final ArtMeshId id) { return drawable; }
+                    @Override
+                    public List<Drawable> all() {
+                        return List.of(drawable);
+                    }
+
+                    @Override
+                    public Drawable find(final ArtMeshId id) {
+                        return drawable;
+                    }
                 };
             }
-            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
-            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
-            @Override public void update() { throw unsupported(); }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Deformers deformers() {
+                throw unsupported();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Glues glues() {
+                throw unsupported();
+            }
+
+            @Override
+            public void update() {
+                throw unsupported();
+            }
         };
     }
 
-    private static Drawable drawable(
-        final String guid,
-        final boolean throwGuid,
-        final MorphTargets morphTargets
-    ) {
+    private static Drawable drawable(final String guid, final boolean throwGuid, final MorphTargets morphTargets) {
         return new Drawable() {
-            @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
-            @Override public String guid() {
+            @Override
+            public ArtMeshId id() {
+                return new ArtMeshId("ArtMeshA");
+            }
+
+            @Override
+            public String guid() {
                 if (throwGuid) {
                     throw unsupported();
                 }
                 return guid;
             }
-            @Override public IntSequence parameters() { return emptyInts(); }
-            @Override public byte constantFlag() { return 0; }
-            @Override public byte dynamicFlag() { return 0; }
-            @Override public dev.turboism.sdk.cubism.model.BlendMode blendMode() {
+
+            @Override
+            public IntSequence parameters() {
+                return emptyInts();
+            }
+
+            @Override
+            public byte constantFlag() {
+                return 0;
+            }
+
+            @Override
+            public byte dynamicFlag() {
+                return 0;
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.BlendMode blendMode() {
                 return dev.turboism.sdk.cubism.model.BlendMode.NORMAL;
             }
-            @Override public int textureIndex() { return 0; }
-            @Override public int drawOrder() { return 0; }
-            @Override public int renderOrder() { return 0; }
-            @Override public float getOpacity() { return 1.0F; }
-            @Override public IntSequence masks() { return emptyInts(); }
-            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexPositions() {
+
+            @Override
+            public int textureIndex() {
+                return 0;
+            }
+
+            @Override
+            public int drawOrder() {
+                return 0;
+            }
+
+            @Override
+            public int renderOrder() {
+                return 0;
+            }
+
+            @Override
+            public float getOpacity() {
+                return 1.0F;
+            }
+
+            @Override
+            public IntSequence masks() {
+                return emptyInts();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.FloatSequence vertexPositions() {
                 return emptyFloats();
             }
-            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexUvs() {
+
+            @Override
+            public dev.turboism.sdk.cubism.model.FloatSequence vertexUvs() {
                 return emptyFloats();
             }
-            @Override public IntSequence indices() { return emptyInts(); }
-            @Override public Color multiplyColor() { return new Color(1.0F, 1.0F, 1.0F, 1.0F); }
-            @Override public Color screenColor() { return new Color(0.0F, 0.0F, 0.0F, 1.0F); }
-            @Override public int parentPartIndex() { return -1; }
-            @Override public int parentDeformerIndex() { return -1; }
-            @Override public MorphTargets morphTargets() { return morphTargets; }
+
+            @Override
+            public IntSequence indices() {
+                return emptyInts();
+            }
+
+            @Override
+            public Color multiplyColor() {
+                return new Color(1.0F, 1.0F, 1.0F, 1.0F);
+            }
+
+            @Override
+            public Color screenColor() {
+                return new Color(0.0F, 0.0F, 0.0F, 1.0F);
+            }
+
+            @Override
+            public int parentPartIndex() {
+                return -1;
+            }
+
+            @Override
+            public int parentDeformerIndex() {
+                return -1;
+            }
+
+            @Override
+            public MorphTargets morphTargets() {
+                return morphTargets;
+            }
         };
     }
 
     /** Recording fixture: Wave 1 write/read delegate calls land in {@link #calls}. */
-    private static final class RecordingCreateAccess implements CubismModelAccess,
-        RuntimeModelObjectCreateProvider {
+    private static final class RecordingCreateAccess implements CubismModelAccess, RuntimeModelObjectCreateProvider {
         private final CubismModel model;
         private CubismModel createdAgainst;
 
@@ -808,18 +1167,19 @@ class DynamicCubismModelAccessTest {
             this.model = model(id, parameter(1.0F));
         }
 
-        @Override public CubismModel active() {
+        @Override
+        public CubismModel active() {
             return model;
         }
 
-        @Override public void requireCreateSupported(final ModelObjectCreateRequest request) {
+        @Override
+        public void requireCreateSupported(final ModelObjectCreateRequest request) {
             assertEquals(ModelObjectKind.PART, request.kind());
         }
 
-        @Override public ModelObjectReference createModelObject(
-            final CubismModel activeModel,
-            final ModelObjectCreateRequest request
-        ) {
+        @Override
+        public ModelObjectReference createModelObject(
+                final CubismModel activeModel, final ModelObjectCreateRequest request) {
             createdAgainst = activeModel;
             return new ModelObjectReference(request.kind(), "PartStable");
         }
@@ -828,162 +1188,326 @@ class DynamicCubismModelAccessTest {
     private static final class RecordingModel implements CubismModel {
         final List<String> calls = new java.util.ArrayList<>();
         final ModelProfile profile = new ModelProfile() {
-            @Override public float pixelsPerUnit() { return 1.0F; }
-            @Override public float originXPixels() { return 0.0F; }
-            @Override public float originYPixels() { return 0.0F; }
+            @Override
+            public float pixelsPerUnit() {
+                return 1.0F;
+            }
+
+            @Override
+            public float originXPixels() {
+                return 0.0F;
+            }
+
+            @Override
+            public float originYPixels() {
+                return 0.0F;
+            }
         };
         final PhysicsSettings physics = new PhysicsSettings() {
-            @Override public float gravityX() { return 0.0F; }
-            @Override public float gravityY() { return -1.0F; }
-            @Override public float windX() { return 0.0F; }
-            @Override public float windY() { return 0.0F; }
-            @Override public Integer settingFps() { return 30; }
-            @Override public List<dev.turboism.sdk.cubism.model.PhysicsSettingsSource> sources() {
+            @Override
+            public float gravityX() {
+                return 0.0F;
+            }
+
+            @Override
+            public float gravityY() {
+                return -1.0F;
+            }
+
+            @Override
+            public float windX() {
+                return 0.0F;
+            }
+
+            @Override
+            public float windY() {
+                return 0.0F;
+            }
+
+            @Override
+            public Integer settingFps() {
+                return 30;
+            }
+
+            @Override
+            public List<dev.turboism.sdk.cubism.model.PhysicsSettingsSource> sources() {
                 return List.of();
             }
         };
         final AutoYure autoYure = new AutoYure() {
-            @Override public List<dev.turboism.sdk.cubism.model.AutoYureBinding> bindings() {
+            @Override
+            public List<dev.turboism.sdk.cubism.model.AutoYureBinding> bindings() {
                 return List.of();
             }
         };
         final AnimationDocument animation = new AnimationDocument() {
-            @Override public String animationName() { return "AnimA"; }
-            @Override public int sceneCount() { return 1; }
-            @Override public Optional<String> currentSceneName() { return Optional.empty(); }
-            @Override public List<String> sceneNames() { return List.of(); }
+            @Override
+            public String animationName() {
+                return "AnimA";
+            }
+
+            @Override
+            public int sceneCount() {
+                return 1;
+            }
+
+            @Override
+            public Optional<String> currentSceneName() {
+                return Optional.empty();
+            }
+
+            @Override
+            public List<String> sceneNames() {
+                return List.of();
+            }
         };
         final MorphTargets partTargets = morphTargets();
         final MorphTargets drawableTargets = morphTargets();
         final Part part = new Part() {
-            @Override public PartId id() { return new PartId("PartReturned"); }
-            @Override public void setName(final String name) { throw unsupported(); }
-            @Override public MorphTargets morphTargets() { return partTargets; }
-            @Override public void setOpacity(final float opacity) { throw unsupported(); }
-            @Override public float getOpacity() { return 1.0F; }
-            @Override public int parentIndex() { return -1; }
+            @Override
+            public PartId id() {
+                return new PartId("PartReturned");
+            }
+
+            @Override
+            public void setName(final String name) {
+                throw unsupported();
+            }
+
+            @Override
+            public MorphTargets morphTargets() {
+                return partTargets;
+            }
+
+            @Override
+            public void setOpacity(final float opacity) {
+                throw unsupported();
+            }
+
+            @Override
+            public float getOpacity() {
+                return 1.0F;
+            }
+
+            @Override
+            public int parentIndex() {
+                return -1;
+            }
         };
         final Drawable drawable = drawable("guid-record", false, drawableTargets);
         final Parameter parameter = parameter(0.5F);
         final ParameterGroup group = new ParameterGroup() {
             private String name = "New";
-            @Override public ParameterGroupId id() { return new ParameterGroupId("GroupNew"); }
-            @Override public Optional<String> name() { return Optional.of(name); }
-            @Override public Optional<ParameterGroupId> parentId() { return Optional.empty(); }
-            @Override public List<ParameterGroupId> childGroupIds() { return List.of(); }
-            @Override public List<ParameterId> parameterIds() { return List.of(); }
-            @Override public void rename(final String newName) {
+
+            @Override
+            public ParameterGroupId id() {
+                return new ParameterGroupId("GroupNew");
+            }
+
+            @Override
+            public Optional<String> name() {
+                return Optional.of(name);
+            }
+
+            @Override
+            public Optional<ParameterGroupId> parentId() {
+                return Optional.empty();
+            }
+
+            @Override
+            public List<ParameterGroupId> childGroupIds() {
+                return List.of();
+            }
+
+            @Override
+            public List<ParameterId> parameterIds() {
+                return List.of();
+            }
+
+            @Override
+            public void rename(final String newName) {
                 calls.add("group.rename");
                 name = newName;
             }
         };
 
-        @Override public ModelId id() { return new ModelId("model-record"); }
+        @Override
+        public ModelId id() {
+            return new ModelId("model-record");
+        }
 
-        @Override public Parameters parameters() {
+        @Override
+        public Parameters parameters() {
             return new Parameters() {
-                @Override public List<Parameter> all() { return List.of(parameter); }
-                @Override public Parameter find(final ParameterId id) { return parameter; }
-                @Override public Parameter create(final ParameterDefinition definition) {
+                @Override
+                public List<Parameter> all() {
+                    return List.of(parameter);
+                }
+
+                @Override
+                public Parameter find(final ParameterId id) {
+                    return parameter;
+                }
+
+                @Override
+                public Parameter create(final ParameterDefinition definition) {
                     calls.add("parameters.create");
                     return parameter;
                 }
-                @Override public Parameter create(
-                    final ParameterDefinition definition,
-                    final Optional<ParameterGroupId> folderId
-                ) {
+
+                @Override
+                public Parameter create(
+                        final ParameterDefinition definition, final Optional<ParameterGroupId> folderId) {
                     calls.add("parameters.create.folder");
                     return parameter;
                 }
-                @Override public Parameter copy(final ParameterId id) {
+
+                @Override
+                public Parameter copy(final ParameterId id) {
                     calls.add("parameters.copy");
                     return parameter;
                 }
-                @Override public void remove(final ParameterId id) {
+
+                @Override
+                public void remove(final ParameterId id) {
                     calls.add("parameters.remove");
                 }
             };
         }
 
-        @Override public ParameterGroups parameterGroups() {
+        @Override
+        public ParameterGroups parameterGroups() {
             return new ParameterGroups() {
-                @Override public List<ParameterGroup> all() { return List.of(group); }
-                @Override public ParameterGroup root() { return group; }
-                @Override public ParameterGroup find(final ParameterGroupId id) {
+                @Override
+                public List<ParameterGroup> all() {
+                    return List.of(group);
+                }
+
+                @Override
+                public ParameterGroup root() {
+                    return group;
+                }
+
+                @Override
+                public ParameterGroup find(final ParameterGroupId id) {
                     if (!group.id().equals(id)) throw new java.util.NoSuchElementException();
                     return group;
                 }
-                @Override public ParameterGroup addGroup(final String name) {
+
+                @Override
+                public ParameterGroup addGroup(final String name) {
                     calls.add("groups.addGroup");
                     return group;
                 }
-                @Override public void removeGroup(final ParameterGroupId id) {
+
+                @Override
+                public void removeGroup(final ParameterGroupId id) {
                     calls.add("groups.removeGroup");
                 }
-                @Override public void moveParameter(
-                    final ParameterId parameterId,
-                    final ParameterGroupId targetGroupId
-                ) {
+
+                @Override
+                public void moveParameter(final ParameterId parameterId, final ParameterGroupId targetGroupId) {
                     calls.add("groups.moveParameter");
                 }
             };
         }
 
-        @Override public Parts parts() {
+        @Override
+        public Parts parts() {
             return new Parts() {
-                @Override public List<Part> all() { return List.of(part); }
-                @Override public Part find(final PartId id) { return part; }
-                @Override public Part add(final PartId id) {
+                @Override
+                public List<Part> all() {
+                    return List.of(part);
+                }
+
+                @Override
+                public Part find(final PartId id) {
+                    return part;
+                }
+
+                @Override
+                public Part add(final PartId id) {
                     calls.add("parts.add");
                     return part;
                 }
-                @Override public Part add(final PartId id, final PartId parentId) {
+
+                @Override
+                public Part add(final PartId id, final PartId parentId) {
                     calls.add("parts.add.parent");
                     return part;
                 }
-                @Override public Part copy(final PartId id) {
+
+                @Override
+                public Part copy(final PartId id) {
                     calls.add("parts.copy");
                     return part;
                 }
-                @Override public void remove(final PartId id) {
+
+                @Override
+                public void remove(final PartId id) {
                     calls.add("parts.remove");
                 }
             };
         }
 
-        @Override public Drawables drawables() {
+        @Override
+        public Drawables drawables() {
             return new Drawables() {
-                @Override public List<Drawable> all() { return List.of(drawable); }
-                @Override public Drawable find(final ArtMeshId id) { return drawable; }
+                @Override
+                public List<Drawable> all() {
+                    return List.of(drawable);
+                }
+
+                @Override
+                public Drawable find(final ArtMeshId id) {
+                    return drawable;
+                }
             };
         }
 
-        @Override public Deformers deformers() { throw unsupported(); }
-        @Override public Glues glues() { throw unsupported(); }
-        @Override public void update() { throw unsupported(); }
+        @Override
+        public Deformers deformers() {
+            throw unsupported();
+        }
 
-        @Override public ModelProfile profile() {
+        @Override
+        public Glues glues() {
+            throw unsupported();
+        }
+
+        @Override
+        public void update() {
+            throw unsupported();
+        }
+
+        @Override
+        public ModelProfile profile() {
             calls.add("model.profile");
             return profile;
         }
 
-        @Override public PhysicsSettings physicsSettings() {
+        @Override
+        public PhysicsSettings physicsSettings() {
             calls.add("model.physicsSettings");
             return physics;
         }
 
-        @Override public AutoYure autoYure() {
+        @Override
+        public AutoYure autoYure() {
             calls.add("model.autoYure");
             return autoYure;
         }
 
-        @Override public List<AnimationDocument> animationDocuments() {
+        @Override
+        public List<AnimationDocument> animationDocuments() {
             calls.add("model.animationDocuments");
             return List.of(animation);
         }
 
         dev.turboism.sdk.cubism.model.ModelTextures textures = emptyTextures();
-        @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ModelTextures textures() {
             calls.add("model.textures");
             return textures;
         }
@@ -991,76 +1515,88 @@ class DynamicCubismModelAccessTest {
 
     private static dev.turboism.sdk.cubism.model.ModelTextures emptyTextures() {
         return new dev.turboism.sdk.cubism.model.ModelTextures() {
-            @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() { return List.of(); }
-            @Override public List<dev.turboism.sdk.cubism.model.ModelImageGroup> modelImageGroups() { return List.of(); }
-            @Override public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() { return List.of(); }
-            @Override public void addModelImageGroup(final String name) { }
-            @Override public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId id) { }
-            @Override public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
-                final String name, final int widthPixels, final int heightPixels) {
+            @Override
+            public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() {
+                return List.of();
+            }
+
+            @Override
+            public List<dev.turboism.sdk.cubism.model.ModelImageGroup> modelImageGroups() {
+                return List.of();
+            }
+
+            @Override
+            public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() {
+                return List.of();
+            }
+
+            @Override
+            public void addModelImageGroup(final String name) {}
+
+            @Override
+            public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId id) {}
+
+            @Override
+            public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
+                    final String name, final int widthPixels, final int heightPixels) {
                 return new dev.turboism.sdk.cubism.id.TextureAtlasId("atlas");
             }
-            @Override public void removeTextureAtlas(final dev.turboism.sdk.cubism.id.TextureAtlasId id) { }
-            @Override public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId id) { }
+
+            @Override
+            public void removeTextureAtlas(final dev.turboism.sdk.cubism.id.TextureAtlasId id) {}
+
+            @Override
+            public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId id) {}
         };
     }
 
     private static ParameterDefinition definition() {
         return new ParameterDefinition(
-            new ParameterId("ParamNew"),
-            "New",
-            0.0F,
-            0.0F,
-            1.0F,
-            ParameterType.NORMAL,
-            false
-        );
+                new ParameterId("ParamNew"), "New", 0.0F, 0.0F, 1.0F, ParameterType.NORMAL, false);
     }
 
     private static MorphTargets morphTargets() {
         return new MorphTargets() {
-            @Override public List<dev.turboism.sdk.cubism.model.MorphTarget> all() {
+            @Override
+            public List<dev.turboism.sdk.cubism.model.MorphTarget> all() {
                 return List.of();
             }
-            @Override public dev.turboism.sdk.cubism.model.MorphTarget find(final ParameterId id) {
+
+            @Override
+            public dev.turboism.sdk.cubism.model.MorphTarget find(final ParameterId id) {
                 throw new java.util.NoSuchElementException(id.value());
             }
         };
     }
+
     @Test
     void nativeLabelColorSeamFollowsTheSessionLeaseAndFailsClosed() {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
-        final NativeLabelColorTarget folder = new NativeLabelColorTarget(
-            NativeLabelColorTarget.Palette.PARAMETER_GROUP,
-            "GroupFace"
-        );
-        final NativeLabelColorState nativeState = new NativeLabelColorState(
-            new NativeLabelColor.Default(),
-            Optional.empty()
-        );
+        final NativeLabelColorTarget folder =
+                new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
+        final NativeLabelColorState nativeState =
+                new NativeLabelColorState(new NativeLabelColor.Default(), Optional.empty());
         access.connect(authoringModelAccess(nativeState));
 
         assertEquals(nativeState, access.readNativeLabelColor(folder));
 
         access.deactivate();
         assertThrows(IllegalStateException.class, () -> access.readNativeLabelColor(folder));
-        assertThrows(IllegalStateException.class, () -> access.setNativeLabelColor(
-            folder, new NativeLabelColor.Default()
-        ));
+        assertThrows(
+                IllegalStateException.class, () -> access.setNativeLabelColor(folder, new NativeLabelColor.Default()));
 
         access.connect(() -> model("model-a", parameter(1.0F), parameterGroups()));
         assertThrows(UnsupportedOperationException.class, () -> access.readNativeLabelColor(folder));
-        assertThrows(UnsupportedOperationException.class, () -> access.setNativeLabelColor(
-            folder, new NativeLabelColor.Default()
-        ));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> access.setNativeLabelColor(folder, new NativeLabelColor.Default()));
     }
 
     private static CubismModelAccess authoringModelAccess(final NativeLabelColorState nativeState) {
         return new AuthoringModelAccess(nativeState);
     }
 
-    private static final class AuthoringModelAccess
-        implements CubismModelAccess, NativeLabelColorAuthoring {
+    private static final class AuthoringModelAccess implements CubismModelAccess, NativeLabelColorAuthoring {
         private final CubismModel delegate = model("model-a", parameter(1.0F));
         private final NativeLabelColorState nativeState;
 
@@ -1068,18 +1604,18 @@ class DynamicCubismModelAccessTest {
             this.nativeState = nativeState;
         }
 
-        @Override public CubismModel active() { return delegate; }
+        @Override
+        public CubismModel active() {
+            return delegate;
+        }
 
-        @Override public NativeLabelColorState readNativeLabelColor(
-            final NativeLabelColorTarget target
-        ) {
+        @Override
+        public NativeLabelColorState readNativeLabelColor(final NativeLabelColorTarget target) {
             return nativeState;
         }
 
-        @Override public void setNativeLabelColor(
-            final NativeLabelColorTarget target,
-            final NativeLabelColor color
-        ) {
+        @Override
+        public void setNativeLabelColor(final NativeLabelColorTarget target, final NativeLabelColor color) {
             throw new AssertionError("unexpected native write");
         }
     }
@@ -1088,30 +1624,86 @@ class DynamicCubismModelAccessTest {
     void sessionWrappersPreserveParameterMetadataAndGuardItByGeneration() {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         final Parameter delegate = new Parameter() {
-            @Override public ParameterId id() { return new ParameterId("ParamCheek"); }
-            @Override public int index() { return 7; }
-            @Override public dev.turboism.sdk.cubism.model.FloatSequence keyValues() {
+            @Override
+            public ParameterId id() {
+                return new ParameterId("ParamCheek");
+            }
+
+            @Override
+            public int index() {
+                return 7;
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.FloatSequence keyValues() {
                 return new dev.turboism.sdk.cubism.model.FloatSequence() {
-                    @Override public int size() { return 1; }
-                    @Override public float get(final int index) {
+                    @Override
+                    public int size() {
+                        return 1;
+                    }
+
+                    @Override
+                    public float get(final int index) {
                         if (index != 0) throw new IndexOutOfBoundsException(index);
                         return 0.25F;
                     }
                 };
             }
-            @Override public Optional<String> name() { return Optional.of("Cheek"); }
-            @Override public ParameterType type() { return ParameterType.BLEND_SHAPE; }
-            @Override public Optional<Boolean> repeat() { return Optional.of(false); }
-            @Override public Optional<Boolean> combined() { return Optional.of(true); }
-            @Override public Optional<ParameterId> combinedWith() {
+
+            @Override
+            public Optional<String> name() {
+                return Optional.of("Cheek");
+            }
+
+            @Override
+            public ParameterType type() {
+                return ParameterType.BLEND_SHAPE;
+            }
+
+            @Override
+            public Optional<Boolean> repeat() {
+                return Optional.of(false);
+            }
+
+            @Override
+            public Optional<Boolean> combined() {
+                return Optional.of(true);
+            }
+
+            @Override
+            public Optional<ParameterId> combinedWith() {
                 return Optional.of(new ParameterId("ParamSmile"));
             }
-            @Override public float getValue() { return 0.5F; }
-            @Override public float getMinimumValue() { return 0.0F; }
-            @Override public float getMaximumValue() { return 1.0F; }
-            @Override public float getDefaultValue() { return 0.0F; }
-            @Override public void setValue(final float value) { throw unsupported(); }
-            @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() { return List.of(); }
+
+            @Override
+            public float getValue() {
+                return 0.5F;
+            }
+
+            @Override
+            public float getMinimumValue() {
+                return 0.0F;
+            }
+
+            @Override
+            public float getMaximumValue() {
+                return 1.0F;
+            }
+
+            @Override
+            public float getDefaultValue() {
+                return 0.0F;
+            }
+
+            @Override
+            public void setValue(final float value) {
+                throw unsupported();
+            }
+
+            @Override
+            public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+                return List.of();
+            }
         };
         access.connect(() -> model("model-a", delegate));
 
@@ -1136,10 +1728,7 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, parameter::combined);
         assertThrows(IllegalStateException.class, parameter::combinedWith);
         assertThrows(IllegalStateException.class, parameter::getParameterBindings);
-        assertThrows(
-            IllegalStateException.class,
-            () -> parameter.combineWith(new ParameterId("ParamSmile"))
-        );
+        assertThrows(IllegalStateException.class, () -> parameter.combineWith(new ParameterId("ParamSmile")));
         assertThrows(IllegalStateException.class, parameter::uncombine);
     }
 
@@ -1148,12 +1737,35 @@ class DynamicCubismModelAccessTest {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         final float[] value = {0.75F};
         final Parameter delegate = new Parameter() {
-            @Override public ParameterId id() { return new ParameterId("ParamA"); }
-            @Override public float getValue() { return value[0]; }
-            @Override public float getMinimumValue() { return -1.0F; }
-            @Override public float getMaximumValue() { return 1.0F; }
-            @Override public float getDefaultValue() { return -0.25F; }
-            @Override public void setValue(final float nextValue) { value[0] = nextValue; }
+            @Override
+            public ParameterId id() {
+                return new ParameterId("ParamA");
+            }
+
+            @Override
+            public float getValue() {
+                return value[0];
+            }
+
+            @Override
+            public float getMinimumValue() {
+                return -1.0F;
+            }
+
+            @Override
+            public float getMaximumValue() {
+                return 1.0F;
+            }
+
+            @Override
+            public float getDefaultValue() {
+                return -0.25F;
+            }
+
+            @Override
+            public void setValue(final float nextValue) {
+                value[0] = nextValue;
+            }
         };
         access.connect(() -> model("model-a", delegate));
         final Parameter parameter = access.active().parameters().find(new ParameterId("ParamA"));
@@ -1172,27 +1784,45 @@ class DynamicCubismModelAccessTest {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         final AtomicReference<ParameterDefinition> updated = new AtomicReference<>();
         final Parameter delegate = new Parameter() {
-            @Override public ParameterId id() { return new ParameterId("ParamA"); }
-            @Override public float getValue() { return 0.0F; }
-            @Override public float getMinimumValue() { return -1.0F; }
-            @Override public float getMaximumValue() { return 1.0F; }
-            @Override public float getDefaultValue() { return 0.0F; }
-            @Override public void setValue(final float value) { throw unsupported(); }
-            @Override public void updateDefinition(final ParameterDefinition definition) {
+            @Override
+            public ParameterId id() {
+                return new ParameterId("ParamA");
+            }
+
+            @Override
+            public float getValue() {
+                return 0.0F;
+            }
+
+            @Override
+            public float getMinimumValue() {
+                return -1.0F;
+            }
+
+            @Override
+            public float getMaximumValue() {
+                return 1.0F;
+            }
+
+            @Override
+            public float getDefaultValue() {
+                return 0.0F;
+            }
+
+            @Override
+            public void setValue(final float value) {
+                throw unsupported();
+            }
+
+            @Override
+            public void updateDefinition(final ParameterDefinition definition) {
                 updated.set(definition);
             }
         };
         access.connect(() -> model("model-a", delegate));
         final Parameter parameter = access.active().parameters().find(new ParameterId("ParamA"));
         final ParameterDefinition definition = new ParameterDefinition(
-            new ParameterId("ParamRenamed"),
-            "Renamed",
-            -2.0F,
-            0.0F,
-            2.0F,
-            ParameterType.NORMAL,
-            false
-        );
+                new ParameterId("ParamRenamed"), "Renamed", -2.0F, 0.0F, 2.0F, ParameterType.NORMAL, false);
 
         parameter.updateDefinition(definition);
         assertEquals(definition, updated.get());
@@ -1231,100 +1861,276 @@ class DynamicCubismModelAccessTest {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         final float[] drawableOpacity = {1.0F};
         final float[] warpOpacity = {1.0F};
-        final ArtMeshGeometry[] geometry = {new ArtMeshGeometry(
-            List.of(new Point2(0.0F, 0.0F), new Point2(1.0F, 0.0F), new Point2(0.0F, 1.0F)),
-            List.of(new Point2(0.0F, 0.0F), new Point2(1.0F, 0.0F), new Point2(0.0F, 1.0F)),
-            List.of(0, 1, 2)
-        )};
-        final WarpGrid[] grid = {new WarpGrid(
-            1,
-            1,
-            false,
-            List.of(new Point2(0.0F, 0.0F), new Point2(1.0F, 0.0F),
-                new Point2(0.0F, 1.0F), new Point2(1.0F, 1.0F))
-        )};
-        final RotationDeformerForm[] rotationForm = {
-            new RotationDeformerForm(0.0F, 0.0F, 0.0F, 1.0F, false, false)
+        final ArtMeshGeometry[] geometry = {
+            new ArtMeshGeometry(
+                    List.of(new Point2(0.0F, 0.0F), new Point2(1.0F, 0.0F), new Point2(0.0F, 1.0F)),
+                    List.of(new Point2(0.0F, 0.0F), new Point2(1.0F, 0.0F), new Point2(0.0F, 1.0F)),
+                    List.of(0, 1, 2))
         };
+        final WarpGrid[] grid = {
+            new WarpGrid(
+                    1,
+                    1,
+                    false,
+                    List.of(
+                            new Point2(0.0F, 0.0F),
+                            new Point2(1.0F, 0.0F),
+                            new Point2(0.0F, 1.0F),
+                            new Point2(1.0F, 1.0F)))
+        };
+        final RotationDeformerForm[] rotationForm = {new RotationDeformerForm(0.0F, 0.0F, 0.0F, 1.0F, false, false)};
         final Drawable drawable = new Drawable() {
-            @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
-            @Override public float getOpacity() { return drawableOpacity[0]; }
-            @Override public void setOpacity(final float value) { drawableOpacity[0] = value; }
-            @Override public ArtMeshGeometry geometry() { return geometry[0]; }
-            @Override public void replaceGeometry(final ArtMeshGeometry value) { geometry[0] = value; }
-            @Override public byte constantFlag() { return 0; }
-            @Override public byte dynamicFlag() { return 0; }
-            @Override public dev.turboism.sdk.cubism.model.BlendMode blendMode() {
+            @Override
+            public ArtMeshId id() {
+                return new ArtMeshId("ArtMeshA");
+            }
+
+            @Override
+            public float getOpacity() {
+                return drawableOpacity[0];
+            }
+
+            @Override
+            public void setOpacity(final float value) {
+                drawableOpacity[0] = value;
+            }
+
+            @Override
+            public ArtMeshGeometry geometry() {
+                return geometry[0];
+            }
+
+            @Override
+            public void replaceGeometry(final ArtMeshGeometry value) {
+                geometry[0] = value;
+            }
+
+            @Override
+            public byte constantFlag() {
+                return 0;
+            }
+
+            @Override
+            public byte dynamicFlag() {
+                return 0;
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.BlendMode blendMode() {
                 return dev.turboism.sdk.cubism.model.BlendMode.NORMAL;
             }
-            @Override public int textureIndex() { return 0; }
-            @Override public int drawOrder() { return 0; }
-            @Override public int renderOrder() { return 0; }
-            @Override public Color multiplyColor() { return new Color(1.0F, 1.0F, 1.0F, 1.0F); }
-            @Override public Color screenColor() { return new Color(0.0F, 0.0F, 0.0F, 1.0F); }
-            @Override public IntSequence masks() { return emptyInts(); }
-            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexPositions() {
+
+            @Override
+            public int textureIndex() {
+                return 0;
+            }
+
+            @Override
+            public int drawOrder() {
+                return 0;
+            }
+
+            @Override
+            public int renderOrder() {
+                return 0;
+            }
+
+            @Override
+            public Color multiplyColor() {
+                return new Color(1.0F, 1.0F, 1.0F, 1.0F);
+            }
+
+            @Override
+            public Color screenColor() {
+                return new Color(0.0F, 0.0F, 0.0F, 1.0F);
+            }
+
+            @Override
+            public IntSequence masks() {
+                return emptyInts();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.FloatSequence vertexPositions() {
                 return emptyFloats();
             }
-            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexUvs() {
+
+            @Override
+            public dev.turboism.sdk.cubism.model.FloatSequence vertexUvs() {
                 return emptyFloats();
             }
-            @Override public IntSequence indices() { return emptyInts(); }
-            @Override public IntSequence parameters() { return emptyInts(); }
-            @Override public int parentDeformerIndex() { return -1; }
-            @Override public int parentPartIndex() { return -1; }
+
+            @Override
+            public IntSequence indices() {
+                return emptyInts();
+            }
+
+            @Override
+            public IntSequence parameters() {
+                return emptyInts();
+            }
+
+            @Override
+            public int parentDeformerIndex() {
+                return -1;
+            }
+
+            @Override
+            public int parentPartIndex() {
+                return -1;
+            }
         };
         final WarpDeformer warp = new WarpDeformer() {
-            @Override public DeformerId id() { return new DeformerId("WarpA"); }
-            @Override public float getOpacity() { return warpOpacity[0]; }
-            @Override public void setOpacity(final float value) { warpOpacity[0] = value; }
-            @Override public WarpGrid grid() { return grid[0]; }
-            @Override public void replaceGrid(final WarpGrid value) { grid[0] = value; }
-            @Override public int parentDeformerIndex() { return -1; }
-            @Override public IntSequence parameters() { return emptyInts(); }
+            @Override
+            public DeformerId id() {
+                return new DeformerId("WarpA");
+            }
+
+            @Override
+            public float getOpacity() {
+                return warpOpacity[0];
+            }
+
+            @Override
+            public void setOpacity(final float value) {
+                warpOpacity[0] = value;
+            }
+
+            @Override
+            public WarpGrid grid() {
+                return grid[0];
+            }
+
+            @Override
+            public void replaceGrid(final WarpGrid value) {
+                grid[0] = value;
+            }
+
+            @Override
+            public int parentDeformerIndex() {
+                return -1;
+            }
+
+            @Override
+            public IntSequence parameters() {
+                return emptyInts();
+            }
         };
         final RotationDeformer rotation = new RotationDeformer() {
-            @Override public DeformerId id() { return new DeformerId("RotationA"); }
-            @Override public float baseAngle() { return 30.0F; }
-            @Override public RotationDeformerForm form() { return rotationForm[0]; }
-            @Override public void replaceForm(final RotationDeformerForm value) {
+            @Override
+            public DeformerId id() {
+                return new DeformerId("RotationA");
+            }
+
+            @Override
+            public float baseAngle() {
+                return 30.0F;
+            }
+
+            @Override
+            public RotationDeformerForm form() {
+                return rotationForm[0];
+            }
+
+            @Override
+            public void replaceForm(final RotationDeformerForm value) {
                 rotationForm[0] = value;
             }
-            @Override public void setBaseAngle(final float angle) { }
-            @Override public int parentDeformerIndex() { return -1; }
-            @Override public IntSequence parameters() { return emptyInts(); }
+
+            @Override
+            public void setBaseAngle(final float angle) {}
+
+            @Override
+            public int parentDeformerIndex() {
+                return -1;
+            }
+
+            @Override
+            public IntSequence parameters() {
+                return emptyInts();
+            }
         };
         access.connect(() -> new CubismModel() {
-            @Override public ModelId id() { return new ModelId("model-a"); }
-            @Override public Parameters parameters() { throw unsupported(); }
-            @Override public Parts parts() { throw unsupported(); }
-            @Override public Drawables drawables() {
+            @Override
+            public ModelId id() {
+                return new ModelId("model-a");
+            }
+
+            @Override
+            public Parameters parameters() {
+                throw unsupported();
+            }
+
+            @Override
+            public Parts parts() {
+                throw unsupported();
+            }
+
+            @Override
+            public Drawables drawables() {
                 return new Drawables() {
-                    @Override public List<Drawable> all() { return List.of(drawable); }
-                    @Override public Drawable find(final ArtMeshId id) { return drawable; }
+                    @Override
+                    public List<Drawable> all() {
+                        return List.of(drawable);
+                    }
+
+                    @Override
+                    public Drawable find(final ArtMeshId id) {
+                        return drawable;
+                    }
                 };
             }
-            @Override public Deformers deformers() { throw unsupported(); }
-            @Override public WarpDeformers warpDeformers() {
+
+            @Override
+            public Deformers deformers() {
+                throw unsupported();
+            }
+
+            @Override
+            public WarpDeformers warpDeformers() {
                 return new WarpDeformers() {
-                    @Override public List<WarpDeformer> all() { return List.of(warp); }
-                    @Override public WarpDeformer find(final DeformerId id) { return warp; }
+                    @Override
+                    public List<WarpDeformer> all() {
+                        return List.of(warp);
+                    }
+
+                    @Override
+                    public WarpDeformer find(final DeformerId id) {
+                        return warp;
+                    }
                 };
             }
-            @Override public RotationDeformers rotationDeformers() {
+
+            @Override
+            public RotationDeformers rotationDeformers() {
                 return new RotationDeformers() {
-                    @Override public List<RotationDeformer> all() { return List.of(rotation); }
-                    @Override public RotationDeformer find(final DeformerId id) { return rotation; }
+                    @Override
+                    public List<RotationDeformer> all() {
+                        return List.of(rotation);
+                    }
+
+                    @Override
+                    public RotationDeformer find(final DeformerId id) {
+                        return rotation;
+                    }
                 };
             }
-            @Override public Glues glues() { throw unsupported(); }
-            @Override public void update() { throw unsupported(); }
+
+            @Override
+            public Glues glues() {
+                throw unsupported();
+            }
+
+            @Override
+            public void update() {
+                throw unsupported();
+            }
         });
 
         final Drawable wrappedDrawable = access.active().drawables().find(new ArtMeshId("ArtMeshA"));
         final WarpDeformer wrappedWarp = access.active().warpDeformers().find(new DeformerId("WarpA"));
-        final RotationDeformer wrappedRotation = access.active().rotationDeformers()
-            .find(new DeformerId("RotationA"));
+        final RotationDeformer wrappedRotation =
+                access.active().rotationDeformers().find(new DeformerId("RotationA"));
         wrappedDrawable.setOpacity(0.75F);
         wrappedWarp.setOpacity(0.5F);
         wrappedRotation.replaceForm(new RotationDeformerForm(10.0F, 2.0F, 3.0F, 1.5F, true, false));
@@ -1338,10 +2144,7 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, wrappedWarp::grid);
         assertThrows(IllegalStateException.class, () -> wrappedWarp.setOpacity(0.25F));
         assertThrows(IllegalStateException.class, wrappedRotation::form);
-        assertThrows(
-            IllegalStateException.class,
-            () -> wrappedRotation.replaceForm(rotationForm[0])
-        );
+        assertThrows(IllegalStateException.class, () -> wrappedRotation.replaceForm(rotationForm[0]));
     }
 
     @Test
@@ -1350,16 +2153,37 @@ class DynamicCubismModelAccessTest {
         CountDownLatch entered = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         access.connect(() -> model("model-a", new Parameter() {
-            @Override public ParameterId id() { return new ParameterId("ParamA"); }
-            @Override public float getValue() {
+            @Override
+            public ParameterId id() {
+                return new ParameterId("ParamA");
+            }
+
+            @Override
+            public float getValue() {
                 entered.countDown();
                 await(release);
                 return 1.0F;
             }
-            @Override public float getMinimumValue() { return 0.0F; }
-            @Override public float getMaximumValue() { return 2.0F; }
-            @Override public float getDefaultValue() { return 1.0F; }
-            @Override public void setValue(final float value) { throw unsupported(); }
+
+            @Override
+            public float getMinimumValue() {
+                return 0.0F;
+            }
+
+            @Override
+            public float getMaximumValue() {
+                return 2.0F;
+            }
+
+            @Override
+            public float getDefaultValue() {
+                return 1.0F;
+            }
+
+            @Override
+            public void setValue(final float value) {
+                throw unsupported();
+            }
         }));
         Parameter stale = access.active().parameters().find(new ParameterId("ParamA"));
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -1380,9 +2204,8 @@ class DynamicCubismModelAccessTest {
         });
         replacement.start();
         assertTrue(
-            !replacementFinished.await(100, TimeUnit.MILLISECONDS),
-            "replacement must wait for the in-flight delegate read"
-        );
+                !replacementFinished.await(100, TimeUnit.MILLISECONDS),
+                "replacement must wait for the in-flight delegate read");
         release.countDown();
         reader.join(5_000);
         replacement.join(5_000);
@@ -1400,22 +2223,47 @@ class DynamicCubismModelAccessTest {
     }
 
     private static CubismModel model(
-        final String id,
-        final Parameter parameter,
-        final ParameterGroups parameterGroups
-    ) {
+            final String id, final Parameter parameter, final ParameterGroups parameterGroups) {
         return new CubismModel() {
             private boolean locked = true;
-            @Override public ModelId id() { return new ModelId(id); }
-            @Override public boolean defaultKeyformLocked() { return locked; }
-            @Override public void setDefaultKeyformLocked(final boolean value) { locked = value; }
+
+            @Override
+            public ModelId id() {
+                return new ModelId(id);
+            }
+
+            @Override
+            public boolean defaultKeyformLocked() {
+                return locked;
+            }
+
+            @Override
+            public void setDefaultKeyformLocked(final boolean value) {
+                locked = value;
+            }
+
             private ModelEditLevel editLevel = ModelEditLevel.LEVEL_1;
-            @Override public ModelEditLevel editLevel() { return editLevel; }
-            @Override public void setEditLevel(final ModelEditLevel value) { editLevel = value; }
-            @Override public Parameters parameters() {
+
+            @Override
+            public ModelEditLevel editLevel() {
+                return editLevel;
+            }
+
+            @Override
+            public void setEditLevel(final ModelEditLevel value) {
+                editLevel = value;
+            }
+
+            @Override
+            public Parameters parameters() {
                 return new Parameters() {
-                    @Override public List<Parameter> all() { return List.of(parameter); }
-                    @Override public Parameter find(final ParameterId parameterId) {
+                    @Override
+                    public List<Parameter> all() {
+                        return List.of(parameter);
+                    }
+
+                    @Override
+                    public Parameter find(final ParameterId parameterId) {
                         if (!parameter.id().equals(parameterId)) {
                             throw new java.util.NoSuchElementException();
                         }
@@ -1423,66 +2271,135 @@ class DynamicCubismModelAccessTest {
                     }
                 };
             }
-            @Override public ParameterGroups parameterGroups() {
+
+            @Override
+            public ParameterGroups parameterGroups() {
                 if (parameterGroups == null) return CubismModel.super.parameterGroups();
                 return parameterGroups;
             }
-            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
-            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
-            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
-            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
-            @Override public void update() { throw unsupported(); }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Parts parts() {
+                throw unsupported();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Drawables drawables() {
+                throw unsupported();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Deformers deformers() {
+                throw unsupported();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Glues glues() {
+                throw unsupported();
+            }
+
+            @Override
+            public void update() {
+                throw unsupported();
+            }
         };
     }
 
     private static ParameterGroups parameterGroups() {
         final ParameterGroup root = parameterGroup(
-            "GroupRoot",
-            "Root",
-            Optional.empty(),
-            List.of(new ParameterGroupId("GroupFace")),
-            List.of()
-        );
+                "GroupRoot", "Root", Optional.empty(), List.of(new ParameterGroupId("GroupFace")), List.of());
         final ParameterGroup face = parameterGroup(
-            "GroupFace",
-            "Face",
-            Optional.of(new ParameterGroupId("GroupRoot")),
-            List.of(),
-            List.of(new ParameterId("ParamA"))
-        );
+                "GroupFace",
+                "Face",
+                Optional.of(new ParameterGroupId("GroupRoot")),
+                List.of(),
+                List.of(new ParameterId("ParamA")));
         return new ParameterGroups() {
-            @Override public List<ParameterGroup> all() { return List.of(root, face); }
-            @Override public ParameterGroup root() { return root; }
-            @Override public ParameterGroup find(final ParameterGroupId id) {
-                return all().stream().filter(group -> group.id().equals(id)).findFirst()
-                    .orElseThrow();
+            @Override
+            public List<ParameterGroup> all() {
+                return List.of(root, face);
+            }
+
+            @Override
+            public ParameterGroup root() {
+                return root;
+            }
+
+            @Override
+            public ParameterGroup find(final ParameterGroupId id) {
+                return all().stream()
+                        .filter(group -> group.id().equals(id))
+                        .findFirst()
+                        .orElseThrow();
             }
         };
     }
+
     private static ParameterGroup parameterGroup(
-        final String id,
-        final String name,
-        final Optional<ParameterGroupId> parentId,
-        final List<ParameterGroupId> childGroupIds,
-        final List<ParameterId> parameterIds
-    ) {
+            final String id,
+            final String name,
+            final Optional<ParameterGroupId> parentId,
+            final List<ParameterGroupId> childGroupIds,
+            final List<ParameterId> parameterIds) {
         return new ParameterGroup() {
-            @Override public ParameterGroupId id() { return new ParameterGroupId(id); }
-            @Override public Optional<String> name() { return Optional.of(name); }
-            @Override public Optional<ParameterGroupId> parentId() { return parentId; }
-            @Override public List<ParameterGroupId> childGroupIds() { return childGroupIds; }
-            @Override public List<ParameterId> parameterIds() { return parameterIds; }
+            @Override
+            public ParameterGroupId id() {
+                return new ParameterGroupId(id);
+            }
+
+            @Override
+            public Optional<String> name() {
+                return Optional.of(name);
+            }
+
+            @Override
+            public Optional<ParameterGroupId> parentId() {
+                return parentId;
+            }
+
+            @Override
+            public List<ParameterGroupId> childGroupIds() {
+                return childGroupIds;
+            }
+
+            @Override
+            public List<ParameterId> parameterIds() {
+                return parameterIds;
+            }
         };
     }
 
     private static Parameter parameter(final float value) {
         return new Parameter() {
-            @Override public ParameterId id() { return new ParameterId("ParamA"); }
-            @Override public float getValue() { return value; }
-            @Override public float getMinimumValue() { return 0.0F; }
-            @Override public float getMaximumValue() { return 2.0F; }
-            @Override public float getDefaultValue() { return 1.0F; }
-            @Override public void setValue(final float ignored) { throw unsupported(); }
+            @Override
+            public ParameterId id() {
+                return new ParameterId("ParamA");
+            }
+
+            @Override
+            public float getValue() {
+                return value;
+            }
+
+            @Override
+            public float getMinimumValue() {
+                return 0.0F;
+            }
+
+            @Override
+            public float getMaximumValue() {
+                return 2.0F;
+            }
+
+            @Override
+            public float getDefaultValue() {
+                return 1.0F;
+            }
+
+            @Override
+            public void setValue(final float ignored) {
+                throw unsupported();
+            }
         };
     }
 
@@ -1492,15 +2409,29 @@ class DynamicCubismModelAccessTest {
 
     private static IntSequence emptyInts() {
         return new IntSequence() {
-            @Override public int size() { return 0; }
-            @Override public int get(final int index) { throw new IndexOutOfBoundsException(index); }
+            @Override
+            public int size() {
+                return 0;
+            }
+
+            @Override
+            public int get(final int index) {
+                throw new IndexOutOfBoundsException(index);
+            }
         };
     }
 
     private static dev.turboism.sdk.cubism.model.FloatSequence emptyFloats() {
         return new dev.turboism.sdk.cubism.model.FloatSequence() {
-            @Override public int size() { return 0; }
-            @Override public float get(final int index) { throw new IndexOutOfBoundsException(index); }
+            @Override
+            public int size() {
+                return 0;
+            }
+
+            @Override
+            public float get(final int index) {
+                throw new IndexOutOfBoundsException(index);
+            }
         };
     }
 

@@ -11,27 +11,15 @@ public interface ParameterHooks {
      * final value is sent to the native call.
      */
     @CubismEditor({"5.3.02", "5.3.03"})
-    default float beforeSetParameterValue(
-        final Parameter parameter,
-        final float value
-    ) {
+    default float beforeSetParameterValue(final Parameter parameter, final float value) {
         return value;
     }
 
     /** Runs only when the parameter value actually changed. */
     @CubismEditor({"5.3.02", "5.3.03"})
-    default void onParameterValueChanged(
-        final Parameter parameter,
-        final float oldValue,
-        final float newValue
-    ) {
-    }
+    default void onParameterValueChanged(final Parameter parameter, final float oldValue, final float newValue) {}
 
     /** Runs after the value write completed with the value that was applied. */
     @CubismEditor({"5.3.02", "5.3.03"})
-    default void afterSetParameterValue(
-        final Parameter parameter,
-        final float value
-    ) {
-    }
+    default void afterSetParameterValue(final Parameter parameter, final float value) {}
 }

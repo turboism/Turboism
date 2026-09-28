@@ -1,10 +1,6 @@
 package dev.turboism.plugin.webdavbackup.webdav;
 
 import dev.turboism.sdk.cubism.backup.BackupSyncTarget;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -19,6 +15,9 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * Minimal JDK-only WebDAV {@link BackupSyncTarget}: MKCOL collection creation,
@@ -34,27 +33,24 @@ import java.util.concurrent.TimeUnit;
  */
 public final class WebDavSyncTarget implements BackupSyncTarget {
 
-    private static final String DAV_DEPTH_1 = "<?xml version=\"1.0\"?>"
-        + "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/></d:prop></d:propfind>";
+    private static final String DAV_DEPTH_1 =
+            "<?xml version=\"1.0\"?>" + "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/></d:prop></d:propfind>";
 
     private final WebDavConfig config;
     private final HttpClient client;
     private final java.util.function.Consumer<String> diagnostics;
 
     public WebDavSyncTarget(final WebDavConfig config) {
-        this(config, reason -> { });
+        this(config, reason -> {});
     }
 
     /** Test seam: a diagnostics sink receives sanitized failure reasons (never credentials). */
-    public WebDavSyncTarget(
-        final WebDavConfig config,
-        final java.util.function.Consumer<String> diagnostics
-    ) {
+    public WebDavSyncTarget(final WebDavConfig config, final java.util.function.Consumer<String> diagnostics) {
         this.config = Objects.requireNonNull(config, "config");
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
         HttpClient.Builder builder = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(config.timeoutSeconds()))
-            .followRedirects(HttpClient.Redirect.NEVER);
+                .connectTimeout(Duration.ofSeconds(config.timeoutSeconds()))
+                .followRedirects(HttpClient.Redirect.NEVER);
         if (!config.verifyTls()) {
             builder.sslContext(permissiveSslContext());
         }
@@ -99,20 +95,18 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
 
     /** Deletes one remote resource (used for cleanup and tests). */
     public void delete(final String remotePath) {
-        final HttpResponse<Void> response = send(
-            request("DELETE", targetUri(config.remotePath(), remotePath), HttpRequest.BodyPublishers.noBody()).build()
-        );
+        final HttpResponse<Void> response =
+                send(request("DELETE", targetUri(config.remotePath(), remotePath), HttpRequest.BodyPublishers.noBody())
+                        .build());
         if (response.statusCode() != 204 && response.statusCode() != 404) {
-            throw new IllegalStateException(
-                "webdav delete failed: " + response.statusCode() + " path=" + remotePath
-            );
+            throw new IllegalStateException("webdav delete failed: " + response.statusCode() + " path=" + remotePath);
         }
     }
 
     private void ensureCollection(final String collection) {
-        final int created = send(
-            request("MKCOL", targetUri(collection, null), HttpRequest.BodyPublishers.noBody()).build()
-        ).statusCode();
+        final int created = send(request("MKCOL", targetUri(collection, null), HttpRequest.BodyPublishers.noBody())
+                        .build())
+                .statusCode();
         if (created == 201) {
             return; // collection created
         }
@@ -122,15 +116,16 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         // 405 (already exists) and other 4xx codes are confirmed with a PROPFIND
         // probe before uploading (RFC 4918 servers may answer 409/403 for an
         // existing collection).
-        final int probed = send(request("PROPFIND", targetUri(collection, null),
-            HttpRequest.BodyPublishers.ofString(DAV_DEPTH_1))
-            .header("Depth", "0")
-            .header("Content-Type", "application/xml")
-            .build()).statusCode();
+        final int probed = send(request(
+                                "PROPFIND",
+                                targetUri(collection, null),
+                                HttpRequest.BodyPublishers.ofString(DAV_DEPTH_1))
+                        .header("Depth", "0")
+                        .header("Content-Type", "application/xml")
+                        .build())
+                .statusCode();
         if (probed / 100 != 2) {
-            throw new IllegalStateException(
-                "webdav collection unavailable: mkcol=" + created + " propfind=" + probed
-            );
+            throw new IllegalStateException("webdav collection unavailable: mkcol=" + created + " propfind=" + probed);
         }
     }
 
@@ -140,21 +135,19 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 final HttpResponse<Void> response = client.send(
-                    request("PUT", target, HttpRequest.BodyPublishers.ofFile(file.toPath()))
-                        .header("Content-Type", "application/octet-stream")
-                        .build(),
-                    HttpResponse.BodyHandlers.discarding()
-                );
+                        request("PUT", target, HttpRequest.BodyPublishers.ofFile(file.toPath()))
+                                .header("Content-Type", "application/octet-stream")
+                                .build(),
+                        HttpResponse.BodyHandlers.discarding());
                 if (response.statusCode() == 200 || response.statusCode() == 201) {
-                    diagnostics.accept("webdav:put-ok file=" + file.getName() + " remote=" + target
-                        + " bytes=" + file.length() + " attempts=" + attempt);
+                    diagnostics.accept("webdav:put-ok file=" + file.getName() + " remote=" + target + " bytes="
+                            + file.length() + " attempts=" + attempt);
                     return;
                 }
                 rejectRedirect("PUT", response);
                 if (response.statusCode() / 100 != 5 && response.statusCode() != 429) {
                     throw new IllegalStateException(
-                        "webdav put failed: " + response.statusCode() + " file=" + file.getName()
-                    );
+                            "webdav put failed: " + response.statusCode() + " file=" + file.getName());
                 }
                 lastNetwork = new IOException("webdav put status " + response.statusCode());
             } catch (IOException failure) {
@@ -195,9 +188,7 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         final StringBuilder path = new StringBuilder();
         final String basePath = base.getPath() == null ? "" : base.getPath();
         if (!basePath.isEmpty() && !"/".equals(basePath)) {
-            path.append(basePath.endsWith("/")
-                ? basePath.substring(0, basePath.length() - 1)
-                : basePath);
+            path.append(basePath.endsWith("/") ? basePath.substring(0, basePath.length() - 1) : basePath);
         }
         for (String segment : collection.split("/")) {
             if (!segment.isEmpty()) {
@@ -217,18 +208,13 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         }
     }
 
-    private HttpRequest.Builder request(
-        final String method,
-        final URI target,
-        final HttpRequest.BodyPublisher body
-    ) {
+    private HttpRequest.Builder request(final String method, final URI target, final HttpRequest.BodyPublisher body) {
         final HttpRequest.Builder builder = HttpRequest.newBuilder(target)
-            .timeout(Duration.ofSeconds(config.timeoutSeconds()))
-            .method(method, body);
+                .timeout(Duration.ofSeconds(config.timeoutSeconds()))
+                .method(method, body);
         if (config.username() != null && !config.username().isBlank()) {
-            final String token = Base64.getEncoder().encodeToString(
-                (config.username() + ":" + config.password()).getBytes(StandardCharsets.UTF_8)
-            );
+            final String token = Base64.getEncoder()
+                    .encodeToString((config.username() + ":" + config.password()).getBytes(StandardCharsets.UTF_8));
             builder.header("Authorization", "Basic " + token);
         }
         return builder;
@@ -236,8 +222,7 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
 
     private HttpResponse<Void> send(final HttpRequest request) {
         try {
-            final HttpResponse<Void> response =
-                client.send(request, HttpResponse.BodyHandlers.discarding());
+            final HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
             rejectRedirect(request.method(), response);
             return response;
         } catch (IOException failure) {
@@ -262,10 +247,9 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         }
         final String location = response.headers().firstValue("Location").orElse(null);
         final String target = redirectAuthority(location);
-        diagnostics.accept("webdav:redirect-not-followed method=" + method
-            + " status=" + status + " location=" + target);
-        throw new IllegalStateException(
-            "webdav " + method + " redirected (status=" + status + ", location=" + target
+        diagnostics.accept(
+                "webdav:redirect-not-followed method=" + method + " status=" + status + " location=" + target);
+        throw new IllegalStateException("webdav " + method + " redirected (status=" + status + ", location=" + target
                 + "); redirects are not followed");
     }
 
@@ -287,11 +271,20 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
 
     private static SSLContext permissiveSslContext() {
         try {
-            final TrustManager[] trustAll = {new X509TrustManager() {
-                @Override public void checkClientTrusted(X509Certificate[] chain, String authType) { }
-                @Override public void checkServerTrusted(X509Certificate[] chain, String authType) { }
-                @Override public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-            }};
+            final TrustManager[] trustAll = {
+                new X509TrustManager() {
+                    @Override
+                    public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return new X509Certificate[0];
+                    }
+                }
+            };
             final SSLContext context = SSLContext.getInstance("TLS");
             context.init(null, trustAll, new SecureRandom());
             return context;

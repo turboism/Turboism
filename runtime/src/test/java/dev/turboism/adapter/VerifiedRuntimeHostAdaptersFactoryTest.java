@@ -1,10 +1,10 @@
 package dev.turboism.adapter;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
 import dev.turboism.adapter.host.HostVerificationEvidence;
-import org.junit.jupiter.api.Test;
-
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,74 +12,63 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
 
 class VerifiedRuntimeHostAdaptersFactoryTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
-
     @Test
     void dualSliceCreateRejectsDifferentClassloadersBeforeResolverCreation() {
-        ClassLoader projectClassLoader = new ClassLoader() { };
-        ClassLoader clipClassLoader = new ClassLoader() { };
+        ClassLoader projectClassLoader = new ClassLoader() {};
+        ClassLoader clipClassLoader = new ClassLoader() {};
 
-        assertThrows(IllegalArgumentException.class, () -> new VerifiedRuntimeHostAdaptersFactory().create(
-            HostVerificationEvidence.withClipMask(
-                slice("project", "host/Live2D_Cubism.jar", projectClassLoader),
-                slice("clip", "host/Live2D_Cubism.jar", clipClassLoader)
-            )
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new VerifiedRuntimeHostAdaptersFactory()
+                        .create(HostVerificationEvidence.withClipMask(
+                                slice("project", "host/Live2D_Cubism.jar", projectClassLoader),
+                                slice("clip", "host/Live2D_Cubism.jar", clipClassLoader))));
     }
 
     @Test
     void dualSliceCreateRejectsDifferentArtifactsBeforeResolverCreation() {
-        ClassLoader hostClassLoader = new ClassLoader() { };
+        ClassLoader hostClassLoader = new ClassLoader() {};
 
-        assertThrows(IllegalArgumentException.class, () -> new VerifiedRuntimeHostAdaptersFactory().create(
-            HostVerificationEvidence.withClipMask(
-                slice("project", "host/Live2D_Cubism.jar", hostClassLoader),
-                slice("clip", "host/another.jar", hostClassLoader)
-            )
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new VerifiedRuntimeHostAdaptersFactory()
+                        .create(HostVerificationEvidence.withClipMask(
+                                slice("project", "host/Live2D_Cubism.jar", hostClassLoader),
+                                slice("clip", "host/another.jar", hostClassLoader))));
     }
 
     @Test
     void rejectsAnySelfIssuedRecordEvenWhenItsSelectorsAndSyntheticArtifactMatch() throws Exception {
         Path artifact = jarContaining(Host.class);
         Path record = recordFor(
-            artifact,
-            "adapter.project-workspace.readonly",
-            List.of("cubism.project.read", "cubism.workspace.read"),
-            VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES
-        );
+                artifact,
+                "adapter.project-workspace.readonly",
+                List.of("cubism.project.read", "cubism.workspace.read"),
+                VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES);
 
-        assertThrows(IllegalArgumentException.class, () -> new VerifiedRuntimeHostAdaptersFactory().projectWorkspace(
-            record,
-            artifact,
-            Host.class.getClassLoader()
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new VerifiedRuntimeHostAdaptersFactory()
+                        .projectWorkspace(record, artifact, Host.class.getClassLoader()));
     }
 
     private static HostVerificationEvidence.Slice slice(
-        final String name,
-        final String artifact,
-        final ClassLoader classLoader
-    ) {
-        return new HostVerificationEvidence.Slice(
-            Path.of("records/" + name + ".json"),
-            Path.of(artifact),
-            classLoader
-        );
+            final String name, final String artifact, final ClassLoader classLoader) {
+        return new HostVerificationEvidence.Slice(Path.of("records/" + name + ".json"), Path.of(artifact), classLoader);
     }
 
     private Path recordFor(
-        final Path artifact,
-        final String adapterSliceId,
-        final List<String> capabilityIds,
-        final java.util.Set<String> aliases
-    ) throws Exception {
+            final Path artifact,
+            final String adapterSliceId,
+            final List<String> capabilityIds,
+            final java.util.Set<String> aliases)
+            throws Exception {
         var fingerprint = dev.turboism.mapping.verification.HostArtifactFingerprint.from("5.3.02", artifact);
         String owner = Host.class.getName().replace('.', '/');
         Path record = Files.createTempFile("turboism-runtime-adapters", ".json");

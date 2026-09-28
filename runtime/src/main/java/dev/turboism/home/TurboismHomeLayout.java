@@ -34,7 +34,8 @@ public final class TurboismHomeLayout {
      */
     public static TurboismHomeLayout create(final Path requestedHome) throws IOException {
         final Path home = Objects.requireNonNull(requestedHome, "requestedHome")
-            .toAbsolutePath().normalize();
+                .toAbsolutePath()
+                .normalize();
         Files.createDirectories(home);
         for (String directory : List.of("plugins", "config", "data", "cache", "state", "logs")) {
             Files.createDirectories(home.resolve(directory));
@@ -100,11 +101,10 @@ public final class TurboismHomeLayout {
             throw new IllegalArgumentException("pluginId is invalid");
         }
         final PluginHomePaths paths = new PluginHomePaths(
-            AnchoredDirectoryTree.anchor(home.resolve("config").resolve(pluginId)),
-            AnchoredDirectoryTree.anchor(home.resolve("data").resolve(pluginId)),
-            AnchoredDirectoryTree.anchor(home.resolve("cache").resolve(pluginId)),
-            home.resolve("state").resolve(pluginId)
-        );
+                AnchoredDirectoryTree.anchor(home.resolve("config").resolve(pluginId)),
+                AnchoredDirectoryTree.anchor(home.resolve("data").resolve(pluginId)),
+                AnchoredDirectoryTree.anchor(home.resolve("cache").resolve(pluginId)),
+                home.resolve("state").resolve(pluginId));
         Files.createDirectories(paths.stateDir());
         return paths;
     }

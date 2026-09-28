@@ -1,7 +1,6 @@
 package dev.turboism.sdk.runtime;
 
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -14,10 +13,7 @@ import java.util.Objects;
  * {@link CubismLogService} stream remains the command-side source for host log
  * filtering and exact in-process inspection.</p>
  */
-public record CubismLogBatchEvent(
-    List<Entry> entries,
-    long droppedEntries
-) implements TurboismEvent {
+public record CubismLogBatchEvent(List<Entry> entries, long droppedEntries) implements TurboismEvent {
 
     public CubismLogBatchEvent {
         entries = List.copyOf(Objects.requireNonNull(entries, "entries"));
@@ -30,11 +26,7 @@ public record CubismLogBatchEvent(
     }
 
     /** One detached entry with no host logger object, throwable, or file handle. */
-    public record Entry(
-        CubismLogService.LogLevel level,
-        String message,
-        long timestampNanos
-    ) {
+    public record Entry(CubismLogService.LogLevel level, String message, long timestampNanos) {
         public Entry {
             level = Objects.requireNonNull(level, "level");
             message = Objects.requireNonNull(message, "message");

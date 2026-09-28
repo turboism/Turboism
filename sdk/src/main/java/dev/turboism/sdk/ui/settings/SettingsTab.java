@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.settings;
 
-
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.regex.Pattern;

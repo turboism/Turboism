@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-
 /**
  * Host-independent bounds and policy for producing an atlas layout plan.
  *
@@ -19,21 +18,24 @@ package dev.turboism.sdk.cubism.textureatlas;
  * @param singlePageOptions current-page scale policy, or {@code null} for complete-atlas authoring
  */
 public record TextureAtlasLayoutConstraints(
-    int pageWidth,
-    int pageHeight,
-    int edgeMargin,
-    int itemPadding,
-    int maxPages,
-    boolean allowRotation,
-    boolean allowScaling,
-    TextureAtlasSinglePageOptions singlePageOptions
-) {
+        int pageWidth,
+        int pageHeight,
+        int edgeMargin,
+        int itemPadding,
+        int maxPages,
+        boolean allowRotation,
+        boolean allowScaling,
+        TextureAtlasSinglePageOptions singlePageOptions) {
 
     /** Retains the complete-atlas, fixed-size contract of the original constructor. */
     public TextureAtlasLayoutConstraints(
-        int pageWidth, int pageHeight, int edgeMargin, int itemPadding,
-        int maxPages, boolean allowRotation, boolean allowScaling
-    ) {
+            int pageWidth,
+            int pageHeight,
+            int edgeMargin,
+            int itemPadding,
+            int maxPages,
+            boolean allowRotation,
+            boolean allowScaling) {
         this(pageWidth, pageHeight, edgeMargin, itemPadding, maxPages, allowRotation, allowScaling, null);
     }
 
@@ -42,11 +44,18 @@ public record TextureAtlasLayoutConstraints(
      * margin at the page edge and twice that gap between them, independent of scale.
      */
     public static TextureAtlasLayoutConstraints currentPage(
-        int width, int height, int margin, boolean rotate, double requestedScale
-    ) {
-        return new TextureAtlasLayoutConstraints(width, height, margin, Math.multiplyExact(margin, 2),
-            1, rotate, requestedScale != 1D, new TextureAtlasSinglePageOptions(requestedScale));
+            int width, int height, int margin, boolean rotate, double requestedScale) {
+        return new TextureAtlasLayoutConstraints(
+                width,
+                height,
+                margin,
+                Math.multiplyExact(margin, 2),
+                1,
+                rotate,
+                requestedScale != 1D,
+                new TextureAtlasSinglePageOptions(requestedScale));
     }
+
     public TextureAtlasLayoutConstraints {
         if (pageWidth < 1 || pageHeight < 1) {
             throw new IllegalArgumentException("Atlas page dimensions must be positive.");
@@ -63,8 +72,8 @@ public record TextureAtlasLayoutConstraints(
         if (singlePageOptions == null && (allowRotation || allowScaling)) {
             throw new IllegalArgumentException("Complete-atlas authoring does not support rotation or scaling.");
         }
-        if (singlePageOptions != null && (maxPages != 1
-            || (!allowScaling && singlePageOptions.requestedScale() != 1D))) {
+        if (singlePageOptions != null
+                && (maxPages != 1 || (!allowScaling && singlePageOptions.requestedScale() != 1D))) {
             throw new IllegalArgumentException("Current-page options require one page and consistent scale policy.");
         }
     }

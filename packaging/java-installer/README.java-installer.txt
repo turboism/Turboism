@@ -23,10 +23,12 @@ secure-temporary-file, and post-move publication checks.
 Before any payload changes, the installer validates an existing config.json.
 For a valid current-schema document, it changes only disabledPlugins and
 preserves all other settings; if the selected state is already current, the
-original bytes remain unchanged. A recognized legacy schema is migrated,
-validated as v1, and receives the selected plugin state in one atomic
-publication. Malformed, runtime-invalid, unknown, or future schemas fail closed
-before payload mutation. Rerun the installer to apply a different plugin
+original bytes remain unchanged. Any other parseable config owned by Turboism
+— a legacy or unrecognized schemaVersion, unknown fields, or fields with
+invalid values — is normalized to v1 (valid values kept, everything else
+dropped) and receives the selected plugin state in one atomic publication.
+Only a foreign `format` declaration or an unparseable file fails closed before
+payload mutation. Rerun the installer to apply a different plugin
 selection.
 
 On Windows, configure_turboism.ps1 opens after installation and can be run

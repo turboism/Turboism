@@ -22,7 +22,8 @@ public final class FloatArrayParseCache {
 
     /** Limits entry overhead and retained UTF-16 text; slots do not allocate nodes or Float boxes on misses. */
     public FloatArrayParseCache(int entryLimit, int characterLimit) {
-        if (entryLimit < 1 || entryLimit > 65536 || characterLimit < 1) throw new IllegalArgumentException("invalid cache limits");
+        if (entryLimit < 1 || entryLimit > 65536 || characterLimit < 1)
+            throw new IllegalArgumentException("invalid cache limits");
         this.entryLimit = entryLimit;
         this.characterLimit = characterLimit;
         int capacity = 1;
@@ -40,10 +41,13 @@ public final class FloatArrayParseCache {
     public synchronized float[] parse(int length, Object input) {
         if (length < 0 || length > MAX_ARRAY_LENGTH || !(input instanceof List<?> list)) return null;
         String type = input.getClass().getName();
-        if (input.getClass().getClassLoader() != null || !(type.equals("java.util.ArrayList")
-            || type.equals("java.util.Arrays$ArrayList") || type.equals("java.util.Collections$SingletonList")
-            || type.equals("java.util.ImmutableCollections$List12") || type.equals("java.util.ImmutableCollections$ListN")
-            || type.equals("java.util.Collections$EmptyList"))) return null;
+        if (input.getClass().getClassLoader() != null
+                || !(type.equals("java.util.ArrayList")
+                        || type.equals("java.util.Arrays$ArrayList")
+                        || type.equals("java.util.Collections$SingletonList")
+                        || type.equals("java.util.ImmutableCollections$List12")
+                        || type.equals("java.util.ImmutableCollections$ListN")
+                        || type.equals("java.util.Collections$EmptyList"))) return null;
         if (length > list.size()) return null;
         float[] result = new float[length];
         long localHits = 0, localParses = 0;
@@ -103,8 +107,22 @@ public final class FloatArrayParseCache {
 
     /** Payload-free counters; allocation savings are not inferred from cache-hit counts. */
     public synchronized Map<String, Long> snapshot() {
-        return Map.of("arrays", arrays, "tokens", tokens, "hits", hits, "parses", parses,
-            "entries", (long) entries, "characters", (long) characters,
-            "entryLimit", (long) entryLimit, "characterLimit", (long) characterLimit);
+        return Map.of(
+                "arrays",
+                arrays,
+                "tokens",
+                tokens,
+                "hits",
+                hits,
+                "parses",
+                parses,
+                "entries",
+                (long) entries,
+                "characters",
+                (long) characters,
+                "entryLimit",
+                (long) entryLimit,
+                "characterLimit",
+                (long) characterLimit);
     }
 }

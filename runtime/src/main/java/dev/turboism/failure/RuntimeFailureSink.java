@@ -6,7 +6,7 @@ import java.util.Objects;
 @FunctionalInterface
 public interface RuntimeFailureSink {
 
-    RuntimeFailureSink NOOP = (domain, failure) -> { };
+    RuntimeFailureSink NOOP = (domain, failure) -> {};
 
     /**
      * Records one sanitized runtime failure.

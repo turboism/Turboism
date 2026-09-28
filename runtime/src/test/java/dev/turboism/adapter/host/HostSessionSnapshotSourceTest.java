@@ -1,17 +1,16 @@
 package dev.turboism.adapter.host;
 
-import dev.turboism.adapter.cubism.HostSnapshotSource;
-import dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection;
-import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.function.Supplier;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection;
+import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
+import org.junit.jupiter.api.Test;
 
 /**
  * Session snapshot source selection seam: the source delegates to the wired live reader
@@ -30,25 +29,20 @@ class HostSessionSnapshotSourceTest {
 
     @Test
     void selectionDelegatesToTheWiredLiveReader() {
-        final HostSelection live = new HostSelection(
-            List.of("WarpA", "MeshA"), Optional.empty(), Optional.empty(), Optional.empty()
-        );
-        final HostSnapshotSource source = HostSessionSnapshotSource.forSession(
-            projectWorkspace, () -> live
-        );
+        final HostSelection live =
+                new HostSelection(List.of("WarpA", "MeshA"), Optional.empty(), Optional.empty(), Optional.empty());
+        final HostSnapshotSource source = HostSessionSnapshotSource.forSession(projectWorkspace, () -> live);
 
         assertSame(live, source.selection());
     }
 
     @Test
     void selectionReflectsLiveReaderChangesAcrossQueries() {
-        final HostSelection first = new HostSelection(
-            List.of("WarpA"), Optional.empty(), Optional.empty(), Optional.empty()
-        );
-        final HostSelection second = new HostSelection(
-            List.of("MeshA"), Optional.empty(), Optional.empty(), Optional.empty()
-        );
-        final HostSelection[] current = { first };
+        final HostSelection first =
+                new HostSelection(List.of("WarpA"), Optional.empty(), Optional.empty(), Optional.empty());
+        final HostSelection second =
+                new HostSelection(List.of("MeshA"), Optional.empty(), Optional.empty(), Optional.empty());
+        final HostSelection[] current = {first};
         final Supplier<HostSelection> reader = () -> current[0];
         final HostSnapshotSource source = HostSessionSnapshotSource.forSession(projectWorkspace, reader);
 
@@ -59,10 +53,9 @@ class HostSessionSnapshotSourceTest {
 
     @Test
     void liveReaderFailurePropagatesInsteadOfMaskingAsEmpty() {
-        final HostSnapshotSource source = HostSessionSnapshotSource.forSession(
-            projectWorkspace,
-            () -> { throw new IllegalStateException("live selection read failed"); }
-        );
+        final HostSnapshotSource source = HostSessionSnapshotSource.forSession(projectWorkspace, () -> {
+            throw new IllegalStateException("live selection read failed");
+        });
 
         assertThrows(IllegalStateException.class, source::selection);
     }

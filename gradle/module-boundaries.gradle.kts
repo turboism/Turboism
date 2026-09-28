@@ -61,6 +61,80 @@ tasks.register("checkModuleBoundaries") {
     }
 }
 
+/**
+ * Layering inside the single :runtime module. The framework core, adapters, mapping, leaf
+ * service implementations and shared infrastructure must not import upward into composition
+ * layers or sideways into surfaces they are documented to sit below. Composition seams —
+ * {@code bootstrap}, {@code shell}, {@code ui}, {@code preview}, {@code distribution} — and the
+ * service-wiring package {@code core.plugin.context} may reach anywhere.
+ *
+ * Violations are fail-closed: a known debt is an explicit per-file waiver in
+ * [runtimePackageWaivers], every other hit fails the gate so the baseline cannot regress.
+ */
+private class RuntimePackageRule(
+    val sourceTopPackages: Set<String>,
+    val sourceExclusions: Set<String>,
+    val forbiddenTopPackages: Set<String>,
+    val message: String
+)
+
+private val runtimeCompositionLayers = setOf("shell", "preview", "distribution")
+private val runtimeFeatureImpls = setOf(
+    "recentfile", "recentpreview", "screenshot", "script", "storage", "task", "config",
+    "userfile", "hostread", "performance", "exportsettings", "filechooser", "mcp", "update"
+)
+private val runtimeInfra = setOf(
+    "permissions", "diagnostics", "failure", "cleanup", "home", "graal", "i18n"
+)
+
+private val runtimePackageRules = listOf(
+    RuntimePackageRule(
+        setOf("core"),
+        setOf("core/plugin/context/"),
+        setOf("adapter", "hook", "shell", "ui", "preview", "distribution"),
+        "framework core must not reach into adapter/host/composition layers"
+    ),
+    RuntimePackageRule(
+        setOf("adapter"),
+        emptySet(),
+        setOf("shell", "preview", "distribution", "bootstrap"),
+        "editor adapters must not reach into composition/bootstrap seams"
+    ),
+    RuntimePackageRule(
+        setOf("mapping"),
+        emptySet(),
+        setOf("adapter", "shell", "ui", "preview", "distribution", "hook"),
+        "host-artifact verification must stay below runtime surfaces"
+    ),
+    RuntimePackageRule(
+        runtimeFeatureImpls,
+        emptySet(),
+        runtimeCompositionLayers,
+        "service implementations must not reach into composition layers"
+    ),
+    RuntimePackageRule(
+        runtimeInfra,
+        emptySet(),
+        setOf("adapter", "shell", "ui", "preview", "distribution", "hook", "mapping"),
+        "shared infrastructure must not reach into runtime surfaces"
+    )
+)
+
+/**
+ * Accepted layering debt, one entry per file. Each waiver names the file relative to
+ * {@code runtime/src/main/java/dev/turboism/} plus the direction it is allowed to keep.
+ */
+private val runtimePackageWaivers = mapOf(
+    // core.menu consumes editor UI contribution DTOs pending a type move into a neutral layer.
+    "core/menu/RuntimeMenuRegistry.java" to setOf("ui"),
+    // Hook admission consults preview load summaries to gate plugin-driven installs.
+    "adapter/cubism/mesh/MeshMirrorHookAdmission.java" to setOf("preview"),
+    "adapter/cubism/warpalt/WarpAltMirrorHookAdmission.java" to setOf("preview"),
+    // Atlas transformers delegate to the early-boot code split in the bootstrap package.
+    "adapter/cubism/textureatlas/cache/AtlasCacheReuseTransformer.java" to setOf("bootstrap"),
+    "adapter/cubism/textureatlas/image/AtlasTileBboxTransformer.java" to setOf("bootstrap")
+)
+
 private fun checkModuleBoundaries(project: Project) {
     val state = BoundaryState(project.logger)
     project.subprojects.forEach { subproject ->
@@ -246,6 +320,48 @@ private fun checkSourceFile(root: Project, project: Project, file: java.io.File,
     }
     if (project.path.startsWith(":plugins:")) {
         checkForbiddenHostUiTraversal(root, file, lines, state)
+    }
+    if (project.path == ":runtime") {
+        checkRuntimePackageBoundaries(root, file, lines, state)
+    }
+}
+
+private fun checkRuntimePackageBoundaries(
+    root: Project,
+    file: java.io.File,
+    lines: List<String>,
+    state: BoundaryState
+) {
+    val relative = file.relativeTo(root.file("runtime/src/main/java/dev/turboism")).path
+        .replace('\\', '/')
+    val topPackage = relative.substringBefore('/', "")
+    if (topPackage.isEmpty()) {
+        return
+    }
+    runtimePackageRules.forEach rules@{ rule ->
+        if (topPackage !in rule.sourceTopPackages) {
+            return@rules
+        }
+        if (rule.sourceExclusions.any { relative.startsWith(it) }) {
+            return@rules
+        }
+        lines.forEach imports@{ line ->
+            val match = Regex(
+                """^\s*import\s+(?:static\s+)?dev\.turboism\.(\w+)(?:\.[\w.]*\w+)?\s*;"""
+            ).find(line.trimStart())
+            val target = match?.groupValues?.get(1) ?: return@imports
+            if (target !in rule.forbiddenTopPackages) {
+                return@imports
+            }
+            if (target in (runtimePackageWaivers[relative] ?: emptySet())) {
+                return@imports
+            }
+            state.reject(
+                "Runtime layering violation in runtime/.../$relative: " +
+                    "dev.turboism.$topPackage must not import dev.turboism.$target " +
+                    "(${rule.message}); add a runtimePackageWaivers entry only for a documented debt"
+            )
+        }
     }
 }
 

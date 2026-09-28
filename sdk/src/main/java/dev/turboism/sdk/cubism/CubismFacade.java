@@ -1,8 +1,8 @@
 package dev.turboism.sdk.cubism;
 
 import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
-import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.history.CubismHistory;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import java.util.Optional;
@@ -61,9 +61,7 @@ public interface CubismFacade {
 
     /** Returns permission-checked Cubism Core metadata and MOC inspection. */
     default CoreRuntimeInfo coreRuntime() {
-        throw new UnsupportedOperationException(
-            "Cubism Core runtime metadata is unavailable."
-        );
+        throw new UnsupportedOperationException("Cubism Core runtime metadata is unavailable.");
     }
 
     /**
@@ -73,9 +71,7 @@ public interface CubismFacade {
      * Runtime backend is installed.</p>
      */
     default CubismModelAccess model() {
-        throw new UnsupportedOperationException(
-            "Unified Cubism model access is unavailable"
-        );
+        throw new UnsupportedOperationException("Unified Cubism model access is unavailable");
     }
 
     /** Returns active-document native Undo history access when installed by Runtime. */
@@ -133,9 +129,7 @@ public interface CubismFacade {
     /** Returns complete texture-atlas authoring layout access when installed. */
     @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService textureAtlasLayouts() {
-        throw new UnsupportedOperationException(
-            "Texture atlas layout service is unavailable"
-        );
+        throw new UnsupportedOperationException("Texture atlas layout service is unavailable");
     }
 
     /**
@@ -148,32 +142,24 @@ public interface CubismFacade {
      */
     @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService textureAtlasPolygonLayouts() {
-        throw new UnsupportedOperationException(
-            "Texture atlas polygon layout service is unavailable"
-        );
+        throw new UnsupportedOperationException("Texture atlas polygon layout service is unavailable");
     }
 
     /** Returns read access to the active native texture-atlas editor session. */
     @dev.turboism.sdk.CubismEditor({"5.3.02", "5.3.03"})
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession textureAtlasEditorSession() {
-        throw new UnsupportedOperationException(
-            "Texture atlas editor session is unavailable"
-        );
+        throw new UnsupportedOperationException("Texture atlas editor session is unavailable");
     }
 
     /** Returns UI contribution access to the native texture-atlas editor window. */
     @dev.turboism.sdk.CubismEditor({"5.3.02", "5.3.03"})
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi textureAtlasEditorUi() {
-        throw new UnsupportedOperationException(
-            "Texture atlas editor UI contribution is unavailable"
-        );
+        throw new UnsupportedOperationException("Texture atlas editor UI contribution is unavailable");
     }
 
     /** Returns the registry of registered texture-atlas layout algorithms. */
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
-        throw new UnsupportedOperationException(
-            "Texture atlas algorithm registry is unavailable"
-        );
+        throw new UnsupportedOperationException("Texture atlas algorithm registry is unavailable");
     }
 
     /** Returns whether a project is currently open. */

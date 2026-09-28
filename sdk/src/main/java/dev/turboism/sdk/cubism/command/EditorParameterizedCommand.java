@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.command;
 
-
 import java.util.Set;
 
 /** Closed inventory of typed operations awaiting or using command-specific request records. */
@@ -75,8 +74,8 @@ public enum EditorParameterizedCommand {
 
     private final Set<String> supportedVersions;
 
-        /** Whether a command constant already has a verified typed request contract behind it. */
-        public enum Availability {
+    /** Whether a command constant already has a verified typed request contract behind it. */
+    public enum Availability {
         EVIDENCE_REQUIRED,
         TYPED_CONTRACT_VERIFIED
     }
@@ -101,7 +100,8 @@ public enum EditorParameterizedCommand {
      */
     public Availability availability() {
         return switch (this) {
-            case EXTERNAL_APP_SETTING, GRID_SETTING, MODEL_SETTING, RESIZE_MODEL_DOCUMENT -> Availability.TYPED_CONTRACT_VERIFIED;
+            case EXTERNAL_APP_SETTING, GRID_SETTING, MODEL_SETTING, RESIZE_MODEL_DOCUMENT ->
+                Availability.TYPED_CONTRACT_VERIFIED;
             default -> Availability.EVIDENCE_REQUIRED;
         };
     }

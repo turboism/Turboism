@@ -4,7 +4,6 @@ import dev.turboism.sdk.ui.UserFileHandle;
 import dev.turboism.sdk.ui.UserFileHandleState;
 import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;
-
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.UUID;
@@ -19,16 +18,14 @@ final class RuntimeUserFileHandle implements UserFileHandle {
     private final UserFileMode mode;
     private final UserFileLifetime lifetime;
     private final Path target;
-    private final AtomicReference<UserFileHandleState> state =
-        new AtomicReference<>(UserFileHandleState.ACTIVE);
+    private final AtomicReference<UserFileHandleState> state = new AtomicReference<>(UserFileHandleState.ACTIVE);
 
     RuntimeUserFileHandle(
-        final Object ownerToken,
-        final String displayName,
-        final UserFileMode mode,
-        final UserFileLifetime lifetime,
-        final Path target
-    ) {
+            final Object ownerToken,
+            final String displayName,
+            final UserFileMode mode,
+            final UserFileLifetime lifetime,
+            final Path target) {
         this.ownerToken = Objects.requireNonNull(ownerToken, "ownerToken");
         this.id = UUID.randomUUID().toString();
         this.displayName = requireDisplayName(displayName);

@@ -18,12 +18,8 @@ import dev.turboism.sdk.cubism.write.CubismWriteCommand;
  * @param targetObjectId model object the layer is bound to
  */
 public record PsdBindingWriteCommand(
-    String commandId,
-    ModelId modelId,
-    String psdDocumentId,
-    String layerId,
-    ModelObjectId targetObjectId
-) implements CubismWriteCommand {
+        String commandId, ModelId modelId, String psdDocumentId, String layerId, ModelObjectId targetObjectId)
+        implements CubismWriteCommand {
 
     public PsdBindingWriteCommand {
         if (commandId == null || commandId.isBlank()) {

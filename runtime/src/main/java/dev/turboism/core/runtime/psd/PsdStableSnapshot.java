@@ -26,7 +26,7 @@ final class PsdStableSnapshot {
     static final long MAX_BYTES = 512L * 1024 * 1024;
     private static final int BUFFER_BYTES = 64 * 1024;
 
-    private PsdStableSnapshot() { }
+    private PsdStableSnapshot() {}
 
     static Snapshot capture(final PsdTemporaryFile allocation) throws IOException {
         return capture(allocation, MAX_BYTES);
@@ -106,8 +106,8 @@ final class PsdStableSnapshot {
     }
 
     private static BasicFileAttributes inspect(final Path path, final long limit) throws IOException {
-        final BasicFileAttributes value = Files.readAttributes(
-            path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        final BasicFileAttributes value =
+                Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (!value.isRegularFile() || value.size() <= 0 || value.size() > limit) {
             throw new IOException("PSD snapshot input must be a non-empty bounded regular file");
         }
@@ -115,15 +115,16 @@ final class PsdStableSnapshot {
     }
 
     private static void requireSame(final BasicFileAttributes first, final BasicFileAttributes last)
-        throws IOException {
-        if (!Objects.equals(first.fileKey(), last.fileKey()) || first.size() != last.size()
-            || !first.lastModifiedTime().equals(last.lastModifiedTime())) {
+            throws IOException {
+        if (!Objects.equals(first.fileKey(), last.fileKey())
+                || first.size() != last.size()
+                || !first.lastModifiedTime().equals(last.lastModifiedTime())) {
             throw new IOException("PSD changed while staging; retry before any native mutation");
         }
     }
 
     /** Runtime-only artifact; no PSD validity, authorization or applied outcome is implied. */
-    record Snapshot(Path path, String sha256, long size) { }
+    record Snapshot(Path path, String sha256, long size) {}
 
-    private record Digest(String sha256, long size) { }
+    private record Digest(String sha256, long size) {}
 }

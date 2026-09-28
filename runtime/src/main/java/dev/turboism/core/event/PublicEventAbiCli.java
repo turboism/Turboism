@@ -46,8 +46,7 @@ import java.util.jar.JarFile;
  */
 public final class PublicEventAbiCli {
 
-    private PublicEventAbiCli() {
-    }
+    private PublicEventAbiCli() {}
 
     /**
      * Prints the artifact SHA-256 and per-type ABI digests for a published contract JAR.
@@ -81,8 +80,7 @@ public final class PublicEventAbiCli {
         }
         if (typeNames.isEmpty()) {
             throw new IllegalArgumentException(
-                "usage: PublicEventAbiCli [--artifact contract.jar] <event binary name>..."
-            );
+                    "usage: PublicEventAbiCli [--artifact contract.jar] <event binary name>...");
         }
         if (artifact == null) {
             for (final String typeName : typeNames) {
@@ -95,24 +93,19 @@ public final class PublicEventAbiCli {
             throw new IllegalArgumentException("contract artifact not found: " + artifact);
         }
         final Set<String> owned = contractClassNames(artifact);
-        try (ContractArtifactClassLoader loader = new ContractArtifactClassLoader(
-            artifact.toUri().toURL(),
-            owned
-        )) {
+        try (ContractArtifactClassLoader loader =
+                new ContractArtifactClassLoader(artifact.toUri().toURL(), owned)) {
             for (final String typeName : typeNames) {
                 final Class<?> type;
                 try {
                     type = Class.forName(typeName, false, loader);
                 } catch (ClassNotFoundException failure) {
                     throw new IllegalArgumentException(
-                        "event type is not owned by the contract artifact: " + typeName,
-                        failure
-                    );
+                            "event type is not owned by the contract artifact: " + typeName, failure);
                 }
                 if (type.getClassLoader() != loader) {
                     throw new IllegalArgumentException(
-                        "event type was not defined by the contract artifact: " + typeName
-                    );
+                            "event type was not defined by the contract artifact: " + typeName);
                 }
                 requireEventRecord(typeName, type);
                 PublicEventContractClosure.verify(type);
@@ -125,16 +118,10 @@ public final class PublicEventAbiCli {
     private static Class<?> resolveSdk(final String typeName) {
         final Class<?> type;
         try {
-            type = Class.forName(
-                typeName,
-                false,
-                dev.turboism.sdk.event.EventBus.class.getClassLoader()
-            );
+            type = Class.forName(typeName, false, dev.turboism.sdk.event.EventBus.class.getClassLoader());
         } catch (ClassNotFoundException failure) {
             throw new IllegalArgumentException(
-                "event type is not visible to the shared SDK loader: " + typeName,
-                failure
-            );
+                    "event type is not visible to the shared SDK loader: " + typeName, failure);
         }
         requireEventRecord(typeName, type);
         return type;
@@ -142,12 +129,10 @@ public final class PublicEventAbiCli {
 
     private static void requireEventRecord(final String typeName, final Class<?> type) {
         if (!dev.turboism.sdk.event.EventBus.TurboismEvent.class.isAssignableFrom(type)
-            || !type.isRecord()
-            || !java.lang.reflect.Modifier.isFinal(type.getModifiers())) {
-            throw new IllegalArgumentException(
-                "public event payload type must be a final record implementing"
-                    + " EventBus.TurboismEvent: " + typeName
-            );
+                || !type.isRecord()
+                || !java.lang.reflect.Modifier.isFinal(type.getModifiers())) {
+            throw new IllegalArgumentException("public event payload type must be a final record implementing"
+                    + " EventBus.TurboismEvent: " + typeName);
         }
     }
 
@@ -158,10 +143,9 @@ public final class PublicEventAbiCli {
             for (var iterator = stream.iterator(); iterator.hasNext(); ) {
                 final JarEntry entry = iterator.next();
                 final String name = entry.getName();
-                if (!entry.isDirectory() && name.endsWith(".class")
-                    && !name.equals("module-info.class")) {
-                    names.add(name.substring(0, name.length() - ".class".length())
-                        .replace('/', '.'));
+                if (!entry.isDirectory() && name.endsWith(".class") && !name.equals("module-info.class")) {
+                    names.add(
+                            name.substring(0, name.length() - ".class".length()).replace('/', '.'));
                 }
             }
         }

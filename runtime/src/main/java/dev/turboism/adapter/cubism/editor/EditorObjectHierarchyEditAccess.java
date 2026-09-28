@@ -3,21 +3,19 @@ package dev.turboism.adapter.cubism.editor;
 import dev.turboism.adapter.cubism.editor.history.HierarchyRelationCapture;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpGrid;
-
-import java.util.EnumSet;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -52,24 +50,19 @@ final class EditorObjectHierarchyEditAccess {
     private final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding;
 
     EditorObjectHierarchyEditAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard currentGuard
-    ) {
+            final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard currentGuard) {
         this(resolver, currentGuard, null, null);
     }
 
     EditorObjectHierarchyEditAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard currentGuard,
-        final EditorAuthoringTransactionCoordinator authoringCoordinator,
-        final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding
-    ) {
+            final VerifiedMemberResolver resolver,
+            final EditorParameterCombinedAccess.ModelGuard currentGuard,
+            final EditorAuthoringTransactionCoordinator authoringCoordinator,
+            final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
         if ((authoringCoordinator == null) != (authoringBinding == null)) {
-            throw new IllegalArgumentException(
-                "authoringCoordinator and authoringBinding must be supplied together"
-            );
+            throw new IllegalArgumentException("authoringCoordinator and authoringBinding must be supplied together");
         }
         this.authoringCoordinator = authoringCoordinator;
         this.authoringBinding = authoringBinding;
@@ -80,380 +73,264 @@ final class EditorObjectHierarchyEditAccess {
     // ------------------------------------------------------------------
 
     CreatedSource createPartSource(
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final String requestedName,
-        final Object parentSource,
-        final int index
-    ) {
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final String requestedName,
+            final Object parentSource,
+            final int index) {
         if (!EditorHostThread.isCurrent()) {
-            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
-                createPartSource(identity, modelSource, model, requestedName, parentSource, index)
-            );
+            return EditorHostThread.dispatch(
+                    "Cubism hierarchy edit",
+                    () -> createPartSource(identity, modelSource, model, requestedName, parentSource, index));
         }
         final String name = requireName(requestedName);
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
-        final Object created = resolver.construct(
-            "cubism.editor-model.part-source.create", modelSource
-        );
+        final Object created = resolver.construct("cubism.editor-model.part-source.create", modelSource);
         if (!resolver.isInstance("cubism.editor-model.part-source.class", created)) {
             throw unavailable("Editor Part source construction is invalid.");
         }
         final String id = nextObjectId(modelSource, "Part", name);
         setObjectId(created, "Part", id);
-        resolver.invoke(
-            "cubism.editor-model.parameter-controllable-source.set-local-name",
-            created,
-            name
-        );
+        resolver.invoke("cubism.editor-model.parameter-controllable-source.set-local-name", created, name);
         initializePart(created, modelSource);
         writeCreatedSource(
-            modelSource,
-            created,
-            parentSource,
-            index,
-            CREATE_PART_ACTION,
-            "cubism.editor-model.complete-pack.update-part-palette",
-            "Part creation",
-            false
-        );
+                modelSource,
+                created,
+                parentSource,
+                index,
+                CREATE_PART_ACTION,
+                "cubism.editor-model.complete-pack.update-part-palette",
+                "Part creation",
+                false);
         return new CreatedSource(id, created);
     }
 
     CreatedSource createArtMeshSource(
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final String requestedName,
-        final Object parentSource,
-        final boolean parentIsDeformer,
-        final int index,
-        final ArtMeshGeometry geometry
-    ) {
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final String requestedName,
+            final Object parentSource,
+            final boolean parentIsDeformer,
+            final int index,
+            final ArtMeshGeometry geometry) {
         if (!EditorHostThread.isCurrent()) {
-            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
-                createArtMeshSource(identity, modelSource, model, requestedName, parentSource, parentIsDeformer, index, geometry)
-            );
+            return EditorHostThread.dispatch(
+                    "Cubism hierarchy edit",
+                    () -> createArtMeshSource(
+                            identity,
+                            modelSource,
+                            model,
+                            requestedName,
+                            parentSource,
+                            parentIsDeformer,
+                            index,
+                            geometry));
         }
         final String name = requireName(requestedName);
         final ArtMeshGeometry checkedGeometry = Objects.requireNonNull(geometry, "geometry");
         requireArtMeshCreateAuthorized();
         currentGuard.requireCurrent(identity, model);
-        final Object created = resolver.construct(
-            "cubism.editor-model.art-mesh-source.create", modelSource
-        );
+        final Object created = resolver.construct("cubism.editor-model.art-mesh-source.create", modelSource);
         if (!resolver.isInstance("cubism.editor-model.art-mesh-source.class", created)) {
             throw unavailable("Editor ArtMesh source construction is invalid.");
         }
         final String id = nextObjectId(modelSource, "ArtMesh", name);
         setObjectId(created, "ArtMesh", id);
-        resolver.invoke(
-            "cubism.editor-model.parameter-controllable-source.set-local-name",
-            created, name
-        );
+        resolver.invoke("cubism.editor-model.parameter-controllable-source.set-local-name", created, name);
         initializeArtMesh(created, checkedGeometry, modelSource);
         writeCreatedSource(
-            modelSource,
-            created,
-            parentSource,
-            index,
-            CREATE_ART_MESH_ACTION,
-            "cubism.editor-model.complete-pack.update-part-palette",
-            "ArtMesh creation",
-            parentIsDeformer
-        );
+                modelSource,
+                created,
+                parentSource,
+                index,
+                CREATE_ART_MESH_ACTION,
+                "cubism.editor-model.complete-pack.update-part-palette",
+                "ArtMesh creation",
+                parentIsDeformer);
         return new CreatedSource(id, created);
     }
 
     private void initializePart(final Object source, final Object modelSource) {
-        final Object form = resolver.construct(
-            "cubism.editor-model.part-form.create",
-            source,
-            null
-        );
-        initializeKeyformSource(
-            source,
-            form,
-            modelSource,
-            "cubism.editor-model.part-source.keyforms"
-        );
+        final Object form = resolver.construct("cubism.editor-model.part-form.create", source, null);
+        initializeKeyformSource(source, form, modelSource, "cubism.editor-model.part-source.keyforms");
     }
 
-    private void initializeArtMesh(
-        final Object source,
-        final ArtMeshGeometry geometry,
-        final Object modelSource
-    ) {
+    private void initializeArtMesh(final Object source, final ArtMeshGeometry geometry, final Object modelSource) {
         final float[] positions = flatten(geometry.positions());
         final float[] uvs = flatten(geometry.uvs());
-        final int[] indices = geometry.triangleIndices().stream()
-            .mapToInt(Integer::intValue)
-            .toArray();
+        final int[] indices =
+                geometry.triangleIndices().stream().mapToInt(Integer::intValue).toArray();
         resolver.invoke("cubism.editor-model.art-mesh-source.set-positions", source, positions);
         resolver.invoke("cubism.editor-model.art-mesh-source.set-uvs", source, uvs);
         resolver.invoke("cubism.editor-model.art-mesh-source.set-indices", source, indices);
         final Object form = resolver.construct(
-            "cubism.editor-model.art-mesh-form.create",
-            source,
-            null,
-            resolver.invokeStatic("cubism.editor-model.coord-type.canvas")
-        );
-        resolver.invoke(
-            "cubism.editor-model.art-mesh-form.set-positions", form, positions.clone()
-        );
-        initializeKeyformSource(
-            source,
-            form,
-            modelSource,
-            "cubism.editor-model.art-mesh-source.keyforms"
-        );
+                "cubism.editor-model.art-mesh-form.create",
+                source,
+                null,
+                resolver.invokeStatic("cubism.editor-model.coord-type.canvas"));
+        resolver.invoke("cubism.editor-model.art-mesh-form.set-positions", form, positions.clone());
+        initializeKeyformSource(source, form, modelSource, "cubism.editor-model.art-mesh-source.keyforms");
     }
 
-    private void initializeWarp(
-        final Object source,
-        final Object modelSource,
-        final WarpGrid grid
-    ) {
+    private void initializeWarp(final Object source, final Object modelSource, final WarpGrid grid) {
+        resolver.invoke("cubism.editor-model.warp-source.set-row", source, Integer.valueOf(grid.rows()));
+        resolver.invoke("cubism.editor-model.warp-source.set-col", source, Integer.valueOf(grid.columns()));
         resolver.invoke(
-            "cubism.editor-model.warp-source.set-row",
-            source,
-            Integer.valueOf(grid.rows())
-        );
-        resolver.invoke(
-            "cubism.editor-model.warp-source.set-col",
-            source,
-            Integer.valueOf(grid.columns())
-        );
-        resolver.invoke(
-            "cubism.editor-model.warp-source.set-quad-transform",
-            source,
-            Boolean.valueOf(grid.quadTransform())
-        );
+                "cubism.editor-model.warp-source.set-quad-transform", source, Boolean.valueOf(grid.quadTransform()));
         final Object form = resolver.construct(
-            "cubism.editor-model.warp-form.create",
-            source,
-            null,
-            resolver.invokeStatic("cubism.editor-model.coord-type.canvas")
-        );
-        resolver.invoke(
-            "cubism.editor-model.warp-form.set-positions",
-            form,
-            flatten(grid.controlPoints())
-        );
-        initializeKeyformSource(
-            source,
-            form,
-            modelSource,
-            "cubism.editor-model.warp-source.keyforms"
-        );
+                "cubism.editor-model.warp-form.create",
+                source,
+                null,
+                resolver.invokeStatic("cubism.editor-model.coord-type.canvas"));
+        resolver.invoke("cubism.editor-model.warp-form.set-positions", form, flatten(grid.controlPoints()));
+        initializeKeyformSource(source, form, modelSource, "cubism.editor-model.warp-source.keyforms");
     }
 
     private void initializeRotation(
-        final Object source,
-        final Object modelSource,
-        final RotationDeformerForm requestedForm
-    ) {
-        final RotationDeformerForm checkedForm = Objects.requireNonNull(
-            requestedForm,
-            "form"
-        );
+            final Object source, final Object modelSource, final RotationDeformerForm requestedForm) {
+        final RotationDeformerForm checkedForm = Objects.requireNonNull(requestedForm, "form");
         final Object form = resolver.construct(
-            "cubism.editor-model.rotation-form.create",
-            source,
-            null,
-            resolver.invokeStatic("cubism.editor-model.coord-type.canvas")
-        );
+                "cubism.editor-model.rotation-form.create",
+                source,
+                null,
+                resolver.invokeStatic("cubism.editor-model.coord-type.canvas"));
+        resolver.invoke("cubism.editor-model.rotation-form.set-angle", form, Float.valueOf(checkedForm.angle()));
+        resolver.invoke("cubism.editor-model.rotation-form.set-origin-x", form, Float.valueOf(checkedForm.originX()));
+        resolver.invoke("cubism.editor-model.rotation-form.set-origin-y", form, Float.valueOf(checkedForm.originY()));
+        resolver.invoke("cubism.editor-model.rotation-form.set-scale", form, Float.valueOf(checkedForm.scale()));
         resolver.invoke(
-            "cubism.editor-model.rotation-form.set-angle",
-            form,
-            Float.valueOf(checkedForm.angle())
-        );
+                "cubism.editor-model.rotation-form.set-reflect-x", form, Boolean.valueOf(checkedForm.reflectedX()));
         resolver.invoke(
-            "cubism.editor-model.rotation-form.set-origin-x",
-            form,
-            Float.valueOf(checkedForm.originX())
-        );
-        resolver.invoke(
-            "cubism.editor-model.rotation-form.set-origin-y",
-            form,
-            Float.valueOf(checkedForm.originY())
-        );
-        resolver.invoke(
-            "cubism.editor-model.rotation-form.set-scale",
-            form,
-            Float.valueOf(checkedForm.scale())
-        );
-        resolver.invoke(
-            "cubism.editor-model.rotation-form.set-reflect-x",
-            form,
-            Boolean.valueOf(checkedForm.reflectedX())
-        );
-        resolver.invoke(
-            "cubism.editor-model.rotation-form.set-reflect-y",
-            form,
-            Boolean.valueOf(checkedForm.reflectedY())
-        );
-        initializeKeyformSource(
-            source,
-            form,
-            modelSource,
-            "cubism.editor-model.rotation-source.keyforms"
-        );
+                "cubism.editor-model.rotation-form.set-reflect-y", form, Boolean.valueOf(checkedForm.reflectedY()));
+        initializeKeyformSource(source, form, modelSource, "cubism.editor-model.rotation-source.keyforms");
     }
 
     private void initializeKeyformSource(
-        final Object source,
-        final Object form,
-        final Object modelSource,
-        final String keyformsAlias
-    ) {
+            final Object source, final Object form, final Object modelSource, final String keyformsAlias) {
         final Object formGuid = resolver.construct("cubism.editor-model.form-guid.create");
         resolver.invoke("cubism.editor-model.form.set-guid", form, formGuid);
         final Object keyforms = resolver.invoke(keyformsAlias, source);
         resolver.invoke("cubism.editor-model.c-array-list.add", keyforms, form);
-        final Object keyformGrid = resolver.construct(
-            "cubism.editor-model.keyform-grid-source.create", source
-        );
+        final Object keyformGrid = resolver.construct("cubism.editor-model.keyform-grid-source.create", source);
         resolver.invoke(
-            "cubism.editor-model.keyform-grid-source.import-cubism21",
-            keyformGrid,
-            modelSource,
-            List.of(),
-            List.of(formGuid),
-            null
-        );
+                "cubism.editor-model.keyform-grid-source.import-cubism21",
+                keyformGrid,
+                modelSource,
+                List.of(),
+                List.of(formGuid),
+                null);
         resolver.invoke(
-            "cubism.editor-model.parameter-controllable-source.set-keyform-grid-source",
-            source,
-            keyformGrid
-        );
+                "cubism.editor-model.parameter-controllable-source.set-keyform-grid-source", source, keyformGrid);
     }
 
     CreatedSource createWarpSource(
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final String requestedName,
-        final Object parentSource,
-        final boolean parentIsDeformer,
-        final int index,
-        final WarpGrid requestedGrid
-    ) {
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final String requestedName,
+            final Object parentSource,
+            final boolean parentIsDeformer,
+            final int index,
+            final WarpGrid requestedGrid) {
         if (!EditorHostThread.isCurrent()) {
-            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
-                createWarpSource(
-                    identity, modelSource, model, requestedName, parentSource,
-                    parentIsDeformer, index, requestedGrid
-                )
-            );
+            return EditorHostThread.dispatch(
+                    "Cubism hierarchy edit",
+                    () -> createWarpSource(
+                            identity,
+                            modelSource,
+                            model,
+                            requestedName,
+                            parentSource,
+                            parentIsDeformer,
+                            index,
+                            requestedGrid));
         }
         final WarpGrid grid = requireGrid(requestedGrid);
         final String name = requireName(requestedName);
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
-        final Object created = resolver.construct(
-            "cubism.editor-model.warp-source.create", modelSource
-        );
+        final Object created = resolver.construct("cubism.editor-model.warp-source.create", modelSource);
         if (!resolver.isInstance("cubism.editor-model.warp-source.class", created)) {
             throw unavailable("Editor Warp Deformer source construction is invalid.");
         }
         final String id = nextObjectId(modelSource, "WarpDeformer", name);
         setObjectId(created, "Deformer", id);
-        resolver.invoke(
-            "cubism.editor-model.parameter-controllable-source.set-local-name",
-            created,
-            name
-        );
+        resolver.invoke("cubism.editor-model.parameter-controllable-source.set-local-name", created, name);
         initializeWarp(created, modelSource, grid);
         writeCreatedSource(
-            modelSource,
-            created,
-            parentSource,
-            index,
-            CREATE_WARP_ACTION,
-            "cubism.editor-model.complete-pack.update-deformer-palette",
-            "Warp Deformer creation",
-            parentIsDeformer
-        );
+                modelSource,
+                created,
+                parentSource,
+                index,
+                CREATE_WARP_ACTION,
+                "cubism.editor-model.complete-pack.update-deformer-palette",
+                "Warp Deformer creation",
+                parentIsDeformer);
         return new CreatedSource(id, created);
     }
 
     CreatedSource createRotationSource(
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final String requestedName,
-        final Object parentSource,
-        final boolean parentIsDeformer,
-        final int index,
-        final RotationDeformerForm requestedForm
-    ) {
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final String requestedName,
+            final Object parentSource,
+            final boolean parentIsDeformer,
+            final int index,
+            final RotationDeformerForm requestedForm) {
         if (!EditorHostThread.isCurrent()) {
-            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
-                createRotationSource(
-                    identity, modelSource, model, requestedName, parentSource,
-                    parentIsDeformer, index, requestedForm
-                )
-            );
+            return EditorHostThread.dispatch(
+                    "Cubism hierarchy edit",
+                    () -> createRotationSource(
+                            identity,
+                            modelSource,
+                            model,
+                            requestedName,
+                            parentSource,
+                            parentIsDeformer,
+                            index,
+                            requestedForm));
         }
         final RotationDeformerForm form = Objects.requireNonNull(requestedForm, "form");
         final String name = requireName(requestedName);
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
-        final Object created = resolver.construct(
-            "cubism.editor-model.rotation-source.create", modelSource
-        );
+        final Object created = resolver.construct("cubism.editor-model.rotation-source.create", modelSource);
         if (!resolver.isInstance("cubism.editor-model.rotation-source.class", created)) {
             throw unavailable("Editor Rotation Deformer source construction is invalid.");
         }
         final String id = nextObjectId(modelSource, "RotationDeformer", name);
         setObjectId(created, "Deformer", id);
-        resolver.invoke(
-            "cubism.editor-model.parameter-controllable-source.set-local-name",
-            created,
-            name
-        );
+        resolver.invoke("cubism.editor-model.parameter-controllable-source.set-local-name", created, name);
         initializeRotation(created, modelSource, form);
         writeCreatedSource(
-            modelSource,
-            created,
-            parentSource,
-            index,
-            CREATE_ROTATION_ACTION,
-            "cubism.editor-model.complete-pack.update-deformer-palette",
-            "Rotation Deformer creation",
-            parentIsDeformer
-        );
+                modelSource,
+                created,
+                parentSource,
+                index,
+                CREATE_ROTATION_ACTION,
+                "cubism.editor-model.complete-pack.update-deformer-palette",
+                "Rotation Deformer creation",
+                parentIsDeformer);
         return new CreatedSource(id, created);
     }
 
     private void attachToParent(
-        final Object nodeSource,
-        final Object parentSource,
-        final boolean parentIsDeformer,
-        final int index
-    ) {
+            final Object nodeSource, final Object parentSource, final boolean parentIsDeformer, final int index) {
         if (parentSource == null) return;
         if (parentIsDeformer) {
-            final Object parentGuid = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.guid",
-                parentSource
-            );
+            final Object parentGuid =
+                    resolver.invoke("cubism.editor-model.parameter-controllable-source.guid", parentSource);
             resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.set-target-deformer-guid",
-                nodeSource,
-                parentGuid
-            );
+                    "cubism.editor-model.parameter-controllable-source.set-target-deformer-guid",
+                    nodeSource,
+                    parentGuid);
             return;
         }
-        resolver.invoke(
-            "cubism.editor-model.part-source.add-child",
-            parentSource,
-            nodeSource,
-            Integer.valueOf(index)
-        );
+        resolver.invoke("cubism.editor-model.part-source.add-child", parentSource, nodeSource, Integer.valueOf(index));
     }
 
     // ------------------------------------------------------------------
@@ -461,12 +338,11 @@ final class EditorObjectHierarchyEditAccess {
     // ------------------------------------------------------------------
 
     void remove(
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final Object nodeSource,
-        final String kindLabel
-    ) {
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final Object nodeSource,
+            final String kindLabel) {
         if (!EditorHostThread.isCurrent()) {
             EditorHostThread.dispatch("Cubism hierarchy edit", () -> {
                 remove(identity, modelSource, model, nodeSource, kindLabel);
@@ -477,29 +353,27 @@ final class EditorObjectHierarchyEditAccess {
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
         write(
-            "cubism.editor-model.complete-pack.update-deformer-palette",
-            kindLabel,
-            modelSource,
-            nodeSource,
-            DELETE_ACTION + kindLabel,
-            () -> {
-                final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-                final Object document = resolver.invoke(
-                    "cubism.editor-model.app-controller.current-document", app
-                );
-                final Object guid = resolver.invoke(
-                    "cubism.editor-model.parameter-controllable-source.guid", nodeSource
-                );
-                final Object updateManager = resolver.invoke(
-                    "cubism.editor-model.app-controller.update-manager", app
-                );
-                resolver.invoke(
-                    "cubism.editor-model.update-manager.set-selection",
-                    updateManager, document, List.of(guid), Boolean.FALSE, Boolean.TRUE
-                );
-                resolver.invoke("cubism.editor-model.app-controller.command-delete", app);
-            }
-        );
+                "cubism.editor-model.complete-pack.update-deformer-palette",
+                kindLabel,
+                modelSource,
+                nodeSource,
+                DELETE_ACTION + kindLabel,
+                () -> {
+                    final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+                    final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+                    final Object guid =
+                            resolver.invoke("cubism.editor-model.parameter-controllable-source.guid", nodeSource);
+                    final Object updateManager =
+                            resolver.invoke("cubism.editor-model.app-controller.update-manager", app);
+                    resolver.invoke(
+                            "cubism.editor-model.update-manager.set-selection",
+                            updateManager,
+                            document,
+                            List.of(guid),
+                            Boolean.FALSE,
+                            Boolean.TRUE);
+                    resolver.invoke("cubism.editor-model.app-controller.command-delete", app);
+                });
     }
 
     /**
@@ -508,126 +382,88 @@ final class EditorObjectHierarchyEditAccess {
      * refresh/dirty envelopes used by ordinary hierarchy edits.
      */
     void applyToChildren(
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final Object nodeSource,
-        final Runnable currentDeformerCheck
-    ) {
-        final Runnable checkedCurrentDeformer = Objects.requireNonNull(
-            currentDeformerCheck, "currentDeformerCheck"
-        );
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final Object nodeSource,
+            final Runnable currentDeformerCheck) {
+        final Runnable checkedCurrentDeformer = Objects.requireNonNull(currentDeformerCheck, "currentDeformerCheck");
         requireApplyToChildrenAuthorized();
         currentGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
-        );
-        final Object guid = resolver.invoke(
-            "cubism.editor-model.parameter-controllable-source.guid", nodeSource
-        );
-        final String targetGuidValue = requireValidGuidValue(
-            resolver.invoke("cubism.editor-model.guid.value", guid),
-            "Target Deformer"
-        );
-        final Object updateManager = resolver.invoke(
-            "cubism.editor-model.app-controller.update-manager", app
-        );
+        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+        final Object guid = resolver.invoke("cubism.editor-model.parameter-controllable-source.guid", nodeSource);
+        final String targetGuidValue =
+                requireValidGuidValue(resolver.invoke("cubism.editor-model.guid.value", guid), "Target Deformer");
+        final Object updateManager = resolver.invoke("cubism.editor-model.app-controller.update-manager", app);
         resolver.invoke(
-            "cubism.editor-model.update-manager.set-selection",
-            updateManager, document, List.of(guid), Boolean.FALSE, Boolean.TRUE
-        );
+                "cubism.editor-model.update-manager.set-selection",
+                updateManager,
+                document,
+                List.of(guid),
+                Boolean.FALSE,
+                Boolean.TRUE);
         // sendEvent=true may synchronously re-enter the host; re-run the caller's exact source and
         // identity guard before using the one-shot native command.
         checkedCurrentDeformer.run();
-        final Object currentApp = requireCurrentApplyToChildrenState(
-            identity, document, modelSource, model, nodeSource, targetGuidValue
-        );
-        resolver.invoke(
-            "cubism.editor-model.app-controller.command-delete-deformer-and-set-param",
-            currentApp
-        );
+        final Object currentApp =
+                requireCurrentApplyToChildrenState(identity, document, modelSource, model, nodeSource, targetGuidValue);
+        resolver.invoke("cubism.editor-model.app-controller.command-delete-deformer-and-set-param", currentApp);
         requireRemovedByGuid(modelSource, targetGuidValue);
     }
 
     private void requireRemovedByGuid(final Object modelSource, final String targetGuidValue) {
         for (Object candidate : iterable(
-            resolver.invoke("cubism.editor-model.model-source.all-deformers", modelSource),
-            "Editor Deformer source collection"
-        )) {
-            final Object guid = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.guid", candidate
-            );
-            final String candidateGuidValue = requireValidGuidValue(
-                resolver.invoke("cubism.editor-model.guid.value", guid),
-                "Deformer"
-            );
+                resolver.invoke("cubism.editor-model.model-source.all-deformers", modelSource),
+                "Editor Deformer source collection")) {
+            final Object guid = resolver.invoke("cubism.editor-model.parameter-controllable-source.guid", candidate);
+            final String candidateGuidValue =
+                    requireValidGuidValue(resolver.invoke("cubism.editor-model.guid.value", guid), "Deformer");
             if (targetGuidValue.equals(candidateGuidValue)) {
                 throw new IllegalStateException(
-                    "Cubism did not apply the deformer to child elements; target GUID still present after native command."
-                );
+                        "Cubism did not apply the deformer to child elements; target GUID still present after native command.");
             }
         }
     }
 
     private Object requireCurrentApplyToChildrenState(
-        final String identity,
-        final Object expectedDocument,
-        final Object expectedModelSource,
-        final Object expectedModel,
-        final Object expectedNodeSource,
-        final String targetGuidValue
-    ) {
+            final String identity,
+            final Object expectedDocument,
+            final Object expectedModelSource,
+            final Object expectedModel,
+            final Object expectedNodeSource,
+            final String targetGuidValue) {
         final Object currentApp = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object currentDocument = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", currentApp
-        );
+        final Object currentDocument =
+                resolver.invoke("cubism.editor-model.app-controller.current-document", currentApp);
         if (currentDocument != expectedDocument) {
-            throw new IllegalStateException(
-                "Cubism active document changed during apply-to-children selection."
-            );
+            throw new IllegalStateException("Cubism active document changed during apply-to-children selection.");
         }
-        final Object currentModelSource = resolver.invoke(
-            "cubism.editor-model.modeling-document.model-source", currentDocument
-        );
+        final Object currentModelSource =
+                resolver.invoke("cubism.editor-model.modeling-document.model-source", currentDocument);
         if (currentModelSource != expectedModelSource) {
-            throw new IllegalStateException(
-                "Cubism active model source changed during apply-to-children selection."
-            );
+            throw new IllegalStateException("Cubism active model source changed during apply-to-children selection.");
         }
-        final Object currentModel = resolver.invoke(
-            "cubism.editor-model.model-source.current-instance", currentModelSource
-        );
+        final Object currentModel =
+                resolver.invoke("cubism.editor-model.model-source.current-instance", currentModelSource);
         if (currentModel != expectedModel) {
-            throw new IllegalStateException(
-                "Cubism active model changed during apply-to-children selection."
-            );
+            throw new IllegalStateException("Cubism active model changed during apply-to-children selection.");
         }
         currentGuard.requireCurrent(identity, expectedModel);
-        requireCurrentDeformerInstance(
-            expectedModelSource, expectedNodeSource, targetGuidValue
-        );
+        requireCurrentDeformerInstance(expectedModelSource, expectedNodeSource, targetGuidValue);
         return currentApp;
     }
 
     private void requireCurrentDeformerInstance(
-        final Object modelSource,
-        final Object nodeSource,
-        final String targetGuidValue
-    ) {
+            final Object modelSource, final Object nodeSource, final String targetGuidValue) {
         boolean targetInstancePresent = false;
         int matchingGuidCount = 0;
         for (Object candidate : iterable(
-            resolver.invoke("cubism.editor-model.model-source.all-deformers", modelSource),
-            "Editor Deformer source collection"
-        )) {
-            final Object guid = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.guid", candidate
-            );
-            final String candidateGuidValue = requireValidGuidValue(
-                resolver.invoke("cubism.editor-model.guid.value", guid),
-                "Deformer"
-            );
+                resolver.invoke("cubism.editor-model.model-source.all-deformers", modelSource),
+                "Editor Deformer source collection")) {
+            final Object guid = resolver.invoke("cubism.editor-model.parameter-controllable-source.guid", candidate);
+            final String candidateGuidValue =
+                    requireValidGuidValue(resolver.invoke("cubism.editor-model.guid.value", guid), "Deformer");
             if (targetGuidValue.equals(candidateGuidValue)) {
                 matchingGuidCount++;
                 targetInstancePresent |= candidate == nodeSource;
@@ -635,8 +471,7 @@ final class EditorObjectHierarchyEditAccess {
         }
         if (!targetInstancePresent || matchingGuidCount != 1) {
             throw new IllegalStateException(
-                "The selected Deformer instance or GUID changed during apply-to-children selection."
-            );
+                    "The selected Deformer instance or GUID changed during apply-to-children selection.");
         }
     }
 
@@ -645,13 +480,12 @@ final class EditorObjectHierarchyEditAccess {
     // ------------------------------------------------------------------
 
     void setName(
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final Object nodeSource,
-        final String requestedName,
-        final String kindLabel
-    ) {
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final Object nodeSource,
+            final String requestedName,
+            final String kindLabel) {
         if (!EditorHostThread.isCurrent()) {
             EditorHostThread.dispatch("Cubism hierarchy edit", () -> {
                 setName(identity, modelSource, model, nodeSource, requestedName, kindLabel);
@@ -664,22 +498,18 @@ final class EditorObjectHierarchyEditAccess {
         currentGuard.requireCurrent(identity, model);
         if (name.equals(localName(nodeSource, kindLabel))) return;
         write(
-            "cubism.editor-model.complete-pack.update-part-palette",
-            kindLabel,
-            modelSource,
-            nodeSource,
-            SET_NAME_ACTION + kindLabel,
-            () -> resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.set-local-name",
-                nodeSource, name
-            )
-        );
+                "cubism.editor-model.complete-pack.update-part-palette",
+                kindLabel,
+                modelSource,
+                nodeSource,
+                SET_NAME_ACTION + kindLabel,
+                () -> resolver.invoke(
+                        "cubism.editor-model.parameter-controllable-source.set-local-name", nodeSource, name));
     }
 
     private String localName(final Object nodeSource, final String kindLabel) {
-        final Object value = resolver.invoke(
-            "cubism.editor-model.parameter-controllable-source.local-name", nodeSource
-        );
+        final Object value =
+                resolver.invoke("cubism.editor-model.parameter-controllable-source.local-name", nodeSource);
         if (value == null) return "";
         if (!(value instanceof String name)) {
             throw unavailable("Editor " + kindLabel + " display name is invalid.");
@@ -692,15 +522,14 @@ final class EditorObjectHierarchyEditAccess {
     // ------------------------------------------------------------------
 
     void setParent(
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final Object nodeSource,
-        final Object parentSource,
-        final boolean parentIsDeformer,
-        final int index,
-        final String kindLabel
-    ) {
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final Object nodeSource,
+            final Object parentSource,
+            final boolean parentIsDeformer,
+            final int index,
+            final String kindLabel) {
         if (!EditorHostThread.isCurrent()) {
             EditorHostThread.dispatch("Cubism hierarchy edit", () -> {
                 setParent(identity, modelSource, model, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
@@ -716,81 +545,71 @@ final class EditorObjectHierarchyEditAccess {
             return;
         }
         final EditorAuthoringTransactionCoordinator.Binding binding =
-            Objects.requireNonNull(authoringBinding.get(), "authoring binding");
+                Objects.requireNonNull(authoringBinding.get(), "authoring binding");
         final var prepared = HierarchyRelationCapture.prepare(
-            resolver,
-            binding,
-            authoringBinding,
-            modelSource,
-            nodeSource,
-            parentSource,
-            parentIsDeformer,
-            index,
-            kindLabel
-        );
+                resolver,
+                binding,
+                authoringBinding,
+                modelSource,
+                nodeSource,
+                parentSource,
+                parentIsDeformer,
+                index,
+                kindLabel);
         if (prepared.isEmpty()) {
             writeLegacyParent(modelSource, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
             return;
         }
         final var plan = prepared.orElseThrow();
         switch (plan.decision()) {
-            case NO_CHANGE -> { return; }
+            case NO_CHANGE -> {
+                return;
+            }
             case REORDER -> {
                 writeLegacyParent(modelSource, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
                 return;
             }
             case CAPTURE -> {
                 final boolean attachesNatively = plan.attachesThroughPartHandler();
-                authoringCoordinator.mutate(binding, plan.contribution(
-                    (edit, transactionLabel) -> admitRelationUndo(
-                        edit,
-                        modelSource,
-                        nodeSource,
-                        plan,
-                        transactionLabel,
-                        kindLabel
-                    ),
-                    attachesNatively ? () -> { } : plan.nativeMutation()
-                ));
+                authoringCoordinator.mutate(
+                        binding,
+                        plan.contribution(
+                                (edit, transactionLabel) -> admitRelationUndo(
+                                        edit, modelSource, nodeSource, plan, transactionLabel, kindLabel),
+                                attachesNatively ? () -> {} : plan.nativeMutation()));
             }
         }
     }
 
     private void writeLegacyParent(
-        final Object modelSource,
-        final Object nodeSource,
-        final Object parentSource,
-        final boolean parentIsDeformer,
-        final int index,
-        final String kindLabel
-    ) {
+            final Object modelSource,
+            final Object nodeSource,
+            final Object parentSource,
+            final boolean parentIsDeformer,
+            final int index,
+            final String kindLabel) {
         write(
-            "cubism.editor-model.complete-pack.update-deformer-palette",
-            kindLabel,
-            modelSource,
-            nodeSource,
-            SET_PARENT_ACTION + kindLabel,
-            () -> {
-                if (parentIsDeformer) {
-                    final Object parentGuid = resolver.invoke(
-                        "cubism.editor-model.parameter-controllable-source.guid",
-                        parentSource
-                    );
-                    resolver.invoke(
-                        "cubism.editor-model.parameter-controllable-source.set-target-deformer-guid",
-                        nodeSource,
-                        parentGuid
-                    );
-                } else {
-                    resolver.invoke(
-                        "cubism.editor-model.part-source.add-child",
-                        parentSource,
-                        nodeSource,
-                        Integer.valueOf(index)
-                    );
-                }
-            }
-        );
+                "cubism.editor-model.complete-pack.update-deformer-palette",
+                kindLabel,
+                modelSource,
+                nodeSource,
+                SET_PARENT_ACTION + kindLabel,
+                () -> {
+                    if (parentIsDeformer) {
+                        final Object parentGuid =
+                                resolver.invoke("cubism.editor-model.parameter-controllable-source.guid", parentSource);
+                        resolver.invoke(
+                                "cubism.editor-model.parameter-controllable-source.set-target-deformer-guid",
+                                nodeSource,
+                                parentGuid);
+                    } else {
+                        resolver.invoke(
+                                "cubism.editor-model.part-source.add-child",
+                                parentSource,
+                                nodeSource,
+                                Integer.valueOf(index));
+                    }
+                });
     }
 
     /**
@@ -798,19 +617,12 @@ final class EditorObjectHierarchyEditAccess {
      * the native {@code addChild}/{@code setTargetDeformerGuid} members do not guard against
      * ancestor cycles themselves (javap evidence, 2026-08-05).
      */
-    private void rejectCycle(
-        final Object nodeSource,
-        final Object parentSource,
-        final boolean parentIsDeformer
-    ) {
+    private void rejectCycle(final Object nodeSource, final Object parentSource, final boolean parentIsDeformer) {
         if (parentIsDeformer) {
             final Iterable<?> deformerAncestors = iterable(
-                resolver.invoke(
-                    "cubism.editor-model.parameter-controllable-source.all-parent-deformers",
-                    parentSource
-                ),
-                "Editor Deformer ancestor chain"
-            );
+                    resolver.invoke(
+                            "cubism.editor-model.parameter-controllable-source.all-parent-deformers", parentSource),
+                    "Editor Deformer ancestor chain");
             for (Object ancestor : deformerAncestors) {
                 if (ancestor == nodeSource) throw cycle(parentSource);
             }
@@ -827,18 +639,14 @@ final class EditorObjectHierarchyEditAccess {
             visited.put(current, Boolean.TRUE);
             if (current == nodeSource) throw cycle(parentSource);
             final Object targetDeformer = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.target-deformer-source",
-                current
-            );
+                    "cubism.editor-model.parameter-controllable-source.target-deformer-source", current);
             if (targetDeformer != null) {
                 if (targetDeformer == nodeSource) throw cycle(parentSource);
                 for (Object ancestor : iterable(
-                    resolver.invoke(
-                        "cubism.editor-model.parameter-controllable-source.all-parent-deformers",
-                        targetDeformer
-                    ),
-                    "Editor Deformer ancestor chain"
-                )) {
+                        resolver.invoke(
+                                "cubism.editor-model.parameter-controllable-source.all-parent-deformers",
+                                targetDeformer),
+                        "Editor Deformer ancestor chain")) {
                     if (ancestor == nodeSource) throw cycle(parentSource);
                 }
             }
@@ -851,67 +659,47 @@ final class EditorObjectHierarchyEditAccess {
     // ------------------------------------------------------------------
 
     private void write(
-        final String paletteAlias,
-        final String kindLabel,
-        final Object modelSource,
-        final Object objectSource,
-        final String action,
-        final Runnable mutation
-    ) {
+            final String paletteAlias,
+            final String kindLabel,
+            final Object modelSource,
+            final Object objectSource,
+            final String action,
+            final Runnable mutation) {
         EditorHostThread.requireHostThread("Cubism hierarchy edit");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
-        );
+        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
         if (ambientJoin.isPresent()) {
-            ambientJoin.orElseThrow().admit(
-                "cubism.hierarchy.write",
-                "hierarchy:" + Integer.toHexString(System.identityHashCode(objectSource))
-                    + ":" + action,
-                action,
-                (edit, transactionLabel) -> admitObjectUndo(
-                    edit, modelSource, objectSource, action, paletteAlias, kindLabel),
-                mutation,
-                () -> true,
-                EnumSet.of(
-                    EditorRefreshRequirement.MODEL_INSTANCES,
-                    paletteRequirement(paletteAlias),
-                    EditorRefreshRequirement.CANVAS,
-                    EditorRefreshRequirement.MARK_DIRTY
-                )
-            );
+            ambientJoin
+                    .orElseThrow()
+                    .admit(
+                            "cubism.hierarchy.write",
+                            "hierarchy:" + Integer.toHexString(System.identityHashCode(objectSource)) + ":" + action,
+                            action,
+                            (edit, transactionLabel) ->
+                                    admitObjectUndo(edit, modelSource, objectSource, action, paletteAlias, kindLabel),
+                            mutation,
+                            () -> true,
+                            EnumSet.of(
+                                    EditorRefreshRequirement.MODEL_INSTANCES,
+                                    paletteRequirement(paletteAlias),
+                                    EditorRefreshRequirement.CANVAS,
+                                    EditorRefreshRequirement.MARK_DIRTY));
             return;
         }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, action
-        );
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode", document
-        );
-        final Object edit = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin", editMode, action
-        );
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, action);
+        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
+        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, action);
         boolean completed = false;
         try {
-            admitObjectUndo(
-                edit,
-                modelSource,
-                objectSource,
-                action,
-                paletteAlias,
-                kindLabel
-            );
+            admitObjectUndo(edit, modelSource, objectSource, action, paletteAlias, kindLabel);
             mutation.run();
             resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
             refresh(app, paletteAlias);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
         } finally {
-            resolver.invoke(
-                "cubism.editor-model.edit-mode.end",
-                editMode, Boolean.valueOf(!completed), null
-            );
+            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
         }
     }
 
@@ -926,106 +714,76 @@ final class EditorObjectHierarchyEditAccess {
      * target-deformer state Undo does restore.</p>
      */
     private void admitRelationUndo(
-        final Object edit,
-        final Object modelSource,
-        final Object childSource,
-        final HierarchyRelationCapture.Plan plan,
-        final String transactionLabel,
-        final String kindLabel
-    ) {
+            final Object edit,
+            final Object modelSource,
+            final Object childSource,
+            final HierarchyRelationCapture.Plan plan,
+            final String transactionLabel,
+            final String kindLabel) {
         final String palette = "cubism.editor-model.complete-pack.update-deformer-palette";
         if (!plan.attachesThroughPartHandler()) {
-            admitObjectUndo(
-                edit,
-                modelSource,
-                childSource,
-                transactionLabel,
-                palette,
-                kindLabel + " hierarchy"
-            );
+            admitObjectUndo(edit, modelSource, childSource, transactionLabel, palette, kindLabel + " hierarchy");
             return;
         }
         final Object parentSource = plan.requestedMembershipParent().orElseThrow();
-        final Object parentHandler = resolver.invoke(
-            "cubism.editor-model.part-source.handler",
-            parentSource
-        );
+        final Object parentHandler = resolver.invoke("cubism.editor-model.part-source.handler", parentSource);
         if (!resolver.isInstance("cubism.editor-model.part-handler.class", parentHandler)) {
             throw unavailable("Editor Part Undo handler is unavailable.");
         }
         final Object attachUndo = resolver.invoke(
-            "cubism.editor-model.part-handler.add-part-child",
-            parentHandler,
-            childSource,
-            Integer.valueOf(plan.requestedIndex())
-        );
+                "cubism.editor-model.part-handler.add-part-child",
+                parentHandler,
+                childSource,
+                Integer.valueOf(plan.requestedIndex()));
         requireUndoAccepted(edit, attachUndo, kindLabel + " hierarchy");
         registerUndoListener(attachUndo, modelSource, palette);
     }
 
     private void admitObjectUndo(
-        final Object edit,
-        final Object modelSource,
-        final Object objectSource,
-        final String transactionLabel,
-        final String paletteAlias,
-        final String operation
-    ) {
-        final Object handler = resolver.invoke(
-            "cubism.editor-model.parameter-controllable-source.handler",
-            objectSource
-        );
+            final Object edit,
+            final Object modelSource,
+            final Object objectSource,
+            final String transactionLabel,
+            final String paletteAlias,
+            final String operation) {
+        final Object handler =
+                resolver.invoke("cubism.editor-model.parameter-controllable-source.handler", objectSource);
         if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
             throw unavailable("Editor object Undo handler is unavailable.");
         }
         final Object objectUndo = resolver.invoke(
-            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-            handler,
-            transactionLabel
-        );
+                "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                handler,
+                transactionLabel);
         requireUndoAccepted(edit, objectUndo, operation);
         registerUndoListener(objectUndo, modelSource, paletteAlias);
     }
 
     /** Registers the instance refresh a native Undo/Redo of one relation or object entry triggers. */
-    private void registerUndoListener(
-        final Object undo,
-        final Object modelSource,
-        final String paletteAlias
-    ) {
+    private void registerUndoListener(final Object undo, final Object modelSource, final String paletteAlias) {
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object listener = resolver.createFunctionalProxy(
-            "cubism.editor-model.undo-listener.class",
-            ignored -> {
-                resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
-                refresh(app, paletteAlias);
-                return null;
-            }
-        );
+        final Object listener = resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+            refresh(app, paletteAlias);
+            return null;
+        });
         resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
     }
 
     private void writeCreatedSource(
-        final Object modelSource,
-        final Object objectSource,
-        final Object parentSource,
-        final int index,
-        final String action,
-        final String paletteAlias,
-        final String operation,
-        final boolean parentIsDeformer
-    ) {
+            final Object modelSource,
+            final Object objectSource,
+            final Object parentSource,
+            final int index,
+            final String action,
+            final String paletteAlias,
+            final String operation,
+            final boolean parentIsDeformer) {
         EditorHostThread.requireHostThread("Cubism hierarchy create");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
-        );
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode", document
-        );
-        final Object modelHandler = resolver.invoke(
-            "cubism.editor-model.model-source.handler", modelSource
-        );
+        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
+        final Object modelHandler = resolver.invoke("cubism.editor-model.model-source.handler", modelSource);
         if (modelHandler == null) {
             throw unavailable("Editor model Undo handler is unavailable.");
         }
@@ -1033,80 +791,68 @@ final class EditorObjectHierarchyEditAccess {
         if (parentSource == null || parentIsDeformer) {
             parentHandler = null;
         } else {
-            parentHandler = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.handler", parentSource
-            );
-            if (!resolver.isInstance(
-                "cubism.editor-model.parameter-controllable-handler.class", parentHandler
-            )) {
+            parentHandler = resolver.invoke("cubism.editor-model.parameter-controllable-source.handler", parentSource);
+            if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", parentHandler)) {
                 throw unavailable("Editor parent Undo handler is unavailable.");
             }
         }
-        final Object listener = resolver.createFunctionalProxy(
-            "cubism.editor-model.undo-listener.class",
-            ignored -> {
-                resolver.invoke(
-                    "cubism.editor-model.model-source.update-instances", modelSource
-                );
-                refresh(app, paletteAlias);
-                return null;
-            }
-        );
+        final Object listener = resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+            refresh(app, paletteAlias);
+            return null;
+        });
         final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
         if (ambientJoin.isPresent()) {
-            ambientJoin.orElseThrow().admit(
-                "cubism.hierarchy.create",
-                "hierarchy:create:" + operation,
-                action,
-                (edit, transactionLabel) -> {
-                    final Object addUndo = resolver.invoke(
-                        "cubism.editor-model.model-handler.add-source-undo",
-                        modelHandler, objectSource, Integer.valueOf(index));
-                    requireUndoAccepted(edit, addUndo, operation);
-                    if (parentHandler != null) {
-                        final Object parentUndo = resolver.invoke(
-                            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-                            parentHandler, action);
-                        requireUndoAccepted(edit, parentUndo, operation + " parent attachment");
-                    }
-                    resolver.invoke("cubism.editor-model.undo.add-listener", addUndo, listener);
-                },
-                () -> {
-                    if (parentSource != null) {
-                        attachToParent(objectSource, parentSource, parentIsDeformer, index);
-                    }
-                },
-                () -> true,
-                EnumSet.of(
-                    EditorRefreshRequirement.MODEL_INSTANCES,
-                    paletteRequirement(paletteAlias),
-                    EditorRefreshRequirement.CANVAS,
-                    EditorRefreshRequirement.MARK_DIRTY
-                )
-            );
+            ambientJoin
+                    .orElseThrow()
+                    .admit(
+                            "cubism.hierarchy.create",
+                            "hierarchy:create:" + operation,
+                            action,
+                            (edit, transactionLabel) -> {
+                                final Object addUndo = resolver.invoke(
+                                        "cubism.editor-model.model-handler.add-source-undo",
+                                        modelHandler,
+                                        objectSource,
+                                        Integer.valueOf(index));
+                                requireUndoAccepted(edit, addUndo, operation);
+                                if (parentHandler != null) {
+                                    final Object parentUndo = resolver.invoke(
+                                            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                                            parentHandler,
+                                            action);
+                                    requireUndoAccepted(edit, parentUndo, operation + " parent attachment");
+                                }
+                                resolver.invoke("cubism.editor-model.undo.add-listener", addUndo, listener);
+                            },
+                            () -> {
+                                if (parentSource != null) {
+                                    attachToParent(objectSource, parentSource, parentIsDeformer, index);
+                                }
+                            },
+                            () -> true,
+                            EnumSet.of(
+                                    EditorRefreshRequirement.MODEL_INSTANCES,
+                                    paletteRequirement(paletteAlias),
+                                    EditorRefreshRequirement.CANVAS,
+                                    EditorRefreshRequirement.MARK_DIRTY));
             return;
         }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, action
-        );
-        final Object edit = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin", editMode, action
-        );
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, action);
+        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, action);
         boolean completed = false;
         try {
             final Object addUndo = resolver.invoke(
-                "cubism.editor-model.model-handler.add-source-undo",
-                modelHandler,
-                objectSource,
-                Integer.valueOf(index)
-            );
+                    "cubism.editor-model.model-handler.add-source-undo",
+                    modelHandler,
+                    objectSource,
+                    Integer.valueOf(index));
             requireUndoAccepted(edit, addUndo, operation);
             if (parentHandler != null) {
                 final Object parentUndo = resolver.invoke(
-                    "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-                    parentHandler,
-                    action
-                );
+                        "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                        parentHandler,
+                        action);
                 requireUndoAccepted(edit, parentUndo, operation + " parent attachment");
             }
             if (parentSource != null) {
@@ -1118,42 +864,27 @@ final class EditorObjectHierarchyEditAccess {
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
         } finally {
-            resolver.invoke(
-                "cubism.editor-model.edit-mode.end",
-                editMode,
-                Boolean.valueOf(!completed),
-                null
-            );
+            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
         }
     }
 
     private static EditorRefreshRequirement paletteRequirement(final String paletteAlias) {
         return "cubism.editor-model.complete-pack.update-part-palette".equals(paletteAlias)
-            ? EditorRefreshRequirement.PART_PALETTE
-            : EditorRefreshRequirement.DEFORMER_PALETTE;
+                ? EditorRefreshRequirement.PART_PALETTE
+                : EditorRefreshRequirement.DEFORMER_PALETTE;
     }
 
-    private void requireUndoAccepted(
-        final Object edit,
-        final Object undo,
-        final String operation
-    ) {
-        final Object accepted = resolver.invoke(
-            "cubism.editor-model.undo.add", edit, undo, Boolean.TRUE
-        );
+    private void requireUndoAccepted(final Object edit, final Object undo, final String operation) {
+        final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
         if (!(accepted instanceof Boolean value) || !value) {
             throw new IllegalStateException("Cubism rejected the " + operation + " Undo entry.");
         }
     }
 
     private void refresh(final Object app, final String paletteAlias) {
-        final Object completePack = resolver.invoke(
-            "cubism.editor-model.app-controller.complete-pack", app
-        );
+        final Object completePack = resolver.invoke("cubism.editor-model.app-controller.complete-pack", app);
         resolver.invoke(paletteAlias, completePack, Boolean.TRUE);
-        resolver.invoke(
-            "cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE
-        );
+        resolver.invoke("cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE);
     }
 
     // ------------------------------------------------------------------
@@ -1162,54 +893,48 @@ final class EditorObjectHierarchyEditAccess {
 
     private boolean editAuthorized() {
         return resolver.authorizesFeature(
-            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
-            EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
-            EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES
-        );
+                EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+                EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
+                EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES);
     }
 
     private boolean applyToChildrenAuthorized() {
         if (!resolver.isExactCubismVersion("5.3.02")) return false;
         return resolver.authorizesFeature(
-            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
-            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID,
-            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_REQUIRED_ALIASES
-        );
+                EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+                EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID,
+                EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_REQUIRED_ALIASES);
     }
 
     private void requireApplyToChildrenAuthorized() {
         if (!applyToChildrenAuthorized()) {
             throw new UnsupportedOperationException(
-                "Apply deformer to child elements is unavailable without exact verified host evidence."
-            );
+                    "Apply deformer to child elements is unavailable without exact verified host evidence.");
         }
     }
 
     boolean relationCaptureAvailable() {
         return authoringCoordinator != null
-            && authoringBinding != null
-            && editAuthorized()
-            && resolver.authorizesFeature(
-                EditorHistoryReadSelectorContract.ADAPTER_SLICE_ID,
-                EditorHistoryReadSelectorContract.CAPABILITY_ID,
-                EditorHistoryReadSelectorContract.REQUIRED_ALIASES
-            );
+                && authoringBinding != null
+                && editAuthorized()
+                && resolver.authorizesFeature(
+                        EditorHistoryReadSelectorContract.ADAPTER_SLICE_ID,
+                        EditorHistoryReadSelectorContract.CAPABILITY_ID,
+                        EditorHistoryReadSelectorContract.REQUIRED_ALIASES);
     }
 
     private boolean renameAuthorized() {
         return resolver.authorizesFeature(
-            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
-            EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
-            EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES
-        );
+                EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+                EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
+                EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES);
     }
 
     private boolean artMeshCreateAuthorized() {
         return resolver.authorizesFeature(
-            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
-            EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
-            EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES
-        );
+                EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+                EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
+                EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES);
     }
 
     void requireCreateSupported(final ModelObjectCreateRequest request) {
@@ -1232,54 +957,41 @@ final class EditorObjectHierarchyEditAccess {
     private void requireEditAuthorized() {
         if (!editAuthorized()) {
             throw new UnsupportedOperationException(
-                "Editor object-hierarchy editing is unavailable without exact verified host evidence."
-            );
+                    "Editor object-hierarchy editing is unavailable without exact verified host evidence.");
         }
     }
 
     private void requireRenameAuthorized() {
         if (!renameAuthorized()) {
             throw new UnsupportedOperationException(
-                "Editor object renaming is unavailable without exact verified host evidence."
-            );
+                    "Editor object renaming is unavailable without exact verified host evidence.");
         }
     }
 
     private void requireArtMeshCreateAuthorized() {
         if (!artMeshCreateAuthorized()) {
             throw new UnsupportedOperationException(
-                "Editor ArtMesh creation is unavailable without exact verified host evidence."
-            );
+                    "Editor ArtMesh creation is unavailable without exact verified host evidence.");
         }
     }
 
-    private String nextObjectId(
-        final Object modelSource,
-        final String prefix,
-        final String name
-    ) {
+    private String nextObjectId(final Object modelSource, final String prefix, final String name) {
         final Set<String> existing = new HashSet<>();
         for (Object source : iterable(
-            resolver.invoke("cubism.editor-model.model-source.all-objects", modelSource),
-            "Editor object collection"
-        )) {
+                resolver.invoke("cubism.editor-model.model-source.all-objects", modelSource),
+                "Editor object collection")) {
             existing.add(objectId(source));
         }
         final String base = truncate(prefix + slug(name), MAX_OBJECT_ID_LENGTH - 8);
         if (!existing.contains(base)) return base;
         for (int suffix = 2; suffix < 1_000_000; suffix++) {
-            final String candidate = truncate(base, MAX_OBJECT_ID_LENGTH - 8)
-                + "_" + suffix;
+            final String candidate = truncate(base, MAX_OBJECT_ID_LENGTH - 8) + "_" + suffix;
             if (!existing.contains(candidate)) return candidate;
         }
         throw new IllegalStateException("Could not allocate a unique Cubism ArtMesh ID.");
     }
 
-    private void setObjectId(
-        final Object source,
-        final String family,
-        final String id
-    ) {
+    private void setObjectId(final Object source, final String family, final String id) {
         final String idAlias;
         final String setterAlias;
         switch (family) {
@@ -1295,17 +1007,13 @@ final class EditorObjectHierarchyEditAccess {
                 idAlias = "cubism.editor-model.deformer-id.create";
                 setterAlias = "cubism.editor-model.deformer-source.set-id";
             }
-            default -> throw new IllegalArgumentException(
-                "Unsupported Editor object ID family: " + family
-            );
+            default -> throw new IllegalArgumentException("Unsupported Editor object ID family: " + family);
         }
         resolver.invoke(setterAlias, source, resolver.construct(idAlias, id));
     }
 
     private String objectId(final Object source) {
-        final Object id = resolver.invoke(
-            "cubism.editor-model.parameter-controllable-source.id", source
-        );
+        final Object id = resolver.invoke("cubism.editor-model.parameter-controllable-source.id", source);
         final Object value = resolver.invoke("cubism.editor-model.id.value", id);
         if (!(value instanceof String text) || text.isBlank()) {
             throw unavailable("Editor object ID is invalid.");
@@ -1317,17 +1025,11 @@ final class EditorObjectHierarchyEditAccess {
         if (rows <= 0 || columns <= 0) {
             throw new IllegalArgumentException("rows and columns must be positive");
         }
-        final int pointCount = Math.multiplyExact(
-            Math.addExact(rows, 1),
-            Math.addExact(columns, 1)
-        );
+        final int pointCount = Math.multiplyExact(Math.addExact(rows, 1), Math.addExact(columns, 1));
         final ArrayList<Point2> points = new ArrayList<>(pointCount);
         for (int row = 0; row <= rows; row++) {
             for (int column = 0; column <= columns; column++) {
-                points.add(new Point2(
-                    column / (float) columns - 0.5F,
-                    row / (float) rows - 0.5F
-                ));
+                points.add(new Point2(column / (float) columns - 0.5F, row / (float) rows - 0.5F));
             }
         }
         return new WarpGrid(rows, columns, false, points);
@@ -1346,7 +1048,7 @@ final class EditorObjectHierarchyEditAccess {
     private static String slug(final String name) {
         final StringBuilder result = new StringBuilder();
         boolean upper = true;
-        for (int offset = 0; offset < name.length();) {
+        for (int offset = 0; offset < name.length(); ) {
             final int codePoint = name.codePointAt(offset);
             offset += Character.charCount(codePoint);
             if (codePoint < 128 && Character.isLetterOrDigit(codePoint)) {
@@ -1376,9 +1078,7 @@ final class EditorObjectHierarchyEditAccess {
         final long columns = Math.addExact((long) grid.columns(), 1L);
         final long expected = Math.multiplyExact(rows, columns);
         if (expected != grid.controlPoints().size()) {
-            throw new IllegalArgumentException(
-                "controlPoints size must equal (rows + 1) * (columns + 1)"
-            );
+            throw new IllegalArgumentException("controlPoints size must equal (rows + 1) * (columns + 1)");
         }
         flatten(grid.controlPoints());
         return grid;
@@ -1386,10 +1086,8 @@ final class EditorObjectHierarchyEditAccess {
 
     private static String requireValidGuidValue(final Object rawValue, final String subject) {
         if (!(rawValue instanceof String value) || value.isBlank()) {
-            throw new IllegalStateException(
-                subject + " GUID value is invalid; the Apply deformer to child elements "
-                    + "operation must not proceed or report success."
-            );
+            throw new IllegalStateException(subject + " GUID value is invalid; the Apply deformer to child elements "
+                    + "operation must not proceed or report success.");
         }
         return value;
     }
@@ -1405,9 +1103,8 @@ final class EditorObjectHierarchyEditAccess {
 
     private static IllegalArgumentException cycle(final Object parentSource) {
         return new IllegalArgumentException(
-            "Cycle rejected: the requested parent is inside the node's own subtree (native source "
-                + parentSource.getClass().getName() + ")."
-        );
+                "Cycle rejected: the requested parent is inside the node's own subtree (native source "
+                        + parentSource.getClass().getName() + ").");
     }
 
     private static IllegalStateException unavailable(final String message) {

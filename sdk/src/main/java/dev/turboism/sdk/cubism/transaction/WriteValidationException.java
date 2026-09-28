@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.transaction;
 
-
 /**
  * Signals that a write command failed validation before being staged, so the model is
  * untouched. Unlike its sibling transaction exceptions the error code is supplied by the

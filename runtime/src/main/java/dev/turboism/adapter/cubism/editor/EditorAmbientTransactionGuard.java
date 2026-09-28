@@ -11,8 +11,7 @@ import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransaction
  */
 final class EditorAmbientTransactionGuard {
 
-    private EditorAmbientTransactionGuard() {
-    }
+    private EditorAmbientTransactionGuard() {}
 
     /**
      * @param coordinator the model access's authoring coordinator, or {@code null} when the
@@ -20,9 +19,7 @@ final class EditorAmbientTransactionGuard {
      * @param writeLabel human-readable name of the rejected write for diagnostics
      */
     static void requireNoAmbientTransaction(
-        final EditorAuthoringTransactionCoordinator coordinator,
-        final String writeLabel
-    ) {
+            final EditorAuthoringTransactionCoordinator coordinator, final String writeLabel) {
         if (coordinator != null && coordinator.ambientScopeActive()) {
             throw new EditorAmbientTransactionRejection(writeLabel);
         }

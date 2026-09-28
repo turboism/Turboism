@@ -2,7 +2,6 @@ package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.internal.core.AtlasCacheReuseSettingsService;
-
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -12,13 +11,12 @@ import java.util.Objects;
  * <p>Mirrors the atlas tile-bbox service: the same repository, the same write path, and the
  * same rule that a persistence failure reaches the caller instead of being swallowed.</p>
  */
-public final class AtlasCacheReuseSettingsFileService
-        implements AtlasCacheReuseSettingsService, AutoCloseable {
+public final class AtlasCacheReuseSettingsFileService implements AtlasCacheReuseSettingsService, AutoCloseable {
 
     private final RuntimeConfigRepository config;
 
     public AtlasCacheReuseSettingsFileService(final Path turboismHome) {
-        this(new RuntimeConfigRepository(turboismHome, ignored -> { }));
+        this(new RuntimeConfigRepository(turboismHome, ignored -> {}));
     }
 
     AtlasCacheReuseSettingsFileService(final RuntimeConfigRepository config) {

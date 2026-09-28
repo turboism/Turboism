@@ -3,7 +3,6 @@ package dev.turboism.sdk.cubism.model;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,13 +12,12 @@ import java.util.Optional;
 
 /** Immutable connections from one model image to raw images, layers, and meshes. */
 public record ModelImageRelation(
-    ModelImageId id,
-    ModelImageEntry modelImage,
-    List<RawImageId> linkedRawImageIds,
-    Optional<RawImageId> currentRawImageId,
-    Map<RawImageId, List<RawLayerBinding>> inputsByRawImage,
-    List<ArtMeshId> usingArtMeshIds
-) {
+        ModelImageId id,
+        ModelImageEntry modelImage,
+        List<RawImageId> linkedRawImageIds,
+        Optional<RawImageId> currentRawImageId,
+        Map<RawImageId, List<RawLayerBinding>> inputsByRawImage,
+        List<ArtMeshId> usingArtMeshIds) {
     public ModelImageRelation {
         id = Objects.requireNonNull(id, "id");
         modelImage = Objects.requireNonNull(modelImage, "modelImage");
@@ -57,15 +55,13 @@ public record ModelImageRelation(
     }
 
     private static Map<RawImageId, List<RawLayerBinding>> immutableBindings(
-        final Map<RawImageId, List<RawLayerBinding>> source
-    ) {
+            final Map<RawImageId, List<RawLayerBinding>> source) {
         Objects.requireNonNull(source, "inputsByRawImage");
         final Map<RawImageId, List<RawLayerBinding>> copy = new LinkedHashMap<>();
         for (final Map.Entry<RawImageId, List<RawLayerBinding>> entry : source.entrySet()) {
             copy.put(
-                Objects.requireNonNull(entry.getKey(), "inputsByRawImage key"),
-                List.copyOf(Objects.requireNonNull(entry.getValue(), "inputsByRawImage value"))
-            );
+                    Objects.requireNonNull(entry.getKey(), "inputsByRawImage key"),
+                    List.copyOf(Objects.requireNonNull(entry.getValue(), "inputsByRawImage value")));
         }
         return Collections.unmodifiableMap(copy);
     }

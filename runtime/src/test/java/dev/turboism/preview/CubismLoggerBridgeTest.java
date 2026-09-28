@@ -1,11 +1,10 @@
 package dev.turboism.preview;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 class CubismLoggerBridgeTest {
 
@@ -19,33 +18,65 @@ class CubismLoggerBridgeTest {
         }
 
         assertEquals(
-            List.of(
-                "[probe] trace",
-                "[probe] debug",
-                "[probe] info",
-                "[probe] warn",
-                "[probe] error",
-                "[probe] fatal"
-            ),
-            logger.calls
-        );
+                List.of(
+                        "[probe] trace",
+                        "[probe] debug",
+                        "[probe] info",
+                        "[probe] warn",
+                        "[probe] error",
+                        "[probe] fatal"),
+                logger.calls);
     }
 
     public static final class RecordingLogger {
         private final List<String> calls = new ArrayList<>();
 
-        public void trace(final String message) { calls.add(message); }
-        public void debug(final String message) { calls.add(message); }
-        public void info(final String message) { calls.add(message); }
-        public void warn(final String message) { calls.add(message); }
-        public void error(final String message) { calls.add(message); }
-        public void fatal(final String message) { calls.add(message); }
+        public void trace(final String message) {
+            calls.add(message);
+        }
 
-        public void trace(final String message, final Throwable failure) { calls.add(message); }
-        public void debug(final String message, final Throwable failure) { calls.add(message); }
-        public void info(final String message, final Throwable failure) { calls.add(message); }
-        public void warn(final String message, final Throwable failure) { calls.add(message); }
-        public void error(final String message, final Throwable failure) { calls.add(message); }
-        public void fatal(final String message, final Throwable failure) { calls.add(message); }
+        public void debug(final String message) {
+            calls.add(message);
+        }
+
+        public void info(final String message) {
+            calls.add(message);
+        }
+
+        public void warn(final String message) {
+            calls.add(message);
+        }
+
+        public void error(final String message) {
+            calls.add(message);
+        }
+
+        public void fatal(final String message) {
+            calls.add(message);
+        }
+
+        public void trace(final String message, final Throwable failure) {
+            calls.add(message);
+        }
+
+        public void debug(final String message, final Throwable failure) {
+            calls.add(message);
+        }
+
+        public void info(final String message, final Throwable failure) {
+            calls.add(message);
+        }
+
+        public void warn(final String message, final Throwable failure) {
+            calls.add(message);
+        }
+
+        public void error(final String message, final Throwable failure) {
+            calls.add(message);
+        }
+
+        public void fatal(final String message, final Throwable failure) {
+            calls.add(message);
+        }
     }
 }

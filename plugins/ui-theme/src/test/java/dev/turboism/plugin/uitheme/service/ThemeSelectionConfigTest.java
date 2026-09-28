@@ -1,5 +1,8 @@
 package dev.turboism.plugin.uitheme.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.config.ConfigKey;
 import dev.turboism.sdk.config.ConfigMigration;
 import dev.turboism.sdk.config.ConfigReadResult;
@@ -9,17 +12,13 @@ import dev.turboism.sdk.config.ConfigValueSource;
 import dev.turboism.sdk.config.ConfigWriteResult;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class ThemeSelectionConfigTest {
 
@@ -65,9 +64,9 @@ final class ThemeSelectionConfigTest {
             boolean present = values.containsKey(key.name());
             T value = present ? (T) values.get(key.name()) : key.defaultValue();
             return CompletableFuture.completedFuture(new ConfigReadResult<>(
-                new ConfigValue<>(value, present ? ConfigValueSource.STORED : ConfigValueSource.DEFAULT_MISSING, revision),
-                Optional.empty()
-            ));
+                    new ConfigValue<>(
+                            value, present ? ConfigValueSource.STORED : ConfigValueSource.DEFAULT_MISSING, revision),
+                    Optional.empty()));
         }
 
         @Override
@@ -80,9 +79,24 @@ final class ThemeSelectionConfigTest {
             return CompletableFuture.completedFuture(new ConfigWriteResult(true, revision, Optional.empty()));
         }
 
-        @Override public Registration readScope(String relativePath) { throw new UnsupportedOperationException(); }
-        @Override public Registration writeScope(String relativePath) { throw new UnsupportedOperationException(); }
-        @Override public Optional<String> readString(String relativePath, String key) { throw new UnsupportedOperationException(); }
-        @Override public void writeString(String relativePath, String key, String value) { throw new UnsupportedOperationException(); }
+        @Override
+        public Registration readScope(String relativePath) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Registration writeScope(String relativePath) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<String> readString(String relativePath, String key) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void writeString(String relativePath, String key, String value) {
+            throw new UnsupportedOperationException();
+        }
     }
 }

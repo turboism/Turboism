@@ -1,7 +1,6 @@
 package dev.turboism.preview;
 
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
-
 import java.time.Instant;
 import java.util.List;
 

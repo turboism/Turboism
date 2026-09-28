@@ -20,22 +20,30 @@ public final class PsdActionApplication {
      *
      * @return the lifecycle's own verdict, including a refusal after shutdown
      */
-    public LifecycleOperationResult enable(){return lifecycle.enable();}
+    public LifecycleOperationResult enable() {
+        return lifecycle.enable();
+    }
     /**
      * Disables the PSD actions without ending the lifecycle.
      *
      * @return the lifecycle's own verdict, including a refusal after shutdown
      */
-    public LifecycleOperationResult disable(){return lifecycle.disable();}
+    public LifecycleOperationResult disable() {
+        return lifecycle.disable();
+    }
     /**
      * Ends the lifecycle permanently; later enable and disable calls are refused.
      *
      * @return {@code CHANGED} the first time, {@code UNCHANGED} afterwards
      */
-    public LifecycleOperationResult shutdown(){return lifecycle.shutdown();}
+    public LifecycleOperationResult shutdown() {
+        return lifecycle.shutdown();
+    }
     /**
      * @return the PSD actions this plugin declares; a fixed inventory that does not vary with
      *         lifecycle state
      */
-    public List<PsdActionDescriptor> inventory(){return lifecycle.inventory();}
+    public List<PsdActionDescriptor> inventory() {
+        return lifecycle.inventory();
+    }
 }

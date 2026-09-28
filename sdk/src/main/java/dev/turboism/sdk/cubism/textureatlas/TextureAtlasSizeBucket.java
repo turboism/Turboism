@@ -1,15 +1,7 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-
-import java.util.List;
-import java.util.Objects;
-
 /** One size bucket in a texture-atlas image size distribution. */
-public record TextureAtlasSizeBucket(
-    int width,
-    int height,
-    int count
-) {
+public record TextureAtlasSizeBucket(int width, int height, int count) {
     public TextureAtlasSizeBucket {
         if (width < 1 || height < 1) {
             throw new IllegalArgumentException("Bucket dimensions must be positive.");

@@ -16,14 +16,13 @@ import java.util.Optional;
  * counts, or conservative outline handling.</p>
  */
 public record TextureAtlasPolygonPlan(
-    int pageWidth,
-    int pageHeight,
-    double scale,
-    List<TextureAtlasPolygonPlacement> placements,
-    List<String> overflowTextureIds,
-    TextureAtlasLayoutBackend backend,
-    Map<String, String> diagnostics
-) {
+        int pageWidth,
+        int pageHeight,
+        double scale,
+        List<TextureAtlasPolygonPlacement> placements,
+        List<String> overflowTextureIds,
+        TextureAtlasLayoutBackend backend,
+        Map<String, String> diagnostics) {
 
     public TextureAtlasPolygonPlan {
         if (pageWidth <= 0 || pageHeight <= 0) {

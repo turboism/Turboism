@@ -1,13 +1,10 @@
 package dev.turboism.ui.appearance;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import javax.swing.SwingUtilities;
-import javax.swing.UIDefaults;
-import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
 import java.awt.Color;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
@@ -16,11 +13,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.SwingUtilities;
+import javax.swing.UIDefaults;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Focused tests for the early-theme startup EDT correction: UIManager access
@@ -67,28 +66,22 @@ class EarlyThemeAppearanceBootstrapTest {
     @Test
     void captureNativeOffCanvasBackgroundDispatchesUIManagerAccessToTheEdt() throws Exception {
         final Color nativeBackground = new Color(222, 223, 224);
-        SwingUtilities.invokeAndWait(() ->
-            UIManager.put("CubismCommon.gl.viewArea.background", nativeBackground));
+        SwingUtilities.invokeAndWait(() -> UIManager.put("CubismCommon.gl.viewArea.background", nativeBackground));
         try (EdtHold hold = new EdtHold()) {
-            final Future<?> capture = workers.submit(
-                () -> SwingFlatLafHostOperations.captureNativeOffCanvasBackground());
+            final Future<?> capture =
+                    workers.submit(() -> SwingFlatLafHostOperations.captureNativeOffCanvasBackground());
             Thread.sleep(400L);
             assertFalse(capture.isDone(), "off-canvas capture must run UIManager access on the EDT");
             hold.release();
             capture.get(5, TimeUnit.SECONDS);
         }
-        assertEquals(nativeBackground,
-            UIManager.get("Turboism.native.CubismCommon.gl.viewArea.background"));
+        assertEquals(nativeBackground, UIManager.get("Turboism.native.CubismCommon.gl.viewArea.background"));
     }
 
     @Test
     void runWithoutUsableSelectionCompletesWhileEdtIsHeld(@TempDir Path home) throws Exception {
         final EarlyThemeAppearanceBootstrap bootstrap = new EarlyThemeAppearanceBootstrap(
-            home,
-            EarlyThemeAppearanceBootstrapTest.class.getClassLoader(),
-            () -> {
-            }
-        );
+                home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {});
         try (EdtHold hold = new EdtHold()) {
             final Future<?> completed = workers.submit((java.util.concurrent.Callable<Object>) () -> {
                 invokeRun(bootstrap);
@@ -108,6 +101,7 @@ class EarlyThemeAppearanceBootstrapTest {
         run.setAccessible(true);
         run.invoke(bootstrap);
     }
+
     @Test
     void pollingSleepStaysOffTheEdtSoHostInitializationIsNotBlocked() throws Exception {
         final EarlyThemeAppearanceBootstrap bootstrap = newBootstrap();
@@ -128,13 +122,11 @@ class EarlyThemeAppearanceBootstrapTest {
         // Thread.sleep under waitForFlatLaf). A sleep moved into the EDT lambda
         // would put the 100 ms sleep on the EDT; this worker would never own it
         // and the bounded observation would expire.
-        assertTrue(awaitPollingSleep(worker, 2_000L),
-            "polling sleep must be observed on the poll worker's own stack");
+        assertTrue(awaitPollingSleep(worker, 2_000L), "polling sleep must be observed on the poll worker's own stack");
         final CountDownLatch edtProbe = new CountDownLatch(1);
         SwingUtilities.invokeLater(edtProbe::countDown);
         // The EDT stays responsive while the poll sleeps on its worker.
-        assertTrue(edtProbe.await(2, TimeUnit.SECONDS),
-            "EDT must remain responsive while the poll is active");
+        assertTrue(edtProbe.await(2, TimeUnit.SECONDS), "EDT must remain responsive while the poll is active");
         assertFalse(poll.isDone(), "poll must remain active while the probe fires");
         poll.cancel(true);
     }
@@ -145,11 +137,10 @@ class EarlyThemeAppearanceBootstrapTest {
      * {@code waitForFlatLaf} stack). No latency threshold is asserted.
      */
     private static boolean awaitPollingSleep(final Thread worker, final long timeoutMillis)
-        throws InterruptedException {
+            throws InterruptedException {
         final long deadline = System.currentTimeMillis() + timeoutMillis;
         while (System.currentTimeMillis() < deadline) {
-            if (worker.getState() == Thread.State.TIMED_WAITING
-                && isPollingSleep(worker.getStackTrace())) {
+            if (worker.getState() == Thread.State.TIMED_WAITING && isPollingSleep(worker.getStackTrace())) {
                 return true;
             }
             Thread.sleep(5L);
@@ -161,21 +152,16 @@ class EarlyThemeAppearanceBootstrapTest {
         boolean sleeping = false;
         boolean polling = false;
         for (StackTraceElement element : stack) {
-            sleeping |= "java.lang.Thread".equals(element.getClassName())
-                && "sleep".equals(element.getMethodName());
+            sleeping |= "java.lang.Thread".equals(element.getClassName()) && "sleep".equals(element.getMethodName());
             polling |= EarlyThemeAppearanceBootstrap.class.getName().equals(element.getClassName())
-                && "waitForFlatLaf".equals(element.getMethodName());
+                    && "waitForFlatLaf".equals(element.getMethodName());
         }
         return sleeping && polling;
     }
 
     private static EarlyThemeAppearanceBootstrap newBootstrap() {
         return new EarlyThemeAppearanceBootstrap(
-            java.nio.file.Path.of("."),
-            EarlyThemeAppearanceBootstrapTest.class.getClassLoader(),
-            () -> {
-            }
-        );
+                java.nio.file.Path.of("."), EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {});
     }
 
     private static void installLookAndFeel(final javax.swing.LookAndFeel lookAndFeel) {

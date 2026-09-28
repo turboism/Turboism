@@ -22,9 +22,7 @@ import java.util.Optional;
  * 5.2.03 stays unsupported and fails closed on both the digest gate and the
  * dependency check.</p>
  */
-public record SkippedFrameUploadElisionTarget(
-        HostArtifactDigest digest,
-        String version) {
+public record SkippedFrameUploadElisionTarget(HostArtifactDigest digest, String version) {
 
     /** Persistent float-attribute VBO wrapper. */
     public static final String FLOAT_OWNER = "com/live2d/graphics3d/mesh/a/b";
@@ -48,9 +46,9 @@ public record SkippedFrameUploadElisionTarget(
     }
 
     private static final SkippedFrameUploadElisionTarget CUBISM_5302 =
-        new SkippedFrameUploadElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02");
+            new SkippedFrameUploadElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02");
     private static final SkippedFrameUploadElisionTarget CUBISM_5303 =
-        new SkippedFrameUploadElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03");
+            new SkippedFrameUploadElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03");
 
     /** The reviewed target for a host artifact digest, or empty when unsupported. */
     public static Optional<SkippedFrameUploadElisionTarget> of(final HostArtifactDigest digest) {

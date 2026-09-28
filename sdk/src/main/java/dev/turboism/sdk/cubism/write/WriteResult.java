@@ -1,12 +1,7 @@
 package dev.turboism.sdk.cubism.write;
 
-
 /** Result of a single write command. */
-public record WriteResult(
-    String commandId,
-    boolean success,
-    String errorMessage
-) {
+public record WriteResult(String commandId, boolean success, String errorMessage) {
 
     /**
      * @param commandId id of the command that succeeded
