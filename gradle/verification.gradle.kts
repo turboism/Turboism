@@ -1229,6 +1229,7 @@ val checkCompletedCommit by tasks.registering {
         checkPerformanceProbeReports,
         "checkLocalizedChangelogs",
         "checkLocalizedChangelogsSelfTest",
+        "spotlessCheck",
         "generateSdkApiReport"
     )
 }
