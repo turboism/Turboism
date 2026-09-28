@@ -375,17 +375,101 @@ public final class AtlasTimingSelfCheck {
         check(awaitStatus(interleaveDir.resolve(StackSamples.STATUS_FILE),
             "written", 46L) != null, "interleave run must drain all 46 records");
 
-        // Writer death: a non-IO sink failure kills the daemon; the terminal reason is
-        // observable in memory and the run is marked incomplete — disk state unguaranteed.
+        // Writer death: the second collect is latched so a sample is provably in flight
+        // when the writer dies; the terminal gate must then refuse further entries without
+        // ever touching the collector.
         final Path termDir = output.resolve("stack-terminal");
+        final java.util.concurrent.atomic.AtomicInteger collectCalls =
+            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.CountDownLatch collectHold =
+            new java.util.concurrent.CountDownLatch(1);
         final StackSamples.Engine dying = StackSamples.enableForTest(16, 8, termDir,
-            null, null, batch -> { throw new AssertionError("injected writer death"); });
-        update.invoke(woven, true, new Object());
+            () -> {
+                if (collectCalls.incrementAndGet() >= 2) {
+                    try {
+                        collectHold.await();
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                return List.of("t.a");
+            }, null, batch -> { throw new AssertionError("injected writer death"); });
+        final Thread dyingDriver = new Thread(() -> {
+            try {
+                update.invoke(woven, true, new Object());
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure);
+            }
+        });
+        dyingDriver.start();
         check(awaitTerminal(dying), "writer death must surface a terminal reason");
+        collectHold.countDown();
+        dyingDriver.join();
         snap = dying.snapshot();
         check(snap.get("terminated") == 1L && snap.get("incomplete") == 1L,
             "dead writer must report terminated+incomplete, got " + snap);
+        check(snap.get("droppedInFlight") == 1L,
+            "sample in flight at writer death must be droppedInFlight, got " + snap);
         checkConserved(snap);
+        // Entries after terminal are refused at the reservation gate: no collect, no seq.
+        update.invoke(woven, true, new Object());
+        snap = dying.snapshot();
+        check(snap.get("droppedStopped") == 2L,
+            "post-terminal entries must count droppedStopped, got " + snap);
+        check(collectCalls.get() == 2,
+            "collector must not run after terminal, calls=" + collectCalls.get());
+        check(snap.get("reserved") == 2L, "post-terminal drops must not reserve seq, got "
+            + snap);
+        checkConserved(snap);
+
+        // Status write failure: block the status tmp path with a directory, recover, and
+        // check that the cumulative error count survives while the consecutive one resets.
+        final Path statFailDir = output.resolve("stack-statusfail");
+        Files.createDirectories(statFailDir.resolve(StackSamples.STATUS_TMP));
+        final StackSamples.Engine statFail = StackSamples.enableForTest(64, 64,
+            statFailDir, null, null, null);
+        update.invoke(woven, true, new Object());
+        check(awaitCounter(statFail, "statusErrors", 1L),
+            "blocked status tmp must count a status error");
+        final long statusErrSeen = statFail.snapshot().get("statusErrors");
+        check(statFail.snapshot().get("incomplete") == 1L,
+            "first status failure must mark the run incomplete");
+        Files.delete(statFailDir.resolve(StackSamples.STATUS_TMP));
+        update.invoke(woven, false, new Object());
+        check(awaitCounter(statFail, "written", 4L),
+            "records must keep draining while status failed");
+        snap = statFail.snapshot();
+        check(snap.get("statusErrors") == statusErrSeen
+                && snap.get("statusWriteFailures") == 0L,
+            "cumulative statusErrors must persist while consecutive resets, got " + snap);
+        check(snap.get("incomplete") == 1L,
+            "incomplete must be sticky after a later status success");
+        check(Files.isRegularFile(statFailDir.resolve(StackSamples.STATUS_FILE)),
+            "recovered status write must land the file");
+
+        // Status write cap: keep the tmp blocked and drive exactly 8 batches — each drain
+        // changes the status so each produces one failed attempt; the consecutive counter
+        // then disables status writes while records keep flowing.
+        final Path statCapDir = output.resolve("stack-statuscap");
+        Files.createDirectories(statCapDir.resolve(StackSamples.STATUS_TMP));
+        final StackSamples.Engine statCap = StackSamples.enableForTest(64, 64,
+            statCapDir, null, null, null);
+        for (int i = 0; i < 8; i++) {
+            final long before = statCap.snapshot().get("written");
+            update.invoke(woven, true, new Object());
+            check(awaitCounter(statCap, "written", before + 2L),
+                "batch " + i + " must drain despite status failures");
+        }
+        snap = statCap.snapshot();
+        check(snap.get("statusDisabled") == 1L,
+            "8 consecutive status failures must disable status output, got " + snap);
+        check(snap.get("statusWriteFailures") >= 8L
+                && snap.get("statusErrors") == snap.get("statusWriteFailures"),
+            "status failure accounting must be exact, got " + snap);
+        update.invoke(woven, true, new Object());
+        check(awaitCounter(statCap, "written", snap.get("written") + 2L),
+            "sampling must continue after status output is disabled");
+        checkConserved(statCap.snapshot());
 
         // Second flush cycle so every leg above is on disk before the final counts.
         AtlasTimingProbe.flush();
@@ -397,9 +481,9 @@ public final class AtlasTimingSelfCheck {
             allCalls.stream().filter(l -> l.contains("call updateTexture")).count();
         final long totalSetups =
             allCalls.stream().filter(l -> l.contains("call setupCacheImage")).count();
-        check(totalUpdates == 36L,
+        check(totalUpdates == 48L,
             "timing pairing must be unaffected by sampling, updateTexture=" + totalUpdates);
-        check(totalSetups == 37L,
+        check(totalSetups == 49L,
             "timing pairing must be unaffected by sampling, setupCacheImage=" + totalSetups);
 
         if (failures > 0) {
@@ -424,8 +508,13 @@ public final class AtlasTimingSelfCheck {
             check(entry.getValue() >= 0,
                 "counter " + entry.getKey() + " must never be negative: " + snap);
         }
+        check(snap.get("attempted")
+                == snap.get("reserved") + snap.get("droppedBudget")
+                    + snap.get("droppedStopped"),
+            "attempt conservation violated: " + snap);
         check(snap.get("reserved")
-                == snap.get("sampleError") + snap.get("droppedQueue") + snap.get("queued")
+                == snap.get("sampleError") + snap.get("droppedQueue")
+                    + snap.get("droppedInFlight") + snap.get("queued")
                     + snap.get("inFlight"),
             "reservation conservation violated: " + snap);
         check(snap.get("queued") == snap.get("dequeued") + snap.get("pending"),
@@ -433,6 +522,19 @@ public final class AtlasTimingSelfCheck {
         check(snap.get("dequeued")
                 == snap.get("written") + snap.get("unconfirmedWrites") + snap.get("inWrite"),
             "write conservation violated: " + snap);
+    }
+
+    /** Counter-driven wait on the in-memory snapshot — no timing races. */
+    private static boolean awaitCounter(final StackSamples.Engine engine, final String key,
+            final long expected) throws InterruptedException {
+        final long deadline = System.currentTimeMillis() + 15_000L;
+        while (System.currentTimeMillis() < deadline) {
+            if (engine.snapshot().get(key) >= expected) {
+                return true;
+            }
+            Thread.sleep(10);
+        }
+        return false;
     }
 
     private static boolean awaitTerminal(final StackSamples.Engine engine)
