@@ -188,7 +188,7 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
                 "TASK_FAILED",
                 "Plugin scheduled task action failed safely."
             );
-            throw new RuntimeException("Plugin scheduled task action failed.", throwable);
+            throw new PluginTaskActionException("Plugin scheduled task action failed.", throwable);
         }
     }
 

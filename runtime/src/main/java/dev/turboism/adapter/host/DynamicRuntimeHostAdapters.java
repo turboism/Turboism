@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
+import dev.turboism.core.runtime.UncheckedThrowableException;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
 import dev.turboism.sdk.ui.resource.UiIconRef;
@@ -250,9 +251,24 @@ final class DynamicRuntimeHostAdapters {
         );
     }
 
+    private void enterAdapterCall() {
+        adapterCallDepth.set(adapterCallDepth.get() + 1);
+    }
+
+    private boolean exitAdapterCall() {
+        final int remainingDepth = adapterCallDepth.get() - 1;
+        final boolean outermost = remainingDepth == 0;
+        if (outermost) {
+            adapterCallDepth.remove();
+        } else {
+            adapterCallDepth.set(remainingDepth);
+        }
+        return outermost;
+    }
+
     private <T> T call(final Function<RuntimeHostAdapters, T> operation) {
         final CallLease lease = acquireLease();
-        adapterCallDepth.set(adapterCallDepth.get() + 1);
+        enterAdapterCall();
         T result = null;
         Throwable primary = null;
         try {
@@ -262,13 +278,7 @@ final class DynamicRuntimeHostAdapters {
         }
 
         releaseLease(lease);
-        final int remainingDepth = adapterCallDepth.get() - 1;
-        final boolean outermost = remainingDepth == 0;
-        if (outermost) {
-            adapterCallDepth.remove();
-        } else {
-            adapterCallDepth.set(remainingDepth);
-        }
+        final boolean outermost = exitAdapterCall();
 
         final Throwable deferredCleanupFailure = runOutermostCallback(outermost, lease);
 
@@ -295,7 +305,7 @@ final class DynamicRuntimeHostAdapters {
         final Function<RuntimeHostAdapters, CompletionStage<T>> operation
     ) {
         final CallLease lease = acquireLease();
-        adapterCallDepth.set(adapterCallDepth.get() + 1);
+        enterAdapterCall();
         CompletionStage<T> stage;
         Throwable primary = null;
         try {
@@ -305,13 +315,7 @@ final class DynamicRuntimeHostAdapters {
             stage = null;
         }
 
-        final int remainingDepth = adapterCallDepth.get() - 1;
-        final boolean outermost = remainingDepth == 0;
-        if (outermost) {
-            adapterCallDepth.remove();
-        } else {
-            adapterCallDepth.set(remainingDepth);
-        }
+        final boolean outermost = exitAdapterCall();
 
         if (primary != null) {
             releaseLease(lease);
@@ -585,7 +589,7 @@ final class DynamicRuntimeHostAdapters {
         if (throwable instanceof Exception exception) {
             throw exception;
         }
-        throw new RuntimeException(throwable);
+        throw new UncheckedThrowableException(throwable);
     }
 
     private static void rethrowUnchecked(final Throwable throwable) {

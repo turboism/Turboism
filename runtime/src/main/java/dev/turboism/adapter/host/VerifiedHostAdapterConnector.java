@@ -9,6 +9,7 @@ import dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract;
+import dev.turboism.core.runtime.UncheckedThrowableException;
 import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -1196,7 +1197,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         if (failure instanceof Exception exception) {
             throw exception;
         }
-        throw new RuntimeException(failure);
+        throw new UncheckedThrowableException(failure);
     }
 
     private static EditorUiProviderAdmission.VerificationEvidence verificationEvidence(

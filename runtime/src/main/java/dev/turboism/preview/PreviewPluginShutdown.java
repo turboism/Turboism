@@ -1,6 +1,7 @@
 package dev.turboism.preview;
 
 import dev.turboism.core.lifecycle.PluginLifecycleState;
+import dev.turboism.core.runtime.UncheckedThrowableException;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
@@ -174,7 +175,7 @@ final class PreviewPluginShutdown {
                     if (failure instanceof Error error) {
                         throw error;
                     }
-                    throw new RuntimeException(failure);
+                    throw new UncheckedThrowableException(failure);
                 }
             });
         final PluginLifecycleLane.AwaitResult<CloseOutcome> result =

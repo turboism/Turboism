@@ -71,7 +71,7 @@ final class OneShotTaskHandle extends AbstractRuntimeTaskHandle {
                     complete(outcome(TaskOutcomeStatus.FAILED, failure));
                 }
             }
-            throw new RuntimeException("Plugin task action failed.", throwable);
+            throw new PluginTaskActionException("Plugin task action failed.", throwable);
         }
     }
 
