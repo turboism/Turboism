@@ -354,6 +354,12 @@ Only bound-cgroup empty/destruction proof permits finalization. A snapshot final
 then rechecks official files, runtime dependencies, fixture and staged artifacts,
 archives evidence and removes only a successful task prefix. Preliminary Runner
 results cannot claim final cleanup. Unsupported containment fails closed.
+
+A separate administrative `abandoned` state exists solely to register proven
+cross-boot orphan attempts that can never produce a final verdict. It is not a
+validation terminal state: it never counts as PASS, never releases the host and
+never proves cleanup safe, and the record plus its evidence stay permanently
+protected. The normal recovery and cleanup gates above are unchanged.
 See `scripts/preview/README-host-validation-scheduling.md` for local-only CLI,
 recovery, service lifecycle and Agent adoption. The service is opt-in and is not
 installed or started by Gradle. Actual exact-host acceptance is a separate gate,

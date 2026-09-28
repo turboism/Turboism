@@ -1,6 +1,7 @@
 package dev.turboism.preview;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.failure.RuntimeFailureCollector;
@@ -9,10 +10,50 @@ import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;
 import dev.turboism.sdk.ui.UserFileRequest;
 import dev.turboism.userfile.UserFileGrantSource;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 final class PreviewPluginServicesFactoryTest {
+
+    private static final UserFileRequest REQUEST =
+            new UserFileRequest("req", "title", List.of("cmo3"), UserFileMode.WRITE, UserFileLifetime.ONE_OPERATION);
+
+    @Test
+    void userFileGrantSourceStaysUnavailableWithoutTheTaskProperty() {
+        final String key = "turboism.preview.userFileFixedGrant";
+        final String previous = System.getProperty(key);
+        try {
+            System.clearProperty(key);
+            final var decision = PreviewPluginServicesFactory.userFileGrantSource()
+                    .request(REQUEST)
+                    .toCompletableFuture()
+                    .join();
+            assertInstanceOf(UserFileGrantSource.Unavailable.class, decision);
+        } finally {
+            if (previous == null) System.clearProperty(key);
+            else System.setProperty(key, previous);
+        }
+    }
+
+    @Test
+    void userFileGrantSourceHonorsTheTaskPinnedFixedGrant() {
+        final String key = "turboism.preview.userFileFixedGrant";
+        final String previous = System.getProperty(key);
+        try {
+            System.setProperty(key, Path.of("task-dir", "persisted.cmo3").toString());
+            final var decision = PreviewPluginServicesFactory.userFileGrantSource()
+                    .request(REQUEST)
+                    .toCompletableFuture()
+                    .join();
+            assertInstanceOf(UserFileGrantSource.Selected.class, decision);
+            assertEquals(Path.of("task-dir", "persisted.cmo3"), ((UserFileGrantSource.Selected) decision).path());
+        } finally {
+            if (previous == null) System.clearProperty(key);
+            else System.setProperty(key, previous);
+        }
+    }
 
     @Test
     void generatedSettingsTabUsesLocalizedPluginName() {

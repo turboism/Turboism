@@ -12,6 +12,8 @@ import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.adapter.cubism.write.HostWriteAdapter;
 import dev.turboism.adapter.cubism.write.RuntimeTransactionManager;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.psd.RuntimePsdExportService;
+import dev.turboism.core.runtime.psd.RuntimePsdReplaceService;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -78,6 +80,8 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
     private final RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
     private final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
+    private RuntimePsdExportService psdExportService;
+    private RuntimePsdReplaceService psdReplaceService;
     /** Plugin scope auto-tied to atlas registrations; null outside the production composition. */
     private dev.turboism.sdk.plugin.DisposableScope pluginScope;
 
@@ -228,6 +232,40 @@ public final class CubismFacadeImpl implements CubismFacade {
         this(
                 source,
                 permissionGate,
+                modelAccess,
+                coreRuntime,
+                parameterLifecycle,
+                partLifecycle,
+                textureAtlasLayouts,
+                nativeInvocations,
+                editorObjectLifecycle,
+                activeScope,
+                textureAtlasEditorUi,
+                textureAtlasEditorSession,
+                textureAtlasAlgorithms,
+                (RuntimePsdExportService) null,
+                (RuntimePsdReplaceService) null);
+    }
+
+    CubismFacadeImpl(
+            final HostSnapshotSource source,
+            final CubismPermissionGate permissionGate,
+            final CubismModelAccess modelAccess,
+            final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+            final ParameterLifecycleCoordinator parameterLifecycle,
+            final PartLifecycleCoordinator partLifecycle,
+            final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+            final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator nativeInvocations,
+            final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+            final BooleanSupplier activeScope,
+            final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+            final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+            final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+            final RuntimePsdExportService psdExportService,
+            final RuntimePsdReplaceService psdReplaceService) {
+        this(
+                source,
+                permissionGate,
                 new ImmutableSnapshotFactory(),
                 CubismFacadeAdapters.unavailableTransactionManager(),
                 modelAccess,
@@ -239,7 +277,9 @@ public final class CubismFacadeImpl implements CubismFacade {
                 activeScope,
                 textureAtlasEditorUi,
                 textureAtlasEditorSession,
-                textureAtlasAlgorithms);
+                textureAtlasAlgorithms,
+                psdExportService,
+                psdReplaceService);
     }
 
     /**
@@ -486,6 +526,91 @@ public final class CubismFacadeImpl implements CubismFacade {
                 pluginSealed,
                 editSessions);
         this.warpMirror = Objects.requireNonNull(warpMirror, "warpMirror");
+    }
+    /** Full production seam with the external-edit PSD services bound to the shared registry. */
+    public CubismFacadeImpl(
+            final HostSnapshotSource source,
+            final CubismPermissionGate permissionGate,
+            final CubismModelAccess modelAccess,
+            final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+            final ParameterLifecycleCoordinator parameterLifecycle,
+            final PartLifecycleCoordinator partLifecycle,
+            final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+            final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator nativeInvocations,
+            final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+            final BooleanSupplier activeScope,
+            final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+            final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+            final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+            final CubismHistory history,
+            final AuthoringTransactionService authoringTransactions,
+            final RuntimePsdExportService psdExportService,
+            final RuntimePsdReplaceService psdReplaceService,
+            final dev.turboism.sdk.plugin.DisposableScope pluginScope,
+            final BooleanSupplier pluginSealed,
+            final dev.turboism.sdk.cubism.edit.EditSessionService editSessions,
+            final dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror) {
+        this(
+                source,
+                permissionGate,
+                modelAccess,
+                coreRuntime,
+                parameterLifecycle,
+                partLifecycle,
+                textureAtlasLayouts,
+                nativeInvocations,
+                editorObjectLifecycle,
+                activeScope,
+                textureAtlasEditorUi,
+                textureAtlasEditorSession,
+                textureAtlasAlgorithms,
+                history,
+                authoringTransactions,
+                pluginScope,
+                pluginSealed,
+                editSessions,
+                warpMirror);
+        this.psdExportService = psdExportService;
+        this.psdReplaceService = psdReplaceService;
+    }
+
+    /** Full production construction seam with the optional runtime PSD observation service. */
+    public CubismFacadeImpl(
+            final HostSnapshotSource source,
+            final CubismPermissionGate permissionGate,
+            final CubismModelAccess modelAccess,
+            final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+            final ParameterLifecycleCoordinator parameterLifecycle,
+            final PartLifecycleCoordinator partLifecycle,
+            final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+            final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator nativeInvocations,
+            final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+            final BooleanSupplier activeScope,
+            final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+            final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+            final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+            final CubismHistory history,
+            final AuthoringTransactionService authoringTransactions,
+            final RuntimePsdExportService psdExportService,
+            final RuntimePsdReplaceService psdReplaceService) {
+        this(
+                source,
+                permissionGate,
+                modelAccess,
+                coreRuntime,
+                parameterLifecycle,
+                partLifecycle,
+                textureAtlasLayouts,
+                nativeInvocations,
+                editorObjectLifecycle,
+                activeScope,
+                textureAtlasEditorUi,
+                textureAtlasEditorSession,
+                textureAtlasAlgorithms,
+                psdExportService,
+                psdReplaceService);
+        this.history = Objects.requireNonNull(history, "history");
+        this.authoringTransactions = Objects.requireNonNull(authoringTransactions, "authoringTransactions");
     }
 
     public CubismFacadeImpl(
@@ -827,6 +952,42 @@ public final class CubismFacadeImpl implements CubismFacade {
             final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
             final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
             final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms) {
+        this(
+                source,
+                permissionGate,
+                snapshotFactory,
+                transactionManager,
+                modelAccess,
+                coreRuntime,
+                parameterLifecycle,
+                partLifecycle,
+                textureAtlasLayouts,
+                editorObjectLifecycle,
+                activeScope,
+                textureAtlasEditorUi,
+                textureAtlasEditorSession,
+                textureAtlasAlgorithms,
+                null,
+                null);
+    }
+
+    CubismFacadeImpl(
+            final HostSnapshotSource source,
+            final CubismPermissionGate permissionGate,
+            final ImmutableSnapshotFactory snapshotFactory,
+            final TransactionManager transactionManager,
+            final CubismModelAccess modelAccess,
+            final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+            final ParameterLifecycleCoordinator parameterLifecycle,
+            final PartLifecycleCoordinator partLifecycle,
+            final TextureAtlasLayoutService textureAtlasLayouts,
+            final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+            final BooleanSupplier activeScope,
+            final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+            final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+            final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+            final RuntimePsdExportService psdExportService,
+            final RuntimePsdReplaceService psdReplaceService) {
         this.source = Objects.requireNonNull(source, "source");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
         this.snapshotFactory = Objects.requireNonNull(snapshotFactory, "snapshotFactory");
@@ -845,6 +1006,8 @@ public final class CubismFacadeImpl implements CubismFacade {
         this.textureAtlasAlgorithms = textureAtlasAlgorithms == null
                 ? new RuntimeTextureAtlasLayoutAlgorithmRegistry()
                 : textureAtlasAlgorithms;
+        this.psdExportService = psdExportService;
+        this.psdReplaceService = psdReplaceService;
         this.modelAccess = CubismFacadeAdapters.permissionCheckedModelAccess(
                 this, Objects.requireNonNull(modelAccess, "modelAccess"));
     }
@@ -1120,7 +1283,8 @@ public final class CubismFacadeImpl implements CubismFacade {
         if (project.isEmpty()) {
             return Optional.empty();
         }
-        // runtime() redacts only the project portion on project-read denial so model-read plugins can still inspect
+        // runtime() redacts only the project portion on project-read denial so model-read plugins can
+        // still inspect
         // model state.
         return projectReadAllowed() ? project : Optional.empty();
     }
@@ -1164,6 +1328,52 @@ public final class CubismFacadeImpl implements CubismFacade {
                 List.of(),
                 List.of(),
                 List.of());
+    }
+
+    private dev.turboism.sdk.cubism.core.CoreRuntimeInfo permissionCheckedCoreRuntime(
+            final dev.turboism.sdk.cubism.core.CoreRuntimeInfo delegate) {
+        Objects.requireNonNull(delegate, "delegate");
+        return new dev.turboism.sdk.cubism.core.CoreRuntimeInfo() {
+            @Override
+            public dev.turboism.sdk.cubism.core.CoreVersion version() {
+                requireModelRead("coreRuntime.version");
+                return delegate.version();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
+                requireModelRead("coreRuntime.capabilities");
+                return delegate.capabilities();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.core.MocInspector mocInspector() {
+                requireModelRead("coreRuntime.mocInspector");
+                final dev.turboism.sdk.cubism.core.MocInspector inspector = delegate.mocInspector();
+                return new dev.turboism.sdk.cubism.core.MocInspector() {
+                    @Override
+                    public dev.turboism.sdk.cubism.core.MocVersion latestVersion() {
+                        requireModelRead("coreRuntime.mocInspector.latestVersion");
+                        return inspector.latestVersion();
+                    }
+
+                    @Override
+                    public dev.turboism.sdk.cubism.core.MocInfo inspect(
+                            final dev.turboism.sdk.cubism.core.MocData data) {
+                        requireModelRead("coreRuntime.mocInspector.inspect");
+                        return inspector.inspect(data);
+                    }
+                };
+            }
+        };
+    }
+
+    RuntimePsdExportService psdExportService() {
+        return psdExportService;
+    }
+
+    RuntimePsdReplaceService psdReplaceService() {
+        return psdReplaceService;
     }
 
     dev.turboism.sdk.cubism.model.Part unwrapPart(

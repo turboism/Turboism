@@ -823,7 +823,7 @@ def check_configurator_flow_contract():
           and "MinimumSize = New-Object System.Drawing.Size(900, 720)" in configure
           and "$form.MaximizeBox = $true" in configure
           and "Anchor = 'Top, Bottom, Left, Right'" in configure)
-    check("CF5 candidate selection resolves exact versions from application artifacts",
+    check("CF5 candidate selection resolves declared identity and admission from application artifacts",
           "Get-CubismVersionFromArtifact" in common
           and "CubismHostProbeCli" in common
           and "HostArtifactDigest.from" in (INSTALLER_NSI.parent.parent.parent / "runtime/src/main/java/dev/turboism/mapping/verification/CubismEditorReleaseDetector.java").read_text(encoding="utf-8")

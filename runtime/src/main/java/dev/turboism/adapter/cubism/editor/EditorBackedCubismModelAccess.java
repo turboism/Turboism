@@ -148,7 +148,8 @@ public final class EditorBackedCubismModelAccess
         this.documentReadAccess =
                 new EditorDocumentReadAccess(resolver, this::requireCurrent, this.authoringCoordinator);
         this.modelInstanceAccess = new EditorModelInstanceAccess(resolver, this::requireCurrent);
-        this.textureAccess = new EditorTextureAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+        this.textureAccess = new EditorTextureAccess(
+                resolver, this::requireCurrent, () -> binding().generation(), this.authoringCoordinator);
         this.modelProfileAccess =
                 new EditorModelProfileAccess(resolver, this::requireCurrent, this.authoringCoordinator);
         this.partOpacityAccess = new EditorPartOpacityAccess(
@@ -240,6 +241,16 @@ public final class EditorBackedCubismModelAccess
         return new EditorModel(binding.identity(), binding.modelId(), binding.source(), binding.model());
     }
 
+    /**
+     * The identity of the currently bound verified modeling document and model, for trusted
+     * runtime consumers that must correlate a captured selection with the executing live
+     * binding. Fails when no verified modeling document and model are active; not a
+     * plugin-facing API.
+     */
+    public String currentBindingIdentity() {
+        return binding().identity();
+    }
+
     @Override
     public void requireCreateSupported(final ModelObjectCreateRequest request) {
         hierarchyEditAccess.requireCreateSupported(request);
@@ -319,9 +330,9 @@ public final class EditorBackedCubismModelAccess
         if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
             final String actualClass =
                     document == null ? "null" : document.getClass().getName();
-            throw unavailable(
-                    "The active Cubism document is not a modeling document. [DEBUG-pb-admission] activeDocumentClass="
-                            + actualClass + " thread=" + Thread.currentThread().getName());
+            throw unavailable("The active Cubism document is not a modeling document. [DEBUG-pb-admission]"
+                    + " activeDocumentClass="
+                    + actualClass + " thread=" + Thread.currentThread().getName());
         }
         final Object source = resolver.invoke("cubism.editor-model.modeling-document.model-source", document);
         final Object model =
@@ -650,7 +661,7 @@ public final class EditorBackedCubismModelAccess
             }
             if (hasParameterBindings(source)) {
                 throw new IllegalStateException(
-                        "Cannot change Blend Shape because the parameter is bound to one or more model objects.");
+                        "Cannot change Blend Shape because the parameter is bound to one or more model" + " objects.");
             }
             if (desiredMorphTarget
                     && !booleanValue(

@@ -49,7 +49,9 @@ final class CoreStructuralTracer implements AutoCloseable {
                         exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
                                 ? CoreProviderFailure.Code.RESOLUTION_FAILED
                                 : CoreProviderFailure.Code.INVOCATION_FAILED,
-                        "Verified Core structural selector failed safely.");
+                        "Verified Core structural selector failed safely;selector=" + exception.alias()
+                                + ";kind=" + exception.failureKind()
+                                + ";category=" + exception.hostFailureCategory());
             } catch (CoreStructuralValidationException | IllegalArgumentException exception) {
                 return failed(
                         CoreProviderFailure.Code.INVALID_STRUCTURE,
