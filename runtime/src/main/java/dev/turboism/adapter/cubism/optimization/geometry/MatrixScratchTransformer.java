@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.geometry;
 
+import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -301,47 +302,5 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
         return REVIEWED_CLASS_SHA256;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = Map.of(
-            "5.2.03",
-                    Map.ofEntries(
-                            Map.entry(
-                                    "com/live2d/graphics3d/component/GTransform",
-                                    "b64cc81b41a2113e09ad937e53b17c05f23d08712369c4a844a8a7357c627e56"),
-                            Map.entry(
-                                    "com/live2d/graphics3d/type/GMatrix44",
-                                    "3dbf6a697c1129ae4634bcbca0190fbbefd664d23bf172c4b9472c050e1811ff"),
-                            Map.entry(
-                                    "com/live2d/graphics3d/type/a",
-                                    "816717824693cadf8a990fb60622130918ed669433b03509185a397af94375f6"),
-                            Map.entry(
-                                    "com/live2d/graphics3d/entity/GEntity",
-                                    "1c430ce8fddf560cba98bd9ca952c54362dc67a5291000d32779230953c17c4b")),
-            "5.3.02",
-                    Map.ofEntries(
-                            Map.entry(
-                                    "com/live2d/graphics3d/component/GTransform",
-                                    "b9be651f1533657c10d30f0c0ec0a6df85c4d780a074c42fdd18c0d568a44e93"),
-                            Map.entry(
-                                    "com/live2d/graphics3d/type/GMatrix44",
-                                    "3dbf6a697c1129ae4634bcbca0190fbbefd664d23bf172c4b9472c050e1811ff"),
-                            Map.entry(
-                                    "com/live2d/graphics3d/type/a",
-                                    "816717824693cadf8a990fb60622130918ed669433b03509185a397af94375f6"),
-                            Map.entry(
-                                    "com/live2d/graphics3d/entity/GEntity",
-                                    "ac98d367391ea3a7cfd32d31514bb16a6f371753516d06a2aa96ecbe8be1ade6")),
-            "5.3.03",
-                    Map.ofEntries(
-                            Map.entry(
-                                    "com/live2d/graphics3d/component/GTransform",
-                                    "b9be651f1533657c10d30f0c0ec0a6df85c4d780a074c42fdd18c0d568a44e93"),
-                            Map.entry(
-                                    "com/live2d/graphics3d/type/GMatrix44",
-                                    "3dbf6a697c1129ae4634bcbca0190fbbefd664d23bf172c4b9472c050e1811ff"),
-                            Map.entry(
-                                    "com/live2d/graphics3d/type/a",
-                                    "816717824693cadf8a990fb60622130918ed669433b03509185a397af94375f6"),
-                            Map.entry(
-                                    "com/live2d/graphics3d/entity/GEntity",
-                                    "ac98d367391ea3a7cfd32d31514bb16a6f371753516d06a2aa96ecbe8be1ade6")));
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = ClassPinTable.load("matrix-scratch");
 }

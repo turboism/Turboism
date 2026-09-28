@@ -1,0 +1,20 @@
+{
+  "5.2.03": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "1b22a324345a3f537804684c0e96044264c92de0e5da5fa85d1333351ff953eb",
+    "com/live2d/cubism/view/context/a/b": "7a64d696813b44dda628487c4c47c64a9ebf99cc8bc00df01432ab8f64fc0293",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51"
+  },
+  "5.3.02": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "60db25516b5466387b9f60550a24fde61c6b963b66f61e83827ea750ca48a7e6",
+    "com/live2d/cubism/view/context/a/b": "f212f2797f104f2a45e4c596101c49d4b484e9cb7b2dc289412f3424135d9566",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "67aeb05e99486a9851c21d098c4d325bee106e805038037d85ca9038f0a7a271"
+  },
+  "5.3.03": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "02f046569d3c3c83bc06cbac68dc62b3218f243bf473043c65822e1f94599e3e",
+    "com/live2d/cubism/view/context/a/b": "bc29a9bca6a09b0aceeb7b61f0b68170c558870db7beec1f06ef142861d5bec4",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "d85901df5f0ae742ee7cb3d8019295240d9d9ca3d9c6deb59b8a75c50286a56a"
+  }
+}
