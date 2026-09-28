@@ -1207,6 +1207,10 @@ val ordinaryTestTasks = subprojects
     .filter { it.tasks.findByName("test") != null }
     .map { "${it.path}:test" }
 
+val spotlessCheckTasks = subprojects
+    .filter { it.tasks.findByName("spotlessCheck") != null }
+    .map { "${it.path}:spotlessCheck" }
+
 val checkCompletedCommit by tasks.registering {
     group = "verification"
     description = "Runs the complete automated repository gate for a coherent completed change."
@@ -1229,7 +1233,7 @@ val checkCompletedCommit by tasks.registering {
         checkPerformanceProbeReports,
         "checkLocalizedChangelogs",
         "checkLocalizedChangelogsSelfTest",
-        "spotlessCheck",
+        spotlessCheckTasks,
         "generateSdkApiReport"
     )
 }

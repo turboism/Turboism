@@ -166,6 +166,22 @@ public enum PluginService {
     }
 
     /**
+     * Returns the member naming {@code serviceType}, or {@code null} when no member maps it.
+     *
+     * @param serviceType the service interface to look up
+     * @return the matching member, or {@code null}
+     */
+    @Incubating
+    public static PluginService forType(final Class<?> serviceType) {
+        for (final PluginService member : values()) {
+            if (member.type == serviceType) {
+                return member;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Resolves this member's service on {@code context} to the installed instance, or
      * {@code null} when the context exposes only the service's unavailable sentinel.
      *

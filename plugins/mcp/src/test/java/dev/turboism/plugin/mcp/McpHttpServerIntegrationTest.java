@@ -1453,6 +1453,7 @@ final class McpHttpServerIntegrationTest {
                     case "selectionQuery" -> reads.selection;
                     case "cubismRead" -> reads.read;
                     case "cubismClipMasks" -> reads.clipMasks;
+                    case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
                     case "cubism" -> McpHttpServer.Dependencies.unavailableCubism();
                     case "workspace" -> WorkspaceService.unavailable();
                     case "workspaceLayout" -> WorkspaceLayoutService.unavailable();

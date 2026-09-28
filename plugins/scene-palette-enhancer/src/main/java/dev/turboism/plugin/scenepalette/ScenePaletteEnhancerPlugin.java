@@ -37,7 +37,7 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
                 context.logger().info("Scene manual order storage is unavailable; persistence is disabled.");
             }
         }
-        sorter = new SceneTableSorter(context.services().get(SceneTableService.class), store, context.logger());
+        sorter = new SceneTableSorter(context.services().require(SceneTableService.class), store, context.logger());
     }
 
     /** Forwards a scene-table header click to the active palette sorter. */

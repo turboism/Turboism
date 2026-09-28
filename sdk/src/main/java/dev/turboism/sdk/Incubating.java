@@ -22,5 +22,12 @@ import java.lang.annotation.Target;
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.TYPE, ElementType.METHOD, ElementType.CONSTRUCTOR})
+@Target({
+    ElementType.TYPE,
+    ElementType.METHOD,
+    ElementType.CONSTRUCTOR,
+    ElementType.FIELD,
+    ElementType.RECORD_COMPONENT,
+    ElementType.PARAMETER
+})
 public @interface Incubating {}

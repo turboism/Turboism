@@ -345,7 +345,7 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
     private void notifyStatus(final String message) {
         try {
             statusRegistrations.add(context.services()
-                    .get(UiHostCapabilityService.class)
+                    .require(UiHostCapabilityService.class)
                     .notifyStatus(new StatusNotification(STATUS_NOTIFY_ID, "INFO", message)));
         } catch (RuntimeException unavailable) {
             logger.warn("Clip Mask Viewer status notification unavailable");

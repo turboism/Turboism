@@ -23,7 +23,7 @@ public final class PsdClipMaskImportPlugin implements TurboismPlugin {
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
         this.importService = new PsdClipMaskImportService(
-                context.cubism().model(), context, context.services().get(UiHostCapabilityService.class));
+                context.cubism().model(), context, context.services().require(UiHostCapabilityService.class));
         context.logger().info("PSD Clip Mask Import initialized");
     }
 

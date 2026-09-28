@@ -297,6 +297,7 @@ class ProtectedExportPluginTest {
             case "cubism" -> cubism.facade;
             case "logger" -> logger;
             case "permissions" -> List.of();
+            case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
             default -> defaultValue(method.getReturnType());
         });
     }
