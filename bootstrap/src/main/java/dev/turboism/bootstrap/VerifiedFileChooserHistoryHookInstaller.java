@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.filechooser.FileChooserHistoryHostProfile;
 import dev.turboism.adapter.cubism.filechooser.FileChooserHistoryNativeMethodTransformer;
 import dev.turboism.adapter.cubism.filechooser.NativeFileChooserHistoryBridge;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 
 import java.lang.instrument.Instrumentation;
@@ -69,6 +70,7 @@ final class VerifiedFileChooserHistoryHookInstaller implements AutoCloseable {
                 "Installed verified file-chooser hooks; retransformed=" + retransformed
             );
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }

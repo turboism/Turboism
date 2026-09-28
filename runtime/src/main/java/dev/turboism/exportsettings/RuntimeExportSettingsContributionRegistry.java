@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
@@ -139,6 +140,7 @@ public final class RuntimeExportSettingsContributionRegistry
             try {
                 callbackDecision = entry.contribution().callback().decide(true, documentId, modelId);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 callbackFailure = failure;
             }
         } finally {

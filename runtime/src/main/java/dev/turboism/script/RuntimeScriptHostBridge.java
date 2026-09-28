@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.graal.GraalHostManager;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -173,6 +174,7 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
             try {
                 completion.complete(operation.call());
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 completion.completeExceptionally(failure);
             }
         });
@@ -208,6 +210,7 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
                 completion.complete(operation.call(() -> cancelled.get()
                     || Thread.currentThread().isInterrupted()));
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 completion.completeExceptionally(failure);
             }
         });

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -116,6 +117,7 @@ public final class WarpAltRouteDiagnosticsTransformer implements ClassFileTransf
             }, 0);
             return writer.toByteArray();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failure.printStackTrace();
             return null;
         }

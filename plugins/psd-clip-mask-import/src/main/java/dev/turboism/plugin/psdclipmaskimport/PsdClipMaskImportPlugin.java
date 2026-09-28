@@ -7,6 +7,7 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.util.Objects;
 import java.util.function.Consumer;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 /**
  * SDK-only PSD clip-mask import plugin. All action and panel registrations
@@ -25,7 +26,7 @@ public final class PsdClipMaskImportPlugin implements TurboismPlugin {
         this.importService = new PsdClipMaskImportService(
             context.cubism().model(),
             context,
-            context.uiHost()
+            context.services().get(UiHostCapabilityService.class)
         );
         context.logger().info("PSD Clip Mask Import initialized");
     }

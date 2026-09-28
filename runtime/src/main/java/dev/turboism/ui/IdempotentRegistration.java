@@ -1,5 +1,6 @@
 package dev.turboism.ui;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.Objects;
@@ -75,6 +76,7 @@ final class IdempotentRegistration implements Registration {
             }
             completion.complete(null);
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             synchronized (this) {
                 state = State.OPEN;
                 closeOwner = null;

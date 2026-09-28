@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
@@ -165,6 +166,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             try {
                 captureNow(request, result);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (!(failure instanceof ScreenshotCaptureTargetUnavailableException)) {
                     diagnose("capture:failed " + failure.getClass().getName());
                 }
@@ -283,6 +285,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 rememberDebounced(request.id(), image);
                 result.complete(new ScreenshotCaptureResult(request.id(), image));
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 diagnose("capture:failed " + failure.getClass().getName());
                 result.completeExceptionally(failure);
             }
@@ -349,6 +352,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             }
             return result;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnose("resolveCaptureComponent:" + step + " " + failure.getClass().getName());
             return null;
         }
@@ -658,6 +662,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             add.invoke(drawable, listener);
             new ReadbackAttempt(drawable, width, height, image, remove, display, invoke, renderPass, listener, onResult).attempt();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnose("captureDrawable:" + failure.getClass().getName());
             onResult.accept(null);
         }
@@ -712,6 +717,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             } catch (java.lang.reflect.InvocationTargetException ignored) {
                 // the render pass reported an exception; the forced pass below still runs
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 finish(failure);
                 return;
             }
@@ -721,6 +727,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 } catch (java.lang.reflect.InvocationTargetException ignored) {
                     // try the next attempt
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     finish(failure);
                     return;
                 }
@@ -742,6 +749,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             try {
                 remove.invoke(drawable, listener);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // listener removal is best-effort
             }
             if (failure != null) {
@@ -767,6 +775,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 captureDrawable(component, component.getWidth(), component.getHeight(), onResult);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnose("captureJogl:" + failure.getClass().getName());
             onResult.accept(null);
         }
@@ -784,6 +793,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnose("sharedDrawable:" + failure.getClass().getName());
             return null;
         }
@@ -797,6 +807,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 if ((Integer) glGetError.invoke(gl) == 0x0500) return;
             }
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // diagnostics only; never fail the capture for drain issues
         }
     }
@@ -808,6 +819,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             final Object gl = MethodHandleCache.method(drawable.getClass(), "getGL").invoke(drawable);
             if (gl != null) drainGlErrors(gl, glType);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // diagnostics only
         }
     }
@@ -911,6 +923,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             }
             return image;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnose("readJogl:" + failure.getClass().getName());
             return null;
         }
@@ -932,6 +945,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         try {
             return glType.getField(name).getInt(null);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return fallback;
         }
     }
@@ -1047,6 +1061,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         try {
             MethodHandleCache.method(target.getClass(), name, value.getClass()).invoke(target, value);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // diagnostics only
         }
     }
@@ -1056,6 +1071,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         try {
             return MethodHandleCache.method(target.getClass(), name).invoke(target);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return null;
         }
     }

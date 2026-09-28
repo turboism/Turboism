@@ -18,6 +18,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.function.Consumer;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 /**
  * Official SDK-only plugin shell for parameter CSV import/export behavior.
@@ -52,7 +53,7 @@ public final class ParameterPlugin implements CubismPlugin {
         this.csvService = new ParameterCsvService(
             context.cubism(),
             context,
-            context.uiHost(),
+            context.services().get(UiHostCapabilityService.class),
             csvContentProvider
         );
         logger.info("ParameterPlugin initialized");
@@ -160,7 +161,7 @@ public final class ParameterPlugin implements CubismPlugin {
         final java.util.Set<ContextMenuRegistry.ObjectKind> objectKinds,
         final int priority
     ) {
-        context.disposableScope().register(context.contextMenu().contribute(
+        context.disposableScope().register(context.services().get(ContextMenuRegistry.class).contribute(
             new ContextMenuRegistry.ContextMenuContribution(
                 id,
                 TRANSFER_BINDINGS_ACTION_ID,
@@ -202,14 +203,14 @@ public final class ParameterPlugin implements CubismPlugin {
         final var snapshot = context.cubism().runtime().selection();
         final ParameterId source = resolveSourceParameter(snapshot, contextMenuSelection);
         final ParameterId destination = resolveDestinationParameter(source, model, snapshot, contextMenuSelection);
-        if (contextMenuSelection != null && !context.uiHost().confirmDialog(new DialogRequest(
+        if (contextMenuSelection != null && !context.services().get(UiHostCapabilityService.class).confirmDialog(new DialogRequest(
             "parameter.bindings.transfer.confirm",
             text("parameter.bindings.transfer"),
             localization.format("parameter.bindings.transfer.confirm", source.value(), destination.value())
         ))) {
             return;
         }
-        final boolean invert = contextMenuSelection == null || context.uiHost().confirmDialog(new DialogRequest(
+        final boolean invert = contextMenuSelection == null || context.services().get(UiHostCapabilityService.class).confirmDialog(new DialogRequest(
             "parameter.bindings.transfer.invert.confirm",
             text("parameter.bindings.transfer"),
             text("parameter.bindings.transfer.invert.confirm")

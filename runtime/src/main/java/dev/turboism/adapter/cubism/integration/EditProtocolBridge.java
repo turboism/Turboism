@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
@@ -209,6 +210,7 @@ public final class EditProtocolBridge {
             writer.send(socket, frame);
             lastOutcome.set(Outcome.INTERCEPTED_RESPONDED);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             lastOutcome.set(Outcome.INTERCEPTED_SEND_FAILED);
         }
         intercepted.incrementAndGet();
@@ -228,6 +230,7 @@ public final class EditProtocolBridge {
             writer.send(socket, frame);
             lastOutcome.set(outcome);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // The message is already claimed; a failed write must not leak host-side
             // behaviour, so the outcome is still reported as intercepted.
             lastOutcome.set(Outcome.INTERCEPTED_SEND_FAILED);

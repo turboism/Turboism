@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 
@@ -401,6 +402,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
         try {
             thread.start();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             synchronized (bindLock) {
                 if (retryTask != null
                     && retryTask.request() == request

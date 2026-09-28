@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.event.EditorExitEvent;
 import dev.turboism.sdk.cubism.event.EditorStartupEvent;
 
@@ -158,6 +159,7 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
                 try {
                     hook.beforeEditorExit(editor);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logFailure(plugin, "beforeEditorExit", failure);
                 }
             }
@@ -191,12 +193,14 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
                     try {
                         hook.onEditorExiting(currentExit.editor());
                     } catch (Throwable callbackFailure) {
+                        FatalErrors.rethrowIfFatal(callbackFailure);
                         logFailure(plugin, "onEditorExiting", callbackFailure);
                     }
                 }
                 try {
                     hook.afterEditorExit(result);
                 } catch (Throwable callbackFailure) {
+                    FatalErrors.rethrowIfFatal(callbackFailure);
                     logFailure(plugin, "afterEditorExit", callbackFailure);
                 }
             }
@@ -235,6 +239,7 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
             try {
                 hook.beforeEditorStartup(editor);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 logFailure(plugin, "beforeEditorStartup", failure);
             }
         }
@@ -243,11 +248,13 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
                 try {
                     hook.onEditorStarted(editor);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logFailure(plugin, "onEditorStarted", failure);
                 }
                 try {
                     hook.afterEditorStartup(editor);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logFailure(plugin, "afterEditorStartup", failure);
                 }
             }
@@ -275,6 +282,7 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
         try {
             plugin.logger().error("Cubism editor lifecycle hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Hook and diagnostic failures must not escape into Cubism.
         }
     }

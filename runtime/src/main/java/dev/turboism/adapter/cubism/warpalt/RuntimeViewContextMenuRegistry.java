@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.resource.UiRasterImage;
 import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
@@ -125,6 +126,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 + " entities=" + built.stateEntities().size());
             scheduleDeferredSeat(built.button());
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             final String phase = failure instanceof PhaseTagged tagged ? tagged.phase : "UNKNOWN";
             diagnostic("BUTTON_MOUNT_FAILED phase=" + phase
                 + " reason=" + failure.getClass().getName() + ": " + failure.getMessage());
@@ -289,6 +291,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 try {
                     contribution.onClick().accept(state);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     final StringBuilder sb = new StringBuilder();
                     for (Throwable c = failure; c != null; c = c.getCause()) {
                         if (sb.length() > 0) sb.append(" <- ");
@@ -499,6 +502,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             children.getClass().getMethod("remove", Object.class)
                 .invoke(children, button);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // best-effort removal
         }
     }
@@ -574,6 +578,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                         + " w=" + w + " h=" + h + " zRight=" + seatX);
                 }
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 diagnostic("BUTTON_POSITION_FAILED " + failure.getClass().getSimpleName());
             }
         }
@@ -748,6 +753,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             }
             diagnostic(sb.toString());
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("STRIP_GEOMETRY_FAILED " + failure.getClass().getSimpleName());
         }
     }
@@ -785,6 +791,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             }
             return sb.append(']').toString();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return ",mr=ERR";
         }
     }
@@ -807,6 +814,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             dev.turboism.runtime.log.RuntimeDiagnostics.info(
                 "warp-alt-mirror", "STRIP_DIAG stage=" + stage);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // never reach the host call site
         }
     }

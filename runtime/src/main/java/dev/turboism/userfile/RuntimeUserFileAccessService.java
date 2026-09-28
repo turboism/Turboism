@@ -22,6 +22,7 @@ import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.adapter.cubism.command.EditorFileCommandResolver;
 import dev.turboism.adapter.cubism.command.ResolvedEditorFileCommand;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
 
@@ -135,6 +136,7 @@ public final class RuntimeUserFileAccessService
             try {
                 closeable.close();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 original.addSuppressed(failure);
                 reportSourceCloseFailure(failure);
             }
@@ -142,6 +144,7 @@ public final class RuntimeUserFileAccessService
         try {
             io.close();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             original.addSuppressed(failure);
         }
     }
@@ -385,6 +388,7 @@ public final class RuntimeUserFileAccessService
             try {
                 closeable.close();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 reportSourceCloseFailure(failure);
             }
         }
@@ -399,6 +403,7 @@ public final class RuntimeUserFileAccessService
         try {
             cleanupEvidence.cleanupFailed();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             sourceFailure.addSuppressed(failure);
         }
         try {
@@ -414,6 +419,7 @@ public final class RuntimeUserFileAccessService
                 1
             ));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             sourceFailure.addSuppressed(failure);
         }
     }

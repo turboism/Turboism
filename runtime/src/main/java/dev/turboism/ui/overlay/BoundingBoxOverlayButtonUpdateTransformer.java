@@ -1,5 +1,6 @@
 package dev.turboism.ui.overlay;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -224,6 +225,7 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
                     } while (!current.isAssignableFrom(rightType));
                     return current.getName().replace('.', '/');
                 } catch (Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
                     return "java/lang/Object";
                 }
             }

@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.mesh.MeshMirrorHookAdmission;
 import dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 
 import java.nio.file.Path;
@@ -107,6 +108,7 @@ final class MeshMirrorHookContributor implements HookContributor {
             }
             installer.set(candidate);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             candidate.close();
             throw failure;
         }
@@ -154,6 +156,7 @@ final class MeshMirrorHookContributor implements HookContributor {
                 runtime.hostAccess().meshEditUiService()
             );
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             current.close();
             installer.compareAndSet(current, null);
             CURRENT.compareAndSet(current, null);

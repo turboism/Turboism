@@ -1,5 +1,6 @@
 package dev.turboism.update;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -111,6 +112,7 @@ public final class HttpUpdateTransport implements UpdateTransport {
                     result.completeExceptionally(new IllegalStateException("update request failed", failure));
                 }
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (!cancelled.get() && !result.isDone()) result.completeExceptionally(failure);
             } finally {
                 finish();

@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.mesh.MeshMirrorNativeMethodTransformer;
 import dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -146,6 +147,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                 installed = true;
                 report("MESH_MIRROR_DIAG stage=TRANSFORMER_REGISTERED");
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 rollback();
                 closed = true;
                 throw new IllegalStateException("mesh mirror hook installation failed", failure);
@@ -220,6 +222,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                 NativeMeshMirrorBridge.install(axis, ui, true);
                 bound = true;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (contributionObserver != null) {
                     contributionObserver.close();
                     contributionObserver = null;
@@ -292,6 +295,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         try {
             NativeMeshMirrorBridge.uninstall();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.add("MESH_MIRROR_BRIDGE_UNINSTALL_FAILED");
         }
         if (installed) {
@@ -301,6 +305,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                     failures.add("MESH_MIRROR_TRANSFORMER_REMOVE_FAILED");
                 }
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 failures.add("MESH_MIRROR_TRANSFORMER_REMOVE_FAILED");
             }
             restoreLoadedTargets(failures);
@@ -309,6 +314,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             try {
                 contributionObserver.close();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 failures.add("MESH_MIRROR_CONTRIBUTION_OBSERVER_CLOSE_FAILED");
             } finally {
                 contributionObserver = null;
@@ -318,6 +324,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             try {
                 ui.resetSession();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 failures.add("MESH_MIRROR_UI_RESET_FAILED");
             }
         }
@@ -325,6 +332,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             try {
                 axis.resetSession();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 failures.add("MESH_MIRROR_AXIS_RESET_FAILED");
             }
         }
@@ -348,11 +356,13 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                         instrumentation.retransformClasses(type);
                     }
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     failures.add("MESH_MIRROR_RESTORE_FAILED owner=" + safeName(type));
                     failures.add("MESH_MIRROR_DIAG stage=RESTORE_FAILED owner=" + safeName(type));
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.add("MESH_MIRROR_RESTORE_ENUMERATION_FAILED");
             failures.add("MESH_MIRROR_DIAG stage=RESTORE_FAILED owner=ENUMERATION");
         }
@@ -363,6 +373,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         try {
             loaded = instrumentation.getAllLoadedClasses();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             report("MESH_MIRROR_UNAVAILABLE_LOADED_CLASS_ENUMERATION_FAILED");
             throw new IllegalStateException("mesh mirror loaded-class enumeration failed", failure);
         }
@@ -379,6 +390,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         try {
             diagnostic.accept(message);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics must not reopen a closed host boundary.
         }
     }
@@ -387,6 +399,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         try {
             return type.getName();
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return "UNKNOWN";
         }
     }

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
@@ -129,6 +130,7 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }
@@ -153,6 +155,7 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
             }
             installed = false;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("Texture-atlas hook restoration failed.", failure);
         }
     }

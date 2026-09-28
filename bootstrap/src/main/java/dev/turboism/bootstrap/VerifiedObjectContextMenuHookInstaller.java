@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import dev.turboism.ui.context.ObjectContextMenuAppendNativeMethodTransformer;
@@ -57,6 +58,7 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw new IllegalStateException("Verified object context-menu hook installation failed", failure);
         }
@@ -81,6 +83,7 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("Verified object context-menu hook restoration failed", failure);
         }
     }

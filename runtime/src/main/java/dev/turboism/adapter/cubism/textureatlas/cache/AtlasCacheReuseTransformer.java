@@ -7,6 +7,7 @@ import java.security.ProtectionDomain;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import dev.turboism.bootstrap.atlascache.AtlasCacheReuseDelegate;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 /**
  * Exact-selector transformer for {@code CTextureAtlas}'s redundant-rebuild guard.
@@ -131,6 +132,7 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
                     java.nio.file.StandardOpenOption.CREATE,
                     java.nio.file.StandardOpenOption.APPEND);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Diagnostics only.
             }
         }
@@ -182,6 +184,7 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
         try {
             System.err.println(line);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // The console is evidence, never a failure source.
         }
         final String evidence = evidenceFile();
@@ -192,6 +195,7 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
                     java.nio.file.StandardOpenOption.CREATE,
                     java.nio.file.StandardOpenOption.APPEND);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Evidence capture must never affect the transform outcome.
             }
         }

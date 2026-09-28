@@ -2,9 +2,11 @@ package dev.turboism.sdk.mcp;
 
 import java.net.URI;
 import java.util.Locale;
-import java.util.Objects;
+import java.util.Objects;import dev.turboism.sdk.Incubating;
+
 
 /** Credential-free loopback HTTP connection to a Turboism-owned MCP server. */
+@Incubating
 public final class McpHttpConnection {
 
     private final URI endpoint;

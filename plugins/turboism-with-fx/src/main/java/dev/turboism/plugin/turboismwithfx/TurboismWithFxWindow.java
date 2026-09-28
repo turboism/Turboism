@@ -1289,6 +1289,8 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
     ) {
         try {
             return showPermissionDialog(request);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             return FxAcpListener.PermissionDecision.CANCELLED;
         }

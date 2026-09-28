@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -204,6 +205,7 @@ public final class NativeWarpAltMirrorBridge {
                     + " step=" + step);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("POINT_MOVE_MIRROR_FAILED reason=" + failure.getClass().getName());
         }
     }
@@ -243,6 +245,7 @@ public final class NativeWarpAltMirrorBridge {
             }
             mirrorCounterpart(binder, selected, pos, shift);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("TICK_FAILED reason=" + failure.getClass().getName());
         }
     }
@@ -386,6 +389,7 @@ public final class NativeWarpAltMirrorBridge {
         try {
             RuntimeViewContextMenuRegistry.getInstance().mount(strip);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("STRIP_MOUNT_FAILED reason=" + failure.getClass().getName());
         }
     }
@@ -400,6 +404,7 @@ public final class NativeWarpAltMirrorBridge {
         try {
             RuntimeViewContextMenuRegistry.getInstance().positionButton(strip);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("STRIP_POSITION_FAILED reason=" + failure.getClass().getName());
         }
     }
@@ -409,6 +414,7 @@ public final class NativeWarpAltMirrorBridge {
         try {
             diagnostic("STRIP_DIAG stage=" + stage);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // never reach the host call site
         }
     }
@@ -509,6 +515,7 @@ public final class NativeWarpAltMirrorBridge {
                     + (vertical ? "vertical" : "horizontal"));
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("GREEN_TICK_MIRROR_FAILED reason=" + failure.getClass().getName());
         }
     }
@@ -546,6 +553,7 @@ public final class NativeWarpAltMirrorBridge {
         try {
             diagEventModifiers(event, stage instanceof String name ? name : "ROUTE");
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("ROUTE_FAILED reason=" + failure.getClass().getName());
         }
     }
@@ -563,6 +571,7 @@ public final class NativeWarpAltMirrorBridge {
             }
             diagnostic("POINT_MOVE " + detail + " class=" + ref.getClass().getName());
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("POINT_MOVE_FAILED reason=" + failure.getClass().getName());
         }
     }
@@ -578,6 +587,7 @@ public final class NativeWarpAltMirrorBridge {
             final boolean ctrl = invokeBoolean(event, "az");
             diagnostic(stage + " alt=" + alt + " shift=" + shift + " ctrl=" + ctrl);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic(stage + " event-read-failed " + failure.getClass().getName());
         }
     }
@@ -589,6 +599,7 @@ public final class NativeWarpAltMirrorBridge {
             LAST_THROTTLE.set(now);
             diagEventModifiers(event, stage);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // never reach the host call site
         }
     }
@@ -603,6 +614,7 @@ public final class NativeWarpAltMirrorBridge {
         try {
             DIAGNOSTIC.get().accept("WARP_ALT_MIRROR_DIAG stage=" + stage);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics must never reach the host call site.
         }
     }

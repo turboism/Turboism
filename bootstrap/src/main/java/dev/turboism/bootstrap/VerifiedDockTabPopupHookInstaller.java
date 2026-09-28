@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.ui.panel.DockTabPopupNativeMethodTransformer;
 
@@ -67,6 +68,7 @@ final class VerifiedDockTabPopupHookInstaller implements AutoCloseable {
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw new IllegalStateException("Verified dock-tab popup hook installation failed", failure);
         }

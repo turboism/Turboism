@@ -2,6 +2,7 @@ package dev.turboism.exportsettings;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.core.MocData;
 import dev.turboism.sdk.cubism.core.MocLoader;
 import dev.turboism.sdk.cubism.core.OwnedCanvasInfo;
@@ -400,6 +401,7 @@ public final class ProtectedExportStaging {
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             final String message = failure.getMessage();
             return new MocFailure(
                 "protected-export.moc3-invalid",
@@ -1389,6 +1391,7 @@ public final class ProtectedExportStaging {
                 }
             }
         } catch (Throwable publishFailure) {
+            FatalErrors.rethrowIfFatal(publishFailure);
             failure = publishFailure;
             if (!rollback(moveOp, placed, restore, createdDirs, failure)) {
                 rollbackComplete[0] = false;
@@ -1405,6 +1408,7 @@ public final class ProtectedExportStaging {
             try {
                 deleteRecursively(scratch);
             } catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup);
                 if (failure == null) {
                     throw cleanup;
                 }
@@ -1475,6 +1479,7 @@ public final class ProtectedExportStaging {
         try {
             deleteIfExists(target);
         } catch (Throwable cleanup) {
+            FatalErrors.rethrowIfFatal(cleanup);
             failure.addSuppressed(cleanup);
             complete = false;
         }
@@ -1482,6 +1487,7 @@ public final class ProtectedExportStaging {
             try {
                 moveOp.move(backup, target);
             } catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup);
                 failure.addSuppressed(cleanup);
                 complete = false;
             }
@@ -1510,6 +1516,7 @@ public final class ProtectedExportStaging {
             try {
                 deleteIfExists(placed.get(i));
             } catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup);
                 failure.addSuppressed(cleanup);
                 complete = false;
             }
@@ -1520,6 +1527,7 @@ public final class ProtectedExportStaging {
             try {
                 moveOp.move(backup, target);
             } catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup);
                 failure.addSuppressed(cleanup);
                 complete = false;
             }
@@ -1530,6 +1538,7 @@ public final class ProtectedExportStaging {
             } catch (DirectoryNotEmptyException foreign) {
                 // Another writer put content there — not publish-owned residue.
             } catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup);
                 failure.addSuppressed(cleanup);
                 complete = false;
             }

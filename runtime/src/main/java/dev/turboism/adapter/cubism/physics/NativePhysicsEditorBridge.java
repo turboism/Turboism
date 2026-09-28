@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.physics;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Static entrypoint used only by the verified Physics Settings constructor transformer. */
@@ -54,6 +55,7 @@ public final class NativePhysicsEditorBridge {
         try {
             binding.coordinator().onPanelConstructed(panel, binding.profile());
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                 "physics-editor",
                 "Physics editor contribution failed safely",

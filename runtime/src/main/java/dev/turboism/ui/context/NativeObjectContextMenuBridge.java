@@ -1,5 +1,6 @@
 package dev.turboism.ui.context;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 
@@ -97,6 +98,7 @@ public final class NativeObjectContextMenuBridge {
             final Object result = handler.augment(menu, location, source);
             return result == null ? menu : result;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                 "context-menu",
                 "Object context-menu augmentation failed safely",

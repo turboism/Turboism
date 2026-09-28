@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -101,6 +102,7 @@ final class HookManifest {
         try {
             type = Class.forName(className, false, loader);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new HookManifestException("hook contributor class is unavailable: " + className, failure);
         }
         if (!HookContributor.class.isAssignableFrom(type)) {
@@ -120,6 +122,7 @@ final class HookManifest {
             constructor.setAccessible(true);
             return (HookContributor) constructor.newInstance();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new HookManifestException(
                 "hook contributor could not be instantiated: " + className, failure
             );

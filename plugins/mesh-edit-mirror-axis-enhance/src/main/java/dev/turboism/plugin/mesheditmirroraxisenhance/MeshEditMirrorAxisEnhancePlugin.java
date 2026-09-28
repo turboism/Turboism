@@ -12,6 +12,12 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.util.Set;
 import java.util.function.Consumer;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 /**
  * Official SDK-only plugin shell for read-only mesh inspection.
@@ -26,7 +32,7 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
     public void init(final PluginContext context) {
         this.context = context;
         this.logger = context.logger();
-        this.inspectorService = new MeshInspectorService(context.cubismRead(), context.uiHost());
+        this.inspectorService = new MeshInspectorService(context.cubismRead(), context.services().get(UiHostCapabilityService.class));
         logger.info("MeshEditMirrorAxisEnhancePlugin initialized");
     }
 
@@ -40,17 +46,17 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
             );
             registerMirrorLinkedDeletion();
             context.disposableScope().register(
-                context.meshMirrorMoveParticipation().participate()
+                context.services().get(MeshMirrorMoveParticipation.class).participate()
             );
             context.disposableScope().register(
-                context.meshMirrorToolEligibility().extendEligibleTools(Set.of(
+                context.services().get(MeshMirrorToolEligibility.class).extendEligibleTools(Set.of(
                     MeshEditTool.ARROW,
                     MeshEditTool.ERASER,
                     MeshEditTool.LASSO
                 ))
             );
             context.disposableScope().register(
-                context.meshEditUi().contributeMirrorAxisAngleControl(
+                context.services().get(MeshEditUiService.class).contributeMirrorAxisAngleControl(
                     new MeshEditUiService.MirrorAxisAngleControl(
                         "mesh.mirror-axis.angle",
                         context.localization().text("mesh.mirror-axis.angle.label"),
@@ -81,7 +87,7 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
 
     /** Called by the native-position mesh-edit control. */
     public void setMirrorAxisAngleDegrees(final float angleDegrees) {
-        context.meshMirrorAxis().setCurrentAngleDegrees(angleDegrees);
+        context.services().get(MeshMirrorAxisService.class).setCurrentAngleDegrees(angleDegrees);
     }
 
     /**
@@ -96,9 +102,9 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
      */
     private void registerMirrorLinkedDeletion() {
         context.disposableScope().register(
-            context.meshEditParticipation().participate(deletion ->
+            context.services().get(MeshEditParticipation.class).participate(deletion ->
                 deletion.mirrorAxis().enabled()
-                    ? context.meshMirrorCounterparts().mirrorOf(deletion)
+                    ? context.services().get(MeshMirrorCounterparts.class).mirrorOf(deletion)
                     : MeshEditContribution.none()
             )
         );

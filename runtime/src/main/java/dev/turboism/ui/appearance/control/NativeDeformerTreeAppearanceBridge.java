@@ -1,6 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 import javax.swing.JLabel;
 import java.awt.Component;
@@ -46,6 +47,7 @@ public final class NativeDeformerTreeAppearanceBridge {
                 component
             );
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return component;
         }
     }

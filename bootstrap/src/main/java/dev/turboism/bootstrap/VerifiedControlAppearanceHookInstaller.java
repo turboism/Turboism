@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
@@ -216,6 +217,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
             final List<Class<?>> loadedTargets = loadedTargets();
             if (!loadedTargets.isEmpty()) instrumentation.retransformClasses(loadedTargets.toArray(Class<?>[]::new));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }
@@ -233,6 +235,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
             final List<Class<?>> loadedTargets = loadedTargets();
             if (!loadedTargets.isEmpty()) instrumentation.retransformClasses(loadedTargets.toArray(Class<?>[]::new));
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Styles and callbacks are already revoked; bytecode restoration remains best-effort on shutdown.
         }
     }

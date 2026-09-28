@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.id.ParameterId;
@@ -73,6 +74,7 @@ public final class NativeParameterLifecycleBridge {
                 invocation = bridge.coordinator.beginNative(parameter, requestedValue);
                 effectiveValue = invocation.effectiveValue();
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Native ingress must fail open when model identity or lifecycle state is unavailable.
             }
         }
@@ -102,6 +104,7 @@ public final class NativeParameterLifecycleBridge {
         try {
             frame.bridge().coordinator.completeNative(frame.invocation(), succeeded);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Native completion must never destabilize Cubism.
         }
     }

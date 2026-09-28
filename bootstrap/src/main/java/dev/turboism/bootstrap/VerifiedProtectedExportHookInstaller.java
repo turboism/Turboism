@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.exportsettings.ProtectedExportChooserProfile;
 import dev.turboism.exportsettings.ProtectedExportChooserRedirectTransformer;
 import dev.turboism.mapping.verification.StaticSelector;
@@ -145,9 +146,11 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
             }
             return true;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             try {
                 close();
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Preserve the install failure; cleanup failure is secondary.
             }
             installed.set(false);
@@ -169,6 +172,7 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
                 instrumentation.retransformClasses(loaded);
             }
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Restoration failure leaves transformed bytes; callers treat close as best-effort
             // and the armed-session gate refuses orchestration without a live seam anyway.
         }

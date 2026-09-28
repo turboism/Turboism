@@ -3,6 +3,7 @@ package dev.turboism.task;
 import dev.turboism.core.runtime.work.PluginWorkResult;
 import dev.turboism.core.runtime.work.PluginWorkStatus;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.TaskCanceledException;
 import dev.turboism.sdk.task.PluginTaskAction;
 import dev.turboism.sdk.task.TaskId;
@@ -60,6 +61,7 @@ final class OneShotTaskHandle extends AbstractRuntimeTaskHandle {
         } catch (TaskCanceledException exception) {
             cancelFromAction();
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             synchronized (lock) {
                 if (!isTerminal()
                     && !(throwable instanceof InterruptedException && token.isCancellationRequested())) {

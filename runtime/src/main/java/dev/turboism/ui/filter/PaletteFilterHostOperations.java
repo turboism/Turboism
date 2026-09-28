@@ -1,6 +1,7 @@
 package dev.turboism.ui.filter;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
@@ -173,6 +174,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         try {
             reconcilePalettes();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             for (PaletteKind kind : PaletteKind.values()) {
                 lastAttachStatus.put(kind, "reconcile-failed:" + failure.getClass().getSimpleName()
                     + ":" + failure.getMessage());
@@ -355,6 +357,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
                 case DEFORMER -> attachDeformer(state, contribution);
             };
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             lastAttachStatus.put(state.kind, "attach-failed:" + failure.getClass().getSimpleName()
                 + ":" + failure.getMessage());
             resetBinding(state, true);

@@ -6,6 +6,7 @@ import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -130,6 +131,7 @@ final class PreviewPluginShutdown {
         try {
             loadedPlugin.eventOwner().beginClosing();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             log.error(id, "Plugin event owner fencing failed safely", failure);
         }
         // Capture the executor set while admission is fenced: at this point the registry entry
@@ -138,6 +140,7 @@ final class PreviewPluginShutdown {
         try {
             loadedPlugin.eventOwner().claimExecutors();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             log.error(id, "Plugin executor claim failed safely", failure);
         }
         final PluginGenerationGuard guard = loadedPlugin.guard();
@@ -171,6 +174,7 @@ final class PreviewPluginShutdown {
                 } catch (Exception exception) {
                     throw exception;
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     // closeHook.run declares Throwable; Errors pass through, the rest wrap.
                     if (failure instanceof Error error) {
                         throw error;
@@ -396,6 +400,7 @@ final class PreviewPluginShutdown {
                 loadedPlugin.eventOwner().close();
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // The retained re-drive below owns the remaining cleanup either way.
         }
         progress.unloadVerdictPublished = true;
@@ -417,6 +422,7 @@ final class PreviewPluginShutdown {
             closeHook.run(safePluginId(loadedPlugin), "fallback-summary");
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // The final summary must remain available when its fallback hook fails.
         }
         return fallbackSummaryWithoutRuntimeMutation(loadedPlugin);
@@ -429,6 +435,7 @@ final class PreviewPluginShutdown {
             closeHook.run(safePluginId(loadedPlugin), "timeout-summary");
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // The final summary must remain available when its fallback hook fails.
         }
         return PreviewPluginSummaryFactory.create(
@@ -456,6 +463,7 @@ final class PreviewPluginShutdown {
             closeHook.run(component, "fallback-log");
             logStableFailure(component, code);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // A failed fallback logger must not prevent the remaining shutdown.
         }
     }
@@ -472,6 +480,7 @@ final class PreviewPluginShutdown {
         try {
             return loadedPlugin.runtime().id();
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return "plugin";
         }
     }

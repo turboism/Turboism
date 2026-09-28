@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.filechooser;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -119,6 +120,7 @@ public final class FileChooserHistoryNativeMethodTransformer implements ClassFil
                         ? "java/lang/Object"
                         : current.getName().replace('.', '/');
                 } catch (Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
                     return "java/lang/Object";
                 }
             }

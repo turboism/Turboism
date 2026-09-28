@@ -1,5 +1,6 @@
 package dev.turboism.ui.host;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 
 import javax.swing.SwingUtilities;
@@ -343,6 +344,7 @@ public final class EdtDispatch {
             try {
                 result.set(task.call());
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 failure.set(throwable);
             } finally {
                 state.set(DONE);

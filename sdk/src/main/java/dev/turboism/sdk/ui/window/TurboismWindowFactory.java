@@ -150,6 +150,8 @@ public final class TurboismWindowFactory {
         }
         try {
             window.setIconImage(icon);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable ignored) {
             // graceful degradation: an undecorated or hostile window must not
             // break construction because icon styling failed
@@ -179,6 +181,8 @@ public final class TurboismWindowFactory {
             return icon.getIconWidth() > 0 && icon.getIconHeight() > 0
                 ? icon.getImage()
                 : null;
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable ignored) {
             return null;
         }

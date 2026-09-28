@@ -107,6 +107,8 @@ their asserted contracts when consolidating.
 
 The public SDK has one tier. `@CubismEditor` and exact command catalogs describe Editor-version availability; permissions, session state, verified adapters, and capabilities remain separate runtime checks.
 
+New optional plugin-facing services land on `PluginContext#services()` and `PluginService` instead of gaining a `PluginContext` accessor: add the `PluginService` member and resolve the service through the directory — the context's core contract does not grow per feature. Pre-directory accessors stay as deprecated bridges for binary compatibility; do not remove them.
+
 Do not commit generated runtime logs, prompts or transcripts, agent/tool output, local absolute paths, proprietary Cubism material, raw host traces, credentials, or verification claims without a reproducible tracked command or accepted evidence source.
 
 Run repository hygiene checks before completing and pushing a change:

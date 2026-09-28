@@ -90,6 +90,8 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
             probeContext(created);
             detected = new Availability(true, System.getProperty("java.vm.name", "unknown") + " / "
                 + System.getProperty("java.version", "unknown"));
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             closeEngine(created);
             created = null;
@@ -135,6 +137,8 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
             eval(context, BOOTSTRAP);
             eval(context, source);
             return ExecutionResult.success(text(stdout));
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             final Throwable cause = unwrap(failure);
             final String output = text(stdout) + text(stderr);

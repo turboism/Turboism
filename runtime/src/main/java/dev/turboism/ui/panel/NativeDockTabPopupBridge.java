@@ -1,5 +1,6 @@
 package dev.turboism.ui.panel;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.Objects;
@@ -49,6 +50,7 @@ public final class NativeDockTabPopupBridge {
         try {
             handler.augment(menu, palette);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                 "floating-panels",
                 "Dock-tab popup augmentation failed safely",

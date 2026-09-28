@@ -1,6 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 import java.awt.Component;
 import java.lang.reflect.Field;
@@ -37,6 +38,7 @@ public final class NativeDeformerControlRowAppearanceBridge {
             if (id == null) installed.provider().restore();
             else installed.provider().apply(installed.generation(), id, component);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             installed.provider().restore();
         }
         return component;

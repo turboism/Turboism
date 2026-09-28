@@ -16,6 +16,7 @@ import dev.turboism.sdk.ui.VerticalToolbarContribution;
 
 import java.util.List;
 import java.util.function.Consumer;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 /**
  * Photoshop-style History pane plugin driven by a vertical tool-strip button.
@@ -50,7 +51,7 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
     public void enable() {
         try {
             context.disposableScope().register(registerAction(TOGGLE_ACTION_ID, "History", ignored -> toggle()));
-            context.disposableScope().register(context.uiHost().contributeVerticalToolbar(
+            context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeVerticalToolbar(
                 new VerticalToolbarContribution(
                     STRIP_ID,
                     List.of(new VerticalToolbarContribution.ToolButton(
@@ -86,7 +87,7 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
             try {
                 final HistoryPanelService service = new HistoryPanelService(
                     context.cubism().history(),
-                    context.uiHost(),
+                    context.services().get(UiHostCapabilityService.class),
                     taskScheduler(),
                     logger,
                     localization,

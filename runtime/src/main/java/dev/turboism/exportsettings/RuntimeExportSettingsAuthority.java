@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
 import dev.turboism.sdk.cubism.id.ModelId;
@@ -174,6 +175,7 @@ public final class RuntimeExportSettingsAuthority
         try {
             vetoReporter.accept(new ExportSettingsVetoDiagnostic(key, detail));
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // A diagnostic surface must never flip the fixed fail-closed decision.
         }
     }
@@ -271,6 +273,7 @@ public final class RuntimeExportSettingsAuthority
         try {
             snapshot = snapshot();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             publishFailure(owner, new DialogState(
                 List.of(), ATTACH_FAILED_KEY, capturedHostGeneration,
                 capturedIdentity.identity().orElse(null)
@@ -337,6 +340,7 @@ public final class RuntimeExportSettingsAuthority
                 closeAttachment(attachment);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             final String failureKey = failure instanceof ExportSettingsAttachException typed
                 && typed.getMessage() != null
                 ? typed.getMessage() : ATTACH_FAILED_KEY;
@@ -409,12 +413,14 @@ public final class RuntimeExportSettingsAuthority
             try {
                 decision = decideState(owner, state);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 decision = Decision.vetoed(ATTACH_FAILED_KEY);
                 state.invalidate(ATTACH_FAILED_KEY);
             }
             try {
                 closeAttachment(state.takeAttachment());
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 state.invalidate(CLEANUP_FAILED_KEY);
                 if (decision.allowed() || decision.vetoKey() == null) {
                     decision = Decision.vetoed(CLEANUP_FAILED_KEY);
@@ -547,6 +553,7 @@ public final class RuntimeExportSettingsAuthority
                 final String text = binding.labelResolver().apply(key);
                 return text == null || text.isBlank() || text.equals(key) ? null : text;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 return null;
             }
         }
@@ -563,6 +570,7 @@ public final class RuntimeExportSettingsAuthority
                 ? SelectionRead.unavailable()
                 : new SelectionRead(selection, true);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return SelectionRead.unavailable();
         }
     }
@@ -583,6 +591,7 @@ public final class RuntimeExportSettingsAuthority
                 ? IdentityRead.unavailable()
                 : new IdentityRead(current, false);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return IdentityRead.unavailable();
         }
     }

@@ -161,6 +161,31 @@ class CorePluginContextAvailableServicesTest {
     }
 
     @Test
+    void serviceDirectoryMirrorsAccessorsAndInstalledSet() {
+        final CorePluginContext context =
+            new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
+
+        assertEquals(context.availableServices(), context.services().installed());
+        assertEquals(
+            context.parameterQuery(),
+            context.services().get(
+                dev.turboism.sdk.cubism.service.query.ParameterQueryService.class
+            )
+        );
+        // Absent services resolve to null rather than the unavailable sentinel.
+        context.services().installed().forEach(service ->
+            org.junit.jupiter.api.Assertions.assertNotNull(
+                context.services().get(service.type()),
+                service + " is installed but the directory returned null"
+            )
+        );
+        assertEquals(
+            null,
+            context.services().get(dev.turboism.sdk.storage.PluginStorage.class)
+        );
+    }
+
+    @Test
     void wrappedUnavailableSentinelIsReportedAbsent() {
         final CorePluginContext context = new CorePluginContext(
             dependencies(TEMP),

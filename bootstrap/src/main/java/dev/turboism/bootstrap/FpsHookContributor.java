@@ -2,6 +2,7 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 /**
  * Declarative contributor for the FPS counting hook. It publishes the agent-
@@ -33,6 +34,7 @@ final class FpsHookContributor implements HookContributor {
         try {
             PerformanceFpsHookRegistry.publish(installer);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             installer.close();
             throw failure;
         }

@@ -10,6 +10,7 @@ import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract;
 import dev.turboism.core.runtime.UncheckedThrowableException;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -481,6 +482,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 resourceOwnerFactory
             );
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             closeAfterFailure(failure, ownedCore);
             rethrowConnectionFailure(failure);
             throw new AssertionError("unreachable");
@@ -1059,6 +1061,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     try {
                         installedResourceOwner.refreshPresentation();
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         dev.turboism.runtime.log.RuntimeDiagnostics.error(
                             "embedded-panels",
                             "Host presentation sampling failed safely",
@@ -1070,6 +1073,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     try {
                         installedPanelOperations.refreshPresentation();
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         dev.turboism.runtime.log.RuntimeDiagnostics.error(
                             "embedded-panels",
                             "Host panel presentation refresh failed safely",
@@ -1106,6 +1110,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             }
         };
     } catch (Throwable failure) {
+        FatalErrors.rethrowIfFatal(failure);
         if (panelOperations != null) {
             final dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations cleanupPanelOperations =
                 panelOperations;
@@ -1141,6 +1146,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             operation.run();
             return first;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return accumulateCleanup(first, failure);
         }
     }
@@ -1150,6 +1156,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             resource.close();
             return first;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return accumulateCleanup(first, failure);
         }
     }
@@ -1158,6 +1165,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         try {
             operation.run();
         } catch (Throwable cleanupFailure) {
+            FatalErrors.rethrowIfFatal(cleanupFailure);
             if (cleanupFailure != primary) {
                 primary.addSuppressed(cleanupFailure);
             }
@@ -1171,6 +1179,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         try {
             resource.close();
         } catch (Throwable cleanupFailure) {
+            FatalErrors.rethrowIfFatal(cleanupFailure);
             if (cleanupFailure != primary) {
                 primary.addSuppressed(cleanupFailure);
             }
