@@ -22,11 +22,14 @@ task home.
 | delaunayApply | `editableMesh.b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V` | Delaunay apply (edge/indices mutation) |
 | autoTriangulate | `editableMesh.triangulation.g.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Lcom/live2d/util/j/a;)V` | fused non-Delaunay auto-triangulation |
 
-The last five metrics (ids 11–15, T029-P3A) decompose `updateMesh`'s inclusive
-cost: `updateMesh` = `updateVertices` + cancellation check + `updateIndices`,
-and `updateIndices` runs either `delaunayCompute`+`delaunayApply` or
-`autoTriangulate`. On 5.2.03 the `com.live2d.util.j.a` context type is
-`com.live2d.util.i.a`; all other descriptors are identical between versions.
+The last five metrics (ids 11–15, T029-P3A) decompose `updateMesh` by call
+structure: `updateMesh` invokes `updateVertices`, a cancellation check, then
+`updateIndices`, and `updateIndices` invokes either
+`delaunayCompute`+`delaunayApply` or `autoTriangulate`. Inclusive durations
+overlap by design and each method carries its own gating and instrumentation
+overhead — do not read the structure as an exact time equation. On 5.2.03 the
+`com.live2d.util.j.a` context type is `com.live2d.util.i.a`; all other
+descriptors are identical between versions.
 
 Design: `enter(I)/exit(I)` push/pop a ThreadLocal stack — zero new locals,
 exception-table-neutral, unmatched exits counted as `unpaired`. Opt-in token
@@ -36,8 +39,11 @@ exception-table-neutral, unmatched exits counted as `unpaired`. Opt-in token
 
 Offline gates (build.sh): selfcheck (nesting/exceptions/unrelated-class
 pass-through), official-JAR non-execution shape probe (per-profile owner×desc
-exactly-once, owner SHA256s recorded), live-JVM harness, opt-in gate. Agent jar
-sha256 `9f9d5be9e0e46e69261214058926382eb4b23f85865ef238f9dc7418acad0c79`.
+exactly-once, owner SHA256s recorded), live-JVM harness, opt-in gate. The agent
+jar is not reproducible — every build emits a different archive; build.sh
+prints `agentSha256` per run (e.g. `9f9d5be9…` for the P3A build, `b638a39a…`
+for the reviewer's rebuild), so tie evidence to the run's printed hash rather
+than to a fixed value here.
 
 ## Known measurement limits
 

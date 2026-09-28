@@ -127,6 +127,13 @@ public final class AtlasTimingSelfCheck {
                 meshOutcome.bytes())
             .getDeclaredConstructor().newInstance();
         wovenMesh.getClass().getMethod("driveMesh", Object.class).invoke(wovenMesh, new Object());
+        // A woven ARETURN must pass the real returned object through unchanged.
+        final Object returned = wovenMesh.getClass()
+            .getMethod("delaunayCompute").invoke(wovenMesh);
+        final Object sentinel = wovenMesh.getClass()
+            .getField("SENTINEL").get(null);
+        check(returned == sentinel,
+            "woven ARETURN must return the exact sentinel instance");
 
         AtlasTimingProbe.flush();
         Thread.sleep(600);
@@ -139,18 +146,26 @@ public final class AtlasTimingSelfCheck {
         check(updates == 2, "expected 2 updateTexture records, got " + updates);
         check(setups == 3, "expected 3 setupCacheImage records, got " + setups);
         check(catches == 1, "expected 1 catchingPath record, got " + catches);
-        final String summary = Files.readString(output.resolve("timing-summary.properties"));
-        check(summary.contains("metric.updateTexture.count=2"), "summary must count updateTexture");
-        check(summary.contains("metric.updateMesh.count=0"),
+        final java.util.Properties summary = new java.util.Properties();
+        summary.load(new java.io.StringReader(
+            Files.readString(output.resolve("timing-summary.properties"))));
+        check("2".equals(summary.getProperty("metric.updateTexture.count")),
+            "summary must count updateTexture exactly twice");
+        check("0".equals(summary.getProperty("metric.updateMesh.count")),
             "thrown method must record enter but no exit");
-        check(summary.contains("unpaired=1"),
+        check("1".equals(summary.getProperty("unpaired")),
             "the stale throwingPath entry must surface as unpaired when catchingPath exits");
-        check(summary.contains("targets="), "summary must carry target states");
-        check(summary.contains("blocked="), "summary must carry blocked state");
-        for (final String metric : new String[]{"updateVertices", "updateIndices",
-                "delaunayCompute", "delaunayApply", "autoTriangulate"}) {
-            check(summary.contains("metric." + metric + ".count=1"),
-                "summary must count " + metric + " exactly once");
+        check(summary.getProperty("targets") != null, "summary must carry target states");
+        check(summary.getProperty("blocked") != null, "summary must carry blocked state");
+        // driveMesh counts each chain member once; the direct sentinel call adds a second
+        // delaunayCompute record.
+        final String[][] expectedCounts = {
+            {"updateVertices", "1"}, {"updateIndices", "1"}, {"delaunayCompute", "2"},
+            {"delaunayApply", "1"}, {"autoTriangulate", "1"},
+        };
+        for (final String[] expected : expectedCounts) {
+            check(expected[1].equals(summary.getProperty("metric." + expected[0] + ".count")),
+                "summary must count " + expected[0] + " exactly " + expected[1] + " time(s)");
         }
 
         // Unrelated class is left alone.
