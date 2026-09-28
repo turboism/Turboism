@@ -1139,6 +1139,32 @@ tasks.register<Exec>("checkExternalPluginTemplate") {
     }
 }
 
+tasks.register<Exec>("checkLocalizedChangelogs") {
+    group = "verification"
+    description = "Verifies localized CHANGELOG_<lang>.md files render exactly from release-notes JSON."
+    workingDir(rootDir)
+    inputs.files(
+        "CHANGELOG.md",
+        "CHANGELOG_zh.md",
+        "CHANGELOG_ja.md",
+        "CHANGELOG_ko.md",
+        fileTree("release-notes") { include("*.json") },
+        "scripts/release/render_localized_changelogs.py"
+    )
+    commandLine("python3", "scripts/release/render_localized_changelogs.py", "--check")
+}
+
+tasks.register<Exec>("checkLocalizedChangelogsSelfTest") {
+    group = "verification"
+    description = "Self-test for the localized changelog renderer."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/release/render_localized_changelogs.py",
+        "scripts/test/test_render_localized_changelogs.py"
+    )
+    commandLine("python3", "scripts/test/test_render_localized_changelogs.py")
+}
+
 tasks.register("checkIntegration") {
     group = "verification"
     description = "Runs packaged runtime, plugin, preview-agent, and affected cross-module integration verification."
@@ -1201,6 +1227,8 @@ val checkCompletedCommit by tasks.registering {
         checkRemoteHygieneSelfTest,
         checkPluginEventReference,
         checkPerformanceProbeReports,
+        "checkLocalizedChangelogs",
+        "checkLocalizedChangelogsSelfTest",
         "generateSdkApiReport"
     )
 }

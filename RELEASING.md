@@ -67,6 +67,14 @@ A stale `englishSha256` fails promotion instead of reusing old text, and a base
 without that file is published with its English notes only. Nightly notes are
 generated from a frozen published baseline; they take no reviewed file.
 
+`release-notes/<version>.json` is the single source for localized changelog
+text: `scripts/release/render_localized_changelogs.py` rewrites every
+JSON-covered section of `CHANGELOG_zh.md`/`CHANGELOG_ja.md`/`CHANGELOG_ko.md`
+verbatim, keeps pre-JSON history and the `Unreleased` sections as committed,
+and `checkLocalizedChangelogs` fails on drift. Never hand-edit a
+JSON-covered section; sections predating the JSON scheme remain authored in
+the localized files themselves.
+
 ```bash
 # Default is a dry run; --submit actually dispatches GitHub Actions.
 python3 scripts/release/product.py candidate --channel stable --submit
