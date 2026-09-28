@@ -1,10 +1,15 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -29,6 +34,7 @@ import java.util.function.Consumer;
  */
 public final class NativeWarpAltMirrorBridge {
     private static final String WARP_BINDER_CLASS = "com.live2d.cubism.view.context.temporaryHandler.warp.WarpBinder";
+    private static final String WARP_POINT_REF_CLASS = "com.live2d.cubism.doc.model.deformer.warp.WarpPointRef";
 
     private static final AtomicReference<Binding> INSTALLED = new AtomicReference<>();
     /** Armed mirror axis published by the plugin: 0=off, 1=vertical, 2=horizontal. */
@@ -40,6 +46,22 @@ public final class NativeWarpAltMirrorBridge {
      * the recognition at stub classes; production never changes it.
      */
     private static final AtomicReference<String> BINDER_CLASS_NAME = new AtomicReference<>(WARP_BINDER_CLASS);
+    /** Same seam for the WarpPointRef recognition used by the weight mirror. */
+    private static final AtomicReference<String> WARP_REF_CLASS_NAME = new AtomicReference<>(WARP_POINT_REF_CLASS);
+
+    /** Reentrancy guard: the recursive counterpart write must not mirror again. */
+    private static final ThreadLocal<Boolean> WEIGHT_MIRRORING = ThreadLocal.withInitial(() -> Boolean.FALSE);
+    private static final AtomicBoolean WEIGHT_APPLIED_REPORTED = new AtomicBoolean();
+    private static final AtomicLong WEIGHT_MIRROR_COUNT = new AtomicLong();
+    private static final AtomicInteger WEIGHT_LAST_SOURCE = new AtomicInteger(-1);
+    private static final AtomicInteger WEIGHT_LAST_COUNTERPART = new AtomicInteger(-1);
+    /** Per-host-class caches of the reviewed counterpart-ref constructors; a miss is permanent per class. */
+    private static final ConcurrentHashMap<Class<?>, Optional<Constructor<?>>> BASE_REF_CTORS =
+            new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Class<?>, Optional<Constructor<?>>> WRAP_REF_CTORS =
+            new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Class<?>, Optional<Field>> WRAP_TRANSFORM_FIELDS =
+            new ConcurrentHashMap<>();
 
     private static final AtomicBoolean MOVE_APPLIED_REPORTED = new AtomicBoolean();
     private static final AtomicBoolean GREEN_APPLIED_REPORTED = new AtomicBoolean();
@@ -82,6 +104,15 @@ public final class NativeWarpAltMirrorBridge {
         LAST_THROTTLE.set(0);
         ARMED_AXIS.set(0);
         GREEN_APPLIED_REPORTED.set(false);
+        WEIGHT_MIRRORING.remove();
+        WEIGHT_APPLIED_REPORTED.set(false);
+        WEIGHT_MIRROR_COUNT.set(0);
+        WEIGHT_LAST_SOURCE.set(-1);
+        WEIGHT_LAST_COUNTERPART.set(-1);
+        WARP_REF_CLASS_NAME.set(WARP_POINT_REF_CLASS);
+        BASE_REF_CTORS.clear();
+        WRAP_REF_CTORS.clear();
+        WRAP_TRANSFORM_FIELDS.clear();
     }
 
     /** Test seam: redirects binder recognition to a stub class name. */
@@ -92,6 +123,26 @@ public final class NativeWarpAltMirrorBridge {
     /** Test seam: restores the reviewed binder class name. */
     static void resetBinderClassName() {
         BINDER_CLASS_NAME.set(WARP_BINDER_CLASS);
+    }
+
+    /** Test seam: redirects WarpPointRef recognition to a stub class name. */
+    static void setWarpRefClassNameForTesting(final String name) {
+        WARP_REF_CLASS_NAME.set(name);
+    }
+
+    /** @return how many mirrored weight writes this bridge applied this session. */
+    static int weightMirrorAppliedCount() {
+        return (int) WEIGHT_MIRROR_COUNT.get();
+    }
+
+    /** @return the point index of the last mirrored weight write's source, or -1. */
+    static int weightMirrorLastSourceIndex() {
+        return WEIGHT_LAST_SOURCE.get();
+    }
+
+    /** @return the point index of the last mirrored weight write's counterpart, or -1. */
+    static int weightMirrorLastCounterpartIndex() {
+        return WEIGHT_LAST_COUNTERPART.get();
     }
 
     /**
@@ -200,6 +251,234 @@ public final class NativeWarpAltMirrorBridge {
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             diagnostic("POINT_MOVE_MIRROR_FAILED reason=" + failure.getClass().getName());
+        }
+    }
+
+    /**
+     * Weighted-add entry injected at the head of
+     * {@code PointSelector.add(IPointRef, float, boolean)} — the converged write
+     * of the Brush Selection Tool and every other weighted-selection flow. While
+     * an axis is armed, the same weight is mirrored onto the axis counterpart
+     * point of the same Warp deformer, inside the caller's selection/undo
+     * envelope.
+     *
+     * @param selector the {@code PointSelector} instance being written
+     * @param ref the point reference the caller is weighting
+     * @param weight the incoming brush weight
+     * @param reorder the caller's reorder flag (re-selects to the list tail)
+     */
+    public static void mirrorWeightAdd(
+            final Object selector, final Object ref, final float weight, final boolean reorder) {
+        mirrorWeightWrite(selector, ref, weight, reorder, false);
+    }
+
+    /**
+     * Weight-set entry injected at the head of
+     * {@code PointSelector.setWeight(IPointRef, float)}. Unlike {@code add} this
+     * path only touches the weight map, so the mirrored write does the same.
+     */
+    public static void mirrorWeightSet(final Object selector, final Object ref, final float weight) {
+        mirrorWeightWrite(selector, ref, weight, false, true);
+    }
+
+    /**
+     * Shared weight-mirror core. Acts only when installed+enabled, a plugin
+     * participates, an axis is armed, and the ref is a reviewed
+     * {@code WarpPointRef} (including its transform-carrying subtype). The
+     * counterpart is recomputed through the same armed-axis mapping as
+     * {@link #mirrorPointMove} — 垂直镜像 flips the row, 水平镜像 flips the
+     * column — then the identical native selector operation runs recursively
+     * under a thread-local reentrancy guard, so selection-list, weight-map and
+     * undo semantics stay exactly the host's own.
+     */
+    private static void mirrorWeightWrite(
+            final Object selector,
+            final Object ref,
+            final float weight,
+            final boolean reorder,
+            final boolean setOnly) {
+        try {
+            final Binding binding = INSTALLED.get();
+            if (binding == null || !binding.enabled() || selector == null || ref == null) {
+                return;
+            }
+            if (WEIGHT_MIRRORING.get()) {
+                // The recursive counterpart write below re-enters this exact
+                // instrumented method; guard first so it cannot mirror again.
+                return;
+            }
+            if (!PARTICIPATION.hasParticipants()) {
+                return;
+            }
+            final int axis = ARMED_AXIS.get();
+            if (axis == 0) {
+                return;
+            }
+            final ClassLoader loader = ref.getClass().getClassLoader();
+            final Class<?> warpRefType = Class.forName(WARP_REF_CLASS_NAME.get(), false, loader);
+            if (!warpRefType.isInstance(ref)) {
+                // ArtMesh and other weighted selections are a different mirror domain.
+                return;
+            }
+            final int index = invokeInt(ref, "a");
+            if (index < 0) {
+                return;
+            }
+            final Object source = invoke(ref, "d", new Class<?>[0]);
+            final Object keyForm = invoke(ref, "f", new Class<?>[0]);
+            if (source == null || keyForm == null) {
+                weightSkip("NO_SOURCE_OR_FORM");
+                return;
+            }
+            final int width = invokeInt(source, "getCol") + 1;
+            final int height = invokeInt(source, "getRow") + 1;
+            if (width <= 1 || height <= 1) {
+                weightSkip("BAD_DIMS");
+                return;
+            }
+            final Object gridArray = invoke(ref, "g", new Class<?>[0]);
+            if (!(gridArray instanceof float[] positions) || positions.length != 2L * width * height) {
+                weightSkip("DIM_MISMATCH");
+                return;
+            }
+            if (index >= width * height) {
+                weightSkip("INDEX_RANGE index=" + index);
+                return;
+            }
+            final int row = index / width;
+            final int column = index % width;
+            final int counterpartRow = axis == 1 ? height - 1 - row : row;
+            final int counterpartColumn = axis == 2 ? width - 1 - column : column;
+            final int counterpartIndex = counterpartRow * width + counterpartColumn;
+            if (counterpartIndex == index) {
+                return;
+            }
+            final Object counterRef = counterpartRef(ref, warpRefType, source, counterpartIndex, keyForm);
+            if (counterRef == null) {
+                weightSkip("NO_COUNTERPART_REF class=" + ref.getClass().getName());
+                return;
+            }
+            final Class<?> selectorType = selector.getClass();
+            // The IPointRef parameter type is resolved from the selector's own
+            // getCompatible signature — no compiled or name-based dependency on
+            // the host selection interface.
+            final Method getCompatible =
+                    MethodHandleCache.declaredByArity(selectorType, "getCompatible", 1);
+            final Class<?> pointRefType = getCompatible.getParameterTypes()[0];
+            // Reuse the stored equal instance when the counterpart is already
+            // selected — exactly what the brush itself does via getCompatible —
+            // so no foreign ref identity enters the selection lists.
+            final Object compatible = getCompatible.invoke(selector, counterRef);
+            WEIGHT_MIRRORING.set(true);
+            try {
+                if (setOnly) {
+                    MethodHandleCache.method(selectorType, "setWeight", pointRefType, float.class)
+                            .invoke(selector, compatible != null ? compatible : counterRef, weight);
+                } else {
+                    // When the counterpart is already selected, the remove+add
+                    // reorder keeps the list deduplicated for either flag; for a
+                    // fresh insert forward the caller's flag verbatim.
+                    final Object target = compatible != null ? compatible : counterRef;
+                    MethodHandleCache.method(selectorType, "add", pointRefType, float.class, boolean.class)
+                            .invoke(selector, target, weight, compatible != null || reorder);
+                }
+            } finally {
+                WEIGHT_MIRRORING.remove();
+            }
+            WEIGHT_MIRROR_COUNT.incrementAndGet();
+            WEIGHT_LAST_SOURCE.set(index);
+            WEIGHT_LAST_COUNTERPART.set(counterpartIndex);
+            if (WEIGHT_APPLIED_REPORTED.compareAndSet(false, true)) {
+                diagnostic("WEIGHT_MIRROR_APPLIED axis=" + axis + " index=" + index + " counterpart=" + counterpartIndex);
+            }
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            diagnostic("WEIGHT_MIRROR_FAILED reason=" + failure.getClass().getName());
+        }
+    }
+
+    /**
+     * Builds the counterpart point reference for the mirrored write. A base
+     * {@code WarpPointRef} comes straight from the reviewed three-argument
+     * constructor (positions/step are derived from the key form); the
+     * transform-carrying subtype is rebuilt through its two-argument wrapper
+     * constructor so the stored ref keeps its canvas transform. Any deviation
+     * from the reviewed shapes fails closed by returning null.
+     */
+    private static Object counterpartRef(
+            final Object ref,
+            final Class<?> warpRefType,
+            final Object source,
+            final int counterpartIndex,
+            final Object keyForm)
+            throws ReflectiveOperationException {
+        final Constructor<?> baseCtor = BASE_REF_CTORS
+                .computeIfAbsent(warpRefType, type -> findCtor(type, source, keyForm))
+                .orElse(null);
+        if (baseCtor == null) {
+            return null;
+        }
+        final Object inner = baseCtor.newInstance(source, counterpartIndex, keyForm);
+        if (ref.getClass() == warpRefType) {
+            return inner;
+        }
+        final Class<?> refClass = ref.getClass();
+        final Constructor<?> wrap = WRAP_REF_CTORS
+                .computeIfAbsent(refClass, type -> findWrapCtor(type, warpRefType))
+                .orElse(null);
+        if (wrap == null) {
+            return null;
+        }
+        final Field transformField = WRAP_TRANSFORM_FIELDS
+                .computeIfAbsent(refClass, type -> findFieldOfType(type, wrap.getParameterTypes()[1]))
+                .orElse(null);
+        if (transformField == null) {
+            return null;
+        }
+        return wrap.newInstance(inner, transformField.get(ref));
+    }
+
+    /** Finds the reviewed {@code (source, int, form)} constructor on the WarpPointRef type. */
+    private static Optional<Constructor<?>> findCtor(
+            final Class<?> warpRefType, final Object source, final Object keyForm) {
+        for (final Constructor<?> ctor : warpRefType.getConstructors()) {
+            final Class<?>[] params = ctor.getParameterTypes();
+            if (params.length == 3
+                    && params[1] == int.class
+                    && params[0].isInstance(source)
+                    && params[2].isInstance(keyForm)) {
+                return Optional.of(ctor);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** Finds the reviewed {@code (WarpPointRef, transform)} wrapper constructor on a subtype. */
+    private static Optional<Constructor<?>> findWrapCtor(final Class<?> refClass, final Class<?> warpRefType) {
+        for (final Constructor<?> ctor : refClass.getDeclaredConstructors()) {
+            final Class<?>[] params = ctor.getParameterTypes();
+            if (params.length == 2 && params[0].isAssignableFrom(warpRefType)) {
+                return Optional.of(ctor);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** Finds the declared field carrying the subtype's transform payload. */
+    private static Optional<Field> findFieldOfType(final Class<?> refClass, final Class<?> fieldType) {
+        for (Class<?> type = refClass; type != null; type = type.getSuperclass()) {
+            for (final Field field : type.getDeclaredFields()) {
+                if (fieldType.isAssignableFrom(field.getType()) && field.trySetAccessible()) {
+                    return Optional.of(field);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static void weightSkip(final String reason) {
+        if (REPORTED_SKIPS.add("weight:" + reason)) {
+            diagnostic("WEIGHT_SKIP reason=" + reason);
         }
     }
 
