@@ -17,7 +17,7 @@ interface LockAcquirer {
             FileChannel channel = null;
             try {
                 channel = FileSafety.openRegularNoFollow(
-                    lockPath, Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE), "APPLY_LOCK_FAILED");
+                        lockPath, Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE), "APPLY_LOCK_FAILED");
                 final FileLock lock = channel.lock();
                 return new AcquiredLock(channel, lock);
             } catch (IOException | RuntimeException exception) {
@@ -34,7 +34,8 @@ interface LockAcquirer {
     }
 
     record AcquiredLock(FileChannel channel, FileLock lock) implements AutoCloseable {
-        @Override public void close() throws IOException {
+        @Override
+        public void close() throws IOException {
             IOException failure = null;
             try {
                 lock.close();

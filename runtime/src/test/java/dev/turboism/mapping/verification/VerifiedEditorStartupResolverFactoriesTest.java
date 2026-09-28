@@ -1,15 +1,14 @@
 package dev.turboism.mapping.verification;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
 
 class VerifiedEditorStartupResolverFactoriesTest {
 
@@ -26,107 +25,83 @@ class VerifiedEditorStartupResolverFactoriesTest {
     void rejectsEveryCrossVersionStartupPairing() throws Exception {
         final Path artifact = editorArtifact("5.3.02");
         try (URLClassLoader loader = loader(artifact)) {
-            assertThrows(IllegalArgumentException.class, () ->
-                new VerifiedProjectWorkspaceResolverFactory().create(
-                    record("5.2.03", "project-workspace"), artifact, loader
-                )
-            );
-            assertThrows(IllegalArgumentException.class, () ->
-                new VerifiedEditorModelResolverFactory().create(
-                    record("5.2.03", "editor-model"), artifact, loader
-                )
-            );
-            assertThrows(IllegalArgumentException.class, () ->
-                new VerifiedMainToolbarResolverFactory().create(
-                    record("5.2.03", "ui-main-toolbar"), artifact, loader
-                )
-            );
-            assertThrows(IllegalArgumentException.class, () ->
-                new VerifiedEmbeddedPanelResolverFactory().create(
-                    record("5.2.03", "ui-embedded-panel"), artifact, loader
-                )
-            );
-            assertThrows(IllegalArgumentException.class, () ->
-                new VerifiedTopMenuResolverFactory().create(
-                    record("5.2.03", "ui-top-menu"), artifact, loader
-                )
-            );
-            assertThrows(IllegalArgumentException.class, () ->
-                new VerifiedBoundingBoxOverlayButtonResolverFactory().create(
-                    record("5.2.03", "ui-bounding-box-overlay"), artifact, loader
-                )
-            );
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new VerifiedProjectWorkspaceResolverFactory()
+                            .create(record("5.2.03", "project-workspace"), artifact, loader));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new VerifiedEditorModelResolverFactory()
+                            .create(record("5.2.03", "editor-model"), artifact, loader));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new VerifiedMainToolbarResolverFactory()
+                            .create(record("5.2.03", "ui-main-toolbar"), artifact, loader));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new VerifiedEmbeddedPanelResolverFactory()
+                            .create(record("5.2.03", "ui-embedded-panel"), artifact, loader));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new VerifiedTopMenuResolverFactory()
+                            .create(record("5.2.03", "ui-top-menu"), artifact, loader));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new VerifiedBoundingBoxOverlayButtonResolverFactory()
+                            .create(record("5.2.03", "ui-bounding-box-overlay"), artifact, loader));
         }
     }
 
-    private static void assertAdmitted(
-        final String profile,
-        final String exactVersion
-    ) throws Exception {
+    private static void assertAdmitted(final String profile, final String exactVersion) throws Exception {
         final Path artifact = editorArtifact(profile);
         try (URLClassLoader loader = loader(artifact)) {
             assertEquals(
-                exactVersion,
-                new VerifiedProjectWorkspaceResolverFactory().create(
-                    record(profile, "project-workspace"), artifact, loader
-                ).cubismVersion()
-            );
+                    exactVersion,
+                    new VerifiedProjectWorkspaceResolverFactory()
+                            .create(record(profile, "project-workspace"), artifact, loader)
+                            .cubismVersion());
             assertEquals(
-                exactVersion,
-                new VerifiedEditorModelResolverFactory().create(
-                    record(profile, "editor-model"), artifact, loader
-                ).cubismVersion()
-            );
+                    exactVersion,
+                    new VerifiedEditorModelResolverFactory()
+                            .create(record(profile, "editor-model"), artifact, loader)
+                            .cubismVersion());
             assertEquals(
-                exactVersion,
-                new VerifiedMainToolbarResolverFactory().create(
-                    record(profile, "ui-main-toolbar"), artifact, loader
-                ).cubismVersion()
-            );
+                    exactVersion,
+                    new VerifiedMainToolbarResolverFactory()
+                            .create(record(profile, "ui-main-toolbar"), artifact, loader)
+                            .cubismVersion());
             assertEquals(
-                profile.equals("5.2.03") ? "5.2.03" : exactVersion,
-                new VerifiedEmbeddedPanelResolverFactory().create(
-                    record(profile, "ui-embedded-panel"), artifact, loader
-                ).cubismVersion()
-            );
-            final StaticVerificationReport topMenuReport = new StaticVerificationCli().verify(
-                record(profile, "ui-top-menu"),
-                artifact
-            );
+                    profile.equals("5.2.03") ? "5.2.03" : exactVersion,
+                    new VerifiedEmbeddedPanelResolverFactory()
+                            .create(record(profile, "ui-embedded-panel"), artifact, loader)
+                            .cubismVersion());
+            final StaticVerificationReport topMenuReport =
+                    new StaticVerificationCli().verify(record(profile, "ui-top-menu"), artifact);
             assertEquals(
-                true,
-                topMenuReport.allSelectorsVerified(),
-                () -> topMenuReport.results().toString()
-            );
+                    true,
+                    topMenuReport.allSelectorsVerified(),
+                    () -> topMenuReport.results().toString());
             assertEquals(
-                profile.equals("5.2.03") ? "5.2.03" : exactVersion,
-                new VerifiedTopMenuResolverFactory().create(
-                    record(profile, "ui-top-menu"), artifact, loader
-                ).cubismVersion()
-            );
-            final StaticVerificationReport overlayReport = new StaticVerificationCli().verify(
-                record(profile, "ui-bounding-box-overlay"),
-                artifact
-            );
+                    profile.equals("5.2.03") ? "5.2.03" : exactVersion,
+                    new VerifiedTopMenuResolverFactory()
+                            .create(record(profile, "ui-top-menu"), artifact, loader)
+                            .cubismVersion());
+            final StaticVerificationReport overlayReport =
+                    new StaticVerificationCli().verify(record(profile, "ui-bounding-box-overlay"), artifact);
             assertEquals(
-                true,
-                overlayReport.allSelectorsVerified(),
-                () -> overlayReport.results().toString()
-            );
+                    true,
+                    overlayReport.allSelectorsVerified(),
+                    () -> overlayReport.results().toString());
             assertEquals(
-                profile.equals("5.2.03") ? "5.2.03" : exactVersion,
-                new VerifiedBoundingBoxOverlayButtonResolverFactory().create(
-                    record(profile, "ui-bounding-box-overlay"), artifact, loader
-                ).cubismVersion()
-            );
+                    profile.equals("5.2.03") ? "5.2.03" : exactVersion,
+                    new VerifiedBoundingBoxOverlayButtonResolverFactory()
+                            .create(record(profile, "ui-bounding-box-overlay"), artifact, loader)
+                            .cubismVersion());
         }
     }
 
     private static Path record(final String profile, final String slice) {
-        return PROJECT_ROOT.resolve(Path.of(
-            "cubism-ref", "verification",
-            "cubism-" + profile + '-' + slice + ".json"
-        ));
+        return PROJECT_ROOT.resolve(Path.of("cubism-ref", "verification", "cubism-" + profile + '-' + slice + ".json"));
     }
 
     private static Path editorArtifact(final String profile) {
@@ -134,24 +109,22 @@ class VerifiedEditorStartupResolverFactoriesTest {
         // this project's exact-version naming: it still ships Cubism-5.2, not Cubism-5.2.03.
         // Map the profile onto the directory rather than renaming someone else's tree.
         final String directory = "5.2.03".equals(profile) ? "5.2" : profile;
-        return LEGACY_EVIDENCE.resolve(
-            "Cubism-" + directory + "/jars/Live2D_Cubism.jar"
-        );
+        return LEGACY_EVIDENCE.resolve("Cubism-" + directory + "/jars/Live2D_Cubism.jar");
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
         try (Stream<Path> files = Files.list(artifact.getParent())) {
-            final URL[] classpath = files
-                .filter(path -> path.getFileName().toString().endsWith(".jar"))
-                .sorted()
-                .map(path -> {
-                    try {
-                        return path.toUri().toURL();
-                    } catch (java.net.MalformedURLException exception) {
-                        throw new IllegalArgumentException(exception);
-                    }
-                })
-                .toArray(URL[]::new);
+            final URL[] classpath = files.filter(
+                            path -> path.getFileName().toString().endsWith(".jar"))
+                    .sorted()
+                    .map(path -> {
+                        try {
+                            return path.toUri().toURL();
+                        } catch (java.net.MalformedURLException exception) {
+                            throw new IllegalArgumentException(exception);
+                        }
+                    })
+                    .toArray(URL[]::new);
             return new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());
         }
     }

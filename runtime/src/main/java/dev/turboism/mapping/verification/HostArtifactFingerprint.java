@@ -6,11 +6,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 /** Exact-version, hash-anchored identity for a local host artifact. */
-public record HostArtifactFingerprint(
-    String cubismVersion,
-    long size,
-    String sha256
-) {
+public record HostArtifactFingerprint(String cubismVersion, long size, String sha256) {
 
     public HostArtifactFingerprint {
         cubismVersion = requireText(cubismVersion, "cubismVersion");
@@ -44,9 +40,7 @@ public record HostArtifactFingerprint(
      */
     public boolean matches(final HostArtifactFingerprint expected) {
         Objects.requireNonNull(expected, "expected");
-        return cubismVersion.equals(expected.cubismVersion)
-            && size == expected.size
-            && sha256.equals(expected.sha256);
+        return cubismVersion.equals(expected.cubismVersion) && size == expected.size && sha256.equals(expected.sha256);
     }
 
     private static String requireSha256(final String value) {

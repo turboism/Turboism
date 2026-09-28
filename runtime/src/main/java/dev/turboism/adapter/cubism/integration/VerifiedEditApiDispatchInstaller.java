@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.integration;
 
-import dev.turboism.mapping.verification.selector.EditorIntegrationWebSocketSelectorContract;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
+import dev.turboism.mapping.verification.selector.EditorIntegrationWebSocketSelectorContract;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,17 +41,13 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
     /** Kill switch honored by both {@link #install} and {@link EditProtocolBridge}. */
     public static final String ENABLED_PROPERTY = EditProtocolBridge.ENABLED_PROPERTY;
 
-    private static final String ADAPTER_SLICE_ID =
-        EditorIntegrationWebSocketSelectorContract.ADAPTER_SLICE_ID;
-    private static final String CAPABILITY_ID =
-        EditorIntegrationWebSocketSelectorContract.DISPATCH_CAPABILITY_ID;
-    private static final String DISPATCH_ENTRY_ALIAS =
-        "cubism.integration.websocket.dispatch.on-message";
+    private static final String ADAPTER_SLICE_ID = EditorIntegrationWebSocketSelectorContract.ADAPTER_SLICE_ID;
+    private static final String CAPABILITY_ID = EditorIntegrationWebSocketSelectorContract.DISPATCH_CAPABILITY_ID;
+    private static final String DISPATCH_ENTRY_ALIAS = "cubism.integration.websocket.dispatch.on-message";
 
     private static final String DISPATCH_OWNER = "com/live2d/cubism/doc/webSocket/l";
     private static final String DISPATCH_NAME = "a";
-    private static final String DISPATCH_DESCRIPTOR =
-        "(Ljava/lang/String;Lorg/java_websocket/WebSocket;)V";
+    private static final String DISPATCH_DESCRIPTOR = "(Ljava/lang/String;Lorg/java_websocket/WebSocket;)V";
     private static final int DISPATCH_REQUIRED_ACCESS = 0x0012; // ACC_PRIVATE | ACC_FINAL
 
     private final Instrumentation instrumentation;
@@ -64,20 +60,12 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
     private BiFunction<Object, Object, Object> publishedReceiver;
 
     private VerifiedEditApiDispatchInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final StaticSelector entry
-    ) {
+            final Instrumentation instrumentation, final ClassLoader hostClassLoader, final StaticSelector entry) {
         this.instrumentation = instrumentation;
         this.hostClassLoader = hostClassLoader;
         this.entry = entry;
         this.transformer = new EditApiDispatchTransformer(
-            entry.ownerInternalName(),
-            entry.memberName(),
-            entry.descriptor(),
-            hostClassLoader,
-            CALLBACK_KEY
-        );
+                entry.ownerInternalName(), entry.memberName(), entry.descriptor(), hostClassLoader, CALLBACK_KEY);
     }
 
     /**
@@ -97,39 +85,37 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
      *                                  exact reviewed member
      */
     public static VerifiedEditApiDispatchInstaller fromVerifiedResolver(
-        final Instrumentation instrumentation,
-        final VerifiedMemberResolver resolver,
-        final ClassLoader hostClassLoader
-    ) {
+            final Instrumentation instrumentation,
+            final VerifiedMemberResolver resolver,
+            final ClassLoader hostClassLoader) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        if (!verified.cubismVersion().startsWith("5.2.") && !verified.cubismVersion().startsWith("5.3.")) {
-            throw new IllegalArgumentException("Edit-protocol backport excludes the native 5.4 protocol and other lines.");
+        if (!verified.cubismVersion().startsWith("5.2.")
+                && !verified.cubismVersion().startsWith("5.3.")) {
+            throw new IllegalArgumentException(
+                    "Edit-protocol backport excludes the native 5.4 protocol and other lines.");
         }
         if (!verified.isAdmittedCubismVersion("5.2.03")
-            && !verified.isAdmittedCubismVersion("5.3.02")
-            && !verified.isAdmittedCubismVersion("5.3.03")) {
-            throw new IllegalArgumentException(
-                "Edit-protocol dispatch hook version is unsupported.");
+                && !verified.isAdmittedCubismVersion("5.3.02")
+                && !verified.isAdmittedCubismVersion("5.3.03")) {
+            throw new IllegalArgumentException("Edit-protocol dispatch hook version is unsupported.");
         }
-        if (!verified.authorizesFeature(
-            ADAPTER_SLICE_ID, CAPABILITY_ID, Set.of(DISPATCH_ENTRY_ALIAS))) {
-            throw new IllegalArgumentException(
-                "Edit-protocol dispatch hook is not authorized.");
+        if (!verified.authorizesFeature(ADAPTER_SLICE_ID, CAPABILITY_ID, Set.of(DISPATCH_ENTRY_ALIAS))) {
+            throw new IllegalArgumentException("Edit-protocol dispatch hook is not authorized.");
         }
         final StaticSelector selector = verified.verifiedSelector(DISPATCH_ENTRY_ALIAS);
         if (selector.kind() != StaticSelector.Kind.METHOD
-            || !DISPATCH_OWNER.equals(selector.ownerInternalName())
-            || !DISPATCH_NAME.equals(selector.memberName())
-            || !DISPATCH_DESCRIPTOR.equals(selector.descriptor())
-            || selector.requiredAccessFlags() != DISPATCH_REQUIRED_ACCESS
-            || (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
+                || !DISPATCH_OWNER.equals(selector.ownerInternalName())
+                || !DISPATCH_NAME.equals(selector.memberName())
+                || !DISPATCH_DESCRIPTOR.equals(selector.descriptor())
+                || selector.requiredAccessFlags() != DISPATCH_REQUIRED_ACCESS
+                || (selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
             throw new IllegalArgumentException(
-                "Verified edit-protocol dispatch selector is invalid: " + DISPATCH_ENTRY_ALIAS);
+                    "Verified edit-protocol dispatch selector is invalid: " + DISPATCH_ENTRY_ALIAS);
         }
         return new VerifiedEditApiDispatchInstaller(
-            Objects.requireNonNull(instrumentation, "instrumentation"),
-            Objects.requireNonNull(hostClassLoader, "hostClassLoader"),
-            selector);
+                Objects.requireNonNull(instrumentation, "instrumentation"),
+                Objects.requireNonNull(hostClassLoader, "hostClassLoader"),
+                selector);
     }
 
     /**
@@ -162,9 +148,11 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
             transformerRegistered = true;
             retransform(DISPATCH_OWNER.replace('/', '.'));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             try {
                 close();
             } catch (Throwable cleanupFailure) {
+                FatalErrors.rethrowIfFatal(cleanupFailure);
                 failure.addSuppressed(cleanupFailure);
             }
             throw failure;
@@ -182,8 +170,8 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
             final long before = transformer.successfulTransformationCount();
             instrumentation.retransformClasses(loaded);
             if (transformer.successfulTransformationCount() <= before) {
-                throw new IllegalStateException("Edit dispatch target was not patched: " + className
-                    + ": " + transformer.diagnostic());
+                throw new IllegalStateException(
+                        "Edit dispatch target was not patched: " + className + ": " + transformer.diagnostic());
             }
         } catch (Exception failure) {
             throw new IllegalStateException("Edit dispatch hook transformation failed: " + className, failure);
@@ -222,6 +210,7 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
             try {
                 instrumentation.removeTransformer(transformer);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 first = failure;
             }
             transformerRegistered = false;
@@ -236,6 +225,7 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
             try {
                 if (instrumentation.isModifiableClass(loaded)) instrumentation.retransformClasses(loaded);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (first == null) first = failure;
                 else if (first != failure) first.addSuppressed(failure);
             }

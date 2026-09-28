@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.dialog;
 
-
 import java.time.Duration;
 import java.util.List;
 
@@ -62,15 +61,14 @@ public interface HostDialogAutomationService {
     enum Unavailable implements HostDialogAutomationService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public HostDialogOutcome act(
-            final HostDialogMatcher matcher,
-            final HostDialogAction action,
-            final Duration timeout
-        ) {
+        @Override
+        public HostDialogOutcome act(
+                final HostDialogMatcher matcher, final HostDialogAction action, final Duration timeout) {
             if (matcher == null || action == null) {
                 throw new IllegalArgumentException("matcher and action must not be null");
             }
@@ -80,7 +78,8 @@ public interface HostDialogAutomationService {
             return HostDialogOutcome.UNAVAILABLE;
         }
 
-        @Override public List<HostDialogSnapshot> snapshots() {
+        @Override
+        public List<HostDialogSnapshot> snapshots() {
             return List.of();
         }
     }

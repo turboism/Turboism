@@ -8,27 +8,27 @@ import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.model.ArtMeshTextureInputs;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.ModelImageRelation;
-import dev.turboism.sdk.cubism.model.TextureSourceQuery;
-import dev.turboism.sdk.cubism.model.TextureSourcesSnapshot;
-import dev.turboism.sdk.cubism.model.TextureSourcesSnapshot.ModelImageSource;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.TextureInputBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
+import dev.turboism.sdk.cubism.model.TextureSourceQuery;
+import dev.turboism.sdk.cubism.model.TextureSourcesSnapshot;
+import dev.turboism.sdk.cubism.model.TextureSourcesSnapshot.ModelImageSource;
 import dev.turboism.sdk.cubism.psd.PsdEditFile;
 import dev.turboism.sdk.cubism.psd.PsdExportResult;
 import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.plugin.CancellationToken;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.plugin.CancellationToken;
 import dev.turboism.sdk.task.FixedDelayTaskRequest;
 import dev.turboism.sdk.task.PluginTaskKind;
 import dev.turboism.sdk.task.PluginTaskPriority;
 import dev.turboism.sdk.task.PluginTaskRequest;
-import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.task.TaskHandle;
+import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.task.TaskOutcome;
 import dev.turboism.sdk.task.TaskOutcomeStatus;
 import dev.turboism.sdk.task.TaskSubmission;
@@ -37,14 +37,6 @@ import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-
-import javax.swing.BorderFactory;
-import javax.swing.JDialog;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JProgressBar;
-import javax.swing.SwingUtilities;
-import javax.swing.WindowConstants;
 import java.awt.BorderLayout;
 import java.awt.Frame;
 import java.awt.GraphicsEnvironment;
@@ -65,6 +57,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.swing.BorderFactory;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JProgressBar;
+import javax.swing.SwingUtilities;
+import javax.swing.WindowConstants;
 
 /**
  * Owns external PSD edit sessions for one plugin instance. One session exists per stable
@@ -92,10 +91,7 @@ final class ExternalPsdEditSessionManager {
     private volatile boolean stopped;
     private volatile JDialog exportProgressDialog;
 
-    ExternalPsdEditSessionManager(
-        final PluginContext context,
-        final PluginLocalization localization
-    ) {
+    ExternalPsdEditSessionManager(final PluginContext context, final PluginLocalization localization) {
         this.context = Objects.requireNonNull(context, "context");
         this.localization = Objects.requireNonNull(localization, "localization");
     }
@@ -110,27 +106,25 @@ final class ExternalPsdEditSessionManager {
             selection = null;
         }
         if (selection == null) {
-            notifyStatus("external-psd-edit.error.no-selection", "ERROR",
-                text("external-psd-edit.error.no-selection"));
+            notifyStatus("external-psd-edit.error.no-selection", "ERROR", text("external-psd-edit.error.no-selection"));
             return;
         }
         final LinkedHashSet<ArtMeshId> artMeshes = new LinkedHashSet<>();
         final List<String> skipped = new ArrayList<>();
         for (final ContextMenuSelection.Item item : selection.items()) {
-            if (item.kind() == ContextMenuRegistry.ObjectKind.ART_MESH && !item.id().isBlank()) {
+            if (item.kind() == ContextMenuRegistry.ObjectKind.ART_MESH
+                    && !item.id().isBlank()) {
                 artMeshes.add(new ArtMeshId(item.id()));
             } else {
                 skipped.add(item.kind() + ":" + item.id());
             }
         }
         if (artMeshes.isEmpty()) {
-            notifyStatus("external-psd-edit.error.unsupported", "ERROR",
-                text("external-psd-edit.error.unsupported"));
+            notifyStatus("external-psd-edit.error.unsupported", "ERROR", text("external-psd-edit.error.unsupported"));
             return;
         }
 
-        notifyStatus("external-psd-edit.status.preparing", "INFO",
-            text("external-psd-edit.status.preparing"));
+        notifyStatus("external-psd-edit.status.preparing", "INFO", text("external-psd-edit.status.preparing"));
         final CubismModel model;
         final TextureSourcesSnapshot relations;
         final ModelId modelId;
@@ -146,20 +140,25 @@ final class ExternalPsdEditSessionManager {
         } catch (RuntimeException unavailable) {
             // Version/capability gates, permissions and stale bindings can all reject here.
             // Keep the original cause: the localized status alone cannot distinguish them.
-            context.logger().error(
-                "External PSD model preparation failed; stage=" + preparationStage, unavailable);
-            notifyStatus("external-psd-edit.error.model-unavailable", "ERROR",
-                text("external-psd-edit.error.model-unavailable"));
+            context.logger().error("External PSD model preparation failed; stage=" + preparationStage, unavailable);
+            notifyStatus(
+                    "external-psd-edit.error.model-unavailable",
+                    "ERROR",
+                    text("external-psd-edit.error.model-unavailable"));
             return;
         }
         if (!relations.isAvailable()) {
-            notifyStatus("external-psd-edit.error.relations-unavailable", "ERROR",
-                text("external-psd-edit.error.relations-unavailable"));
+            notifyStatus(
+                    "external-psd-edit.error.relations-unavailable",
+                    "ERROR",
+                    text("external-psd-edit.error.relations-unavailable"));
             return;
         }
         if (!selection.documentId().equals(relations.binding())) {
-            notifyStatus("external-psd-edit.error.document-changed", "ERROR",
-                text("external-psd-edit.error.document-changed"));
+            notifyStatus(
+                    "external-psd-edit.error.document-changed",
+                    "ERROR",
+                    text("external-psd-edit.error.document-changed"));
             return;
         }
 
@@ -170,16 +169,15 @@ final class ExternalPsdEditSessionManager {
         for (final ArtMeshId artMesh : artMeshes) {
             final Optional<RawImageId> raw = currentRawImage(relations, artMesh);
             if (raw.isPresent()) {
-                final Optional<TargetSeed> target = targetSeed(
-                    relations, modelId, raw.orElseThrow());
+                final Optional<TargetSeed> target = targetSeed(relations, modelId, raw.orElseThrow());
                 if (target.isEmpty()) {
                     unresolved.add(artMesh.value());
                     continue;
                 }
                 final TargetSeed resolvedTarget = target.orElseThrow();
                 targets.putIfAbsent(resolvedTarget.rawImageId(), resolvedTarget);
-                final RawImageId priorRaw = targetAnchors.putIfAbsent(
-                    resolvedTarget.key(), resolvedTarget.rawImageId());
+                final RawImageId priorRaw =
+                        targetAnchors.putIfAbsent(resolvedTarget.key(), resolvedTarget.rawImageId());
                 if (priorRaw != null && !priorRaw.equals(resolvedTarget.rawImageId())) {
                     targetCollision = true;
                 }
@@ -188,15 +186,13 @@ final class ExternalPsdEditSessionManager {
             }
         }
         if (!unresolved.isEmpty()) {
-            notifyStatus("external-psd-edit.warn.unresolved", "WARNING", format(
-                "external-psd-edit.warn.unresolved",
-                unresolved.size(),
-                String.join(", ", unresolved)
-            ));
+            notifyStatus(
+                    "external-psd-edit.warn.unresolved",
+                    "WARNING",
+                    format("external-psd-edit.warn.unresolved", unresolved.size(), String.join(", ", unresolved)));
         }
         if (targets.isEmpty() || targetCollision) {
-            notifyStatus("external-psd-edit.error.unresolved", "ERROR",
-                text("external-psd-edit.error.unresolved"));
+            notifyStatus("external-psd-edit.error.unresolved", "ERROR", text("external-psd-edit.error.unresolved"));
             return;
         }
 
@@ -220,8 +216,7 @@ final class ExternalPsdEditSessionManager {
                 if (!existing.isLive()) {
                     continue;
                 }
-                final Optional<RawImageId> current = uniqueRawForModelImages(
-                    relations, existing.key.modelImageIds());
+                final Optional<RawImageId> current = uniqueRawForModelImages(relations, existing.key.modelImageIds());
                 if (current.isEmpty()) {
                     staleSessions.add(existing);
                     continue;
@@ -245,13 +240,12 @@ final class ExternalPsdEditSessionManager {
             invalidate(stale, "document or model binding changed");
         }
         if (currentSessionCollision) {
-            notifyStatus("external-psd-edit.error.unresolved", "ERROR",
-                text("external-psd-edit.error.unresolved"));
+            notifyStatus("external-psd-edit.error.unresolved", "ERROR", text("external-psd-edit.error.unresolved"));
             return;
         }
         if (reopenSessions.isEmpty() && fresh.isEmpty()) {
-            notifyStatus("external-psd-edit.status.already-open", "INFO",
-                text("external-psd-edit.status.already-open"));
+            notifyStatus(
+                    "external-psd-edit.status.already-open", "INFO", text("external-psd-edit.status.already-open"));
             return;
         }
         final int openCount = reopenSessions.size() + fresh.size();
@@ -259,12 +253,12 @@ final class ExternalPsdEditSessionManager {
             return;
         }
         for (final Session inFlight : inFlightSessions) {
-            notifyStatus("external-psd-edit.status.already-open", "INFO",
-                text("external-psd-edit.status.already-open"));
+            notifyStatus(
+                    "external-psd-edit.status.already-open", "INFO", text("external-psd-edit.status.already-open"));
         }
         for (final Session existing : reopenSessions) {
-            notifyStatus("external-psd-edit.status.already-open", "INFO",
-                text("external-psd-edit.status.already-open"));
+            notifyStatus(
+                    "external-psd-edit.status.already-open", "INFO", text("external-psd-edit.status.already-open"));
             reopenSession(existing);
         }
         openFreshWithProgress(model.textures(), fresh);
@@ -278,15 +272,11 @@ final class ExternalPsdEditSessionManager {
      * observe a half-applied edit, and keeps the editor visibly alive instead of freezing.
      * The dialog is dismissed once every dispatched export settles.</p>
      */
-    private void openFreshWithProgress(
-        final ModelTextures textures,
-        final List<TargetSeed> fresh
-    ) {
+    private void openFreshWithProgress(final ModelTextures textures, final List<TargetSeed> fresh) {
         if (fresh.isEmpty()) {
             return;
         }
-        final JDialog progress = GraphicsEnvironment.isHeadless()
-            ? null : newExportProgressDialog(fresh.size());
+        final JDialog progress = GraphicsEnvironment.isHeadless() ? null : newExportProgressDialog(fresh.size());
         if (progress != null) {
             exportProgressDialog = progress;
             showExportProgress(progress);
@@ -295,8 +285,12 @@ final class ExternalPsdEditSessionManager {
             try {
                 beginSession(textures, target);
             } catch (RuntimeException exportRefused) {
-                notifyStatus("external-psd-edit.error.session-failed", "ERROR", format(
-                    "external-psd-edit.error.export-failed", target.rawImageId().value()));
+                notifyStatus(
+                        "external-psd-edit.error.session-failed",
+                        "ERROR",
+                        format(
+                                "external-psd-edit.error.export-failed",
+                                target.rawImageId().value()));
             }
         }
         if (pendingExportOperations.get() <= 0) {
@@ -324,8 +318,9 @@ final class ExternalPsdEditSessionManager {
         }
         try {
             if (!shown.await(30, TimeUnit.SECONDS)) {
-                context.logger().warn(
-                    "External PSD export progress dialog did not open; exports continue without its input block");
+                context.logger()
+                        .warn(
+                                "External PSD export progress dialog did not open; exports continue without its input block");
             }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
@@ -333,20 +328,13 @@ final class ExternalPsdEditSessionManager {
     }
 
     private JDialog newExportProgressDialog(final int count) {
-        final JDialog dialog = new JDialog(
-            (Frame) null,
-            text("external-psd-edit.progress.title"),
-            true
-        );
+        final JDialog dialog = new JDialog((Frame) null, text("external-psd-edit.progress.title"), true);
         TurboismWindowFactory.style(dialog);
         dialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         dialog.setResizable(false);
         final JPanel content = new JPanel(new BorderLayout(10, 10));
         content.setBorder(BorderFactory.createEmptyBorder(14, 18, 14, 18));
-        content.add(
-            new JLabel(format("external-psd-edit.progress.body", count)),
-            BorderLayout.NORTH
-        );
+        content.add(new JLabel(format("external-psd-edit.progress.body", count)), BorderLayout.NORTH);
         final JProgressBar bar = new JProgressBar();
         bar.setIndeterminate(true);
         content.add(bar, BorderLayout.CENTER);
@@ -388,7 +376,8 @@ final class ExternalPsdEditSessionManager {
         long currentGeneration = -1L;
         try {
             final CubismModel model = context.cubism().model().active();
-            final TextureSourcesSnapshot relations = model.textures().sources(new TextureSourceQuery(Set.of(), Set.of()));
+            final TextureSourcesSnapshot relations =
+                    model.textures().sources(new TextureSourceQuery(Set.of(), Set.of()));
             if (relations.isAvailable()) {
                 currentBinding = relations.binding();
                 currentModel = model.id();
@@ -398,8 +387,9 @@ final class ExternalPsdEditSessionManager {
             // No live binding to compare against: every session is suspect.
         }
         for (final Session session : snapshot) {
-            if (currentBinding == null || currentModel == null
-                || !session.matchesContext(currentBinding, currentModel, currentGeneration)) {
+            if (currentBinding == null
+                    || currentModel == null
+                    || !session.matchesContext(currentBinding, currentModel, currentGeneration)) {
                 invalidate(session, "model closed");
             }
         }
@@ -424,8 +414,7 @@ final class ExternalPsdEditSessionManager {
             session.stop();
         }
         if (!snapshot.isEmpty()) {
-            context.logger().info("ExternalPsdEditPlugin stopped " + snapshot.size()
-                + " session(s): " + reason);
+            context.logger().info("ExternalPsdEditPlugin stopped " + snapshot.size() + " session(s): " + reason);
         }
     }
 
@@ -435,10 +424,7 @@ final class ExternalPsdEditSessionManager {
         }
     }
 
-    private void beginSession(
-        final ModelTextures textures,
-        final TargetSeed target
-    ) {
+    private void beginSession(final ModelTextures textures, final TargetSeed target) {
         final Session session = new Session(target);
         synchronized (sessions) {
             if (stopped) {
@@ -447,11 +433,12 @@ final class ExternalPsdEditSessionManager {
             sessions.put(target.key(), session);
         }
         ensureRefreshScheduled();
-        notifyStatus("external-psd-edit.status.exporting", "INFO",
-            format("external-psd-edit.status.exporting", target.rawImageId().value()));
+        notifyStatus(
+                "external-psd-edit.status.exporting",
+                "INFO",
+                format("external-psd-edit.status.exporting", target.rawImageId().value()));
         try {
-            final CompletionStage<PsdExportResult> export =
-                textures.exportRawImagePsd(target.rawImageId());
+            final CompletionStage<PsdExportResult> export = textures.exportRawImagePsd(target.rawImageId());
             if (export == null) {
                 throw new IllegalStateException("export returned no completion");
             }
@@ -464,8 +451,11 @@ final class ExternalPsdEditSessionManager {
                 }
             });
         } catch (RuntimeException exportFailure) {
-            failSession(session, format(
-                "external-psd-edit.error.export-failed", target.rawImageId().value()));
+            failSession(
+                    session,
+                    format(
+                            "external-psd-edit.error.export-failed",
+                            target.rawImageId().value()));
         }
     }
 
@@ -477,8 +467,10 @@ final class ExternalPsdEditSessionManager {
     private void ensureRefreshScheduled() {
         final long epoch;
         synchronized (sessions) {
-            if (stopped || !hasLiveSessionsLocked()
-                || refreshHandle != null || refreshAttemptedEpoch == lifecycleEpoch) {
+            if (stopped
+                    || !hasLiveSessionsLocked()
+                    || refreshHandle != null
+                    || refreshAttemptedEpoch == lifecycleEpoch) {
                 return;
             }
             epoch = lifecycleEpoch;
@@ -487,16 +479,17 @@ final class ExternalPsdEditSessionManager {
 
         final TaskSubmission submission;
         try {
-            submission = context.tasks().scheduleWithFixedDelay(new FixedDelayTaskRequest(
-                new TaskId("external-psd-edit.refresh." + epoch),
-                PluginTaskKind.COMPUTE,
-                PluginTaskPriority.NORMAL,
-                Duration.ofSeconds(1),
-                Duration.ofSeconds(1),
-                cancellation -> refreshRelations(epoch, cancellation)
-            ));
+            submission = context.tasks()
+                    .scheduleWithFixedDelay(new FixedDelayTaskRequest(
+                            new TaskId("external-psd-edit.refresh." + epoch),
+                            PluginTaskKind.COMPUTE,
+                            PluginTaskPriority.NORMAL,
+                            Duration.ofSeconds(1),
+                            Duration.ofSeconds(1),
+                            cancellation -> refreshRelations(epoch, cancellation)));
         } catch (RuntimeException failure) {
-            reportRefreshUnavailable(epoch, "scheduler threw " + failure.getClass().getSimpleName());
+            reportRefreshUnavailable(
+                    epoch, "scheduler threw " + failure.getClass().getSimpleName());
             return;
         }
         if (submission == null || !submission.accepted()) {
@@ -504,8 +497,8 @@ final class ExternalPsdEditSessionManager {
                 closeTaskHandle(submission.handle());
             }
             final String reason = submission == null
-                ? "scheduler returned no submission"
-                : "scheduler rejected " + submission.rejectionReason().orElse(null);
+                    ? "scheduler returned no submission"
+                    : "scheduler rejected " + submission.rejectionReason().orElse(null);
             reportRefreshUnavailable(epoch, reason);
             return;
         }
@@ -513,8 +506,7 @@ final class ExternalPsdEditSessionManager {
         final TaskHandle handle = submission.handle();
         boolean retained;
         synchronized (sessions) {
-            retained = !stopped && lifecycleEpoch == epoch && hasLiveSessionsLocked()
-                && refreshHandle == null;
+            retained = !stopped && lifecycleEpoch == epoch && hasLiveSessionsLocked() && refreshHandle == null;
             if (retained) {
                 refreshHandle = handle;
                 refreshHandleEpoch = epoch;
@@ -525,8 +517,7 @@ final class ExternalPsdEditSessionManager {
             return;
         }
         try {
-            handle.completion().whenComplete((outcome, failure) ->
-                onRefreshTerminal(epoch, handle, outcome, failure));
+            handle.completion().whenComplete((outcome, failure) -> onRefreshTerminal(epoch, handle, outcome, failure));
         } catch (RuntimeException completionUnavailable) {
             synchronized (sessions) {
                 if (refreshHandle == handle && refreshHandleEpoch == epoch) {
@@ -540,11 +531,7 @@ final class ExternalPsdEditSessionManager {
     }
 
     private void onRefreshTerminal(
-        final long epoch,
-        final TaskHandle handle,
-        final TaskOutcome outcome,
-        final Throwable failure
-    ) {
+            final long epoch, final TaskHandle handle, final TaskOutcome outcome, final Throwable failure) {
         boolean current;
         synchronized (sessions) {
             current = refreshHandle == handle && refreshHandleEpoch == epoch;
@@ -560,9 +547,11 @@ final class ExternalPsdEditSessionManager {
         if (stopped || lifecycleEpoch != epoch) {
             return;
         }
-        reportRefreshUnavailable(epoch, failure == null && outcome != null
-            ? "refresh task ended " + outcome.status()
-            : "refresh task ended unexpectedly");
+        reportRefreshUnavailable(
+                epoch,
+                failure == null && outcome != null
+                        ? "refresh task ended " + outcome.status()
+                        : "refresh task ended unexpectedly");
     }
 
     private void reportRefreshUnavailable(final long epoch, final String reason) {
@@ -571,8 +560,10 @@ final class ExternalPsdEditSessionManager {
                 return;
             }
         }
-        notifyStatus("external-psd-edit.error.refresh-unavailable", "ERROR", format(
-            "external-psd-edit.error.refresh-unavailable", reason));
+        notifyStatus(
+                "external-psd-edit.error.refresh-unavailable",
+                "ERROR",
+                format("external-psd-edit.error.refresh-unavailable", reason));
     }
 
     private void refreshRelations(final long epoch, final CancellationToken cancellation) {
@@ -586,8 +577,8 @@ final class ExternalPsdEditSessionManager {
                 return;
             }
             snapshot = sessions.values().stream()
-                .filter(Session::isRefreshCandidate)
-                .toList();
+                    .filter(Session::isRefreshCandidate)
+                    .toList();
             for (final Session session : snapshot) {
                 sampledVersions.put(session, session.transitionVersion());
             }
@@ -604,15 +595,13 @@ final class ExternalPsdEditSessionManager {
             relations = model.textures().sources(sourceQuery(Set.of()));
         } catch (RuntimeException unavailable) {
             for (final Session session : snapshot) {
-                pauseForRelationRefresh(session, sampledVersions.get(session),
-                    "relation read unavailable");
+                pauseForRelationRefresh(session, sampledVersions.get(session), "relation read unavailable");
             }
             return;
         }
         if (!relations.isAvailable()) {
             for (final Session session : snapshot) {
-                pauseForRelationRefresh(session, sampledVersions.get(session),
-                    "relations unavailable");
+                pauseForRelationRefresh(session, sampledVersions.get(session), "relations unavailable");
             }
             return;
         }
@@ -632,8 +621,7 @@ final class ExternalPsdEditSessionManager {
                 stale.add(session);
                 continue;
             }
-            final Optional<RawImageId> raw = uniqueRawForModelImages(
-                relations, session.key.modelImageIds());
+            final Optional<RawImageId> raw = uniqueRawForModelImages(relations, session.key.modelImageIds());
             if (raw.isEmpty()) {
                 unavailable.add(session);
             } else {
@@ -642,41 +630,41 @@ final class ExternalPsdEditSessionManager {
         }
         for (final Session session : stale) {
             final long sampledVersion = sampledVersions.get(session);
-            invalidateIfAtTransition(session, sampledVersion,
-                "relation refresh found a changed document or model");
+            invalidateIfAtTransition(session, sampledVersion, "relation refresh found a changed document or model");
         }
         for (final Session session : unavailable) {
-            pauseForRelationRefresh(session, sampledVersions.get(session),
-                "model-image relation is missing or ambiguous");
+            pauseForRelationRefresh(
+                    session, sampledVersions.get(session), "model-image relation is missing or ambiguous");
         }
 
         final Map<RawImageId, List<Session>> byRaw = new LinkedHashMap<>();
         for (final Map.Entry<Session, RawImageId> entry : resolved.entrySet()) {
             byRaw.computeIfAbsent(entry.getValue(), ignored -> new ArrayList<>())
-                .add(entry.getKey());
+                    .add(entry.getKey());
         }
         for (final Map.Entry<RawImageId, List<Session>> entry : byRaw.entrySet()) {
             final List<Session> stable = entry.getValue().stream()
-                .filter(session -> session.isAtTransition(sampledVersions.get(session)))
-                .toList();
+                    .filter(session -> session.isAtTransition(sampledVersions.get(session)))
+                    .toList();
             if (stable.size() > 1) {
                 for (final Session session : stable) {
-                    pauseForRelationRefresh(session, sampledVersions.get(session),
-                        "multiple live sessions resolve the same raw image "
-                            + entry.getKey().value());
+                    pauseForRelationRefresh(
+                            session,
+                            sampledVersions.get(session),
+                            "multiple live sessions resolve the same raw image "
+                                    + entry.getKey().value());
                 }
             }
         }
         for (final Map.Entry<RawImageId, List<Session>> entry : byRaw.entrySet()) {
             final List<Session> stable = entry.getValue().stream()
-                .filter(session -> session.isAtTransition(sampledVersions.get(session)))
-                .toList();
+                    .filter(session -> session.isAtTransition(sampledVersions.get(session)))
+                    .toList();
             if (stable.size() != 1) {
                 continue;
             }
             final Session session = stable.get(0);
-            session.recordObservedRaw(
-                entry.getKey(), relations.revision(), sampledVersions.get(session));
+            session.recordObservedRaw(entry.getKey(), relations.revision(), sampledVersions.get(session));
         }
     }
 
@@ -715,51 +703,53 @@ final class ExternalPsdEditSessionManager {
             return;
         }
         try {
-            file.openInDefaultApplication().whenComplete((result, failure) ->
-                onReopenComplete(session, result, failure));
+            file.openInDefaultApplication()
+                    .whenComplete((result, failure) -> onReopenComplete(session, result, failure));
         } catch (RuntimeException failure) {
             onReopenComplete(session, null, failure);
         }
     }
 
-    private void onReopenComplete(
-        final Session session,
-        final PsdFileOperationResult result,
-        final Throwable failure
-    ) {
+    private void onReopenComplete(final Session session, final PsdFileOperationResult result, final Throwable failure) {
         synchronized (sessions) {
             if (stopped || sessions.get(session.key) != session) {
                 return;
             }
         }
-        if (failure != null || result == null
-            || result.status() != PsdFileOperationResult.Status.OPENED) {
-            notifyStatus("external-psd-edit.error.open-failed", "ERROR", format(
-                "external-psd-edit.error.open-failed", session.rawImageId().value()));
+        if (failure != null || result == null || result.status() != PsdFileOperationResult.Status.OPENED) {
+            notifyStatus(
+                    "external-psd-edit.error.open-failed",
+                    "ERROR",
+                    format(
+                            "external-psd-edit.error.open-failed",
+                            session.rawImageId().value()));
         }
     }
 
-    private void onExportComplete(
-        final Session session,
-        final PsdExportResult result,
-        final Throwable failure
-    ) {
+    private void onExportComplete(final Session session, final PsdExportResult result, final Throwable failure) {
         if (failure != null) {
-            failSession(session, format(
-                "external-psd-edit.error.export-failed", session.rawImageId().value()));
+            failSession(
+                    session,
+                    format(
+                            "external-psd-edit.error.export-failed",
+                            session.rawImageId().value()));
             return;
         }
         if (result == null || result.status() != PsdExportResult.Status.EXPORTED) {
-            failSession(session, format(
-                "external-psd-edit.error.export-failed",
-                    session.rawImageId().value()
-                    + (result == null ? "" : " (" + result.status() + ")")));
+            failSession(
+                    session,
+                    format(
+                            "external-psd-edit.error.export-failed",
+                            session.rawImageId().value() + (result == null ? "" : " (" + result.status() + ")")));
             return;
         }
         final PsdEditFile exportedFile = result.file().orElse(null);
         if (exportedFile == null) {
-            failSession(session, format(
-                "external-psd-edit.error.export-handle-unavailable", session.rawImageId().value()));
+            failSession(
+                    session,
+                    format(
+                            "external-psd-edit.error.export-handle-unavailable",
+                            session.rawImageId().value()));
             return;
         }
         final boolean retainedForSubscription;
@@ -783,15 +773,17 @@ final class ExternalPsdEditSessionManager {
                 throw new IllegalStateException("save observation returned no registration");
             }
         } catch (RuntimeException subscribeFailure) {
-            failSession(session, format(
-                "external-psd-edit.error.subscribe-failed", session.rawImageId().value()));
+            failSession(
+                    session,
+                    format(
+                            "external-psd-edit.error.subscribe-failed",
+                            session.rawImageId().value()));
             return;
         }
 
         final boolean retainedForOpen;
         synchronized (session) {
-            retainedForOpen = session.isLive() && session.file == exportedFile
-                && session.state == State.EXPORTING;
+            retainedForOpen = session.isLive() && session.file == exportedFile && session.state == State.EXPORTING;
             if (retainedForOpen) {
                 session.saveRegistration = registration;
                 session.state = State.OPENING;
@@ -804,33 +796,32 @@ final class ExternalPsdEditSessionManager {
         }
 
         try {
-            final CompletionStage<PsdFileOperationResult> open =
-                exportedFile.openInDefaultApplication();
+            final CompletionStage<PsdFileOperationResult> open = exportedFile.openInDefaultApplication();
             if (open == null) {
                 throw new IllegalStateException("open returned no completion");
             }
-            open.whenComplete((openResult, openFailure) ->
-                onOpenComplete(session, openResult, openFailure));
+            open.whenComplete((openResult, openFailure) -> onOpenComplete(session, openResult, openFailure));
         } catch (RuntimeException openFailure) {
-            failSession(session, format(
-                "external-psd-edit.error.open-failed", session.rawImageId().value()));
+            failSession(
+                    session,
+                    format(
+                            "external-psd-edit.error.open-failed",
+                            session.rawImageId().value()));
         }
     }
 
-    private void onOpenComplete(
-        final Session session,
-        final PsdFileOperationResult result,
-        final Throwable failure
-    ) {
+    private void onOpenComplete(final Session session, final PsdFileOperationResult result, final Throwable failure) {
         synchronized (session) {
             if (!session.isLive()) {
                 return;
             }
         }
-        if (failure != null || result == null
-            || result.status() != PsdFileOperationResult.Status.OPENED) {
-            failSession(session, format(
-                "external-psd-edit.error.open-failed", session.rawImageId().value()));
+        if (failure != null || result == null || result.status() != PsdFileOperationResult.Status.OPENED) {
+            failSession(
+                    session,
+                    format(
+                            "external-psd-edit.error.open-failed",
+                            session.rawImageId().value()));
             return;
         }
         final boolean transitionedToActive;
@@ -843,8 +834,10 @@ final class ExternalPsdEditSessionManager {
         if (!transitionedToActive) {
             return;
         }
-        notifyStatus("external-psd-edit.status.editing", "INFO",
-            format("external-psd-edit.status.editing", session.rawImageId().value()));
+        notifyStatus(
+                "external-psd-edit.status.editing",
+                "INFO",
+                format("external-psd-edit.status.editing", session.rawImageId().value()));
         ensureRefreshScheduled();
     }
 
@@ -856,7 +849,7 @@ final class ExternalPsdEditSessionManager {
             }
             if (session.inFlightRevision != null) {
                 if (!Objects.equals(session.inFlightRevision, revision)
-                    && !Objects.equals(session.pendingRevision, revision)) {
+                        && !Objects.equals(session.pendingRevision, revision)) {
                     session.pendingRevision = revision;
                 }
                 return;
@@ -874,40 +867,46 @@ final class ExternalPsdEditSessionManager {
     private void submitRevision(final Session session, final PsdFileRevision revision) {
         final RevisionTask task;
         synchronized (session) {
-            if (!session.isLive() || !session.isInFlight(revision)
-                || session.inFlightTask == null) {
+            if (!session.isLive() || !session.isInFlight(revision) || session.inFlightTask == null) {
                 return;
             }
             task = session.inFlightTask;
         }
         final TaskSubmission submission;
         try {
-            submission = context.tasks().submit(new PluginTaskRequest(
-                new TaskId("external-psd-edit.import." + taskSequence.incrementAndGet()),
-                PluginTaskKind.COMPUTE,
-                PluginTaskPriority.NORMAL,
-                cancellation -> importSave(session, revision, task, cancellation)
-            ));
+            submission = context.tasks()
+                    .submit(new PluginTaskRequest(
+                            new TaskId("external-psd-edit.import." + taskSequence.incrementAndGet()),
+                            PluginTaskKind.COMPUTE,
+                            PluginTaskPriority.NORMAL,
+                            cancellation -> importSave(session, revision, task, cancellation)));
         } catch (RuntimeException schedulerFailure) {
-            failTaskBeforeNative(session, task, "scheduler threw "
-                + schedulerFailure.getClass().getSimpleName(), true);
+            failTaskBeforeNative(
+                    session,
+                    task,
+                    "scheduler threw " + schedulerFailure.getClass().getSimpleName(),
+                    true);
             return;
         }
         if (submission == null || !submission.accepted()) {
             if (submission != null) {
                 closeTaskHandle(submission.handle());
             }
-            failTaskBeforeNative(session, task, submission == null
-                ? "scheduler returned no submission"
-                : "scheduler rejected " + submission.rejectionReason().orElse(null), true);
+            failTaskBeforeNative(
+                    session,
+                    task,
+                    submission == null
+                            ? "scheduler returned no submission"
+                            : "scheduler rejected "
+                                    + submission.rejectionReason().orElse(null),
+                    true);
             return;
         }
 
         final TaskHandle handle = submission.handle();
         final boolean current;
         synchronized (session) {
-            current = session.isLive() && session.inFlightTask == task
-                && session.isInFlight(revision);
+            current = session.isLive() && session.inFlightTask == task && session.isInFlight(revision);
         }
         if (!current) {
             closeTaskHandle(handle);
@@ -918,8 +917,7 @@ final class ExternalPsdEditSessionManager {
             return;
         }
         try {
-            handle.completion().whenComplete((outcome, failure) ->
-                onTaskTerminal(session, task, outcome, failure));
+            handle.completion().whenComplete((outcome, failure) -> onTaskTerminal(session, task, outcome, failure));
         } catch (RuntimeException completionUnavailable) {
             failTaskBeforeNative(session, task, "task completion unavailable", true);
             closeTaskHandle(handle);
@@ -927,11 +925,10 @@ final class ExternalPsdEditSessionManager {
     }
 
     private void importSave(
-        final Session session,
-        final PsdFileRevision revision,
-        final RevisionTask task,
-        final CancellationToken cancellation
-    ) {
+            final Session session,
+            final PsdFileRevision revision,
+            final RevisionTask task,
+            final CancellationToken cancellation) {
         synchronized (session) {
             if (!session.acceptsSaves() || !session.isInFlight(revision)) {
                 return;
@@ -957,47 +954,39 @@ final class ExternalPsdEditSessionManager {
             return;
         }
         try {
-            target.model().textures().replaceRawImagePsd(target.rawImageId(), file, revision)
-                .whenComplete((result, failure) -> onReplaceComplete(
-                    session, revision, target.rawImageId(), result, failure));
+            target.model()
+                    .textures()
+                    .replaceRawImagePsd(target.rawImageId(), file, revision)
+                    .whenComplete((result, failure) ->
+                            onReplaceComplete(session, revision, target.rawImageId(), result, failure));
         } catch (RuntimeException failure) {
             onReplaceComplete(session, revision, target.rawImageId(), null, failure);
         }
     }
 
     private void onTaskTerminal(
-        final Session session,
-        final RevisionTask task,
-        final TaskOutcome outcome,
-        final Throwable failure
-    ) {
+            final Session session, final RevisionTask task, final TaskOutcome outcome, final Throwable failure) {
         final boolean beforeNative = task.markTerminal();
         if (!beforeNative) {
             closeTaskHandle(task.handle());
             return;
         }
         final String diagnostic = failure == null && outcome != null
-            ? "task ended " + outcome.status()
-            : failure == null ? "task ended without an outcome" : failure.getMessage();
-        final boolean ordinaryFailure = outcome != null
-            && outcome.status() == TaskOutcomeStatus.FAILED;
+                ? "task ended " + outcome.status()
+                : failure == null ? "task ended without an outcome" : failure.getMessage();
+        final boolean ordinaryFailure = outcome != null && outcome.status() == TaskOutcomeStatus.FAILED;
         failTaskBeforeNative(session, task, diagnostic, !ordinaryFailure);
         closeTaskHandle(task.handle());
     }
 
     private void failTaskBeforeNative(
-        final Session session,
-        final RevisionTask task,
-        final String diagnostic,
-        final boolean pause
-    ) {
+            final Session session, final RevisionTask task, final String diagnostic, final boolean pause) {
         final PsdFileRevision pending;
         if (task.nativeDispatched()) {
             return;
         }
         synchronized (session) {
-            if (!session.isLive() || session.inFlightTask != task
-                || !session.isInFlight(task.revision())) {
+            if (!session.isLive() || session.inFlightTask != task || !session.isInFlight(task.revision())) {
                 return;
             }
             session.inFlightRevision = null;
@@ -1013,13 +1002,20 @@ final class ExternalPsdEditSessionManager {
             }
         }
         if (pause) {
-            notifyStatus("external-psd-edit.status.paused-reason", "ERROR", format(
-                "external-psd-edit.status.paused-reason",
-                session.rawImageId().value(), diagnostic));
+            notifyStatus(
+                    "external-psd-edit.status.paused-reason",
+                    "ERROR",
+                    format(
+                            "external-psd-edit.status.paused-reason",
+                            session.rawImageId().value(),
+                            diagnostic));
         } else {
-            notifyStatus("external-psd-edit.error.replace-failed", "ERROR", format(
-                "external-psd-edit.error.replace-failed",
-                session.rawImageId().value() + " (" + diagnostic + ")"));
+            notifyStatus(
+                    "external-psd-edit.error.replace-failed",
+                    "ERROR",
+                    format(
+                            "external-psd-edit.error.replace-failed",
+                            session.rawImageId().value() + " (" + diagnostic + ")"));
         }
         if (pending != null) {
             submitRevision(session, pending);
@@ -1027,48 +1023,43 @@ final class ExternalPsdEditSessionManager {
     }
 
     private void onReplaceComplete(
-        final Session session,
-        final PsdFileRevision revision,
-        final RawImageId requestedRaw,
-        final PsdReplaceResult result,
-        final Throwable failure
-    ) {
+            final Session session,
+            final PsdFileRevision revision,
+            final RawImageId requestedRaw,
+            final PsdReplaceResult result,
+            final Throwable failure) {
         synchronized (session) {
             if (!session.isLive() || !session.isInFlight(revision)) {
                 return;
             }
         }
         if (failure != null || result == null) {
-            finishFailedReplacement(session, revision,
-                failure == null ? "no result" : failure.getMessage(), true);
+            finishFailedReplacement(session, revision, failure == null ? "no result" : failure.getMessage(), true);
             return;
         }
         switch (result.status()) {
             case APPLIED -> finishAppliedReplacement(session, revision, requestedRaw, result);
-            case PARTIAL_FAILURE -> finishFailedReplacement(
-                session, revision, result.diagnostic(), true);
-            case FAILED -> finishFailedReplacement(
-                session, revision, result.diagnostic(), false);
+            case PARTIAL_FAILURE -> finishFailedReplacement(session, revision, result.diagnostic(), true);
+            case FAILED -> finishFailedReplacement(session, revision, result.diagnostic(), false);
             case STALE_TARGET, REJECTED, UNAVAILABLE ->
                 invalidate(session, "replace " + result.status() + ": " + result.diagnostic());
         }
     }
 
     private void finishAppliedReplacement(
-        final Session session,
-        final PsdFileRevision revision,
-        final RawImageId requestedRaw,
-        final PsdReplaceResult result
-    ) {
+            final Session session,
+            final PsdFileRevision revision,
+            final RawImageId requestedRaw,
+            final PsdReplaceResult result) {
         if (!requestedRaw.equals(result.before())) {
-            pauseAfterUnverifiedReplacement(session, revision,
-                "native before identity changed from " + requestedRaw.value());
+            pauseAfterUnverifiedReplacement(
+                    session, revision, "native before identity changed from " + requestedRaw.value());
             return;
         }
         if (result.consumedRevision().isEmpty()
-            || !Objects.equals(result.consumedRevision().orElseThrow(), revision)) {
-            pauseAfterUnverifiedReplacement(session, revision,
-                "native consumed revision does not match the in-flight revision");
+                || !Objects.equals(result.consumedRevision().orElseThrow(), revision)) {
+            pauseAfterUnverifiedReplacement(
+                    session, revision, "native consumed revision does not match the in-flight revision");
             return;
         }
         final TargetResolution resolution = resolveTarget(session);
@@ -1078,12 +1069,13 @@ final class ExternalPsdEditSessionManager {
         }
         final ResolvedTarget target = resolution.target().orElseThrow();
         final RawImageId observedAfter = result.after().orElse(null);
-        if (observedAfter == null || !observedAfter.equals(target.rawImageId())
-            || target.relations().rawImage(observedAfter).isEmpty()
-            || (result.relations().isPresent()
-                && !suppliedRelationsMatch(session, result.relations().orElseThrow(), observedAfter))) {
-            pauseAfterUnverifiedReplacement(session, revision,
-                "native after does not match the fresh model-image relation");
+        if (observedAfter == null
+                || !observedAfter.equals(target.rawImageId())
+                || target.relations().rawImage(observedAfter).isEmpty()
+                || (result.relations().isPresent()
+                        && !suppliedRelationsMatch(session, result.relations().orElseThrow(), observedAfter))) {
+            pauseAfterUnverifiedReplacement(
+                    session, revision, "native after does not match the fresh model-image relation");
             return;
         }
 
@@ -1105,8 +1097,10 @@ final class ExternalPsdEditSessionManager {
                 session.inFlightTask = new RevisionTask(pending);
             }
         }
-        notifyStatus("external-psd-edit.status.applied", "INFO",
-            format("external-psd-edit.status.applied", target.rawImageId().value()));
+        notifyStatus(
+                "external-psd-edit.status.applied",
+                "INFO",
+                format("external-psd-edit.status.applied", target.rawImageId().value()));
         if (pending != null) {
             synchronized (session) {
                 if (!session.isInFlight(pending)) {
@@ -1118,11 +1112,7 @@ final class ExternalPsdEditSessionManager {
     }
 
     private void finishFailedReplacement(
-        final Session session,
-        final PsdFileRevision revision,
-        final String diagnostic,
-        final boolean pause
-    ) {
+            final Session session, final PsdFileRevision revision, final String diagnostic, final boolean pause) {
         final PsdFileRevision pending;
         synchronized (session) {
             if (!session.isLive() || !session.isInFlight(revision)) {
@@ -1141,13 +1131,20 @@ final class ExternalPsdEditSessionManager {
             }
         }
         if (pause) {
-            notifyStatus("external-psd-edit.status.paused-partial", "ERROR", format(
-                "external-psd-edit.status.paused-partial",
-                session.rawImageId().value(), diagnostic));
+            notifyStatus(
+                    "external-psd-edit.status.paused-partial",
+                    "ERROR",
+                    format(
+                            "external-psd-edit.status.paused-partial",
+                            session.rawImageId().value(),
+                            diagnostic));
         } else {
-            notifyStatus("external-psd-edit.error.replace-failed", "ERROR", format(
-                "external-psd-edit.error.replace-failed",
-                session.rawImageId().value() + " (" + diagnostic + ")"));
+            notifyStatus(
+                    "external-psd-edit.error.replace-failed",
+                    "ERROR",
+                    format(
+                            "external-psd-edit.error.replace-failed",
+                            session.rawImageId().value() + " (" + diagnostic + ")"));
         }
         if (pending != null) {
             submitRevision(session, pending);
@@ -1155,10 +1152,7 @@ final class ExternalPsdEditSessionManager {
     }
 
     private void pauseAfterUnverifiedReplacement(
-        final Session session,
-        final PsdFileRevision revision,
-        final String reason
-    ) {
+            final Session session, final PsdFileRevision revision, final String reason) {
         synchronized (session) {
             if (!session.isLive() || !session.isInFlight(revision)) {
                 return;
@@ -1169,25 +1163,33 @@ final class ExternalPsdEditSessionManager {
             session.transitionVersion++;
             session.state = State.PAUSED;
         }
-        notifyStatus("external-psd-edit.status.paused-partial", "ERROR", format(
-            "external-psd-edit.status.paused-partial",
-            session.rawImageId().value(), reason));
+        notifyStatus(
+                "external-psd-edit.status.paused-partial",
+                "ERROR",
+                format(
+                        "external-psd-edit.status.paused-partial",
+                        session.rawImageId().value(),
+                        reason));
     }
 
     private boolean suppliedRelationsMatch(
-        final Session session,
-        final TextureRelationsSnapshot relations,
-        final RawImageId observedAfter
-    ) {
-        if (!relations.isAvailable() || !session.matchesRelationContext(
-            relations.binding(), relations.generation())) {
+            final Session session, final TextureRelationsSnapshot relations, final RawImageId observedAfter) {
+        if (!relations.isAvailable() || !session.matchesRelationContext(relations.binding(), relations.generation())) {
             return false;
         }
-        if (relations.rawImages().stream().filter(raw -> raw.id().equals(observedAfter)).count() != 1) return false;
+        if (relations.rawImages().stream()
+                        .filter(raw -> raw.id().equals(observedAfter))
+                        .count()
+                != 1) return false;
         for (final ModelImageId id : session.key.modelImageIds()) {
             final List<ModelImageRelation> matches = relations.modelImages().stream()
-                .filter(image -> image.id().equals(id)).toList();
-            if (matches.size() != 1 || !matches.get(0).currentRawImageId().filter(observedAfter::equals).isPresent()) {
+                    .filter(image -> image.id().equals(id))
+                    .toList();
+            if (matches.size() != 1
+                    || !matches.get(0)
+                            .currentRawImageId()
+                            .filter(observedAfter::equals)
+                            .isPresent()) {
                 return false;
             }
         }
@@ -1202,22 +1204,22 @@ final class ExternalPsdEditSessionManager {
         }
         session.stop();
         if (removed) {
-            context.logger().info("ExternalPsdEditPlugin session invalidated for "
-                + session.rawImageId().value() + ": " + reason);
-            notifyStatus("external-psd-edit.warn.session-invalidated", "WARNING", format(
-                "external-psd-edit.warn.session-invalidated", session.rawImageId().value()));
+            context.logger()
+                    .info("ExternalPsdEditPlugin session invalidated for "
+                            + session.rawImageId().value() + ": " + reason);
+            notifyStatus(
+                    "external-psd-edit.warn.session-invalidated",
+                    "WARNING",
+                    format(
+                            "external-psd-edit.warn.session-invalidated",
+                            session.rawImageId().value()));
         }
         stopRefreshIfNoLiveSessions();
     }
 
-    private void invalidateIfAtTransition(
-        final Session session,
-        final long expectedVersion,
-        final String reason
-    ) {
+    private void invalidateIfAtTransition(final Session session, final long expectedVersion, final String reason) {
         synchronized (session) {
-            if (!session.isLive() || session.transitionVersion != expectedVersion
-                || session.inFlightRevision != null) {
+            if (!session.isLive() || session.transitionVersion != expectedVersion || session.inFlightRevision != null) {
                 return;
             }
             session.transitionVersion++;
@@ -1234,16 +1236,13 @@ final class ExternalPsdEditSessionManager {
         stopRefreshIfNoLiveSessions();
     }
 
-    private void pauseForRelationRefresh(
-        final Session session,
-        final long expectedVersion,
-        final String reason
-    ) {
+    private void pauseForRelationRefresh(final Session session, final long expectedVersion, final String reason) {
         final boolean paused;
         synchronized (session) {
-            paused = session.isLive() && session.transitionVersion == expectedVersion
-                && session.inFlightRevision == null
-                && session.state != State.PAUSED;
+            paused = session.isLive()
+                    && session.transitionVersion == expectedVersion
+                    && session.inFlightRevision == null
+                    && session.state != State.PAUSED;
             if (paused) {
                 session.pendingRevision = null;
                 session.transitionVersion++;
@@ -1251,22 +1250,28 @@ final class ExternalPsdEditSessionManager {
             }
         }
         if (paused) {
-            notifyStatus("external-psd-edit.status.paused-reason", "ERROR", format(
-                "external-psd-edit.status.paused-reason",
-                session.rawImageId().value(), reason));
+            notifyStatus(
+                    "external-psd-edit.status.paused-reason",
+                    "ERROR",
+                    format(
+                            "external-psd-edit.status.paused-reason",
+                            session.rawImageId().value(),
+                            reason));
         }
     }
 
     private boolean confirmMultiple(final int count) {
         try {
-            return context.uiHost().confirmDialog(new DialogRequest(
-                "external-psd-edit.confirm.open-multiple",
-                text("external-psd-edit.confirm.open-multiple.title"),
-                format("external-psd-edit.confirm.open-multiple.body", count)
-            ));
+            return context.uiHost()
+                    .confirmDialog(new DialogRequest(
+                            "external-psd-edit.confirm.open-multiple",
+                            text("external-psd-edit.confirm.open-multiple.title"),
+                            format("external-psd-edit.confirm.open-multiple.body", count)));
         } catch (RuntimeException unavailable) {
-            notifyStatus("external-psd-edit.error.confirmation-unavailable", "ERROR",
-                text("external-psd-edit.error.confirmation-unavailable"));
+            notifyStatus(
+                    "external-psd-edit.error.confirmation-unavailable",
+                    "ERROR",
+                    text("external-psd-edit.error.confirmation-unavailable"));
             return false;
         }
     }
@@ -1291,36 +1296,31 @@ final class ExternalPsdEditSessionManager {
             if (!session.matchesContext(relations.binding(), model.id(), relations.generation())) {
                 return TargetResolution.unavailable("document, model, or generation changed");
             }
-            final Optional<RawImageId> raw = uniqueRawForModelImages(
-                relations, session.key.modelImageIds());
+            final Optional<RawImageId> raw = uniqueRawForModelImages(relations, session.key.modelImageIds());
             if (raw.isEmpty()) {
                 return TargetResolution.unavailable("model-image relation is missing or ambiguous");
             }
             if (hasLiveSessionCollision(session, relations, raw.orElseThrow())) {
-                return TargetResolution.unavailable(
-                    "multiple live sessions resolve the same current raw image");
+                return TargetResolution.unavailable("multiple live sessions resolve the same current raw image");
             }
-            return TargetResolution.available(new ResolvedTarget(
-                model, relations, raw.orElseThrow()));
+            return TargetResolution.available(new ResolvedTarget(model, relations, raw.orElseThrow()));
         } catch (RuntimeException unavailable) {
             return TargetResolution.unavailable("model unavailable");
         }
     }
 
     private boolean hasLiveSessionCollision(
-        final Session session,
-        final TextureSourcesSnapshot relations,
-        final RawImageId raw
-    ) {
+            final Session session, final TextureSourcesSnapshot relations, final RawImageId raw) {
         synchronized (sessions) {
             for (final Session other : sessions.values()) {
-                if (other == session || !other.isLive()
-                    || !other.matchesRelationContext(relations.binding(), relations.generation())) {
+                if (other == session
+                        || !other.isLive()
+                        || !other.matchesRelationContext(relations.binding(), relations.generation())) {
                     continue;
                 }
                 if (uniqueRawForModelImages(relations, other.key.modelImageIds())
-                    .filter(raw::equals)
-                    .isPresent()) {
+                        .filter(raw::equals)
+                        .isPresent()) {
                     return true;
                 }
             }
@@ -1329,45 +1329,38 @@ final class ExternalPsdEditSessionManager {
     }
 
     private Optional<TargetSeed> targetSeed(
-        final TextureSourcesSnapshot relations,
-        final ModelId modelId,
-        final RawImageId raw
-    ) {
-        return sessionKeyForRaw(relations, modelId, raw)
-            .map(key -> new TargetSeed(key, raw));
+            final TextureSourcesSnapshot relations, final ModelId modelId, final RawImageId raw) {
+        return sessionKeyForRaw(relations, modelId, raw).map(key -> new TargetSeed(key, raw));
     }
 
     private Optional<SessionKey> sessionKeyForRaw(
-        final TextureSourcesSnapshot relations,
-        final ModelId modelId,
-        final RawImageId raw
-    ) {
-        if (relations.rawImages().stream().filter(value -> value.id().equals(raw)).count() != 1) {
+            final TextureSourcesSnapshot relations, final ModelId modelId, final RawImageId raw) {
+        if (relations.rawImages().stream()
+                        .filter(value -> value.id().equals(raw))
+                        .count()
+                != 1) {
             return Optional.empty();
         }
         final List<ModelImageId> imageIds = relations.modelImages().stream()
-            .filter(value -> value.currentRawImageId().filter(raw::equals).isPresent())
-            .map(ModelImageSource::id)
-            .toList();
+                .filter(value -> value.currentRawImageId().filter(raw::equals).isPresent())
+                .map(ModelImageSource::id)
+                .toList();
         if (imageIds.isEmpty() || Set.copyOf(imageIds).size() != imageIds.size()) {
             return Optional.empty();
         }
-        return Optional.of(new SessionKey(
-            relations.binding(), modelId, relations.generation(), Set.copyOf(imageIds)));
+        return Optional.of(new SessionKey(relations.binding(), modelId, relations.generation(), Set.copyOf(imageIds)));
     }
 
     private Optional<RawImageId> uniqueRawForModelImages(
-        final TextureSourcesSnapshot relations,
-        final Set<ModelImageId> imageIds
-    ) {
+            final TextureSourcesSnapshot relations, final Set<ModelImageId> imageIds) {
         if (imageIds.isEmpty()) {
             return Optional.empty();
         }
         final Set<RawImageId> candidates = new LinkedHashSet<>();
         for (final ModelImageId imageId : imageIds) {
             final List<ModelImageSource> matches = relations.modelImages().stream()
-                .filter(value -> value.id().equals(imageId))
-                .toList();
+                    .filter(value -> value.id().equals(imageId))
+                    .toList();
             if (matches.size() != 1) {
                 return Optional.empty();
             }
@@ -1381,15 +1374,15 @@ final class ExternalPsdEditSessionManager {
             return Optional.empty();
         }
         final RawImageId raw = candidates.iterator().next();
-        return relations.rawImages().stream().filter(value -> value.id().equals(raw)).count() == 1
-            ? Optional.of(raw)
-            : Optional.empty();
+        return relations.rawImages().stream()
+                                .filter(value -> value.id().equals(raw))
+                                .count()
+                        == 1
+                ? Optional.of(raw)
+                : Optional.empty();
     }
 
-    private Optional<RawImageId> currentRawImage(
-        final TextureSourcesSnapshot relations,
-        final ArtMeshId artMesh
-    ) {
+    private Optional<RawImageId> currentRawImage(final TextureSourcesSnapshot relations, final ArtMeshId artMesh) {
         ArtMeshTextureInputs matched = null;
         for (final ArtMeshTextureInputs inputs : relations.artMeshInputs()) {
             if (!inputs.id().equals(artMesh)) {
@@ -1404,7 +1397,9 @@ final class ExternalPsdEditSessionManager {
             return Optional.empty();
         }
         final OptionalInt index = matched.currentInputIndex();
-        if (index.isEmpty() || index.getAsInt() < 0 || index.getAsInt() >= matched.inputs().size()) {
+        if (index.isEmpty()
+                || index.getAsInt() < 0
+                || index.getAsInt() >= matched.inputs().size()) {
             return Optional.empty();
         }
         final TextureInputBinding input = matched.inputs().get(index.getAsInt());
@@ -1437,17 +1432,16 @@ final class ExternalPsdEditSessionManager {
     }
 
     private Optional<RawImageId> rawForModelImageInput(
-        final TextureSourcesSnapshot relations,
-        final TextureInputBinding input
-    ) {
-        if (!input.isResolved() || input.kind() != TextureInputBinding.Kind.MODEL_IMAGE
-            || input.modelImageId().isEmpty()) {
+            final TextureSourcesSnapshot relations, final TextureInputBinding input) {
+        if (!input.isResolved()
+                || input.kind() != TextureInputBinding.Kind.MODEL_IMAGE
+                || input.modelImageId().isEmpty()) {
             return Optional.empty();
         }
         final ModelImageId modelImageId = input.modelImageId().orElseThrow();
         final List<ModelImageSource> imageMatches = relations.modelImages().stream()
-            .filter(value -> value.id().equals(modelImageId))
-            .toList();
+                .filter(value -> value.id().equals(modelImageId))
+                .toList();
         if (imageMatches.size() != 1) {
             return Optional.empty();
         }
@@ -1555,12 +1549,7 @@ final class ExternalPsdEditSessionManager {
         }
     }
 
-    private record SessionKey(
-        String binding,
-        ModelId modelId,
-        long generation,
-        Set<ModelImageId> modelImageIds
-    ) {
+    private record SessionKey(String binding, ModelId modelId, long generation, Set<ModelImageId> modelImageIds) {
         private SessionKey {
             binding = Objects.requireNonNull(binding, "binding");
             modelId = Objects.requireNonNull(modelId, "modelId");
@@ -1578,12 +1567,7 @@ final class ExternalPsdEditSessionManager {
         }
     }
 
-    private record ResolvedTarget(
-        CubismModel model,
-        TextureSourcesSnapshot relations,
-        RawImageId rawImageId
-    ) {
-    }
+    private record ResolvedTarget(CubismModel model, TextureSourcesSnapshot relations, RawImageId rawImageId) {}
 
     private record TargetResolution(Optional<ResolvedTarget> target, String reason) {
         private TargetResolution {
@@ -1647,12 +1631,11 @@ final class ExternalPsdEditSessionManager {
         }
 
         private synchronized boolean recordObservedRaw(
-            final RawImageId raw,
-            final long relationRevision,
-            final long expectedVersion
-        ) {
-            if (state == State.STOPPED || state == State.PAUSED || inFlightRevision != null
-                || transitionVersion != expectedVersion) {
+                final RawImageId raw, final long relationRevision, final long expectedVersion) {
+            if (state == State.STOPPED
+                    || state == State.PAUSED
+                    || inFlightRevision != null
+                    || transitionVersion != expectedVersion) {
                 return false;
             }
             currentRawImageId = Objects.requireNonNull(raw, "raw");
@@ -1673,14 +1656,8 @@ final class ExternalPsdEditSessionManager {
             return currentRawImageId;
         }
 
-        private boolean matchesContext(
-            final String binding,
-            final ModelId modelId,
-            final long generation
-        ) {
-            return key.binding().equals(binding)
-                && key.modelId().equals(modelId)
-                && key.generation() == generation;
+        private boolean matchesContext(final String binding, final ModelId modelId, final long generation) {
+            return key.binding().equals(binding) && key.modelId().equals(modelId) && key.generation() == generation;
         }
 
         private boolean matchesRelationContext(final String binding, final long generation) {

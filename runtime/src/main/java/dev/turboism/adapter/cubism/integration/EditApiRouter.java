@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.edit.DeformerOps;
 import dev.turboism.sdk.cubism.edit.EditDeformerAttachMode;
 import dev.turboism.sdk.cubism.edit.EditObjectKind;
@@ -27,7 +27,6 @@ import dev.turboism.sdk.cubism.model.ModelObjectKind;
 import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.permission.CubismPermissionException;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -66,8 +65,7 @@ final class EditApiRouter {
 
     private final EditBridgeEnvironment env;
     private final EditSocketWriter writer;
-    private final Map<Object, EditConnectionState> states =
-        java.util.Collections.synchronizedMap(new WeakHashMap<>());
+    private final Map<Object, EditConnectionState> states = java.util.Collections.synchronizedMap(new WeakHashMap<>());
     private final Map<String, Route> routes = new HashMap<>();
 
     /** The single bridge-global engine session owner (the engine admits one per binding). */
@@ -89,10 +87,7 @@ final class EditApiRouter {
      *
      * @return the response {@code Data} fragment to serialize
      */
-    JsonNode dispatch(
-        final EditApiEnvelope envelope,
-        final Object socket
-    ) throws EditApiFailure {
+    JsonNode dispatch(final EditApiEnvelope envelope, final Object socket) throws EditApiFailure {
         final EditConnectionInfo info = env.inspector().inspect(socket).orElse(null);
         if (info == null || !info.registered()) {
             throw new EditApiFailure(EditApiErrorCode.PLUGIN_NOT_REGISTERED);
@@ -115,12 +110,12 @@ final class EditApiRouter {
         }
         try {
             return switch (route.access) {
-                case REGISTERED_ONLY -> route.handler.handle(
-                    new Exchange(envelope, state, info, null));
-                case SESSION_OWNER -> route.handler.handle(
-                    new Exchange(envelope, state, info, requireOwnedSession(state)));
-                case SESSION_READ -> withReadSession(state, session ->
-                    route.handler.handle(new Exchange(envelope, state, info, session)));
+                case REGISTERED_ONLY -> route.handler.handle(new Exchange(envelope, state, info, null));
+                case SESSION_OWNER ->
+                    route.handler.handle(new Exchange(envelope, state, info, requireOwnedSession(state)));
+                case SESSION_READ ->
+                    withReadSession(
+                            state, session -> route.handler.handle(new Exchange(envelope, state, info, session)));
             };
         } catch (EditApiFailure failure) {
             throw failure;
@@ -159,10 +154,7 @@ final class EditApiRouter {
      * request with the editing-operation error the official dispatcher emits for unapproved
      * edit calls.
      */
-    private void requireApproval(
-        final EditConnectionState state,
-        final EditConnectionInfo info
-    ) throws EditApiFailure {
+    private void requireApproval(final EditConnectionState state, final EditConnectionInfo info) throws EditApiFailure {
         if (env.approvalGate().isLiveState()) {
             // 051: the native 「编辑」 checkbox is a mutable global state — every gated
             // request resolves against it live, so a flip takes effect on the next call in
@@ -191,18 +183,14 @@ final class EditApiRouter {
         } catch (RuntimeException failure) {
             throw new EditApiFailure(EditApiErrorCode.INVALID_EDIT_OPERATION);
         }
-        state.approval(granted
-            ? EditConnectionState.Approval.APPROVED
-            : EditConnectionState.Approval.DENIED);
+        state.approval(granted ? EditConnectionState.Approval.APPROVED : EditConnectionState.Approval.DENIED);
         if (!granted) {
             throw new EditApiFailure(EditApiErrorCode.INVALID_EDIT_OPERATION);
         }
     }
 
     /** The {@code e()} gate: the request must arrive on the socket owning the live session. */
-    private EditSession requireOwnedSession(
-        final EditConnectionState state
-    ) throws EditApiFailure {
+    private EditSession requireOwnedSession(final EditConnectionState state) throws EditApiFailure {
         final EditSession session = state.session();
         if (session == null || !session.isOpen() || sessionOwner != state) {
             if (sessionOwner == state) {
@@ -219,10 +207,8 @@ final class EditApiRouter {
      * a transient silent session cancelled immediately after the read — the engine requires
      * an admitted session for every operation family while the official protocol does not.
      */
-    private JsonNode withReadSession(
-        final EditConnectionState state,
-        final SessionWork work
-    ) throws EditApiFailure, EditSessionException {
+    private JsonNode withReadSession(final EditConnectionState state, final SessionWork work)
+            throws EditApiFailure, EditSessionException {
         final EditSession owned = state.session();
         if (owned != null && owned.isOpen() && sessionOwner == state) {
             return work.run(owned);
@@ -233,8 +219,8 @@ final class EditApiRouter {
                 sessionOwner = null;
             }
         }
-        final EditSession transientSession = env.editSessions().open(
-            env.pluginContext(), activeDocument(), EditSessionOptions.silentDialog());
+        final EditSession transientSession =
+                env.editSessions().open(env.pluginContext(), activeDocument(), EditSessionOptions.silentDialog());
         try {
             return work.run(transientSession);
         } finally {
@@ -255,9 +241,7 @@ final class EditApiRouter {
     }
 
     private void onUndoCancelled(
-        final EditConnectionState state,
-        final dev.turboism.sdk.cubism.edit.CancelSource source
-    ) {
+            final EditConnectionState state, final dev.turboism.sdk.cubism.edit.CancelSource source) {
         // The engine session ended host-side; drop the ownership link so later requests fail
         // typed instead of touching a dead session, and notify subscribers.
         if (sessionOwner == state) {
@@ -277,13 +261,14 @@ final class EditApiRouter {
         }
         final EditApiVersion version = state.negotiatedVersion();
         final String frame = EditApiResponses.event(
-            version == null ? EditApiVersion.EDIT_API_MINIMUM.toString() : version.toString(),
-            "NotifyUndoCancel",
-            EditApiWire.result(true).toString(),
-            System.currentTimeMillis());
+                version == null ? EditApiVersion.EDIT_API_MINIMUM.toString() : version.toString(),
+                "NotifyUndoCancel",
+                EditApiWire.result(true).toString(),
+                System.currentTimeMillis());
         try {
             writer.send(socket, frame);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Event delivery is best-effort: a dead socket must not break the undo path.
         }
     }
@@ -293,8 +278,7 @@ final class EditApiRouter {
     // ------------------------------------------------------------------
 
     private DocumentId activeDocument() throws EditApiFailure {
-        return env.activeDocument()
-            .orElseThrow(() -> new EditApiFailure(EditApiErrorCode.INVALID_DOCUMENT));
+        return env.activeDocument().orElseThrow(() -> new EditApiFailure(EditApiErrorCode.INVALID_DOCUMENT));
     }
 
     /**
@@ -302,10 +286,7 @@ final class EditApiRouter {
      * A first-seen uid binds to the currently active document; a bound uid whose document is
      * no longer active is stale and fails {@code InvalidDocument} without re-binding.
      */
-    private void requireModelUid(
-        final EditConnectionState state,
-        final EditApiPayload payload
-    ) throws EditApiFailure {
+    private void requireModelUid(final EditConnectionState state, final EditApiPayload payload) throws EditApiFailure {
         final String uid = payload.requiredString("ModelUID");
         final Optional<DocumentId> bound = state.boundDocument(uid);
         if (bound.isPresent()) {
@@ -323,10 +304,7 @@ final class EditApiRouter {
      * the engine's GetObject route accepts, and an absent id fails {@code InvalidModel}.
      */
     private ModelObjectReference objectReference(
-        final EditConnectionState state,
-        final EditSession session,
-        final String id
-    ) throws EditApiFailure {
+            final EditConnectionState state, final EditSession session, final String id) throws EditApiFailure {
         final EditObjectKind kind = resolveKind(state, session, id);
         if (kind == null) {
             throw new EditApiFailure(EditApiErrorCode.INVALID_MODEL);
@@ -351,13 +329,10 @@ final class EditApiRouter {
         };
     }
 
-    private EditObjectKind resolveKind(
-        final EditConnectionState state,
-        final EditSession session,
-        final String id
-    ) throws EditApiFailure {
+    private EditObjectKind resolveKind(final EditConnectionState state, final EditSession session, final String id)
+            throws EditApiFailure {
         Map<String, EditObjectKind> cache =
-            state.session() == session ? state.kindCache().orElse(null) : null;
+                state.session() == session ? state.kindCache().orElse(null) : null;
         if (cache == null) {
             cache = buildKindMap(session);
             if (state.session() == session) {
@@ -382,10 +357,7 @@ final class EditApiRouter {
         return kinds;
     }
 
-    private void collectKinds(
-        final EditObjectNode node,
-        final Map<String, EditObjectKind> kinds
-    ) {
+    private void collectKinds(final EditObjectNode node, final Map<String, EditObjectKind> kinds) {
         kinds.putIfAbsent(node.id().value(), node.kind());
         for (final EditObjectNode child : node.children()) {
             collectKinds(child, kinds);
@@ -396,15 +368,13 @@ final class EditApiRouter {
     // payload helpers
     // ------------------------------------------------------------------
 
-    private List<EditParameterKeyCondition> conditions(
-        final EditApiPayload payload
-    ) throws EditApiFailure {
+    private List<EditParameterKeyCondition> conditions(final EditApiPayload payload) throws EditApiFailure {
         final Optional<List<JsonNode>> raw = payload.optionalArray("Parameters");
         if (raw.isEmpty()) {
             return List.of();
         }
         final List<EditParameterKeyCondition> conditions =
-            new ArrayList<>(raw.orElseThrow().size());
+                new ArrayList<>(raw.orElseThrow().size());
         for (final JsonNode entry : raw.orElseThrow()) {
             if (entry == null || !entry.isObject()) {
                 throw new EditApiFailure(EditApiErrorCode.INVALID_DATA);
@@ -414,18 +384,15 @@ final class EditApiRouter {
             if (id != null && !id.isNull() && !id.isTextual()) {
                 throw new EditApiFailure(EditApiErrorCode.INVALID_DATA);
             }
-            if (value != null && !value.isNull()
-                && !(value.isNumber() && Double.isFinite(value.asDouble()))) {
+            if (value != null && !value.isNull() && !(value.isNumber() && Double.isFinite(value.asDouble()))) {
                 throw new EditApiFailure(EditApiErrorCode.INVALID_DATA);
             }
             final Optional<ParameterId> parameter =
-                id != null && id.isTextual() && !id.asText().isEmpty()
-                    ? Optional.of(parameterId(id.asText()))
-                    : Optional.empty();
+                    id != null && id.isTextual() && !id.asText().isEmpty()
+                            ? Optional.of(parameterId(id.asText()))
+                            : Optional.empty();
             final Optional<Double> keyValue =
-                value != null && value.isNumber()
-                    ? Optional.of(value.asDouble())
-                    : Optional.empty();
+                    value != null && value.isNumber() ? Optional.of(value.asDouble()) : Optional.empty();
             conditions.add(new EditParameterKeyCondition(parameter, keyValue));
         }
         return List.copyOf(conditions);
@@ -491,15 +458,12 @@ final class EditApiRouter {
         return ids;
     }
 
-    private Optional<EditDeformerAttachMode> attachMode(
-        final EditApiPayload payload
-    ) throws EditApiFailure {
+    private Optional<EditDeformerAttachMode> attachMode(final EditApiPayload payload) throws EditApiFailure {
         final Optional<String> mode = payload.optionalString("Mode");
         if (mode.isEmpty()) {
             return Optional.empty();
         }
-        final Optional<EditDeformerAttachMode> parsed =
-            EditApiWire.parseAttachMode(mode.orElseThrow());
+        final Optional<EditDeformerAttachMode> parsed = EditApiWire.parseAttachMode(mode.orElseThrow());
         if (parsed.isEmpty()) {
             throw new EditApiFailure(EditApiErrorCode.INVALID_DATA);
         }
@@ -507,13 +471,8 @@ final class EditApiRouter {
     }
 
     /** {@return present-and-boolean as Optional; absent as empty; wrong type fails} */
-    private Optional<Boolean> flag(
-        final EditApiPayload payload,
-        final String field
-    ) throws EditApiFailure {
-        return payload.has(field)
-            ? Optional.of(payload.requiredBoolean(field))
-            : Optional.empty();
+    private Optional<Boolean> flag(final EditApiPayload payload, final String field) throws EditApiFailure {
+        return payload.has(field) ? Optional.of(payload.requiredBoolean(field)) : Optional.empty();
     }
 
     // ------------------------------------------------------------------
@@ -533,8 +492,7 @@ final class EditApiRouter {
         route("DeleteParameterKey", Access.SESSION_OWNER, true, this::deleteParameterKey);
         route("MoveParameterKey", Access.SESSION_OWNER, true, this::moveParameterKey);
         route("GetParameterKeys", Access.SESSION_READ, false, this::getParameterKeys);
-        route("GetObjectsByParameterKeys", Access.SESSION_OWNER, false,
-            this::getObjectsByParameterKeys);
+        route("GetObjectsByParameterKeys", Access.SESSION_OWNER, false, this::getObjectsByParameterKeys);
         // parameter structure
         route("GetParameterStructure", Access.SESSION_READ, false, this::getParameterStructure);
         route("AddParameter", Access.SESSION_OWNER, true, this::addParameter);
@@ -553,8 +511,7 @@ final class EditApiRouter {
         route("GetPartStructure", Access.SESSION_READ, false, this::getPartStructure);
         route("GetObject", Access.SESSION_READ, false, this::getObject);
         route("DeleteObject", Access.SESSION_OWNER, true, this::deleteObject);
-        route("MoveObjectOnPartsPalette", Access.SESSION_OWNER, true,
-            this::moveObjectOnPartsPalette);
+        route("MoveObjectOnPartsPalette", Access.SESSION_OWNER, true, this::moveObjectOnPartsPalette);
         route("AddPart", Access.SESSION_OWNER, true, this::addPart);
         route("EditPart", Access.SESSION_OWNER, true, this::editPart);
         route("EditArtMesh", Access.SESSION_OWNER, true, this::editArtMesh);
@@ -567,23 +524,26 @@ final class EditApiRouter {
         route("EditWarpDeformer", Access.SESSION_OWNER, true, this::editWarpDeformer);
     }
 
-    private void route(
-        final String method,
-        final Access access,
-        final boolean approval,
-        final Handler handler
-    ) {
+    private void route(final String method, final Access access, final boolean approval, final Handler handler) {
         routes.put(method, new Route(access, approval, missingIdError(method), handler));
     }
 
     /** The typed error for ids the engine reports absent, per family. */
     private EditApiErrorCode missingIdError(final String method) {
         return switch (method) {
-            case "AddParameter", "AddParameterGroup", "EditParameter", "EditParameterGroup",
-                 "DeleteParameter", "DeleteParameterGroup", "MoveParameter",
-                 "MoveParameterGroup", "AddParameterKey", "DeleteParameterKey",
-                 "MoveParameterKey", "GetParameterKeys", "GetObjectsByParameterKeys" ->
-                EditApiErrorCode.INVALID_PARAMETER;
+            case "AddParameter",
+                    "AddParameterGroup",
+                    "EditParameter",
+                    "EditParameterGroup",
+                    "DeleteParameter",
+                    "DeleteParameterGroup",
+                    "MoveParameter",
+                    "MoveParameterGroup",
+                    "AddParameterKey",
+                    "DeleteParameterKey",
+                    "MoveParameterKey",
+                    "GetParameterKeys",
+                    "GetObjectsByParameterKeys" -> EditApiErrorCode.INVALID_PARAMETER;
             default -> EditApiErrorCode.INVALID_MODEL;
         };
     }
@@ -605,8 +565,7 @@ final class EditApiRouter {
             }
             granted = live;
         } else {
-            granted = exchange.state.approval()
-                == EditConnectionState.Approval.APPROVED;
+            granted = exchange.state.approval() == EditConnectionState.Approval.APPROVED;
         }
         boolean admitted = false;
         if (granted) {
@@ -636,10 +595,11 @@ final class EditApiRouter {
         }
         final EditSession session;
         try {
-            session = env.editSessions().open(
-                env.pluginContext(), document,
-                new EditSessionOptions(silent,
-                    Optional.of((s, source) -> onUndoCancelled(state, source))));
+            session = env.editSessions()
+                    .open(
+                            env.pluginContext(),
+                            document,
+                            new EditSessionOptions(silent, Optional.of((s, source) -> onUndoCancelled(state, source))));
         } catch (EditSessionException | RuntimeException refused) {
             return EditApiWire.result(false);
         }
@@ -656,12 +616,10 @@ final class EditApiRouter {
             return EditApiWire.result(false);
         }
         try {
-            final EditSessionCloseResult result =
-                cancel ? session.cancel() : session.close();
+            final EditSessionCloseResult result = cancel ? session.cancel() : session.close();
             owner.session(null, "");
             sessionOwner = null;
-            return EditApiWire.result(
-                result.outcome() != EditSessionCloseOutcome.FAILED);
+            return EditApiWire.result(result.outcome() != EditSessionCloseOutcome.FAILED);
         } catch (EditSessionException | RuntimeException failure) {
             owner.session(null, "");
             sessionOwner = null;
@@ -680,8 +638,7 @@ final class EditApiRouter {
     }
 
     private JsonNode notifyUndoCancel(final Exchange exchange) throws EditApiFailure, EditSessionException {
-        exchange.state.undoCancelSubscribed(
-            exchange.payload().optionalBoolean("Enabled", false));
+        exchange.state.undoCancelSubscribed(exchange.payload().optionalBoolean("Enabled", false));
         return EditApiWire.accepted(true);
     }
 
@@ -693,54 +650,58 @@ final class EditApiRouter {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
         final ModelObjectReference object =
-            objectReference(exchange.state, exchange.session(), data.requiredString("ObjectId"));
+                objectReference(exchange.state, exchange.session(), data.requiredString("ObjectId"));
         final ParameterId parameter = parameterId(data.requiredString("ParameterId"));
-        return EditApiWire.result(exchange.session().parameterKeys().addParameterKey(
-            new ParameterKeyOps.AddParameterKey(
-                object, parameter, data.requiredNumber("KeyValue"))));
+        return EditApiWire.result(exchange.session()
+                .parameterKeys()
+                .addParameterKey(
+                        new ParameterKeyOps.AddParameterKey(object, parameter, data.requiredNumber("KeyValue"))));
     }
 
     private JsonNode deleteParameterKey(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
         final Optional<ModelObjectReference> object = optionalObjectRef(exchange, "ObjectId");
-        final Optional<ParameterId> parameter = optionalId(data, "ParameterId",
-            this::parameterId);
-        return EditApiWire.result(exchange.session().parameterKeys().deleteParameterKey(
-            new ParameterKeyOps.DeleteParameterKey(
-                object, parameter, data.optionalNumber("KeyValue"),
-                data.optionalBoolean("Strict", true))));
+        final Optional<ParameterId> parameter = optionalId(data, "ParameterId", this::parameterId);
+        return EditApiWire.result(exchange.session()
+                .parameterKeys()
+                .deleteParameterKey(new ParameterKeyOps.DeleteParameterKey(
+                        object, parameter, data.optionalNumber("KeyValue"), data.optionalBoolean("Strict", true))));
     }
 
     private JsonNode moveParameterKey(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
         final Optional<ModelObjectReference> object = optionalObjectRef(exchange, "ObjectId");
-        final Optional<ParameterId> parameter = optionalId(data, "ParameterId",
-            this::parameterId);
-        return EditApiWire.result(exchange.session().parameterKeys().moveParameterKey(
-            new ParameterKeyOps.MoveParameterKey(
-                object, parameter, data.requiredNumber("FromValue"),
-                data.requiredNumber("ToValue"), data.optionalBoolean("Strict", true),
-                data.optionalBoolean("ForceOverwrite", false))));
+        final Optional<ParameterId> parameter = optionalId(data, "ParameterId", this::parameterId);
+        return EditApiWire.result(exchange.session()
+                .parameterKeys()
+                .moveParameterKey(new ParameterKeyOps.MoveParameterKey(
+                        object,
+                        parameter,
+                        data.requiredNumber("FromValue"),
+                        data.requiredNumber("ToValue"),
+                        data.optionalBoolean("Strict", true),
+                        data.optionalBoolean("ForceOverwrite", false))));
     }
 
     private JsonNode getParameterKeys(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
         final ModelObjectReference object =
-            objectReference(exchange.state, exchange.session(), data.requiredString("ObjectId"));
-        return EditApiWire.parameterKeys(exchange.session().parameterKeys().parameterKeys(
-            new ParameterKeyOps.GetParameterKeys(object)));
+                objectReference(exchange.state, exchange.session(), data.requiredString("ObjectId"));
+        return EditApiWire.parameterKeys(
+                exchange.session().parameterKeys().parameterKeys(new ParameterKeyOps.GetParameterKeys(object)));
     }
 
     private JsonNode getObjectsByParameterKeys(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
         final ParameterId parameter = parameterId(data.requiredString("ParameterId"));
-        return EditApiWire.ids(exchange.session().parameterKeys().objectsByParameterKeys(
-            new ParameterKeyOps.GetObjectsByParameterKeys(
-                parameter, data.requiredNumber("KeyValue"))));
+        return EditApiWire.ids(exchange.session()
+                .parameterKeys()
+                .objectsByParameterKeys(
+                        new ParameterKeyOps.GetObjectsByParameterKeys(parameter, data.requiredNumber("KeyValue"))));
     }
 
     // ------------------------------------------------------------------
@@ -750,83 +711,95 @@ final class EditApiRouter {
     private JsonNode getParameterStructure(final Exchange exchange) throws EditApiFailure, EditSessionException {
         requireModelUid(exchange.state, exchange.payload());
         return EditApiWire.parameterStructure(
-            exchange.session().parameterStructure().parameterStructure());
+                exchange.session().parameterStructure().parameterStructure());
     }
 
     private JsonNode addParameter(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().parameterStructure().addParameter(
-            new ParameterStructureOps.AddParameter(
-                data.optionalString("Name"), optionalId(data, "Id", this::parameterId),
-                optionalId(data, "GroupId", this::parameterGroupId),
-                data.optionalNumber("Min"), data.optionalNumber("Default"),
-                data.optionalNumber("Max"), data.optionalBoolean("IsBlendShape", false))));
+        return EditApiWire.result(exchange.session()
+                .parameterStructure()
+                .addParameter(new ParameterStructureOps.AddParameter(
+                        data.optionalString("Name"),
+                        optionalId(data, "Id", this::parameterId),
+                        optionalId(data, "GroupId", this::parameterGroupId),
+                        data.optionalNumber("Min"),
+                        data.optionalNumber("Default"),
+                        data.optionalNumber("Max"),
+                        data.optionalBoolean("IsBlendShape", false))));
     }
 
     private JsonNode addParameterGroup(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().parameterStructure().addParameterGroup(
-            new ParameterStructureOps.AddParameterGroup(
-                data.optionalString("Name"),
-                optionalId(data, "Id", this::parameterGroupId))));
+        return EditApiWire.result(exchange.session()
+                .parameterStructure()
+                .addParameterGroup(new ParameterStructureOps.AddParameterGroup(
+                        data.optionalString("Name"), optionalId(data, "Id", this::parameterGroupId))));
     }
 
     private JsonNode editParameter(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().parameterStructure().editParameter(
-            new ParameterStructureOps.EditParameter(
-                parameterId(data.requiredString("Id")),
-                optionalId(data, "NewId", this::parameterId), data.optionalString("Name"),
-                data.optionalNumber("Min"), data.optionalNumber("Default"),
-                data.optionalNumber("Max"), flag(data, "IsRepeat"))));
+        return EditApiWire.result(exchange.session()
+                .parameterStructure()
+                .editParameter(new ParameterStructureOps.EditParameter(
+                        parameterId(data.requiredString("Id")),
+                        optionalId(data, "NewId", this::parameterId),
+                        data.optionalString("Name"),
+                        data.optionalNumber("Min"),
+                        data.optionalNumber("Default"),
+                        data.optionalNumber("Max"),
+                        flag(data, "IsRepeat"))));
     }
 
     private JsonNode editParameterGroup(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().parameterStructure().editParameterGroup(
-            new ParameterStructureOps.EditParameterGroup(
-                parameterGroupId(data.requiredString("Id")),
-                optionalId(data, "NewId", this::parameterGroupId), data.optionalString("Name"),
-                EditApiWire.parseLabelColor(data))));
+        return EditApiWire.result(exchange.session()
+                .parameterStructure()
+                .editParameterGroup(new ParameterStructureOps.EditParameterGroup(
+                        parameterGroupId(data.requiredString("Id")),
+                        optionalId(data, "NewId", this::parameterGroupId),
+                        data.optionalString("Name"),
+                        EditApiWire.parseLabelColor(data))));
     }
 
     private JsonNode deleteParameter(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().parameterStructure().deleteParameter(
-            new ParameterStructureOps.DeleteParameter(
-                parameterId(data.requiredString("Id")))));
+        return EditApiWire.result(exchange.session()
+                .parameterStructure()
+                .deleteParameter(new ParameterStructureOps.DeleteParameter(parameterId(data.requiredString("Id")))));
     }
 
     private JsonNode deleteParameterGroup(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().parameterStructure().deleteParameterGroup(
-            new ParameterStructureOps.DeleteParameterGroup(
-                parameterGroupId(data.requiredString("Id")))));
+        return EditApiWire.result(exchange.session()
+                .parameterStructure()
+                .deleteParameterGroup(
+                        new ParameterStructureOps.DeleteParameterGroup(parameterGroupId(data.requiredString("Id")))));
     }
 
     private JsonNode moveParameter(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().parameterStructure().moveParameter(
-            new ParameterStructureOps.MoveParameter(
-                parameterId(data.requiredString("Id")),
-                parameterGroupId(data.requiredString("GroupId")),
-                data.optionalInt("InsertIndex"))));
+        return EditApiWire.result(exchange.session()
+                .parameterStructure()
+                .moveParameter(new ParameterStructureOps.MoveParameter(
+                        parameterId(data.requiredString("Id")),
+                        parameterGroupId(data.requiredString("GroupId")),
+                        data.optionalInt("InsertIndex"))));
     }
 
     private JsonNode moveParameterGroup(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().parameterStructure().moveParameterGroup(
-            new ParameterStructureOps.MoveParameterGroup(
-                parameterGroupId(data.requiredString("Id")),
-                (int) data.requiredNumber("InsertIndex"))));
+        return EditApiWire.result(exchange.session()
+                .parameterStructure()
+                .moveParameterGroup(new ParameterStructureOps.MoveParameterGroup(
+                        parameterGroupId(data.requiredString("Id")), (int) data.requiredNumber("InsertIndex"))));
     }
 
     // ------------------------------------------------------------------
@@ -841,9 +814,10 @@ final class EditApiRouter {
     private JsonNode addSelectedObjects(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().selection().addSelectedObjects(
-            new SelectionOps.AddSelectedObjects(
-                objectIds(data.optionalStringList("Ids").orElse(List.of())))));
+        return EditApiWire.result(exchange.session()
+                .selection()
+                .addSelectedObjects(new SelectionOps.AddSelectedObjects(
+                        objectIds(data.optionalStringList("Ids").orElse(List.of())))));
     }
 
     private JsonNode clearSelectedObjects(final Exchange exchange) throws EditApiFailure, EditSessionException {
@@ -864,93 +838,128 @@ final class EditApiRouter {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
         final ModelObjectReference object =
-            objectReference(exchange.state, exchange.session(), data.requiredString("Id"));
-        return EditApiWire.objectSnapshot(exchange.session().partObjects().object(
-            new PartObjectOps.GetObject(object, conditions(data))));
+                objectReference(exchange.state, exchange.session(), data.requiredString("Id"));
+        return EditApiWire.objectSnapshot(
+                exchange.session().partObjects().object(new PartObjectOps.GetObject(object, conditions(data))));
     }
 
     private JsonNode deleteObject(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
         final ModelObjectReference object =
-            objectReference(exchange.state, exchange.session(), data.requiredString("Id"));
-        return EditApiWire.result(exchange.session().partObjects().deleteObject(
-            new PartObjectOps.DeleteObject(object)));
+                objectReference(exchange.state, exchange.session(), data.requiredString("Id"));
+        return EditApiWire.result(
+                exchange.session().partObjects().deleteObject(new PartObjectOps.DeleteObject(object)));
     }
 
     private JsonNode moveObjectOnPartsPalette(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
         final ModelObjectReference object =
-            objectReference(exchange.state, exchange.session(), data.requiredString("Id"));
-        return EditApiWire.result(exchange.session().partObjects().moveObjectOnPartsPalette(
-            new PartObjectOps.MoveObjectOnPartsPalette(
-                object, optionalId(data, "ParentId", this::partId),
-                optionalId(data, "InsertId", this::modelObjectId),
-                data.optionalInt("InsertIndex"))));
+                objectReference(exchange.state, exchange.session(), data.requiredString("Id"));
+        return EditApiWire.result(exchange.session()
+                .partObjects()
+                .moveObjectOnPartsPalette(new PartObjectOps.MoveObjectOnPartsPalette(
+                        object,
+                        optionalId(data, "ParentId", this::partId),
+                        optionalId(data, "InsertId", this::modelObjectId),
+                        data.optionalInt("InsertIndex"))));
     }
 
     private JsonNode addPart(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().partObjects().addPart(
-            new PartObjectOps.AddPart(
-                data.optionalString("Name"), optionalId(data, "Id", this::partId),
-                data.optionalInt("DrawOrder"),
-                objectIds(data.optionalStringList("Ids").orElse(List.of())),
-                data.optionalBoolean("IsNested", false))));
+        return EditApiWire.result(exchange.session()
+                .partObjects()
+                .addPart(new PartObjectOps.AddPart(
+                        data.optionalString("Name"),
+                        optionalId(data, "Id", this::partId),
+                        data.optionalInt("DrawOrder"),
+                        objectIds(data.optionalStringList("Ids").orElse(List.of())),
+                        data.optionalBoolean("IsNested", false))));
     }
 
     private JsonNode editPart(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().partObjects().editPart(
-            new PartObjectOps.EditPart(
-                partId(data.requiredString("Id")), conditions(data),
-                data.optionalBoolean("IsExactMatch", true),
-                optionalId(data, "NewId", this::partId), data.optionalString("Name"),
-                optionalId(data, "ParentId", this::partId),
-                flag(data, "IsGrouped"), flag(data, "IsGuidImage"), flag(data, "IsOffscreen"),
-                optionalIdList(data, "ClippingIds"), flag(data, "IsReverseMask"),
-                data.optionalInt("DrawOrder"), data.optionalNumber("Opacity"),
-                data.optionalString("MultiplyColor"), data.optionalString("ScreenColor"),
-                EditApiWire.optionalEnum(data, "ColorBlend", EditApiWire.colorBlendNames(),
-                    dev.turboism.sdk.cubism.edit.EditColorBlend.class),
-                EditApiWire.optionalEnum(data, "AlphaBlend", EditApiWire.alphaBlendNames(),
-                    dev.turboism.sdk.cubism.edit.EditAlphaBlend.class),
-                EditApiWire.parseLabelColor(data))));
+        return EditApiWire.result(exchange.session()
+                .partObjects()
+                .editPart(new PartObjectOps.EditPart(
+                        partId(data.requiredString("Id")),
+                        conditions(data),
+                        data.optionalBoolean("IsExactMatch", true),
+                        optionalId(data, "NewId", this::partId),
+                        data.optionalString("Name"),
+                        optionalId(data, "ParentId", this::partId),
+                        flag(data, "IsGrouped"),
+                        flag(data, "IsGuidImage"),
+                        flag(data, "IsOffscreen"),
+                        optionalIdList(data, "ClippingIds"),
+                        flag(data, "IsReverseMask"),
+                        data.optionalInt("DrawOrder"),
+                        data.optionalNumber("Opacity"),
+                        data.optionalString("MultiplyColor"),
+                        data.optionalString("ScreenColor"),
+                        EditApiWire.optionalEnum(
+                                data,
+                                "ColorBlend",
+                                EditApiWire.colorBlendNames(),
+                                dev.turboism.sdk.cubism.edit.EditColorBlend.class),
+                        EditApiWire.optionalEnum(
+                                data,
+                                "AlphaBlend",
+                                EditApiWire.alphaBlendNames(),
+                                dev.turboism.sdk.cubism.edit.EditAlphaBlend.class),
+                        EditApiWire.parseLabelColor(data))));
     }
 
     private JsonNode editArtMesh(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().partObjects().editArtMesh(
-            new PartObjectOps.EditArtMesh(
-                artMeshId(data.requiredString("Id")), conditions(data),
-                data.optionalBoolean("IsExactMatch", true),
-                optionalId(data, "NewId", this::artMeshId), data.optionalString("Name"),
-                optionalId(data, "ParentId", this::partId),
-                optionalId(data, "ParentDeformerId", this::deformerId),
-                optionalIdList(data, "ClippingIds"), flag(data, "IsReverseMask"),
-                data.optionalInt("DrawOrder"), data.optionalNumber("Opacity"),
-                data.optionalString("MultiplyColor"), data.optionalString("ScreenColor"),
-                EditApiWire.optionalEnum(data, "ColorBlend", EditApiWire.colorBlendNames(),
-                    dev.turboism.sdk.cubism.edit.EditColorBlend.class),
-                EditApiWire.optionalEnum(data, "AlphaBlend", EditApiWire.alphaBlendNames(),
-                    dev.turboism.sdk.cubism.edit.EditAlphaBlend.class),
-                flag(data, "IsCulling"), EditApiWire.parseLabelColor(data))));
+        return EditApiWire.result(exchange.session()
+                .partObjects()
+                .editArtMesh(new PartObjectOps.EditArtMesh(
+                        artMeshId(data.requiredString("Id")),
+                        conditions(data),
+                        data.optionalBoolean("IsExactMatch", true),
+                        optionalId(data, "NewId", this::artMeshId),
+                        data.optionalString("Name"),
+                        optionalId(data, "ParentId", this::partId),
+                        optionalId(data, "ParentDeformerId", this::deformerId),
+                        optionalIdList(data, "ClippingIds"),
+                        flag(data, "IsReverseMask"),
+                        data.optionalInt("DrawOrder"),
+                        data.optionalNumber("Opacity"),
+                        data.optionalString("MultiplyColor"),
+                        data.optionalString("ScreenColor"),
+                        EditApiWire.optionalEnum(
+                                data,
+                                "ColorBlend",
+                                EditApiWire.colorBlendNames(),
+                                dev.turboism.sdk.cubism.edit.EditColorBlend.class),
+                        EditApiWire.optionalEnum(
+                                data,
+                                "AlphaBlend",
+                                EditApiWire.alphaBlendNames(),
+                                dev.turboism.sdk.cubism.edit.EditAlphaBlend.class),
+                        flag(data, "IsCulling"),
+                        EditApiWire.parseLabelColor(data))));
     }
 
     private JsonNode editGlue(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().partObjects().editGlue(
-            new PartObjectOps.EditGlue(
-                glueId(data.requiredString("Id")), conditions(data),
-                data.optionalBoolean("IsExactMatch", true),
-                optionalId(data, "NewId", this::glueId), data.optionalString("Name"),
-                optionalId(data, "ParentId", this::partId),
-                data.optionalNumber("Intensity"), EditApiWire.parseLabelColor(data))));
+        return EditApiWire.result(exchange.session()
+                .partObjects()
+                .editGlue(new PartObjectOps.EditGlue(
+                        glueId(data.requiredString("Id")),
+                        conditions(data),
+                        data.optionalBoolean("IsExactMatch", true),
+                        optionalId(data, "NewId", this::glueId),
+                        data.optionalString("Name"),
+                        optionalId(data, "ParentId", this::partId),
+                        data.optionalNumber("Intensity"),
+                        EditApiWire.parseLabelColor(data))));
     }
 
     // ------------------------------------------------------------------
@@ -959,65 +968,84 @@ final class EditApiRouter {
 
     private JsonNode getDeformerStructure(final Exchange exchange) throws EditApiFailure, EditSessionException {
         requireModelUid(exchange.state, exchange.payload());
-        return EditApiWire.deformerStructure(
-            exchange.session().deformers().deformerStructure());
+        return EditApiWire.deformerStructure(exchange.session().deformers().deformerStructure());
     }
 
     private JsonNode addRotationDeformer(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().deformers().addRotationDeformer(
-            new DeformerOps.AddRotationDeformer(
-                data.optionalString("Name"), optionalId(data, "Id", this::deformerId),
-                optionalId(data, "ParentId", this::partId),
-                objectIds(data.optionalStringList("TargetObjectIds").orElse(List.of())),
-                attachMode(data).orElse(EditDeformerAttachMode.AS_PARENT))));
+        return EditApiWire.result(exchange.session()
+                .deformers()
+                .addRotationDeformer(new DeformerOps.AddRotationDeformer(
+                        data.optionalString("Name"),
+                        optionalId(data, "Id", this::deformerId),
+                        optionalId(data, "ParentId", this::partId),
+                        objectIds(data.optionalStringList("TargetObjectIds").orElse(List.of())),
+                        attachMode(data).orElse(EditDeformerAttachMode.AS_PARENT))));
     }
 
     private JsonNode addWarpDeformer(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().deformers().addWarpDeformer(
-            new DeformerOps.AddWarpDeformer(
-                data.optionalString("Name"), optionalId(data, "Id", this::deformerId),
-                optionalId(data, "ParentId", this::partId),
-                objectIds(data.optionalStringList("TargetObjectIds").orElse(List.of())),
-                attachMode(data).orElse(EditDeformerAttachMode.AS_PARENT),
-                data.optionalInt("WarpDivH"), data.optionalInt("WarpDivV"),
-                data.optionalInt("BezierDivH"), data.optionalInt("BezierDivV"),
-                flag(data, "ConsiderChildKeyforms"), flag(data, "SnapCenter"))));
+        return EditApiWire.result(exchange.session()
+                .deformers()
+                .addWarpDeformer(new DeformerOps.AddWarpDeformer(
+                        data.optionalString("Name"),
+                        optionalId(data, "Id", this::deformerId),
+                        optionalId(data, "ParentId", this::partId),
+                        objectIds(data.optionalStringList("TargetObjectIds").orElse(List.of())),
+                        attachMode(data).orElse(EditDeformerAttachMode.AS_PARENT),
+                        data.optionalInt("WarpDivH"),
+                        data.optionalInt("WarpDivV"),
+                        data.optionalInt("BezierDivH"),
+                        data.optionalInt("BezierDivV"),
+                        flag(data, "ConsiderChildKeyforms"),
+                        flag(data, "SnapCenter"))));
     }
 
     private JsonNode editRotationDeformer(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().deformers().editRotationDeformer(
-            new DeformerOps.EditRotationDeformer(
-                deformerId(data.requiredString("Id")), conditions(data),
-                data.optionalBoolean("IsExactMatch", true),
-                optionalId(data, "NewId", this::deformerId), data.optionalString("Name"),
-                optionalId(data, "ParentId", this::partId),
-                optionalId(data, "ParentDeformerId", this::deformerId),
-                data.optionalNumber("Angle"), data.optionalNumber("BaseAngle"),
-                data.optionalNumber("Scale"), data.optionalNumber("Opacity"),
-                data.optionalString("MultiplyColor"), data.optionalString("ScreenColor"),
-                EditApiWire.parseLabelColor(data))));
+        return EditApiWire.result(exchange.session()
+                .deformers()
+                .editRotationDeformer(new DeformerOps.EditRotationDeformer(
+                        deformerId(data.requiredString("Id")),
+                        conditions(data),
+                        data.optionalBoolean("IsExactMatch", true),
+                        optionalId(data, "NewId", this::deformerId),
+                        data.optionalString("Name"),
+                        optionalId(data, "ParentId", this::partId),
+                        optionalId(data, "ParentDeformerId", this::deformerId),
+                        data.optionalNumber("Angle"),
+                        data.optionalNumber("BaseAngle"),
+                        data.optionalNumber("Scale"),
+                        data.optionalNumber("Opacity"),
+                        data.optionalString("MultiplyColor"),
+                        data.optionalString("ScreenColor"),
+                        EditApiWire.parseLabelColor(data))));
     }
 
     private JsonNode editWarpDeformer(final Exchange exchange) throws EditApiFailure, EditSessionException {
         final EditApiPayload data = exchange.payload();
         requireModelUid(exchange.state, data);
-        return EditApiWire.result(exchange.session().deformers().editWarpDeformer(
-            new DeformerOps.EditWarpDeformer(
-                deformerId(data.requiredString("Id")), conditions(data),
-                data.optionalBoolean("IsExactMatch", true),
-                optionalId(data, "NewId", this::deformerId), data.optionalString("Name"),
-                optionalId(data, "ParentId", this::partId),
-                optionalId(data, "ParentDeformerId", this::deformerId),
-                data.optionalNumber("Opacity"), data.optionalString("MultiplyColor"),
-                data.optionalString("ScreenColor"), data.optionalInt("WarpDivH"),
-                data.optionalInt("WarpDivV"), data.optionalInt("BezierDivH"),
-                data.optionalInt("BezierDivV"), EditApiWire.parseLabelColor(data))));
+        return EditApiWire.result(exchange.session()
+                .deformers()
+                .editWarpDeformer(new DeformerOps.EditWarpDeformer(
+                        deformerId(data.requiredString("Id")),
+                        conditions(data),
+                        data.optionalBoolean("IsExactMatch", true),
+                        optionalId(data, "NewId", this::deformerId),
+                        data.optionalString("Name"),
+                        optionalId(data, "ParentId", this::partId),
+                        optionalId(data, "ParentDeformerId", this::deformerId),
+                        data.optionalNumber("Opacity"),
+                        data.optionalString("MultiplyColor"),
+                        data.optionalString("ScreenColor"),
+                        data.optionalInt("WarpDivH"),
+                        data.optionalInt("WarpDivV"),
+                        data.optionalInt("BezierDivH"),
+                        data.optionalInt("BezierDivV"),
+                        EditApiWire.parseLabelColor(data))));
     }
 
     // ------------------------------------------------------------------
@@ -1029,25 +1057,18 @@ final class EditApiRouter {
         T parse(String value) throws EditApiFailure;
     }
 
-    private <T> Optional<T> optionalId(
-        final EditApiPayload payload,
-        final String field,
-        final IdParser<T> parser
-    ) throws EditApiFailure {
+    private <T> Optional<T> optionalId(final EditApiPayload payload, final String field, final IdParser<T> parser)
+            throws EditApiFailure {
         final Optional<String> text = payload.optionalString(field);
-        return text.isPresent() ? Optional.of(parser.parse(text.orElseThrow()))
-            : Optional.empty();
+        return text.isPresent() ? Optional.of(parser.parse(text.orElseThrow())) : Optional.empty();
     }
 
-    private Optional<ModelObjectReference> optionalObjectRef(
-        final Exchange exchange,
-        final String field
-    ) throws EditApiFailure {
+    private Optional<ModelObjectReference> optionalObjectRef(final Exchange exchange, final String field)
+            throws EditApiFailure {
         final Optional<String> id = exchange.payload().optionalString(field);
         return id.isPresent()
-            ? Optional.of(
-                objectReference(exchange.state, exchange.session(), id.orElseThrow()))
-            : Optional.empty();
+                ? Optional.of(objectReference(exchange.state, exchange.session(), id.orElseThrow()))
+                : Optional.empty();
     }
 
     private ModelObjectId modelObjectId(final String value) throws EditApiFailure {
@@ -1058,10 +1079,8 @@ final class EditApiRouter {
         }
     }
 
-    private Optional<List<ModelObjectId>> optionalIdList(
-        final EditApiPayload payload,
-        final String field
-    ) throws EditApiFailure {
+    private Optional<List<ModelObjectId>> optionalIdList(final EditApiPayload payload, final String field)
+            throws EditApiFailure {
         final Optional<List<String>> raw = payload.optionalStringList(field);
         return raw.isPresent() ? Optional.of(objectIds(raw.orElseThrow())) : Optional.empty();
     }
@@ -1074,11 +1093,10 @@ final class EditApiRouter {
         private final EditSession session;
 
         private Exchange(
-            final EditApiEnvelope envelope,
-            final EditConnectionState state,
-            final EditConnectionInfo info,
-            final EditSession session
-        ) {
+                final EditApiEnvelope envelope,
+                final EditConnectionState state,
+                final EditConnectionInfo info,
+                final EditSession session) {
             this.envelope = envelope;
             this.state = state;
             this.info = info;
@@ -1110,9 +1128,7 @@ final class EditApiRouter {
         SESSION_READ
     }
 
-    private record Route(
-        Access access, boolean approval, EditApiErrorCode missingIdError, Handler handler) {
-    }
+    private record Route(Access access, boolean approval, EditApiErrorCode missingIdError, Handler handler) {}
 
     @FunctionalInterface
     private interface Handler {

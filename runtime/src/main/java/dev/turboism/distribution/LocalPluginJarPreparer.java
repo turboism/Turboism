@@ -45,16 +45,19 @@ public final class LocalPluginJarPreparer {
             access.afterInitialHash(jarPath);
             unchanged(jarPath, initial);
 
-            final PluginJarInspector.Inspected inspected = new PluginJarInspector().inspect(snapshot, jarPath.toString());
-            require(strictApi(inspected.descriptor().turboismApi()),
-                "PLUGIN_META_BAD_VERSION_RANGE", "META-INF/turboism/plugin.json");
+            final PluginJarInspector.Inspected inspected =
+                    new PluginJarInspector().inspect(snapshot, jarPath.toString());
+            require(
+                    strictApi(inspected.descriptor().turboismApi()),
+                    "PLUGIN_META_BAD_VERSION_RANGE",
+                    "META-INF/turboism/plugin.json");
             access.afterInspection(jarPath);
             unchanged(jarPath, initial);
 
-            final Path staged = stage(snapshot, stagingDirectory, inspected.descriptor().id(), observed);
+            final Path staged =
+                    stage(snapshot, stagingDirectory, inspected.descriptor().id(), observed);
             return new Prepared(new PreparedPluginJar(
-                inspected.descriptor(), inspected.descriptorSha256(), staged, observed.sha256(), observed.size()
-            ));
+                    inspected.descriptor(), inspected.descriptorSha256(), staged, observed.sha256(), observed.size()));
         } catch (DistributionValidationException rejected) {
             return new PreparationRejected(rejected.code());
         } catch (IOException rejected) {
@@ -62,7 +65,11 @@ public final class LocalPluginJarPreparer {
         } catch (Exception rejected) {
             return new PreparationRejected("PLUGIN_STAGE_FAILED");
         } finally {
-            if (snapshot != null) try { Files.deleteIfExists(snapshot); } catch (IOException ignored) { }
+            if (snapshot != null)
+                try {
+                    Files.deleteIfExists(snapshot);
+                } catch (IOException ignored) {
+                }
         }
     }
 
@@ -70,8 +77,9 @@ public final class LocalPluginJarPreparer {
         final MessageDigest digest = MessageDigest.getInstance("SHA-256");
         long size = 0L;
         final byte[] buffer = new byte[64 * 1024];
-        try (InputStream input = access.open(source); OutputStream output = Files.newOutputStream(target)) {
-            for (int read; (read = input.read(buffer)) >= 0;) {
+        try (InputStream input = access.open(source);
+                OutputStream output = Files.newOutputStream(target)) {
+            for (int read; (read = input.read(buffer)) >= 0; ) {
                 if (read == 0) continue;
                 require(size <= PluginArchiveLimits.RAW_MAX - read, "PACKAGE_TOO_LARGE", source.toString());
                 size += read;
@@ -84,34 +92,35 @@ public final class LocalPluginJarPreparer {
 
     private void unchanged(final Path path, final BasicFileAttributes initial) throws Exception {
         final BasicFileAttributes current = access.attributes(path);
-        require(current.isRegularFile()
-                && initial.size() == current.size()
-                && initial.lastModifiedTime().equals(current.lastModifiedTime())
-                && Objects.equals(initial.fileKey(), current.fileKey()),
-            DistributionErrors.PACKAGE_CHANGED, path.toString());
+        require(
+                current.isRegularFile()
+                        && initial.size() == current.size()
+                        && initial.lastModifiedTime().equals(current.lastModifiedTime())
+                        && Objects.equals(initial.fileKey(), current.fileKey()),
+                DistributionErrors.PACKAGE_CHANGED,
+                path.toString());
     }
 
     private static Path stage(
-        final Path snapshot,
-        final Path stagingDirectory,
-        final String pluginId,
-        final Digest expected
-    ) throws Exception {
+            final Path snapshot, final Path stagingDirectory, final String pluginId, final Digest expected)
+            throws Exception {
         final String name = pluginId + "-" + expected.sha256() + ".jar";
         final ConfinedStagingFiles.Target target = ConfinedStagingFiles.create(stagingDirectory, name);
         final MessageDigest digest = MessageDigest.getInstance("SHA-256");
         long size = 0L;
         final byte[] buffer = new byte[64 * 1024];
         try (InputStream input = Files.newInputStream(snapshot);
-             OutputStream output = new DigestingOutputStream(target.output(), digest)) {
-            for (int read; (read = input.read(buffer)) >= 0;) {
+                OutputStream output = new DigestingOutputStream(target.output(), digest)) {
+            for (int read; (read = input.read(buffer)) >= 0; ) {
                 if (read == 0) continue;
                 size += read;
                 output.write(buffer, 0, read);
             }
             require(size == expected.size(), "ARTIFACT_SIZE_MISMATCH", snapshot.toString());
-            require(HexFormat.of().formatHex(digest.digest()).equals(expected.sha256()),
-                "ARTIFACT_HASH_MISMATCH", snapshot.toString());
+            require(
+                    HexFormat.of().formatHex(digest.digest()).equals(expected.sha256()),
+                    "ARTIFACT_HASH_MISMATCH",
+                    snapshot.toString());
             target.publish();
             return target.target();
         } catch (Exception failure) {
@@ -122,8 +131,10 @@ public final class LocalPluginJarPreparer {
 
     private static Path privateSnapshot() throws IOException {
         try {
-            return Files.createTempFile("turboism-plugin-jar-", ".jar",
-                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+            return Files.createTempFile(
+                    "turboism-plugin-jar-",
+                    ".jar",
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
         } catch (UnsupportedOperationException ignored) {
             return Files.createTempFile("turboism-plugin-jar-", ".jar");
         }
@@ -139,7 +150,7 @@ public final class LocalPluginJarPreparer {
     }
 
     /** Result of direct plugin-JAR preparation. */
-    public sealed interface Preparation permits Prepared, PreparationRejected { }
+    public sealed interface Preparation permits Prepared, PreparationRejected {}
 
     /** Successfully validated and staged plugin JAR. */
     public record Prepared(PreparedPluginJar value) implements Preparation {
@@ -157,7 +168,7 @@ public final class LocalPluginJarPreparer {
         }
     }
 
-    private record Digest(String sha256, long size) { }
+    private record Digest(String sha256, long size) {}
 
     private static final class DigestingOutputStream extends OutputStream {
         private final OutputStream delegate;
@@ -168,17 +179,20 @@ public final class LocalPluginJarPreparer {
             this.digest = digest;
         }
 
-        @Override public void write(final int value) throws IOException {
+        @Override
+        public void write(final int value) throws IOException {
             delegate.write(value);
             digest.update((byte) value);
         }
 
-        @Override public void write(final byte[] bytes, final int offset, final int length) throws IOException {
+        @Override
+        public void write(final byte[] bytes, final int offset, final int length) throws IOException {
             delegate.write(bytes, offset, length);
             digest.update(bytes, offset, length);
         }
 
-        @Override public void close() throws IOException {
+        @Override
+        public void close() throws IOException {
             delegate.close();
         }
     }

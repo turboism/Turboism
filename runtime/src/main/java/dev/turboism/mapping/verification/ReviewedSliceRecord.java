@@ -23,12 +23,11 @@ import java.util.Set;
  * @param profileId the mapping profile this record's selectors were observed under
  */
 public record ReviewedSliceRecord(
-    HostArtifactDigest artifact,
-    String verificationId,
-    String recordSha256,
-    String cubismVersion,
-    String profileId
-) {
+        HostArtifactDigest artifact,
+        String verificationId,
+        String recordSha256,
+        String cubismVersion,
+        String profileId) {
 
     /**
      * Validates that a reviewed record is fully specified.
@@ -44,8 +43,7 @@ public record ReviewedSliceRecord(
         Objects.requireNonNull(profileId, "profileId");
         if (!ReviewedHostArtifacts.isReviewed(artifact)) {
             throw new IllegalArgumentException(
-                "reviewed slice records may only be declared for reviewed Cubism artifacts"
-            );
+                    "reviewed slice records may only be declared for reviewed Cubism artifacts");
         }
     }
 
@@ -58,21 +56,17 @@ public record ReviewedSliceRecord(
      * @return a manifest carrying this record's exact version, profile and artifact binding
      */
     PinnedVerifiedResolverWorkflow.Manifest toManifest(
-        final String adapterSliceId,
-        final Set<String> capabilityIds,
-        final Set<String> requiredAliases
-    ) {
+            final String adapterSliceId, final Set<String> capabilityIds, final Set<String> requiredAliases) {
         return new PinnedVerifiedResolverWorkflow.Manifest(
-            verificationId,
-            recordSha256,
-            cubismVersion,
-            profileId,
-            artifact.size(),
-            artifact.sha256(),
-            adapterSliceId,
-            capabilityIds,
-            requiredAliases
-        );
+                verificationId,
+                recordSha256,
+                cubismVersion,
+                profileId,
+                artifact.size(),
+                artifact.sha256(),
+                adapterSliceId,
+                capabilityIds,
+                requiredAliases);
     }
 
     /**
@@ -85,18 +79,13 @@ public record ReviewedSliceRecord(
      * @throws IllegalArgumentException when no reviewed record admits the artifact
      */
     static ReviewedSliceRecord requireReviewed(
-        final List<ReviewedSliceRecord> records,
-        final HostArtifactDigest artifact,
-        final String familyLabel
-    ) {
+            final List<ReviewedSliceRecord> records, final HostArtifactDigest artifact, final String familyLabel) {
         Objects.requireNonNull(artifact, "artifact");
         for (final ReviewedSliceRecord record : records) {
             if (record.artifact().equals(artifact)) {
                 return record;
             }
         }
-        throw new IllegalArgumentException(
-            "host artifact is not a reviewed Cubism " + familyLabel + " artifact"
-        );
+        throw new IllegalArgumentException("host artifact is not a reviewed Cubism " + familyLabel + " artifact");
     }
 }

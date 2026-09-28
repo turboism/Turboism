@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui;
 
-
 import java.util.Objects;
 
 /** One secondary action button rendered inside a runtime choice dialog. */

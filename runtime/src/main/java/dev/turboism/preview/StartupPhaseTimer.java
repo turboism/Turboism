@@ -25,10 +25,9 @@ final class StartupPhaseTimer {
         final long phaseNanos = Math.max(0L, now - previous);
         final long totalNanos = Math.max(0L, now - startedAt);
         previous = now;
-        Objects.requireNonNull(logger, "logger").accept(
-            "Startup phase " + name + " completed in " + millis(phaseNanos)
-                + " ms (total " + millis(totalNanos) + " ms)"
-        );
+        Objects.requireNonNull(logger, "logger")
+                .accept("Startup phase " + name + " completed in " + millis(phaseNanos) + " ms (total "
+                        + millis(totalNanos) + " ms)");
     }
 
     private static long millis(final long nanos) {

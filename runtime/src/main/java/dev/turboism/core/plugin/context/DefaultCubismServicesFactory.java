@@ -2,31 +2,30 @@ package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
+import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
 import dev.turboism.adapter.cubism.backup.AutoBackupCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
+import dev.turboism.adapter.cubism.service.clipmask.CubismClipMaskServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
-import dev.turboism.adapter.cubism.service.clipmask.CubismClipMaskServiceImpl;
-import dev.turboism.permissions.CubismPermissionGate;
-import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
+import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
 import dev.turboism.core.runtime.psd.RuntimePsdExportService;
 import dev.turboism.core.runtime.psd.RuntimePsdReplaceService;
-import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.permissions.CubismPermissionGate;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
-import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
-import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
-import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
-import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
-import dev.turboism.adapter.cubism.HostSnapshotSource;
-import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
-
 import dev.turboism.sdk.cubism.history.CubismHistory;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 final class DefaultCubismServicesFactory implements CubismServicesFactory {
@@ -39,9 +38,21 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         private UnsupportedOperationException unavailable() {
             return new UnsupportedOperationException("Core runtime metadata is unavailable.");
         }
-        @Override public dev.turboism.sdk.cubism.core.CoreVersion version() { throw unavailable(); }
-        @Override public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() { throw unavailable(); }
-        @Override public dev.turboism.sdk.cubism.core.MocInspector mocInspector() { throw unavailable(); }
+
+        @Override
+        public dev.turboism.sdk.cubism.core.CoreVersion version() {
+            throw unavailable();
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
+            throw unavailable();
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.core.MocInspector mocInspector() {
+            throw unavailable();
+        }
     };
 
     private final RuntimeHostAdapters hostAdapters;
@@ -63,100 +74,90 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
 
     private final PaletteAppearanceCoordinator paletteAppearanceCoordinator;
     private final TextureAtlasLayoutCoordinator textureAtlasLayouts;
-    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations;
+    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
+            textureAtlasNativeInvocations;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
-    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
+    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry
+            textureAtlasAlgorithms;
     private final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands;
     private final dev.turboism.adapter.cubism.command.EditorFileCommandResolver editorFiles;
     private final AutoBackupAdapter autoBackup;
 
     DefaultCubismServicesFactory(final RuntimeHostAdapters hostAdapters) {
         this(
-            hostAdapters,
-            java.util.Optional::empty,
-            java.util.Set::of,
-            java.util.Optional::empty,
-            UNAVAILABLE_MODEL_ACCESS,
-            UNAVAILABLE_CORE_RUNTIME,
-            new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator(),
-            new EditorObjectLifecycleCoordinator(),
-            new PhysicsEditorCoordinator(),
-            PluginScopedCubismModelAccess.appearanceSource(hostAdapters.projectWorkspace(), UNAVAILABLE_MODEL_ACCESS),
-            new PaletteAppearanceCoordinator(),
-            new TextureAtlasLayoutCoordinator(),
-            new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator(),
-            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi(),
-            dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession.unavailable(),
-            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry(),
-            dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable(),
-            dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
-            hostAdapters.autoBackup(),
-            CubismHistory.unavailable()
-        );
+                hostAdapters,
+                java.util.Optional::empty,
+                java.util.Set::of,
+                java.util.Optional::empty,
+                UNAVAILABLE_MODEL_ACCESS,
+                UNAVAILABLE_CORE_RUNTIME,
+                new ParameterLifecycleCoordinator(),
+                new PartLifecycleCoordinator(),
+                new EditorObjectLifecycleCoordinator(),
+                new PhysicsEditorCoordinator(),
+                PluginScopedCubismModelAccess.appearanceSource(
+                        hostAdapters.projectWorkspace(), UNAVAILABLE_MODEL_ACCESS),
+                new PaletteAppearanceCoordinator(),
+                new TextureAtlasLayoutCoordinator(),
+                new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator(),
+                new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi(),
+                dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession.unavailable(),
+                new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry(),
+                dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable(),
+                dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
+                hostAdapters.autoBackup(),
+                CubismHistory.unavailable());
     }
 
     DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion,
-        final java.util.function.Supplier<java.util.Set<String>> admittedCubismCapabilities,
-        final java.util.function.Supplier<java.util.Optional<String>> admittedCubismGeneration,
-        final CubismModelAccess modelAccess,
-        final CoreRuntimeInfo coreRuntimeInfo,
-        final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
-        final PhysicsEditorCoordinator physicsEditorCoordinator,
-        final HostSnapshotSource appearanceSource,
-        final PaletteAppearanceCoordinator paletteAppearanceCoordinator,
-        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
-        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations,
-        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
-        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
-        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
-        final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands,
-        final dev.turboism.adapter.cubism.command.EditorFileCommandResolver editorFiles,
-        final AutoBackupAdapter autoBackup,
-        final CubismHistory history
-    ) {
+            final RuntimeHostAdapters hostAdapters,
+            final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion,
+            final java.util.function.Supplier<java.util.Set<String>> admittedCubismCapabilities,
+            final java.util.function.Supplier<java.util.Optional<String>> admittedCubismGeneration,
+            final CubismModelAccess modelAccess,
+            final CoreRuntimeInfo coreRuntimeInfo,
+            final ParameterLifecycleCoordinator parameterLifecycle,
+            final PartLifecycleCoordinator partLifecycle,
+            final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+            final PhysicsEditorCoordinator physicsEditorCoordinator,
+            final HostSnapshotSource appearanceSource,
+            final PaletteAppearanceCoordinator paletteAppearanceCoordinator,
+            final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+            final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
+                    textureAtlasNativeInvocations,
+            final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+            final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+            final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry
+                    textureAtlasAlgorithms,
+            final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands,
+            final dev.turboism.adapter.cubism.command.EditorFileCommandResolver editorFiles,
+            final AutoBackupAdapter autoBackup,
+            final CubismHistory history) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
-        this.cubismEditorVersion = java.util.Objects.requireNonNull(
-            cubismEditorVersion, "cubismEditorVersion"
-        );
-        this.admittedCubismCapabilities = java.util.Objects.requireNonNull(
-            admittedCubismCapabilities, "admittedCubismCapabilities"
-        );
-        this.admittedCubismGeneration = java.util.Objects.requireNonNull(
-            admittedCubismGeneration, "admittedCubismGeneration"
-        );
+        this.cubismEditorVersion = java.util.Objects.requireNonNull(cubismEditorVersion, "cubismEditorVersion");
+        this.admittedCubismCapabilities =
+                java.util.Objects.requireNonNull(admittedCubismCapabilities, "admittedCubismCapabilities");
+        this.admittedCubismGeneration =
+                java.util.Objects.requireNonNull(admittedCubismGeneration, "admittedCubismGeneration");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
         this.appearanceSource = java.util.Objects.requireNonNull(appearanceSource, "appearanceSource");
         this.coreRuntimeInfo = java.util.Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
         this.parameterLifecycle = java.util.Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
         this.partLifecycle = java.util.Objects.requireNonNull(partLifecycle, "partLifecycle");
         this.editorObjectLifecycle = java.util.Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle");
-        this.physicsEditorCoordinator = java.util.Objects.requireNonNull(
-            physicsEditorCoordinator, "physicsEditorCoordinator"
-        );
-        this.paletteAppearanceCoordinator = java.util.Objects.requireNonNull(
-            paletteAppearanceCoordinator, "paletteAppearanceCoordinator"
-        );
-        this.textureAtlasLayouts = java.util.Objects.requireNonNull(
-            textureAtlasLayouts, "textureAtlasLayouts"
-        );
-        this.textureAtlasNativeInvocations = java.util.Objects.requireNonNull(
-            textureAtlasNativeInvocations, "textureAtlasNativeInvocations"
-        );
-        this.textureAtlasEditorUi = java.util.Objects.requireNonNull(
-            textureAtlasEditorUi, "textureAtlasEditorUi"
-        );
-        this.textureAtlasEditorSession = java.util.Objects.requireNonNull(
-            textureAtlasEditorSession, "textureAtlasEditorSession"
-        );
-        this.textureAtlasAlgorithms = java.util.Objects.requireNonNull(
-            textureAtlasAlgorithms, "textureAtlasAlgorithms"
-        );
+        this.physicsEditorCoordinator =
+                java.util.Objects.requireNonNull(physicsEditorCoordinator, "physicsEditorCoordinator");
+        this.paletteAppearanceCoordinator =
+                java.util.Objects.requireNonNull(paletteAppearanceCoordinator, "paletteAppearanceCoordinator");
+        this.textureAtlasLayouts = java.util.Objects.requireNonNull(textureAtlasLayouts, "textureAtlasLayouts");
+        this.textureAtlasNativeInvocations =
+                java.util.Objects.requireNonNull(textureAtlasNativeInvocations, "textureAtlasNativeInvocations");
+        this.textureAtlasEditorUi = java.util.Objects.requireNonNull(textureAtlasEditorUi, "textureAtlasEditorUi");
+        this.textureAtlasEditorSession =
+                java.util.Objects.requireNonNull(textureAtlasEditorSession, "textureAtlasEditorSession");
+        this.textureAtlasAlgorithms =
+                java.util.Objects.requireNonNull(textureAtlasAlgorithms, "textureAtlasAlgorithms");
         this.editorCommands = java.util.Objects.requireNonNull(editorCommands, "editorCommands");
         this.editorFiles = java.util.Objects.requireNonNull(editorFiles, "editorFiles");
         this.autoBackup = java.util.Objects.requireNonNull(autoBackup, "autoBackup");
@@ -181,37 +182,36 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     }
 
     DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final CubismModelAccess modelAccess,
-        final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
-        final PhysicsEditorCoordinator physicsEditorCoordinator,
-        final CubismHistory history
-    ) {
+            final RuntimeHostAdapters hostAdapters,
+            final CubismModelAccess modelAccess,
+            final ParameterLifecycleCoordinator parameterLifecycle,
+            final PartLifecycleCoordinator partLifecycle,
+            final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+            final PhysicsEditorCoordinator physicsEditorCoordinator,
+            final CubismHistory history) {
         this(
-            hostAdapters,
-            java.util.Optional::empty,
-            java.util.Set::of,
-            java.util.Optional::empty,
-            modelAccess,
-            UNAVAILABLE_CORE_RUNTIME,
-            parameterLifecycle,
-            partLifecycle,
-            editorObjectLifecycle,
-            physicsEditorCoordinator,
-            PluginScopedCubismModelAccess.appearanceSource(hostAdapters.projectWorkspace(), UNAVAILABLE_MODEL_ACCESS),
-            new PaletteAppearanceCoordinator(),
-            new TextureAtlasLayoutCoordinator(),
-            new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator(),
-            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi(),
-            dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession.unavailable(),
-            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry(),
-            dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable(),
-            dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
-            hostAdapters.autoBackup(),
-            history
-        );
+                hostAdapters,
+                java.util.Optional::empty,
+                java.util.Set::of,
+                java.util.Optional::empty,
+                modelAccess,
+                UNAVAILABLE_CORE_RUNTIME,
+                parameterLifecycle,
+                partLifecycle,
+                editorObjectLifecycle,
+                physicsEditorCoordinator,
+                PluginScopedCubismModelAccess.appearanceSource(
+                        hostAdapters.projectWorkspace(), UNAVAILABLE_MODEL_ACCESS),
+                new PaletteAppearanceCoordinator(),
+                new TextureAtlasLayoutCoordinator(),
+                new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator(),
+                new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi(),
+                dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession.unavailable(),
+                new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry(),
+                dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable(),
+                dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
+                hostAdapters.autoBackup(),
+                history);
     }
 
     CubismContextServices create(final CorePluginContext.Dependencies dependencies) {
@@ -220,58 +220,49 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
 
     @Override
     public CubismContextServices create(
-        final CorePluginContext.Dependencies dependencies,
-        final dev.turboism.task.RuntimePluginTaskScheduler pluginTasks
-    ) {
+            final CorePluginContext.Dependencies dependencies,
+            final dev.turboism.task.RuntimePluginTaskScheduler pluginTasks) {
         final CubismPermissionGate permissionGate = new CubismPermissionGate(
-            dependencies.descriptor().id(),
-            dependencies.permissions(),
-            dependencies.cubismAuditSink(),
-            dependencies.clock()
-        );
+                dependencies.descriptor().id(),
+                dependencies.permissions(),
+                dependencies.cubismAuditSink(),
+                dependencies.clock());
         final PermissionChecker permissionChecker = PermissionChecker.from(permissionGate);
         final AtomicBoolean activeScope = new AtomicBoolean(true);
         dependencies.disposableScope().register(() -> activeScope.set(false));
-        final dev.turboism.sdk.cubism.transaction.AuthoringTransactionService
-            authoringTransactions =
-            modelAccess instanceof dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider provider
+        final dev.turboism.sdk.cubism.transaction.AuthoringTransactionService authoringTransactions = modelAccess
+                        instanceof
+                        dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider provider
                 ? provider.authoringTransactions(dependencies.descriptor().id())
                 : dev.turboism.sdk.cubism.transaction.AuthoringTransactionService.unavailable();
         final dev.turboism.sdk.cubism.edit.EditSessionService editSessions =
-            modelAccess instanceof dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider provider
-                ? provider.editSessions(
-                    dependencies.descriptor().id(),
-                    () -> activeDocumentId(hostAdapters.projectWorkspace())
-                )
-                : dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
+                modelAccess instanceof dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider provider
+                        ? provider.editSessions(
+                                dependencies.descriptor().id(), () -> activeDocumentId(hostAdapters.projectWorkspace()))
+                        : dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
         if (editSessions instanceof dev.turboism.adapter.cubism.edit.RuntimeEditSessionService runtimeService) {
             dependencies.disposableScope().register(runtimeService::shutdown);
         }
-        final dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror =
-            modelAccess instanceof dev.turboism.adapter.cubism.warp.RuntimeWarpMirrorProvider mirrorProvider
+        final dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror = modelAccess
+                        instanceof dev.turboism.adapter.cubism.warp.RuntimeWarpMirrorProvider mirrorProvider
                 ? mirrorProvider.warpMirrorService(dependencies.descriptor().id())
                 : dev.turboism.sdk.cubism.mirror.WarpMirrorService.unavailable();
         final CubismModelAccess pluginModelAccess = PluginScopedCubismModelAccess.bind(
-            modelAccess,
-            dependencies.disposableScope(),
-            dependencies.descriptor().id(),
-            permissionChecker,
-            appearanceSource,
-            paletteAppearanceCoordinator,
-            modelAccess instanceof NativeLabelColorAuthoring authoring
-                ? authoring
-                : NativeLabelColorAuthoring.unavailable()
-        );
+                modelAccess,
+                dependencies.disposableScope(),
+                dependencies.descriptor().id(),
+                permissionChecker,
+                appearanceSource,
+                paletteAppearanceCoordinator,
+                modelAccess instanceof NativeLabelColorAuthoring authoring
+                        ? authoring
+                        : NativeLabelColorAuthoring.unavailable());
         final RuntimePsdExportService psdExportService;
         if (pluginTasks == null) {
             psdExportService = null;
         } else {
             psdExportService = new RuntimePsdExportService(
-                dependencies.descriptor().id(),
-                permissionChecker,
-                activeScope::get,
-                pluginTasks
-            );
+                    dependencies.descriptor().id(), permissionChecker, activeScope::get, pluginTasks);
             dependencies.disposableScope().register(psdExportService);
         }
         final RuntimePsdReplaceService psdReplaceService;
@@ -280,92 +271,76 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         } else {
             // Shares the export service's registry so only handles issued here can be replaced.
             psdReplaceService = new RuntimePsdReplaceService(
-                dependencies.descriptor().id(),
-                permissionChecker,
-                activeScope::get,
-                pluginTasks,
-                psdExportService
-            );
+                    dependencies.descriptor().id(), permissionChecker, activeScope::get, pluginTasks, psdExportService);
             dependencies.disposableScope().register(psdReplaceService);
         }
         final CubismFacadeImpl facade = new CubismFacadeImpl(
-            dependencies.hostSnapshotSource(),
-            permissionGate,
-            pluginModelAccess,
-            coreRuntimeInfo,
-            parameterLifecycle,
-            partLifecycle,
-            textureAtlasLayouts,
-            textureAtlasNativeInvocations,
-            editorObjectLifecycle,
-            activeScope::get,
-            textureAtlasEditorUi,
-            textureAtlasEditorSession,
-            textureAtlasAlgorithms,
-            history,
-            authoringTransactions,
-            psdExportService,
-            psdReplaceService,
-            dependencies.disposableScope(),
-            dependencies.disposableScope()::isSealed,
-            editSessions,
-            warpMirror
-        );
+                dependencies.hostSnapshotSource(),
+                permissionGate,
+                pluginModelAccess,
+                coreRuntimeInfo,
+                parameterLifecycle,
+                partLifecycle,
+                textureAtlasLayouts,
+                textureAtlasNativeInvocations,
+                editorObjectLifecycle,
+                activeScope::get,
+                textureAtlasEditorUi,
+                textureAtlasEditorSession,
+                textureAtlasAlgorithms,
+                history,
+                authoringTransactions,
+                psdExportService,
+                psdReplaceService,
+                dependencies.disposableScope(),
+                dependencies.disposableScope()::isSealed,
+                editSessions,
+                warpMirror);
         final CubismReadCapabilityServiceImpl readCapabilityService = new CubismReadCapabilityServiceImpl(
-            facade,
-            dependencies.m12ReadSnapshotSource(),
-            hostAdapters.themeStatus(),
-            hostAdapters.renderStatus(),
-            hostAdapters.projectWorkspace(),
-            hostAdapters.clipMaskRead(),
-            dependencies.descriptor().id(),
-            CubismReadPermissionGate.from(permissionGate),
-            activeScope::get
-        );
+                facade,
+                dependencies.m12ReadSnapshotSource(),
+                hostAdapters.themeStatus(),
+                hostAdapters.renderStatus(),
+                hostAdapters.projectWorkspace(),
+                hostAdapters.clipMaskRead(),
+                dependencies.descriptor().id(),
+                CubismReadPermissionGate.from(permissionGate),
+                activeScope::get);
         final AutoBackupCoordinator backupCoordinator = new AutoBackupCoordinator(
-            autoBackup,
-            dependencies.eventBroker(),
-            dependencies.clock(),
-            AutoBackupCoordinator.DEFAULT_POLL_TIMEOUT_MILLIS,
-            reason -> dependencies.logger().warn("auto-backup " + reason),
-            pluginTasks
-        );
+                autoBackup,
+                dependencies.eventBroker(),
+                dependencies.clock(),
+                AutoBackupCoordinator.DEFAULT_POLL_TIMEOUT_MILLIS,
+                reason -> dependencies.logger().warn("auto-backup " + reason),
+                pluginTasks);
         dependencies.disposableScope().register(backupCoordinator::close);
         final CubismContextServices services = new CubismContextServices(
-            facade,
-            new ParameterQueryServiceImpl(facade, permissionGate),
-            new SelectionQueryServiceImpl(
                 facade,
-                permissionGate,
-                dependencies.eventBroker(),
-                dependencies.eventBroker().observationBaseline(
-                    dev.turboism.adapter.cubism.SelectionObservation.class
-                ),
-                dependencies.hostSnapshotSource()
-            ),
-            new ModelHierarchyQueryServiceImpl(facade, permissionGate),
-            readCapabilityService,
-            new dev.turboism.adapter.cubism.model.RuntimeModelObjectService(
-                pluginModelAccess,
-                permissionChecker,
-                activeScope::get
-            ),
-            dependencies.permissions().stream().anyMatch(permission ->
-                CubismFacadeImpl.MODEL_WRITE_PERMISSION.equals(permission.id())
-            ) ? new dev.turboism.adapter.cubism.physics.PluginScopedPhysicsEditorService(
-                physicsEditorCoordinator,
-                dependencies.disposableScope(),
-                activeScope::get
-            ) : dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable(),
-            new CubismClipMaskServiceImpl(readCapabilityService, pluginModelAccess),
-            new dev.turboism.adapter.cubism.command.RuntimeEditorCommandService(
-                editorCommands, permissionGate, editorFiles, activeScope::get
-            ),
-            backupCoordinator
-        );
+                new ParameterQueryServiceImpl(facade, permissionGate),
+                new SelectionQueryServiceImpl(
+                        facade,
+                        permissionGate,
+                        dependencies.eventBroker(),
+                        dependencies
+                                .eventBroker()
+                                .observationBaseline(dev.turboism.adapter.cubism.SelectionObservation.class),
+                        dependencies.hostSnapshotSource()),
+                new ModelHierarchyQueryServiceImpl(facade, permissionGate),
+                readCapabilityService,
+                new dev.turboism.adapter.cubism.model.RuntimeModelObjectService(
+                        pluginModelAccess, permissionChecker, activeScope::get),
+                dependencies.permissions().stream()
+                                .anyMatch(permission -> CubismFacadeImpl.MODEL_WRITE_PERMISSION.equals(permission.id()))
+                        ? new dev.turboism.adapter.cubism.physics.PluginScopedPhysicsEditorService(
+                                physicsEditorCoordinator, dependencies.disposableScope(), activeScope::get)
+                        : dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable(),
+                new CubismClipMaskServiceImpl(readCapabilityService, pluginModelAccess),
+                new dev.turboism.adapter.cubism.command.RuntimeEditorCommandService(
+                        editorCommands, permissionGate, editorFiles, activeScope::get),
+                backupCoordinator);
         return new CubismEditorApiAvailabilityInterceptor(
-            cubismEditorVersion, admittedCubismCapabilities, admittedCubismGeneration
-        ).intercept(services);
+                        cubismEditorVersion, admittedCubismCapabilities, admittedCubismGeneration)
+                .intercept(services);
     }
 
     /**
@@ -373,15 +348,15 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
      * document is active or the workspace cannot report it.
      */
     private static java.util.Optional<dev.turboism.sdk.cubism.id.DocumentId> activeDocumentId(
-        final dev.turboism.adapter.cubism.ProjectWorkspaceAdapter projectWorkspace
-    ) {
-        final dev.turboism.adapter.cubism.ProjectWorkspaceAdapter
-            .AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.DocumentSnapshot>> result =
-            projectWorkspace.activeDocument();
+            final dev.turboism.adapter.cubism.ProjectWorkspaceAdapter projectWorkspace) {
+        final dev.turboism.adapter.cubism.ProjectWorkspaceAdapter.AdapterResult<
+                        java.util.Optional<dev.turboism.sdk.cubism.DocumentSnapshot>>
+                result = projectWorkspace.activeDocument();
         if (!result.isAvailable() || result.value().isEmpty()) {
             return java.util.Optional.empty();
         }
-        return result.value().orElseThrow().map(
-            snapshot -> new dev.turboism.sdk.cubism.id.DocumentId(snapshot.documentId()));
+        return result.value()
+                .orElseThrow()
+                .map(snapshot -> new dev.turboism.sdk.cubism.id.DocumentId(snapshot.documentId()));
     }
 }

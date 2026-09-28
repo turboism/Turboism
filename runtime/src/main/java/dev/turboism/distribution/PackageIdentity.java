@@ -18,8 +18,7 @@ public final class PackageIdentity {
     private final String apiVersion;
     private final int javaVersion;
 
-    PackageIdentity(String sha256, long size, String id, String version,
-                    String apiVersion, int javaVersion) {
+    PackageIdentity(String sha256, long size, String id, String version, String apiVersion, int javaVersion) {
         this.sha256 = require(sha256, "sha256");
         this.id = require(id, "id");
         this.version = require(version, "version");
@@ -32,38 +31,57 @@ public final class PackageIdentity {
     }
 
     /** @return SHA-256 of the raw archive bytes as observed during inspection, 64 lowercase hex characters */
-    public String sha256() { return sha256; }
-
-    /** @return byte length of the raw archive as read during inspection; never negative */
-    public long size() { return size; }
-
-    /** @return the package's declared identifier, never blank */
-    public String id() { return id; }
-
-    /** @return the package's declared release version, never blank */
-    public String version() { return version; }
-
-    /** @return the Turboism API version the package declares it targets, never blank */
-    public String apiVersion() { return apiVersion; }
-
-    /** @return the minimum Java runtime version the package declares; always positive */
-    public int javaVersion() { return javaVersion; }
-
-    @Override public boolean equals(Object other) {
-        if (this == other) return true;
-        if (!(other instanceof PackageIdentity that)) return false;
-        return size == that.size && javaVersion == that.javaVersion && sha256.equals(that.sha256)
-            && id.equals(that.id) && version.equals(that.version) && apiVersion.equals(that.apiVersion);
+    public String sha256() {
+        return sha256;
     }
 
-    @Override public int hashCode() {
+    /** @return byte length of the raw archive as read during inspection; never negative */
+    public long size() {
+        return size;
+    }
+
+    /** @return the package's declared identifier, never blank */
+    public String id() {
+        return id;
+    }
+
+    /** @return the package's declared release version, never blank */
+    public String version() {
+        return version;
+    }
+
+    /** @return the Turboism API version the package declares it targets, never blank */
+    public String apiVersion() {
+        return apiVersion;
+    }
+
+    /** @return the minimum Java runtime version the package declares; always positive */
+    public int javaVersion() {
+        return javaVersion;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof PackageIdentity that)) return false;
+        return size == that.size
+                && javaVersion == that.javaVersion
+                && sha256.equals(that.sha256)
+                && id.equals(that.id)
+                && version.equals(that.version)
+                && apiVersion.equals(that.apiVersion);
+    }
+
+    @Override
+    public int hashCode() {
         return Objects.hash(sha256, size, id, version, apiVersion, javaVersion);
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return "PackageIdentity[sha256=" + sha256 + ", size=" + size + ", id=" + id
-            + ", version=" + version + ", apiVersion=" + apiVersion
-            + ", javaVersion=" + javaVersion + "]";
+                + ", version=" + version + ", apiVersion=" + apiVersion
+                + ", javaVersion=" + javaVersion + "]";
     }
 
     private static String require(String value, String name) {

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.appearance;
 
-
 /** UI color value. It is deliberately separate from Cubism model colors. */
 public record UiColor(float red, float green, float blue, float alpha) {
 

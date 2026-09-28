@@ -8,7 +8,6 @@ import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.task.PluginCompletionFuture;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -58,46 +57,42 @@ final class RuntimePsdEditFile implements PsdEditFile {
     private final PsdSaveWatcher watcher;
 
     private final Object stateLock = new Object();
-    private final IdentityHashMap<Registration, Consumer<PsdFileRevision>> subscriptions =
-        new IdentityHashMap<>();
+    private final IdentityHashMap<Registration, Consumer<PsdFileRevision>> subscriptions = new IdentityHashMap<>();
     private final ArrayDeque<PsdFileRevision> issuedRevisions = new ArrayDeque<>();
     private final AtomicInteger inFlight = new AtomicInteger();
     private final CompletableFuture<Void> drained = new CompletableFuture<>();
     private boolean stopped;
 
     RuntimePsdEditFile(
-        final String pluginId,
-        final PsdEditRegistry.Binding binding,
-        final PsdTemporaryFile allocation,
-        final PsdEditRegistry registry,
-        final PermissionChecker permissionChecker,
-        final BooleanSupplier activeScope,
-        final Consumer<Runnable> continuationDispatcher,
-        final Executor executor,
-        final PsdDefaultApplicationLauncher launcher,
-        final PsdSaveWatcher.Scheduler scheduler,
-        final LongSupplier nanoClock,
-        final String baselineDigest
-    ) {
+            final String pluginId,
+            final PsdEditRegistry.Binding binding,
+            final PsdTemporaryFile allocation,
+            final PsdEditRegistry registry,
+            final PermissionChecker permissionChecker,
+            final BooleanSupplier activeScope,
+            final Consumer<Runnable> continuationDispatcher,
+            final Executor executor,
+            final PsdDefaultApplicationLauncher launcher,
+            final PsdSaveWatcher.Scheduler scheduler,
+            final LongSupplier nanoClock,
+            final String baselineDigest) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.binding = Objects.requireNonNull(binding, "binding");
         this.allocation = Objects.requireNonNull(allocation, "allocation");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.activeScope = Objects.requireNonNull(activeScope, "activeScope");
-        this.continuationDispatcher = Objects.requireNonNull(
-            continuationDispatcher, "continuationDispatcher");
+        this.continuationDispatcher = Objects.requireNonNull(continuationDispatcher, "continuationDispatcher");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.launcher = Objects.requireNonNull(launcher, "launcher");
         this.watcher = new PsdSaveWatcher(
-            this.allocation,
-            this::publishStableSave,
-            new PsdSaveDebouncer(requireDigest(baselineDigest)),
-            scheduler,
-            nanoClock,
-            PsdSaveWatcher.DEFAULT_POLL_MILLIS,
-            PsdSaveWatcher.COMPENSATION_DELAY_MILLIS
-        );
+                this.allocation,
+                this::publishStableSave,
+                new PsdSaveDebouncer(requireDigest(baselineDigest)),
+                scheduler,
+                nanoClock,
+                PsdSaveWatcher.DEFAULT_POLL_MILLIS,
+                PsdSaveWatcher.COMPENSATION_DELAY_MILLIS);
     }
 
     /**
@@ -125,21 +120,19 @@ final class RuntimePsdEditFile implements PsdEditFile {
                 executor.execute(() -> open(completion, settled, path));
             } catch (RejectedExecutionException queueRejected) {
                 endWork();
-                settle(completion, settled, result(
-                    PsdFileOperationResult.Status.REJECTED, "PSD_OPEN;queue=rejected"));
+                settle(completion, settled, result(PsdFileOperationResult.Status.REJECTED, "PSD_OPEN;queue=rejected"));
             }
         } catch (CubismPermissionException denied) {
-            settle(completion, settled, result(
-                PsdFileOperationResult.Status.REJECTED, "PSD_OPEN;permission=denied"));
+            settle(completion, settled, result(PsdFileOperationResult.Status.REJECTED, "PSD_OPEN;permission=denied"));
         } catch (IllegalStateException inactive) {
-            settle(completion, settled, result(
-                PsdFileOperationResult.Status.UNAVAILABLE, "PSD_OPEN;handle=inactive"));
+            settle(completion, settled, result(PsdFileOperationResult.Status.UNAVAILABLE, "PSD_OPEN;handle=inactive"));
         } catch (SecurityException foreign) {
-            settle(completion, settled, result(
-                PsdFileOperationResult.Status.REJECTED, "PSD_OPEN;handle=foreign_or_revoked"));
+            settle(
+                    completion,
+                    settled,
+                    result(PsdFileOperationResult.Status.REJECTED, "PSD_OPEN;handle=foreign_or_revoked"));
         } catch (IOException invalidAllocation) {
-            settle(completion, settled, result(
-                PsdFileOperationResult.Status.FAILED, "PSD_OPEN;allocation=invalid"));
+            settle(completion, settled, result(PsdFileOperationResult.Status.FAILED, "PSD_OPEN;allocation=invalid"));
         }
         return completion.stage();
     }
@@ -171,8 +164,7 @@ final class RuntimePsdEditFile implements PsdEditFile {
             drained.complete(null);
         }
         drained.whenComplete((ignored, failure) -> settle(
-            completion, settled, result(
-                PsdFileOperationResult.Status.STOPPED, "PSD_STOP;inFlight=settled")));
+                completion, settled, result(PsdFileOperationResult.Status.STOPPED, "PSD_STOP;inFlight=settled")));
         return completion.stage();
     }
 
@@ -214,17 +206,14 @@ final class RuntimePsdEditFile implements PsdEditFile {
     }
 
     private void open(
-        final PluginCompletionFuture<PsdFileOperationResult> completion,
-        final AtomicBoolean settled,
-        final Path path
-    ) {
+            final PluginCompletionFuture<PsdFileOperationResult> completion,
+            final AtomicBoolean settled,
+            final Path path) {
         try {
             launcher.launch(path);
-            settle(completion, settled, result(
-                PsdFileOperationResult.Status.OPENED, "PSD_OPEN;launch=accepted"));
+            settle(completion, settled, result(PsdFileOperationResult.Status.OPENED, "PSD_OPEN;launch=accepted"));
         } catch (IOException | RuntimeException launchFailure) {
-            settle(completion, settled, result(
-                PsdFileOperationResult.Status.FAILED, "PSD_OPEN;launch=failed"));
+            settle(completion, settled, result(PsdFileOperationResult.Status.FAILED, "PSD_OPEN;launch=failed"));
         } finally {
             endWork();
         }
@@ -261,10 +250,9 @@ final class RuntimePsdEditFile implements PsdEditFile {
     }
 
     private void settle(
-        final PluginCompletionFuture<PsdFileOperationResult> completion,
-        final AtomicBoolean settled,
-        final PsdFileOperationResult result
-    ) {
+            final PluginCompletionFuture<PsdFileOperationResult> completion,
+            final AtomicBoolean settled,
+            final PsdFileOperationResult result) {
         if (!settled.compareAndSet(false, true)) return;
         final Runnable publication = () -> completion.settle(result);
         try {
@@ -300,10 +288,7 @@ final class RuntimePsdEditFile implements PsdEditFile {
         }
     }
 
-    private static PsdFileOperationResult result(
-        final PsdFileOperationResult.Status status,
-        final String diagnostic
-    ) {
+    private static PsdFileOperationResult result(final PsdFileOperationResult.Status status, final String diagnostic) {
         return new PsdFileOperationResult(status, diagnostic);
     }
 

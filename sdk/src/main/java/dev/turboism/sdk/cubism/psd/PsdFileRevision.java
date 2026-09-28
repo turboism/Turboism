@@ -8,5 +8,4 @@ package dev.turboism.sdk.cubism.psd;
  * No path, file contents or native host object is exposed. A token represents a stable staged
  * input, not the continuously changing external editor file.</p>
  */
-public interface PsdFileRevision {
-}
+public interface PsdFileRevision {}

@@ -1,5 +1,10 @@
 package dev.turboism.adapter.cubism.command;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -16,9 +21,6 @@ import dev.turboism.sdk.ui.UserFileHandle;
 import dev.turboism.sdk.ui.UserFileHandleState;
 import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,15 +28,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class VerifiedTypedEditorCommandAdapterTest {
 
-    @TempDir Path temporary;
+    @TempDir
+    Path temporary;
 
     @Test
     void executesCanvasSettingOnTheHostThreadWithTheVerifiedAuthoringSequence() {
@@ -61,30 +61,27 @@ class VerifiedTypedEditorCommandAdapterTest {
         host.viewKind = "other";
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
         assertEquals(
-            EditorCommandResult.Status.INVALID_STATE,
-            adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status()
-        );
+                EditorCommandResult.Status.INVALID_STATE,
+                adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status());
         assertEquals(1000, host.canvas.width, "no host mutation on invalid state");
 
         FakeHost nonMain = new FakeHost();
         nonMain.editModeKind = "other";
         VerifiedEditorCommandAdapter nonMainAdapter = new VerifiedEditorCommandAdapter(nonMain.resolver("5.3.02"));
         assertEquals(
-            EditorCommandResult.Status.INVALID_STATE,
-            nonMainAdapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status()
-        );
+                EditorCommandResult.Status.INVALID_STATE,
+                nonMainAdapter
+                        .execute(new EditorCanvasSettingsRequest(1200, 1000))
+                        .status());
     }
 
     @Test
     void canvasSettingFailsClosedWhenSelectorsAreAbsentFromTheVerifiedPlan() {
         FakeHost host = new FakeHost();
-        VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(
-            host.resolver("5.3.02", false)
-        );
+        VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02", false));
         assertEquals(
-            EditorCommandResult.Status.FAILED,
-            adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status()
-        );
+                EditorCommandResult.Status.FAILED,
+                adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status());
         assertEquals(1000, host.canvas.width, "no host mutation without verified selectors");
     }
 
@@ -93,9 +90,8 @@ class VerifiedTypedEditorCommandAdapterTest {
         FakeHost host = new FakeHost();
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("4.2.00"));
         assertEquals(
-            EditorCommandResult.Status.UNSUPPORTED_VERSION,
-            adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status()
-        );
+                EditorCommandResult.Status.UNSUPPORTED_VERSION,
+                adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status());
     }
 
     @Test
@@ -103,9 +99,8 @@ class VerifiedTypedEditorCommandAdapterTest {
         FakeHost host = new FakeHost();
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.2.03"));
 
-        EditorCommandResult result = adapter.execute(new EditorGridSettingsRequest(
-            80, new Color(0.25f, 0.5f, 0.75f, 1.0f)
-        ));
+        EditorCommandResult result =
+                adapter.execute(new EditorGridSettingsRequest(80, new Color(0.25f, 0.5f, 0.75f, 1.0f)));
 
         assertEquals(EditorCommandResult.Status.EXECUTED, result.status());
         assertEquals(80, host.grid.spacing);
@@ -121,17 +116,13 @@ class VerifiedTypedEditorCommandAdapterTest {
         FakeHost host = new FakeHost();
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
-        EditorCommandResult result = adapter.execute(
-            new EditorExternalAppSettingsRequest(22033, true)
-        );
+        EditorCommandResult result = adapter.execute(new EditorExternalAppSettingsRequest(22033, true));
 
         assertEquals(EditorCommandResult.Status.EXECUTED, result.status());
         assertEquals(22033, host.webSocket.instance.port);
         assertTrue(FakeHost.FakeWebSocketLCompanion.remoteFlag, "the companion remote flag must be set");
         assertTrue(host.webSocket.instance.started, "server starts when disconnected");
-        assertEquals(true, host.config.values.get(
-            VerifiedTypedEditorCommandOperations.EXTERNAL_APP_REMOTE_CONFIG_KEY
-        ));
+        assertEquals(true, host.config.values.get(VerifiedTypedEditorCommandOperations.EXTERNAL_APP_REMOTE_CONFIG_KEY));
     }
 
     @Test
@@ -141,12 +132,12 @@ class VerifiedTypedEditorCommandAdapterTest {
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         assertEquals(
-            EditorCommandResult.Status.INVALID_STATE,
-            adapter.execute(new EditorExternalAppSettingsRequest(22033, true)).status()
-        );
-        assertNull(host.config.values.get(
-            VerifiedTypedEditorCommandOperations.EXTERNAL_APP_REMOTE_CONFIG_KEY
-        ), "no persistence on invalid state");
+                EditorCommandResult.Status.INVALID_STATE,
+                adapter.execute(new EditorExternalAppSettingsRequest(22033, true))
+                        .status());
+        assertNull(
+                host.config.values.get(VerifiedTypedEditorCommandOperations.EXTERNAL_APP_REMOTE_CONFIG_KEY),
+                "no persistence on invalid state");
     }
 
     @Test
@@ -168,9 +159,8 @@ class VerifiedTypedEditorCommandAdapterTest {
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         assertEquals(
-            EditorCommandResult.Status.INVALID_STATE,
-            adapter.execute(new EditorResizeModelRequest(200)).status()
-        );
+                EditorCommandResult.Status.INVALID_STATE,
+                adapter.execute(new EditorResizeModelRequest(200)).status());
         assertFalse(host.document.dirty);
     }
 
@@ -180,9 +170,8 @@ class VerifiedTypedEditorCommandAdapterTest {
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         assertEquals(
-            EditorCommandResult.Status.UNAVAILABLE,
-            adapter.execute(new EditorModelingStatisticsRequest(true)).status()
-        );
+                EditorCommandResult.Status.UNAVAILABLE,
+                adapter.execute(new EditorModelingStatisticsRequest(true)).status());
     }
 
     @Test
@@ -196,9 +185,10 @@ class VerifiedTypedEditorCommandAdapterTest {
         assertEquals(EditorCommandResult.Status.FAILED, result.status(), "sanitized failure");
         assertEquals(22033, host.webSocket.instance.port, "the port must be restored after the remote failure");
         assertFalse(FakeHost.FakeWebSocketLCompanion.remoteFlag, "the remote flag must be restored");
-        assertEquals(false, host.config.values.get(
-            VerifiedTypedEditorCommandOperations.EXTERNAL_APP_REMOTE_CONFIG_KEY),
-            "the persisted config must be restored to the original value");
+        assertEquals(
+                false,
+                host.config.values.get(VerifiedTypedEditorCommandOperations.EXTERNAL_APP_REMOTE_CONFIG_KEY),
+                "the persisted config must be restored to the original value");
         assertFalse(host.webSocket.instance.started, "no leaked server");
     }
 
@@ -213,9 +203,10 @@ class VerifiedTypedEditorCommandAdapterTest {
         assertEquals(EditorCommandResult.Status.FAILED, result.status(), "sanitized failure");
         assertEquals(22033, host.webSocket.instance.port, "the port must be restored");
         assertFalse(FakeHost.FakeWebSocketLCompanion.remoteFlag, "the remote flag must be restored");
-        assertEquals(false, host.config.values.get(
-            VerifiedTypedEditorCommandOperations.EXTERNAL_APP_REMOTE_CONFIG_KEY),
-            "the persisted config must be restored to the original value");
+        assertEquals(
+                false,
+                host.config.values.get(VerifiedTypedEditorCommandOperations.EXTERNAL_APP_REMOTE_CONFIG_KEY),
+                "the persisted config must be restored to the original value");
         assertTrue(host.webSocket.instance.stopped, "the server must be stopped by the rollback");
     }
 
@@ -225,8 +216,8 @@ class VerifiedTypedEditorCommandAdapterTest {
         host.failOnSetSpacing = true;
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
-        EditorCommandResult result = adapter.execute(new EditorGridSettingsRequest(
-            80, new Color(0.25f, 0.5f, 0.75f, 1.0f)));
+        EditorCommandResult result =
+                adapter.execute(new EditorGridSettingsRequest(80, new Color(0.25f, 0.5f, 0.75f, 1.0f)));
 
         assertEquals(EditorCommandResult.Status.FAILED, result.status(), "sanitized failure");
         assertEquals(128, host.developerSetting.lastRed, "the color must be restored");
@@ -240,8 +231,8 @@ class VerifiedTypedEditorCommandAdapterTest {
         host.failOnRepaint = true;
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
-        EditorCommandResult result = adapter.execute(new EditorGridSettingsRequest(
-            80, new Color(0.25f, 0.5f, 0.75f, 1.0f)));
+        EditorCommandResult result =
+                adapter.execute(new EditorGridSettingsRequest(80, new Color(0.25f, 0.5f, 0.75f, 1.0f)));
 
         assertEquals(EditorCommandResult.Status.FAILED, result.status(), "sanitized failure");
         assertEquals(50, host.grid.spacing, "the spacing must be restored after the repaint failure");
@@ -326,8 +317,8 @@ class VerifiedTypedEditorCommandAdapterTest {
         host.failOnRestoreSpacing = true;
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
-        EditorCommandResult result = adapter.execute(new EditorGridSettingsRequest(
-            80, new Color(0.25f, 0.5f, 0.75f, 1.0f)));
+        EditorCommandResult result =
+                adapter.execute(new EditorGridSettingsRequest(80, new Color(0.25f, 0.5f, 0.75f, 1.0f)));
 
         assertEquals(EditorCommandResult.Status.FAILED, result.status(), "unverified grid rollback must fail closed");
         assertEquals(80, host.grid.spacing, "the unverifiable spacing restore must not be claimed");
@@ -377,9 +368,8 @@ class VerifiedTypedEditorCommandAdapterTest {
     @Test
     void canvasSettingFailsBeforeMutationWhenARollbackSelectorIsAbsent() {
         FakeHost host = new FakeHost();
-        VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(
-            host.resolver("5.3.02", true, "cubism.editor-command.canvas.undo")
-        );
+        VerifiedEditorCommandAdapter adapter =
+                new VerifiedEditorCommandAdapter(host.resolver("5.3.02", true, "cubism.editor-command.canvas.undo"));
 
         EditorCommandResult result = adapter.execute(new EditorCanvasSettingsRequest(1200, 1100));
 
@@ -395,8 +385,7 @@ class VerifiedTypedEditorCommandAdapterTest {
     void externalAppSettingFailsBeforeMutationWhenAStopSelectorIsAbsent() {
         FakeHost host = new FakeHost();
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(
-            host.resolver("5.3.02", true, "cubism.editor-command.external-app.stop")
-        );
+                host.resolver("5.3.02", true, "cubism.editor-command.external-app.stop"));
 
         EditorCommandResult result = adapter.execute(new EditorExternalAppSettingsRequest(22034, true));
 
@@ -412,16 +401,15 @@ class VerifiedTypedEditorCommandAdapterTest {
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         assertEquals(
-            EditorCommandResult.Status.INVALID_STATE,
-            adapter.execute(new EditorGridSettingsRequest(
-                50, new Color(128f / 255f, 128f / 255f, 128f / 255f, 1.0f))).status(),
-            "a missing modeling document must not receive a no-op EXECUTED"
-        );
+                EditorCommandResult.Status.INVALID_STATE,
+                adapter.execute(new EditorGridSettingsRequest(
+                                50, new Color(128f / 255f, 128f / 255f, 128f / 255f, 1.0f)))
+                        .status(),
+                "a missing modeling document must not receive a no-op EXECUTED");
         assertEquals(
-            EditorCommandResult.Status.INVALID_STATE,
-            adapter.execute(new EditorResizeModelRequest(100)).status(),
-            "a missing modeling document must not receive a no-op EXECUTED"
-        );
+                EditorCommandResult.Status.INVALID_STATE,
+                adapter.execute(new EditorResizeModelRequest(100)).status(),
+                "a missing modeling document must not receive a no-op EXECUTED");
     }
 
     @Test
@@ -432,12 +420,11 @@ class VerifiedTypedEditorCommandAdapterTest {
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         assertEquals(
-            EditorCommandResult.Status.UNAVAILABLE,
-            adapter.execute(new ResolvedEditorFileCommand(
-                EditorFileCommand.OPEN, model, EditorOverwritePolicy.REJECT_EXISTING
-            )).status(),
-            "OPEN is not admitted: its first-open behavior is not fully verified on the exact host"
-        );
+                EditorCommandResult.Status.UNAVAILABLE,
+                adapter.execute(new ResolvedEditorFileCommand(
+                                EditorFileCommand.OPEN, model, EditorOverwritePolicy.REJECT_EXISTING))
+                        .status(),
+                "OPEN is not admitted: its first-open behavior is not fully verified on the exact host");
         assertTrue(host.fileOps.opened.isEmpty(), "no host mutation for the unadmitted OPEN");
     }
 
@@ -471,9 +458,8 @@ class VerifiedTypedEditorCommandAdapterTest {
         FakeHost host = new FakeHost();
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
-        EditorCommandResult result = adapter.execute(new EditorGridSettingsRequest(
-            50, new Color(128f / 255f, 128f / 255f, 128f / 255f, 1.0f)
-        ));
+        EditorCommandResult result = adapter.execute(
+                new EditorGridSettingsRequest(50, new Color(128f / 255f, 128f / 255f, 128f / 255f, 1.0f)));
 
         assertEquals(EditorCommandResult.Status.EXECUTED, result.status());
         assertEquals(0, host.updateManager.repaints, "no repaint for a no-op request");
@@ -486,17 +472,17 @@ class VerifiedTypedEditorCommandAdapterTest {
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         assertEquals(
-            EditorCommandResult.Status.INVALID_STATE,
-            adapter.execute(new EditorGridSettingsRequest(3, new Color(0.5f, 0.5f, 0.5f, 1.0f))).status(),
-            "spacing below the host slider minimum 5 is rejected before mutation"
-        );
+                EditorCommandResult.Status.INVALID_STATE,
+                adapter.execute(new EditorGridSettingsRequest(3, new Color(0.5f, 0.5f, 0.5f, 1.0f)))
+                        .status(),
+                "spacing below the host slider minimum 5 is rejected before mutation");
         assertEquals(50, host.grid.spacing, "no mutation for out-of-range spacing");
 
         assertEquals(
-            EditorCommandResult.Status.INVALID_STATE,
-            adapter.execute(new EditorGridSettingsRequest(900, new Color(0.5f, 0.5f, 0.5f, 1.0f))).status(),
-            "spacing above min(documentWidth, documentHeight)=800 is rejected before mutation"
-        );
+                EditorCommandResult.Status.INVALID_STATE,
+                adapter.execute(new EditorGridSettingsRequest(900, new Color(0.5f, 0.5f, 0.5f, 1.0f)))
+                        .status(),
+                "spacing above min(documentWidth, documentHeight)=800 is rejected before mutation");
         assertEquals(50, host.grid.spacing, "no mutation for out-of-range spacing");
     }
 
@@ -507,9 +493,8 @@ class VerifiedTypedEditorCommandAdapterTest {
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         assertEquals(
-            EditorCommandResult.Status.INVALID_STATE,
-            adapter.execute(new EditorCanvasSettingsRequest(1200, 1100)).status()
-        );
+                EditorCommandResult.Status.INVALID_STATE,
+                adapter.execute(new EditorCanvasSettingsRequest(1200, 1100)).status());
         assertEquals(1000, host.canvas.width, "no mutation while an edit is in progress");
         assertEquals(0, host.group.undoCount);
     }
@@ -537,26 +522,23 @@ class VerifiedTypedEditorCommandAdapterTest {
         UserFileHandle handle = handle(target, UserFileMode.WRITE);
 
         EditorCommandResult result = adapter.execute(new ResolvedEditorFileCommand(
-            EditorFileCommand.SAVE_AS, target, EditorOverwritePolicy.REJECT_EXISTING
-            ));
+                EditorFileCommand.SAVE_AS, target, EditorOverwritePolicy.REJECT_EXISTING));
 
         assertEquals(EditorCommandResult.Status.EXECUTED, result.status());
         assertEquals(target.toAbsolutePath().normalize().toFile(), host.document.lastSavedTo);
 
         Files.writeString(target, "existing");
         assertEquals(
-            EditorCommandResult.Status.REJECTED,
-            adapter.execute(new ResolvedEditorFileCommand(
-                EditorFileCommand.SAVE_AS, target, EditorOverwritePolicy.REJECT_EXISTING
-            )).status(),
-            "existing target is rejected without an explicit replacement policy"
-        );
+                EditorCommandResult.Status.REJECTED,
+                adapter.execute(new ResolvedEditorFileCommand(
+                                EditorFileCommand.SAVE_AS, target, EditorOverwritePolicy.REJECT_EXISTING))
+                        .status(),
+                "existing target is rejected without an explicit replacement policy");
         assertEquals(
-            EditorCommandResult.Status.EXECUTED,
-            adapter.execute(new ResolvedEditorFileCommand(
-                EditorFileCommand.SAVE_AS, target, EditorOverwritePolicy.REPLACE_EXISTING
-            )).status()
-        );
+                EditorCommandResult.Status.EXECUTED,
+                adapter.execute(new ResolvedEditorFileCommand(
+                                EditorFileCommand.SAVE_AS, target, EditorOverwritePolicy.REPLACE_EXISTING))
+                        .status());
     }
 
     @Test
@@ -568,21 +550,19 @@ class VerifiedTypedEditorCommandAdapterTest {
         UserFileHandle handle = handle(target, UserFileMode.WRITE);
 
         assertEquals(
-            EditorCommandResult.Status.EXECUTED,
-            adapter.execute(new ResolvedEditorFileCommand(
-                EditorFileCommand.SAVE_AS, target, EditorOverwritePolicy.REJECT_EXISTING
-            )).status(),
-            "scene documents save through the animation content"
-        );
+                EditorCommandResult.Status.EXECUTED,
+                adapter.execute(new ResolvedEditorFileCommand(
+                                EditorFileCommand.SAVE_AS, target, EditorOverwritePolicy.REJECT_EXISTING))
+                        .status(),
+                "scene documents save through the animation content");
         assertEquals(target.toAbsolutePath().normalize().toFile(), host.sceneDocument.lastSavedTo);
 
         host.viewKind = "other";
         assertEquals(
-            EditorCommandResult.Status.INVALID_STATE,
-            adapter.execute(new ResolvedEditorFileCommand(
-                EditorFileCommand.SAVE_AS, target, EditorOverwritePolicy.REJECT_EXISTING
-            )).status()
-        );
+                EditorCommandResult.Status.INVALID_STATE,
+                adapter.execute(new ResolvedEditorFileCommand(
+                                EditorFileCommand.SAVE_AS, target, EditorOverwritePolicy.REJECT_EXISTING))
+                        .status());
     }
 
     @Test
@@ -592,41 +572,49 @@ class VerifiedTypedEditorCommandAdapterTest {
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         assertEquals(
-            EditorCommandResult.Status.UNAVAILABLE,
-            adapter.execute(new ResolvedEditorFileCommand(
-                EditorFileCommand.CSV_EXPORT_MODEL_IDS, target, EditorOverwritePolicy.REJECT_EXISTING
-            )).status()
-        );
+                EditorCommandResult.Status.UNAVAILABLE,
+                adapter.execute(new ResolvedEditorFileCommand(
+                                EditorFileCommand.CSV_EXPORT_MODEL_IDS, target, EditorOverwritePolicy.REJECT_EXISTING))
+                        .status());
         assertEquals(
-            EditorCommandResult.Status.UNAVAILABLE,
-            adapter.execute(new ResolvedEditorFileCommand(
-                EditorFileCommand.OPEN, target, EditorOverwritePolicy.REJECT_EXISTING
-            )).status()
-        );
+                EditorCommandResult.Status.UNAVAILABLE,
+                adapter.execute(new ResolvedEditorFileCommand(
+                                EditorFileCommand.OPEN, target, EditorOverwritePolicy.REJECT_EXISTING))
+                        .status());
     }
 
     private UserFileHandle handle(final Path path, final UserFileMode mode) {
         return new UserFileHandle() {
             @Override
-            public String id() { return "grant"; }
+            public String id() {
+                return "grant";
+            }
 
             @Override
-            public String displayName() { return "grant"; }
+            public String displayName() {
+                return "grant";
+            }
 
             @Override
-            public UserFileMode mode() { return mode; }
+            public UserFileMode mode() {
+                return mode;
+            }
 
             @Override
-            public UserFileLifetime lifetime() { return UserFileLifetime.UNTIL_DISABLE; }
+            public UserFileLifetime lifetime() {
+                return UserFileLifetime.UNTIL_DISABLE;
+            }
 
             @Override
-            public UserFileHandleState state() { return UserFileHandleState.ACTIVE; }
+            public UserFileHandleState state() {
+                return UserFileHandleState.ACTIVE;
+            }
 
             @Override
-            public void revoke() { }
+            public void revoke() {}
 
             @Override
-            public void close() { }
+            public void close() {}
         };
     }
 
@@ -713,22 +701,22 @@ class VerifiedTypedEditorCommandAdapterTest {
             return resolver(version, typed, new String[0]);
         }
 
-        VerifiedMemberResolver resolver(
-            final String version,
-            final boolean typed,
-            final String... dropAliases
-        ) {
+        VerifiedMemberResolver resolver(final String version, final boolean typed, final String... dropAliases) {
             List<StaticSelector> selectors = new ArrayList<>();
             String host = internal(FakeApp.class);
             selectors.add(StaticSelector.staticMethod(
-                "cubism.ui-top-menu.app-controller.instance", host, "instance", "()L" + host + ";",
-                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
-            ));
+                    "cubism.ui-top-menu.app-controller.instance",
+                    host,
+                    "instance",
+                    "()L" + host + ";",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
             if (!typed) {
                 return TestVerifiedResolvers.create(
-                    version, "adapter.ui.top-menu", Set.of("cubism.ui-top-menu"), selectors,
-                    FakeHost.class.getClassLoader()
-                );
+                        version,
+                        "adapter.ui.top-menu",
+                        Set.of("cubism.ui-top-menu"),
+                        selectors,
+                        FakeHost.class.getClassLoader());
             }
             String view = internal(FakeModelingView.class);
             String doc = internal(FakeModelingDocument.class);
@@ -762,81 +750,351 @@ class VerifiedTypedEditorCommandAdapterTest {
             String iEditMode = internal(FakeIEditMode.class);
             String editModeB = internal(FakeEditModeB.class);
 
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.current-view-context", host, "getCurrentViewContext", "()L" + internal(FakeView.class) + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.doc-size", internal(FakeView.class), "getDocumentSize", "()L" + internal(FakeCSize.class) + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.size-width", internal(FakeCSize.class), "getWidth", "()I", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.size-height", internal(FakeCSize.class), "getHeight", "()I", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.is-editing", internal(FakeEditModeBase.class), "isEditing", "()Z", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.undo-manager", editModeMain, "getUndoManager", "()L" + undoManager + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.undo-pos", undoManager, "getCurrentPos", "()I", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.undo", undoManager, "undo", "()V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.complete-pack", host, "getCompletePack", "()L" + pack + ";", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.current-view-context",
+                    host,
+                    "getCurrentViewContext",
+                    "()L" + internal(FakeView.class) + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.doc-size",
+                    internal(FakeView.class),
+                    "getDocumentSize",
+                    "()L" + internal(FakeCSize.class) + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.size-width",
+                    internal(FakeCSize.class),
+                    "getWidth",
+                    "()I",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.size-height",
+                    internal(FakeCSize.class),
+                    "getHeight",
+                    "()I",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.is-editing",
+                    internal(FakeEditModeBase.class),
+                    "isEditing",
+                    "()Z",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.undo-manager",
+                    editModeMain,
+                    "getUndoManager",
+                    "()L" + undoManager + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.undo-pos",
+                    undoManager,
+                    "getCurrentPos",
+                    "()I",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.undo", undoManager, "undo", "()V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.complete-pack",
+                    host,
+                    "getCompletePack",
+                    "()L" + pack + ";",
+                    StaticSelector.ACCESS_PUBLIC));
             selectors.add(StaticSelector.classSelector("cubism.editor-command.canvas.modeling-view", view));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.modeling-doc", view, "getDoc", "()L" + doc + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.model", view, "getModel", "()L" + model + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.edit-mode", doc, "getCurrentEditMode", "()L" + editModeBase + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.model-source", doc, "getModelSource", "()L" + source + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.mark-dirty", doc, "updateLastModifiedTime", "()V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.file.save-model", doc, "saveDocument", "(Ljava/io/File;Z)Z", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.modeling-doc",
+                    view,
+                    "getDoc",
+                    "()L" + doc + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.model",
+                    view,
+                    "getModel",
+                    "()L" + model + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.edit-mode",
+                    doc,
+                    "getCurrentEditMode",
+                    "()L" + editModeBase + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.model-source",
+                    doc,
+                    "getModelSource",
+                    "()L" + source + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.mark-dirty",
+                    doc,
+                    "updateLastModifiedTime",
+                    "()V",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.file.save-model",
+                    doc,
+                    "saveDocument",
+                    "(Ljava/io/File;Z)Z",
+                    StaticSelector.ACCESS_PUBLIC));
             selectors.add(StaticSelector.classSelector("cubism.editor-command.canvas.edit-mode-main", editModeMain));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.begin-edit", editModeMain, "beginEdit", "(Ljava/lang/String;)L" + group + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.canvas", source, "getCanvas", "()L" + canvas + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.handler", source, "getHandler", "()L" + handler + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.pixel-width", canvas, "getPixelWidth", "()I", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.pixel-height", canvas, "getPixelHeight", "()I", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.set-pixel-width", canvas, "setPixelWidth", "(I)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.set-pixel-height", canvas, "setPixelHeight", "(I)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.field("cubism.editor-command.canvas.companion", canvas, "Companion", "L" + companion + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.notify-size", companion, "a", "(II)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.constructor("cubism.editor-command.canvas.simple-undo", undo, "(Ljava/lang/String;L" + copyable + ";Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.group-add", group, "plusAssign", "(L" + undoable + ";)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.constructor("cubism.editor-command.canvas.vector2", vector, "(FF)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.constructor("cubism.editor-command.canvas.vector2-zero", vector, "()V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.canvas.scale-with-anchor", handler, "a", "(L" + model + ";FL" + vector + ";L" + vector + ";L" + group + ";)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.staticMethod("cubism.editor-command.canvas.end-edit-default", editModeB, "a", "(L" + iEditMode + ";ZLjava/lang/Object;ILjava/lang/Object;)Z", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-            selectors.add(StaticSelector.field("cubism.editor-command.grid.entity", grid, "a", "L" + grid + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.grid.get-spacing", grid, "a", "()I", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.grid.get-bold", grid, "b", "()I", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.grid.set-spacing", grid, "a", "(I)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.field("cubism.editor-command.grid.developer-setting", devSetting, "INSTANCE", "L" + devSetting + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.grid.get-color", devSetting, "getGridSelectColor", "()L" + color + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.grid.get-jcolor", color, "getJColor", "()Ljava/awt/Color;", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.grid.set-color", devSetting, "setGridSelectColor", "(L" + color + ";)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.constructor("cubism.editor-command.grid.color-create", color, "(III)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.grid.all-view-contexts", pack, "getAllViewContext", "()Ljava/util/List;", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.grid.update-manager", pack, "getUpdateManager", "()L" + updateManager + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.grid.modeling-draw", view, "getDrawImpl", "()L" + draw + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.grid.entity-from-draw", draw, "l", "()L" + gridEntity + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.grid.set-reset", gridEntity, "setResetFlg", "(Z)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.staticMethod("cubism.editor-command.grid.repaint-default", updateManager, "repaintCanvas$default", "(L" + updateManager + ";Ljava/lang/Object;ILjava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-            selectors.add(StaticSelector.field("cubism.editor-command.resize.guard", resizeGuard, "a", "L" + resizeGuard + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.resize.guard-current", resizeGuard, "d", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.resize.guard-active", resizeGuard, "a", "(Ljava/lang/String;)Z", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.staticMethod("cubism.editor-command.resize.scale-model", handler, "a", "(L" + handler + ";L" + pack + ";L" + editModeMain + ";L" + model + ";FL" + vector + ";L" + vector + ";ILjava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-            selectors.add(StaticSelector.field("cubism.editor-command.external-app.manager", wsX, "a", "L" + wsX + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.external-app.instance", wsX, "a", "()L" + wsL + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.field("cubism.editor-command.external-app.companion", wsL, "a", "L" + internal(FakeWebSocketLCompanion.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.external-app.get-port", wsL, "a", "()I", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.external-app.set-port", wsL, "a", "(I)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.staticMethod("cubism.editor-command.external-app.get-remote", internal(FakeWebSocketLCompanion.class), "k", "()Z", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.external-app.set-remote", internal(FakeWebSocketLCompanion.class), "a", "(Z)V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.external-app.connected", wsL, "f", "()Z", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.external-app.start", wsL, "d", "()V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.external-app.stop", wsX, "d", "()V", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.field("cubism.editor-command.config.instance", config, "a", "L" + config + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.config.read", config, "a", "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.config.write", config, "b", "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.begin-edit",
+                    editModeMain,
+                    "beginEdit",
+                    "(Ljava/lang/String;)L" + group + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.canvas",
+                    source,
+                    "getCanvas",
+                    "()L" + canvas + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.handler",
+                    source,
+                    "getHandler",
+                    "()L" + handler + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.pixel-width",
+                    canvas,
+                    "getPixelWidth",
+                    "()I",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.pixel-height",
+                    canvas,
+                    "getPixelHeight",
+                    "()I",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.set-pixel-width",
+                    canvas,
+                    "setPixelWidth",
+                    "(I)V",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.set-pixel-height",
+                    canvas,
+                    "setPixelHeight",
+                    "(I)V",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.field(
+                    "cubism.editor-command.canvas.companion",
+                    canvas,
+                    "Companion",
+                    "L" + companion + ";",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.notify-size", companion, "a", "(II)V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.constructor(
+                    "cubism.editor-command.canvas.simple-undo",
+                    undo,
+                    "(Ljava/lang/String;L" + copyable + ";Ljava/lang/Object;)V",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.group-add",
+                    group,
+                    "plusAssign",
+                    "(L" + undoable + ";)V",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.constructor(
+                    "cubism.editor-command.canvas.vector2", vector, "(FF)V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.constructor(
+                    "cubism.editor-command.canvas.vector2-zero", vector, "()V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.canvas.scale-with-anchor",
+                    handler,
+                    "a",
+                    "(L" + model + ";FL" + vector + ";L" + vector + ";L" + group + ";)V",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.staticMethod(
+                    "cubism.editor-command.canvas.end-edit-default",
+                    editModeB,
+                    "a",
+                    "(L" + iEditMode + ";ZLjava/lang/Object;ILjava/lang/Object;)Z",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.field(
+                    "cubism.editor-command.grid.entity",
+                    grid,
+                    "a",
+                    "L" + grid + ";",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.grid.get-spacing", grid, "a", "()I", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.grid.get-bold", grid, "b", "()I", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.grid.set-spacing", grid, "a", "(I)V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.field(
+                    "cubism.editor-command.grid.developer-setting",
+                    devSetting,
+                    "INSTANCE",
+                    "L" + devSetting + ";",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.grid.get-color",
+                    devSetting,
+                    "getGridSelectColor",
+                    "()L" + color + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.grid.get-jcolor",
+                    color,
+                    "getJColor",
+                    "()Ljava/awt/Color;",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.grid.set-color",
+                    devSetting,
+                    "setGridSelectColor",
+                    "(L" + color + ";)V",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.constructor(
+                    "cubism.editor-command.grid.color-create", color, "(III)V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.grid.all-view-contexts",
+                    pack,
+                    "getAllViewContext",
+                    "()Ljava/util/List;",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.grid.update-manager",
+                    pack,
+                    "getUpdateManager",
+                    "()L" + updateManager + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.grid.modeling-draw",
+                    view,
+                    "getDrawImpl",
+                    "()L" + draw + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.grid.entity-from-draw",
+                    draw,
+                    "l",
+                    "()L" + gridEntity + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.grid.set-reset",
+                    gridEntity,
+                    "setResetFlg",
+                    "(Z)V",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.staticMethod(
+                    "cubism.editor-command.grid.repaint-default",
+                    updateManager,
+                    "repaintCanvas$default",
+                    "(L" + updateManager + ";Ljava/lang/Object;ILjava/lang/Object;)V",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.field(
+                    "cubism.editor-command.resize.guard",
+                    resizeGuard,
+                    "a",
+                    "L" + resizeGuard + ";",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.resize.guard-current",
+                    resizeGuard,
+                    "d",
+                    "()Ljava/lang/String;",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.resize.guard-active",
+                    resizeGuard,
+                    "a",
+                    "(Ljava/lang/String;)Z",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.staticMethod(
+                    "cubism.editor-command.resize.scale-model",
+                    handler,
+                    "a",
+                    "(L" + handler + ";L" + pack + ";L" + editModeMain + ";L" + model + ";FL" + vector + ";L" + vector
+                            + ";ILjava/lang/Object;)V",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.field(
+                    "cubism.editor-command.external-app.manager",
+                    wsX,
+                    "a",
+                    "L" + wsX + ";",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.external-app.instance",
+                    wsX,
+                    "a",
+                    "()L" + wsL + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.field(
+                    "cubism.editor-command.external-app.companion",
+                    wsL,
+                    "a",
+                    "L" + internal(FakeWebSocketLCompanion.class) + ";",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.external-app.get-port", wsL, "a", "()I", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.external-app.set-port", wsL, "a", "(I)V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.staticMethod(
+                    "cubism.editor-command.external-app.get-remote",
+                    internal(FakeWebSocketLCompanion.class),
+                    "k",
+                    "()Z",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.external-app.set-remote",
+                    internal(FakeWebSocketLCompanion.class),
+                    "a",
+                    "(Z)V",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.external-app.connected", wsL, "f", "()Z", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.external-app.start", wsL, "d", "()V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.external-app.stop", wsX, "d", "()V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.field(
+                    "cubism.editor-command.config.instance",
+                    config,
+                    "a",
+                    "L" + config + ";",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.config.read",
+                    config,
+                    "a",
+                    "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.config.write",
+                    config,
+                    "b",
+                    "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                    StaticSelector.ACCESS_PUBLIC));
             selectors.add(StaticSelector.classSelector("cubism.editor-command.file.scene-document", sceneDoc));
-            selectors.add(StaticSelector.method("cubism.editor-command.file.scene-content", sceneDoc, "getAnimationContent", "()L" + sceneContent + ";", StaticSelector.ACCESS_PUBLIC));
-            selectors.add(StaticSelector.method("cubism.editor-command.file.save-scene", sceneContent, "saveDocument", "(Ljava/io/File;Z)Z", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.file.scene-content",
+                    sceneDoc,
+                    "getAnimationContent",
+                    "()L" + sceneContent + ";",
+                    StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.file.save-scene",
+                    sceneContent,
+                    "saveDocument",
+                    "(Ljava/io/File;Z)Z",
+                    StaticSelector.ACCESS_PUBLIC));
             if (dropAliases.length > 0) {
                 final Set<String> dropped = Set.of(dropAliases);
                 selectors.removeIf(selector -> dropped.contains(selector.alias()));
             }
             return TestVerifiedResolvers.create(
-                version, "adapter.ui.top-menu", Set.of("cubism.ui-top-menu"), selectors,
-                FakeHost.class.getClassLoader()
-            );
+                    version,
+                    "adapter.ui.top-menu",
+                    Set.of("cubism.ui-top-menu"),
+                    selectors,
+                    FakeHost.class.getClassLoader());
         }
 
         private static String internal(final Class<?> type) {
@@ -848,34 +1106,62 @@ class VerifiedTypedEditorCommandAdapterTest {
         public static final class FakeApp {
             static final FakeApp INSTANCE = new FakeApp();
             FakeHost host;
-            public static FakeApp instance() { return INSTANCE; }
+
+            public static FakeApp instance() {
+                return INSTANCE;
+            }
+
             public FakeView getCurrentViewContext() {
                 host.onEdt.set(javax.swing.SwingUtilities.isEventDispatchThread());
                 return host.currentView();
             }
-            public FakePack getCompletePack() { return new FakePack(host); }
+
+            public FakePack getCompletePack() {
+                return new FakePack(host);
+            }
         }
 
         static class FakeView {
-            public FakeCSize getDocumentSize() { return new FakeCSize(800, 600); }
+            public FakeCSize getDocumentSize() {
+                return new FakeCSize(800, 600);
+            }
         }
 
         public static final class FakeCSize {
             private final int width;
             private final int height;
-            public FakeCSize(int width, int height) { this.width = width; this.height = height; }
-            public int getWidth() { return width; }
-            public int getHeight() { return height; }
+
+            public FakeCSize(int width, int height) {
+                this.width = width;
+                this.height = height;
+            }
+
+            public int getWidth() {
+                return width;
+            }
+
+            public int getHeight() {
+                return height;
+            }
         }
 
         final class FakeModelingView extends FakeView {
-            public FakeModelingDocument getDoc() { return FakeHost.this.document; }
-            public FakeModel getModel() { return new FakeModel(); }
-            public FakeDrawImpl getDrawImpl() { return new FakeDrawImpl(FakeHost.this); }
+            public FakeModelingDocument getDoc() {
+                return FakeHost.this.document;
+            }
+
+            public FakeModel getModel() {
+                return new FakeModel();
+            }
+
+            public FakeDrawImpl getDrawImpl() {
+                return new FakeDrawImpl(FakeHost.this);
+            }
         }
 
         final class FakeSceneDocument extends FakeView {
             File lastSavedTo;
+
             public FakeAnimationFileContent getAnimationContent() {
                 return new FakeAnimationFileContent(this);
             }
@@ -883,7 +1169,11 @@ class VerifiedTypedEditorCommandAdapterTest {
 
         static final class FakeAnimationFileContent {
             private final FakeSceneDocument document;
-            FakeAnimationFileContent(FakeSceneDocument document) { this.document = document; }
+
+            FakeAnimationFileContent(FakeSceneDocument document) {
+                this.document = document;
+            }
+
             public boolean saveDocument(File file, boolean saveAs) {
                 document.lastSavedTo = file;
                 return true;
@@ -893,8 +1183,15 @@ class VerifiedTypedEditorCommandAdapterTest {
         final class FakeModelingDocument {
             boolean dirty;
             File lastSavedTo;
-            public FakeEditModeBase getCurrentEditMode() { return FakeHost.this.currentEditMode(); }
-            public FakeModelSource getModelSource() { return FakeHost.this.modelSource; }
+
+            public FakeEditModeBase getCurrentEditMode() {
+                return FakeHost.this.currentEditMode();
+            }
+
+            public FakeModelSource getModelSource() {
+                return FakeHost.this.modelSource;
+            }
+
             public void updateLastModifiedTime() {
                 dirty = true;
                 if (FakeHost.failOnMarkDirty) {
@@ -902,15 +1199,21 @@ class VerifiedTypedEditorCommandAdapterTest {
                     throw new IllegalStateException("injected host failure at the dirty-mark step");
                 }
             }
+
             public boolean saveDocument(File file, boolean saveAs) {
                 lastSavedTo = file;
                 return true;
             }
-            public File getFile() { return new File("model.cmo3"); }
+
+            public File getFile() {
+                return new File("model.cmo3");
+            }
         }
 
         class FakeEditModeBase {
-            public boolean isEditing() { return FakeHost.this.editing; }
+            public boolean isEditing() {
+                return FakeHost.this.editing;
+            }
         }
 
         final class FakeEditModeMain extends FakeEditModeBase implements FakeIEditMode {
@@ -918,46 +1221,72 @@ class VerifiedTypedEditorCommandAdapterTest {
             boolean endEditCalled;
             int preEditWidth;
             int preEditHeight;
-            public FakeModelingDocument getDoc() { return FakeHost.this.document; }
+
+            public FakeModelingDocument getDoc() {
+                return FakeHost.this.document;
+            }
+
             public FakeGroupUndo beginEdit(String label) {
                 lastEditLabel = label;
                 preEditWidth = FakeHost.this.canvas.width;
                 preEditHeight = FakeHost.this.canvas.height;
                 return FakeHost.this.group;
             }
-            public FakeUndoManager getUndoManager() { return FakeHost.this.undoManager; }
-            public void endEditCalled(boolean value) { endEditCalled = value; }
+
+            public FakeUndoManager getUndoManager() {
+                return FakeHost.this.undoManager;
+            }
+
+            public void endEditCalled(boolean value) {
+                endEditCalled = value;
+            }
         }
 
         final class FakeModelSource {
-            public FakeCanvas getCanvas() { return FakeHost.this.canvas; }
-            public FakeModelHandler getHandler() { return FakeHost.this.handler; }
+            public FakeCanvas getCanvas() {
+                return FakeHost.this.canvas;
+            }
+
+            public FakeModelHandler getHandler() {
+                return FakeHost.this.handler;
+            }
         }
 
         public final class FakeCanvas implements FakeCopyable {
             int width = 1000;
             int height = 1000;
             public static final FakeCanvasCompanion Companion = new FakeCanvasCompanion();
-            public int getPixelWidth() { return width; }
-            public int getPixelHeight() { return height; }
+
+            public int getPixelWidth() {
+                return width;
+            }
+
+            public int getPixelHeight() {
+                return height;
+            }
+
             public void setPixelWidth(int w) {
                 width = w;
-                                    if (FakeHost.failOnSetWidth) {
-                FakeHost.failOnSetWidth = false;
+                if (FakeHost.failOnSetWidth) {
+                    FakeHost.failOnSetWidth = false;
                     throw new IllegalStateException("injected host failure after width mutation");
                 }
             }
-            public void setPixelHeight(int h) { height = h; }
+
+            public void setPixelHeight(int h) {
+                height = h;
+            }
         }
 
         static final class FakeCanvasCompanion {
-            public void a(int w, int h) { }
+            public void a(int w, int h) {}
         }
 
         final class FakeModelHandler {
             float lastScale;
             float lastDeltaX;
             float lastDeltaY;
+
             public void a(FakeModel model, float scale, FakeGVector2 t, FakeGVector2 zero, FakeGroupUndo group) {
                 lastScale = scale;
                 lastDeltaX = t.x;
@@ -967,9 +1296,17 @@ class VerifiedTypedEditorCommandAdapterTest {
                     throw new IllegalStateException("injected host failure at the model scale step");
                 }
             }
-            public static void a(FakeModelHandler handler, FakePack pack, FakeEditModeMain editMode,
-                                 FakeModel model, float scale, FakeGVector2 t, FakeGVector2 zero,
-                                 int mask, Object marker) {
+
+            public static void a(
+                    FakeModelHandler handler,
+                    FakePack pack,
+                    FakeEditModeMain editMode,
+                    FakeModel model,
+                    float scale,
+                    FakeGVector2 t,
+                    FakeGVector2 zero,
+                    int mask,
+                    Object marker) {
                 handler.lastScale = scale;
                 // the native path begins an edit and registers the group before scaling
                 editMode.lastEditLabel = "Resize Document";
@@ -983,6 +1320,7 @@ class VerifiedTypedEditorCommandAdapterTest {
 
         final class FakeGroupUndo {
             int undoCount;
+
             public void plusAssign(FakeUndoable undo) {
                 undoCount++;
                 FakeHost.this.undoManager.entries.add(undo);
@@ -992,17 +1330,37 @@ class VerifiedTypedEditorCommandAdapterTest {
         public static final class FakeGVector2 {
             final float x;
             final float y;
-            public FakeGVector2() { this(0f, 0f); }
-            public FakeGVector2(float x, float y) { this.x = x; this.y = y; }
+
+            public FakeGVector2() {
+                this(0f, 0f);
+            }
+
+            public FakeGVector2(float x, float y) {
+                this.x = x;
+                this.y = y;
+            }
         }
 
         final class FakeUndoManager {
             final List<Object> entries = new ArrayList<>();
             int undoCount;
-            public List<Object> getUndoList() { return entries; }
-            public int getCurrentPos() { return entries.size(); }
-            public boolean canUndo() { return !entries.isEmpty(); }
-            public boolean canRedo() { return false; }
+
+            public List<Object> getUndoList() {
+                return entries;
+            }
+
+            public int getCurrentPos() {
+                return entries.size();
+            }
+
+            public boolean canUndo() {
+                return !entries.isEmpty();
+            }
+
+            public boolean canRedo() {
+                return false;
+            }
+
             public void undo() {
                 undoCount++;
                 if (FakeHost.failOnUndo) {
@@ -1021,7 +1379,11 @@ class VerifiedTypedEditorCommandAdapterTest {
             public static FakeGridEntity a = new FakeGridEntity();
             int spacing = 50;
             int setSpacingCalls;
-            public int a() { return spacing; }
+
+            public int a() {
+                return spacing;
+            }
+
             public void a(int value) {
                 setSpacingCalls++;
                 if (FakeHost.failOnSetSpacing) {
@@ -1034,7 +1396,10 @@ class VerifiedTypedEditorCommandAdapterTest {
                 }
                 spacing = value;
             }
-            public int b() { return 5; }
+
+            public int b() {
+                return 5;
+            }
         }
 
         public static final class FakeDeveloperSetting {
@@ -1042,7 +1407,11 @@ class VerifiedTypedEditorCommandAdapterTest {
             int lastRed;
             int lastGreen;
             int lastBlue;
-            public FakeCColor getGridSelectColor() { return new FakeCColor(128, 128, 128); }
+
+            public FakeCColor getGridSelectColor() {
+                return new FakeCColor(128, 128, 128);
+            }
+
             public void setGridSelectColor(FakeCColor color) {
                 lastRed = color.r;
                 lastGreen = color.g;
@@ -1052,21 +1421,31 @@ class VerifiedTypedEditorCommandAdapterTest {
 
         public static final class FakeDrawImpl {
             private final FakeHost host;
-            FakeDrawImpl(FakeHost host) { this.host = host; }
-            public FakeGridPanelEntity l() { return host.gridEntity; }
+
+            FakeDrawImpl(FakeHost host) {
+                this.host = host;
+            }
+
+            public FakeGridPanelEntity l() {
+                return host.gridEntity;
+            }
         }
 
         static final class FakeGridPanelEntity {
             int resetCount;
-            public void setResetFlg(boolean value) { if (value) resetCount++; }
+
+            public void setResetFlg(boolean value) {
+                if (value) resetCount++;
+            }
         }
 
         static final class FakeUpdateManager {
             int repaints;
+
             public static void repaintCanvas$default(FakeUpdateManager self, Object b, int mask, Object marker) {
                 self.repaints++;
-                                    if (FakeHost.failOnRepaint) {
-                FakeHost.failOnRepaint = false;
+                if (FakeHost.failOnRepaint) {
+                    FakeHost.failOnRepaint = false;
                     throw new IllegalStateException("injected host failure at the repaint step");
                 }
             }
@@ -1075,14 +1454,24 @@ class VerifiedTypedEditorCommandAdapterTest {
         public static final class FakeResizeGuard {
             public static FakeResizeGuard a = new FakeResizeGuard();
             boolean active;
-            public String d() { return "resize"; }
-            public boolean a(String current) { return active; }
+
+            public String d() {
+                return "resize";
+            }
+
+            public boolean a(String current) {
+                return active;
+            }
         }
 
         public static final class FakeWebSocketX {
             public static FakeWebSocketX a = new FakeWebSocketX();
             final FakeWebSocketL instance = new FakeWebSocketL();
-            public FakeWebSocketL a() { return instance; }
+
+            public FakeWebSocketL a() {
+                return instance;
+            }
+
             public void d() {
                 if (FakeHost.failOnStop) {
                     FakeHost.failOnStop = false;
@@ -1095,7 +1484,11 @@ class VerifiedTypedEditorCommandAdapterTest {
 
         public static final class FakeWebSocketLCompanion {
             public static boolean remoteFlag;
-            public static boolean k() { return remoteFlag; }
+
+            public static boolean k() {
+                return remoteFlag;
+            }
+
             public void a(boolean value) {
                 remoteFlag = value;
                 if (FakeHost.failOnSetRemote) {
@@ -1112,7 +1505,11 @@ class VerifiedTypedEditorCommandAdapterTest {
             boolean started;
             boolean stopped;
             int setPortCalls;
-            public int a() { return port; }
+
+            public int a() {
+                return port;
+            }
+
             public void a(int value) {
                 setPortCalls++;
                 if (FakeHost.failOnRestorePort && setPortCalls > 1) {
@@ -1121,7 +1518,11 @@ class VerifiedTypedEditorCommandAdapterTest {
                 }
                 port = value;
             }
-            public boolean f() { return connected; }
+
+            public boolean f() {
+                return connected;
+            }
+
             public void d() {
                 started = true;
                 if (FakeHost.failOnStart) {
@@ -1134,14 +1535,23 @@ class VerifiedTypedEditorCommandAdapterTest {
         public static final class FakeUUConfig {
             public static FakeUUConfig a = new FakeUUConfig();
             final java.util.Map<String, Object> values = new java.util.HashMap<>();
-            public Object a(String key, Object fallback) { return values.getOrDefault(key, fallback); }
-            public Object b(String key, Object value) { return values.put(key, value); }
+
+            public Object a(String key, Object fallback) {
+                return values.getOrDefault(key, fallback);
+            }
+
+            public Object b(String key, Object value) {
+                return values.put(key, value);
+            }
         }
 
         public static final class FakeFileOps {
             public static FakeFileOps a = new FakeFileOps();
             final List<File> opened = new ArrayList<>();
-            public void a(FakeApp app, List<File> files) { opened.addAll(files); }
+
+            public void a(FakeApp app, List<File> files) {
+                opened.addAll(files);
+            }
         }
 
         // ---- support types referenced by selectors ----
@@ -1152,39 +1562,50 @@ class VerifiedTypedEditorCommandAdapterTest {
             }
         }
 
-        interface FakeUndoable {
-        }
+        interface FakeUndoable {}
 
-        interface FakeIEditMode {
-        }
+        interface FakeIEditMode {}
 
         public static final class FakeSimpleUndo implements FakeUndoable {
-            public FakeSimpleUndo(String label, FakeCopyable target, Object context) { }
+            public FakeSimpleUndo(String label, FakeCopyable target, Object context) {}
         }
 
-        static final class FakeModel {
-        }
+        static final class FakeModel {}
 
         static final class FakePack {
             private final FakeHost host;
-            FakePack(FakeHost host) { this.host = host; }
+
+            FakePack(FakeHost host) {
+                this.host = host;
+            }
+
             public List<Object> getAllViewContext() {
                 return host.viewKind.equals("modeling") ? List.of(host.view) : List.of();
             }
-            public FakeUpdateManager getUpdateManager() { return host.updateManager; }
+
+            public FakeUpdateManager getUpdateManager() {
+                return host.updateManager;
+            }
         }
 
         public static final class FakeCColor {
             final int r;
             final int g;
             final int b;
-            public FakeCColor(int r, int g, int b) { this.r = r; this.g = g; this.b = b; }
-            public java.awt.Color getJColor() { return new java.awt.Color(r, g, b); }
+
+            public FakeCColor(int r, int g, int b) {
+                this.r = r;
+                this.g = g;
+                this.b = b;
+            }
+
+            public java.awt.Color getJColor() {
+                return new java.awt.Color(r, g, b);
+            }
         }
 
         static final class FakeEditModeB {
-            public static boolean a(FakeIEditMode mode, boolean refresh, Object callback,
-                                    int mask, Object marker) {
+            public static boolean a(FakeIEditMode mode, boolean refresh, Object callback, int mask, Object marker) {
                 if (FakeHost.failOnEndEdit) {
                     FakeHost.failOnEndEdit = false;
                     throw new IllegalStateException("injected host failure closing the edit");

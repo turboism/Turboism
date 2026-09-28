@@ -1,13 +1,12 @@
 package dev.turboism.graalhost;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
-
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 final class ReflectiveGraalJsRuntimeTest {
 
@@ -18,11 +17,10 @@ final class ReflectiveGraalJsRuntimeTest {
         runtime.close();
 
         final ReflectiveGraalJsRuntime.ExecutionResult result = runtime.execute(
-            "console.log('never');",
-            Map.of(),
-            (operation, payload) -> "{}",
-            new ReflectiveGraalJsRuntime.ExecutionControl()
-        );
+                "console.log('never');",
+                Map.of(),
+                (operation, payload) -> "{}",
+                new ReflectiveGraalJsRuntime.ExecutionControl());
 
         assertEquals(ReflectiveGraalJsRuntime.Status.FAILED, result.status());
         assertEquals("GRAAL_RUNTIME_CLOSED", result.code());
@@ -36,15 +34,13 @@ final class ReflectiveGraalJsRuntimeTest {
             }
 
             final ReflectiveGraalJsRuntime.ExecutionResult result = runtime.execute(
-                "turboism.cubism.status();",
-                Map.of(),
-                (operation, payload) -> {
-                    throw new GraalHostMain.HostCallException(
-                        "SCRIPT_PERMISSION_DENIED", "Cubism read permission was not declared."
-                    );
-                },
-                new ReflectiveGraalJsRuntime.ExecutionControl()
-            );
+                    "turboism.cubism.status();",
+                    Map.of(),
+                    (operation, payload) -> {
+                        throw new GraalHostMain.HostCallException(
+                                "SCRIPT_PERMISSION_DENIED", "Cubism read permission was not declared.");
+                    },
+                    new ReflectiveGraalJsRuntime.ExecutionControl());
 
             assertEquals(ReflectiveGraalJsRuntime.Status.FAILED, result.status());
             assertEquals("SCRIPT_PERMISSION_DENIED", result.code());
@@ -60,14 +56,13 @@ final class ReflectiveGraalJsRuntimeTest {
             final int[] hostCalls = {0};
 
             final ReflectiveGraalJsRuntime.ExecutionResult result = runtime.execute(
-                "turboism.cubism.parameters.set('ParamAngleX', null);",
-                Map.of(),
-                (operation, payload) -> {
-                    hostCalls[0]++;
-                    return "{}";
-                },
-                new ReflectiveGraalJsRuntime.ExecutionControl()
-            );
+                    "turboism.cubism.parameters.set('ParamAngleX', null);",
+                    Map.of(),
+                    (operation, payload) -> {
+                        hostCalls[0]++;
+                        return "{}";
+                    },
+                    new ReflectiveGraalJsRuntime.ExecutionControl());
 
             assertEquals(ReflectiveGraalJsRuntime.Status.FAILED, result.status());
             assertEquals("SCRIPT_EVALUATION_FAILED", result.code());
@@ -86,17 +81,15 @@ final class ReflectiveGraalJsRuntimeTest {
             final int contextsBefore = runtime.contextsCreatedForTest();
 
             final ReflectiveGraalJsRuntime.ExecutionResult first = runtime.execute(
-                "globalThis.executionMarker = 'first'; console.log(executionMarker);",
-                Map.of(),
-                (operation, payload) -> "{}",
-                new ReflectiveGraalJsRuntime.ExecutionControl()
-            );
+                    "globalThis.executionMarker = 'first'; console.log(executionMarker);",
+                    Map.of(),
+                    (operation, payload) -> "{}",
+                    new ReflectiveGraalJsRuntime.ExecutionControl());
             final ReflectiveGraalJsRuntime.ExecutionResult second = runtime.execute(
-                "console.log(typeof executionMarker);",
-                Map.of(),
-                (operation, payload) -> "{}",
-                new ReflectiveGraalJsRuntime.ExecutionControl()
-            );
+                    "console.log(typeof executionMarker);",
+                    Map.of(),
+                    (operation, payload) -> "{}",
+                    new ReflectiveGraalJsRuntime.ExecutionControl());
 
             assertEquals(ReflectiveGraalJsRuntime.Status.SUCCEEDED, first.status());
             assertEquals(ReflectiveGraalJsRuntime.Status.SUCCEEDED, second.status());

@@ -37,12 +37,21 @@ class ParameterSummaryImmutabilityTest {
         HierarchyNode node = hierarchyNodeWithMutableChildIds();
         ModelHierarchy hierarchy = modelHierarchyWithMutableNodes(node);
 
-        assertThrows(UnsupportedOperationException.class, () -> selection.selectedParameterIds().add(new ParameterId("blocked")));
-        assertThrows(UnsupportedOperationException.class, () -> selection.selectedArtMeshIds().add(new ArtMeshId("blocked")));
-        assertThrows(UnsupportedOperationException.class, () -> selection.selectedDeformerIds().add(new DeformerId("blocked")));
-        assertThrows(UnsupportedOperationException.class, () -> selection.selectedModelObjectIds().add(new ModelObjectId("blocked")));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> selection.selectedParameterIds().add(new ParameterId("blocked")));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> selection.selectedArtMeshIds().add(new ArtMeshId("blocked")));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> selection.selectedDeformerIds().add(new DeformerId("blocked")));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> selection.selectedModelObjectIds().add(new ModelObjectId("blocked")));
         assertThrows(UnsupportedOperationException.class, () -> node.childIds().add(new ModelObjectId("blocked")));
-        assertThrows(UnsupportedOperationException.class, () -> hierarchy.nodes().add(node));
+        assertThrows(
+                UnsupportedOperationException.class, () -> hierarchy.nodes().add(node));
     }
 
     @Test
@@ -52,22 +61,16 @@ class ParameterSummaryImmutabilityTest {
         ArrayList<DeformerId> deformerIds = new ArrayList<>(List.of(new DeformerId("warp-head")));
         ArrayList<ModelObjectId> objectIds = new ArrayList<>(List.of(new ModelObjectId("object-root")));
         SelectionSummary selection = new SelectionSummary(
-            Optional.of(new ProjectId("project")),
-            Optional.of(new DocumentId("document")),
-            Optional.of(new ModelObjectId("model")),
-            parameterIds,
-            artMeshIds,
-            deformerIds,
-            objectIds
-        );
+                Optional.of(new ProjectId("project")),
+                Optional.of(new DocumentId("document")),
+                Optional.of(new ModelObjectId("model")),
+                parameterIds,
+                artMeshIds,
+                deformerIds,
+                objectIds);
         ArrayList<ModelObjectId> childIds = new ArrayList<>(List.of(new ModelObjectId("child")));
         HierarchyNode node = new HierarchyNode(
-            new ModelObjectId("root"),
-            "Root",
-            HierarchyNode.Kind.MODEL,
-            Optional.empty(),
-            childIds
-        );
+                new ModelObjectId("root"), "Root", HierarchyNode.Kind.MODEL, Optional.empty(), childIds);
         ArrayList<HierarchyNode> nodes = new ArrayList<>(List.of(node));
         ModelHierarchy hierarchy = new ModelHierarchy(node, nodes);
 
@@ -88,24 +91,22 @@ class ParameterSummaryImmutabilityTest {
 
     private static SelectionSummary selectionSummaryWithMutableLists() {
         return new SelectionSummary(
-            Optional.of(new ProjectId("project")),
-            Optional.of(new DocumentId("document")),
-            Optional.of(new ModelObjectId("model")),
-            new ArrayList<>(List.of(new ParameterId("param-angle-x"))),
-            new ArrayList<>(List.of(new ArtMeshId("mesh-face"))),
-            new ArrayList<>(List.of(new DeformerId("warp-head"))),
-            new ArrayList<>(List.of(new ModelObjectId("object-root")))
-        );
+                Optional.of(new ProjectId("project")),
+                Optional.of(new DocumentId("document")),
+                Optional.of(new ModelObjectId("model")),
+                new ArrayList<>(List.of(new ParameterId("param-angle-x"))),
+                new ArrayList<>(List.of(new ArtMeshId("mesh-face"))),
+                new ArrayList<>(List.of(new DeformerId("warp-head"))),
+                new ArrayList<>(List.of(new ModelObjectId("object-root"))));
     }
 
     private static HierarchyNode hierarchyNodeWithMutableChildIds() {
         return new HierarchyNode(
-            new ModelObjectId("root"),
-            "Root",
-            HierarchyNode.Kind.MODEL,
-            Optional.empty(),
-            new ArrayList<>(List.of(new ModelObjectId("child")))
-        );
+                new ModelObjectId("root"),
+                "Root",
+                HierarchyNode.Kind.MODEL,
+                Optional.empty(),
+                new ArrayList<>(List.of(new ModelObjectId("child"))));
     }
 
     private static ModelHierarchy modelHierarchyWithMutableNodes(HierarchyNode node) {

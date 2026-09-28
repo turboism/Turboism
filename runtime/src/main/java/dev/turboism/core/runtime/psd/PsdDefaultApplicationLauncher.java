@@ -28,8 +28,9 @@ interface PsdDefaultApplicationLauncher {
 
     private static void openWithSystem(final Path file) throws IOException {
         final Path target = Objects.requireNonNull(file, "file");
-        if (!GraphicsEnvironment.isHeadless() && Desktop.isDesktopSupported()
-            && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+        if (!GraphicsEnvironment.isHeadless()
+                && Desktop.isDesktopSupported()
+                && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
             Desktop.getDesktop().open(target.toFile());
             return;
         }

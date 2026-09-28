@@ -1,25 +1,24 @@
 package dev.turboism.adapter.cubism.performance;
 
+import java.lang.instrument.ClassFileTransformer;
+import java.net.URI;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.ProtectionDomain;
+import java.util.HashMap;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.lang.instrument.ClassFileTransformer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.ProtectionDomain;
-import java.net.URI;
-import java.nio.file.Path;
-import java.util.HexFormat;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Weaves probe enter/exit calls into a fixed list of Cubism methods at class-load time.
@@ -37,8 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class PerformanceProbeMethodTransformer implements ClassFileTransformer {
 
-    private static final String CARRIER =
-        "dev/turboism/bootstrap/carrier/PerformanceProbeCarrier";
+    private static final String CARRIER = "dev/turboism/bootstrap/carrier/PerformanceProbeCarrier";
     private final ClassLoader expectedLoader;
     private final List<Target> targets;
     private final Path expectedArtifact;
@@ -47,30 +45,28 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
     private final ConcurrentHashMap<String, String> instrumentedSha256 = new ConcurrentHashMap<>();
 
     public PerformanceProbeMethodTransformer(
-        final ClassLoader expectedLoader,
-        final Path expectedArtifact,
-        final List<Target> targets
-    ) {
+            final ClassLoader expectedLoader, final Path expectedArtifact, final List<Target> targets) {
         this.expectedLoader = expectedLoader;
-        this.expectedArtifact = expectedArtifact == null ? null : expectedArtifact.toAbsolutePath().normalize();
+        this.expectedArtifact = expectedArtifact == null
+                ? null
+                : expectedArtifact.toAbsolutePath().normalize();
         this.targets = List.copyOf(targets);
         this.targets.forEach(target -> matches.put(target, new AtomicInteger()));
     }
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
         if (classfileBuffer == null || (expectedLoader != null && loader != expectedLoader)) return null;
         if (expectedArtifact != null && !comesFromArtifact(protectionDomain, expectedArtifact)) return null;
         final List<Target> classTargets = targets.stream()
-            .filter(target -> target.ownerInternalName().equals(className))
-            .toList();
+                .filter(target -> target.ownerInternalName().equals(className))
+                .toList();
         if (classTargets.isEmpty()) return null;
 
         final ClassReader reader = new ClassReader(classfileBuffer);
@@ -85,23 +81,25 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
                 return expectedLoader == null ? super.getClassLoader() : expectedLoader;
             }
         };
-        reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String descriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                final MethodVisitor delegate = super.visitMethod(access, name, descriptor, signature, exceptions);
-                final Target target = matching(classTargets, name, descriptor);
-                if (target == null) return delegate;
-                changed[0] = true;
-                matches.get(target).incrementAndGet();
-                return instrument(delegate, target, locals.get(target));
-            }
-        }, ClassReader.EXPAND_FRAMES);
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String descriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor delegate =
+                                super.visitMethod(access, name, descriptor, signature, exceptions);
+                        final Target target = matching(classTargets, name, descriptor);
+                        if (target == null) return delegate;
+                        changed[0] = true;
+                        matches.get(target).incrementAndGet();
+                        return instrument(delegate, target, locals.get(target));
+                    }
+                },
+                ClassReader.EXPAND_FRAMES);
         if (!changed[0]) return null;
         final byte[] output = writer.toByteArray();
         beforeSha256.putIfAbsent(className, sha256(classfileBuffer));
@@ -147,45 +145,40 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
         }
     }
 
-    private static Map<Target, Integer> findMaxLocals(
-        final ClassReader reader,
-        final List<Target> targets
-    ) {
+    private static Map<Target, Integer> findMaxLocals(final ClassReader reader, final List<Target> targets) {
         final Map<Target, Integer> result = new HashMap<>();
-        reader.accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String descriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                final Target target = matching(targets, name, descriptor);
-                if (target == null) return null;
-                return new MethodVisitor(Opcodes.ASM9) {
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9) {
                     @Override
-                    public void visitMaxs(final int maxStack, final int maxLocals) {
-                        result.put(target, maxLocals);
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String descriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final Target target = matching(targets, name, descriptor);
+                        if (target == null) return null;
+                        return new MethodVisitor(Opcodes.ASM9) {
+                            @Override
+                            public void visitMaxs(final int maxStack, final int maxLocals) {
+                                result.put(target, maxLocals);
+                            }
+                        };
                     }
-                };
-            }
-        }, ClassReader.SKIP_FRAMES);
+                },
+                ClassReader.SKIP_FRAMES);
         return result;
     }
 
     private static Target matching(final List<Target> targets, final String name, final String descriptor) {
         return targets.stream()
-            .filter(candidate -> candidate.methodName().equals(name)
-                && candidate.descriptor().equals(descriptor))
-            .findFirst().orElse(null);
+                .filter(candidate -> candidate.methodName().equals(name)
+                        && candidate.descriptor().equals(descriptor))
+                .findFirst()
+                .orElse(null);
     }
 
-    private static MethodVisitor instrument(
-        final MethodVisitor delegate,
-        final Target target,
-        final int tokenLocal
-    ) {
+    private static MethodVisitor instrument(final MethodVisitor delegate, final Target target, final int tokenLocal) {
         final int throwableLocal = tokenLocal + 2;
         return new MethodVisitor(Opcodes.ASM9, delegate) {
             private final Label start = new Label();
@@ -243,11 +236,7 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
      * @throws IllegalArgumentException when the descriptor is invalid or the method is a constructor
      */
     public record Target(
-        String ownerInternalName,
-        String methodName,
-        String descriptor,
-        PerformanceProbeMetric metric
-    ) {
+            String ownerInternalName, String methodName, String descriptor, PerformanceProbeMetric metric) {
         public Target {
             Objects.requireNonNull(ownerInternalName, "ownerInternalName");
             Objects.requireNonNull(methodName, "methodName");
@@ -258,8 +247,8 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
             }
             try {
                 final org.objectweb.asm.Type type = org.objectweb.asm.Type.getMethodType(descriptor);
-                if (!descriptor.equals(org.objectweb.asm.Type.getMethodDescriptor(
-                    type.getReturnType(), type.getArgumentTypes()))) {
+                if (!descriptor.equals(
+                        org.objectweb.asm.Type.getMethodDescriptor(type.getReturnType(), type.getArgumentTypes()))) {
                     throw new IllegalArgumentException("invalid performance probe method descriptor");
                 }
             } catch (IndexOutOfBoundsException exception) {

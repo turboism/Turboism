@@ -14,11 +14,10 @@ import java.util.Optional;
  * @param <T> callback result type
  */
 public record AuthoringTransactionResult<T>(
-    AuthoringTransactionOutcome outcome,
-    Optional<T> value,
-    Optional<AuthoringTransactionReceipt> receipt,
-    Optional<String> diagnosticId
-) {
+        AuthoringTransactionOutcome outcome,
+        Optional<T> value,
+        Optional<AuthoringTransactionReceipt> receipt,
+        Optional<String> diagnosticId) {
 
     /** Validates cross-field invariants for the terminal outcome. */
     public AuthoringTransactionResult {
@@ -26,10 +25,10 @@ public record AuthoringTransactionResult<T>(
         value = Objects.requireNonNull(value, "value");
         receipt = Objects.requireNonNull(receipt, "receipt");
         diagnosticId = Objects.requireNonNull(diagnosticId, "diagnosticId")
-            .map(AuthoringTransactionResult::normalizedDiagnosticId);
+                .map(AuthoringTransactionResult::normalizedDiagnosticId);
 
-        final boolean successful = outcome == AuthoringTransactionOutcome.COMMITTED
-            || outcome == AuthoringTransactionOutcome.NO_CHANGE;
+        final boolean successful =
+                outcome == AuthoringTransactionOutcome.COMMITTED || outcome == AuthoringTransactionOutcome.NO_CHANGE;
         if (successful && receipt.isEmpty()) {
             throw new IllegalArgumentException("successful transaction result requires a receipt");
         }
@@ -46,8 +45,8 @@ public record AuthoringTransactionResult<T>(
             throw new IllegalArgumentException("unavailable transaction result cannot carry a receipt");
         }
         if ((outcome == AuthoringTransactionOutcome.ROLLED_BACK
-                || outcome == AuthoringTransactionOutcome.RECOVERY_FAILED)
-            && receipt.isEmpty()) {
+                        || outcome == AuthoringTransactionOutcome.RECOVERY_FAILED)
+                && receipt.isEmpty()) {
             throw new IllegalArgumentException(outcome + " transaction result requires a receipt");
         }
 
@@ -56,9 +55,7 @@ public record AuthoringTransactionResult<T>(
             throw new IllegalArgumentException("committed transaction result requires a history entry ID");
         }
         if (outcome != AuthoringTransactionOutcome.COMMITTED && entryId.isPresent()) {
-            throw new IllegalArgumentException(
-                "only a committed transaction result may carry a history entry ID"
-            );
+            throw new IllegalArgumentException("only a committed transaction result may carry a history entry ID");
         }
     }
 
@@ -71,15 +68,12 @@ public record AuthoringTransactionResult<T>(
      * @return committed result
      */
     public static <T> AuthoringTransactionResult<T> committed(
-        final T value,
-        final AuthoringTransactionReceipt receipt
-    ) {
+            final T value, final AuthoringTransactionReceipt receipt) {
         return new AuthoringTransactionResult<>(
-            AuthoringTransactionOutcome.COMMITTED,
-            Optional.ofNullable(value),
-            Optional.of(Objects.requireNonNull(receipt, "receipt")),
-            Optional.empty()
-        );
+                AuthoringTransactionOutcome.COMMITTED,
+                Optional.ofNullable(value),
+                Optional.of(Objects.requireNonNull(receipt, "receipt")),
+                Optional.empty());
     }
 
     /**
@@ -90,16 +84,12 @@ public record AuthoringTransactionResult<T>(
      * @param <T> callback result type
      * @return no-change result
      */
-    public static <T> AuthoringTransactionResult<T> noChange(
-        final T value,
-        final AuthoringTransactionReceipt receipt
-    ) {
+    public static <T> AuthoringTransactionResult<T> noChange(final T value, final AuthoringTransactionReceipt receipt) {
         return new AuthoringTransactionResult<>(
-            AuthoringTransactionOutcome.NO_CHANGE,
-            Optional.ofNullable(value),
-            Optional.of(Objects.requireNonNull(receipt, "receipt")),
-            Optional.empty()
-        );
+                AuthoringTransactionOutcome.NO_CHANGE,
+                Optional.ofNullable(value),
+                Optional.of(Objects.requireNonNull(receipt, "receipt")),
+                Optional.empty());
     }
 
     /**
@@ -111,9 +101,7 @@ public record AuthoringTransactionResult<T>(
      * @return rolled-back result
      */
     public static <T> AuthoringTransactionResult<T> rolledBack(
-        final AuthoringTransactionReceipt receipt,
-        final String diagnosticId
-    ) {
+            final AuthoringTransactionReceipt receipt, final String diagnosticId) {
         return failed(AuthoringTransactionOutcome.ROLLED_BACK, Optional.of(receipt), diagnosticId);
     }
 
@@ -126,9 +114,7 @@ public record AuthoringTransactionResult<T>(
      * @return stale rejection
      */
     public static <T> AuthoringTransactionResult<T> rejectedStale(
-        final Optional<AuthoringTransactionReceipt> receipt,
-        final String diagnosticId
-    ) {
+            final Optional<AuthoringTransactionReceipt> receipt, final String diagnosticId) {
         return failed(AuthoringTransactionOutcome.REJECTED_STALE, receipt, diagnosticId);
     }
 
@@ -141,9 +127,7 @@ public record AuthoringTransactionResult<T>(
      * @return scope rejection
      */
     public static <T> AuthoringTransactionResult<T> rejectedScope(
-        final Optional<AuthoringTransactionReceipt> receipt,
-        final String diagnosticId
-    ) {
+            final Optional<AuthoringTransactionReceipt> receipt, final String diagnosticId) {
         return failed(AuthoringTransactionOutcome.REJECTED_SCOPE, receipt, diagnosticId);
     }
 
@@ -156,9 +140,7 @@ public record AuthoringTransactionResult<T>(
      * @return recovery-failed result
      */
     public static <T> AuthoringTransactionResult<T> recoveryFailed(
-        final AuthoringTransactionReceipt receipt,
-        final String diagnosticId
-    ) {
+            final AuthoringTransactionReceipt receipt, final String diagnosticId) {
         return failed(AuthoringTransactionOutcome.RECOVERY_FAILED, Optional.of(receipt), diagnosticId);
     }
 
@@ -177,8 +159,7 @@ public record AuthoringTransactionResult<T>(
      * @return {@code true} when the callback completed as committed or no-change work
      */
     public boolean successful() {
-        return outcome == AuthoringTransactionOutcome.COMMITTED
-            || outcome == AuthoringTransactionOutcome.NO_CHANGE;
+        return outcome == AuthoringTransactionOutcome.COMMITTED || outcome == AuthoringTransactionOutcome.NO_CHANGE;
     }
 
     /**
@@ -189,16 +170,14 @@ public record AuthoringTransactionResult<T>(
     }
 
     private static <T> AuthoringTransactionResult<T> failed(
-        final AuthoringTransactionOutcome outcome,
-        final Optional<AuthoringTransactionReceipt> receipt,
-        final String diagnosticId
-    ) {
+            final AuthoringTransactionOutcome outcome,
+            final Optional<AuthoringTransactionReceipt> receipt,
+            final String diagnosticId) {
         return new AuthoringTransactionResult<>(
-            outcome,
-            Optional.empty(),
-            Objects.requireNonNull(receipt, "receipt"),
-            Optional.of(normalizedDiagnosticId(diagnosticId))
-        );
+                outcome,
+                Optional.empty(),
+                Objects.requireNonNull(receipt, "receipt"),
+                Optional.of(normalizedDiagnosticId(diagnosticId)));
     }
 
     private static String normalizedDiagnosticId(final String value) {
@@ -208,9 +187,7 @@ public record AuthoringTransactionResult<T>(
         }
         if (normalized.length() > AuthoringTransactionReceipt.MAX_ID_LENGTH) {
             throw new IllegalArgumentException(
-                "diagnosticId must not exceed "
-                    + AuthoringTransactionReceipt.MAX_ID_LENGTH + " characters"
-            );
+                    "diagnosticId must not exceed " + AuthoringTransactionReceipt.MAX_ID_LENGTH + " characters");
         }
         if (normalized.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("diagnosticId must not contain control characters");

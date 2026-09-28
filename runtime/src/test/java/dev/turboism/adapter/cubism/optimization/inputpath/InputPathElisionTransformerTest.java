@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.inputpath;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.objectweb.asm.Opcodes.*;
+
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,8 +16,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.objectweb.asm.Opcodes.*;
 
 /**
  * Verifies the test-only input-path elision on synthetic classes carrying the
@@ -31,18 +32,20 @@ public class InputPathElisionTransformerTest {
 
     private static final class Loader extends ClassLoader {
         private final ProtectionDomain domain;
+
         Loader(Path artifact) throws Exception {
             super(InputPathElisionTransformerTest.class.getClassLoader());
             domain = new ProtectionDomain(
-                new CodeSource(artifact.toUri().toURL(), (java.security.CodeSigner[]) null),
-                new Permissions());
+                    new CodeSource(artifact.toUri().toURL(), (java.security.CodeSigner[]) null), new Permissions());
         }
+
         Class<?> define(String name, byte[] bytes) {
             return defineClass(name.replace('/', '.'), bytes, 0, bytes.length, domain);
         }
     }
 
-    @AfterEach void clearSlots() {
+    @AfterEach
+    void clearSlots() {
         final Properties properties = System.getProperties();
         properties.remove(InputPathElisionBridge.FOCUS_PROPERTY);
         properties.remove(InputPathElisionBridge.CURSOR_PROPERTY);
@@ -90,8 +93,7 @@ public class InputPathElisionTransformerTest {
         m.visitMaxs(0, 0);
         m.visitEnd();
         if (!missingCursor) {
-            m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "setCursor",
-                "(Lcom/live2d/type/CCursor;)V", null, null);
+            m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "setCursor", "(Lcom/live2d/type/CCursor;)V", null, null);
             m.visitCode();
             increment(m, "cursorCalls");
             m.visitInsn(RETURN);
@@ -111,7 +113,8 @@ public class InputPathElisionTransformerTest {
         m.visitFieldInsn(PUTFIELD, OWNER, field, "I");
     }
 
-    @Test void matchingShapeInjectsBothSitesAndHonorsSlots() throws Exception {
+    @Test
+    void matchingShapeInjectsBothSitesAndHonorsSlots() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = widget(false, false);
@@ -133,25 +136,24 @@ public class InputPathElisionTransformerTest {
 
         final Properties properties = System.getProperties();
         properties.put(InputPathElisionBridge.FOCUS_PROPERTY, (Predicate<Object>) w -> true);
-        properties.put(InputPathElisionBridge.CURSOR_PROPERTY,
-            (BiPredicate<Object, Object>) (w, c) -> true);
+        properties.put(InputPathElisionBridge.CURSOR_PROPERTY, (BiPredicate<Object, Object>) (w, c) -> true);
         focus.invoke(instance);
         setCursor.invoke(instance, new Object[] {null});
-        assertEquals(1, type.getField("focusCalls").getInt(instance),
-            "armed focus consult must skip the native forward");
-        assertEquals(0, type.getField("cursorCalls").getInt(instance),
-            "armed cursor consult must skip the native forward");
+        assertEquals(
+                1, type.getField("focusCalls").getInt(instance), "armed focus consult must skip the native forward");
+        assertEquals(
+                0, type.getField("cursorCalls").getInt(instance), "armed cursor consult must skip the native forward");
 
         properties.put(InputPathElisionBridge.FOCUS_PROPERTY, (Predicate<Object>) w -> false);
-        properties.put(InputPathElisionBridge.CURSOR_PROPERTY,
-            (BiPredicate<Object, Object>) (w, c) -> false);
+        properties.put(InputPathElisionBridge.CURSOR_PROPERTY, (BiPredicate<Object, Object>) (w, c) -> false);
         focus.invoke(instance);
         setCursor.invoke(instance, new Object[] {null});
         assertEquals(2, type.getField("focusCalls").getInt(instance));
         assertEquals(1, type.getField("cursorCalls").getInt(instance));
     }
 
-    @Test void mistypedOrThrowingSlotsFallThrough() throws Exception {
+    @Test
+    void mistypedOrThrowingSlotsFallThrough() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = widget(false, false);
@@ -168,53 +170,60 @@ public class InputPathElisionTransformerTest {
         focus.invoke(instance);
         assertEquals(1, type.getField("focusCalls").getInt(instance));
 
-        properties.put(InputPathElisionBridge.FOCUS_PROPERTY,
-            (Predicate<Object>) w -> { throw new IllegalStateException("boom"); });
+        properties.put(InputPathElisionBridge.FOCUS_PROPERTY, (Predicate<Object>) w -> {
+            throw new IllegalStateException("boom");
+        });
         focus.invoke(instance);
-        assertEquals(2, type.getField("focusCalls").getInt(instance),
-            "a failing consult must fall back to the native path");
+        assertEquals(
+                2, type.getField("focusCalls").getInt(instance), "a failing consult must fall back to the native path");
     }
 
-    @Test void driftedMethodBodyIsRejected() throws Exception {
+    @Test
+    void driftedMethodBodyIsRejected() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = widget(false, false);
         var transformer = new InputPathElisionTransformer(loader, artifact, reference);
-        assertNull(transformer.transform(null, loader, OWNER, null, loader.domain,
-            widget(true, false)));
+        assertNull(transformer.transform(null, loader, OWNER, null, loader.domain, widget(true, false)));
         assertNotNull(transformer.failure());
         assertEquals(0, transformer.matches());
         assertEquals(0, transformer.sites());
     }
 
-    @Test void missingReviewedMethodFailsConstructorAndTransform() throws Exception {
+    @Test
+    void missingReviewedMethodFailsConstructorAndTransform() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
-        assertThrows(IllegalArgumentException.class, () ->
-            new InputPathElisionTransformer(loader, artifact, widget(false, true)),
-            "reference without the cursor forwarder is not a target");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new InputPathElisionTransformer(loader, artifact, widget(false, true)),
+                "reference without the cursor forwarder is not a target");
         byte[] reference = widget(false, false);
         var transformer = new InputPathElisionTransformer(loader, artifact, reference);
-        assertNull(transformer.transform(null, loader, OWNER, null, loader.domain,
-            widget(false, true)), "a class missing the reviewed method fails the shape gate");
+        assertNull(
+                transformer.transform(null, loader, OWNER, null, loader.domain, widget(false, true)),
+                "a class missing the reviewed method fails the shape gate");
         assertNotNull(transformer.failure());
         assertEquals(0, transformer.matches());
     }
 
-    @Test void foreignOwnerLoaderAndArtifactAreRejected() throws Exception {
+    @Test
+    void foreignOwnerLoaderAndArtifactAreRejected() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = widget(false, false);
         var transformer = new InputPathElisionTransformer(loader, artifact, reference);
-        assertNull(transformer.transform(null, loader, "com/live2d/ui/Other", null,
-            loader.domain, reference), "foreign owner");
-        assertNull(transformer.transform(null, new Loader(artifact), OWNER, null,
-            loader.domain, reference), "foreign loader");
-        assertNull(transformer.transform(null, loader, OWNER, null, null, reference),
-            "absent protection domain");
+        assertNull(
+                transformer.transform(null, loader, "com/live2d/ui/Other", null, loader.domain, reference),
+                "foreign owner");
+        assertNull(
+                transformer.transform(null, new Loader(artifact), OWNER, null, loader.domain, reference),
+                "foreign loader");
+        assertNull(transformer.transform(null, loader, OWNER, null, null, reference), "absent protection domain");
         Loader alien = new Loader(Files.createTempFile("other", ".jar"));
-        assertNull(transformer.transform(null, loader, OWNER, null, alien.domain, reference),
-            "class from another artifact");
+        assertNull(
+                transformer.transform(null, loader, OWNER, null, alien.domain, reference),
+                "class from another artifact");
         assertNotNull(transformer.failure());
         assertEquals(0, transformer.matches());
         assertEquals(0, transformer.sites());

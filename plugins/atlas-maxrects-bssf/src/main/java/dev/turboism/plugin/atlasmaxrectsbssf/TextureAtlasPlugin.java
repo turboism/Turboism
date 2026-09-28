@@ -10,7 +10,6 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -43,7 +42,7 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         if (!settings.init(context.config()).toCompletableFuture().join()) {
             throw new IllegalStateException("Texture Atlas configuration schema registration failed.");
         }
-        context.logger().info("Texture Atlas plugin initialized");
+        // context.logger().info("Texture Atlas plugin initialized");
     }
 
     @Override
@@ -55,50 +54,46 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         enabled = true;
         registerAlgorithms();
         applyLegacySelection();
-        context.logger().info("Texture Atlas automatic layout uses current-page scope; layout-mode="
-            + settings.confirmed().layoutMode() + " applies only to explicit complete-atlas SDK requests.");
+        // context.logger().info("Texture Atlas automatic layout uses current-page scope; layout-mode="
+        //     + settings.confirmed().layoutMode() + " applies only to explicit complete-atlas SDK requests.");
     }
 
     /** Registers this plugin's planner with the framework registry. */
     private void registerAlgorithms() {
         try {
             final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry registry =
-                context.cubism().textureAtlasAlgorithms();
+                    context.cubism().textureAtlasAlgorithms();
             // The facade binds the registration to this plugin's disposable scope and
             // waits for in-flight dispatches during teardown, so no explicit scope tie
             // (or close) is required here.
-            registry.register(
-                new TextureAtlasLayoutAlgorithm(
+            registry.register(new TextureAtlasLayoutAlgorithm(
                     ALGORITHM_MAXRECTS,
                     context.localization().text("texture-atlas.algorithm.maxrects"),
                     true,
                     new TextureAtlasLayoutPlanner() {
                         @Override
                         public TextureAtlasLayoutPlan plan(
-                            final List<TextureAtlasLayoutItem> items,
-                            final TextureAtlasLayoutConstraints constraints
-                        ) {
+                                final List<TextureAtlasLayoutItem> items,
+                                final TextureAtlasLayoutConstraints constraints) {
                             return plan(items, constraints, parallelPreference());
                         }
 
                         @Override
                         public TextureAtlasLayoutPlan plan(
-                            final List<TextureAtlasLayoutItem> items,
-                            final TextureAtlasLayoutConstraints constraints,
-                            final boolean parallel
-                        ) {
+                                final List<TextureAtlasLayoutItem> items,
+                                final TextureAtlasLayoutConstraints constraints,
+                                final boolean parallel) {
                             if (constraints.singlePageOptions() != null) {
-                                return new CurrentPageTextureAtlasPlanner()
-                                    .plan(items, constraints, parallel);
+                                return new CurrentPageTextureAtlasPlanner().plan(items, constraints, parallel);
                             }
                             // Keep explicit complete-atlas SDK consumers separate from native current-page layout.
                             return settings.confirmed().layoutMode() == TextureAtlasLayoutMode.PART_BUCKET
-                                ? new PartBucketTextureAtlasPlanner().plan(items, constraints)
-                                : new MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, parallel);
+                                    ? new PartBucketTextureAtlasPlanner().plan(items, constraints)
+                                    : new MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, parallel);
                         }
-                    }
-                )
-            );
+                    }));
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             context.logger().warn("Texture Atlas algorithm registration failed safely: " + failure);
         }
@@ -112,22 +107,19 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
      */
     private void applyLegacySelection() {
         final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection legacy =
-            settings.consumeLegacySelection();
+                settings.consumeLegacySelection();
         if (legacy == null) {
             return;
         }
         try {
             final var registry = context.cubism().textureAtlasAlgorithms();
             if (registry.selectIfUnset(legacy)) {
-                context.logger().info(
-                    "Texture Atlas migrated the persisted layout selection to runtime state: "
-                        + legacy.algorithmId()
-                );
+                context.logger()
+                        .info("Texture Atlas migrated the persisted layout selection to runtime state: "
+                                + legacy.algorithmId());
             }
         } catch (RuntimeException failure) {
-            context.logger().warn(
-                "Texture Atlas legacy selection migration skipped safely: " + failure
-            );
+            context.logger().warn("Texture Atlas legacy selection migration skipped safely: " + failure);
         }
     }
 
@@ -139,7 +131,7 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         try {
             final PluginContext current = context;
             return current != null
-                && current.cubism().textureAtlasAlgorithms().selection().parallel();
+                    && current.cubism().textureAtlasAlgorithms().selection().parallel();
         } catch (RuntimeException failure) {
             return false;
         }

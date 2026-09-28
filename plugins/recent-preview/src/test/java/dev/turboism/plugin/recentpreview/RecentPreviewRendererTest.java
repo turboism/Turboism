@@ -1,5 +1,10 @@
 package dev.turboism.plugin.recentpreview;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.plugin.recentpreview.cache.PreviewCache;
 import dev.turboism.plugin.recentpreview.cache.PreviewCacheWriteResult;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
@@ -10,8 +15,6 @@ import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.PanelView;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
@@ -19,31 +22,26 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class RecentPreviewRendererTest {
 
     @Test
     void rendersCachedImageWithFileNameAndLastModifiedRows() {
         final RecentFileSummary summary = new RecentFileSummary(
-            new RecentFileId("recent-1"), "model.cmo3",
-            Optional.of(Instant.parse("2026-08-05T12:00:00Z")),
-            Optional.of("Z:/work/model.cmo3")
-        );
-        final RecentPreviewController controller = new RecentPreviewController(
-            () -> List.of(summary), new NoopCapture(), new NoopCache()
-        );
+                new RecentFileId("recent-1"),
+                "model.cmo3",
+                Optional.of(Instant.parse("2026-08-05T12:00:00Z")),
+                Optional.of("Z:/work/model.cmo3"));
+        final RecentPreviewController controller =
+                new RecentPreviewController(() -> List.of(summary), new NoopCapture(), new NoopCache());
         controller.enable();
         // Prime the memory map through the real capture path.
-        assertEquals(PreviewCacheWriteResult.STORED,
-            controller.capture(summary.id()).toCompletableFuture().join());
-        final RecentPreviewRendererImpl renderer = new RecentPreviewRendererImpl(
-            controller, id -> { }, new NoopLogger()
-        );
+        assertEquals(
+                PreviewCacheWriteResult.STORED,
+                controller.capture(summary.id()).toCompletableFuture().join());
+        final RecentPreviewRendererImpl renderer =
+                new RecentPreviewRendererImpl(controller, id -> {}, new NoopLogger());
 
         final RecentPreviewContent content = renderer.render(summary).orElseThrow();
 
@@ -55,16 +53,18 @@ final class RecentPreviewRendererTest {
         assertEquals("model.cmo3", image.altText());
         assertEquals("model.cmo3", ((PanelView.Text) column.children().get(1)).value());
         assertEquals(
-            RecentPreviewRendererImpl.LAST_MODIFIED_FORMAT.format(Instant.parse("2026-08-05T12:00:00Z")),
-            ((PanelView.Text) column.children().get(2)).value());
+                RecentPreviewRendererImpl.LAST_MODIFIED_FORMAT.format(Instant.parse("2026-08-05T12:00:00Z")),
+                ((PanelView.Text) column.children().get(2)).value());
 
         // The absolute path must not leak into the popup: no rendered text may
         // contain a path separator, and none may carry path content.
         final String rendered = String.join("\n", textValues(content.view()));
-        assertFalse(rendered.contains("/") || rendered.contains("\\"),
-            "rendered popup text must not contain a path separator: " + rendered);
-        assertFalse(rendered.toLowerCase(java.util.Locale.ROOT).contains("path"),
-            "rendered popup text must not contain path content: " + rendered);
+        assertFalse(
+                rendered.contains("/") || rendered.contains("\\"),
+                "rendered popup text must not contain a path separator: " + rendered);
+        assertFalse(
+                rendered.toLowerCase(java.util.Locale.ROOT).contains("path"),
+                "rendered popup text must not contain path content: " + rendered);
     }
 
     /** Flattens all {@link PanelView.Text} values of a view tree. */
@@ -82,13 +82,11 @@ final class RecentPreviewRendererTest {
     void missingCacheReturnsLoadingContentAndRequestsCaptureOnce() {
         final RecentFileSummary summary = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
         final AtomicInteger requests = new AtomicInteger();
-        final RecentPreviewController controller = new RecentPreviewController(
-            List::of, new NoopCapture(), new NoopCache()
-        );
+        final RecentPreviewController controller =
+                new RecentPreviewController(List::of, new NoopCapture(), new NoopCache());
         controller.enable();
         final RecentPreviewRendererImpl renderer = new RecentPreviewRendererImpl(
-            controller, id -> requests.incrementAndGet(), new NoopLogger(), "Loading preview…"
-        );
+                controller, id -> requests.incrementAndGet(), new NoopLogger(), "Loading preview…");
 
         final RecentPreviewContent first = renderer.render(summary).orElseThrow();
         final RecentPreviewContent second = renderer.render(summary).orElseThrow();
@@ -102,13 +100,11 @@ final class RecentPreviewRendererTest {
     void failedLoadingAttemptHidesOnceThenAllowsRetry() {
         final RecentFileSummary summary = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
         final AtomicInteger requests = new AtomicInteger();
-        final RecentPreviewController controller = new RecentPreviewController(
-            List::of, new NoopCapture(), new NoopCache()
-        );
+        final RecentPreviewController controller =
+                new RecentPreviewController(List::of, new NoopCapture(), new NoopCache());
         controller.enable();
         final RecentPreviewRendererImpl renderer = new RecentPreviewRendererImpl(
-            controller, id -> requests.incrementAndGet(), new NoopLogger(), "Loading preview…"
-        );
+                controller, id -> requests.incrementAndGet(), new NoopLogger(), "Loading preview…");
 
         assertTrue(renderer.render(summary).isPresent());
         renderer.captureFailed(summary.id());
@@ -120,53 +116,56 @@ final class RecentPreviewRendererTest {
     @Test
     void formatsLastModifiedAsLocalDateTimeOrEmpty() {
         assertEquals("", RecentPreviewRendererImpl.formatLastModified(Optional.empty()));
-        final String formatted = RecentPreviewRendererImpl.formatLastModified(
-            Optional.of(Instant.parse("2026-08-05T12:00:00Z"))
-        );
+        final String formatted =
+                RecentPreviewRendererImpl.formatLastModified(Optional.of(Instant.parse("2026-08-05T12:00:00Z")));
         assertTrue(formatted.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}"));
-        assertEquals(formatted, java.time.ZonedDateTime.ofInstant(
-            Instant.parse("2026-08-05T12:00:00Z"), ZoneId.systemDefault()
-        ).format(RecentPreviewRendererImpl.LAST_MODIFIED_FORMAT));
+        assertEquals(
+                formatted,
+                java.time.ZonedDateTime.ofInstant(Instant.parse("2026-08-05T12:00:00Z"), ZoneId.systemDefault())
+                        .format(RecentPreviewRendererImpl.LAST_MODIFIED_FORMAT));
     }
 
     private static byte[] png() {
-        return java.util.Base64.getDecoder().decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-        );
+        return java.util.Base64.getDecoder()
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
     }
 
     private static final class NoopCapture implements ScreenshotCaptureService {
         @Override
         public CompletionStage<ScreenshotCaptureResult> capture(
-            final dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest request
-        ) {
-            return CompletableFuture.completedFuture(new ScreenshotCaptureResult(
-                request.id(), new ScreenshotImage(1, 1, png())
-            ));
+                final dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest request) {
+            return CompletableFuture.completedFuture(
+                    new ScreenshotCaptureResult(request.id(), new ScreenshotImage(1, 1, png())));
         }
     }
 
     private static final class NoopCache implements PreviewCache {
         @Override
         public CompletionStage<PreviewCacheWriteResult> store(
-            final RecentFileSummary file, final ScreenshotImage image
-        ) {
+                final RecentFileSummary file, final ScreenshotImage image) {
             return CompletableFuture.completedStage(PreviewCacheWriteResult.STORED);
         }
 
         @Override
-        public CompletionStage<java.util.Map<RecentFileId, byte[]>> loadPng(
-            final List<RecentFileSummary> files
-        ) {
+        public CompletionStage<java.util.Map<RecentFileId, byte[]>> loadPng(final List<RecentFileSummary> files) {
             return CompletableFuture.completedStage(java.util.Map.of());
         }
     }
 
     private static final class NoopLogger implements PluginLogger {
-        @Override public void debug(String message) { }
-        @Override public void info(String message) { }
-        @Override public void warn(String message) { }
-        @Override public void error(String message) { }
-        @Override public void error(String message, Throwable throwable) { }
+        @Override
+        public void debug(String message) {}
+
+        @Override
+        public void info(String message) {}
+
+        @Override
+        public void warn(String message) {}
+
+        @Override
+        public void error(String message) {}
+
+        @Override
+        public void error(String message, Throwable throwable) {}
     }
 }

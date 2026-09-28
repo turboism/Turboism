@@ -20,28 +20,22 @@ public final class DefaultWorkBudgetPolicy implements WorkBudgetPolicy {
 
         return switch (type) {
             case "lifecycle.init",
-                 "lifecycle.enable",
-                 "lifecycle.disable",
-                 "lifecycle.shutdown",
-                 "event.subscribe",
-                 "ui.schedule",
-                 "ui.overlay-button.click",
-                 "plugin.compute.normal",
-                 "plugin.compute.low",
-                 "plugin.refresh.normal",
-                 "plugin.refresh.low",
-                 "sidecar.complete" -> WorkBudget.LIGHTWEIGHT;
+                    "lifecycle.enable",
+                    "lifecycle.disable",
+                    "lifecycle.shutdown",
+                    "event.subscribe",
+                    "ui.schedule",
+                    "ui.overlay-button.click",
+                    "plugin.compute.normal",
+                    "plugin.compute.low",
+                    "plugin.refresh.normal",
+                    "plugin.refresh.low",
+                    "sidecar.complete" -> WorkBudget.LIGHTWEIGHT;
             case "action.handle" -> isHeavyAction(task) ? WorkBudget.HEAVY : WorkBudget.LIGHTWEIGHT;
-            case "plugin.long.normal",
-                 "plugin.long.low",
-                 "transaction.commit",
-                 "transaction.rollback" -> WorkBudget.HEAVY;
-            case "network",
-                 "ai",
-                 "file-scan",
-                 "heavy-analysis" -> hasSidecarCapability(task)
-                ? WorkBudget.SIDECAR
-                : WorkBudget.REJECTED;
+            case "plugin.long.normal", "plugin.long.low", "transaction.commit", "transaction.rollback" ->
+                WorkBudget.HEAVY;
+            case "network", "ai", "file-scan", "heavy-analysis" ->
+                hasSidecarCapability(task) ? WorkBudget.SIDECAR : WorkBudget.REJECTED;
             default -> WorkBudget.REJECTED;
         };
     }
@@ -59,7 +53,6 @@ public final class DefaultWorkBudgetPolicy implements WorkBudgetPolicy {
         if (payload == null || payload.isBlank()) {
             return false;
         }
-        return payload.contains("parameter.csv.import")
-            || payload.contains("parameter.csv.export");
+        return payload.contains("parameter.csv.import") || payload.contains("parameter.csv.export");
     }
 }

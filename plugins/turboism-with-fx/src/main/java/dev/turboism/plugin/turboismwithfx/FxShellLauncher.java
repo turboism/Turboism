@@ -53,33 +53,26 @@ final class FxShellLauncher {
           -WorkingDirectory $env:TURBOISM_FX_WORKING_DIRECTORY
         """;
 
-    private FxShellLauncher() {
-    }
+    private FxShellLauncher() {}
 
     static void open(
-        final FxRuntimeResolver.Resolution.Available runtime,
-        final Path workingDirectory,
-        final FxInteractiveAction action
-    ) throws IOException {
-        final FxRuntimeResolver.Resolution.Available available = Objects.requireNonNull(
-            runtime, "runtime"
-        );
+            final FxRuntimeResolver.Resolution.Available runtime,
+            final Path workingDirectory,
+            final FxInteractiveAction action)
+            throws IOException {
+        final FxRuntimeResolver.Resolution.Available available = Objects.requireNonNull(runtime, "runtime");
         final Path cwd = Objects.requireNonNull(workingDirectory, "workingDirectory")
-            .toAbsolutePath().normalize();
+                .toAbsolutePath()
+                .normalize();
         final FxLaunchConfiguration verification = new FxLaunchConfiguration(
-            available.executable(),
-            cwd,
-            FxSecurityMode.FX_NATIVE_TOOLS,
-            available.managedRuntime()
-        );
+                available.executable(), cwd, FxSecurityMode.FX_NATIVE_TOOLS, available.managedRuntime());
         FxProcessTransport.verifyManagedRuntimeForLaunch(verification);
         final LaunchPlan plan = plan(
-            System.getProperty("os.name", ""),
-            available.executable(),
-            cwd,
-            Objects.requireNonNull(action, "action"),
-            System.getenv()
-        );
+                System.getProperty("os.name", ""),
+                available.executable(),
+                cwd,
+                Objects.requireNonNull(action, "action"),
+                System.getenv());
         final ProcessBuilder builder = new ProcessBuilder(plan.command());
         builder.directory(cwd.toFile());
         builder.environment().putAll(plan.environment());
@@ -90,17 +83,17 @@ final class FxShellLauncher {
     }
 
     static LaunchPlan plan(
-        final String osName,
-        final String executable,
-        final Path workingDirectory,
-        final FxInteractiveAction action,
-        final Map<String, String> inheritedEnvironment
-    ) throws IOException {
-        final String os = Objects.requireNonNullElse(osName, "")
-            .strip().toLowerCase(Locale.ROOT);
+            final String osName,
+            final String executable,
+            final Path workingDirectory,
+            final FxInteractiveAction action,
+            final Map<String, String> inheritedEnvironment)
+            throws IOException {
+        final String os = Objects.requireNonNullElse(osName, "").strip().toLowerCase(Locale.ROOT);
         final String fx = requireText(executable, "executable");
         final Path cwd = Objects.requireNonNull(workingDirectory, "workingDirectory")
-            .toAbsolutePath().normalize();
+                .toAbsolutePath()
+                .normalize();
         final FxInteractiveAction selected = Objects.requireNonNull(action, "action");
         final Map<String, String> environment = new LinkedHashMap<>();
         if (os.startsWith("windows")) {
@@ -108,16 +101,17 @@ final class FxShellLauncher {
             environment.put(ENV_WORKING_DIRECTORY, cwd.toString());
             environment.put(ENV_ACTION, selected.name());
             environment.put(ENV_CHILD_SCRIPT, encodedPowerShell(WINDOWS_CHILD_SCRIPT));
-            return new LaunchPlan(List.of(
-                "powershell.exe",
-                "-NoLogo",
-                "-NoProfile",
-                "-NonInteractive",
-                "-WindowStyle",
-                "Hidden",
-                "-EncodedCommand",
-                encodedPowerShell(WINDOWS_PARENT_SCRIPT)
-            ), environment);
+            return new LaunchPlan(
+                    List.of(
+                            "powershell.exe",
+                            "-NoLogo",
+                            "-NoProfile",
+                            "-NonInteractive",
+                            "-WindowStyle",
+                            "Hidden",
+                            "-EncodedCommand",
+                            encodedPowerShell(WINDOWS_PARENT_SCRIPT)),
+                    environment);
         }
         if (os.equals("mac os x") || os.equals("macos") || os.equals("darwin")) {
             return new LaunchPlan(macCommand(fx, cwd, selected), environment);
@@ -130,11 +124,10 @@ final class FxShellLauncher {
     }
 
     static List<String> linuxCommand(
-        final String terminal,
-        final String executable,
-        final Path workingDirectory,
-        final FxInteractiveAction action
-    ) {
+            final String terminal,
+            final String executable,
+            final Path workingDirectory,
+            final FxInteractiveAction action) {
         final String command = retainedShellCommand(executable, workingDirectory, action);
         final String name = Path.of(terminal).getFileName().toString();
         if ("gnome-terminal".equals(name)) {
@@ -147,10 +140,7 @@ final class FxShellLauncher {
     }
 
     private static List<String> macCommand(
-        final String executable,
-        final Path workingDirectory,
-        final FxInteractiveAction action
-    ) {
+            final String executable, final Path workingDirectory, final FxInteractiveAction action) {
         final String script = """
             on run argv
               set workdir to quoted form of item 1 of argv
@@ -167,39 +157,35 @@ final class FxShellLauncher {
             end run
             """;
         final ArrayList<String> command = new ArrayList<>(List.of(
-            "/usr/bin/osascript", "-e", script, "--",
-            workingDirectory.toAbsolutePath().normalize().toString(), executable
-        ));
+                "/usr/bin/osascript",
+                "-e",
+                script,
+                "--",
+                workingDirectory.toAbsolutePath().normalize().toString(),
+                executable));
         command.addAll(action.arguments());
         return List.copyOf(command);
     }
 
     private static String retainedShellCommand(
-        final String executable,
-        final Path workingDirectory,
-        final FxInteractiveAction action
-    ) {
+            final String executable, final Path workingDirectory, final FxInteractiveAction action) {
         final StringBuilder command = new StringBuilder("cd -- ")
-            .append(shellQuote(workingDirectory.toAbsolutePath().normalize().toString()))
-            .append(" && ")
-            .append(shellQuote(executable));
+                .append(shellQuote(workingDirectory.toAbsolutePath().normalize().toString()))
+                .append(" && ")
+                .append(shellQuote(executable));
         for (String argument : action.arguments()) {
             command.append(' ').append(shellQuote(argument));
         }
-        return command.append(
-            "; result=$?; printf '\\nfx command exited with status %s.\\n' \"$result\"; "
-                + "exec \"${SHELL:-/bin/sh}\" -l"
-        ).toString();
+        return command.append("; result=$?; printf '\\nfx command exited with status %s.\\n' \"$result\"; "
+                        + "exec \"${SHELL:-/bin/sh}\" -l")
+                .toString();
     }
 
-    private static String findLinuxTerminal(final Map<String, String> inheritedEnvironment)
-        throws IOException {
-        final String path = Objects.requireNonNullElse(
-            inheritedEnvironment == null ? null : inheritedEnvironment.get("PATH"), ""
-        );
-        for (String candidate : List.of(
-            "x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal", "xterm"
-        )) {
+    private static String findLinuxTerminal(final Map<String, String> inheritedEnvironment) throws IOException {
+        final String path =
+                Objects.requireNonNullElse(inheritedEnvironment == null ? null : inheritedEnvironment.get("PATH"), "");
+        for (String candidate :
+                List.of("x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal", "xterm")) {
             for (String directory : path.split(java.util.regex.Pattern.quote(File.pathSeparator))) {
                 if (directory.isBlank()) continue;
                 final Path executable = Path.of(directory).resolve(candidate);

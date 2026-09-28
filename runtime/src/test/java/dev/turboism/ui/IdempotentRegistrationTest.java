@@ -1,19 +1,18 @@
 package dev.turboism.ui;
 
-import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+
+import dev.turboism.sdk.plugin.Registration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
 
 class IdempotentRegistrationTest {
 
@@ -45,10 +44,12 @@ class IdempotentRegistrationTest {
             await(releaseOwner);
         });
         Thread owner = new Thread(registration::close, "registration-owner");
-        Thread waiter = new Thread(() -> {
-            registration.close();
-            waiterReturned.set(true);
-        }, "registration-waiter");
+        Thread waiter = new Thread(
+                () -> {
+                    registration.close();
+                    waiterReturned.set(true);
+                },
+                "registration-waiter");
 
         owner.start();
         assertTrue(ownerEntered.await(5, TimeUnit.SECONDS));
@@ -164,8 +165,8 @@ class IdempotentRegistrationTest {
         });
 
         final Thread owner = new Thread(registration::close, "registration-blocked-owner");
-        final Thread waiter = new Thread(
-            () -> capture(registration::close, waiterFailure), "registration-timeout-waiter");
+        final Thread waiter =
+                new Thread(() -> capture(registration::close, waiterFailure), "registration-timeout-waiter");
 
         owner.start();
         assertTrue(ownerEntered.await(5, TimeUnit.SECONDS));
@@ -175,13 +176,16 @@ class IdempotentRegistrationTest {
         final long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
 
         // Fail closed: the waiter must not wait forever; it throws IllegalStateException on timeout.
-        assertTrue(waiterFailure.get() instanceof IllegalStateException,
-            "waiter must fail closed with IllegalStateException, got: " + waiterFailure.get());
+        assertTrue(
+                waiterFailure.get() instanceof IllegalStateException,
+                "waiter must fail closed with IllegalStateException, got: " + waiterFailure.get());
         assertTrue(waiterFailure.get().getCause() instanceof java.util.concurrent.TimeoutException);
-        assertTrue(elapsedMillis >= 4_500,
-            "waiter returned too early (" + elapsedMillis + "ms) — join timeout not honoured");
-        assertTrue(elapsedMillis <= 8_000,
-            "waiter blocked too long (" + elapsedMillis + "ms) — expected the bounded join");
+        assertTrue(
+                elapsedMillis >= 4_500,
+                "waiter returned too early (" + elapsedMillis + "ms) — join timeout not honoured");
+        assertTrue(
+                elapsedMillis <= 8_000,
+                "waiter blocked too long (" + elapsedMillis + "ms) — expected the bounded join");
 
         releaseOwner.countDown();
         join(owner);
@@ -212,8 +216,7 @@ class IdempotentRegistrationTest {
     private static void awaitWaiting(final Thread thread) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (System.nanoTime() < deadline) {
-            if (thread.getState() == Thread.State.WAITING
-                || thread.getState() == Thread.State.TIMED_WAITING) {
+            if (thread.getState() == Thread.State.WAITING || thread.getState() == Thread.State.TIMED_WAITING) {
                 return;
             }
             Thread.sleep(1);

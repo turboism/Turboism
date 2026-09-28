@@ -1,25 +1,27 @@
 package dev.turboism.adapter.cubism.service.query;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.SelectionObservation;
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismServiceException;
 import dev.turboism.sdk.cubism.DeformerType;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
-import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -29,10 +31,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class SelectionQueryServiceImplTest {
 
@@ -40,16 +39,18 @@ class SelectionQueryServiceImplTest {
 
     @Test
     void currentSelectionAndSelectedIdsReturnTypedModelObjectIdsWhenPermissionGranted() throws CubismServiceException {
-        final MutableSelectionSource source = MutableSelectionSource.withSelection(List.of("param-angle-x", "mesh-face"));
-        final SelectionQueryServiceImpl service = serviceWith(source, new ArrayList<>(), List.of(
-            permission(CubismFacadeImpl.MODEL_READ_PERMISSION)
-        ));
+        final MutableSelectionSource source =
+                MutableSelectionSource.withSelection(List.of("param-angle-x", "mesh-face"));
+        final SelectionQueryServiceImpl service =
+                serviceWith(source, new ArrayList<>(), List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
         final SelectionSummary selection = service.currentSelection();
         final List<ModelObjectId> selectedMeshes = service.selectedIds(HierarchyNode.Kind.ART_MESH);
         final List<ModelObjectId> selectedParameters = service.selectedIds(HierarchyNode.Kind.PARAMETER);
 
-        assertEquals(List.of(new ModelObjectId("param-angle-x"), new ModelObjectId("mesh-face")), selection.selectedModelObjectIds());
+        assertEquals(
+                List.of(new ModelObjectId("param-angle-x"), new ModelObjectId("mesh-face")),
+                selection.selectedModelObjectIds());
         assertEquals(List.of(new ModelObjectId("mesh-face")), selectedMeshes);
         assertEquals(List.of(new ModelObjectId("param-angle-x")), selectedParameters);
     }
@@ -69,11 +70,7 @@ class SelectionQueryServiceImplTest {
         });
         observerOwner.activate();
         final SelectionQueryServiceImpl service = serviceWith(
-            source,
-            new ArrayList<>(),
-            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
-            broker
-        );
+                source, new ArrayList<>(), List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)), broker);
 
         service.currentSelection();
         source.replaceSelection(List.of("mesh-face"));
@@ -83,32 +80,31 @@ class SelectionQueryServiceImplTest {
 
         assertTrue(delivered.await(1, TimeUnit.SECONDS));
         assertEquals(1, events.size());
-        assertEquals(List.of(new ModelObjectId("param-angle-x")), events.get(0).previousSelection().selectedModelObjectIds());
-        assertEquals(List.of(new ModelObjectId("mesh-face")), events.get(0).currentSelection().selectedModelObjectIds());
+        assertEquals(
+                List.of(new ModelObjectId("param-angle-x")),
+                events.get(0).previousSelection().selectedModelObjectIds());
+        assertEquals(
+                List.of(new ModelObjectId("mesh-face")),
+                events.get(0).currentSelection().selectedModelObjectIds());
     }
 
     @Test
     void everyDeniedModelReadOperationRecordsItsOperationAndSelectionCapability() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
-        final SelectionQueryServiceImpl service = serviceWith(
-            MutableSelectionSource.withSelection(List.of("mesh-face")),
-            auditEvents,
-            List.of()
-        );
+        final SelectionQueryServiceImpl service =
+                serviceWith(MutableSelectionSource.withSelection(List.of("mesh-face")), auditEvents, List.of());
 
         assertDenied(service::currentSelection, auditEvents, SelectionQueryServiceImpl.CURRENT_SELECTION_OPERATION);
         assertDenied(
-            () -> service.selectedIds(HierarchyNode.Kind.ART_MESH),
-            auditEvents,
-            SelectionQueryServiceImpl.SELECTED_IDS_OPERATION
-        );
+                () -> service.selectedIds(HierarchyNode.Kind.ART_MESH),
+                auditEvents,
+                SelectionQueryServiceImpl.SELECTED_IDS_OPERATION);
     }
 
     private static void assertDenied(
-        final ThrowingSelectionOperation operation,
-        final List<CubismFacadeAuditEvent> auditEvents,
-        final String expectedOperationId
-    ) {
+            final ThrowingSelectionOperation operation,
+            final List<CubismFacadeAuditEvent> auditEvents,
+            final String expectedOperationId) {
         final CubismPermissionException error = assertThrows(CubismPermissionException.class, operation::run);
 
         assertTrue(error.getMessage().contains(CubismFacadeImpl.MODEL_READ_PERMISSION));
@@ -126,44 +122,37 @@ class SelectionQueryServiceImplTest {
     }
 
     private static SelectionQueryServiceImpl serviceWith(
-        final HostSnapshotSource source,
-        final List<CubismFacadeAuditEvent> auditEvents,
-        final List<PluginPermission> permissions
-    ) {
+            final HostSnapshotSource source,
+            final List<CubismFacadeAuditEvent> auditEvents,
+            final List<PluginPermission> permissions) {
         return serviceWith(source, auditEvents, permissions, new RuntimeEventBroker(directScheduler()));
     }
 
     private static SelectionQueryServiceImpl serviceWith(
-        final HostSnapshotSource source,
-        final List<CubismFacadeAuditEvent> auditEvents,
-        final List<PluginPermission> permissions,
-        final RuntimeEventBroker broker
-    ) {
-        final CubismPermissionGate permissionGate = new CubismPermissionGate(
-            "plugin.demo",
-            permissions,
-            auditEvents::add,
-            FIXED_CLOCK
-        );
+            final HostSnapshotSource source,
+            final List<CubismFacadeAuditEvent> auditEvents,
+            final List<PluginPermission> permissions,
+            final RuntimeEventBroker broker) {
+        final CubismPermissionGate permissionGate =
+                new CubismPermissionGate("plugin.demo", permissions, auditEvents::add, FIXED_CLOCK);
         return new SelectionQueryServiceImpl(
-            new CubismFacadeImpl(source, permissionGate),
-            permissionGate,
-            broker,
-            broker.observationBaseline(SelectionObservation.class),
-            source
-        );
+                new CubismFacadeImpl(source, permissionGate),
+                permissionGate,
+                broker,
+                broker.observationBaseline(SelectionObservation.class),
+                source);
     }
 
     private static RuntimeScheduler directScheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
-            (task, callback) -> {
-                callback.run();
-                return CompletableFuture.completedFuture(dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
-            },
-            event -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 2, event -> {}, FIXED_CLOCK),
+                (task, callback) -> {
+                    callback.run();
+                    return CompletableFuture.completedFuture(
+                            dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
+                },
+                event -> {});
     }
 
     private static PluginPermission permission(final String id) {
@@ -187,10 +176,13 @@ class SelectionQueryServiceImplTest {
 
     private static final class MutableSelectionSource implements HostSnapshotSource {
 
-        private static final HostParameter PARAMETER = new HostParameter("param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true);
+        private static final HostParameter PARAMETER =
+                new HostParameter("param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true);
         private static final HostArtMesh MESH = new HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
-        private static final HostDeformer DEFORMER = new HostDeformer("deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
-        private static final HostModel MODEL = new HostModel("model-1", "Model", List.of(PARAMETER), List.of(MESH), List.of(DEFORMER));
+        private static final HostDeformer DEFORMER =
+                new HostDeformer("deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
+        private static final HostModel MODEL =
+                new HostModel("model-1", "Model", List.of(PARAMETER), List.of(MESH), List.of(DEFORMER));
 
         private List<String> selectedObjectIds;
         private long invalidationToken;

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.appearance;
 
-
 /**
  * The underlying light/dark foundation an appearance is built on.
  *

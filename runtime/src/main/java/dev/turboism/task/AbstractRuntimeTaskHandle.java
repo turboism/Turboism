@@ -19,22 +19,17 @@ abstract class AbstractRuntimeTaskHandle implements TaskHandle {
     private final AtomicReference<TaskOutcome> terminalOutcome = new AtomicReference<>();
 
     AbstractRuntimeTaskHandle(
-        final TaskId id,
-        final Runnable terminalCleanup,
-        final Consumer<TaskOutcome> terminalObserver,
-        final Consumer<Runnable> settlementDispatcher,
-        final Consumer<Runnable> continuationDispatcher
-    ) {
+            final TaskId id,
+            final Runnable terminalCleanup,
+            final Consumer<TaskOutcome> terminalObserver,
+            final Consumer<Runnable> settlementDispatcher,
+            final Consumer<Runnable> continuationDispatcher) {
         this.id = Objects.requireNonNull(id, "id");
         this.terminalCleanup = Objects.requireNonNull(terminalCleanup, "terminalCleanup");
         this.terminalObserver = Objects.requireNonNull(terminalObserver, "terminalObserver");
-        this.settlementDispatcher = Objects.requireNonNull(
-            settlementDispatcher,
-            "settlementDispatcher"
-        );
-        this.completion = new PluginCompletionFuture<>(
-            Objects.requireNonNull(continuationDispatcher, "continuationDispatcher")
-        );
+        this.settlementDispatcher = Objects.requireNonNull(settlementDispatcher, "settlementDispatcher");
+        this.completion =
+                new PluginCompletionFuture<>(Objects.requireNonNull(continuationDispatcher, "continuationDispatcher"));
     }
 
     @Override
@@ -63,8 +58,7 @@ abstract class AbstractRuntimeTaskHandle implements TaskHandle {
         return terminalOutcome.get() != null;
     }
 
-    void onTerminal() {
-    }
+    void onTerminal() {}
 
     static TaskFailure failure(final String code, final String message) {
         return new TaskFailure(code, message);

@@ -5,8 +5,6 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-
-import javax.tools.ToolProvider;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,6 +13,7 @@ import java.util.Comparator;
 import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
+import javax.tools.ToolProvider;
 
 /**
  * Production-classpath headless gate: constructs {@link LocalPluginRuntime} with an
@@ -32,10 +31,9 @@ public final class HeadlessRuntimeProbeMain {
     private static final String PLUGIN_ID = "dev.example.headless";
     private static final String LOADED_MARKER = "dev.turboism.probe.headless-loaded";
     private static final String DENIED_MARKER = "dev.turboism.probe.internal-denied";
-    private static final String CONTRACT_PROBE =
-        "dev.turboism.internal.core.CorePluginManagement";
+    private static final String CONTRACT_PROBE = "dev.turboism.internal.core.CorePluginManagement";
 
-    private HeadlessRuntimeProbeMain() { }
+    private HeadlessRuntimeProbeMain() {}
 
     public static void main(final String[] args) throws Exception {
         final Path home = Path.of(args[0]).toAbsolutePath().normalize();
@@ -45,37 +43,29 @@ public final class HeadlessRuntimeProbeMain {
         writePluginJar(home);
 
         final RuntimeScheduler scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 16, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
         final HostSession host = new HostSession(Optional::empty);
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(
-                home, scheduler, host.adapterAccess(), log,
-                (dev.turboism.internal.core.ShellAdmission) null
-            );
+                    home, scheduler, host.adapterAccess(), log, (dev.turboism.internal.core.ShellAdmission) null);
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
                 require(
-                    report.loaded().stream().noneMatch(plugin -> plugin.id().equals("turboism.core")),
-                    "headless runtime must not report a built-in core"
-                );
+                        report.loaded().stream().noneMatch(plugin -> plugin.id().equals("turboism.core")),
+                        "headless runtime must not report a built-in core");
                 require(
-                    report.loaded().stream().anyMatch(plugin ->
-                        plugin.id().equals(PLUGIN_ID) && plugin.state().name().equals("ENABLED")),
-                    "external plugin must load ENABLED without core classes"
-                );
+                        report.loaded().stream()
+                                .anyMatch(plugin -> plugin.id().equals(PLUGIN_ID)
+                                        && plugin.state().name().equals("ENABLED")),
+                        "external plugin must load ENABLED without core classes");
                 require(report.failures().isEmpty(), "external load must not record failures");
+                require(Boolean.getBoolean(LOADED_MARKER), "external plugin entrypoint did not initialize");
                 require(
-                    Boolean.getBoolean(LOADED_MARKER),
-                    "external plugin entrypoint did not initialize"
-                );
-                require(
-                    "denied".equals(System.getProperty(DENIED_MARKER)),
-                    "plugin classloader resolved an internal management contract"
-                );
+                        "denied".equals(System.getProperty(DENIED_MARKER)),
+                        "plugin classloader resolved an internal management contract");
             } finally {
                 runtime.close();
             }
@@ -89,11 +79,8 @@ public final class HeadlessRuntimeProbeMain {
     /** The probe classpath must contain no shell implementation classes at all. */
     private static void assertCoreAbsent() {
         try {
-            Class.forName("dev.turboism.shell.CoreShell", false,
-                HeadlessRuntimeProbeMain.class.getClassLoader());
-            throw new AssertionError(
-                "shell implementation class resolvable on a supposedly headless classpath"
-            );
+            Class.forName("dev.turboism.shell.CoreShell", false, HeadlessRuntimeProbeMain.class.getClassLoader());
+            throw new AssertionError("shell implementation class resolvable on a supposedly headless classpath");
         } catch (ClassNotFoundException expected) {
             // expected: the probe jar was built with dev/turboism/shell/** removed
         }
@@ -104,7 +91,9 @@ public final class HeadlessRuntimeProbeMain {
         final Path source = work.resolve("source/dev/example/HeadlessFixture.java");
         final Path classes = work.resolve("classes");
         Files.createDirectories(source.getParent());
-        Files.writeString(source, """
+        Files.writeString(
+                source,
+                """
             package dev.example;
             import dev.turboism.sdk.plugin.PluginContext;
             import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -120,22 +109,26 @@ public final class HeadlessRuntimeProbeMain {
                 }
             }
             """.formatted(LOADED_MARKER, CONTRACT_PROBE, DENIED_MARKER, DENIED_MARKER),
-            StandardCharsets.UTF_8);
+                StandardCharsets.UTF_8);
         Files.createDirectories(classes);
-        final int compiled = ToolProvider.getSystemJavaCompiler().run(
-            null, null, null,
-            "-classpath", System.getProperty("java.class.path"),
-            "-d", classes.toString(),
-            source.toString()
-        );
+        final int compiled = ToolProvider.getSystemJavaCompiler()
+                .run(
+                        null,
+                        null,
+                        null,
+                        "-classpath",
+                        System.getProperty("java.class.path"),
+                        "-d",
+                        classes.toString(),
+                        source.toString());
         if (compiled != 0) throw new IllegalStateException("fixture compilation failed");
-        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(
-            home.resolve("plugins/headless-fixture.jar")))) {
-            for (Path file : Files.walk(classes).filter(Files::isRegularFile)
-                .sorted(Comparator.naturalOrder()).toList()) {
-                add(output,
-                    classes.relativize(file).toString().replace('\\', '/'),
-                    Files.readAllBytes(file));
+        try (JarOutputStream output =
+                new JarOutputStream(Files.newOutputStream(home.resolve("plugins/headless-fixture.jar")))) {
+            for (Path file : Files.walk(classes)
+                    .filter(Files::isRegularFile)
+                    .sorted(Comparator.naturalOrder())
+                    .toList()) {
+                add(output, classes.relativize(file).toString().replace('\\', '/'), Files.readAllBytes(file));
             }
             add(output, "META-INF/turboism/plugin.json", descriptor().getBytes(StandardCharsets.UTF_8));
             add(output, "META-INF/turboism/i18n/messages.properties", new byte[0]);
@@ -154,11 +147,7 @@ public final class HeadlessRuntimeProbeMain {
             """;
     }
 
-    private static void add(
-        final JarOutputStream output,
-        final String name,
-        final byte[] bytes
-    ) throws Exception {
+    private static void add(final JarOutputStream output, final String name, final byte[] bytes) throws Exception {
         output.putNextEntry(new JarEntry(name));
         output.write(bytes);
         output.closeEntry();

@@ -17,10 +17,12 @@ final class ArchivePolicy {
     private ArchivePolicy() {}
 
     static void validatePackagePath(Path path, java.nio.file.attribute.BasicFileAttributes attributes)
-        throws DistributionValidationException {
+            throws DistributionValidationException {
         if (!attributes.isRegularFile()) {
-            throw problem(DistributionErrors.PACKAGE_PATH_INVALID,
-                "Package input must be a NOFOLLOW regular file", path.toString());
+            throw problem(
+                    DistributionErrors.PACKAGE_PATH_INVALID,
+                    "Package input must be a NOFOLLOW regular file",
+                    path.toString());
         }
     }
 
@@ -56,12 +58,21 @@ final class ArchivePolicy {
     }
 
     static void safeRelative(String value, String code, String path) throws DistributionValidationException {
-        boolean valid = value != null && !value.isBlank() && printableAscii(value)
-            && value.indexOf('\\') < 0 && value.indexOf(':') < 0
-            && !value.startsWith("/") && !value.endsWith("/") && !value.contains("//")
-            && !value.equals(".") && !value.equals("..") && !value.startsWith("../")
-            && !value.contains("/../") && !value.contains("/./") && !value.endsWith("/..")
-            && !value.endsWith("/.");
+        boolean valid = value != null
+                && !value.isBlank()
+                && printableAscii(value)
+                && value.indexOf('\\') < 0
+                && value.indexOf(':') < 0
+                && !value.startsWith("/")
+                && !value.endsWith("/")
+                && !value.contains("//")
+                && !value.equals(".")
+                && !value.equals("..")
+                && !value.startsWith("../")
+                && !value.contains("/../")
+                && !value.contains("/./")
+                && !value.endsWith("/..")
+                && !value.endsWith("/.");
         valid &= validSegments(value);
         if (!valid) throw problem(code, "Path must be printable ASCII canonical POSIX relative path", path);
     }

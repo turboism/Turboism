@@ -1,14 +1,16 @@
 package dev.turboism.core.runtime.psd;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,22 +20,18 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Handle-level contract for the runtime-issued PSD edit file: runtime tests only, no live host,
  * no native PSD write and no external application is started.
  */
 class RuntimePsdEditFileTest {
-    private static final PsdEditRegistry.Binding BINDING =
-        new PsdEditRegistry.Binding("session-a", 3L);
+    private static final PsdEditRegistry.Binding BINDING = new PsdEditRegistry.Binding("session-a", 3L);
 
-    @TempDir Path root;
+    @TempDir
+    Path root;
 
     @Test
     void openHandsTheValidatedAllocationToTheDefaultApplicationAfterAdmission() throws Exception {
@@ -42,8 +40,8 @@ class RuntimePsdEditFileTest {
         final List<String> permissions = new ArrayList<>();
         final AtomicReference<Path> launched = new AtomicReference<>();
         final AtomicBoolean active = new AtomicBoolean(true);
-        final RuntimePsdEditFile file = handle(
-            registry, allocation, recording(active, permissions), active, launched::set);
+        final RuntimePsdEditFile file =
+                handle(registry, allocation, recording(active, permissions), active, launched::set);
 
         final PsdFileOperationResult result = await(file.openInDefaultApplication());
 
@@ -76,25 +74,19 @@ class RuntimePsdEditFileTest {
         final PsdEditRegistry registry = new PsdEditRegistry();
         final Allocation allocation = allocation();
         final AtomicBoolean active = new AtomicBoolean(true);
-        final RuntimePsdEditFile file = handle(
-            registry, allocation, allowAll(), active, path -> { });
+        final RuntimePsdEditFile file = handle(registry, allocation, allowAll(), active, path -> {});
 
         registry.revoke(file);
         assertEquals(
-            PsdFileOperationResult.Status.REJECTED,
-            await(file.openInDefaultApplication()).status()
-        );
+                PsdFileOperationResult.Status.REJECTED,
+                await(file.openInDefaultApplication()).status());
 
         registry.register(BINDING, file, allocation.temporary);
         assertEquals(PsdFileOperationResult.Status.STOPPED, await(file.stop()).status());
+        assertEquals(PsdFileOperationResult.Status.STOPPED, await(file.stop()).status());
         assertEquals(
-            PsdFileOperationResult.Status.STOPPED,
-            await(file.stop()).status()
-        );
-        assertEquals(
-            PsdFileOperationResult.Status.UNAVAILABLE,
-            await(file.openInDefaultApplication()).status()
-        );
+                PsdFileOperationResult.Status.UNAVAILABLE,
+                await(file.openInDefaultApplication()).status());
     }
 
     @Test
@@ -102,22 +94,17 @@ class RuntimePsdEditFileTest {
         final PsdEditRegistry registry = new PsdEditRegistry();
         final Allocation allocation = allocation();
         final AtomicBoolean active = new AtomicBoolean(true);
-        final RuntimePsdEditFile file = handle(
-            registry,
-            allocation,
-            allowAll(),
-            active,
-            path -> { throw new IOException("no default application"); }
-        );
+        final RuntimePsdEditFile file = handle(registry, allocation, allowAll(), active, path -> {
+            throw new IOException("no default application");
+        });
 
         final PsdFileOperationResult result = await(file.openInDefaultApplication());
 
         assertEquals(PsdFileOperationResult.Status.FAILED, result.status());
         assertTrue(result.diagnostic().contains("launch=failed"));
         assertTrue(
-            Files.exists(allocation.temporary.validatedPath()),
-            "a failed launch must retain the temporary PSD for the OS/user to clean up"
-        );
+                Files.exists(allocation.temporary.validatedPath()),
+                "a failed launch must retain the temporary PSD for the OS/user to clean up");
     }
 
     @Test
@@ -125,8 +112,7 @@ class RuntimePsdEditFileTest {
         final PsdEditRegistry registry = new PsdEditRegistry();
         final Allocation allocation = allocation();
         final AtomicBoolean active = new AtomicBoolean(true);
-        final RuntimePsdEditFile file = handle(
-            registry, allocation, allowAll(), active, path -> { });
+        final RuntimePsdEditFile file = handle(registry, allocation, allowAll(), active, path -> {});
 
         final List<PsdFileRevision> delivered = new ArrayList<>();
         file.observeSaves(revision -> {
@@ -148,20 +134,18 @@ class RuntimePsdEditFileTest {
         final PsdEditRegistry registry = new PsdEditRegistry();
         final Allocation allocation = allocation();
         final AtomicBoolean active = new AtomicBoolean(true);
-        final RuntimePsdEditFile file = handle(
-            registry, allocation, allowAll(), active, path -> { });
+        final RuntimePsdEditFile file = handle(registry, allocation, allowAll(), active, path -> {});
 
         for (int i = 0; i < RuntimePsdEditFile.MAX_SUBSCRIPTIONS; i++) {
-            file.observeSaves(revision -> { });
+            file.observeSaves(revision -> {});
         }
-        assertThrows(IllegalStateException.class, () -> file.observeSaves(revision -> { }));
+        assertThrows(IllegalStateException.class, () -> file.observeSaves(revision -> {}));
 
         await(file.stop());
-        assertThrows(IllegalStateException.class, () -> file.observeSaves(revision -> { }));
+        assertThrows(IllegalStateException.class, () -> file.observeSaves(revision -> {}));
         assertThrows(
-            IllegalStateException.class,
-            () -> file.publishStableSave(PsdStableSnapshot.capture(allocation.temporary))
-        );
+                IllegalStateException.class,
+                () -> file.publishStableSave(PsdStableSnapshot.capture(allocation.temporary)));
         assertTrue(Files.exists(allocation.temporary.validatedPath()));
     }
 
@@ -170,27 +154,26 @@ class RuntimePsdEditFileTest {
      * start watching with an inert scheduler so these tests never race a background pass.
      */
     private RuntimePsdEditFile handle(
-        final PsdEditRegistry registry,
-        final Allocation allocation,
-        final PermissionChecker permissionChecker,
-        final AtomicBoolean active,
-        final PsdDefaultApplicationLauncher launcher
-    ) throws IOException {
+            final PsdEditRegistry registry,
+            final Allocation allocation,
+            final PermissionChecker permissionChecker,
+            final AtomicBoolean active,
+            final PsdDefaultApplicationLauncher launcher)
+            throws IOException {
         final PsdStableSnapshot.Snapshot baseline = PsdStableSnapshot.capture(allocation.temporary);
         final RuntimePsdEditFile file = new RuntimePsdEditFile(
-            "test.plugin",
-            BINDING,
-            allocation.temporary,
-            registry,
-            permissionChecker,
-            active::get,
-            Runnable::run,
-            Runnable::run,
-            launcher,
-            (task, delayMillis) -> () -> { },
-            System::nanoTime,
-            baseline.sha256()
-        );
+                "test.plugin",
+                BINDING,
+                allocation.temporary,
+                registry,
+                permissionChecker,
+                active::get,
+                Runnable::run,
+                Runnable::run,
+                launcher,
+                (task, delayMillis) -> () -> {},
+                System::nanoTime,
+                baseline.sha256());
         registry.register(BINDING, file, allocation.temporary);
         file.beginWatching(registry.issueRevision(BINDING, file, baseline));
         return file;
@@ -203,23 +186,19 @@ class RuntimePsdEditFileTest {
     }
 
     private static PermissionChecker allowAll() {
-        return (permission, operation) -> { };
+        return (permission, operation) -> {};
     }
 
-    private static PermissionChecker recording(
-        final AtomicBoolean allowed,
-        final List<String> calls
-    ) {
+    private static PermissionChecker recording(final AtomicBoolean allowed, final List<String> calls) {
         return (permission, operation) -> {
             calls.add(permission);
             if (!allowed.get()) throw new CubismPermissionException("permission denied");
         };
     }
 
-    private static PsdFileOperationResult await(final CompletionStage<PsdFileOperationResult> stage)
-        throws Exception {
+    private static PsdFileOperationResult await(final CompletionStage<PsdFileOperationResult> stage) throws Exception {
         return stage.toCompletableFuture().get(3, TimeUnit.SECONDS);
     }
 
-    private record Allocation(PsdTemporaryFile temporary) { }
+    private record Allocation(PsdTemporaryFile temporary) {}
 }

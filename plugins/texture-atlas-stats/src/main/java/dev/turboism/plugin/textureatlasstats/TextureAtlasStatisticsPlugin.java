@@ -7,7 +7,6 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
 import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -29,7 +28,7 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
     @Override
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
-        context.logger().info("Texture Atlas Statistics plugin initialized");
+        // context.logger().info("Texture Atlas Statistics plugin initialized");
     }
 
     @Override
@@ -49,21 +48,29 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
                 thread.setDaemon(true);
                 return thread;
             });
-            scheduler.scheduleWithFixedDelay(() -> {
-                try {
-                    final int whole = session.summary()
-                        .map(TextureAtlasSummary::imageCount)
-                        .orElse(0);
-                    final int selected = session.selectedTexture()
-                        .map(TextureAtlasSummary::imageCount)
-                        .orElse(0);
-                    final String text = i18n.format("texture-atlas-stats.line", whole, selected);
-                    SwingUtilities.invokeLater(() -> attached.setText(text));
-                } catch (Throwable failure) {
-                    final String unavailable = i18n.text("texture-atlas-stats.unavailable");
-                    SwingUtilities.invokeLater(() -> attached.setText(unavailable));
-                }
-            }, 1, 1, TimeUnit.SECONDS);
+            scheduler.scheduleWithFixedDelay(
+                    () -> {
+                        try {
+                            final int whole = session.summary()
+                                    .map(TextureAtlasSummary::imageCount)
+                                    .orElse(0);
+                            final int selected = session.selectedTexture()
+                                    .map(TextureAtlasSummary::imageCount)
+                                    .orElse(0);
+                            final String text = i18n.format("texture-atlas-stats.line", whole, selected);
+                            SwingUtilities.invokeLater(() -> attached.setText(text));
+                        } catch (ThreadDeath | VirtualMachineError fatal) {
+                            throw fatal;
+                        } catch (Throwable failure) {
+                            final String unavailable = i18n.text("texture-atlas-stats.unavailable");
+                            SwingUtilities.invokeLater(() -> attached.setText(unavailable));
+                        }
+                    },
+                    1,
+                    1,
+                    TimeUnit.SECONDS);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             disable();
             context.logger().warn("Texture Atlas Statistics panel unavailable: " + failure);

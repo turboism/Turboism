@@ -1,7 +1,6 @@
 package dev.turboism.plugin.clipmaskviewer.b1.domain;
 
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -17,8 +16,7 @@ import java.util.Set;
  */
 public final class ClipMaskAnalyzer {
 
-    private ClipMaskAnalyzer() {
-    }
+    private ClipMaskAnalyzer() {}
 
     /** 以 GUID 为键的快速索引（保留首次出现顺序）。 */
     public static Map<String, ClipMaskRecord> indexByGuid(final List<ClipMaskRecord> records) {
@@ -71,9 +69,7 @@ public final class ClipMaskAnalyzer {
      * @return key = 排序后的 guid 列表用 ";" 连接 + 倒置标记；value = 命中该 key 的用户列表
      *         （size >= 2 才算“疑似重复”）
      */
-    public static Map<String, List<ClipMaskRecord>> groupByUnorderedMaskSet(
-        final List<ClipMaskRecord> records
-    ) {
+    public static Map<String, List<ClipMaskRecord>> groupByUnorderedMaskSet(final List<ClipMaskRecord> records) {
         final Map<String, List<ClipMaskRecord>> groups = new LinkedHashMap<>();
         if (records == null) {
             return groups;

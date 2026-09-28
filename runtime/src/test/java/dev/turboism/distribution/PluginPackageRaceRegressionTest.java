@@ -1,48 +1,50 @@
 package dev.turboism.distribution;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.atomic.AtomicInteger;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.jar.JarEntry;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class PluginPackageRaceRegressionTest {
-    @TempDir Path tempDir;
+    @TempDir
+    Path tempDir;
 
-    @Test void rejectsAbaReplacementAfterHashAndAfterInspection() throws Exception {
+    @Test
+    void rejectsAbaReplacementAfterHashAndAfterInspection() throws Exception {
         byte[] one = fixture("one");
         byte[] two = fixture("two");
         Path input = tempDir.resolve("sample.tplugin");
         Files.write(input, one);
         assertChanged(new LocalPluginPackageInspector(TestPackageAccess.replaceAfterHash(input, two)).inspect(input));
         Files.write(input, one);
-        assertChanged(new LocalPluginPackageInspector(TestPackageAccess.replaceAfterInspection(input, two)).inspect(input));
+        assertChanged(
+                new LocalPluginPackageInspector(TestPackageAccess.replaceAfterInspection(input, two)).inspect(input));
     }
 
-    @Test void rejectsAbaReplacementDuringSnapshotCopy() throws Exception {
+    @Test
+    void rejectsAbaReplacementDuringSnapshotCopy() throws Exception {
         verifySnapshotCopyRace(false);
     }
 
-    @Test void rejectsMixedSnapshotWhenAbaReplacementPreservesTimestamp() throws Exception {
+    @Test
+    void rejectsMixedSnapshotWhenAbaReplacementPreservesTimestamp() throws Exception {
         verifySnapshotCopyRace(true);
     }
 
@@ -55,15 +57,18 @@ class PluginPackageRaceRegressionTest {
         Files.write(input, first);
         var initialTime = java.nio.file.attribute.FileTime.fromMillis(1_600_000_000_000L);
         Files.setLastModifiedTime(input, initialTime);
-        var restoredTime = preserveTimestamp ? initialTime
-            : java.nio.file.attribute.FileTime.fromMillis(initialTime.toMillis() + 60_000L);
+        var restoredTime = preserveTimestamp
+                ? initialTime
+                : java.nio.file.attribute.FileTime.fromMillis(initialTime.toMillis() + 60_000L);
         AtomicInteger opens = new AtomicInteger();
         PackageAccess access = new PackageAccess() {
-            @Override public java.io.InputStream open(Path path) throws java.io.IOException {
+            @Override
+            public java.io.InputStream open(Path path) throws java.io.IOException {
                 opens.incrementAndGet();
                 Files.write(input, second);
                 return new java.io.ByteArrayInputStream(mixed) {
-                    @Override public void close() throws java.io.IOException {
+                    @Override
+                    public void close() throws java.io.IOException {
                         super.close();
                         Files.write(input, first);
                         // A/B/A writes may share a filesystem clock tick. Control drift explicitly.
@@ -81,46 +86,57 @@ class PluginPackageRaceRegressionTest {
             // not reopen and accept the restored (valid) source package.
             Path corrupt = tempDir.resolve("mixed-snapshot.tplugin");
             Files.write(corrupt, mixed);
-            PluginPackageInspector.Rejected expected = assertInstanceOf(PluginPackageInspector.Rejected.class,
-                new LocalPluginPackageInspector().inspect(corrupt));
+            PluginPackageInspector.Rejected expected = assertInstanceOf(
+                    PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(corrupt));
             PluginPackageInspector.Rejected rejected = assertInstanceOf(PluginPackageInspector.Rejected.class, result);
-            assertEquals(expected.problems().get(0).code(), rejected.problems().get(0).code());
+            assertEquals(
+                    expected.problems().get(0).code(),
+                    rejected.problems().get(0).code());
         } else {
             assertChanged(result);
         }
     }
 
-    @Test void rejectsSymlinkWithoutFollowing() throws Exception {
+    @Test
+    void rejectsSymlinkWithoutFollowing() throws Exception {
         Path target = tempDir.resolve("target.tplugin");
         Files.write(target, fixture("target"));
         Path link = tempDir.resolve("link.tplugin");
         Files.createSymbolicLink(link, target.getFileName());
-        PluginPackageInspector.Rejected rejected = assertInstanceOf(PluginPackageInspector.Rejected.class,
-            new LocalPluginPackageInspector().inspect(link));
-        assertEquals(DistributionErrors.PACKAGE_PATH_INVALID, rejected.problems().get(0).code());
+        PluginPackageInspector.Rejected rejected = assertInstanceOf(
+                PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(link));
+        assertEquals(
+                DistributionErrors.PACKAGE_PATH_INVALID,
+                rejected.problems().get(0).code());
     }
 
-    @Test void fifoIsRejectedWithoutOpening() throws Exception {
+    @Test
+    void fifoIsRejectedWithoutOpening() throws Exception {
         Path fifo = tempDir.resolve("sample.tplugin");
         makeFifo(fifo);
         assertTimeoutPreemptively(java.time.Duration.ofSeconds(2), () -> {
-            PluginPackageInspector.Rejected rejected = assertInstanceOf(PluginPackageInspector.Rejected.class,
-                new LocalPluginPackageInspector().inspect(fifo));
-            assertEquals(DistributionErrors.PACKAGE_PATH_INVALID, rejected.problems().get(0).code());
+            PluginPackageInspector.Rejected rejected = assertInstanceOf(
+                    PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(fifo));
+            assertEquals(
+                    DistributionErrors.PACKAGE_PATH_INVALID,
+                    rejected.problems().get(0).code());
         });
     }
 
-    @Test void replacementWithFifoAfterSnapshotNeverReopensMutablePath() throws Exception {
+    @Test
+    void replacementWithFifoAfterSnapshotNeverReopensMutablePath() throws Exception {
         Path input = tempDir.resolve("replaced-with-fifo.tplugin");
         Files.write(input, fixture("snapshot"));
         AtomicInteger opens = new AtomicInteger();
         PackageAccess access = new PackageAccess() {
-            @Override public java.io.InputStream open(Path path) throws java.io.IOException {
+            @Override
+            public java.io.InputStream open(Path path) throws java.io.IOException {
                 opens.incrementAndGet();
                 return PackageAccess.super.open(path);
             }
 
-            @Override public void afterInitialHash(Path path) throws java.io.IOException {
+            @Override
+            public void afterInitialHash(Path path) throws java.io.IOException {
                 Files.delete(path);
                 try {
                     makeFifo(path);
@@ -130,8 +146,9 @@ class PluginPackageRaceRegressionTest {
                 }
             }
         };
-        assertTimeoutPreemptively(java.time.Duration.ofSeconds(2), () ->
-            assertChanged(new LocalPluginPackageInspector(access).inspect(input)));
+        assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(2),
+                () -> assertChanged(new LocalPluginPackageInspector(access).inspect(input)));
         assertEquals(1, opens.get(), "accepted snapshot must be the sole consuming source read");
     }
 
@@ -142,126 +159,117 @@ class PluginPackageRaceRegressionTest {
 
     private static void assertChanged(PluginPackageInspector.Result result) {
         PluginPackageInspector.Rejected rejected = assertInstanceOf(PluginPackageInspector.Rejected.class, result);
-        assertEquals(DistributionErrors.PACKAGE_CHANGED, rejected.problems().get(0).code());
+        assertEquals(
+                DistributionErrors.PACKAGE_CHANGED, rejected.problems().get(0).code());
     }
 
     /**
      * F2 regression: the managed package path must accept a schema-v5 plugin JAR
      * carrying a declared, correctly pinned contract artifact.
      */
-    @Test void acceptsPackageCarryingDeclaredContractArtifact() throws Exception {
+    @Test
+    void acceptsPackageCarryingDeclaredContractArtifact() throws Exception {
         Path input = tempDir.resolve("contracted.tplugin");
         Files.write(input, contractFixture(true));
-        assertInstanceOf(PluginPackageInspector.Accepted.class,
-            new LocalPluginPackageInspector().inspect(input));
+        assertInstanceOf(PluginPackageInspector.Accepted.class, new LocalPluginPackageInspector().inspect(input));
     }
 
-    @Test void rejectsPackageCarryingUndeclaredContractArtifact() throws Exception {
+    @Test
+    void rejectsPackageCarryingUndeclaredContractArtifact() throws Exception {
         Path input = tempDir.resolve("undeclared.tplugin");
         Files.write(input, contractFixture(false));
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
-            PluginPackageInspector.Rejected.class,
-            new LocalPluginPackageInspector().inspect(input));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_UNDECLARED", rejected.problems().get(0).code());
+                PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
+        assertEquals(
+                "PLUGIN_CONTRACT_ARTIFACT_UNDECLARED",
+                rejected.problems().get(0).code());
     }
 
     /** The package path must pin the declared artifact hash like the direct path. */
-    @Test void rejectsPackageCarryingContractArtifactWithWrongHash() throws Exception {
-        byte[] artifact = LocalPluginJarPreparerTest.contractArtifact(tempDir, Map.of(
-            LocalPluginJarPreparerTest.EVENT_TYPE, """
+    @Test
+    void rejectsPackageCarryingContractArtifactWithWrongHash() throws Exception {
+        byte[] artifact = LocalPluginJarPreparerTest.contractArtifact(
+                tempDir, Map.of(LocalPluginJarPreparerTest.EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(String payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """
-        ));
+                """));
         String wrongSha256 = "0".repeat(64);
         byte[] pluginJar = LocalPluginJarPreparerTest.v5ContractPluginJar(
-            "dev.turboism.plugin.sample", artifact, wrongSha256, Map.of());
-        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor(
-            "dev.turboism.plugin.sample", wrongSha256).getBytes(StandardCharsets.UTF_8);
+                "dev.turboism.plugin.sample", artifact, wrongSha256, Map.of());
+        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor("dev.turboism.plugin.sample", wrongSha256)
+                .getBytes(StandardCharsets.UTF_8);
         Path input = tempDir.resolve("wronghash.tplugin");
-        Files.write(input,
-            pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor));
+        Files.write(input, pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor));
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
-            PluginPackageInspector.Rejected.class,
-            new LocalPluginPackageInspector().inspect(input));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_HASH_MISMATCH",
-            rejected.problems().get(0).code());
+                PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
+        assertEquals(
+                "PLUGIN_CONTRACT_ARTIFACT_HASH_MISMATCH",
+                rejected.problems().get(0).code());
     }
 
     /** A payload reference outside the contract/SDK/JDK closure fails admission. */
-    @Test void rejectsPackageCarryingContractArtifactWithBadPayload() throws Exception {
-        Path foreign = LocalPluginJarPreparerTest.compileSources(tempDir, Map.of(
-            "com.evil.External", """
+    @Test
+    void rejectsPackageCarryingContractArtifactWithBadPayload() throws Exception {
+        Path foreign = LocalPluginJarPreparerTest.compileSources(tempDir, Map.of("com.evil.External", """
                 package com.evil;
                 public record External(String marker) {}
-                """
-        ));
-        byte[] artifact = LocalPluginJarPreparerTest.contractArtifact(tempDir, Map.of(
-            LocalPluginJarPreparerTest.EVENT_TYPE, """
+                """));
+        byte[] artifact = LocalPluginJarPreparerTest.contractArtifact(
+                tempDir, Map.of(LocalPluginJarPreparerTest.EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(com.evil.External smuggled)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """
-        ), foreign);
+                """), foreign);
         String declaredSha256 = LocalPluginJarPreparerTest.sha256Hex(artifact);
         byte[] pluginJar = LocalPluginJarPreparerTest.v5ContractPluginJar(
-            "dev.turboism.plugin.sample", artifact, declaredSha256, Map.of());
-        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor(
-            "dev.turboism.plugin.sample", declaredSha256).getBytes(StandardCharsets.UTF_8);
+                "dev.turboism.plugin.sample", artifact, declaredSha256, Map.of());
+        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor("dev.turboism.plugin.sample", declaredSha256)
+                .getBytes(StandardCharsets.UTF_8);
         Path input = tempDir.resolve("badpayload.tplugin");
-        Files.write(input,
-            pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor));
+        Files.write(input, pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor));
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
-            PluginPackageInspector.Rejected.class,
-            new LocalPluginPackageInspector().inspect(input));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_INVALID",
-            rejected.problems().get(0).code());
+                PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
+        assertEquals(
+                "PLUGIN_CONTRACT_ARTIFACT_INVALID", rejected.problems().get(0).code());
     }
 
     /** A nested JAR outside the contract directory stays contamination. */
-    @Test void rejectsPackageCarryingNestedJarOutsideContractDirectory() throws Exception {
-        byte[] artifact = LocalPluginJarPreparerTest.contractArtifact(tempDir, Map.of(
-            LocalPluginJarPreparerTest.EVENT_TYPE, """
+    @Test
+    void rejectsPackageCarryingNestedJarOutsideContractDirectory() throws Exception {
+        byte[] artifact = LocalPluginJarPreparerTest.contractArtifact(
+                tempDir, Map.of(LocalPluginJarPreparerTest.EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(String payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """
-        ));
+                """));
         String declaredSha256 = LocalPluginJarPreparerTest.sha256Hex(artifact);
         byte[] pluginJar = LocalPluginJarPreparerTest.v5ContractPluginJar(
-            "dev.turboism.plugin.sample", artifact, declaredSha256,
-            Map.of("lib/smuggled.jar", artifact));
-        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor(
-            "dev.turboism.plugin.sample", declaredSha256).getBytes(StandardCharsets.UTF_8);
+                "dev.turboism.plugin.sample", artifact, declaredSha256, Map.of("lib/smuggled.jar", artifact));
+        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor("dev.turboism.plugin.sample", declaredSha256)
+                .getBytes(StandardCharsets.UTF_8);
         Path input = tempDir.resolve("nestedlib.tplugin");
-        Files.write(input,
-            pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor));
+        Files.write(input, pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor));
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
-            PluginPackageInspector.Rejected.class,
-            new LocalPluginPackageInspector().inspect(input));
-        assertEquals("PLUGIN_CONTENT_CONTAMINATION",
-            rejected.problems().get(0).code());
+                PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
+        assertEquals("PLUGIN_CONTENT_CONTAMINATION", rejected.problems().get(0).code());
     }
 
     private byte[] contractFixture(boolean declareContract) throws Exception {
-        byte[] artifact = LocalPluginJarPreparerTest.contractArtifact(tempDir, Map.of(
-            LocalPluginJarPreparerTest.EVENT_TYPE, """
+        byte[] artifact = LocalPluginJarPreparerTest.contractArtifact(
+                tempDir, Map.of(LocalPluginJarPreparerTest.EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(com.acme.events.GreetingPayload payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """,
-            "com.acme.events.GreetingPayload", """
+                """, "com.acme.events.GreetingPayload", """
                 package com.acme.events;
                 public record GreetingPayload(String text) {}
-                """
-        ));
-        String declaredSha256 = declareContract
-            ? LocalPluginJarPreparerTest.sha256Hex(artifact) : null;
+                """));
+        String declaredSha256 = declareContract ? LocalPluginJarPreparerTest.sha256Hex(artifact) : null;
         byte[] pluginJar = LocalPluginJarPreparerTest.v5ContractPluginJar(
-            "dev.turboism.plugin.sample", artifact, declaredSha256, Map.of());
-        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor(
-            "dev.turboism.plugin.sample", declaredSha256).getBytes(StandardCharsets.UTF_8);
+                "dev.turboism.plugin.sample", artifact, declaredSha256, Map.of());
+        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor("dev.turboism.plugin.sample", declaredSha256)
+                .getBytes(StandardCharsets.UTF_8);
         return pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor);
     }
 
@@ -269,28 +277,29 @@ class PluginPackageRaceRegressionTest {
         String id = "dev.turboism.plugin.sample";
         String entrypoint = "dev.turboism.plugin.sample.SamplePlugin";
         String descriptor = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":2,\"id\":\"" + id
-            + "\",\"name\":\"Sample\",\"version\":\"0.1.0\",\"entrypoints\":[\""
-            + entrypoint + "\"],\"turboismApi\":\"0.1.0\","
-            + "\"authors\":[{\"name\":\"Turboism Contributors\"}],"
-            + "\"website\":\"https://turboism.dev\",\"resources\":[],"
-            + "\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]}}";
+                + "\",\"name\":\"Sample\",\"version\":\"0.1.0\",\"entrypoints\":[\""
+                + entrypoint + "\"],\"turboismApi\":\"0.1.0\","
+                + "\"authors\":[{\"name\":\"Turboism Contributors\"}],"
+                + "\"website\":\"https://turboism.dev\",\"resources\":[],"
+                + "\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]}}";
         ByteArrayOutputStream jarBytes = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(jarBytes)) {
             add(jar, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));
             add(jar, "META-INF/turboism/i18n/messages.properties", new byte[0]);
             add(jar, entrypoint.replace('.', '/') + ".class", marker.getBytes(StandardCharsets.UTF_8));
         }
-        return pluginPackage(
-            id, jarBytes.toByteArray(), descriptor.getBytes(StandardCharsets.UTF_8));
+        return pluginPackage(id, jarBytes.toByteArray(), descriptor.getBytes(StandardCharsets.UTF_8));
     }
 
-    private static byte[] pluginPackage(String id, byte[] payload, byte[] descriptor)
-        throws Exception {
-        String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(payload));
+    private static byte[] pluginPackage(String id, byte[] payload, byte[] descriptor) throws Exception {
+        String hash =
+                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(payload));
         Map<String, Object> manifest = new LinkedHashMap<>();
         manifest.put("createdAt", "2026-07-12T18:00:00Z");
-        manifest.put("files", List.of(Map.of("path", "plugin/plugin.jar", "role", "PLUGIN_JAR",
-            "sha256", hash, "size", payload.length)));
+        manifest.put(
+                "files",
+                List.of(Map.of(
+                        "path", "plugin/plugin.jar", "role", "PLUGIN_JAR", "sha256", hash, "size", payload.length)));
         manifest.put("format", "turboism.distribution.plugin-package");
         manifest.put("packageId", id);
         manifest.put("packageKind", "PLUGIN");

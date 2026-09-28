@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.window;
 
-
 import java.awt.Dialog;
 import java.awt.Frame;
 import java.awt.GraphicsEnvironment;
@@ -36,15 +35,13 @@ import javax.swing.JFrame;
  */
 public final class TurboismWindowFactory {
 
-    private static final String WINDOW_ICON_RESOURCE =
-        "dev/turboism/sdk/ui/window/turboism-window-icon.png";
+    private static final String WINDOW_ICON_RESOURCE = "dev/turboism/sdk/ui/window/turboism-window-icon.png";
 
     private static volatile boolean windowIconResolved;
     private static volatile Image windowIcon;
     private static volatile Image windowIconOverride;
 
-    private TurboismWindowFactory() {
-    }
+    private TurboismWindowFactory() {}
 
     /**
      * Installs a process-wide window icon override returned by
@@ -150,6 +147,8 @@ public final class TurboismWindowFactory {
         }
         try {
             window.setIconImage(icon);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable ignored) {
             // graceful degradation: an undecorated or hostile window must not
             // break construction because icon styling failed
@@ -176,9 +175,9 @@ public final class TurboismWindowFactory {
                 return null;
             }
             final ImageIcon icon = new ImageIcon(url);
-            return icon.getIconWidth() > 0 && icon.getIconHeight() > 0
-                ? icon.getImage()
-                : null;
+            return icon.getIconWidth() > 0 && icon.getIconHeight() > 0 ? icon.getImage() : null;
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable ignored) {
             return null;
         }

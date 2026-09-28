@@ -3,19 +3,17 @@ package dev.turboism.core.runtime.work;
 import dev.turboism.core.runtime.PluginTask;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 final class PluginWorkItem implements Runnable {
 
     private final PluginTask task;
     private final Runnable work;
     private final Runnable timeoutAction;
-    private final AtomicInteger completed = new AtomicInteger(0);
     private final AtomicBoolean timeoutRequested = new AtomicBoolean(false);
     private volatile Thread runningThread;
 
     PluginWorkItem(PluginTask task, Runnable work) {
-        this(task, work, () -> { });
+        this(task, work, () -> {});
     }
 
     PluginWorkItem(PluginTask task, Runnable work, Runnable timeoutAction) {
@@ -34,7 +32,6 @@ final class PluginWorkItem implements Runnable {
         try {
             work.run();
         } finally {
-            completed.set(1);
             runningThread = null;
         }
     }
@@ -44,7 +41,7 @@ final class PluginWorkItem implements Runnable {
             timeoutAction.run();
         }
         Thread thread = runningThread;
-        if (completed.get() == 0 && thread != null) {
+        if (thread != null) {
             thread.interrupt();
         }
     }

@@ -10,21 +10,16 @@ public final class VerifiedAccessException extends RuntimeException {
     private final HostFailureCategory hostFailureCategory;
 
     public VerifiedAccessException(
-        final String alias,
-        final FailureKind failureKind,
-        final String message,
-        final Throwable cause
-    ) {
+            final String alias, final FailureKind failureKind, final String message, final Throwable cause) {
         this(alias, failureKind, message, cause, HostFailureCategory.UNKNOWN);
     }
 
     private VerifiedAccessException(
-        final String alias,
-        final FailureKind failureKind,
-        final String message,
-        final Throwable cause,
-        final HostFailureCategory hostFailureCategory
-    ) {
+            final String alias,
+            final FailureKind failureKind,
+            final String message,
+            final Throwable cause,
+            final HostFailureCategory hostFailureCategory) {
         super(requireText(message, "message"), cause);
         this.alias = requireText(alias, "alias");
         this.failureKind = Objects.requireNonNull(failureKind, "failureKind");
@@ -54,10 +49,8 @@ public final class VerifiedAccessException extends RuntimeException {
     }
 
     static VerifiedAccessException invocationFailure(
-        final String alias, final String message, final Throwable failure
-    ) {
-        return new VerifiedAccessException(alias, FailureKind.INVOCATION, message, null,
-            categorize(failure));
+            final String alias, final String message, final Throwable failure) {
+        return new VerifiedAccessException(alias, FailureKind.INVOCATION, message, null, categorize(failure));
     }
 
     private static HostFailureCategory categorize(final Throwable failure) {
@@ -91,8 +84,15 @@ public final class VerifiedAccessException extends RuntimeException {
 
     /** Sanitized native failure category, without host paths or exception messages. */
     public enum HostFailureCategory {
-        UNKNOWN, OUT_OF_MEMORY, IO, NULL_POINTER, ILLEGAL_ARGUMENT, ILLEGAL_STATE,
-        INDEX_OUT_OF_BOUNDS, SECURITY, LINKAGE
+        UNKNOWN,
+        OUT_OF_MEMORY,
+        IO,
+        NULL_POINTER,
+        ILLEGAL_ARGUMENT,
+        ILLEGAL_STATE,
+        INDEX_OUT_OF_BOUNDS,
+        SECURITY,
+        LINKAGE
     }
 
     /** Which stage of a verified selector call failed. */

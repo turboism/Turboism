@@ -14,13 +14,9 @@ import java.util.jar.JarFile;
 
 final class PluginCatalogResources {
 
-    private PluginCatalogResources() {
-    }
+    private PluginCatalogResources() {}
 
-    static List<byte[]> readLocal(
-        final ClassLoader pluginClassLoader,
-        final String resourcePath
-    ) throws IOException {
+    static List<byte[]> readLocal(final ClassLoader pluginClassLoader, final String resourcePath) throws IOException {
         if (!(pluginClassLoader instanceof URLClassLoader urlClassLoader)) {
             throw new IOException("Plugin classloader does not expose isolated local URLs.");
         }

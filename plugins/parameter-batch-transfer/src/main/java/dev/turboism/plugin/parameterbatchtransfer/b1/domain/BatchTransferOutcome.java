@@ -1,14 +1,9 @@
 package dev.turboism.plugin.parameterbatchtransfer.b1.domain;
 
-
 import java.util.Objects;
 
 /** Counted result of one batch-transfer apply pass. */
-public record BatchTransferOutcome(
-    int applied,
-    int failed,
-    BatchTransferStatus status
-) {
+public record BatchTransferOutcome(int applied, int failed, BatchTransferStatus status) {
     public BatchTransferOutcome {
         if (applied < 0 || failed < 0) {
             throw new IllegalArgumentException("applied and failed must not be negative");

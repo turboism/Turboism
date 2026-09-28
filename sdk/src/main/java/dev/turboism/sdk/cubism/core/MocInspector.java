@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-
 /** Permission-checked MOC byte inspection service. */
 public interface MocInspector {
 

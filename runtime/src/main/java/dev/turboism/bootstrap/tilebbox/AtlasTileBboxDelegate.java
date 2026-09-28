@@ -41,8 +41,7 @@ public final class AtlasTileBboxDelegate {
     private static final int TYPE_BYTE_GRAY = 10;
     private static volatile Helpers helpers;
 
-    private AtlasTileBboxDelegate() {
-    }
+    private AtlasTileBboxDelegate() {}
 
     /**
      * Proves every host helper resolves through the loader that defined the patched class.
@@ -59,31 +58,33 @@ public final class AtlasTileBboxDelegate {
     }
 
     /** Replacement body for the patched host method; {@code hostClass} is the patched class. */
-    public static void draw(final Class<?> hostClass, final BufferedImage dst,
-                            final Graphics2D pageG, final BufferedImage src,
-                            final int x, final int y) {
+    public static void draw(
+            final Class<?> hostClass,
+            final BufferedImage dst,
+            final Graphics2D pageG,
+            final BufferedImage src,
+            final int x,
+            final int y) {
         final Helpers host = resolve(hostClass.getClassLoader());
         // s7: src copy target, same size/type as src — mirrors original.
-        BufferedImage s7 = (BufferedImage) call(host.poolGet,
-            src.getWidth(), src.getHeight(), src.getType());
+        BufferedImage s7 = (BufferedImage) call(host.poolGet, src.getWidth(), src.getHeight(), src.getType());
         BufferedImage s8 = null, s9 = null, s10 = null;
         try {
-            s8 = (BufferedImage) call(host.poolGet,
-                s7.getWidth(), s7.getHeight(), TYPE_BYTE_GRAY);
+            s8 = (BufferedImage) call(host.poolGet, s7.getWidth(), s7.getHeight(), TYPE_BYTE_GRAY);
 
             // bbox of the transformed tile in page space, clipped to page. The host pool
             // may return images larger than requested (type-keyed, >= w/h, <= 9x area), so
             // the box is computed from the union of the REAL s7/s8 bounds — matching the
             // original, whose draws cover each scratch's full extent.
             AffineTransform pageT = pageG.getTransform();
-            final Rectangle2D realRect = new Rectangle2D.Double(
-                x, y, s7.getWidth(), s7.getHeight());
-            Rectangle2D.union(realRect, new Rectangle2D.Double(
-                x, y, s8.getWidth(), s8.getHeight()), realRect);
+            final Rectangle2D realRect = new Rectangle2D.Double(x, y, s7.getWidth(), s7.getHeight());
+            Rectangle2D.union(realRect, new Rectangle2D.Double(x, y, s8.getWidth(), s8.getHeight()), realRect);
             Rectangle2D tr = pageT.createTransformedShape(realRect).getBounds2D();
             int bx, by, bw, bh;
-            if (Double.isNaN(tr.getX()) || Double.isNaN(tr.getY())
-                || Double.isNaN(tr.getWidth()) || Double.isNaN(tr.getHeight())) {
+            if (Double.isNaN(tr.getX())
+                    || Double.isNaN(tr.getY())
+                    || Double.isNaN(tr.getWidth())
+                    || Double.isNaN(tr.getHeight())) {
                 bx = by = bw = bh = 0;
             } else {
                 bx = (int) Math.floor(tr.getX()) - 1;
@@ -91,15 +92,21 @@ public final class AtlasTileBboxDelegate {
                 bw = (int) Math.ceil(tr.getMaxX()) + 1 - bx;
                 bh = (int) Math.ceil(tr.getMaxY()) + 1 - by;
             }
-            if (bx < 0) { bw += bx; bx = 0; }
-            if (by < 0) { bh += by; by = 0; }
+            if (bx < 0) {
+                bw += bx;
+                bx = 0;
+            }
+            if (by < 0) {
+                bh += by;
+                by = 0;
+            }
             if (bw > dst.getWidth() - bx) bw = dst.getWidth() - bx;
             if (bh > dst.getHeight() - by) bh = dst.getHeight() - by;
 
             // Src-side work happens identically regardless of clipping — the
             // original copies + expands + builds the mask unconditionally.
-            call(host.rasterCopy, src, s7, 0);          // raw raster copy
-            call(host.edgeFill, s7, 3);                 // scanline edge fill, a<=3 threshold
+            call(host.rasterCopy, src, s7, 0); // raw raster copy
+            call(host.edgeFill, s7, 3); // scanline edge fill, a<=3 threshold
 
             byte[] b11 = (byte[]) call(host.byteRaster, s8);
             int[] i12 = (int[]) call(host.intRaster, s7);
@@ -125,18 +132,18 @@ public final class AtlasTileBboxDelegate {
             Graphics2D g16 = s9.createGraphics();
             Graphics2D g15 = s10.createGraphics();
 
-            call(host.rasterFill, s9, 0);               // bbox clear
+            call(host.rasterFill, s9, 0); // bbox clear
             Arrays.fill(b14, (byte) 0);
 
             AffineTransform shifted = new AffineTransform(pageT);
             shifted.preConcatenate(AffineTransform.getTranslateInstance(-bx, -by));
 
             g16.setTransform(shifted);
-            call(host.hintsQuality, g16);               // quality set, BICUBIC
+            call(host.hintsQuality, g16); // quality set, BICUBIC
             g16.drawImage(s7, x, y, null);
 
             g15.setTransform(shifted);
-            call(host.hintsMask, g15);                  // quality set, BILINEAR
+            call(host.hintsMask, g15); // quality set, BILINEAR
             g15.drawImage(s8, x, y, null);
 
             // Merge only the requested bbox: s9/s10 may be pooled oversize images whose
@@ -151,7 +158,7 @@ public final class AtlasTileBboxDelegate {
 
             AffineTransform oldT = pageG.getTransform();
             RenderingHints oldH = pageG.getRenderingHints();
-            call(host.hintsSpeed, pageG);               // speed set, NEAREST
+            call(host.hintsSpeed, pageG); // speed set, NEAREST
             pageG.setTransform(new AffineTransform());
             pageG.drawImage(s9, bx, by, null);
             pageG.setTransform(oldT);
@@ -181,25 +188,25 @@ public final class AtlasTileBboxDelegate {
 
     private static Helpers load(final ClassLoader loader) {
         if (loader == null) {
-            throw new IllegalStateException(
-                "atlas tile-bbox: patched class is bootstrap-loaded; host unreachable");
+            throw new IllegalStateException("atlas tile-bbox: patched class is bootstrap-loaded; host unreachable");
         }
         try {
             final Class<?> utCache = Class.forName("jp.noids.util.UtCache", false, loader);
             final Class<?> raster = Class.forName("jp.noids.graphics.f", false, loader);
             final Class<?> edge = Class.forName("jp.noids.graphics.h", false, loader);
             final Class<?> hints = Class.forName("jp.noids.graphics.i", false, loader);
-            return new Helpers(loader,
-                utCache.getMethod("getBufferedImage", int.class, int.class, int.class),
-                utCache.getMethod("release", Object.class),
-                raster.getMethod("a", BufferedImage.class, BufferedImage.class, int.class),
-                raster.getMethod("a", BufferedImage.class, int.class),
-                raster.getMethod("c", BufferedImage.class),
-                raster.getMethod("f", BufferedImage.class),
-                edge.getMethod("a", BufferedImage.class, int.class),
-                hints.getMethod("a", Graphics.class),
-                hints.getMethod("b", Graphics.class),
-                hints.getMethod("c", Graphics.class));
+            return new Helpers(
+                    loader,
+                    utCache.getMethod("getBufferedImage", int.class, int.class, int.class),
+                    utCache.getMethod("release", Object.class),
+                    raster.getMethod("a", BufferedImage.class, BufferedImage.class, int.class),
+                    raster.getMethod("a", BufferedImage.class, int.class),
+                    raster.getMethod("c", BufferedImage.class),
+                    raster.getMethod("f", BufferedImage.class),
+                    edge.getMethod("a", BufferedImage.class, int.class),
+                    hints.getMethod("a", Graphics.class),
+                    hints.getMethod("b", Graphics.class),
+                    hints.getMethod("c", Graphics.class));
         } catch (ReflectiveOperationException missing) {
             throw new IllegalStateException("atlas tile-bbox host helper missing", missing);
         }
@@ -232,10 +239,18 @@ public final class AtlasTileBboxDelegate {
         private final Method hintsSpeed;
         private final Method hintsMask;
 
-        private Helpers(final ClassLoader loader, final Method poolGet, final Method poolRelease,
-                        final Method rasterCopy, final Method rasterFill, final Method intRaster,
-                        final Method byteRaster, final Method edgeFill, final Method hintsQuality,
-                        final Method hintsSpeed, final Method hintsMask) {
+        private Helpers(
+                final ClassLoader loader,
+                final Method poolGet,
+                final Method poolRelease,
+                final Method rasterCopy,
+                final Method rasterFill,
+                final Method intRaster,
+                final Method byteRaster,
+                final Method edgeFill,
+                final Method hintsQuality,
+                final Method hintsSpeed,
+                final Method hintsMask) {
             this.loader = loader;
             this.poolGet = poolGet;
             this.poolRelease = poolRelease;

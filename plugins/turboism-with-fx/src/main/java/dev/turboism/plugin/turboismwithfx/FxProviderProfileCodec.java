@@ -1,7 +1,6 @@
 package dev.turboism.plugin.turboismwithfx;
 
 import dev.turboism.protocol.json.StrictJson;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -11,8 +10,7 @@ import java.util.Map;
 /** Strict non-secret JSON codec for custom provider profiles. */
 final class FxProviderProfileCodec {
 
-    private FxProviderProfileCodec() {
-    }
+    private FxProviderProfileCodec() {}
 
     static String encode(final List<FxProviderProfile> profiles) {
         final ArrayList<Object> values = new ArrayList<>();
@@ -40,15 +38,14 @@ final class FxProviderProfileCodec {
         for (Object item : raw) {
             final Map<String, Object> profile = object(item);
             profiles.add(new FxProviderProfile(
-                text(profile.get("id")),
-                text(profile.get("name")),
-                FxProviderProfile.Kind.OPENAI_COMPATIBLE,
-                "",
-                text(profile.get("endpoint")),
-                optionalText(profile.get("apiKeyEnvironment")),
-                text(profile.get("defaultModel")),
-                strings(profile.get("manualModels"))
-            ));
+                    text(profile.get("id")),
+                    text(profile.get("name")),
+                    FxProviderProfile.Kind.OPENAI_COMPATIBLE,
+                    "",
+                    text(profile.get("endpoint")),
+                    optionalText(profile.get("apiKeyEnvironment")),
+                    text(profile.get("defaultModel")),
+                    strings(profile.get("manualModels"))));
         }
         return List.copyOf(profiles);
     }

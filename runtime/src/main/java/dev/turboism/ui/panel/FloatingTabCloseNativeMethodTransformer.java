@@ -1,15 +1,14 @@
 package dev.turboism.ui.panel;
 
+import java.lang.instrument.ClassFileTransformer;
+import java.security.ProtectionDomain;
+import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.lang.instrument.ClassFileTransformer;
-import java.security.ProtectionDomain;
-import java.util.Objects;
 
 /**
  * Exact-selector transformer that intercepts the floating-tab close callback
@@ -28,13 +27,12 @@ public final class FloatingTabCloseNativeMethodTransformer implements ClassFileT
     private final ClassLoader expectedClassLoader;
 
     public FloatingTabCloseNativeMethodTransformer(
-        final String ownerInternalName,
-        final String methodName,
-        final String descriptor,
-        final String paletteFieldName,
-        final String paletteFieldDescriptor,
-        final ClassLoader expectedClassLoader
-    ) {
+            final String ownerInternalName,
+            final String methodName,
+            final String descriptor,
+            final String paletteFieldName,
+            final String paletteFieldDescriptor,
+            final ClassLoader expectedClassLoader) {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.methodName = requireText(methodName, "methodName");
         this.descriptor = requireText(descriptor, "descriptor");
@@ -45,70 +43,58 @@ public final class FloatingTabCloseNativeMethodTransformer implements ClassFileT
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
-        if (!ownerInternalName.equals(className)
-            || loader != expectedClassLoader
-            || classfileBuffer == null) {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
+        if (!ownerInternalName.equals(className) || loader != expectedClassLoader || classfileBuffer == null) {
             return null;
         }
         final int[] exits = {0};
         final ClassReader reader = new ClassReader(classfileBuffer);
         final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-        reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String methodDescriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                final MethodVisitor delegate = super.visitMethod(
-                    access, name, methodDescriptor, signature, exceptions
-                );
-                if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
-                    return delegate;
-                }
-                return new MethodVisitor(Opcodes.ASM9, delegate) {
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
-                    public void visitCode() {
-                        super.visitCode();
-                        final Label continueOriginal = new Label();
-                        super.visitVarInsn(Opcodes.ALOAD, 0);
-                        super.visitFieldInsn(
-                            Opcodes.GETFIELD,
-                            ownerInternalName,
-                            paletteFieldName,
-                            paletteFieldDescriptor
-                        );
-                        super.visitMethodInsn(
-                            Opcodes.INVOKESTATIC,
-                            BRIDGE,
-                            "beforeClose",
-                            "(Ljava/lang/Object;)Z",
-                            false
-                        );
-                        super.visitJumpInsn(Opcodes.IFEQ, continueOriginal);
-                        super.visitInsn(Opcodes.RETURN);
-                        super.visitLabel(continueOriginal);
-                    }
-
-                    @Override
-                    public void visitInsn(final int opcode) {
-                        if (opcode == Opcodes.RETURN) {
-                            exits[0]++;
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String methodDescriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor delegate =
+                                super.visitMethod(access, name, methodDescriptor, signature, exceptions);
+                        if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
+                            return delegate;
                         }
-                        super.visitInsn(opcode);
+                        return new MethodVisitor(Opcodes.ASM9, delegate) {
+                            @Override
+                            public void visitCode() {
+                                super.visitCode();
+                                final Label continueOriginal = new Label();
+                                super.visitVarInsn(Opcodes.ALOAD, 0);
+                                super.visitFieldInsn(
+                                        Opcodes.GETFIELD, ownerInternalName, paletteFieldName, paletteFieldDescriptor);
+                                super.visitMethodInsn(
+                                        Opcodes.INVOKESTATIC, BRIDGE, "beforeClose", "(Ljava/lang/Object;)Z", false);
+                                super.visitJumpInsn(Opcodes.IFEQ, continueOriginal);
+                                super.visitInsn(Opcodes.RETURN);
+                                super.visitLabel(continueOriginal);
+                            }
+
+                            @Override
+                            public void visitInsn(final int opcode) {
+                                if (opcode == Opcodes.RETURN) {
+                                    exits[0]++;
+                                }
+                                super.visitInsn(opcode);
+                            }
+                        };
                     }
-                };
-            }
-        }, ClassReader.EXPAND_FRAMES);
+                },
+                ClassReader.EXPAND_FRAMES);
         return exits[0] == 1 ? writer.toByteArray() : null;
     }
 

@@ -1,5 +1,10 @@
 package dev.turboism.adapter.cubism.core;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.core.MocConsistency;
 import dev.turboism.sdk.cubism.core.MocData;
@@ -9,15 +14,9 @@ import dev.turboism.sdk.cubism.core.OwnedDrawable;
 import dev.turboism.sdk.cubism.core.OwnedMoc;
 import dev.turboism.sdk.cubism.core.OwnedModel;
 import dev.turboism.sdk.cubism.model.BlendMode;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OwnedMocRuntimeTest {
 
@@ -29,19 +28,15 @@ class OwnedMocRuntimeTest {
 
     private MocLoader loader(final String artifactProfile) {
         final VerifiedMemberResolver resolver = TestCoreApiFixture.resolverWithExtras(
-            artifactProfile,
-            TestCoreApiFixture.ownedMocSelectors(),
-            TestCoreApiFixture.ownedMocCapability()
-        );
+                artifactProfile, TestCoreApiFixture.ownedMocSelectors(), TestCoreApiFixture.ownedMocCapability());
         return new CoreRuntimeMetadata(
-            CorePublicApiProviderFactory.admitForTesting(
-                resolver,
-                CoreVersionExpectation.exact(11, 12, 13)
-            ).value().orElseThrow(),
-            resolver,
-            () -> { },
-            1024
-        ).mocLoader();
+                        CorePublicApiProviderFactory.admitForTesting(resolver, CoreVersionExpectation.exact(11, 12, 13))
+                                .value()
+                                .orElseThrow(),
+                        resolver,
+                        () -> {},
+                        1024)
+                .mocLoader();
     }
 
     @Test
@@ -50,7 +45,7 @@ class OwnedMocRuntimeTest {
         final TestCoreApiFixture.Model model = modelWithCanvas();
         TestCoreApiFixture.Moc.prepare(model, 42L);
 
-        final OwnedMoc moc = loader.load(MocData.copyOf(new byte[]{6, 1}));
+        final OwnedMoc moc = loader.load(MocData.copyOf(new byte[] {6, 1}));
 
         assertEquals(MocVersion.V5_3, moc.version());
         assertEquals(MocConsistency.CONSISTENT, moc.consistency());
@@ -62,7 +57,7 @@ class OwnedMocRuntimeTest {
         final MocLoader loader = loader("5.2.03");
         TestCoreApiFixture.Moc.prepare(modelWithCanvas(), 7L);
 
-        final OwnedMoc moc = loader.load(MocData.copyOf(new byte[]{5, 0}));
+        final OwnedMoc moc = loader.load(MocData.copyOf(new byte[] {5, 0}));
 
         assertEquals(MocVersion.V5_0, moc.version());
         assertEquals(MocConsistency.INCONSISTENT, moc.consistency());
@@ -75,9 +70,7 @@ class OwnedMocRuntimeTest {
         final TestCoreApiFixture.Model model = modelWithCanvas();
         TestCoreApiFixture.Moc.prepare(model, 42L);
 
-        final OwnedModel owned = loader
-            .load(MocData.copyOf(new byte[]{6, 1}))
-            .instantiateModel();
+        final OwnedModel owned = loader.load(MocData.copyOf(new byte[] {6, 1})).instantiateModel();
 
         assertEquals(42L, owned.nativeHandle());
         assertEquals(512f, owned.canvasInfo().widthPixels());
@@ -125,16 +118,15 @@ class OwnedMocRuntimeTest {
     @Test
     void fiveTwoDerivesBlendModesFromConstantFlags() {
         final MocLoader loader = loader("5.2.03");
-        final TestCoreApiFixture.Model model = model(
-            new TestCoreApiFixture.Drawables(
-                new String[]{"A", "B", "C"},
-                new byte[]{1, 2, 0},  // ADDITIVE, MULTIPLICATIVE, NORMAL
-                new byte[]{0, 0, 0},
-                new int[0],           // 5.2 has no getBlendModes
-                new int[]{0, 0, 0},
-                new int[]{0, 1, 2},
-                new int[]{0, 1, 2},
-                new float[]{1, 1, 1},
+        final TestCoreApiFixture.Model model = model(new TestCoreApiFixture.Drawables(
+                new String[] {"A", "B", "C"},
+                new byte[] {1, 2, 0}, // ADDITIVE, MULTIPLICATIVE, NORMAL
+                new byte[] {0, 0, 0},
+                new int[0], // 5.2 has no getBlendModes
+                new int[] {0, 0, 0},
+                new int[] {0, 1, 2},
+                new int[] {0, 1, 2},
+                new float[] {1, 1, 1},
                 new int[3],
                 new int[3][0],
                 new int[3],
@@ -144,17 +136,13 @@ class OwnedMocRuntimeTest {
                 new short[3][0],
                 new float[3][4],
                 new float[3][4],
-                new int[]{-1, -1, -1},
-                new int[]{-1, -1, -1},
+                new int[] {-1, -1, -1},
+                new int[] {-1, -1, -1},
                 new int[3],
-                new int[3][0]
-            )
-        );
+                new int[3][0]));
         TestCoreApiFixture.Moc.prepare(model, 1L);
 
-        final OwnedModel owned = loader
-            .load(MocData.copyOf(new byte[]{5, 1}))
-            .instantiateModel();
+        final OwnedModel owned = loader.load(MocData.copyOf(new byte[] {5, 1})).instantiateModel();
 
         final List<OwnedDrawable> drawables = owned.drawables();
         assertEquals(BlendMode.ADDITIVE, drawables.get(0).blendMode());
@@ -165,16 +153,15 @@ class OwnedMocRuntimeTest {
     @Test
     void contradictoryFiveTwoBlendFlagsFailClosed() {
         final MocLoader loader = loader("5.2.03");
-        final TestCoreApiFixture.Model model = model(
-            new TestCoreApiFixture.Drawables(
-                new String[]{"A"},
-                new byte[]{3},  // ADDITIVE|MULTIPLICATIVE is contradictory
-                new byte[]{0},
+        final TestCoreApiFixture.Model model = model(new TestCoreApiFixture.Drawables(
+                new String[] {"A"},
+                new byte[] {3}, // ADDITIVE|MULTIPLICATIVE is contradictory
+                new byte[] {0},
                 new int[0],
-                new int[]{0},
-                new int[]{0},
-                new int[]{0},
-                new float[]{1},
+                new int[] {0},
+                new int[] {0},
+                new int[] {0},
+                new float[] {1},
                 new int[1],
                 new int[1][0],
                 new int[1],
@@ -184,17 +171,13 @@ class OwnedMocRuntimeTest {
                 new short[1][0],
                 new float[1][4],
                 new float[1][4],
-                new int[]{-1},
-                new int[]{-1},
+                new int[] {-1},
+                new int[] {-1},
                 new int[1],
-                new int[1][0]
-            )
-        );
+                new int[1][0]));
         TestCoreApiFixture.Moc.prepare(model, 1L);
 
-        final OwnedModel owned = loader
-            .load(MocData.copyOf(new byte[]{5, 1}))
-            .instantiateModel();
+        final OwnedModel owned = loader.load(MocData.copyOf(new byte[] {5, 1})).instantiateModel();
 
         assertThrows(IllegalStateException.class, owned::drawables);
     }
@@ -202,16 +185,15 @@ class OwnedMocRuntimeTest {
     @Test
     void fiveThreeReadsBlendModesDirectly() {
         final MocLoader loader = loader("5.3.02");
-        final TestCoreApiFixture.Model model = model(
-            new TestCoreApiFixture.Drawables(
-                new String[]{"A", "B", "C"},
-                new byte[]{0, 0, 0},
-                new byte[]{0, 0, 0},
-                new int[]{0, 1, 2},       // NORMAL, ADDITIVE, MULTIPLICATIVE
-                new int[]{0, 0, 0},
-                new int[]{0, 1, 2},
-                new int[]{0, 1, 2},
-                new float[]{1, 1, 1},
+        final TestCoreApiFixture.Model model = model(new TestCoreApiFixture.Drawables(
+                new String[] {"A", "B", "C"},
+                new byte[] {0, 0, 0},
+                new byte[] {0, 0, 0},
+                new int[] {0, 1, 2}, // NORMAL, ADDITIVE, MULTIPLICATIVE
+                new int[] {0, 0, 0},
+                new int[] {0, 1, 2},
+                new int[] {0, 1, 2},
+                new float[] {1, 1, 1},
                 new int[3],
                 new int[3][0],
                 new int[3],
@@ -221,17 +203,13 @@ class OwnedMocRuntimeTest {
                 new short[3][0],
                 new float[3][4],
                 new float[3][4],
-                new int[]{-1, -1, -1},
-                new int[]{-1, -1, -1},
+                new int[] {-1, -1, -1},
+                new int[] {-1, -1, -1},
                 new int[3],
-                new int[3][0]
-            )
-        );
+                new int[3][0]));
         TestCoreApiFixture.Moc.prepare(model, 1L);
 
-        final OwnedModel owned = loader
-            .load(MocData.copyOf(new byte[]{6, 1}))
-            .instantiateModel();
+        final OwnedModel owned = loader.load(MocData.copyOf(new byte[] {6, 1})).instantiateModel();
 
         final List<OwnedDrawable> drawables = owned.drawables();
         assertEquals(BlendMode.NORMAL, drawables.get(0).blendMode());
@@ -245,7 +223,7 @@ class OwnedMocRuntimeTest {
         final TestCoreApiFixture.Model model = modelWithCanvas();
         TestCoreApiFixture.Moc.prepare(model, 42L);
 
-        final OwnedMoc moc = loader.load(MocData.copyOf(new byte[]{6, 1}));
+        final OwnedMoc moc = loader.load(MocData.copyOf(new byte[] {6, 1}));
         final OwnedModel owned = moc.instantiateModel();
 
         assertEquals(0, model.updateCount());
@@ -275,49 +253,38 @@ class OwnedMocRuntimeTest {
 
     @Test
     void loadFailsClosedWithoutOwnedMocEvidence() {
-        final VerifiedMemberResolver resolver =
-            TestCoreApiFixture.resolverWithoutOwnedMoc("5.3.02");
+        final VerifiedMemberResolver resolver = TestCoreApiFixture.resolverWithoutOwnedMoc("5.3.02");
         final CoreRuntimeMetadata metadata = new CoreRuntimeMetadata(
-            CorePublicApiProviderFactory.admitForTesting(
+                CorePublicApiProviderFactory.admitForTesting(resolver, CoreVersionExpectation.exact(11, 12, 13))
+                        .value()
+                        .orElseThrow(),
                 resolver,
-                CoreVersionExpectation.exact(11, 12, 13)
-            ).value().orElseThrow(),
-            resolver,
-            () -> { },
-            1024
-        );
+                () -> {},
+                1024);
 
         assertThrows(UnsupportedOperationException.class, metadata::mocLoader);
     }
 
     @Test
     void loadFailsClosedWithoutResolver() {
-        final CoreRuntimeMetadata metadata = new CoreRuntimeMetadata(
-            CorePublicApiProvider.safeMode()
-        );
+        final CoreRuntimeMetadata metadata = new CoreRuntimeMetadata(CorePublicApiProvider.safeMode());
         assertThrows(UnsupportedOperationException.class, metadata::mocLoader);
     }
 
     @Test
     void oversizedMocDataFailsBeforeProviderCalls() {
         final VerifiedMemberResolver resolver = TestCoreApiFixture.resolverWithExtras(
-            "5.3.02",
-            TestCoreApiFixture.ownedMocSelectors(),
-            TestCoreApiFixture.ownedMocCapability()
-        );
+                "5.3.02", TestCoreApiFixture.ownedMocSelectors(), TestCoreApiFixture.ownedMocCapability());
         final CoreRuntimeMetadata metadata = new CoreRuntimeMetadata(
-            CorePublicApiProviderFactory.admitForTesting(
+                CorePublicApiProviderFactory.admitForTesting(resolver, CoreVersionExpectation.exact(11, 12, 13))
+                        .value()
+                        .orElseThrow(),
                 resolver,
-                CoreVersionExpectation.exact(11, 12, 13)
-            ).value().orElseThrow(),
-            resolver,
-            () -> { },
-            2
-        );
+                () -> {},
+                2);
 
-        assertThrows(IllegalArgumentException.class, () ->
-            metadata.mocLoader().load(MocData.copyOf(new byte[]{6, 1, 2}))
-        );
+        assertThrows(
+                IllegalArgumentException.class, () -> metadata.mocLoader().load(MocData.copyOf(new byte[] {6, 1, 2})));
     }
 
     @Test
@@ -325,14 +292,11 @@ class OwnedMocRuntimeTest {
         final MocLoader loader = loader("5.3.02");
         final TestCoreApiFixture.Model model = modelWithCanvas();
         TestCoreApiFixture.Moc.prepare(model, 42L);
-        final OwnedModel owned = loader
-            .load(MocData.copyOf(new byte[]{6, 1}))
-            .instantiateModel();
+        final OwnedModel owned = loader.load(MocData.copyOf(new byte[] {6, 1})).instantiateModel();
         assertEquals(1.5f, owned.parameters().get(0).currentValue());
 
         assertTrue(loader instanceof OwnedModelParameterWriter);
-        final OwnedModelParameterWriter writer =
-            (OwnedModelParameterWriter) loader;
+        final OwnedModelParameterWriter writer = (OwnedModelParameterWriter) loader;
         writer.writeParameterValue(owned, "ParamA", 7.25f);
 
         // The write lands on the live values array the read projection uses.
@@ -349,55 +313,42 @@ class OwnedMocRuntimeTest {
         final MocLoader loaderB = loader("5.3.02");
         final TestCoreApiFixture.Model model = modelWithCanvas();
         TestCoreApiFixture.Moc.prepare(model, 42L);
-        final OwnedModel ownedByB = loaderB
-            .load(MocData.copyOf(new byte[]{6, 1}))
-            .instantiateModel();
+        final OwnedModel ownedByB =
+                loaderB.load(MocData.copyOf(new byte[] {6, 1})).instantiateModel();
 
-        final OwnedModelParameterWriter writerA =
-            (OwnedModelParameterWriter) loaderA;
-        final IllegalStateException failure = assertThrows(
-            IllegalStateException.class,
-            () -> writerA.writeParameterValue(ownedByB, "ParamA", 1f));
+        final OwnedModelParameterWriter writerA = (OwnedModelParameterWriter) loaderA;
+        final IllegalStateException failure =
+                assertThrows(IllegalStateException.class, () -> writerA.writeParameterValue(ownedByB, "ParamA", 1f));
         assertTrue(failure.getMessage().contains("not owned"));
         // A model that is not an owned-runtime model at all rejects identically.
-        assertThrows(IllegalStateException.class,
-            () -> writerA.writeParameterValue(null, "ParamA", 1f));
+        assertThrows(IllegalStateException.class, () -> writerA.writeParameterValue(null, "ParamA", 1f));
     }
 
     @Test
     void writerRejectsClosedModelAndAbsentParameter() {
         final MocLoader loader = loader("5.3.02");
         TestCoreApiFixture.Moc.prepare(modelWithCanvas(), 42L);
-        final OwnedModel owned = loader
-            .load(MocData.copyOf(new byte[]{6, 1}))
-            .instantiateModel();
-        final OwnedModelParameterWriter writer =
-            (OwnedModelParameterWriter) loader;
+        final OwnedModel owned = loader.load(MocData.copyOf(new byte[] {6, 1})).instantiateModel();
+        final OwnedModelParameterWriter writer = (OwnedModelParameterWriter) loader;
 
         owned.close();
-        assertThrows(IllegalStateException.class,
-            () -> writer.writeParameterValue(owned, "ParamA", 1f));
+        assertThrows(IllegalStateException.class, () -> writer.writeParameterValue(owned, "ParamA", 1f));
     }
 
     @Test
     void writerRejectsAbsentParameterAndNonFiniteValues() {
         final MocLoader loader = loader("5.3.02");
         TestCoreApiFixture.Moc.prepare(modelWithCanvas(), 42L);
-        final OwnedModel owned = loader
-            .load(MocData.copyOf(new byte[]{6, 1}))
-            .instantiateModel();
-        final OwnedModelParameterWriter writer =
-            (OwnedModelParameterWriter) loader;
+        final OwnedModel owned = loader.load(MocData.copyOf(new byte[] {6, 1})).instantiateModel();
+        final OwnedModelParameterWriter writer = (OwnedModelParameterWriter) loader;
 
-        final IllegalStateException absent = assertThrows(
-            IllegalStateException.class,
-            () -> writer.writeParameterValue(owned, "ParamAbsent", 1f));
+        final IllegalStateException absent =
+                assertThrows(IllegalStateException.class, () -> writer.writeParameterValue(owned, "ParamAbsent", 1f));
         assertTrue(absent.getMessage().contains("ParamAbsent"));
-        assertThrows(IllegalArgumentException.class,
-            () -> writer.writeParameterValue(owned, "ParamA", Float.NaN));
-        assertThrows(IllegalArgumentException.class,
-            () -> writer.writeParameterValue(owned, "ParamA",
-                Float.POSITIVE_INFINITY));
+        assertThrows(IllegalArgumentException.class, () -> writer.writeParameterValue(owned, "ParamA", Float.NaN));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> writer.writeParameterValue(owned, "ParamA", Float.POSITIVE_INFINITY));
         // Rejections must not have disturbed the live value.
         assertEquals(1.5f, owned.parameters().get(0).currentValue());
     }
@@ -407,81 +358,59 @@ class OwnedMocRuntimeTest {
         final Class<?> ownedModel = OwnedModel.class;
         final Class<?> ownedMoc = OwnedMoc.class;
         for (var method : ownedModel.getMethods()) {
-            assertFalse(method.getName().startsWith("set"),
-                "OwnedModel must not expose Core writes: " + method);
+            assertFalse(method.getName().startsWith("set"), "OwnedModel must not expose Core writes: " + method);
         }
         for (var method : ownedMoc.getMethods()) {
-            assertFalse(method.getName().startsWith("set"),
-                "OwnedMoc must not expose Core writes: " + method);
+            assertFalse(method.getName().startsWith("set"), "OwnedMoc must not expose Core writes: " + method);
         }
     }
 
     private static TestCoreApiFixture.Model modelWithCanvas() {
         return model(new TestCoreApiFixture.Drawables(
-            new String[]{"DrawableA"},
-            new byte[]{1},
-            new byte[]{0},
-            new int[]{1},
-            new int[]{2},
-            new int[]{0},
-            new int[]{0},
-            new float[]{0.5f},
-            new int[]{0},
-            new int[1][0],
-            new int[]{4},
-            new float[][]{{0, 1, 2, 3, 4, 5, 6, 7}},
-            new float[][]{{0, 0, 0, 0, 0, 0, 0, 0}},
-            new int[]{6},
-            new short[][]{{0, 1, 2, 0, 2, 3}},
-            new float[][]{{1, 0, 0, 1}},
-            new float[][]{{0, 0, 0, 1}},
-            new int[]{0},
-            new int[]{-1},
-            new int[]{1},
-            new int[][]{{0}}
-        ));
+                new String[] {"DrawableA"},
+                new byte[] {1},
+                new byte[] {0},
+                new int[] {1},
+                new int[] {2},
+                new int[] {0},
+                new int[] {0},
+                new float[] {0.5f},
+                new int[] {0},
+                new int[1][0],
+                new int[] {4},
+                new float[][] {{0, 1, 2, 3, 4, 5, 6, 7}},
+                new float[][] {{0, 0, 0, 0, 0, 0, 0, 0}},
+                new int[] {6},
+                new short[][] {{0, 1, 2, 0, 2, 3}},
+                new float[][] {{1, 0, 0, 1}},
+                new float[][] {{0, 0, 0, 1}},
+                new int[] {0},
+                new int[] {-1},
+                new int[] {1},
+                new int[][] {{0}}));
     }
 
     private static TestCoreApiFixture.Model model(final TestCoreApiFixture.Drawables drawables) {
         return new TestCoreApiFixture.Model(
-            new TestCoreApiFixture.CanvasInfo(
-                new float[]{512f, 512f},
-                new float[]{256f, 256f},
-                1f
-            ),
-            new TestCoreApiFixture.Parameters(
-                new String[]{"ParamA"},
-                new TestCoreApiFixture.ParameterType[]{new TestCoreApiFixture.ParameterType(0)},
-                new float[]{-30f},
-                new float[]{30f},
-                new float[]{0f},
-                new float[]{1.5f},
-                new int[]{0},
-                new float[1][0],
-                new boolean[]{true}
-            ),
-            new TestCoreApiFixture.Parts(
-                new String[]{"PartA"},
-                new float[]{1f},
-                new int[]{-1}
-            ),
-            drawables,
-            new TestCoreApiFixture.Deformers(
-                new String[]{"DeformerA"},
-                new int[]{-1},
-                new int[]{1},
-                new int[][]{{0}}
-            ),
-            new TestCoreApiFixture.Glues(
-                new String[]{"GlueA"},
-                new int[]{0},
-                new int[]{0},
-                new int[]{1},
-                new int[][]{{0}}
-            ),
-            null,
-            () -> { },
-            42L
-        );
+                new TestCoreApiFixture.CanvasInfo(new float[] {512f, 512f}, new float[] {256f, 256f}, 1f),
+                new TestCoreApiFixture.Parameters(
+                        new String[] {"ParamA"},
+                        new TestCoreApiFixture.ParameterType[] {new TestCoreApiFixture.ParameterType(0)},
+                        new float[] {-30f},
+                        new float[] {30f},
+                        new float[] {0f},
+                        new float[] {1.5f},
+                        new int[] {0},
+                        new float[1][0],
+                        new boolean[] {true}),
+                new TestCoreApiFixture.Parts(new String[] {"PartA"}, new float[] {1f}, new int[] {-1}),
+                drawables,
+                new TestCoreApiFixture.Deformers(
+                        new String[] {"DeformerA"}, new int[] {-1}, new int[] {1}, new int[][] {{0}}),
+                new TestCoreApiFixture.Glues(
+                        new String[] {"GlueA"}, new int[] {0}, new int[] {0}, new int[] {1}, new int[][] {{0}}),
+                null,
+                () -> {},
+                42L);
     }
 }

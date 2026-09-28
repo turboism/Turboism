@@ -5,7 +5,6 @@ import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-
 import java.util.Optional;
 
 /**
@@ -13,8 +12,7 @@ import java.util.Optional;
  */
 public interface UiHostStateSource {
 
-    UiHostStateSource DEFAULT = new UiHostStateSource() {
-    };
+    UiHostStateSource DEFAULT = new UiHostStateSource() {};
 
     /**
      * @return the current UI context source; the default returns a placeholder
@@ -22,13 +20,7 @@ public interface UiHostStateSource {
      */
     default ContextSourceSnapshot contextSource() {
         return new ContextSourceSnapshot(
-            "context-default",
-            "workspace",
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()
-        );
+                "context-default", "workspace", Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     /**
@@ -63,11 +55,9 @@ public interface UiHostStateSource {
     default dev.turboism.sdk.ui.UiHostColorMode currentColorMode() {
         final java.awt.Color background = javax.swing.UIManager.getColor("Panel.background");
         if (background != null) {
-            final int luma = (background.getRed() * 299 + background.getGreen() * 587
-                + background.getBlue() * 114) / 1000;
-            return luma < 140
-                ? dev.turboism.sdk.ui.UiHostColorMode.DARK
-                : dev.turboism.sdk.ui.UiHostColorMode.LIGHT;
+            final int luma =
+                    (background.getRed() * 299 + background.getGreen() * 587 + background.getBlue() * 114) / 1000;
+            return luma < 140 ? dev.turboism.sdk.ui.UiHostColorMode.DARK : dev.turboism.sdk.ui.UiHostColorMode.LIGHT;
         }
         return dev.turboism.sdk.ui.UiHostColorMode.LIGHT;
     }

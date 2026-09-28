@@ -1,11 +1,11 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.lang.instrument.Instrumentation;
-import java.util.Objects;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
@@ -42,16 +42,15 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
     private final String dialogOwnerName;
 
     private VerifiedTextureAtlasAutoLayoutHookInstaller(
-        final Instrumentation instrumentation,
-        final StaticSelector entry,
-        final ClassLoader hostClassLoader,
-        final VerifiedMemberResolver resolverForConstructor,
-        final TextureAtlasNativeInvocationCoordinator nativeInvocations,
-        final BooleanSupplier dispatch,
-        final RuntimeTextureAtlasEditorUi editorUi,
-        final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry,
-        final Locale effectiveLocale
-    ) {
+            final Instrumentation instrumentation,
+            final StaticSelector entry,
+            final ClassLoader hostClassLoader,
+            final VerifiedMemberResolver resolverForConstructor,
+            final TextureAtlasNativeInvocationCoordinator nativeInvocations,
+            final BooleanSupplier dispatch,
+            final RuntimeTextureAtlasEditorUi editorUi,
+            final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry,
+            final Locale effectiveLocale) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.targetClassName = entry.ownerInternalName().replace('/', '.');
         final StaticSelector dialog = resolverForConstructor.verifiedSelector(DIALOG_INIT_ALIAS);
@@ -63,34 +62,22 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         this.editorUi = Objects.requireNonNull(editorUi, "editorUi");
         this.ingress = nativeInvocations.ingress(dispatch);
         this.transformer = new TextureAtlasAutoLayoutTransformer(
-            entry.ownerInternalName(),
-            entry.memberName(),
-            entry.descriptor(),
-            hostClassLoader,
-            CALLBACK_KEY
-        );
+                entry.ownerInternalName(), entry.memberName(), entry.descriptor(), hostClassLoader, CALLBACK_KEY);
         final StaticSelector dialogEntry = resolverForConstructor.verifiedSelector(DIALOG_INIT_ALIAS);
         this.dialogTransformer = new TextureAtlasAutoLayoutDialogTransformer(
-            dialogEntry.ownerInternalName(),
-            dialogEntry.descriptor(),
-            hostClassLoader,
-            DIALOG_INGRESS_KEY
-        );
+                dialogEntry.ownerInternalName(), dialogEntry.descriptor(), hostClassLoader, DIALOG_INGRESS_KEY);
         this.dialogContributor = new TextureAtlasAutoLayoutDialogContributor(
-            algorithmRegistry, Objects.requireNonNull(effectiveLocale, "effectiveLocale")
-        );
+                algorithmRegistry, Objects.requireNonNull(effectiveLocale, "effectiveLocale"));
         this.dialogIngress = dialogContributor.ingress();
         if (resolverForConstructor.isAdmittedCubismVersion("5.3.02")
-            || resolverForConstructor.isAdmittedCubismVersion("5.3.03")) {
-            final StaticSelector statisticsEntry =
-                resolverForConstructor.verifiedSelector(STATISTICS_VIEW_INIT_ALIAS);
+                || resolverForConstructor.isAdmittedCubismVersion("5.3.03")) {
+            final StaticSelector statisticsEntry = resolverForConstructor.verifiedSelector(STATISTICS_VIEW_INIT_ALIAS);
             this.statisticsIngress = editorUi.ingress();
             this.statisticsTransformer = new TextureAtlasAutoLayoutDialogTransformer(
-                statisticsEntry.ownerInternalName(),
-                statisticsEntry.descriptor(),
-                hostClassLoader,
-                STATISTICS_INGRESS_KEY
-            );
+                    statisticsEntry.ownerInternalName(),
+                    statisticsEntry.descriptor(),
+                    hostClassLoader,
+                    STATISTICS_INGRESS_KEY);
         } else {
             this.statisticsIngress = editorUi.ingress();
             this.statisticsTransformer = null;
@@ -111,16 +98,17 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
      *                                  instance method
      */
     public static VerifiedTextureAtlasAutoLayoutHookInstaller fromVerifiedResolver(
-        final Instrumentation instrumentation,
-        final VerifiedMemberResolver resolver,
-        final ClassLoader hostClassLoader
-    ) {
+            final Instrumentation instrumentation,
+            final VerifiedMemberResolver resolver,
+            final ClassLoader hostClassLoader) {
         return fromVerifiedResolver(
-            instrumentation, resolver, hostClassLoader,
-            new TextureAtlasNativeInvocationCoordinator(), () -> false,
-            new RuntimeTextureAtlasEditorUi(),
-            new RuntimeTextureAtlasLayoutAlgorithmRegistry()
-        );
+                instrumentation,
+                resolver,
+                hostClassLoader,
+                new TextureAtlasNativeInvocationCoordinator(),
+                () -> false,
+                new RuntimeTextureAtlasEditorUi(),
+                new RuntimeTextureAtlasLayoutAlgorithmRegistry());
     }
 
     /**
@@ -140,18 +128,22 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
      *                                  authorized, or the verified selector is invalid
      */
     public static VerifiedTextureAtlasAutoLayoutHookInstaller fromVerifiedResolver(
-        final Instrumentation instrumentation,
-        final VerifiedMemberResolver resolver,
-        final ClassLoader hostClassLoader,
-        final TextureAtlasNativeInvocationCoordinator nativeInvocations,
-        final BooleanSupplier dispatch,
-        final RuntimeTextureAtlasEditorUi editorUi,
-        final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry
-    ) {
+            final Instrumentation instrumentation,
+            final VerifiedMemberResolver resolver,
+            final ClassLoader hostClassLoader,
+            final TextureAtlasNativeInvocationCoordinator nativeInvocations,
+            final BooleanSupplier dispatch,
+            final RuntimeTextureAtlasEditorUi editorUi,
+            final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry) {
         return fromVerifiedResolver(
-            instrumentation, resolver, hostClassLoader, nativeInvocations, dispatch,
-            editorUi, algorithmRegistry, dev.turboism.i18n.CubismHostLocale.resolve()
-        );
+                instrumentation,
+                resolver,
+                hostClassLoader,
+                nativeInvocations,
+                dispatch,
+                editorUi,
+                algorithmRegistry,
+                dev.turboism.i18n.CubismHostLocale.resolve());
     }
 
     /**
@@ -180,53 +172,44 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
      * @throws NullPointerException if {@code resolver} or {@code effectiveLocale} is null
      */
     public static VerifiedTextureAtlasAutoLayoutHookInstaller fromVerifiedResolver(
-        final Instrumentation instrumentation,
-        final VerifiedMemberResolver resolver,
-        final ClassLoader hostClassLoader,
-        final TextureAtlasNativeInvocationCoordinator nativeInvocations,
-        final BooleanSupplier dispatch,
-        final RuntimeTextureAtlasEditorUi editorUi,
-        final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry,
-        final Locale effectiveLocale
-    ) {
+            final Instrumentation instrumentation,
+            final VerifiedMemberResolver resolver,
+            final ClassLoader hostClassLoader,
+            final TextureAtlasNativeInvocationCoordinator nativeInvocations,
+            final BooleanSupplier dispatch,
+            final RuntimeTextureAtlasEditorUi editorUi,
+            final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry,
+            final Locale effectiveLocale) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        final VerifiedTextureAtlasSelectorContract.Profile profile =
-            VerifiedTextureAtlasSelectorContract.profileFor(verified.cubismVersion())
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "Texture-atlas automatic-layout hook version is unsupported."
-                ));
+        final VerifiedTextureAtlasSelectorContract.Profile profile = VerifiedTextureAtlasSelectorContract.profileFor(
+                        verified.cubismVersion())
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Texture-atlas automatic-layout hook version is unsupported."));
         final Set<String> aliases = union(
-            union(
                 union(
-                    profile.autoLayoutHookAliases(),
-                    profile.nativeInvocationAliases()
-                ),
-                profile.dialogInjectionAliases()
-            ),
-            profile.statisticsAliases()
-        );
+                        union(profile.autoLayoutHookAliases(), profile.nativeInvocationAliases()),
+                        profile.dialogInjectionAliases()),
+                profile.statisticsAliases());
         if (!verified.authorizesFeature(
-            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID, CAPABILITY_ID, aliases
-        )) {
+                VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID, CAPABILITY_ID, aliases)) {
             throw new IllegalArgumentException("Texture-atlas automatic-layout hook is not authorized.");
         }
         final StaticSelector entry = verified.verifiedSelector(AUTO_LAYOUT_ALIAS);
         if (entry.kind() != StaticSelector.Kind.METHOD
-            || !entry.descriptor().endsWith(")Z")
-            || (entry.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
+                || !entry.descriptor().endsWith(")Z")
+                || (entry.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
             throw new IllegalArgumentException("Verified texture-atlas automatic-layout selector is invalid.");
         }
         return new VerifiedTextureAtlasAutoLayoutHookInstaller(
-            instrumentation,
-            entry,
-            hostClassLoader,
-            verified,
-            nativeInvocations,
-            dispatch,
-            editorUi,
-            algorithmRegistry,
-            effectiveLocale
-        );
+                instrumentation,
+                entry,
+                hostClassLoader,
+                verified,
+                nativeInvocations,
+                dispatch,
+                editorUi,
+                algorithmRegistry,
+                effectiveLocale);
     }
 
     /**
@@ -270,14 +253,15 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         try {
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getName().equals(targetClassName)
-                    && loaded.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && loaded.getClassLoader() == hostClassLoader
+                        && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
                     transformedClass = loaded;
                     break;
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }
@@ -286,19 +270,17 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         try {
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getName().equals(dialogOwnerName)
-                    && loaded.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && loaded.getClassLoader() == hostClassLoader
+                        && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
                     transformedDialogClass = loaded;
                     break;
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "texture-atlas",
-                "Texture-atlas dialog contribution retransformation failed safely",
-                failure
-            );
+                    "texture-atlas", "Texture-atlas dialog contribution retransformation failed safely", failure);
         }
         try {
             if (statisticsTransformer == null) {
@@ -306,25 +288,25 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             }
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getName().equals(statisticsTransformerOwnerName())
-                    && loaded.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && loaded.getClassLoader() == hostClassLoader
+                        && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
                     transformedStatisticsClass = loaded;
                     break;
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "texture-atlas",
-                "Texture-atlas statistics contribution retransformation failed safely",
-                failure
-            );
+                    "texture-atlas", "Texture-atlas statistics contribution retransformation failed safely", failure);
         }
     }
 
     private String statisticsTransformerOwnerName() {
         if (statisticsTransformer == null) return "";
-        return resolver.verifiedSelector(STATISTICS_VIEW_INIT_ALIAS).ownerInternalName().replace('/', '.');
+        return resolver.verifiedSelector(STATISTICS_VIEW_INIT_ALIAS)
+                .ownerInternalName()
+                .replace('/', '.');
     }
 
     @Override
@@ -345,6 +327,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             try {
                 instrumentation.retransformClasses(loaded);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw new IllegalStateException("Texture-atlas automatic-layout hook restoration failed.", failure);
             }
         }
@@ -354,20 +337,23 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             try {
                 instrumentation.retransformClasses(dialogLoaded);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw new IllegalStateException("Texture-atlas automatic-layout dialog restoration failed.", failure);
             }
         }
         final Class<?> statisticsLoaded = transformedStatisticsClass;
         transformedStatisticsClass = null;
-        if (statisticsTransformer != null && statisticsLoaded != null && instrumentation.isModifiableClass(statisticsLoaded)) {
+        if (statisticsTransformer != null
+                && statisticsLoaded != null
+                && instrumentation.isModifiableClass(statisticsLoaded)) {
             try {
                 instrumentation.retransformClasses(statisticsLoaded);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw new IllegalStateException("Texture-atlas statistics contribution restoration failed.", failure);
             }
         }
     }
-
 
     private static Set<String> union(final Set<String> left, final Set<String> right) {
         final java.util.HashSet<String> values = new java.util.HashSet<>(left);

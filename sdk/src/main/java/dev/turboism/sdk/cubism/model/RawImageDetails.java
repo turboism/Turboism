@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.cubism.id.RawImageId;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -15,14 +14,13 @@ import java.util.Optional;
  * Classification does not read source-file contents.</p>
  */
 public record RawImageDetails(
-    RawTexture rawImage,
-    SourceKind sourceKind,
-    List<RawLayerDetails> layers,
-    boolean replaced,
-    Optional<String> importedAt,
-    Optional<String> sourceModifiedAt,
-    Optional<Boolean> projectTreeVisible
-) {
+        RawTexture rawImage,
+        SourceKind sourceKind,
+        List<RawLayerDetails> layers,
+        boolean replaced,
+        Optional<String> importedAt,
+        Optional<String> sourceModifiedAt,
+        Optional<Boolean> projectTreeVisible) {
     public RawImageDetails {
         rawImage = Objects.requireNonNull(rawImage, "rawImage");
         sourceKind = Objects.requireNonNull(sourceKind, "sourceKind");

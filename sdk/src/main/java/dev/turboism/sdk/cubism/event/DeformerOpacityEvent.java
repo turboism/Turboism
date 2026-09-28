@@ -2,14 +2,11 @@ package dev.turboism.sdk.cubism.event;
 
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.Objects;
 
 /** Typed states of the semantic Deformer opacity write event family. */
 public sealed interface DeformerOpacityEvent extends TurboismEvent
-    permits DeformerOpacityEvent.Before,
-            DeformerOpacityEvent.On,
-            DeformerOpacityEvent.After {
+        permits DeformerOpacityEvent.Before, DeformerOpacityEvent.On, DeformerOpacityEvent.After {
 
     /** Returns the detached Deformer projection participating in the operation. */
     Deformer deformer();
@@ -21,20 +18,15 @@ public sealed interface DeformerOpacityEvent extends TurboismEvent
         private final CallbackScope callbackScope;
         private float opacity;
 
-        public Before(
-            final Deformer deformer,
-            final float requestedOpacity,
-            final float opacity
-        ) {
+        public Before(final Deformer deformer, final float requestedOpacity, final float opacity) {
             this(deformer, requestedOpacity, opacity, null);
         }
 
         private Before(
-            final Deformer deformer,
-            final float requestedOpacity,
-            final float opacity,
-            final CallbackScope callbackScope
-        ) {
+                final Deformer deformer,
+                final float requestedOpacity,
+                final float opacity,
+                final CallbackScope callbackScope) {
             this.deformer = Objects.requireNonNull(deformer, "deformer");
             this.requestedOpacity = requestedOpacity;
             this.opacity = opacity;
@@ -43,18 +35,22 @@ public sealed interface DeformerOpacityEvent extends TurboismEvent
 
         /** Opens a callback-scoped mutable candidate for the intercepted opacity edit. */
         public static Callback openCallback(
-            final Deformer deformer,
-            final float requestedOpacity,
-            final float opacity
-        ) {
+                final Deformer deformer, final float requestedOpacity, final float opacity) {
             return new Callback(deformer, requestedOpacity, opacity);
         }
 
-        @Override public Deformer deformer() { return deformer; }
+        @Override
+        public Deformer deformer() {
+            return deformer;
+        }
         /** Returns the opacity value originally requested by the write call. */
-        public float requestedOpacity() { return requestedOpacity; }
+        public float requestedOpacity() {
+            return requestedOpacity;
+        }
         /** Returns the candidate opacity value that will be applied. */
-        public float opacity() { return opacity; }
+        public float opacity() {
+            return opacity;
+        }
 
         /** Replaces the candidate opacity value for the current callback. */
         public void setOpacity(final float opacity) {
@@ -67,11 +63,7 @@ public sealed interface DeformerOpacityEvent extends TurboismEvent
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
 
-            private Callback(
-                final Deformer deformer,
-                final float requestedOpacity,
-                final float opacity
-            ) {
+            private Callback(final Deformer deformer, final float requestedOpacity, final float opacity) {
                 event = new Before(deformer, requestedOpacity, opacity, scope);
             }
 
@@ -81,20 +73,24 @@ public sealed interface DeformerOpacityEvent extends TurboismEvent
                 return event;
             }
 
-            @Override public void close() { scope.close(); }
+            @Override
+            public void close() {
+                scope.close();
+            }
         }
 
         private static final class CallbackScope {
             private final Thread ownerThread;
             private boolean open = true;
 
-            private CallbackScope(final Thread ownerThread) { this.ownerThread = ownerThread; }
+            private CallbackScope(final Thread ownerThread) {
+                this.ownerThread = ownerThread;
+            }
 
             private void requireOpen() {
                 if (!open || Thread.currentThread() != ownerThread) {
                     throw new IllegalStateException(
-                        "Deformer opacity before-event mutation is outside its callback scope."
-                    );
+                            "Deformer opacity before-event mutation is outside its callback scope.");
                 }
             }
 
@@ -106,13 +102,16 @@ public sealed interface DeformerOpacityEvent extends TurboismEvent
     }
 
     /** State published after a successful opacity write that changed the value. */
-    record On(Deformer deformer, float oldOpacity, float newOpacity)
-        implements DeformerOpacityEvent {
-        public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
+    record On(Deformer deformer, float oldOpacity, float newOpacity) implements DeformerOpacityEvent {
+        public On {
+            deformer = Objects.requireNonNull(deformer, "deformer");
+        }
     }
 
     /** State published after every successful opacity write. */
     record After(Deformer deformer, float finalOpacity) implements DeformerOpacityEvent {
-        public After { deformer = Objects.requireNonNull(deformer, "deformer"); }
+        public After {
+            deformer = Objects.requireNonNull(deformer, "deformer");
+        }
     }
 }

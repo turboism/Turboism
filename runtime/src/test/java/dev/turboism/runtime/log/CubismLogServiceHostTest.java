@@ -1,5 +1,9 @@
 package dev.turboism.runtime.log;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
@@ -7,8 +11,6 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.runtime.CubismLogBatchEvent;
 import dev.turboism.sdk.runtime.CubismLogService;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -18,10 +20,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class CubismLogServiceHostTest {
     @Test
@@ -55,19 +54,14 @@ class CubismLogServiceHostTest {
             latch.countDown();
         });
         observer.activate();
-        final CubismLogServiceHost host = new CubismLogServiceHost(
-            4,
-            2,
-            Duration.ofMillis(10)
-        );
+        final CubismLogServiceHost host = new CubismLogServiceHost(4, 2, Duration.ofMillis(10));
         host.attachEventBroker(broker, scheduler);
         final String longSuffix = "x".repeat(CubismLogServiceHost.MAX_EVENT_MESSAGE_LENGTH + 20);
 
         host.publish(
-            CubismLogService.LogLevel.ERROR,
-            "file=/home/test-user/private/model.cmo3 Authorization: BearerToken " + longSuffix,
-            7L
-        );
+                CubismLogService.LogLevel.ERROR,
+                "file=/home/test-user/private/model.cmo3 Authorization: BearerToken " + longSuffix,
+                7L);
 
         assertTrue(latch.await(1, TimeUnit.SECONDS));
         final CubismLogBatchEvent event = delivered.get();
@@ -76,10 +70,7 @@ class CubismLogServiceHostTest {
         assertEquals(7L, event.entries().get(0).timestampNanos());
         assertTrue(event.entries().get(0).message().contains("<redacted-path>"));
         assertTrue(event.entries().get(0).message().contains("<redacted-secret>"));
-        assertTrue(
-            event.entries().get(0).message().length()
-                <= CubismLogServiceHost.MAX_EVENT_MESSAGE_LENGTH
-        );
+        assertTrue(event.entries().get(0).message().length() <= CubismLogServiceHost.MAX_EVENT_MESSAGE_LENGTH);
         host.close();
         scheduler.shutdown();
     }
@@ -96,11 +87,7 @@ class CubismLogServiceHostTest {
             latch.countDown();
         });
         observer.activate();
-        final CubismLogServiceHost host = new CubismLogServiceHost(
-            2,
-            2,
-            Duration.ofMillis(50)
-        );
+        final CubismLogServiceHost host = new CubismLogServiceHost(2, 2, Duration.ofMillis(50));
         host.attachEventBroker(broker, scheduler);
 
         host.publish(CubismLogService.LogLevel.INFO, "one", 1L);
@@ -123,11 +110,7 @@ class CubismLogServiceHostTest {
         final RuntimeScheduler scheduler = scheduler();
         scheduler.shutdown();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final CubismLogServiceHost host = new CubismLogServiceHost(
-            1,
-            1,
-            Duration.ofMillis(10)
-        );
+        final CubismLogServiceHost host = new CubismLogServiceHost(1, 1, Duration.ofMillis(10));
         host.attachEventBroker(broker, scheduler);
         final List<CubismLogService.LogEntry> entries = new ArrayList<>();
         host.subscribe(entries::add);
@@ -140,15 +123,11 @@ class CubismLogServiceHostTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        final Clock clock = Clock.fixed(
-            Instant.parse("2026-08-23T00:00:00Z"),
-            ZoneOffset.UTC
-        );
+        final Clock clock = Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC);
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 4, ignored -> { }, clock),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 4, ignored -> {}, clock),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 }

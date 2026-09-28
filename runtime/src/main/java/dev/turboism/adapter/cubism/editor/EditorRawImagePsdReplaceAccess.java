@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdReplaceSelectorContract;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -41,9 +40,7 @@ final class EditorRawImagePsdReplaceAccess {
     private final EditorObjectReadAccess.CurrentGuard currentGuard;
 
     EditorRawImagePsdReplaceAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorObjectReadAccess.CurrentGuard currentGuard
-    ) {
+            final VerifiedMemberResolver resolver, final EditorObjectReadAccess.CurrentGuard currentGuard) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
     }
@@ -61,70 +58,57 @@ final class EditorRawImagePsdReplaceAccess {
      * @return an internal factual result; no result represents applied state
      */
     ReplaceResult replacePsd(
-        final String identity,
-        final Object model,
-        final Object appController,
-        final Object document,
-        final List<?> oldLayeredImages,
-        final Object incomingParsedLayeredImage,
-        final Path stableStage
-    ) {
+            final String identity,
+            final Object model,
+            final Object appController,
+            final Object document,
+            final List<?> oldLayeredImages,
+            final Object incomingParsedLayeredImage,
+            final Path stableStage) {
         Objects.requireNonNull(identity, "identity");
         Objects.requireNonNull(model, "model");
 
         if (!resolver.isExactCubismVersion(EditorRawImagePsdReplaceSelectorContract.SUPPORTED_CUBISM_VERSION)) {
             return ReplaceResult.unavailable(
-                ReplaceFailurePhase.AVAILABILITY,
-                "unsupported Cubism version: " + resolver.cubismVersion()
-            );
+                    ReplaceFailurePhase.AVAILABILITY, "unsupported Cubism version: " + resolver.cubismVersion());
         }
         if (!resolver.authorizesFeature(
-            EditorRawImagePsdReplaceSelectorContract.ADAPTER_SLICE_ID,
-            EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID,
-            EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES
-        )) {
+                EditorRawImagePsdReplaceSelectorContract.ADAPTER_SLICE_ID,
+                EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID,
+                EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES)) {
             return ReplaceResult.unavailable(
-                ReplaceFailurePhase.AVAILABILITY,
-                "PSD raw-image replace lacks the complete exact selector authorization"
-            );
+                    ReplaceFailurePhase.AVAILABILITY,
+                    "PSD raw-image replace lacks the complete exact selector authorization");
         }
 
         return EditorHostThread.dispatch(
-            "Cubism PSD raw-image replace",
-            () -> replaceOnHostThread(
-                identity,
-                model,
-                appController,
-                document,
-                oldLayeredImages,
-                incomingParsedLayeredImage,
-                stableStage
-            )
-        );
+                "Cubism PSD raw-image replace",
+                () -> replaceOnHostThread(
+                        identity,
+                        model,
+                        appController,
+                        document,
+                        oldLayeredImages,
+                        incomingParsedLayeredImage,
+                        stableStage));
     }
 
     private ReplaceResult replaceOnHostThread(
-        final String identity,
-        final Object model,
-        final Object appController,
-        final Object document,
-        final List<?> oldLayeredImages,
-        final Object incomingParsedLayeredImage,
-        final Path stableStage
-    ) {
+            final String identity,
+            final Object model,
+            final Object appController,
+            final Object document,
+            final List<?> oldLayeredImages,
+            final Object incomingParsedLayeredImage,
+            final Path stableStage) {
         try {
             currentGuard.requireCurrent(identity, model);
         } catch (RuntimeException failure) {
             return ReplaceResult.staleBeforeNative(failure);
         }
 
-        final InputValidation validation = validateInputs(
-            appController,
-            document,
-            oldLayeredImages,
-            incomingParsedLayeredImage,
-            stableStage
-        );
+        final InputValidation validation =
+                validateInputs(appController, document, oldLayeredImages, incomingParsedLayeredImage, stableStage);
         if (validation.failure() != null) {
             return validation.failure();
         }
@@ -133,28 +117,18 @@ final class EditorRawImagePsdReplaceAccess {
         final Object editMode;
         final Object editingValue;
         try {
-            editMode = resolver.invoke(
-                "cubism.editor-command.canvas.edit-mode",
-                document
-            );
+            editMode = resolver.invoke("cubism.editor-command.canvas.edit-mode", document);
             if (editMode == null) {
                 return ReplaceResult.unavailable(
-                    ReplaceFailurePhase.EDITING_STATE,
-                    "verified current edit mode is null"
-                );
+                        ReplaceFailurePhase.EDITING_STATE, "verified current edit mode is null");
             }
-            editingValue = resolver.invoke(
-                "cubism.editor-command.canvas.is-editing",
-                editMode
-            );
+            editingValue = resolver.invoke("cubism.editor-command.canvas.is-editing", editMode);
         } catch (RuntimeException failure) {
             return ReplaceResult.unavailable(ReplaceFailurePhase.EDITING_STATE, failure);
         }
         if (!(editingValue instanceof Boolean editing)) {
             return ReplaceResult.unavailable(
-                ReplaceFailurePhase.EDITING_STATE,
-                "verified isEditing selector returned a non-Boolean value"
-            );
+                    ReplaceFailurePhase.EDITING_STATE, "verified isEditing selector returned a non-Boolean value");
         }
         if (editing) {
             return ReplaceResult.editingRejected();
@@ -168,24 +142,16 @@ final class EditorRawImagePsdReplaceAccess {
         }
         if (stageState != StageState.READY) {
             return ReplaceResult.invalidInput(
-                ReplaceFailurePhase.STAGE,
-                "stable stage must be a non-empty regular file; observed " + stageState
-            );
+                    ReplaceFailurePhase.STAGE, "stable stage must be a non-empty regular file; observed " + stageState);
         }
 
         final Object nativeProcess;
         try {
-            nativeProcess = resolver.readStaticField(
-                "cubism.editor-model.psd-import-process.instance"
-            );
-            if (!resolver.isInstance(
-                "cubism.editor-model.psd-import-process.class",
-                nativeProcess
-            )) {
+            nativeProcess = resolver.readStaticField("cubism.editor-model.psd-import-process.instance");
+            if (!resolver.isInstance("cubism.editor-model.psd-import-process.class", nativeProcess)) {
                 return ReplaceResult.unavailable(
-                    ReplaceFailurePhase.NATIVE_RECEIVER,
-                    "verified PSD import process singleton has the wrong type"
-                );
+                        ReplaceFailurePhase.NATIVE_RECEIVER,
+                        "verified PSD import process singleton has the wrong type");
             }
         } catch (RuntimeException failure) {
             return ReplaceResult.unavailable(ReplaceFailurePhase.NATIVE_RECEIVER, failure);
@@ -195,14 +161,13 @@ final class EditorRawImagePsdReplaceAccess {
         RuntimeException nativeFailure = null;
         try {
             resolver.invoke(
-                "cubism.editor-model.psd-import-process.replace",
-                nativeProcess,
-                appController,
-                incomingParsedLayeredImage,
-                stableStage.toFile(),
-                document,
-                targets
-            );
+                    "cubism.editor-model.psd-import-process.replace",
+                    nativeProcess,
+                    appController,
+                    incomingParsedLayeredImage,
+                    stableStage.toFile(),
+                    document,
+                    targets);
             nativeReturned = true;
         } catch (RuntimeException failure) {
             nativeFailure = failure;
@@ -217,25 +182,19 @@ final class EditorRawImagePsdReplaceAccess {
 
         if (nativeFailure != null) {
             final String detail = postGuardFailure == null
-                ? "native replace invocation failed; mutation and rollback state are unknown"
-                : "native replace invocation failed and post current guard failed; mutation and rollback state are unknown"
-                    + "; post-guard: " + message(postGuardFailure);
+                    ? "native replace invocation failed; mutation and rollback state are unknown"
+                    : "native replace invocation failed and post current guard failed; mutation and rollback state are unknown"
+                            + "; post-guard: " + message(postGuardFailure);
             return ReplaceResult.partialFailure(
-                ReplaceFailurePhase.NATIVE_INVOCATION,
-                nativeFailure,
-                false,
-                postGuardFailure == null,
-                detail
-            );
+                    ReplaceFailurePhase.NATIVE_INVOCATION, nativeFailure, false, postGuardFailure == null, detail);
         }
         if (postGuardFailure != null) {
             return ReplaceResult.partialFailure(
-                ReplaceFailurePhase.CURRENT_GUARD_AFTER_NATIVE,
-                postGuardFailure,
-                true,
-                false,
-                "native returned but the post current guard failed; mutation and rollback state are unknown"
-            );
+                    ReplaceFailurePhase.CURRENT_GUARD_AFTER_NATIVE,
+                    postGuardFailure,
+                    true,
+                    false,
+                    "native returned but the post current guard failed; mutation and rollback state are unknown");
         }
         if (!nativeReturned) {
             throw new IllegalStateException("native replace result lost its return state");
@@ -244,29 +203,23 @@ final class EditorRawImagePsdReplaceAccess {
     }
 
     private InputValidation validateInputs(
-        final Object appController,
-        final Object document,
-        final List<?> oldLayeredImages,
-        final Object incomingParsedLayeredImage,
-        final Path stableStage
-    ) {
+            final Object appController,
+            final Object document,
+            final List<?> oldLayeredImages,
+            final Object incomingParsedLayeredImage,
+            final Path stableStage) {
         if (appController == null || document == null || incomingParsedLayeredImage == null || stableStage == null) {
             return new InputValidation(
-                ReplaceResult.invalidInput(
-                    ReplaceFailurePhase.INPUT,
-                    "app controller, document, target list, incoming object, and stage are required"
-                ),
-                null
-            );
+                    ReplaceResult.invalidInput(
+                            ReplaceFailurePhase.INPUT,
+                            "app controller, document, target list, incoming object, and stage are required"),
+                    null);
         }
         if (oldLayeredImages == null) {
             return new InputValidation(
-                ReplaceResult.invalidInput(
-                    ReplaceFailurePhase.TARGETS,
-                    "old CLayeredImage target list must not be null"
-                ),
-                null
-            );
+                    ReplaceResult.invalidInput(
+                            ReplaceFailurePhase.TARGETS, "old CLayeredImage target list must not be null"),
+                    null);
         }
 
         final List<Object> targets;
@@ -274,101 +227,64 @@ final class EditorRawImagePsdReplaceAccess {
             targets = snapshotTargets(oldLayeredImages);
         } catch (TargetSnapshotException failure) {
             return new InputValidation(
-                ReplaceResult.invalidInput(ReplaceFailurePhase.TARGETS, failure.getMessage()),
-                null
-            );
+                    ReplaceResult.invalidInput(ReplaceFailurePhase.TARGETS, failure.getMessage()), null);
         } catch (RuntimeException failure) {
-            return new InputValidation(
-                ReplaceResult.unavailable(ReplaceFailurePhase.TARGETS, failure),
-                null
-            );
+            return new InputValidation(ReplaceResult.unavailable(ReplaceFailurePhase.TARGETS, failure), null);
         }
 
         try {
-            if (!resolver.isInstance(
-                "cubism.editor-model.app-controller.class",
-                appController
-            )) {
+            if (!resolver.isInstance("cubism.editor-model.app-controller.class", appController)) {
                 return new InputValidation(
-                    ReplaceResult.invalidInput(
-                        ReplaceFailurePhase.INPUT,
-                        "app controller is not the exact verified CEAppCtrl type"
-                    ),
-                    null
-                );
+                        ReplaceResult.invalidInput(
+                                ReplaceFailurePhase.INPUT, "app controller is not the exact verified CEAppCtrl type"),
+                        null);
             }
-            if (!resolver.isInstance(
-                "cubism.editor-model.modeling-document.class",
-                document
-            )) {
+            if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
                 return new InputValidation(
-                    ReplaceResult.invalidInput(
-                        ReplaceFailurePhase.INPUT,
-                        "document is not the exact verified CModelingDocument type"
-                    ),
-                    null
-                );
+                        ReplaceResult.invalidInput(
+                                ReplaceFailurePhase.INPUT, "document is not the exact verified CModelingDocument type"),
+                        null);
             }
-            if (!resolver.isInstance(
-                "cubism.editor-model.layered-image.class",
-                incomingParsedLayeredImage
-            )) {
+            if (!resolver.isInstance("cubism.editor-model.layered-image.class", incomingParsedLayeredImage)) {
                 return new InputValidation(
-                    ReplaceResult.invalidInput(
-                        ReplaceFailurePhase.INPUT,
-                        "incoming object is not the exact verified CLayeredImage type"
-                    ),
-                    null
-                );
+                        ReplaceResult.invalidInput(
+                                ReplaceFailurePhase.INPUT,
+                                "incoming object is not the exact verified CLayeredImage type"),
+                        null);
             }
 
             if (targets.isEmpty()) {
                 return new InputValidation(
-                    ReplaceResult.invalidInput(
-                        ReplaceFailurePhase.TARGETS,
-                        "old CLayeredImage target list must not be empty"
-                    ),
-                    null
-                );
+                        ReplaceResult.invalidInput(
+                                ReplaceFailurePhase.TARGETS, "old CLayeredImage target list must not be empty"),
+                        null);
             }
             final IdentityHashMap<Object, Boolean> seen = new IdentityHashMap<>();
             for (final Object target : targets) {
                 if (target == incomingParsedLayeredImage) {
                     return new InputValidation(
-                        ReplaceResult.invalidInput(
-                            ReplaceFailurePhase.TARGETS,
-                            "incoming parsed CLayeredImage must not also be an old target"
-                        ),
-                        null
-                    );
+                            ReplaceResult.invalidInput(
+                                    ReplaceFailurePhase.TARGETS,
+                                    "incoming parsed CLayeredImage must not also be an old target"),
+                            null);
                 }
                 if (seen.put(target, Boolean.TRUE) != null) {
                     return new InputValidation(
-                        ReplaceResult.invalidInput(
-                            ReplaceFailurePhase.TARGETS,
-                            "old CLayeredImage target list contains an identity duplicate"
-                        ),
-                        null
-                    );
+                            ReplaceResult.invalidInput(
+                                    ReplaceFailurePhase.TARGETS,
+                                    "old CLayeredImage target list contains an identity duplicate"),
+                            null);
                 }
-                if (!resolver.isInstance(
-                    "cubism.editor-model.layered-image.class",
-                    target
-                )) {
+                if (!resolver.isInstance("cubism.editor-model.layered-image.class", target)) {
                     return new InputValidation(
-                        ReplaceResult.invalidInput(
-                            ReplaceFailurePhase.TARGETS,
-                            "old target is not the exact verified CLayeredImage type"
-                        ),
-                        null
-                    );
+                            ReplaceResult.invalidInput(
+                                    ReplaceFailurePhase.TARGETS,
+                                    "old target is not the exact verified CLayeredImage type"),
+                            null);
                 }
             }
         } catch (RuntimeException failure) {
-            return new InputValidation(
-                ReplaceResult.unavailable(ReplaceFailurePhase.INPUT, failure),
-                null
-            );
+            return new InputValidation(ReplaceResult.unavailable(ReplaceFailurePhase.INPUT, failure), null);
         }
         return new InputValidation(null, targets);
     }
@@ -378,25 +294,19 @@ final class EditorRawImagePsdReplaceAccess {
         try {
             for (final Object target : oldLayeredImages) {
                 if (target == null) {
-                    throw new TargetSnapshotException(
-                        "old CLayeredImage target list must not contain null"
-                    );
+                    throw new TargetSnapshotException("old CLayeredImage target list must not contain null");
                 }
                 snapshot.add(target);
             }
         } catch (TargetSnapshotException failure) {
             throw failure;
         } catch (RuntimeException failure) {
-            throw new TargetSnapshotException(
-                "old CLayeredImage target list could not be snapshotted",
-                failure
-            );
+            throw new TargetSnapshotException("old CLayeredImage target list could not be snapshotted", failure);
         }
         return List.copyOf(snapshot);
     }
 
-    private record InputValidation(ReplaceResult failure, List<Object> targets) {
-    }
+    private record InputValidation(ReplaceResult failure, List<Object> targets) {}
 
     private static final class TargetSnapshotException extends RuntimeException {
         private TargetSnapshotException(final String detail) {
@@ -408,14 +318,10 @@ final class EditorRawImagePsdReplaceAccess {
         }
     }
 
-
     private static StageState inspectStage(final Path stage) throws IOException {
         try {
-            final BasicFileAttributes attributes = Files.readAttributes(
-                stage,
-                BasicFileAttributes.class,
-                LinkOption.NOFOLLOW_LINKS
-            );
+            final BasicFileAttributes attributes =
+                    Files.readAttributes(stage, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
             if (attributes.isSymbolicLink()) {
                 return StageState.SYMBOLIC_LINK;
             }
@@ -469,18 +375,17 @@ final class EditorRawImagePsdReplaceAccess {
 
     /** Internal result deliberately containing no native object, Path, or SDK value. */
     record ReplaceResult(
-        ReplaceStatus status,
-        boolean preCurrentGuardPassed,
-        boolean postCurrentGuardPassed,
-        boolean nativeInvocationAttempted,
-        boolean nativeReturned,
-        MutationState mutationState,
-        boolean requiresPause,
-        boolean requiresReobservation,
-        ReplaceFailurePhase failurePhase,
-        String failureType,
-        String failureMessage
-    ) {
+            ReplaceStatus status,
+            boolean preCurrentGuardPassed,
+            boolean postCurrentGuardPassed,
+            boolean nativeInvocationAttempted,
+            boolean nativeReturned,
+            MutationState mutationState,
+            boolean requiresPause,
+            boolean requiresReobservation,
+            ReplaceFailurePhase failurePhase,
+            String failureType,
+            String failureMessage) {
         ReplaceResult {
             Objects.requireNonNull(status, "status");
             Objects.requireNonNull(mutationState, "mutationState");
@@ -493,127 +398,108 @@ final class EditorRawImagePsdReplaceAccess {
             }
         }
 
-        private static ReplaceResult unavailable(
-            final ReplaceFailurePhase phase,
-            final String detail
-        ) {
+        private static ReplaceResult unavailable(final ReplaceFailurePhase phase, final String detail) {
             // Availability admission precedes the guard; all later unavailable phases follow its success.
             return new ReplaceResult(
-                ReplaceStatus.UNAVAILABLE,
-                phase != ReplaceFailurePhase.AVAILABILITY,
-                false,
-                false,
-                false,
-                MutationState.NOT_ATTEMPTED,
-                false,
-                false,
-                phase,
-                "UNAVAILABLE",
-                detail
-            );
+                    ReplaceStatus.UNAVAILABLE,
+                    phase != ReplaceFailurePhase.AVAILABILITY,
+                    false,
+                    false,
+                    false,
+                    MutationState.NOT_ATTEMPTED,
+                    false,
+                    false,
+                    phase,
+                    "UNAVAILABLE",
+                    detail);
         }
 
-        private static ReplaceResult unavailable(
-            final ReplaceFailurePhase phase,
-            final RuntimeException failure
-        ) {
+        private static ReplaceResult unavailable(final ReplaceFailurePhase phase, final RuntimeException failure) {
             return unavailable(phase, message(failure));
         }
 
-        private static ReplaceResult invalidInput(
-            final ReplaceFailurePhase phase,
-            final String detail
-        ) {
+        private static ReplaceResult invalidInput(final ReplaceFailurePhase phase, final String detail) {
             return new ReplaceResult(
-                ReplaceStatus.INVALID_INPUT,
-                true,
-                false,
-                false,
-                false,
-                MutationState.NOT_ATTEMPTED,
-                false,
-                false,
-                phase,
-                "INVALID_INPUT",
-                detail
-            );
+                    ReplaceStatus.INVALID_INPUT,
+                    true,
+                    false,
+                    false,
+                    false,
+                    MutationState.NOT_ATTEMPTED,
+                    false,
+                    false,
+                    phase,
+                    "INVALID_INPUT",
+                    detail);
         }
 
-        private static ReplaceResult invalidInput(
-            final ReplaceFailurePhase phase,
-            final IOException failure
-        ) {
+        private static ReplaceResult invalidInput(final ReplaceFailurePhase phase, final IOException failure) {
             return invalidInput(phase, message(failure));
         }
 
         private static ReplaceResult staleBeforeNative(final RuntimeException failure) {
             return new ReplaceResult(
-                ReplaceStatus.STALE_BEFORE_NATIVE,
-                false,
-                false,
-                false,
-                false,
-                MutationState.NOT_ATTEMPTED,
-                false,
-                false,
-                ReplaceFailurePhase.CURRENT_GUARD_BEFORE_NATIVE,
-                failure.getClass().getName(),
-                message(failure)
-            );
+                    ReplaceStatus.STALE_BEFORE_NATIVE,
+                    false,
+                    false,
+                    false,
+                    false,
+                    MutationState.NOT_ATTEMPTED,
+                    false,
+                    false,
+                    ReplaceFailurePhase.CURRENT_GUARD_BEFORE_NATIVE,
+                    failure.getClass().getName(),
+                    message(failure));
         }
 
         private static ReplaceResult editingRejected() {
             return new ReplaceResult(
-                ReplaceStatus.EDITING_REJECTED,
-                true,
-                false,
-                false,
-                false,
-                MutationState.NOT_ATTEMPTED,
-                false,
-                false,
-                ReplaceFailurePhase.EDITING_STATE,
-                "EDITING",
-                "native replace refused while the current edit mode is already editing"
-            );
+                    ReplaceStatus.EDITING_REJECTED,
+                    true,
+                    false,
+                    false,
+                    false,
+                    MutationState.NOT_ATTEMPTED,
+                    false,
+                    false,
+                    ReplaceFailurePhase.EDITING_STATE,
+                    "EDITING",
+                    "native replace refused while the current edit mode is already editing");
         }
 
         private static ReplaceResult nativeReturnedUnverified() {
             return new ReplaceResult(
-                ReplaceStatus.NATIVE_RETURNED_UNVERIFIED,
-                true,
-                true,
-                true,
-                true,
-                MutationState.UNKNOWN,
-                false,
-                true,
-                ReplaceFailurePhase.NONE,
-                null,
-                "native five-argument replace returned void; applied state requires upper-layer reread"
-            );
+                    ReplaceStatus.NATIVE_RETURNED_UNVERIFIED,
+                    true,
+                    true,
+                    true,
+                    true,
+                    MutationState.UNKNOWN,
+                    false,
+                    true,
+                    ReplaceFailurePhase.NONE,
+                    null,
+                    "native five-argument replace returned void; applied state requires upper-layer reread");
         }
 
         private static ReplaceResult partialFailure(
-            final ReplaceFailurePhase phase,
-            final RuntimeException failure,
-            final boolean nativeReturned,
-            final boolean postGuardPassed,
-            final String detail
-        ) {
+                final ReplaceFailurePhase phase,
+                final RuntimeException failure,
+                final boolean nativeReturned,
+                final boolean postGuardPassed,
+                final String detail) {
             return new ReplaceResult(
-                ReplaceStatus.PARTIAL_FAILURE,
-                true,
-                postGuardPassed,
-                true,
-                nativeReturned,
-                MutationState.UNKNOWN,
-                true,
-                true,
-                phase,
-                failure.getClass().getName(),
-                detail + ": " + message(failure)
-            );
+                    ReplaceStatus.PARTIAL_FAILURE,
+                    true,
+                    postGuardPassed,
+                    true,
+                    nativeReturned,
+                    MutationState.UNKNOWN,
+                    true,
+                    true,
+                    phase,
+                    failure.getClass().getName(),
+                    detail + ": " + message(failure));
         }
     }
 }

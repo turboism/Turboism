@@ -4,13 +4,12 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.ui.host.EdtDispatch;
-
-import javax.swing.Icon;
-import javax.swing.JSeparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.swing.Icon;
+import javax.swing.JSeparator;
 
 /** Exact Cubism 5.3.02 main-toolbar operations restricted to verified aliases. */
 public final class VerifiedMainToolbarHostOperations implements MainToolbarHostOperations {
@@ -22,42 +21,31 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
      */
     private static final int NATIVE_BUTTON_SIZE = 32;
 
-    private static final String APP_INSTANCE =
-        "cubism.ui-main-toolbar.app-controller.instance";
-    private static final String APP_MAIN_FRAME =
-        "cubism.ui-main-toolbar.app-controller.main-frame";
-    private static final String MAIN_FRAME_VIEW =
-        "cubism.ui-main-toolbar.main-frame.view";
-    private static final String HOME_BUTTON =
-        "cubism.ui-main-toolbar.main-frame-view.home-button";
+    private static final String APP_INSTANCE = "cubism.ui-main-toolbar.app-controller.instance";
+    private static final String APP_MAIN_FRAME = "cubism.ui-main-toolbar.app-controller.main-frame";
+    private static final String MAIN_FRAME_VIEW = "cubism.ui-main-toolbar.main-frame.view";
+    private static final String HOME_BUTTON = "cubism.ui-main-toolbar.main-frame-view.home-button";
     private static final String WIDGET_PARENT = "cubism.ui-main-toolbar.widget.parent";
     private static final String WIDGET_NAME = "cubism.ui-main-toolbar.widget.name";
     private static final String WIDGET_JCOMPONENT = "cubism.ui-main-toolbar.widget.jcomponent";
     private static final String WIDGET_SET_NAME = "cubism.ui-main-toolbar.widget.set-name";
     private static final String WIDGET_SET_TOOLTIP = "cubism.ui-main-toolbar.widget.set-tooltip";
-    private static final String WIDGET_SET_PREF_WIDTH =
-        "cubism.ui-main-toolbar.widget.set-pref-width";
-    private static final String WIDGET_SET_PREF_HEIGHT =
-        "cubism.ui-main-toolbar.widget.set-pref-height";
+    private static final String WIDGET_SET_PREF_WIDTH = "cubism.ui-main-toolbar.widget.set-pref-width";
+    private static final String WIDGET_SET_PREF_HEIGHT = "cubism.ui-main-toolbar.widget.set-pref-height";
     private static final String WIDGET_REVALIDATE = "cubism.ui-main-toolbar.widget.revalidate";
     private static final String WIDGET_REPAINT = "cubism.ui-main-toolbar.widget.repaint";
-    private static final String CONTAINER_CHILDREN =
-        "cubism.ui-main-toolbar.container.children";
+    private static final String CONTAINER_CHILDREN = "cubism.ui-main-toolbar.container.children";
     private static final String CONTAINER_ADD = "cubism.ui-main-toolbar.container.add";
     private static final String CONTAINER_REMOVE = "cubism.ui-main-toolbar.container.remove";
-    private static final String ICON_BUTTON_CREATE =
-        "cubism.ui-main-toolbar.icon-button.create";
-    private static final String ICON_BUTTON_SET_ROLLOVER =
-        "cubism.ui-main-toolbar.icon-button.set-rollover-icon";
+    private static final String ICON_BUTTON_CREATE = "cubism.ui-main-toolbar.icon-button.create";
+    private static final String ICON_BUTTON_SET_ROLLOVER = "cubism.ui-main-toolbar.icon-button.set-rollover-icon";
     private static final String ICON_CREATE = "cubism.ui-main-toolbar.icon.create";
 
     private final VerifiedMemberResolver resolver;
     private final EditorUiPluginResourceRegistry resources;
 
     public VerifiedMainToolbarHostOperations(
-        final VerifiedMemberResolver resolver,
-        final EditorUiPluginResourceRegistry resources
-    ) {
+            final VerifiedMemberResolver resolver, final EditorUiPluginResourceRegistry resources) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.resources = Objects.requireNonNull(resources, "resources");
     }
@@ -73,10 +61,9 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
 
     @Override
     public Registration addButton(
-        final MainToolbarContributionDescriptor contribution,
-        final Optional<AnchorHandle> anchor,
-        final Runnable action
-    ) {
+            final MainToolbarContributionDescriptor contribution,
+            final Optional<AnchorHandle> anchor,
+            final Runnable action) {
         Objects.requireNonNull(contribution, "contribution");
         Objects.requireNonNull(anchor, "anchor");
         Objects.requireNonNull(action, "action");
@@ -84,13 +71,11 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
     }
 
     private Registration installButton(
-        final MainToolbarContributionDescriptor contribution,
-        final Optional<AnchorHandle> anchor,
-        final Runnable action
-    ) {
-        final Object semanticAnchor = anchor
-            .map(value -> ((NativeAnchor) value).widget())
-            .orElse(null);
+            final MainToolbarContributionDescriptor contribution,
+            final Optional<AnchorHandle> anchor,
+            final Runnable action) {
+        final Object semanticAnchor =
+                anchor.map(value -> ((NativeAnchor) value).widget()).orElse(null);
         final Object homeButton = semanticAnchor == null ? resolveHomeButton() : semanticAnchor;
         final Object container = resolver.invoke(WIDGET_PARENT, homeButton);
         if (container == null) {
@@ -103,31 +88,28 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
         }
 
         final Icon normal = icon(contribution.pluginId(), contribution.icons().normal());
-        final Object callback = resolver.createFunctionalConstructorArgumentProxy(
-            ICON_BUTTON_CREATE,
-            1,
-            ignored -> {
-                action.run();
-                return kotlinUnit();
-            }
-        );
+        final Object callback = resolver.createFunctionalConstructorArgumentProxy(ICON_BUTTON_CREATE, 1, ignored -> {
+            action.run();
+            return kotlinUnit();
+        });
         final Object button = resolver.construct(ICON_BUTTON_CREATE, normal, callback);
         resolver.invoke(WIDGET_SET_NAME, button, nativeId);
         resolver.invoke(WIDGET_SET_TOOLTIP, button, contribution.tooltip());
         resolver.invoke(WIDGET_SET_PREF_WIDTH, button, NATIVE_BUTTON_SIZE);
         resolver.invoke(WIDGET_SET_PREF_HEIGHT, button, NATIVE_BUTTON_SIZE);
-        contribution.icons().hover().ifPresent(path -> resolver.invoke(
-            ICON_BUTTON_SET_ROLLOVER,
-            button,
-            resolver.construct(ICON_CREATE, icon(contribution.pluginId(), path))
-        ));
+        contribution
+                .icons()
+                .hover()
+                .ifPresent(path -> resolver.invoke(
+                        ICON_BUTTON_SET_ROLLOVER,
+                        button,
+                        resolver.construct(ICON_CREATE, icon(contribution.pluginId(), path))));
 
         final int index = insertionIndex(
-            children,
-            contribution.placement(),
-            homeButton,
-            widget -> resolver.invoke(WIDGET_JCOMPONENT, widget) instanceof JSeparator
-        );
+                children,
+                contribution.placement(),
+                homeButton,
+                widget -> resolver.invoke(WIDGET_JCOMPONENT, widget) instanceof JSeparator);
         resolver.invoke(CONTAINER_ADD, container, button, index);
         refresh(container);
         final AtomicBoolean closed = new AtomicBoolean();
@@ -180,11 +162,10 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
     }
 
     static int insertionIndex(
-        final List<?> children,
-        final MainToolbarRegistry.Placement placement,
-        final Object homeButton,
-        final java.util.function.Predicate<Object> separator
-    ) {
+            final List<?> children,
+            final MainToolbarRegistry.Placement placement,
+            final Object homeButton,
+            final java.util.function.Predicate<Object> separator) {
         Objects.requireNonNull(children, "children");
         Objects.requireNonNull(placement, "placement");
         Objects.requireNonNull(separator, "separator");
@@ -197,10 +178,7 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
     }
 
     private static int afterHomeBoundary(
-        final List<?> children,
-        final Object homeButton,
-        final java.util.function.Predicate<Object> separator
-    ) {
+            final List<?> children, final Object homeButton, final java.util.function.Predicate<Object> separator) {
         final int next = requiredAnchorIndex(children, homeButton) + 1;
         return next < children.size() && separator.test(children.get(next)) ? next + 1 : next;
     }
@@ -219,11 +197,7 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
 
     private Object kotlinUnit() {
         try {
-            final Class<?> unit = Class.forName(
-                "kotlin.Unit",
-                false,
-                resolver.hostClassLoader()
-            );
+            final Class<?> unit = Class.forName("kotlin.Unit", false, resolver.hostClassLoader());
             return unit.getField("INSTANCE").get(null);
         } catch (ReflectiveOperationException | LinkageError exception) {
             throw new IllegalStateException("Kotlin Unit is unavailable for toolbar callback", exception);

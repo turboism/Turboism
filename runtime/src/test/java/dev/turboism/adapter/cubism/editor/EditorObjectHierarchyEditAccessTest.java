@@ -1,21 +1,30 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorContract;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
+import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
+import dev.turboism.adapter.cubism.model.RuntimeModelObjectService;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
-import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
+import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.permissions.PermissionChecker;
-import dev.turboism.adapter.cubism.model.RuntimeModelObjectService;
+import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
@@ -26,25 +35,15 @@ import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpGrid;
-import dev.turboism.sdk.cubism.history.HistoryAction;
-import dev.turboism.sdk.cubism.history.HistoryChange;
-import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
-import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Fixture-based verification of the object-hierarchy editing projection (Part/Deformer/Drawable
@@ -85,8 +84,9 @@ class EditorObjectHierarchyEditAccessTest {
         // Undo removes the created Part; redo re-creates it.
         fixture.editMode.edits.get(0).undo();
         assertEquals(3, model.parts().all().size());
-        assertThrows(NoSuchElementException.class,
-            () -> model.parts().find(new PartId(created.id().value())));
+        assertThrows(
+                NoSuchElementException.class,
+                () -> model.parts().find(new PartId(created.id().value())));
         fixture.editMode.edits.get(0).redo();
         assertEquals(4, model.parts().all().size());
     }
@@ -125,21 +125,13 @@ class EditorObjectHierarchyEditAccessTest {
     void createsArtMeshWithExplicitGeometryAndUndo(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            resolver(cubismVersion), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
         final ArtMeshGeometry geometry = new ArtMeshGeometry(
-            List.of(new Point2(-1F, -1F), new Point2(1F, -1F), new Point2(0F, 1F)),
-            List.of(new Point2(0F, 0F), new Point2(1F, 0F), new Point2(0.5F, 1F)),
-            List.of(0, 1, 2)
-        );
+                List.of(new Point2(-1F, -1F), new Point2(1F, -1F), new Point2(0F, 1F)),
+                List.of(new Point2(0F, 0F), new Point2(1F, 0F), new Point2(0.5F, 1F)),
+                List.of(0, 1, 2));
 
-        final var created = model.drawables().create(
-            "New Mesh",
-            model.parts().find(new PartId("Root")),
-            -1,
-            geometry
-        );
+        final var created = model.drawables().create("New Mesh", model.parts().find(new PartId("Root")), -1, geometry);
 
         assertEquals("New Mesh", created.name());
         assertEquals("Root", created.parentPartId().orElseThrow().value());
@@ -158,65 +150,59 @@ class EditorObjectHierarchyEditAccessTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"5.2.03", "5.3.02"})
-    void serviceCreatesExactDeformersUnderADeformerInOneUndoEach(
-        final String cubismVersion
-    ) {
+    void serviceCreatesExactDeformersUnderADeformerInOneUndoEach(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var access = new EditorBackedCubismModelAccess(
-            resolver(cubismVersion),
-            "session-a"
-        );
-        final RuntimeModelObjectService service = new RuntimeModelObjectService(
-            access,
-            PermissionChecker.allowAll(),
-            () -> true
-        );
-        final ModelObjectReference rotationParent = new ModelObjectReference(
-            ModelObjectKind.ROTATION_DEFORMER,
-            "RotationA"
-        );
+        final var access = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a");
+        final RuntimeModelObjectService service =
+                new RuntimeModelObjectService(access, PermissionChecker.allowAll(), () -> true);
+        final ModelObjectReference rotationParent =
+                new ModelObjectReference(ModelObjectKind.ROTATION_DEFORMER, "RotationA");
         final WarpGrid grid = new WarpGrid(
-            1,
-            2,
-            true,
-            List.of(
-                new Point2(-2F, -1F), new Point2(0F, -1F), new Point2(2F, -1F),
-                new Point2(-2F, 1F), new Point2(0F, 1F), new Point2(2F, 1F)
-            )
-        );
+                1,
+                2,
+                true,
+                List.of(
+                        new Point2(-2F, -1F),
+                        new Point2(0F, -1F),
+                        new Point2(2F, -1F),
+                        new Point2(-2F, 1F),
+                        new Point2(0F, 1F),
+                        new Point2(2F, 1F)));
 
-        final var warp = service.create(new ModelObjectCreateRequest.WarpDeformer(
-            "Exact Warp",
-            java.util.Optional.of(rotationParent),
-            grid
-        ));
-        final RotationDeformerForm form = new RotationDeformerForm(
-            15F,
-            2F,
-            3F,
-            1.5F,
-            true,
-            false
-        );
+        final var warp = service.create(
+                new ModelObjectCreateRequest.WarpDeformer("Exact Warp", java.util.Optional.of(rotationParent), grid));
+        final RotationDeformerForm form = new RotationDeformerForm(15F, 2F, 3F, 1.5F, true, false);
         final var rotation = service.create(new ModelObjectCreateRequest.RotationDeformer(
-            "Exact Rotation",
-            java.util.Optional.of(new ModelObjectReference(
-                ModelObjectKind.WARP_DEFORMER,
-                "WarpA"
-            )),
-            form
-        ));
+                "Exact Rotation",
+                java.util.Optional.of(new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, "WarpA")),
+                form));
 
         assertEquals(2, fixture.editMode.edits.size(), "each create must commit one Undo");
-        assertEquals(grid, access.active().warpDeformers()
-            .find(new DeformerId(warp.reference().id())).grid());
-        assertEquals(form, access.active().rotationDeformers()
-            .find(new DeformerId(rotation.reference().id())).form());
-        assertEquals(java.util.Optional.of(new DeformerId("RotationA")), access.active()
-            .warpDeformers().find(new DeformerId(warp.reference().id())).parentDeformerId());
-        assertEquals(java.util.Optional.of(new DeformerId("WarpA")), access.active()
-            .rotationDeformers().find(new DeformerId(rotation.reference().id())).parentDeformerId());
+        assertEquals(
+                grid,
+                access.active()
+                        .warpDeformers()
+                        .find(new DeformerId(warp.reference().id()))
+                        .grid());
+        assertEquals(
+                form,
+                access.active()
+                        .rotationDeformers()
+                        .find(new DeformerId(rotation.reference().id()))
+                        .form());
+        assertEquals(
+                java.util.Optional.of(new DeformerId("RotationA")),
+                access.active()
+                        .warpDeformers()
+                        .find(new DeformerId(warp.reference().id()))
+                        .parentDeformerId());
+        assertEquals(
+                java.util.Optional.of(new DeformerId("WarpA")),
+                access.active()
+                        .rotationDeformers()
+                        .find(new DeformerId(rotation.reference().id()))
+                        .parentDeformerId());
     }
 
     @Test
@@ -224,19 +210,11 @@ class EditorObjectHierarchyEditAccessTest {
         final Fixture fixture = new Fixture();
         fixture.rootPart.handlerUnavailable = true;
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            resolver("5.3.02"),
-            "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
 
         assertThrows(
-            IllegalStateException.class,
-            () -> model.parts().create(
-                "Blocked Part",
-                model.parts().find(new PartId("Root")),
-                -1
-            )
-        );
+                IllegalStateException.class,
+                () -> model.parts().create("Blocked Part", model.parts().find(new PartId("Root")), -1));
 
         assertEquals(0, fixture.editMode.beginCalls);
         assertEquals(0, fixture.editMode.edits.size());
@@ -255,8 +233,11 @@ class EditorObjectHierarchyEditAccessTest {
         // The adapter selected the object natively and invoked the native DELETE command; it did
         // NOT call any source-set remove or removeChild itself (child cascade is host-owned).
         assertEquals(1, fixture.updateManager.selectionCalls.size());
-        assertEquals(fixture.document, fixture.updateManager.selectionCalls.get(0).source());
-        assertEquals(List.of(fixture.childPart.guid), fixture.updateManager.selectionCalls.get(0).guids());
+        assertEquals(
+                fixture.document, fixture.updateManager.selectionCalls.get(0).source());
+        assertEquals(
+                List.of(fixture.childPart.guid),
+                fixture.updateManager.selectionCalls.get(0).guids());
         assertFalse(fixture.updateManager.selectionCalls.get(0).append());
         assertEquals(1, fixture.document.deleteCount);
         assertEquals(0, fixture.partSet.removedDirectly);
@@ -417,17 +398,22 @@ class EditorObjectHierarchyEditAccessTest {
     void failsClosedBeforeSelectorUseWithoutHierarchyCapability() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var access = new EditorBackedCubismModelAccess(
-            resolverWithoutHierarchyCapability(), "session-a"
-        );
+        final var access = new EditorBackedCubismModelAccess(resolverWithoutHierarchyCapability(), "session-a");
         final var part = access.active().parts().find(new PartId("Root"));
         final var root = access.active().parts().find(new PartId("Root"));
         assertThrows(UnsupportedOperationException.class, () -> part.setParent(root, -1));
-        assertThrows(UnsupportedOperationException.class, () -> access.active().parts().remove(part));
-        assertThrows(UnsupportedOperationException.class,
-            () -> access.active().parts().create("X", null, -1));
-        assertThrows(UnsupportedOperationException.class,
-            () -> access.active().warpDeformers().find(new DeformerId("WarpA")).setName("X"));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> access.active().parts().remove(part));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> access.active().parts().create("X", null, -1));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> access.active()
+                        .warpDeformers()
+                        .find(new DeformerId("WarpA"))
+                        .setName("X"));
         assertEquals(0, fixture.editMode.edits.size());
     }
 
@@ -441,10 +427,10 @@ class EditorObjectHierarchyEditAccessTest {
         final var part = model.parts().find(new PartId("Root"));
         assertThrows(IllegalArgumentException.class, () -> part.setName("  "));
         assertThrows(IllegalArgumentException.class, () -> model.parts().create(" ", null, -1));
-        assertThrows(IllegalArgumentException.class,
-            () -> model.deformers().createWarp("W", null, -1, 0, 3));
-        assertThrows(IllegalArgumentException.class,
-            () -> model.warpDeformers().find(new DeformerId("WarpA")).setName(""));
+        assertThrows(IllegalArgumentException.class, () -> model.deformers().createWarp("W", null, -1, 0, 3));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> model.warpDeformers().find(new DeformerId("WarpA")).setName(""));
 
         // Stale reference: replace the source set with a same-id replacement; the old views must
         // be rejected before any native mutation.
@@ -454,14 +440,11 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(0, fixture.editMode.edits.size());
     }
 
-
     @Test
     void appliesDeformerToChildrenThroughExactNativeCommandOnce() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            resolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
 
         model.deformers().applyToChildren(target);
@@ -482,10 +465,7 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(0, fixture.pack.repaintCount);
         assertFalse(fixture.document.dirty);
         assertEquals(1, model.deformers().all().size());
-        assertThrows(
-            NoSuchElementException.class,
-            () -> model.deformers().find(new DeformerId("WarpA"))
-        );
+        assertThrows(NoSuchElementException.class, () -> model.deformers().find(new DeformerId("WarpA")));
     }
 
     @Test
@@ -493,9 +473,7 @@ class EditorObjectHierarchyEditAccessTest {
         final Fixture fixture = new Fixture();
         fixture.warpSource.guid = new Guid(" ");
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            resolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
 
         assertThrows(IllegalStateException.class, () -> model.deformers().applyToChildren(target));
@@ -513,9 +491,7 @@ class EditorObjectHierarchyEditAccessTest {
         final Fixture fixture = new Fixture();
         fixture.source.applyNoop = true;
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            resolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
 
         assertThrows(IllegalStateException.class, () -> model.deformers().applyToChildren(target));
@@ -539,13 +515,11 @@ class EditorObjectHierarchyEditAccessTest {
     void rejectsApplyToChildrenOutsideTheExact5302Candidate(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            resolver(cubismVersion), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
 
-        assertThrows(UnsupportedOperationException.class,
-            () -> model.deformers().applyToChildren(target));
+        assertThrows(
+                UnsupportedOperationException.class, () -> model.deformers().applyToChildren(target));
 
         assertEquals(0, fixture.updateManager.selectionCalls.size());
         assertEquals(0, fixture.document.applyCount);
@@ -559,19 +533,14 @@ class EditorObjectHierarchyEditAccessTest {
     void rejectsForeignDeformerBeforeNativeInvocation() {
         final Fixture foreignFixture = new Fixture();
         Host.document = foreignFixture.document;
-        final var foreignModel = new EditorBackedCubismModelAccess(
-            resolver("5.3.02"), "foreign-session"
-        ).active();
+        final var foreignModel = new EditorBackedCubismModelAccess(resolver("5.3.02"), "foreign-session").active();
         final var foreign = foreignModel.deformers().find(new DeformerId("WarpA"));
 
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            resolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
 
-        assertThrows(IllegalStateException.class,
-            () -> model.deformers().applyToChildren(foreign));
+        assertThrows(IllegalStateException.class, () -> model.deformers().applyToChildren(foreign));
         assertEquals(0, fixture.updateManager.selectionCalls.size());
         assertEquals(0, fixture.document.applyCount);
         assertEquals(0, fixture.document.deleteCount);
@@ -581,14 +550,11 @@ class EditorObjectHierarchyEditAccessTest {
     void rejectsStaleDeformerBeforeNativeInvocation() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            resolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
         fixture.replaceDeformerWithSameId();
 
-        assertThrows(IllegalStateException.class,
-            () -> model.deformers().applyToChildren(target));
+        assertThrows(IllegalStateException.class, () -> model.deformers().applyToChildren(target));
         assertEquals(0, fixture.updateManager.selectionCalls.size());
         assertEquals(0, fixture.document.applyCount);
         assertEquals(0, fixture.document.deleteCount);
@@ -599,9 +565,7 @@ class EditorObjectHierarchyEditAccessTest {
         final Fixture original = new Fixture();
         final Fixture replacement = new Fixture();
         Host.document = original.document;
-        final var model = new EditorBackedCubismModelAccess(
-            resolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
         final int[] callbacks = {0};
         original.updateManager.selectionCallback = () -> {
@@ -609,17 +573,12 @@ class EditorObjectHierarchyEditAccessTest {
             Host.document = replacement.document;
         };
 
-        assertThrows(
-            IllegalStateException.class,
-            () -> model.deformers().applyToChildren(target)
-        );
+        assertThrows(IllegalStateException.class, () -> model.deformers().applyToChildren(target));
 
         assertEquals(1, callbacks[0]);
         assertEquals(1, original.updateManager.selectionCalls.size());
         assertEquals(
-            original.document,
-            original.updateManager.selectionCalls.get(0).source()
-        );
+                original.document, original.updateManager.selectionCalls.get(0).source());
         assertEquals(0, original.document.applyCount);
         assertEquals(0, replacement.document.applyCount);
         assertEquals(0, original.deformerSet.removedByCommand);
@@ -630,9 +589,7 @@ class EditorObjectHierarchyEditAccessTest {
     void rejectsReentrantSameIdDeformerReplacementBeforeNativeInvocation() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-            resolver("5.3.02"), "session-a"
-        ).active();
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
         final Guid originalGuid = fixture.warpSource.guid;
         final int[] callbacks = {0};
@@ -641,10 +598,7 @@ class EditorObjectHierarchyEditAccessTest {
             fixture.replaceDeformerWithSameId();
         };
 
-        assertThrows(
-            IllegalStateException.class,
-            () -> model.deformers().applyToChildren(target)
-        );
+        assertThrows(IllegalStateException.class, () -> model.deformers().applyToChildren(target));
 
         assertEquals(1, callbacks[0]);
         assertEquals(1, fixture.updateManager.selectionCalls.size());
@@ -664,10 +618,7 @@ class EditorObjectHierarchyEditAccessTest {
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
-        model.parts().find(new PartId("Child")).setParent(
-            model.parts().find(new PartId("Root")),
-            0
-        );
+        model.parts().find(new PartId("Child")).setParent(model.parts().find(new PartId("Root")), 0);
 
         assertEquals(1, fixture.editMode.edits.size());
         assertEquals(1, fixture.document.undoManager.entries.size());
@@ -681,8 +632,9 @@ class EditorObjectHierarchyEditAccessTest {
         assertTrue(change.property().isEmpty());
         assertTrue(change.before().isEmpty());
         assertTrue(change.after().isEmpty());
-        assertEquals(dev.turboism.sdk.cubism.history.HistoryEditContext.Kind.OBJECT,
-            change.context().kind());
+        assertEquals(
+                dev.turboism.sdk.cubism.history.HistoryEditContext.Kind.OBJECT,
+                change.context().kind());
         final HistoryRelationChange relation = change.relation().orElseThrow();
         assertEquals(HistoryRelationChange.Kind.PART_MEMBERSHIP, relation.kind());
         assertRelationTarget(relation.before(), "PART", "Parent", "B");
@@ -720,13 +672,15 @@ class EditorObjectHierarchyEditAccessTest {
 
         child.setParent(model.parts().find(new PartId("Root")), 0);
         final HistoryEntryDetail first = lastHistoryDetail(resolver);
-        final HistoryRelationChange firstRelation = first.changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange firstRelation =
+                first.changes().get(0).relation().orElseThrow();
         assertRelationTarget(firstRelation.before(), "PART", "Parent", "A");
         assertRelationTarget(firstRelation.after(), "PART", "Root", "B");
 
         child.setParent(model.parts().find(new PartId("Final")), -1);
         final HistoryEntryDetail second = lastHistoryDetail(resolver);
-        final HistoryRelationChange secondRelation = second.changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange secondRelation =
+                second.changes().get(0).relation().orElseThrow();
         assertRelationTarget(secondRelation.before(), "PART", "Root", "B");
         assertRelationTarget(secondRelation.after(), "PART", "Final", "C");
 
@@ -747,9 +701,7 @@ class EditorObjectHierarchyEditAccessTest {
         final VerifiedMemberResolver resolver = relationAliasResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
-        model.drawables().find(new ArtMeshId("MeshA")).setTargetDeformer(
-            Optional.of(new DeformerId("RotationA"))
-        );
+        model.drawables().find(new ArtMeshId("MeshA")).setTargetDeformer(Optional.of(new DeformerId("RotationA")));
 
         assertEquals(1, fixture.editMode.edits.size());
         assertEquals(1, fixture.document.undoManager.entries.size());
@@ -757,7 +709,8 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(fixture.rotationSource.guid, fixture.meshSource.targetDeformerGuid);
         final HistoryEntryDetail detail = lastHistoryDetail(resolver);
         assertEquals(1, detail.changes().size());
-        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange relation =
+                detail.changes().get(0).relation().orElseThrow();
         assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT, relation.kind());
         assertRelationTarget(relation.before(), "WARP_DEFORMER", "WarpA", "WarpA");
         assertRelationTarget(relation.after(), "ROTATION_DEFORMER", "RotationA", "RotationA");
@@ -777,9 +730,7 @@ class EditorObjectHierarchyEditAccessTest {
         final VerifiedMemberResolver resolver = relationAliasResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
-        model.warpDeformers().find(new DeformerId("WarpA")).setTargetDeformer(
-            Optional.of(new DeformerId("WarpB"))
-        );
+        model.warpDeformers().find(new DeformerId("WarpA")).setTargetDeformer(Optional.of(new DeformerId("WarpB")));
 
         assertEquals(1, fixture.editMode.edits.size());
         assertEquals(1, fixture.document.undoManager.entries.size());
@@ -787,7 +738,8 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(fixture.warpTargetSource.guid, fixture.warpSource.targetDeformerGuid);
         final HistoryEntryDetail detail = lastHistoryDetail(resolver);
         assertEquals(1, detail.changes().size());
-        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange relation =
+                detail.changes().get(0).relation().orElseThrow();
         assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT, relation.kind());
         assertRelationTarget(relation.before(), "ROTATION_DEFORMER", "RotationA", "RotationA");
         assertRelationTarget(relation.after(), "WARP_DEFORMER", "WarpB", "WarpB");
@@ -803,14 +755,13 @@ class EditorObjectHierarchyEditAccessTest {
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
-        model.drawables().find(new ArtMeshId("MeshA")).setParent(
-            model.rotationDeformers().find(new DeformerId("MeshA")),
-            -1
-        );
+        model.drawables()
+                .find(new ArtMeshId("MeshA"))
+                .setParent(model.rotationDeformers().find(new DeformerId("MeshA")), -1);
 
         assertEquals(fixture.rotationSource.guid, fixture.meshSource.targetDeformerGuid);
-        final HistoryRelationChange relation = lastHistoryDetail(resolver)
-            .changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange relation =
+                lastHistoryDetail(resolver).changes().get(0).relation().orElseThrow();
         assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT, relation.kind());
         assertRelationTarget(relation.before(), "WARP_DEFORMER", "WarpA", "WarpA");
         assertRelationTarget(relation.after(), "ROTATION_DEFORMER", "MeshA", "Rotation with Mesh ID");
@@ -826,17 +777,17 @@ class EditorObjectHierarchyEditAccessTest {
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
-        model.drawables().find(new ArtMeshId("MeshA")).setParent(
-            model.warpDeformers().find(new DeformerId("WarpA")),
-            -1
-        );
+        model.drawables()
+                .find(new ArtMeshId("MeshA"))
+                .setParent(model.warpDeformers().find(new DeformerId("WarpA")), -1);
 
         assertEquals(fixture.warpSource.guid, fixture.meshSource.targetDeformerGuid);
         assertEquals(1, fixture.editMode.edits.size());
         assertEquals(1, fixture.document.undoManager.entries.size());
         final HistoryEntryDetail detail = lastHistoryDetail(resolver);
         assertEquals(HistoryAction.DetailLevel.FULL, detail.detailLevel());
-        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange relation =
+                detail.changes().get(0).relation().orElseThrow();
         assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT, relation.kind());
         assertEquals(HistoryRelationChange.State.ROOT, relation.before().state());
         assertTrue(relation.before().target().isEmpty());
@@ -860,15 +811,14 @@ class EditorObjectHierarchyEditAccessTest {
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
-        model.parts().find(new PartId("Child")).setParent(
-            model.parts().find(new PartId("Root")),
-            0
-        );
+        model.parts().find(new PartId("Child")).setParent(model.parts().find(new PartId("Root")), 0);
 
-        final HistoryRelationChange relation = lastHistoryDetail(resolver)
-            .changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange relation =
+                lastHistoryDetail(resolver).changes().get(0).relation().orElseThrow();
         assertEquals("B", relation.before().target().orElseThrow().displayName().orElseThrow());
-        assertEquals("Actual C", relation.after().target().orElseThrow().displayName().orElseThrow());
+        assertEquals(
+                "Actual C",
+                relation.after().target().orElseThrow().displayName().orElseThrow());
     }
 
     @Test
@@ -882,15 +832,13 @@ class EditorObjectHierarchyEditAccessTest {
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
-        model.parts().find(new PartId("Child")).setParent(
-            model.parts().find(new PartId("Root")),
-            0
-        );
+        model.parts().find(new PartId("Child")).setParent(model.parts().find(new PartId("Root")), 0);
 
         final HistoryEntryDetail detail = lastHistoryDetail(resolver);
         assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
         assertEquals(Optional.of("history.capture.after-unavailable"), detail.degradationCode());
-        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange relation =
+                detail.changes().get(0).relation().orElseThrow();
         assertRelationTarget(relation.before(), "PART", "Parent", "B");
         assertEquals(HistoryRelationChange.State.UNKNOWN, relation.after().state());
         assertTrue(relation.after().target().isEmpty());
@@ -914,8 +862,7 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(0, fixture.editMode.edits.size());
 
         fixture.source.allObjects.add(new PartSource("Foreign", fixture.source));
-        assertThrows(NoSuchElementException.class,
-            () -> model.parts().find(new PartId("Foreign")));
+        assertThrows(NoSuchElementException.class, () -> model.parts().find(new PartId("Foreign")));
         assertEquals(0, fixture.editMode.edits.size());
 
         fixture.replacePartWithSameId();
@@ -928,13 +875,13 @@ class EditorObjectHierarchyEditAccessTest {
         rejected.rootPart.handlerUnavailable = true;
         Host.document = rejected.document;
         final VerifiedMemberResolver rejectedResolver = centralResolver("5.3.02");
-        final var rejectedModel = new EditorBackedCubismModelAccess(
-            rejectedResolver,
-            "session-a"
-        ).active();
-        assertThrows(IllegalStateException.class, () -> rejectedModel.parts().find(
-            new PartId("Child")
-        ).setParent(rejectedModel.parts().find(new PartId("Root")), 0));
+        final var rejectedModel = new EditorBackedCubismModelAccess(rejectedResolver, "session-a").active();
+        assertThrows(
+                IllegalStateException.class,
+                () -> rejectedModel
+                        .parts()
+                        .find(new PartId("Child"))
+                        .setParent(rejectedModel.parts().find(new PartId("Root")), 0));
         assertEquals("Parent", rejected.childPart.parent().id().value());
         assertEquals(0, rejected.rootPart.addChildCalls);
         assertEquals(0, rejected.document.undoManager.entries.size());
@@ -965,7 +912,8 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(1, fixture.editMode.edits.size());
         assertEquals(1, fixture.document.undoManager.entries.size());
         final HistoryEntryDetail detail = lastHistoryDetail(resolver);
-        assertTrue(detail.changes().stream().noneMatch(change -> change.relation().isPresent()));
+        assertTrue(
+                detail.changes().stream().noneMatch(change -> change.relation().isPresent()));
     }
 
     @Test
@@ -975,23 +923,14 @@ class EditorObjectHierarchyEditAccessTest {
         Host.document = fixture.document;
         final VerifiedMemberResolver resolver = relationAliasResolver("5.3.02");
         final var access = new EditorBackedCubismModelAccess(resolver, "session-a");
-        final var service = ((RuntimeAuthoringTransactionProvider) access)
-            .authoringTransactions("plugin.test");
+        final var service = ((RuntimeAuthoringTransactionProvider) access).authoringTransactions("plugin.test");
 
-        final var result = service.execute(
-            AuthoringTransactionOptions.of("Move hierarchy"),
-            () -> {
-                final var model = access.active();
-                model.parts().find(new PartId("Child")).setParent(
-                    model.parts().find(new PartId("Root")),
-                    0
-                );
-                model.drawables().find(new ArtMeshId("MeshA")).setTargetDeformer(
-                    Optional.of(new DeformerId("RotationA"))
-                );
-                return "done";
-            }
-        );
+        final var result = service.execute(AuthoringTransactionOptions.of("Move hierarchy"), () -> {
+            final var model = access.active();
+            model.parts().find(new PartId("Child")).setParent(model.parts().find(new PartId("Root")), 0);
+            model.drawables().find(new ArtMeshId("MeshA")).setTargetDeformer(Optional.of(new DeformerId("RotationA")));
+            return "done";
+        });
 
         assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
         assertEquals(Optional.of("done"), result.value());
@@ -1001,33 +940,27 @@ class EditorObjectHierarchyEditAccessTest {
         final HistoryEntryDetail detail = lastHistoryDetail(resolver);
         assertEquals(HistoryAction.DetailLevel.FULL, detail.detailLevel());
         assertEquals(2, detail.changes().size());
-        assertEquals(HistoryRelationChange.Kind.PART_MEMBERSHIP,
-            detail.changes().get(0).relation().orElseThrow().kind());
-        assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT,
-            detail.changes().get(1).relation().orElseThrow().kind());
+        assertEquals(
+                HistoryRelationChange.Kind.PART_MEMBERSHIP,
+                detail.changes().get(0).relation().orElseThrow().kind());
+        assertEquals(
+                HistoryRelationChange.Kind.DEFORMER_PARENT,
+                detail.changes().get(1).relation().orElseThrow().kind());
         assertEquals(2, detail.group().orElseThrow().children().size());
         // One host attach Undo entry for the Part membership, one child-side entry for the move.
         assertEquals(2, fixture.editMode.edits.get(0).children.size());
     }
 
     private static HistoryEntryDetail lastHistoryDetail(final VerifiedMemberResolver resolver) {
-        final var snapshot = new EditorHistorySnapshotProvider(
-            () -> Optional.of(resolver),
-            () -> 1
-        ).snapshot();
-        assertEquals(dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE,
-            snapshot.availability());
+        final var snapshot = new EditorHistorySnapshotProvider(() -> Optional.of(resolver), () -> 1).snapshot();
+        assertEquals(dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE, snapshot.availability());
         assertEquals(snapshot.entries().size(), snapshot.position());
         assertFalse(snapshot.entries().isEmpty());
         return snapshot.entries().get(snapshot.entries().size() - 1).detail();
     }
 
     private static void assertRelationTarget(
-        final HistoryRelationChange.Endpoint endpoint,
-        final String type,
-        final String id,
-        final String name
-    ) {
+            final HistoryRelationChange.Endpoint endpoint, final String type, final String id, final String name) {
         assertEquals(HistoryRelationChange.State.TARGET, endpoint.state());
         final var target = endpoint.target().orElseThrow();
         assertEquals(type, target.type());
@@ -1051,12 +984,11 @@ class EditorObjectHierarchyEditAccessTest {
             capabilities.add(EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID);
         }
         return TestVerifiedResolvers.create(
-            cubismVersion,
-            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
-            capabilities,
-            selectors(),
-            Host.class.getClassLoader()
-        );
+                cubismVersion,
+                EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+                capabilities,
+                selectors(),
+                Host.class.getClassLoader());
     }
 
     private static VerifiedMemberResolver centralResolver(final String cubismVersion) {
@@ -1070,12 +1002,11 @@ class EditorObjectHierarchyEditAccessTest {
         capabilities.add(EditorHistoryReadSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorPartStructureSelectorContract.CAPABILITY_ID);
         return TestVerifiedResolvers.create(
-            cubismVersion,
-            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
-            capabilities,
-            selectors(),
-            Host.class.getClassLoader()
-        );
+                cubismVersion,
+                EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+                capabilities,
+                selectors(),
+                Host.class.getClassLoader());
     }
 
     private static VerifiedMemberResolver relationAliasResolver(final String cubismVersion) {
@@ -1091,12 +1022,11 @@ class EditorObjectHierarchyEditAccessTest {
         capabilities.add(EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorDeformerInspectorSelectorContract.CAPABILITY_ID);
         return TestVerifiedResolvers.create(
-            cubismVersion,
-            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
-            capabilities,
-            relationSelectors(),
-            Host.class.getClassLoader()
-        );
+                cubismVersion,
+                EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+                capabilities,
+                relationSelectors(),
+                Host.class.getClassLoader());
     }
 
     private static VerifiedMemberResolver resolverWithoutHierarchyCapability() {
@@ -1104,140 +1034,355 @@ class EditorObjectHierarchyEditAccessTest {
         capabilities.add(EditorPartNameSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
         return TestVerifiedResolvers.create(
-            "5.3.02",
-            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
-            capabilities,
-            selectors(),
-            Host.class.getClassLoader()
-        );
+                "5.3.02",
+                EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+                capabilities,
+                selectors(),
+                Host.class.getClassLoader());
     }
 
     private static List<StaticSelector> selectors() {
         final List<StaticSelector> selectors = new ArrayList<>();
         selectors.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
         selectors.add(StaticSelector.staticMethod(
-            "cubism.editor-model.app-controller.instance", internal(Host.class), "instance",
-            desc(Host.class), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
-        ));
-        selectors.add(method("cubism.editor-model.app-controller.current-document", Host.class, "currentDocument", desc(Document.class)));
-        selectors.add(method("cubism.editor-model.app-controller.complete-pack", Host.class, "completePack", desc(CompletePack.class)));
-        selectors.add(method("cubism.editor-model.app-controller.update-manager", Host.class, "updateManager", desc(UpdateManager.class)));
+                "cubism.editor-model.app-controller.instance",
+                internal(Host.class),
+                "instance",
+                desc(Host.class),
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        selectors.add(method(
+                "cubism.editor-model.app-controller.current-document",
+                Host.class,
+                "currentDocument",
+                desc(Document.class)));
+        selectors.add(method(
+                "cubism.editor-model.app-controller.complete-pack",
+                Host.class,
+                "completePack",
+                desc(CompletePack.class)));
+        selectors.add(method(
+                "cubism.editor-model.app-controller.update-manager",
+                Host.class,
+                "updateManager",
+                desc(UpdateManager.class)));
         selectors.add(method("cubism.editor-model.app-controller.command-delete", Host.class, "commandDelete", "()V"));
-        selectors.add(method("cubism.editor-model.app-controller.command-delete-deformer-and-set-param", Host.class, "commandDeleteDeformerAndSetParam", "()V"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.update-manager.class", internal(UpdateManager.class)));
-        selectors.add(method("cubism.editor-model.update-manager.set-selection", UpdateManager.class, "setSelection", "(Ljava/lang/Object;Ljava/util/List;ZZ)V"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
-        selectors.add(method("cubism.editor-model.modeling-document.model-source", Document.class, "modelSource", desc(ModelSource.class)));
-        selectors.add(method("cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
-        selectors.add(method("cubism.editor-history.document.undo-manager", Document.class, "undoManager", desc(UndoManager.class)));
+        selectors.add(method(
+                "cubism.editor-model.app-controller.command-delete-deformer-and-set-param",
+                Host.class,
+                "commandDeleteDeformerAndSetParam",
+                "()V"));
+        selectors.add(StaticSelector.classSelector(
+                "cubism.editor-model.update-manager.class", internal(UpdateManager.class)));
+        selectors.add(method(
+                "cubism.editor-model.update-manager.set-selection",
+                UpdateManager.class,
+                "setSelection",
+                "(Ljava/lang/Object;Ljava/util/List;ZZ)V"));
+        selectors.add(
+                StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
+        selectors.add(method(
+                "cubism.editor-model.modeling-document.model-source",
+                Document.class,
+                "modelSource",
+                desc(ModelSource.class)));
+        selectors.add(method(
+                "cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
+        selectors.add(method(
+                "cubism.editor-history.document.undo-manager", Document.class, "undoManager", desc(UndoManager.class)));
         selectors.add(method("cubism.editor-model.modeling-document.mark-dirty", Document.class, "markDirty", "()V"));
-        selectors.add(method("cubism.editor-model.edit-mode.begin", EditMode.class, "begin", "(Ljava/lang/String;)" + type(GroupUndo.class)));
+        selectors.add(method(
+                "cubism.editor-model.edit-mode.begin",
+                EditMode.class,
+                "begin",
+                "(Ljava/lang/String;)" + type(GroupUndo.class)));
         selectors.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "end", "(ZLjava/lang/Object;)V"));
         selectors.add(method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(" + type(Undo.class) + "Z)Z"));
-        selectors.add(method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
+        selectors.add(method(
+                "cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
         selectors.add(StaticSelector.classSelector("cubism.editor-history.manager.class", internal(UndoManager.class)));
-        selectors.add(method("cubism.editor-history.manager.entries", UndoManager.class, "entries", "()Ljava/util/List;"));
+        selectors.add(
+                method("cubism.editor-history.manager.entries", UndoManager.class, "entries", "()Ljava/util/List;"));
         selectors.add(method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"));
         selectors.add(method("cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Z"));
         selectors.add(method("cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Z"));
         selectors.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(UndoEntry.class)));
-        selectors.add(method("cubism.editor-history.entry.presentation-name", UndoEntry.class, "presentationName", "()Ljava/lang/String;"));
+        selectors.add(method(
+                "cubism.editor-history.entry.presentation-name",
+                UndoEntry.class,
+                "presentationName",
+                "()Ljava/lang/String;"));
         selectors.add(method("cubism.editor-history.entry.significant", UndoEntry.class, "significant", "()Z"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
+        selectors.add(
+                StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.model.class", internal(Model.class)));
         selectors.add(method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)));
-        selectors.add(method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", desc(Model.class)));
+        selectors.add(method(
+                "cubism.editor-model.model-source.current-instance",
+                ModelSource.class,
+                "currentInstance",
+                desc(Model.class)));
         selectors.add(method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"));
         selectors.add(method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"));
         selectors.add(method("cubism.editor-model.part-id.value", Id.class, "value", "()Ljava/lang/String;"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.part-id.class", internal(Id.class)));
-        selectors.add(method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
-        selectors.add(method("cubism.editor-model.model-source.update-visible-lock-hierarchy", ModelSource.class, "updateVisibleAndLockHierarchy", "()V"));
-        selectors.add(method("cubism.editor-model.model-source.parts", ModelSource.class, "allParts", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-model.model-source.all-deformers", ModelSource.class, "allDeformers", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-model.model-source.all-art-meshes", ModelSource.class, "allArtMeshes", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-model.model-source.all-objects", ModelSource.class, "allObjects", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-model.model-source.handler", ModelSource.class, "handler", desc(ModelHandler.class)));
-        selectors.add(method("cubism.editor-model.model-handler.add-source-undo", ModelHandler.class, "addSourceUndo", "(" + type(ObjectSource.class) + "I)" + type(Undo.class)));
-        selectors.add(method("cubism.editor-model.model-source.part-source-set", ModelSource.class, "partSourceSet", desc(PartSourceSet.class)));
-        selectors.add(method("cubism.editor-model.model-source.deformer-source-set", ModelSource.class, "deformerSourceSet", desc(DeformerSourceSet.class)));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.part-source-set.class", internal(PartSourceSet.class)));
-        selectors.add(method("cubism.editor-model.part-source-set.add", PartSourceSet.class, "add", "(" + type(PartSource.class) + "I)V"));
-        selectors.add(method("cubism.editor-model.part-source-set.remove", PartSourceSet.class, "remove", "(" + type(PartSource.class) + ")V"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.deformer-source-set.class", internal(DeformerSourceSet.class)));
-        selectors.add(method("cubism.editor-model.deformer-source-set.add", DeformerSourceSet.class, "add", "(" + type(ACDeformerSource.class) + "I)V"));
-        selectors.add(method("cubism.editor-model.deformer-source-set.remove", DeformerSourceSet.class, "remove", "(" + type(ACDeformerSource.class) + ")V"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.drawable-source-set.class", internal(DrawableSourceSet.class)));
-        selectors.add(method("cubism.editor-model.drawable-source-set.remove", DrawableSourceSet.class, "remove", "(" + type(ACDrawableSource.class) + ")V"));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.part-source.create", internal(PartSource.class), "(" + type(ModelSource.class) + ")V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.warp-source.create", internal(WarpDeformerSource.class), "(" + type(ModelSource.class) + ")V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.rotation-source.create", internal(RotationDeformerSource.class), "(" + type(ModelSource.class) + ")V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.part-id.create", internal(Id.class), "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.deformer-id.create", internal(Id.class), "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(method("cubism.editor-model.part-source.set-id", PartSource.class, "setId", "(" + type(Id.class) + ")V"));
-        selectors.add(method("cubism.editor-model.deformer-source.set-id", ACDeformerSource.class, "setId", "(" + type(Id.class) + ")V"));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.part-form.create", internal(PartForm.class), "(" + type(PartSource.class) + "Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.warp-form.create", internal(WarpForm.class), "(" + type(WarpDeformerSource.class) + type(Warp.class) + type(CoordType.class) + ")V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.rotation-form.create", internal(RotationForm.class), "(" + type(RotationDeformerSource.class) + type(Rotation.class) + type(CoordType.class) + ")V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.form-guid.create", internal(Guid.class), "()V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(method("cubism.editor-model.form.set-guid", Form.class, "setGuid", "(" + type(Guid.class) + ")V"));
-        selectors.add(method("cubism.editor-model.part-source.keyforms", PartSource.class, "keyforms", desc(ObjectList.class)));
-        selectors.add(method("cubism.editor-model.warp-source.keyforms", WarpDeformerSource.class, "keyforms", desc(ObjectList.class)));
-        selectors.add(method("cubism.editor-model.rotation-source.keyforms", RotationDeformerSource.class, "keyforms", desc(ObjectList.class)));
+        selectors.add(method(
+                "cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
+        selectors.add(method(
+                "cubism.editor-model.model-source.update-visible-lock-hierarchy",
+                ModelSource.class,
+                "updateVisibleAndLockHierarchy",
+                "()V"));
+        selectors.add(
+                method("cubism.editor-model.model-source.parts", ModelSource.class, "allParts", "()Ljava/util/List;"));
+        selectors.add(method(
+                "cubism.editor-model.model-source.all-deformers",
+                ModelSource.class,
+                "allDeformers",
+                "()Ljava/util/List;"));
+        selectors.add(method(
+                "cubism.editor-model.model-source.all-art-meshes",
+                ModelSource.class,
+                "allArtMeshes",
+                "()Ljava/util/List;"));
+        selectors.add(method(
+                "cubism.editor-model.model-source.all-objects", ModelSource.class, "allObjects", "()Ljava/util/List;"));
+        selectors.add(method(
+                "cubism.editor-model.model-source.handler", ModelSource.class, "handler", desc(ModelHandler.class)));
+        selectors.add(method(
+                "cubism.editor-model.model-handler.add-source-undo",
+                ModelHandler.class,
+                "addSourceUndo",
+                "(" + type(ObjectSource.class) + "I)" + type(Undo.class)));
+        selectors.add(method(
+                "cubism.editor-model.model-source.part-source-set",
+                ModelSource.class,
+                "partSourceSet",
+                desc(PartSourceSet.class)));
+        selectors.add(method(
+                "cubism.editor-model.model-source.deformer-source-set",
+                ModelSource.class,
+                "deformerSourceSet",
+                desc(DeformerSourceSet.class)));
+        selectors.add(StaticSelector.classSelector(
+                "cubism.editor-model.part-source-set.class", internal(PartSourceSet.class)));
+        selectors.add(method(
+                "cubism.editor-model.part-source-set.add",
+                PartSourceSet.class,
+                "add",
+                "(" + type(PartSource.class) + "I)V"));
+        selectors.add(method(
+                "cubism.editor-model.part-source-set.remove",
+                PartSourceSet.class,
+                "remove",
+                "(" + type(PartSource.class) + ")V"));
+        selectors.add(StaticSelector.classSelector(
+                "cubism.editor-model.deformer-source-set.class", internal(DeformerSourceSet.class)));
+        selectors.add(method(
+                "cubism.editor-model.deformer-source-set.add",
+                DeformerSourceSet.class,
+                "add",
+                "(" + type(ACDeformerSource.class) + "I)V"));
+        selectors.add(method(
+                "cubism.editor-model.deformer-source-set.remove",
+                DeformerSourceSet.class,
+                "remove",
+                "(" + type(ACDeformerSource.class) + ")V"));
+        selectors.add(StaticSelector.classSelector(
+                "cubism.editor-model.drawable-source-set.class", internal(DrawableSourceSet.class)));
+        selectors.add(method(
+                "cubism.editor-model.drawable-source-set.remove",
+                DrawableSourceSet.class,
+                "remove",
+                "(" + type(ACDrawableSource.class) + ")V"));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.part-source.create",
+                internal(PartSource.class),
+                "(" + type(ModelSource.class) + ")V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.warp-source.create",
+                internal(WarpDeformerSource.class),
+                "(" + type(ModelSource.class) + ")V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.rotation-source.create",
+                internal(RotationDeformerSource.class),
+                "(" + type(ModelSource.class) + ")V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.part-id.create",
+                internal(Id.class),
+                "(Ljava/lang/String;)V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.deformer-id.create",
+                internal(Id.class),
+                "(Ljava/lang/String;)V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(method(
+                "cubism.editor-model.part-source.set-id", PartSource.class, "setId", "(" + type(Id.class) + ")V"));
+        selectors.add(method(
+                "cubism.editor-model.deformer-source.set-id",
+                ACDeformerSource.class,
+                "setId",
+                "(" + type(Id.class) + ")V"));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.part-form.create",
+                internal(PartForm.class),
+                "(" + type(PartSource.class) + "Ljava/lang/Object;)V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.warp-form.create",
+                internal(WarpForm.class),
+                "(" + type(WarpDeformerSource.class) + type(Warp.class) + type(CoordType.class) + ")V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.rotation-form.create",
+                internal(RotationForm.class),
+                "(" + type(RotationDeformerSource.class) + type(Rotation.class) + type(CoordType.class) + ")V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.form-guid.create", internal(Guid.class), "()V", StaticSelector.ACCESS_PUBLIC));
+        selectors.add(
+                method("cubism.editor-model.form.set-guid", Form.class, "setGuid", "(" + type(Guid.class) + ")V"));
+        selectors.add(method(
+                "cubism.editor-model.part-source.keyforms", PartSource.class, "keyforms", desc(ObjectList.class)));
+        selectors.add(method(
+                "cubism.editor-model.warp-source.keyforms",
+                WarpDeformerSource.class,
+                "keyforms",
+                desc(ObjectList.class)));
+        selectors.add(method(
+                "cubism.editor-model.rotation-source.keyforms",
+                RotationDeformerSource.class,
+                "keyforms",
+                desc(ObjectList.class)));
         selectors.add(method("cubism.editor-model.c-array-list.add", ObjectList.class, "add", "(Ljava/lang/Object;)Z"));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.keyform-grid-source.create", internal(KeyformGridSource.class), "(" + type(ObjectSource.class) + ")V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(method("cubism.editor-model.keyform-grid-source.import-cubism21", KeyformGridSource.class, "importCubism21", "(" + type(ModelSource.class) + "Ljava/util/List;Ljava/util/List;Ljava/lang/Object;)V"));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.set-keyform-grid-source", ObjectSource.class, "setKeyformGridSource", "(" + type(KeyformGridSource.class) + ")V"));
-        selectors.add(StaticSelector.staticMethod("cubism.editor-model.coord-type.canvas", internal(CoordType.class), "canvas", desc(CoordType.class), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.keyform-grid-source.create",
+                internal(KeyformGridSource.class),
+                "(" + type(ObjectSource.class) + ")V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(method(
+                "cubism.editor-model.keyform-grid-source.import-cubism21",
+                KeyformGridSource.class,
+                "importCubism21",
+                "(" + type(ModelSource.class) + "Ljava/util/List;Ljava/util/List;Ljava/lang/Object;)V"));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.set-keyform-grid-source",
+                ObjectSource.class,
+                "setKeyformGridSource",
+                "(" + type(KeyformGridSource.class) + ")V"));
+        selectors.add(StaticSelector.staticMethod(
+                "cubism.editor-model.coord-type.canvas",
+                internal(CoordType.class),
+                "canvas",
+                desc(CoordType.class),
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
         selectors.add(method("cubism.editor-model.warp-source.set-col", WarpDeformerSource.class, "setCol", "(I)V"));
         selectors.add(method("cubism.editor-model.warp-source.set-row", WarpDeformerSource.class, "setRow", "(I)V"));
-        selectors.add(method("cubism.editor-model.warp-source.set-quad-transform", WarpDeformerSource.class, "setQuadTransform", "(Z)V"));
+        selectors.add(method(
+                "cubism.editor-model.warp-source.set-quad-transform",
+                WarpDeformerSource.class,
+                "setQuadTransform",
+                "(Z)V"));
         selectors.add(method("cubism.editor-model.warp-source.col", WarpDeformerSource.class, "col", "()I"));
         selectors.add(method("cubism.editor-model.warp-source.row", WarpDeformerSource.class, "row", "()I"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.part-source.class", internal(PartSource.class)));
+        selectors.add(
+                StaticSelector.classSelector("cubism.editor-model.part-source.class", internal(PartSource.class)));
         selectors.add(method("cubism.editor-model.part-source.id", PartSource.class, "id", desc(Id.class)));
-        selectors.add(method("cubism.editor-model.part-source.local-name", ObjectSource.class, "localName", "()Ljava/lang/String;"));
-        selectors.add(method("cubism.editor-model.part-source.parent", ObjectSource.class, "parent", desc(PartSource.class)));
-        selectors.add(method("cubism.editor-model.part-source.children", PartSource.class, "children", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-model.part-source.add-child", PartSource.class, "addChild", "(" + type(ObjectSource.class) + "I)V"));
+        selectors.add(method(
+                "cubism.editor-model.part-source.local-name", ObjectSource.class, "localName", "()Ljava/lang/String;"));
+        selectors.add(
+                method("cubism.editor-model.part-source.parent", ObjectSource.class, "parent", desc(PartSource.class)));
+        selectors.add(
+                method("cubism.editor-model.part-source.children", PartSource.class, "children", "()Ljava/util/List;"));
+        selectors.add(method(
+                "cubism.editor-model.part-source.add-child",
+                PartSource.class,
+                "addChild",
+                "(" + type(ObjectSource.class) + "I)V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.part.class", internal(HostPart.class)));
         selectors.add(method("cubism.editor-model.part.source", HostPart.class, "source", desc(PartSource.class)));
         selectors.add(method("cubism.editor-model.model.parts", Model.class, "allParts", "()Ljava/util/List;"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.warp-source.class", internal(WarpDeformerSource.class)));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.rotation-source.class", internal(RotationDeformerSource.class)));
+        selectors.add(StaticSelector.classSelector(
+                "cubism.editor-model.warp-source.class", internal(WarpDeformerSource.class)));
+        selectors.add(StaticSelector.classSelector(
+                "cubism.editor-model.rotation-source.class", internal(RotationDeformerSource.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.warp.class", internal(Warp.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.rotation.class", internal(Rotation.class)));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.art-mesh-source.class", internal(ACDrawableSource.class)));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.art-mesh-source.create", internal(ACDrawableSource.class), "(" + type(ModelSource.class) + ")V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.drawable-id.create", internal(Id.class), "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(method("cubism.editor-model.drawable-source.set-id", ACDrawableSource.class, "setId", "(" + type(Id.class) + ")V"));
-        selectors.add(method("cubism.editor-model.art-mesh-source.keyforms", ACDrawableSource.class, "keyforms", desc(ObjectList.class)));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.art-mesh-form.create", internal(ArtMeshForm.class), "(" + type(ACDrawableSource.class) + type(ArtMesh.class) + type(CoordType.class) + ")V", StaticSelector.ACCESS_PUBLIC));
-        selectors.add(method("cubism.editor-model.art-mesh-form.set-positions", ArtMeshForm.class, "setPositions", "([F)V"));
-        selectors.add(method("cubism.editor-model.art-mesh-source.set-positions", ACDrawableSource.class, "setPositions", "([F)V"));
+        selectors.add(StaticSelector.classSelector(
+                "cubism.editor-model.art-mesh-source.class", internal(ACDrawableSource.class)));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.art-mesh-source.create",
+                internal(ACDrawableSource.class),
+                "(" + type(ModelSource.class) + ")V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.drawable-id.create",
+                internal(Id.class),
+                "(Ljava/lang/String;)V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(method(
+                "cubism.editor-model.drawable-source.set-id",
+                ACDrawableSource.class,
+                "setId",
+                "(" + type(Id.class) + ")V"));
+        selectors.add(method(
+                "cubism.editor-model.art-mesh-source.keyforms",
+                ACDrawableSource.class,
+                "keyforms",
+                desc(ObjectList.class)));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.art-mesh-form.create",
+                internal(ArtMeshForm.class),
+                "(" + type(ACDrawableSource.class) + type(ArtMesh.class) + type(CoordType.class) + ")V",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(
+                method("cubism.editor-model.art-mesh-form.set-positions", ArtMeshForm.class, "setPositions", "([F)V"));
+        selectors.add(method(
+                "cubism.editor-model.art-mesh-source.set-positions", ACDrawableSource.class, "setPositions", "([F)V"));
         selectors.add(method("cubism.editor-model.art-mesh-source.set-uvs", ACDrawableSource.class, "setUvs", "([F)V"));
-        selectors.add(method("cubism.editor-model.art-mesh-source.set-indices", ACDrawableSource.class, "setIndices", "([I)V"));
+        selectors.add(method(
+                "cubism.editor-model.art-mesh-source.set-indices", ACDrawableSource.class, "setIndices", "([I)V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.art-mesh.class", internal(ArtMesh.class)));
-        selectors.add(method("cubism.editor-model.deformer.source", Deformer.class, "source", desc(ObjectSource.class)));
-        selectors.add(method("cubism.editor-model.art-mesh.source", ArtMesh.class, "source", desc(ACDrawableSource.class)));
-        selectors.add(method("cubism.editor-model.art-mesh.current-keyform", ArtMesh.class, "currentForm", desc(ArtMeshForm.class)));
+        selectors.add(
+                method("cubism.editor-model.deformer.source", Deformer.class, "source", desc(ObjectSource.class)));
+        selectors.add(
+                method("cubism.editor-model.art-mesh.source", ArtMesh.class, "source", desc(ACDrawableSource.class)));
+        selectors.add(method(
+                "cubism.editor-model.art-mesh.current-keyform", ArtMesh.class, "currentForm", desc(ArtMeshForm.class)));
         selectors.add(method("cubism.editor-model.art-mesh-form.positions", ArtMeshForm.class, "positions", "()[F"));
         selectors.add(method("cubism.editor-model.drawable-form.opacity", Form.class, "opacity", "()F"));
         selectors.add(method("cubism.editor-model.drawable-form.draw-order", Form.class, "drawOrder", "()I"));
-        selectors.add(method("cubism.editor-model.art-mesh-source.guid", ACDrawableSource.class, "guid", desc(Guid.class)));
-        selectors.add(method("cubism.editor-model.art-mesh-source.clip-guid-list", ACDrawableSource.class, "clipGuids", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-model.art-mesh-source.positions", ACDrawableSource.class, "positions", "()[F"));
+        selectors.add(
+                method("cubism.editor-model.art-mesh-source.guid", ACDrawableSource.class, "guid", desc(Guid.class)));
+        selectors.add(method(
+                "cubism.editor-model.art-mesh-source.clip-guid-list",
+                ACDrawableSource.class,
+                "clipGuids",
+                "()Ljava/util/List;"));
+        selectors.add(
+                method("cubism.editor-model.art-mesh-source.positions", ACDrawableSource.class, "positions", "()[F"));
         selectors.add(method("cubism.editor-model.art-mesh-source.uvs", ACDrawableSource.class, "uvs", "()[F"));
         selectors.add(method("cubism.editor-model.art-mesh-source.indices", ACDrawableSource.class, "indices", "()[I"));
         selectors.add(method("cubism.editor-model.art-mesh-source.culling", ACDrawableSource.class, "culling", "()Z"));
-        selectors.add(method("cubism.editor-model.art-mesh-source.user-data", ACDrawableSource.class, "userData", "()Ljava/lang/String;"));
-        selectors.add(method("cubism.editor-model.art-mesh-source.inverted-mask", ACDrawableSource.class, "invertedMask", "()Z"));
-        selectors.add(method("cubism.editor-model.deformer.current-keyform", Deformer.class, "currentForm", desc(Form.class)));
+        selectors.add(method(
+                "cubism.editor-model.art-mesh-source.user-data",
+                ACDrawableSource.class,
+                "userData",
+                "()Ljava/lang/String;"));
+        selectors.add(method(
+                "cubism.editor-model.art-mesh-source.inverted-mask", ACDrawableSource.class, "invertedMask", "()Z"));
+        selectors.add(method(
+                "cubism.editor-model.deformer.current-keyform", Deformer.class, "currentForm", desc(Form.class)));
         selectors.add(method("cubism.editor-model.deformer-form.opacity", Form.class, "opacity", "()F"));
-        selectors.add(method("cubism.editor-model.warp-source.quad-transform", WarpDeformerSource.class, "quadTransform", "()Z"));
+        selectors.add(method(
+                "cubism.editor-model.warp-source.quad-transform", WarpDeformerSource.class, "quadTransform", "()Z"));
         selectors.add(method("cubism.editor-model.warp-form.positions", WarpForm.class, "positions", "()[F"));
         selectors.add(method("cubism.editor-model.warp-form.set-positions", WarpForm.class, "setPositions", "([F)V"));
-        selectors.add(method("cubism.editor-model.rotation-source.base-angle", RotationDeformerSource.class, "baseAngle", "()F"));
+        selectors.add(method(
+                "cubism.editor-model.rotation-source.base-angle", RotationDeformerSource.class, "baseAngle", "()F"));
         selectors.add(method("cubism.editor-model.rotation-form.angle", RotationForm.class, "angle", "()F"));
         selectors.add(method("cubism.editor-model.rotation-form.origin-x", RotationForm.class, "originX", "()F"));
         selectors.add(method("cubism.editor-model.rotation-form.origin-y", RotationForm.class, "originY", "()F"));
@@ -1245,42 +1390,130 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.rotation-form.reflect-x", RotationForm.class, "reflectX", "()Z"));
         selectors.add(method("cubism.editor-model.rotation-form.reflect-y", RotationForm.class, "reflectY", "()Z"));
         selectors.add(method("cubism.editor-model.rotation-form.set-angle", RotationForm.class, "setAngle", "(F)V"));
-        selectors.add(method("cubism.editor-model.rotation-form.set-origin-x", RotationForm.class, "setOriginX", "(F)V"));
-        selectors.add(method("cubism.editor-model.rotation-form.set-origin-y", RotationForm.class, "setOriginY", "(F)V"));
+        selectors.add(
+                method("cubism.editor-model.rotation-form.set-origin-x", RotationForm.class, "setOriginX", "(F)V"));
+        selectors.add(
+                method("cubism.editor-model.rotation-form.set-origin-y", RotationForm.class, "setOriginY", "(F)V"));
         selectors.add(method("cubism.editor-model.rotation-form.set-scale", RotationForm.class, "setScale", "(F)V"));
-        selectors.add(method("cubism.editor-model.rotation-form.set-reflect-x", RotationForm.class, "setReflectX", "(Z)V"));
-        selectors.add(method("cubism.editor-model.rotation-form.set-reflect-y", RotationForm.class, "setReflectY", "(Z)V"));
-        selectors.add(method("cubism.editor-model.model-source.all-glues", ModelSource.class, "allGlues", "()Ljava/util/List;"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.glue-source.class", internal(GlueSource.class)));
-        selectors.add(method("cubism.editor-model.glue-source.target-art-mesh-a", GlueSource.class, "targetA", desc(ACDrawableSource.class)));
-        selectors.add(method("cubism.editor-model.glue-source.target-art-mesh-b", GlueSource.class, "targetB", desc(ACDrawableSource.class)));
-        selectors.add(method("cubism.editor-model.model.parameter-set", Model.class, "parameterSet", desc(ParameterSet.class)));
-        selectors.add(method("cubism.editor-model.parameter-set.parameters", ParameterSet.class, "parameters", "()Ljava/util/List;"));
+        selectors.add(
+                method("cubism.editor-model.rotation-form.set-reflect-x", RotationForm.class, "setReflectX", "(Z)V"));
+        selectors.add(
+                method("cubism.editor-model.rotation-form.set-reflect-y", RotationForm.class, "setReflectY", "(Z)V"));
+        selectors.add(method(
+                "cubism.editor-model.model-source.all-glues", ModelSource.class, "allGlues", "()Ljava/util/List;"));
+        selectors.add(
+                StaticSelector.classSelector("cubism.editor-model.glue-source.class", internal(GlueSource.class)));
+        selectors.add(method(
+                "cubism.editor-model.glue-source.target-art-mesh-a",
+                GlueSource.class,
+                "targetA",
+                desc(ACDrawableSource.class)));
+        selectors.add(method(
+                "cubism.editor-model.glue-source.target-art-mesh-b",
+                GlueSource.class,
+                "targetB",
+                desc(ACDrawableSource.class)));
+        selectors.add(method(
+                "cubism.editor-model.model.parameter-set", Model.class, "parameterSet", desc(ParameterSet.class)));
+        selectors.add(method(
+                "cubism.editor-model.parameter-set.parameters",
+                ParameterSet.class,
+                "parameters",
+                "()Ljava/util/List;"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.parameter.class", internal(Parameter.class)));
         selectors.add(method("cubism.editor-model.parameter.id", Parameter.class, "id", desc(Id.class)));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.visible", ObjectSource.class, "visible", "()Z"));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.locked", ObjectSource.class, "locked", "()Z"));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.visible-in-hierarchy", ObjectSource.class, "visibleInHierarchy", "()Z"));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.locked-in-hierarchy", ObjectSource.class, "lockedInHierarchy", "()Z"));
-        selectors.add(method("cubism.editor-model.model.all-deformers", Model.class, "allDeformers", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-model.model.all-art-meshes", Model.class, "allArtMeshes", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.id", ObjectSource.class, "id", desc(Id.class)));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.local-name", ObjectSource.class, "localName", "()Ljava/lang/String;"));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.set-local-name", ObjectSource.class, "setLocalName", "(Ljava/lang/String;)V"));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.guid", ObjectSource.class, "guid", desc(Guid.class)));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.handler", ObjectSource.class, "handler", desc(ACParameterControllableHandler.class)));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.target-deformer-guid", ObjectSource.class, "targetDeformerGuid", desc(Guid.class)));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.set-target-deformer-guid", ObjectSource.class, "setTargetDeformerGuid", "(" + type(Guid.class) + ")V"));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.all-parent-deformers", ObjectSource.class, "allParentDeformers", "()Ljava/lang/Iterable;"));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.target-deformer-source", ObjectSource.class, "targetDeformerSource", desc(ObjectSource.class)));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.parameter-controllable-handler.class", internal(ACParameterControllableHandler.class)));
-        selectors.add(method("cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit", ACParameterControllableHandler.class, "undo", "(Ljava/lang/String;)" + type(Undo.class)));
-        selectors.add(method("cubism.editor-model.part-source.handler", PartSource.class, "partHandler", "()" + type(PartHandler.class)));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.part-handler.class", internal(PartHandler.class)));
-        selectors.add(method("cubism.editor-model.part-handler.add-part-child", PartHandler.class, "addPartChild", "(" + type(ObjectSource.class) + "I)" + type(Undo.class)));
-        selectors.add(method("cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updatePartPalette", "(Z)V"));
-        selectors.add(method("cubism.editor-model.complete-pack.update-deformer-palette", CompletePack.class, "updateDeformerPalette", "(Z)V"));
-        selectors.add(method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaintCanvas", "(Z)V"));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.visible", ObjectSource.class, "visible", "()Z"));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.locked", ObjectSource.class, "locked", "()Z"));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.visible-in-hierarchy",
+                ObjectSource.class,
+                "visibleInHierarchy",
+                "()Z"));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy",
+                ObjectSource.class,
+                "lockedInHierarchy",
+                "()Z"));
+        selectors.add(
+                method("cubism.editor-model.model.all-deformers", Model.class, "allDeformers", "()Ljava/util/List;"));
+        selectors.add(
+                method("cubism.editor-model.model.all-art-meshes", Model.class, "allArtMeshes", "()Ljava/util/List;"));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.id", ObjectSource.class, "id", desc(Id.class)));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.local-name",
+                ObjectSource.class,
+                "localName",
+                "()Ljava/lang/String;"));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.set-local-name",
+                ObjectSource.class,
+                "setLocalName",
+                "(Ljava/lang/String;)V"));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.guid",
+                ObjectSource.class,
+                "guid",
+                desc(Guid.class)));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.handler",
+                ObjectSource.class,
+                "handler",
+                desc(ACParameterControllableHandler.class)));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.target-deformer-guid",
+                ObjectSource.class,
+                "targetDeformerGuid",
+                desc(Guid.class)));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.set-target-deformer-guid",
+                ObjectSource.class,
+                "setTargetDeformerGuid",
+                "(" + type(Guid.class) + ")V"));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.all-parent-deformers",
+                ObjectSource.class,
+                "allParentDeformers",
+                "()Ljava/lang/Iterable;"));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.target-deformer-source",
+                ObjectSource.class,
+                "targetDeformerSource",
+                desc(ObjectSource.class)));
+        selectors.add(StaticSelector.classSelector(
+                "cubism.editor-model.parameter-controllable-handler.class",
+                internal(ACParameterControllableHandler.class)));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                ACParameterControllableHandler.class,
+                "undo",
+                "(Ljava/lang/String;)" + type(Undo.class)));
+        selectors.add(method(
+                "cubism.editor-model.part-source.handler",
+                PartSource.class,
+                "partHandler",
+                "()" + type(PartHandler.class)));
+        selectors.add(
+                StaticSelector.classSelector("cubism.editor-model.part-handler.class", internal(PartHandler.class)));
+        selectors.add(method(
+                "cubism.editor-model.part-handler.add-part-child",
+                PartHandler.class,
+                "addPartChild",
+                "(" + type(ObjectSource.class) + "I)" + type(Undo.class)));
+        selectors.add(method(
+                "cubism.editor-model.complete-pack.update-part-palette",
+                CompletePack.class,
+                "updatePartPalette",
+                "(Z)V"));
+        selectors.add(method(
+                "cubism.editor-model.complete-pack.update-deformer-palette",
+                CompletePack.class,
+                "updateDeformerPalette",
+                "(Z)V"));
+        selectors.add(method(
+                "cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaintCanvas", "(Z)V"));
         return selectors;
     }
 
@@ -1294,13 +1527,12 @@ class EditorObjectHierarchyEditAccessTest {
     private static List<StaticSelector> relationSelectors() {
         final List<StaticSelector> selectors = new ArrayList<>(selectors());
         selectors.add(StaticSelector.classSelector(
-            "cubism.editor-model.deformer-source.class", internal(ACDeformerSource.class)));
-        selectors.add(method(
-            "cubism.editor-model.deformer-source.guid", ObjectSource.class, "guid", desc(Guid.class)));
+                "cubism.editor-model.deformer-source.class", internal(ACDeformerSource.class)));
+        selectors.add(method("cubism.editor-model.deformer-source.guid", ObjectSource.class, "guid", desc(Guid.class)));
         final java.util.Set<String> recorded = new java.util.HashSet<>();
         for (final StaticSelector selector : selectors) recorded.add(selector.alias());
         final java.util.Set<String> required =
-            new java.util.HashSet<>(EditorInspectorDrawableWriteSelectorContract.REQUIRED_ALIASES);
+                new java.util.HashSet<>(EditorInspectorDrawableWriteSelectorContract.REQUIRED_ALIASES);
         required.addAll(EditorDeformerInspectorSelectorContract.REQUIRED_ALIASES);
         required.addAll(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.REQUIRED_ALIASES);
         for (final String alias : required) {
@@ -1312,14 +1544,21 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     private static StaticSelector method(
-        final String alias, final Class<?> owner, final String name, final String descriptor
-    ) {
+            final String alias, final Class<?> owner, final String name, final String descriptor) {
         return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
-    private static String internal(final Class<?> type) { return type.getName().replace('.', '/'); }
-    private static String type(final Class<?> type) { return "L" + internal(type) + ";"; }
-    private static String desc(final Class<?> type) { return "()" + type(type); }
+    private static String internal(final Class<?> type) {
+        return type.getName().replace('.', '/');
+    }
+
+    private static String type(final Class<?> type) {
+        return "L" + internal(type) + ";";
+    }
+
+    private static String desc(final Class<?> type) {
+        return "()" + type(type);
+    }
 
     // ------------------------------------------------------------------
     // fixture: host surface mirroring the verified native members
@@ -1329,14 +1568,27 @@ class EditorObjectHierarchyEditAccessTest {
         private static final Host INSTANCE = new Host();
         static Document document;
 
-        public static Host instance() { return INSTANCE; }
-        public Document currentDocument() { return document; }
-        public CompletePack completePack() { return document.pack; }
-        public UpdateManager updateManager() { return document.updateManager; }
+        public static Host instance() {
+            return INSTANCE;
+        }
+
+        public Document currentDocument() {
+            return document;
+        }
+
+        public CompletePack completePack() {
+            return document.pack;
+        }
+
+        public UpdateManager updateManager() {
+            return document.updateManager;
+        }
+
         public void commandDelete() {
             document.deleteCount++;
             document.source.commandDelete();
         }
+
         public void commandDeleteDeformerAndSetParam() {
             document.applyCount++;
             document.source.commandDeleteDeformerAndSetParam();
@@ -1352,14 +1604,27 @@ class EditorObjectHierarchyEditAccessTest {
         int deleteCount;
         int applyCount;
         boolean dirty;
+
         Document(final ModelSource source) {
             this.source = source;
             this.editMode = new EditMode(this);
         }
-        public ModelSource modelSource() { return source; }
-        public EditMode editMode() { return editMode; }
-        public UndoManager undoManager() { return undoManager; }
-        public void markDirty() { dirty = true; }
+
+        public ModelSource modelSource() {
+            return source;
+        }
+
+        public EditMode editMode() {
+            return editMode;
+        }
+
+        public UndoManager undoManager() {
+            return undoManager;
+        }
+
+        public void markDirty() {
+            dirty = true;
+        }
     }
 
     public static final class ModelSource {
@@ -1375,19 +1640,57 @@ class EditorObjectHierarchyEditAccessTest {
         int hierarchyUpdateCount;
         boolean applyNoop;
 
-        public String name() { return "Fixture Model"; }
-        public Id guid() { return guid; }
-        public Model currentInstance() { return model; }
-        public List<PartSource> allParts() { return partSet.sources; }
-        public List<ACDeformerSource> allDeformers() { return deformerSet.sources; }
-        public List<ACDrawableSource> allArtMeshes() { return drawableSet.sources; }
-        public List<ObjectSource> allObjects() { return allObjects; }
-        public ModelHandler handler() { return handler; }
-        public PartSourceSet partSourceSet() { return partSet; }
-        public DeformerSourceSet deformerSourceSet() { return deformerSet; }
-        public List<Object> allGlues() { return List.of(); }
-        public void updateVisibleAndLockHierarchy() { hierarchyUpdateCount++; }
-        public void updateInstances() { updateCount++; }
+        public String name() {
+            return "Fixture Model";
+        }
+
+        public Id guid() {
+            return guid;
+        }
+
+        public Model currentInstance() {
+            return model;
+        }
+
+        public List<PartSource> allParts() {
+            return partSet.sources;
+        }
+
+        public List<ACDeformerSource> allDeformers() {
+            return deformerSet.sources;
+        }
+
+        public List<ACDrawableSource> allArtMeshes() {
+            return drawableSet.sources;
+        }
+
+        public List<ObjectSource> allObjects() {
+            return allObjects;
+        }
+
+        public ModelHandler handler() {
+            return handler;
+        }
+
+        public PartSourceSet partSourceSet() {
+            return partSet;
+        }
+
+        public DeformerSourceSet deformerSourceSet() {
+            return deformerSet;
+        }
+
+        public List<Object> allGlues() {
+            return List.of();
+        }
+
+        public void updateVisibleAndLockHierarchy() {
+            hierarchyUpdateCount++;
+        }
+
+        public void updateInstances() {
+            updateCount++;
+        }
 
         ObjectSource findByGuid(final Guid target) {
             for (ObjectSource candidate : allObjects) {
@@ -1435,19 +1738,38 @@ class EditorObjectHierarchyEditAccessTest {
         final List<Deformer> deformers = new ArrayList<>();
         final List<ArtMesh> meshes = new ArrayList<>();
         final ModelSource source;
-        Model(final ModelSource source) { this.source = source; }
-        public List<HostPart> allParts() { return parts; }
-        public List<Deformer> allDeformers() { return deformers; }
-        public List<ArtMesh> allArtMeshes() { return meshes; }
-        public ParameterSet parameterSet() { return new ParameterSet(); }
+
+        Model(final ModelSource source) {
+            this.source = source;
+        }
+
+        public List<HostPart> allParts() {
+            return parts;
+        }
+
+        public List<Deformer> allDeformers() {
+            return deformers;
+        }
+
+        public List<ArtMesh> allArtMeshes() {
+            return meshes;
+        }
+
+        public ParameterSet parameterSet() {
+            return new ParameterSet();
+        }
     }
 
     public static final class ParameterSet {
-        public List<Parameter> parameters() { return List.of(); }
+        public List<Parameter> parameters() {
+            return List.of();
+        }
     }
 
     public static final class Parameter {
-        public Id id() { return new Id("Param"); }
+        public Id id() {
+            return new Id("Param");
+        }
     }
 
     /** Base source: mirrors ACParameterControllableSource. */
@@ -1468,8 +1790,15 @@ class EditorObjectHierarchyEditAccessTest {
             this.id = new Id(id);
             this.modelSource = modelSource;
         }
-        public Id id() { return id; }
-        public Guid guid() { return guid; }
+
+        public Id id() {
+            return id;
+        }
+
+        public Guid guid() {
+            return guid;
+        }
+
         public String localName() {
             if (failLocalNameRead) {
                 failLocalNameRead = false;
@@ -1477,26 +1806,40 @@ class EditorObjectHierarchyEditAccessTest {
             }
             return localName;
         }
+
         public void setLocalName(final String value) {
             final String previous = localName;
             record("local-name", () -> localName = previous, () -> localName = value);
             localName = value;
         }
-        public PartSource parent() { return parent; }
-        public void internalSetParent(final PartSource value) { parent = value; }
-        public Guid targetDeformerGuid() { return targetDeformerGuid; }
+
+        public PartSource parent() {
+            return parent;
+        }
+
+        public void internalSetParent(final PartSource value) {
+            parent = value;
+        }
+
+        public Guid targetDeformerGuid() {
+            return targetDeformerGuid;
+        }
+
         public void setTargetDeformerGuid(final Guid value) {
             setTargetCalls++;
             final Guid previous = targetDeformerGuid;
             record("target-deformer", () -> targetDeformerGuid = previous, () -> targetDeformerGuid = value);
             targetDeformerGuid = value;
         }
+
         public ObjectSource targetDeformerSource() {
             return targetDeformerGuid == null ? null : modelSource.findByGuid(targetDeformerGuid);
         }
+
         public void setKeyformGridSource(final KeyformGridSource value) {
             keyformGridSource = value;
         }
+
         public Iterable<ObjectSource> allParentDeformers() {
             final ArrayList<ObjectSource> ancestors = new ArrayList<>();
             ObjectSource current = targetDeformerSource();
@@ -1506,13 +1849,26 @@ class EditorObjectHierarchyEditAccessTest {
             }
             return ancestors;
         }
+
         public ACParameterControllableHandler handler() {
             return handlerUnavailable ? null : new ACParameterControllableHandler(this);
         }
-        public boolean visible() { return true; }
-        public boolean locked() { return false; }
-        public boolean visibleInHierarchy() { return true; }
-        public boolean lockedInHierarchy() { return false; }
+
+        public boolean visible() {
+            return true;
+        }
+
+        public boolean locked() {
+            return false;
+        }
+
+        public boolean visibleInHierarchy() {
+            return true;
+        }
+
+        public boolean lockedInHierarchy() {
+            return false;
+        }
 
         void record(final String label, final Runnable undo, final Runnable redo) {
             if (currentUndo != null) currentUndo.record(label, undo, redo);
@@ -1525,8 +1881,13 @@ class EditorObjectHierarchyEditAccessTest {
 
     /** Deformer source base: mirrors ACDeformerSource. */
     public static class ACDeformerSource extends ObjectSource {
-        ACDeformerSource(final String id, final ModelSource modelSource) { super(id, modelSource); }
-        public void setId(final Id value) { id = value; }
+        ACDeformerSource(final String id, final ModelSource modelSource) {
+            super(id, modelSource);
+        }
+
+        public void setId(final Id value) {
+            id = value;
+        }
     }
 
     /** Drawable source: mirrors ACDrawableSource. */
@@ -1535,23 +1896,67 @@ class EditorObjectHierarchyEditAccessTest {
         float[] sourcePositions = new float[0];
         float[] sourceUvs = new float[0];
         int[] sourceIndices = new int[0];
+
         public ACDrawableSource(final ModelSource modelSource) {
             this("ArtMesh_" + (++ModelSource.counter), modelSource);
         }
-        public ACDrawableSource(final String id, final ModelSource modelSource) { super(id, modelSource); }
-        public void setId(final Id value) { id = value; }
-        public ObjectList keyforms() { return keyforms; }
-        @Override public Guid guid() { return super.guid(); }
-        public List<Object> clipGuids() { return List.of(); }
-        public float[] positions() { return sourcePositions.clone(); }
-        public void setPositions(final float[] values) { sourcePositions = values.clone(); }
-        public float[] uvs() { return sourceUvs.clone(); }
-        public void setUvs(final float[] values) { sourceUvs = values.clone(); }
-        public int[] indices() { return sourceIndices.clone(); }
-        public void setIndices(final int[] values) { sourceIndices = values.clone(); }
-        public boolean culling() { return false; }
-        public String userData() { return ""; }
-        public boolean invertedMask() { return false; }
+
+        public ACDrawableSource(final String id, final ModelSource modelSource) {
+            super(id, modelSource);
+        }
+
+        public void setId(final Id value) {
+            id = value;
+        }
+
+        public ObjectList keyforms() {
+            return keyforms;
+        }
+
+        @Override
+        public Guid guid() {
+            return super.guid();
+        }
+
+        public List<Object> clipGuids() {
+            return List.of();
+        }
+
+        public float[] positions() {
+            return sourcePositions.clone();
+        }
+
+        public void setPositions(final float[] values) {
+            sourcePositions = values.clone();
+        }
+
+        public float[] uvs() {
+            return sourceUvs.clone();
+        }
+
+        public void setUvs(final float[] values) {
+            sourceUvs = values.clone();
+        }
+
+        public int[] indices() {
+            return sourceIndices.clone();
+        }
+
+        public void setIndices(final int[] values) {
+            sourceIndices = values.clone();
+        }
+
+        public boolean culling() {
+            return false;
+        }
+
+        public String userData() {
+            return "";
+        }
+
+        public boolean invertedMask() {
+            return false;
+        }
     }
 
     public static final class PartSource extends ObjectSource {
@@ -1565,35 +1970,59 @@ class EditorObjectHierarchyEditAccessTest {
         public PartSource(final ModelSource modelSource) {
             this("Part_" + (++ModelSource.counter), modelSource);
         }
+
         public PartSource(final String name, final ModelSource modelSource) {
             super(name, modelSource);
             this.localName = name;
         }
-        public void setId(final Id value) { id = value; }
-        public ObjectList keyforms() { return keyforms; }
-        public List<ObjectSource> children() { return children; }
-        @Override public Id id() { return super.id(); }
-        @Override public Guid guid() { return super.guid(); }
+
+        public void setId(final Id value) {
+            id = value;
+        }
+
+        public ObjectList keyforms() {
+            return keyforms;
+        }
+
+        public List<ObjectSource> children() {
+            return children;
+        }
+
+        @Override
+        public Id id() {
+            return super.id();
+        }
+
+        @Override
+        public Guid guid() {
+            return super.guid();
+        }
 
         public void addChild(final ObjectSource child, final int index) {
             addChildCalls++;
             final PartSource oldParent = child.parent;
-            recordInto(child, "add-child", () -> {
-                children.remove(child);
-                if (oldParent != null) {
-                    oldParent.children.add(child);
-                    child.internalSetParent(oldParent);
-                } else {
-                    child.internalSetParent(null);
-                }
-            }, () -> {
-                if (oldParent != null) oldParent.children.remove(child);
-                children.remove(child);
-                if (index < 0) children.add(child); else children.add(Math.min(index, children.size()), child);
-                child.internalSetParent(PartSource.this);
-            });
+            recordInto(
+                    child,
+                    "add-child",
+                    () -> {
+                        children.remove(child);
+                        if (oldParent != null) {
+                            oldParent.children.add(child);
+                            child.internalSetParent(oldParent);
+                        } else {
+                            child.internalSetParent(null);
+                        }
+                    },
+                    () -> {
+                        if (oldParent != null) oldParent.children.remove(child);
+                        children.remove(child);
+                        if (index < 0) children.add(child);
+                        else children.add(Math.min(index, children.size()), child);
+                        child.internalSetParent(PartSource.this);
+                    });
             if (oldParent != null) oldParent.removeChild(child);
-            if (index < 0) children.add(child); else children.add(Math.min(index, children.size()), child);
+            if (index < 0) children.add(child);
+            else children.add(Math.min(index, children.size()), child);
             child.internalSetParent(this);
             if (!modelSource.allObjects.contains(child)) modelSource.allObjects.add(child);
             if (renameOnNextAdd != null) {
@@ -1625,22 +2054,43 @@ class EditorObjectHierarchyEditAccessTest {
         boolean quadTransform;
         final ObjectList keyforms = new ObjectList();
         final List<Integer> rowColLog = new ArrayList<>();
-        public WarpDeformerSource(final ModelSource modelSource) { super("Warp_" + (++ModelSource.counter), modelSource); }
+
+        public WarpDeformerSource(final ModelSource modelSource) {
+            super("Warp_" + (++ModelSource.counter), modelSource);
+        }
+
         WarpDeformerSource(final String id, final ModelSource modelSource) {
             super(id, modelSource);
             this.localName = id;
         }
-        public int row() { return row; }
-        public int col() { return col; }
-        public ObjectList keyforms() { return keyforms; }
-        public boolean quadTransform() { return quadTransform; }
-        public void setQuadTransform(final boolean value) { quadTransform = value; }
+
+        public int row() {
+            return row;
+        }
+
+        public int col() {
+            return col;
+        }
+
+        public ObjectList keyforms() {
+            return keyforms;
+        }
+
+        public boolean quadTransform() {
+            return quadTransform;
+        }
+
+        public void setQuadTransform(final boolean value) {
+            quadTransform = value;
+        }
+
         public void setRow(final int value) {
             final int previous = row;
             record("set-row", () -> row = previous, () -> row = value);
             row = value;
             rowColLog.add(value);
         }
+
         public void setCol(final int value) {
             final int previous = col;
             record("set-col", () -> col = previous, () -> col = value);
@@ -1651,13 +2101,23 @@ class EditorObjectHierarchyEditAccessTest {
 
     public static final class RotationDeformerSource extends ACDeformerSource {
         final ObjectList keyforms = new ObjectList();
-        public RotationDeformerSource(final ModelSource modelSource) { super("Rotation_" + (++ModelSource.counter), modelSource); }
+
+        public RotationDeformerSource(final ModelSource modelSource) {
+            super("Rotation_" + (++ModelSource.counter), modelSource);
+        }
+
         RotationDeformerSource(final String id, final ModelSource modelSource) {
             super(id, modelSource);
             this.localName = id;
         }
-        public ObjectList keyforms() { return keyforms; }
-        public float baseAngle() { return 0F; }
+
+        public ObjectList keyforms() {
+            return keyforms;
+        }
+
+        public float baseAngle() {
+            return 0F;
+        }
     }
 
     public static final class ModelHandler {
@@ -1690,22 +2150,28 @@ class EditorObjectHierarchyEditAccessTest {
         int removedByCommand;
 
         public void add(final PartSource source, final int index) {
-            if (index < 0) sources.add(source); else sources.add(Math.min(index, sources.size()), source);
+            if (index < 0) sources.add(source);
+            else sources.add(Math.min(index, sources.size()), source);
             source.modelSource.allObjects.add(source);
             source.modelSource.model.parts.add(new HostPart(source));
             addLog.add(source.localName == null ? source.id.value() : source.localName);
-            source.record("part-add", () -> {
-                sources.remove(source);
-                source.modelSource.allObjects.remove(source);
-                source.modelSource.model.parts.removeIf(part -> part.source == source);
-            }, () -> add(source, index));
+            source.record(
+                    "part-add",
+                    () -> {
+                        sources.remove(source);
+                        source.modelSource.allObjects.remove(source);
+                        source.modelSource.model.parts.removeIf(part -> part.source == source);
+                    },
+                    () -> add(source, index));
         }
+
         public void remove(final PartSource source) {
             removedDirectly++;
             sources.remove(source);
             source.modelSource.allObjects.remove(source);
             source.modelSource.model.parts.removeIf(part -> part.source == source);
         }
+
         void removeByCommand(final PartSource source) {
             removedByCommand++;
             sources.remove(source);
@@ -1729,23 +2195,30 @@ class EditorObjectHierarchyEditAccessTest {
 
         public void add(final ACDeformerSource source, final int index) {
             addCount++;
-            if (index < 0) sources.add(source); else sources.add(Math.min(index, sources.size()), source);
+            if (index < 0) sources.add(source);
+            else sources.add(Math.min(index, sources.size()), source);
             source.modelSource.allObjects.add(source);
-            source.modelSource.model.deformers.add(source instanceof WarpDeformerSource
-                ? new Warp((WarpDeformerSource) source)
-                : new Rotation((RotationDeformerSource) source));
-            source.record("deformer-add", () -> {
-                sources.remove(source);
-                source.modelSource.allObjects.remove(source);
-                source.modelSource.model.deformers.removeIf(d -> d.source == source);
-            }, () -> add(source, index));
+            source.modelSource.model.deformers.add(
+                    source instanceof WarpDeformerSource
+                            ? new Warp((WarpDeformerSource) source)
+                            : new Rotation((RotationDeformerSource) source));
+            source.record(
+                    "deformer-add",
+                    () -> {
+                        sources.remove(source);
+                        source.modelSource.allObjects.remove(source);
+                        source.modelSource.model.deformers.removeIf(d -> d.source == source);
+                    },
+                    () -> add(source, index));
         }
+
         public void remove(final ACDeformerSource source) {
             removedDirectly++;
             sources.remove(source);
             source.modelSource.allObjects.remove(source);
             source.modelSource.model.deformers.removeIf(d -> d.source == source);
         }
+
         void removeByCommand(final ACDeformerSource source) {
             removedByCommand++;
             sources.remove(source);
@@ -1766,14 +2239,18 @@ class EditorObjectHierarchyEditAccessTest {
         int removedByCommand;
 
         public void add(final ACDrawableSource source, final int index) {
-            if (index < 0) sources.add(source); else sources.add(Math.min(index, sources.size()), source);
+            if (index < 0) sources.add(source);
+            else sources.add(Math.min(index, sources.size()), source);
             source.modelSource.allObjects.add(source);
             source.modelSource.model.meshes.add(new ArtMesh(source));
-            source.record("drawable-add", () -> {
-                sources.remove(source);
-                source.modelSource.allObjects.remove(source);
-                source.modelSource.model.meshes.removeIf(mesh -> mesh.source == source);
-            }, () -> add(source, index));
+            source.record(
+                    "drawable-add",
+                    () -> {
+                        sources.remove(source);
+                        source.modelSource.allObjects.remove(source);
+                        source.modelSource.model.meshes.removeIf(mesh -> mesh.source == source);
+                    },
+                    () -> add(source, index));
         }
 
         public void remove(final ACDrawableSource source) {
@@ -1781,21 +2258,25 @@ class EditorObjectHierarchyEditAccessTest {
             source.modelSource.allObjects.remove(source);
             source.modelSource.model.meshes.removeIf(m -> m.source == source);
         }
+
         void removeByCommand(final ACDrawableSource source) {
             removedByCommand++;
             sources.remove(source);
             source.modelSource.allObjects.remove(source);
             source.modelSource.model.meshes.removeIf(m -> m.source == source);
             if (source.currentUndo != null) {
-                source.currentUndo.record("delete", () -> {
-                    sources.add(source);
-                    source.modelSource.allObjects.add(source);
-                    source.modelSource.model.meshes.add(new ArtMesh(source));
-                }, () -> {
-                    sources.remove(source);
-                    source.modelSource.allObjects.remove(source);
-                    source.modelSource.model.meshes.removeIf(m -> m.source == source);
-                });
+                source.currentUndo.record(
+                        "delete",
+                        () -> {
+                            sources.add(source);
+                            source.modelSource.allObjects.add(source);
+                            source.modelSource.model.meshes.add(new ArtMesh(source));
+                        },
+                        () -> {
+                            sources.remove(source);
+                            source.modelSource.allObjects.remove(source);
+                            source.modelSource.model.meshes.removeIf(m -> m.source == source);
+                        });
             }
         }
     }
@@ -1803,7 +2284,9 @@ class EditorObjectHierarchyEditAccessTest {
     public static final class UpdateManager {
         final List<SelectionCall> selectionCalls = new ArrayList<>();
         Runnable selectionCallback;
-        public void setSelection(final Object source, final List<?> guids, final boolean append, final boolean sendEvent) {
+
+        public void setSelection(
+                final Object source, final List<?> guids, final boolean append, final boolean sendEvent) {
             selectionCalls.add(new SelectionCall(source, new ArrayList<>(guids), append, sendEvent));
             if (source instanceof Document document && !guids.isEmpty()) {
                 document.source.pendingDeleteSource = document.source.findByGuid((Guid) guids.get(0));
@@ -1812,12 +2295,17 @@ class EditorObjectHierarchyEditAccessTest {
             selectionCallback = null;
             if (sendEvent && callback != null) callback.run();
         }
-        public record SelectionCall(Object source, List<Object> guids, boolean append, boolean sendEvent) { }
+
+        public record SelectionCall(Object source, List<Object> guids, boolean append, boolean sendEvent) {}
     }
 
     public static final class ACParameterControllableHandler {
         final ObjectSource source;
-        ACParameterControllableHandler(final ObjectSource source) { this.source = source; }
+
+        ACParameterControllableHandler(final ObjectSource source) {
+            this.source = source;
+        }
+
         public Undo undo(final String name) {
             final Undo undo = new Undo();
             source.currentUndo = undo;
@@ -1827,7 +2315,11 @@ class EditorObjectHierarchyEditAccessTest {
 
     public static final class PartHandler {
         final PartSource source;
-        PartHandler(final PartSource source) { this.source = source; }
+
+        PartHandler(final PartSource source) {
+            this.source = source;
+        }
+
         public Undo addPartChild(final ObjectSource child, final int index) {
             final Undo undo = new Undo();
             final Undo previousParentUndo = source.currentUndo;
@@ -1850,12 +2342,17 @@ class EditorObjectHierarchyEditAccessTest {
         final List<Undo> edits = new ArrayList<>();
         GroupUndo current;
         int beginCalls;
-        EditMode(final Document document) { this.document = document; }
+
+        EditMode(final Document document) {
+            this.document = document;
+        }
+
         public GroupUndo begin(final String name) {
             beginCalls++;
             current = new GroupUndo(edits, name);
             return current;
         }
+
         public void end(final boolean abort, final Object ignored) {
             if (abort) {
                 if (!edits.isEmpty()) edits.remove(edits.size() - 1);
@@ -1869,22 +2366,45 @@ class EditorObjectHierarchyEditAccessTest {
     public static class UndoEntry {
         private final String presentationName;
         private final boolean significant;
-        UndoEntry(final String presentationName) { this(presentationName, true); }
+
+        UndoEntry(final String presentationName) {
+            this(presentationName, true);
+        }
+
         UndoEntry(final String presentationName, final boolean significant) {
             this.presentationName = presentationName;
             this.significant = significant;
         }
-        public String presentationName() { return presentationName; }
-        public boolean significant() { return significant; }
+
+        public String presentationName() {
+            return presentationName;
+        }
+
+        public boolean significant() {
+            return significant;
+        }
     }
 
     public static final class UndoManager {
         final List<UndoEntry> entries = new ArrayList<>();
         int position;
-        public List<UndoEntry> entries() { return entries; }
-        public int position() { return position; }
-        public boolean canUndo() { return position > 0; }
-        public boolean canRedo() { return position < entries.size(); }
+
+        public List<UndoEntry> entries() {
+            return entries;
+        }
+
+        public int position() {
+            return position;
+        }
+
+        public boolean canUndo() {
+            return position > 0;
+        }
+
+        public boolean canRedo() {
+            return position < entries.size();
+        }
+
         void commit(final UndoEntry entry) {
             while (entries.size() > position) entries.remove(entries.size() - 1);
             entries.add(entry);
@@ -1894,10 +2414,12 @@ class EditorObjectHierarchyEditAccessTest {
 
     public static final class GroupUndo extends UndoEntry {
         final Undo composite = new Undo();
+
         GroupUndo(final List<Undo> edits, final String name) {
             super(name);
             edits.add(composite);
         }
+
         public boolean add(final Undo undo, final boolean significant) {
             composite.children.add(undo);
             return true;
@@ -1910,16 +2432,22 @@ class EditorObjectHierarchyEditAccessTest {
         final List<Runnable> redoSteps = new ArrayList<>();
         final List<Listener> listeners = new ArrayList<>();
 
-        public boolean addListener(final Listener listener) { listeners.add(listener); return true; }
+        public boolean addListener(final Listener listener) {
+            listeners.add(listener);
+            return true;
+        }
+
         void record(final String label, final Runnable undo, final Runnable redo) {
             undoSteps.add(undo);
             redoSteps.add(redo);
         }
+
         public void undo() {
             for (int i = children.size() - 1; i >= 0; i--) children.get(i).undo();
             for (int i = undoSteps.size() - 1; i >= 0; i--) undoSteps.get(i).run();
             listeners.forEach(listener -> listener.changed(null));
         }
+
         public void redo() {
             new ArrayList<>(redoSteps).forEach(Runnable::run);
             new ArrayList<>(children).forEach(Undo::redo);
@@ -1927,69 +2455,115 @@ class EditorObjectHierarchyEditAccessTest {
         }
     }
 
-    @FunctionalInterface public interface Listener { void changed(Object ignored); }
+    @FunctionalInterface
+    public interface Listener {
+        void changed(Object ignored);
+    }
 
     public static final class CompletePack {
         int partRefreshCount;
         int deformerRefreshCount;
         int repaintCount;
-        public void updatePartPalette(final boolean immediate) { partRefreshCount++; }
-        public void updateDeformerPalette(final boolean immediate) { deformerRefreshCount++; }
-        public void repaintCanvas(final boolean immediate) { repaintCount++; }
+
+        public void updatePartPalette(final boolean immediate) {
+            partRefreshCount++;
+        }
+
+        public void updateDeformerPalette(final boolean immediate) {
+            deformerRefreshCount++;
+        }
+
+        public void repaintCanvas(final boolean immediate) {
+            repaintCount++;
+        }
     }
 
     public static final class HostPart {
         final PartSource source;
-        HostPart(final PartSource source) { this.source = source; }
-        public PartSource source() { return source; }
+
+        HostPart(final PartSource source) {
+            this.source = source;
+        }
+
+        public PartSource source() {
+            return source;
+        }
     }
 
-    public static abstract class Deformer {
+    public abstract static class Deformer {
         final ObjectSource source;
-        Deformer(final ObjectSource source) { this.source = source; }
-        public ObjectSource source() { return source; }
-        public Form currentForm() { return new WarpForm(); }
+
+        Deformer(final ObjectSource source) {
+            this.source = source;
+        }
+
+        public ObjectSource source() {
+            return source;
+        }
+
+        public Form currentForm() {
+            return new WarpForm();
+        }
     }
 
     public static class Form {
         Guid guid;
-        public void setGuid(final Guid value) { guid = value; }
-        public float opacity() { return 1F; }
-        public int drawOrder() { return 0; }
+
+        public void setGuid(final Guid value) {
+            guid = value;
+        }
+
+        public float opacity() {
+            return 1F;
+        }
+
+        public int drawOrder() {
+            return 0;
+        }
     }
 
     public static final class PartForm extends Form {
-        public PartForm(final PartSource source, final Object instance) {
-        }
+        public PartForm(final PartSource source, final Object instance) {}
     }
 
     public static final class ArtMeshForm extends Form {
         float[] values = new float[0];
-        public ArtMeshForm() {
+
+        public ArtMeshForm() {}
+
+        public ArtMeshForm(final ACDrawableSource source, final ArtMesh instance, final CoordType coordType) {}
+
+        public float[] positions() {
+            return values.clone();
         }
-        public ArtMeshForm(
-            final ACDrawableSource source,
-            final ArtMesh instance,
-            final CoordType coordType
-        ) {
+
+        public void setPositions(final float[] positions) {
+            values = positions.clone();
         }
-        public float[] positions() { return values.clone(); }
-        public void setPositions(final float[] positions) { values = positions.clone(); }
     }
 
     public static final class WarpForm extends Form {
         float[] positions;
-        WarpForm() { this.positions = new float[0]; }
-        WarpForm(final float[] positions) { this.positions = positions.clone(); }
-        public WarpForm(
-            final WarpDeformerSource source,
-            final Warp instance,
-            final CoordType coordType
-        ) {
+
+        WarpForm() {
             this.positions = new float[0];
         }
-        public float[] positions() { return positions.clone(); }
-        public void setPositions(final float[] values) { positions = values.clone(); }
+
+        WarpForm(final float[] positions) {
+            this.positions = positions.clone();
+        }
+
+        public WarpForm(final WarpDeformerSource source, final Warp instance, final CoordType coordType) {
+            this.positions = new float[0];
+        }
+
+        public float[] positions() {
+            return positions.clone();
+        }
+
+        public void setPositions(final float[] values) {
+            positions = values.clone();
+        }
     }
 
     public static final class RotationForm extends Form {
@@ -1999,56 +2573,104 @@ class EditorObjectHierarchyEditAccessTest {
         float scale = 1F;
         boolean reflectX;
         boolean reflectY;
-        public RotationForm() {
+
+        public RotationForm() {}
+
+        public RotationForm(final RotationDeformerSource source, final Rotation instance, final CoordType coordType) {}
+
+        public float angle() {
+            return angle;
         }
-        public RotationForm(
-            final RotationDeformerSource source,
-            final Rotation instance,
-            final CoordType coordType
-        ) {
+
+        public void setAngle(final float value) {
+            angle = value;
         }
-        public float angle() { return angle; }
-        public void setAngle(final float value) { angle = value; }
-        public float originX() { return originX; }
-        public void setOriginX(final float value) { originX = value; }
-        public float originY() { return originY; }
-        public void setOriginY(final float value) { originY = value; }
-        public float scale() { return scale; }
-        public void setScale(final float value) { scale = value; }
-        public boolean reflectX() { return reflectX; }
-        public void setReflectX(final boolean value) { reflectX = value; }
-        public boolean reflectY() { return reflectY; }
-        public void setReflectY(final boolean value) { reflectY = value; }
+
+        public float originX() {
+            return originX;
+        }
+
+        public void setOriginX(final float value) {
+            originX = value;
+        }
+
+        public float originY() {
+            return originY;
+        }
+
+        public void setOriginY(final float value) {
+            originY = value;
+        }
+
+        public float scale() {
+            return scale;
+        }
+
+        public void setScale(final float value) {
+            scale = value;
+        }
+
+        public boolean reflectX() {
+            return reflectX;
+        }
+
+        public void setReflectX(final boolean value) {
+            reflectX = value;
+        }
+
+        public boolean reflectY() {
+            return reflectY;
+        }
+
+        public void setReflectY(final boolean value) {
+            reflectY = value;
+        }
     }
 
     public static final class ObjectList {
         final List<Object> values = new ArrayList<>();
-        public boolean add(final Object value) { return values.add(value); }
-        Object first() { return values.isEmpty() ? null : values.get(0); }
+
+        public boolean add(final Object value) {
+            return values.add(value);
+        }
+
+        Object first() {
+            return values.isEmpty() ? null : values.get(0);
+        }
     }
 
     public static final class KeyformGridSource {
         final ObjectSource source;
         List<Guid> forms = List.of();
-        public KeyformGridSource(final ObjectSource source) { this.source = source; }
+
+        public KeyformGridSource(final ObjectSource source) {
+            this.source = source;
+        }
+
         public void importCubism21(
-            final ModelSource modelSource,
-            final List<?> parameters,
-            final List<Guid> formGuids,
-            final Object context
-        ) {
+                final ModelSource modelSource,
+                final List<?> parameters,
+                final List<Guid> formGuids,
+                final Object context) {
             forms = List.copyOf(formGuids);
         }
     }
 
     public static final class CoordType {
         private static final CoordType CANVAS = new CoordType();
-        public static CoordType canvas() { return CANVAS; }
+
+        public static CoordType canvas() {
+            return CANVAS;
+        }
     }
 
     public static final class Warp extends Deformer {
-        Warp(final WarpDeformerSource source) { super(source); }
-        @Override public Form currentForm() {
+        Warp(final WarpDeformerSource source) {
+            super(source);
+        }
+
+        @Override
+        public Form currentForm() {
             final Object form = ((WarpDeformerSource) source).keyforms.first();
             if (form instanceof WarpForm warpForm) return warpForm;
             final WarpDeformerSource warp = (WarpDeformerSource) source;
@@ -2057,36 +2679,54 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     public static final class Rotation extends Deformer {
-        Rotation(final RotationDeformerSource source) { super(source); }
-        @Override public Form currentForm() {
+        Rotation(final RotationDeformerSource source) {
+            super(source);
+        }
+
+        @Override
+        public Form currentForm() {
             final Object form = ((RotationDeformerSource) source).keyforms.first();
-            return form instanceof RotationForm rotationForm
-                ? rotationForm
-                : new RotationForm();
+            return form instanceof RotationForm rotationForm ? rotationForm : new RotationForm();
         }
     }
 
     public static final class ArtMesh {
         final ACDrawableSource source;
-        ArtMesh(final ACDrawableSource source) { this.source = source; }
-        public ACDrawableSource source() { return source; }
+
+        ArtMesh(final ACDrawableSource source) {
+            this.source = source;
+        }
+
+        public ACDrawableSource source() {
+            return source;
+        }
+
         public ArtMeshForm currentForm() {
             final Object form = source.keyforms.first();
-            return form instanceof ArtMeshForm artMeshForm
-                ? artMeshForm
-                : new ArtMeshForm();
+            return form instanceof ArtMeshForm artMeshForm ? artMeshForm : new ArtMeshForm();
         }
     }
 
     public static final class GlueSource {
-        public ACDrawableSource targetA() { return null; }
-        public ACDrawableSource targetB() { return null; }
+        public ACDrawableSource targetA() {
+            return null;
+        }
+
+        public ACDrawableSource targetB() {
+            return null;
+        }
     }
 
     public static class Id {
         final String value;
-        public Id(final String value) { this.value = value; }
-        public String value() { return value; }
+
+        public Id(final String value) {
+            this.value = value;
+        }
+
+        public String value() {
+            return value;
+        }
     }
 
     public static final class Guid extends Id {
@@ -2102,7 +2742,10 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     private static final class Fixture {
-        static { ModelSource.counter = 0; }
+        static {
+            ModelSource.counter = 0;
+        }
+
         final ModelSource source = new ModelSource();
         final PartSource rootPart = new PartSource("Root", source);
         final PartSource parentPart = new PartSource("Parent", source);
@@ -2163,7 +2806,6 @@ class EditorObjectHierarchyEditAccessTest {
             source.model.parts.clear();
             source.model.parts.add(new HostPart(replacement));
         }
-
 
         void replaceDeformerWithSameId() {
             final WarpDeformerSource replacement = new WarpDeformerSource("WarpA", source);

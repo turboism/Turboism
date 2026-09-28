@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.recentfile;
 
-
 import java.util.Objects;
 
 /** Opaque, cross-session-stable identity of a recently opened Cubism project file. */

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-
 import java.util.Objects;
 
 /** One immutable texture input for an atlas layout planner. */

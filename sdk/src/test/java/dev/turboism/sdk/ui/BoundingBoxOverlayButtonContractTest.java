@@ -1,12 +1,11 @@
 package dev.turboism.sdk.ui;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
 
 class BoundingBoxOverlayButtonContractTest {
 
@@ -14,17 +13,12 @@ class BoundingBoxOverlayButtonContractTest {
     void descriptorCarriesOwnedIconsTooltipOrderAndClickCallback() {
         final AtomicInteger clicks = new AtomicInteger();
         final BoundingBoxOverlayButton button = new BoundingBoxOverlayButton(
-            "fit-selection",
-            "Fit selection",
-            new BoundingBoxOverlayButton.IconVariants(
-                "icons/fit.png",
-                Optional.of("icons/fit-hover.png"),
-                Optional.empty(),
-                Optional.empty()
-            ),
-            30,
-            clicks::incrementAndGet
-        );
+                "fit-selection",
+                "Fit selection",
+                new BoundingBoxOverlayButton.IconVariants(
+                        "icons/fit.png", Optional.of("icons/fit-hover.png"), Optional.empty(), Optional.empty()),
+                30,
+                clicks::incrementAndGet);
 
         button.onClick().run();
 
@@ -38,15 +32,11 @@ class BoundingBoxOverlayButtonContractTest {
 
     @Test
     void descriptorRejectsBlankIdsAndUnsafeResourcePaths() {
-        assertThrows(IllegalArgumentException.class, () -> new BoundingBoxOverlayButton(
-            " ",
-            "Tooltip",
-            BoundingBoxOverlayButton.IconVariants.normal("icons/fit.png"),
-            0,
-            () -> { }
-        ));
-        assertThrows(IllegalArgumentException.class, () -> BoundingBoxOverlayButton.IconVariants.normal(
-            "../outside.png"
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new BoundingBoxOverlayButton(
+                        " ", "Tooltip", BoundingBoxOverlayButton.IconVariants.normal("icons/fit.png"), 0, () -> {}));
+        assertThrows(
+                IllegalArgumentException.class, () -> BoundingBoxOverlayButton.IconVariants.normal("../outside.png"));
     }
 }

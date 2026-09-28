@@ -13,14 +13,13 @@ import java.util.Objects;
  * further restrict it.</p>
  */
 public record TextureAtlasPolygonConstraints(
-    int pageWidth,
-    int pageHeight,
-    int margin,
-    TextureAtlasRotationMode rotationMode,
-    double requestedScale,
-    TextureAtlasLayoutBackend backend,
-    TextureAtlasLayoutQuality quality
-) {
+        int pageWidth,
+        int pageHeight,
+        int margin,
+        TextureAtlasRotationMode rotationMode,
+        double requestedScale,
+        TextureAtlasLayoutBackend backend,
+        TextureAtlasLayoutQuality quality) {
 
     public TextureAtlasPolygonConstraints {
         if (pageWidth <= 0 || pageHeight <= 0) {

@@ -25,32 +25,34 @@ final class InputPathElisionHookContributor extends NativeOptimizationHookContri
         super("TURBOISM_INPUT_PATH");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        final boolean validation =
-            Boolean.getBoolean(InputPathElisionTransformer.ENABLE_PROPERTY);
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+        final boolean validation = Boolean.getBoolean(InputPathElisionTransformer.ENABLE_PROPERTY);
         final boolean production = InputPathElisionBridge.enabledByPreference();
         if (!validation && !production) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
         final var host = environment.host().orElseThrow();
-        if (production && !validation
-            && !VerifiedInputPathElisionInstaller.admitted(
-                HostArtifactDigest.from(host.artifact()),
-                NativeOptimizationPolicy.load(environment.options().home()),
-                true,
-                Runtime.version())) {
+        if (production
+                && !validation
+                && !VerifiedInputPathElisionInstaller.admitted(
+                        HostArtifactDigest.from(host.artifact()),
+                        NativeOptimizationPolicy.load(environment.options().home()),
+                        true,
+                        Runtime.version())) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
-        final VerifiedInputPathElisionInstaller installer =
-            new VerifiedInputPathElisionInstaller(
+        final VerifiedInputPathElisionInstaller installer = new VerifiedInputPathElisionInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install(production && !validation);
-        log(environment, id() + " elision=ACTIVE sites=" + installer.sites()
-            + " mode=" + (validation ? "validation" : "production")
-            + " targets=com/live2d/ui/CWidget.requestFocus()V"
-            + "+setCursor(Lcom/live2d/type/CCursor;)V");
+        log(
+                environment,
+                id() + " elision=ACTIVE sites=" + installer.sites()
+                        + " mode=" + (validation ? "validation" : "production")
+                        + " targets=com/live2d/ui/CWidget.requestFocus()V"
+                        + "+setCursor(Lcom/live2d/type/CCursor;)V");
         return installer;
     }
 }

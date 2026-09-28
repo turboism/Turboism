@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.composite;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.objectweb.asm.Opcodes.*;
+
 import java.util.Map;
 import java.util.Properties;
 import java.util.function.BiPredicate;
@@ -12,8 +15,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.objectweb.asm.Opcodes.*;
 
 /**
  * Verifies the canvas-composite bridge's slot lifecycle and the two redundancy
@@ -28,7 +29,10 @@ public class CanvasCompositeElisionBridgeTest {
     private static final String GLPANEL = "com/jogamp/opengl/awt/GLJPanel";
 
     private static final class Loader extends ClassLoader {
-        Loader() { super(CanvasCompositeElisionBridgeTest.class.getClassLoader()); }
+        Loader() {
+            super(CanvasCompositeElisionBridgeTest.class.getClassLoader());
+        }
+
         Class<?> define(String name, byte[] bytes) {
             return defineClass(name.replace('/', '.'), bytes, 0, bytes.length);
         }
@@ -62,7 +66,8 @@ public class CanvasCompositeElisionBridgeTest {
         glPanel.setOpaque(true);
     }
 
-    @AfterEach void tearDown() {
+    @AfterEach
+    void tearDown() {
         if (bridge != null) bridge.close();
         final Properties properties = System.getProperties();
         properties.remove(CanvasCompositeElisionBridge.PAINT_PROPERTY);
@@ -72,24 +77,21 @@ public class CanvasCompositeElisionBridgeTest {
     }
 
     private void arm(final boolean value) {
-        ((Consumer<Boolean>) System.getProperties()
-            .get(CanvasCompositeElisionBridge.GATE_PROPERTY)).accept(value);
+        ((Consumer<Boolean>) System.getProperties().get(CanvasCompositeElisionBridge.GATE_PROPERTY)).accept(value);
     }
 
     private Predicate<Object> paintSlot() {
-        return (Predicate<Object>) System.getProperties()
-            .get(CanvasCompositeElisionBridge.PAINT_PROPERTY);
+        return (Predicate<Object>) System.getProperties().get(CanvasCompositeElisionBridge.PAINT_PROPERTY);
     }
 
     private BiPredicate<Object, Object> fillSlot() {
-        return (BiPredicate<Object, Object>) System.getProperties()
-            .get(CanvasCompositeElisionBridge.FILL_PROPERTY);
+        return (BiPredicate<Object, Object>) System.getProperties().get(CanvasCompositeElisionBridge.FILL_PROPERTY);
     }
 
     @SuppressWarnings("unchecked")
     private Map<String, Long> stats() {
-        return ((Supplier<Map<String, Long>>) System.getProperties()
-            .get(CanvasCompositeElisionBridge.STATS_PROPERTY)).get();
+        return ((Supplier<Map<String, Long>>) System.getProperties().get(CanvasCompositeElisionBridge.STATS_PROPERTY))
+                .get();
     }
 
     /** A panel holding {@code glPanel} as a covering child. */
@@ -101,7 +103,8 @@ public class CanvasCompositeElisionBridgeTest {
         return panel;
     }
 
-    @Test void installOccupiesAndCloseClearsAllSlots() throws Exception {
+    @Test
+    void installOccupiesAndCloseClearsAllSlots() throws Exception {
         setUp();
         final Properties properties = System.getProperties();
         assertTrue(properties.get(CanvasCompositeElisionBridge.PAINT_PROPERTY) instanceof Predicate);
@@ -117,7 +120,8 @@ public class CanvasCompositeElisionBridgeTest {
         assertNull(properties.get(CanvasCompositeElisionBridge.STATS_PROPERTY));
     }
 
-    @Test void disarmedConsultsPassAndCount() throws Exception {
+    @Test
+    void disarmedConsultsPassAndCount() throws Exception {
         setUp();
         assertFalse(paintSlot().test(coveredPanel(100, 100, 100, 100)));
         assertFalse(fillSlot().test(null, coveredPanel(100, 100, 100, 100)));
@@ -131,30 +135,34 @@ public class CanvasCompositeElisionBridgeTest {
         assertEquals(0L, snapshot.get("armed"));
     }
 
-    @Test void paintElidesOnlySubtreesCarryingGLPanel() throws Exception {
+    @Test
+    void paintElidesOnlySubtreesCarryingGLPanel() throws Exception {
         setUp();
         arm(true);
         assertTrue(paintSlot().test(glPanel), "the canvas itself repaints directly");
-        assertTrue(paintSlot().test(coveredPanel(100, 100, 100, 100)),
-            "a dirty root containing the GLJPanel elides the back buffer");
+        assertTrue(
+                paintSlot().test(coveredPanel(100, 100, 100, 100)),
+                "a dirty root containing the GLJPanel elides the back buffer");
         JPanel plain = new JPanel();
         plain.add(new JPanel());
         assertFalse(paintSlot().test(plain), "a plain subtree keeps the buffered path");
         assertFalse(paintSlot().test("not-a-component"));
         glPanel.setVisible(false);
-        assertFalse(paintSlot().test(coveredPanel(100, 100, 100, 100)),
-            "an invisible GLJPanel subtree keeps the buffered path");
+        assertFalse(
+                paintSlot().test(coveredPanel(100, 100, 100, 100)),
+                "an invisible GLJPanel subtree keeps the buffered path");
         assertEquals(2L, stats().get("paintElided"));
         assertEquals(3L, stats().get("paintPassed"));
     }
 
-    @Test void fillElidesOnlyFullyCoveredOpaquePanels() throws Exception {
+    @Test
+    void fillElidesOnlyFullyCoveredOpaquePanels() throws Exception {
         setUp();
         arm(true);
         JPanel covered = coveredPanel(100, 100, 100, 100);
         covered.setOpaque(true);
-        assertTrue(fillSlot().test(null, covered),
-            "an opaque panel fully covered by an opaque GLJPanel skips its fill");
+        assertTrue(
+                fillSlot().test(null, covered), "an opaque panel fully covered by an opaque GLJPanel skips its fill");
         assertEquals(1L, stats().get("fillElided"));
 
         // Partial coverage: the fill would show → keep it.
@@ -182,7 +190,8 @@ public class CanvasCompositeElisionBridgeTest {
         assertEquals(0L, stats().get("observerFailures"));
     }
 
-    @Test void fillElidesThroughIntermediateContainers() throws Exception {
+    @Test
+    void fillElidesThroughIntermediateContainers() throws Exception {
         setUp();
         arm(true);
         JPanel inner = coveredPanel(100, 100, 100, 100);
@@ -192,12 +201,12 @@ public class CanvasCompositeElisionBridgeTest {
         outer.setSize(100, 100);
         inner.setBounds(0, 0, 100, 100);
         outer.add(inner);
-        assertTrue(fillSlot().test(null, outer),
-            "outer fill is invisible when an intermediate panel is GL-covered");
+        assertTrue(fillSlot().test(null, outer), "outer fill is invisible when an intermediate panel is GL-covered");
         assertEquals(1L, stats().get("fillElided"));
     }
 
-    @Test void nullAndForeignArgumentsPass() throws Exception {
+    @Test
+    void nullAndForeignArgumentsPass() throws Exception {
         setUp();
         arm(true);
         assertFalse(fillSlot().test(null, null));
@@ -206,7 +215,6 @@ public class CanvasCompositeElisionBridgeTest {
         Map<String, Long> snapshot = stats();
         assertEquals(2L, snapshot.get("fillPassed"));
         assertEquals(1L, snapshot.get("paintPassed"));
-        assertEquals(0L, snapshot.get("observerFailures"),
-            "null/foreign arguments are passes, not observer failures");
+        assertEquals(0L, snapshot.get("observerFailures"), "null/foreign arguments are passes, not observer failures");
     }
 }

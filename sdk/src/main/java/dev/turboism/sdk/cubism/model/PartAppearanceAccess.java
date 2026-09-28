@@ -8,5 +8,7 @@ public interface PartAppearanceAccess {
 
     /** Returns this Part's Cubism palette UI projection. */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
-    default PartAppearance ui() { return PartAppearance.unavailable(); }
+    default PartAppearance ui() {
+        return PartAppearance.unavailable();
+    }
 }

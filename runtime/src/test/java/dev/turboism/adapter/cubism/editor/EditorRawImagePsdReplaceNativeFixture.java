@@ -9,7 +9,7 @@ public final class EditorRawImagePsdReplaceNativeFixture {
     public static final List<String> EVENTS = new ArrayList<>();
     public static final List<Boolean> EDT_EVENTS = new ArrayList<>();
     public static FailureMode failureMode = FailureMode.NONE;
-    public static Runnable afterNative = () -> { };
+    public static Runnable afterNative = () -> {};
     public static SyntheticAppController lastAppController;
     public static SyntheticLayeredImage lastIncoming;
     public static File lastStage;
@@ -17,8 +17,7 @@ public final class EditorRawImagePsdReplaceNativeFixture {
     public static List<SyntheticLayeredImage> lastTargets;
     public static int mutationCount;
 
-    private EditorRawImagePsdReplaceNativeFixture() {
-    }
+    private EditorRawImagePsdReplaceNativeFixture() {}
 
     public static void reset() {
         synchronized (EVENTS) {
@@ -26,7 +25,7 @@ public final class EditorRawImagePsdReplaceNativeFixture {
             EDT_EVENTS.clear();
         }
         failureMode = FailureMode.NONE;
-        afterNative = () -> { };
+        afterNative = () -> {};
         lastAppController = null;
         lastIncoming = null;
         lastStage = null;
@@ -61,8 +60,7 @@ public final class EditorRawImagePsdReplaceNativeFixture {
     }
 
     public static final class SyntheticAppController {
-        public SyntheticAppController() {
-        }
+        public SyntheticAppController() {}
     }
 
     public static final class SyntheticDocument {
@@ -104,29 +102,25 @@ public final class EditorRawImagePsdReplaceNativeFixture {
     }
 
     public static final class SyntheticNativeEditMode {
-        public SyntheticNativeEditMode() {
-        }
+        public SyntheticNativeEditMode() {}
     }
 
     public static final class SyntheticGroupUndo {
-        public SyntheticGroupUndo() {
-        }
+        public SyntheticGroupUndo() {}
     }
 
     public static final class SyntheticNativeProcess {
         public static final SyntheticNativeProcess INSTANCE = new SyntheticNativeProcess();
 
-        private SyntheticNativeProcess() {
-        }
+        private SyntheticNativeProcess() {}
 
         /** Same argument order as process.psd.a.a(CEAppCtrl, CLayeredImage, File, Document, List). */
         public void a(
-            final SyntheticAppController appController,
-            final SyntheticLayeredImage incoming,
-            final File stage,
-            final SyntheticDocument document,
-            final List<SyntheticLayeredImage> targets
-        ) {
+                final SyntheticAppController appController,
+                final SyntheticLayeredImage incoming,
+                final File stage,
+                final SyntheticDocument document,
+                final List<SyntheticLayeredImage> targets) {
             record("native-begin-edit");
             lastAppController = appController;
             lastIncoming = incoming;
