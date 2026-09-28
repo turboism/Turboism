@@ -41,7 +41,9 @@ Turboism 的所有重要变更都记录在本文件中。
   `turboism.ui.toolbar.contribute` 和 `turboism.ui.canvas.hint` 权限，其原生镜像仅在
   已验证的宿主钩子安装后绑定。已验证的 drag-tick 钩子仅接纳经评审的 Cubism 5.2.03、
   5.3.02 和 5.3.03 精确产物——在原生 drag tick 内提供实时镜像预览与单个撤销条目——
-  未经评审的宿主则保留发布时的 AWT 回退路径，结果相同。
+  未经评审的宿主则保留发布时的 AWT 回退路径，结果相同。镜像轴武装期间，选中权重写入
+  （笔刷选择工具及所有加权选中流程）会在同一选中/撤销信封内镜像到轴向对称点，使权重
+  绘制实时保持对称。
 - `Action.of` 与 `MenuContribution.of` 将单点贡献注册构建为普通的
   `SimpleAction`/`SimpleMenuContribution` 值，插件不再需要为每个动作或菜单项编写匿名类。
 

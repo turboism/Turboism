@@ -34,6 +34,21 @@ public final class RuntimeWarpAltMirrorParticipation implements WarpAltMirrorPar
         NativeWarpAltMirrorBridge.setArmedAxis(axis);
     }
 
+    @Override
+    public int weightMirrorAppliedCount() {
+        return NativeWarpAltMirrorBridge.weightMirrorAppliedCount();
+    }
+
+    @Override
+    public int weightMirrorLastSourceIndex() {
+        return NativeWarpAltMirrorBridge.weightMirrorLastSourceIndex();
+    }
+
+    @Override
+    public int weightMirrorLastCounterpartIndex() {
+        return NativeWarpAltMirrorBridge.weightMirrorLastCounterpartIndex();
+    }
+
     boolean hasParticipants() {
         return participants.get() > 0;
     }
