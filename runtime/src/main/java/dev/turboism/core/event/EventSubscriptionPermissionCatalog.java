@@ -1,6 +1,6 @@
 package dev.turboism.core.event;
 
-import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.cubism.event.DrawableGeometryEvent;
@@ -138,7 +138,7 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.Before.class)
             || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.Before.class)
             || subscriptionType.isAssignableFrom(ModelUpdateEvent.Before.class)) {
-            permissions.add(ParameterHookRegistry.INTERCEPT_PERMISSION);
+            permissions.add(PermissionIds.TURBOISM_CUBISM_MODEL_INTERCEPT);
         }
         if (subscriptionType.isAssignableFrom(AppearanceChangedEvent.class)) {
             permissions.add(PermissionIds.TURBOISM_UI_APPEARANCE_OBSERVE);
@@ -205,7 +205,7 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(EditorExitEvent.After.class)
             || subscriptionType.isAssignableFrom(ModelUpdateEvent.On.class)
             || subscriptionType.isAssignableFrom(ModelUpdateEvent.After.class)) {
-            permissions.add(ParameterHookRegistry.OBSERVE_PERMISSION);
+            permissions.add(PermissionIds.TURBOISM_CUBISM_MODEL_OBSERVE);
         }
         return Set.copyOf(permissions);
     }
