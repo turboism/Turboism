@@ -18,6 +18,8 @@ import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
+import dev.turboism.core.runtime.psd.RuntimePsdExportService;
+import dev.turboism.core.runtime.psd.RuntimePsdReplaceService;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
@@ -255,6 +257,23 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 modelAccess instanceof NativeLabelColorAuthoring authoring
                         ? authoring
                         : NativeLabelColorAuthoring.unavailable());
+        final RuntimePsdExportService psdExportService;
+        if (pluginTasks == null) {
+            psdExportService = null;
+        } else {
+            psdExportService = new RuntimePsdExportService(
+                    dependencies.descriptor().id(), permissionChecker, activeScope::get, pluginTasks);
+            dependencies.disposableScope().register(psdExportService);
+        }
+        final RuntimePsdReplaceService psdReplaceService;
+        if (psdExportService == null || pluginTasks == null) {
+            psdReplaceService = null;
+        } else {
+            // Shares the export service's registry so only handles issued here can be replaced.
+            psdReplaceService = new RuntimePsdReplaceService(
+                    dependencies.descriptor().id(), permissionChecker, activeScope::get, pluginTasks, psdExportService);
+            dependencies.disposableScope().register(psdReplaceService);
+        }
         final CubismFacadeImpl facade = new CubismFacadeImpl(
                 dependencies.hostSnapshotSource(),
                 permissionGate,
@@ -271,6 +290,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 textureAtlasAlgorithms,
                 history,
                 authoringTransactions,
+                psdExportService,
+                psdReplaceService,
                 dependencies.disposableScope(),
                 dependencies.disposableScope()::isSealed,
                 editSessions,

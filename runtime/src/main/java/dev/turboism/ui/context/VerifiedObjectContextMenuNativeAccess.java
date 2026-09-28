@@ -1,5 +1,6 @@
 package dev.turboism.ui.context;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.ObjectKind;
@@ -36,14 +37,21 @@ public final class VerifiedObjectContextMenuNativeAccess
 
     private final VerifiedMemberResolver resolver;
     private final long hostGeneration;
-    private final String documentId;
+    private final java.util.function.Supplier<String> documentIdentity;
 
+    /**
+     * Creates the adapter. {@code documentIdentity} is queried once per resolved selection so a
+     * captured menu always carries the binding live at menu build time; a later action invoke can
+     * then detect a document or model switch by comparing it against the executing binding.
+     */
     public VerifiedObjectContextMenuNativeAccess(
-            final VerifiedMemberResolver resolver, final long hostGeneration, final String documentId) {
+            final VerifiedMemberResolver resolver,
+            final long hostGeneration,
+            final java.util.function.Supplier<String> documentIdentity) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         if (hostGeneration <= 0) throw new IllegalArgumentException("hostGeneration must be positive");
         this.hostGeneration = hostGeneration;
-        this.documentId = requireText(documentId, "documentId");
+        this.documentIdentity = Objects.requireNonNull(documentIdentity, "documentIdentity");
     }
 
     @Override
@@ -58,7 +66,7 @@ public final class VerifiedObjectContextMenuNativeAccess
                 };
         final List<ContextMenuSelection.Item> items = new ArrayList<>(selected.size());
         for (Object value : selected) items.add(item(value));
-        return new ContextMenuSelection(hostGeneration, documentId, location, items);
+        return new ContextMenuSelection(hostGeneration, documentIdentity.get(), location, items);
     }
 
     /** Builds the typed parameter selection carried by a persistent parameter-point Q context. */
@@ -71,7 +79,7 @@ public final class VerifiedObjectContextMenuNativeAccess
         }
         return new ContextMenuSelection(
                 hostGeneration,
-                documentId,
+                documentIdentity.get(),
                 Location.PARAMETER_TAB,
                 List.of(new ContextMenuSelection.Item(ObjectKind.PARAMETER, text)));
     }
@@ -84,7 +92,14 @@ public final class VerifiedObjectContextMenuNativeAccess
         Objects.requireNonNull(menu, "menu");
         Objects.requireNonNull(contribution, "contribution");
         Objects.requireNonNull(action, "action");
-        place(menu, nativeEntry(contribution.entry(), action), contribution.placement());
+        final Object item = nativeEntry(contribution.entry(), action);
+        place(menu, item, contribution.placement());
+        dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                "context-menu",
+                "appended " + contribution.contributionId()
+                        + " menu=" + menu.getClass().getName()
+                        + " item=" + item.getClass().getName()
+                        + " attachment=" + attachment(item));
     }
 
     /** Appends to a persistent native Q menu and returns reversible Swing removal. */
@@ -108,6 +123,20 @@ public final class VerifiedObjectContextMenuNativeAccess
                 parent.repaint();
             }
         };
+    }
+
+    private String attachment(final Object item) {
+        try {
+            final Object component = resolver.invoke(MENU_COMPONENT, item);
+            final java.awt.Container parent = component instanceof java.awt.Component awt ? awt.getParent() : null;
+            return "component="
+                    + (component == null ? "null" : component.getClass().getName())
+                    + " parent=" + (parent == null ? "null" : parent.getClass().getName())
+                    + " popupComponents=" + (parent == null ? -1 : parent.getComponentCount());
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return "unavailable:" + failure.getClass().getSimpleName();
+        }
     }
 
     private Object nativeEntry(
@@ -257,11 +286,5 @@ public final class VerifiedObjectContextMenuNativeAccess
     private static List<?> list(final Object value, final String label) {
         if (!(value instanceof List<?> list)) throw new IllegalStateException(label + " are unavailable");
         return List.copyOf(list);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

@@ -8,6 +8,7 @@ import io
 import json
 import os
 from pathlib import Path
+import sqlite3
 import sys
 import tempfile
 import time
@@ -19,6 +20,7 @@ PREVIEW = ROOT / "scripts" / "preview"
 sys.path.insert(0, str(PREVIEW))
 
 import host_validation as scheduler  # noqa: E402
+queue = scheduler.queue
 
 
 class HostValidationSchedulerTest(unittest.TestCase):
@@ -221,6 +223,314 @@ class HostValidationSchedulerTest(unittest.TestCase):
                                   ["recover", "--confirm", "job", "--reason", " "],
                                   ["recover", "--inspect", "job", "--reason", "reviewed"]):
                     self.assertEqual(2, scheduler.main(arguments))
+
+
+class _WaitStore:
+    def __init__(self, database: Path) -> None:
+        self.database = database
+        self.submit_calls = 0
+
+    def submit(self, *arguments, **kwargs):
+        self.submit_calls += 1
+        raise AssertionError("waiter must never submit a job")
+
+
+class HostValidationWaitTest(unittest.TestCase):
+    @staticmethod
+    def coded_error(message: str, code: int) -> sqlite3.OperationalError:
+        failure = sqlite3.OperationalError(message)
+        failure.sqlite_errorcode = code
+        return failure
+
+    @staticmethod
+    def terminal_database(directory: str, state: str) -> tuple[queue.Store, dict]:
+        store = queue.Store(Path(directory) / "queue")
+        job = store.submit("prepared", "digest", "wait-test")
+        with store.transaction() as db:
+            db.execute("UPDATE jobs SET state=? WHERE job_id=?", (state, job["job_id"]))
+        return store, job
+
+    def wait_after_one_lock(self, state: str) -> tuple[int, dict, int, str]:
+        with tempfile.TemporaryDirectory() as directory:
+            store, job = self.terminal_database(directory, state)
+            waiter = _WaitStore(store.database)
+            connection_calls = []
+            real_read_job = scheduler.queue.read_only_job
+
+            def connect(database, **kwargs):
+                connection_calls.append((database, kwargs))
+                if len(connection_calls) == 1:
+                    raise self.coded_error("locking protocol", sqlite3.SQLITE_PROTOCOL)
+                return sqlite3.connect(database, **kwargs)
+
+            def read_job(database, job_id):
+                return real_read_job(database, job_id, connect=connect)
+
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output), \
+                 mock.patch.object(scheduler.queue, "read_only_job", side_effect=read_job), \
+                 mock.patch.object(scheduler.time, "sleep") as sleep:
+                result = scheduler.wait_job(waiter, job["job_id"], timeout=10)
+            record = json.loads(output.getvalue())
+            return result, record["job"], len(connection_calls), sleep.call_count
+
+    def test_lock_retry_returns_same_job_success(self) -> None:
+        result, job, connections, sleeps = self.wait_after_one_lock("succeeded")
+        self.assertEqual(0, result)
+        self.assertEqual("succeeded", job["state"])
+        self.assertEqual(2, connections)
+        self.assertEqual(1, sleeps)
+
+    def test_lock_retry_returns_same_job_failed(self) -> None:
+        result, job, connections, sleeps = self.wait_after_one_lock("failed")
+        self.assertEqual(1, result)
+        self.assertEqual("failed", job["state"])
+        self.assertEqual(2, connections)
+        self.assertEqual(1, sleeps)
+
+    def test_lock_retry_is_bounded_and_never_submits(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "queue.sqlite3"
+            database.write_bytes(b"test database placeholder")
+            waiter = _WaitStore(database)
+            connection_calls = []
+            real_read_job = scheduler.queue.read_only_job
+
+            def connect(database_uri, **kwargs):
+                connection_calls.append(database_uri)
+                raise self.coded_error("database is locked", sqlite3.SQLITE_BUSY)
+
+            def read_job(database_path, job_id):
+                return real_read_job(database_path, job_id, connect=connect)
+
+            with mock.patch.object(scheduler.queue, "read_only_job", side_effect=read_job), \
+                 mock.patch.object(scheduler.time, "sleep") as sleep:
+                with self.assertRaisesRegex(
+                    scheduler.SchedulerError,
+                    r"infrastructure wait failure.*retry limit",
+                ):
+                    scheduler.wait_job(waiter, "job", timeout=10)
+            self.assertEqual(scheduler.WAIT_JOB_READ_RETRY_LIMIT + 1, len(connection_calls))
+            self.assertEqual(scheduler.WAIT_JOB_READ_RETRY_LIMIT, sleep.call_count)
+            self.assertEqual(0, waiter.submit_calls)
+
+    def test_lock_retry_stops_at_wait_deadline(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "queue.sqlite3"
+            database.write_bytes(b"test database placeholder")
+            waiter = _WaitStore(database)
+            now = [100.0]
+            connection_calls = []
+            real_read_job = scheduler.queue.read_only_job
+
+            def connect(database_uri, **kwargs):
+                connection_calls.append(database_uri)
+                raise self.coded_error("locking protocol", sqlite3.SQLITE_PROTOCOL)
+
+            def read_job(database_path, job_id):
+                return real_read_job(database_path, job_id, connect=connect)
+
+            def clock():
+                return now[0]
+
+            def advance(seconds):
+                now[0] += seconds
+
+            with mock.patch.object(scheduler.queue, "read_only_job", side_effect=read_job), \
+                 mock.patch.object(scheduler.time, "monotonic", side_effect=clock), \
+                 mock.patch.object(scheduler.time, "sleep", side_effect=advance) as sleep:
+                with self.assertRaisesRegex(
+                    scheduler.SchedulerError,
+                    r"infrastructure wait failure.*deadline",
+                ):
+                    scheduler.wait_job(waiter, "job", timeout=0.06)
+            self.assertEqual(2, len(connection_calls))
+            self.assertEqual(2, sleep.call_count)
+            self.assertEqual(0, waiter.submit_calls)
+
+    def test_lock_retry_budget_spans_successful_polls(self) -> None:
+        waiter = _WaitStore(Path("/unused/queue.sqlite3"))
+        lock = self.coded_error("database is locked", sqlite3.SQLITE_BUSY)
+        running = {"state": "running"}
+        responses = [lock, running, lock, running, lock, running, lock]
+        calls = []
+
+        def read_job(database, job_id):
+            calls.append((database, job_id))
+            response = responses.pop(0)
+            if isinstance(response, BaseException):
+                raise response
+            return response
+
+        with mock.patch.object(scheduler.queue, "read_only_job", side_effect=read_job), \
+             mock.patch.object(scheduler.time, "sleep") as sleep:
+            with self.assertRaisesRegex(
+                scheduler.SchedulerError,
+                r"infrastructure wait failure.*retry limit",
+            ):
+                scheduler.wait_job(waiter, "job", timeout=10)
+        self.assertEqual(7, len(calls))
+        self.assertEqual(6, sleep.call_count)
+        self.assertEqual([], responses)
+        self.assertEqual(0, waiter.submit_calls)
+
+    def test_nonterminal_poll_does_not_sleep_past_wait_deadline(self) -> None:
+        waiter = _WaitStore(Path("/unused/queue.sqlite3"))
+        now = [100.0]
+
+        def clock():
+            return now[0]
+
+        def advance(seconds):
+            now[0] += seconds
+
+        with mock.patch.object(scheduler.queue, "read_only_job", return_value={"state": "running"}), \
+             mock.patch.object(scheduler.time, "monotonic", side_effect=clock), \
+             mock.patch.object(scheduler.time, "sleep", side_effect=advance) as sleep:
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = scheduler.wait_job(waiter, "job", timeout=0.06)
+        self.assertEqual(3, result)
+        self.assertEqual(1, sleep.call_count)
+        self.assertAlmostEqual(0.06, sleep.call_args.args[0])
+        self.assertLessEqual(sleep.call_args.args[0], 0.06 + 1e-12)
+        self.assertTrue(json.loads(output.getvalue())["waitTimedOut"])
+        self.assertEqual(0, waiter.submit_calls)
+
+    def test_non_lock_sqlite_error_fails_immediately(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "queue.sqlite3"
+            database.write_bytes(b"test database placeholder")
+            waiter = _WaitStore(database)
+            calls = []
+
+            def read_job(database_path, job_id):
+                calls.append((database_path, job_id))
+                raise self.coded_error("locking protocol", sqlite3.SQLITE_ERROR)
+
+            with mock.patch.object(scheduler.queue, "read_only_job", side_effect=read_job), \
+                 mock.patch.object(scheduler.time, "sleep") as sleep:
+                with self.assertRaisesRegex(scheduler.SchedulerError, r"queue wait failure"):
+                    scheduler.wait_job(waiter, "job", timeout=10)
+            self.assertEqual(1, len(calls))
+            sleep.assert_not_called()
+            self.assertEqual(0, waiter.submit_calls)
+
+    def test_lock_classifier_uses_exact_message_only_without_error_code(self) -> None:
+        self.assertTrue(queue.is_retryable_read_error(sqlite3.OperationalError("locking protocol")))
+        self.assertTrue(queue.is_retryable_read_error(sqlite3.OperationalError("DATABASE IS LOCKED")))
+        self.assertFalse(queue.is_retryable_read_error(sqlite3.OperationalError("locking protocol: extra")))
+        self.assertFalse(
+            queue.is_retryable_read_error(
+                self.coded_error("database is locked", sqlite3.SQLITE_ERROR)
+            )
+        )
+
+    def test_unknown_schema_fails_without_a_wait_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store, job = self.terminal_database(directory, "failed")
+            with store.transaction() as db:
+                db.execute("UPDATE metadata SET version=99")
+            waiter = _WaitStore(store.database)
+
+            with mock.patch.object(scheduler.time, "sleep") as sleep:
+                with self.assertRaisesRegex(
+                    scheduler.queue.QueueError,
+                    r"unsupported queue schema",
+                ):
+                    scheduler.wait_job(waiter, job["job_id"], timeout=10)
+            sleep.assert_not_called()
+            self.assertEqual(0, waiter.submit_calls)
+
+    def test_wait_command_does_not_initialize_a_missing_database(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / "queue.sqlite3"
+            with mock.patch.object(scheduler.queue, "account_root", return_value=root), \
+                 mock.patch.object(scheduler.queue, "Store", side_effect=AssertionError("wait initialized Store")), \
+                 contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(2, scheduler.main(["wait", "missing-job"]))
+            self.assertFalse(database.exists())
+
+    def test_read_only_job_uses_ro_query_only_and_rejects_write(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store, job = self.terminal_database(directory, "failed")
+            calls = []
+            real_connect = sqlite3.connect
+
+            def connect(database_uri, **kwargs):
+                calls.append((database_uri, kwargs))
+                return real_connect(database_uri, **kwargs)
+
+            self.assertEqual(
+                job["job_id"],
+                scheduler.queue.read_only_job(store.database, job["job_id"], connect=connect)["job_id"],
+            )
+            self.assertEqual(1, len(calls))
+            self.assertIn("?mode=ro", calls[0][0])
+            self.assertTrue(calls[0][1]["uri"])
+            with scheduler.queue.read_only_connection(store.database) as database:
+                self.assertEqual(1, database.execute("PRAGMA query_only").fetchone()[0])
+                with self.assertRaisesRegex(sqlite3.OperationalError, r"readonly"):
+                    database.execute("CREATE TABLE forbidden_write(value TEXT)")
+
+            waiter = _WaitStore(store.database)
+            with mock.patch.object(scheduler.time, "sleep") as sleep:
+                with self.assertRaisesRegex(queue.QueueError, r"unknown job id"):
+                    scheduler.wait_job(waiter, "missing-job", timeout=10)
+            sleep.assert_not_called()
+            self.assertEqual(0, waiter.submit_calls)
+
+    def test_read_only_connection_closes_when_pragma_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "queue.sqlite3"
+            path.write_bytes(b"placeholder")
+
+            class FailingConnection:
+                def __init__(self):
+                    self.closed = False
+
+                def execute(self, statement):
+                    raise sqlite3.OperationalError("query_only setup failed")
+
+                def close(self):
+                    self.closed = True
+
+            connection = FailingConnection()
+
+            with self.assertRaisesRegex(sqlite3.OperationalError, r"query_only setup failed"):
+                with scheduler.queue.read_only_connection(path, connect=lambda *a, **k: connection):
+                    self.fail("failing PRAGMA unexpectedly yielded a connection")
+            self.assertTrue(connection.closed)
+
+    def test_corrupt_read_only_database_fails_without_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "queue.sqlite3"
+            database.write_bytes(b"not a sqlite database")
+            waiter = _WaitStore(database)
+
+            with mock.patch.object(scheduler.time, "sleep") as sleep:
+                with self.assertRaisesRegex(
+                    scheduler.SchedulerError,
+                    r"queue wait failure",
+                ):
+                    scheduler.wait_job(waiter, "job", timeout=10)
+            sleep.assert_not_called()
+            self.assertEqual(0, waiter.submit_calls)
+
+    def test_missing_read_only_database_is_not_created(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "missing" / "queue.sqlite3"
+            calls = []
+
+            def connect(*arguments, **kwargs):
+                calls.append((arguments, kwargs))
+                raise AssertionError("missing database must be rejected before connect")
+
+            with self.assertRaisesRegex(scheduler.queue.QueueError, r"does not exist"):
+                scheduler.queue.read_only_job(path, "job", connect=connect)
+            self.assertFalse(path.exists())
+            self.assertEqual([], calls)
 
 
 if __name__ == "__main__":

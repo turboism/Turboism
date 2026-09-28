@@ -366,11 +366,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 runtime -> {});
     }
 
-    /**
-     * Starts the runtime with bootstrap work before plugin initialization and consumer-dependent
-     * binding after plugins have enabled, before startup events and reports are published.
-     * Deferred capabilities must remain unavailable until their runtime binding succeeds.
-     */
+    /** Starts an admitted runtime with an optional exact-review protected-export record. */
     public static PreviewRuntime start(
             final Path requestedHome,
             final Path verificationRecord,
