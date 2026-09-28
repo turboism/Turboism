@@ -475,10 +475,33 @@ val checkVersionSetCompleteness by tasks.registering(Exec::class) {
         "scripts/preview/host-validation-tasks.json",
         "scripts/preview/host_validation.py",
         "compatibility/cubism/index.md",
-        fileTree("compatibility/cubism/profiles/draft") { include("*.json") }
+        fileTree("compatibility/cubism/profiles/draft") { include("*.json") },
+        fileTree("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins") {
+            include("*.json")
+        }
     )
     verificationStamp()
     commandLine("python3", "scripts/check_version_set_completeness.py", rootDir.absolutePath)
+}
+
+/*
+ * Class-pin JSON tables are generated/maintained by generate_class_pins.py;
+ * the self-test proves update/check/dry-run semantics fail closed against
+ * fixture JARs so the tool can be trusted during host-version onboarding.
+ */
+val generateClassPinsSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for the class-pin generator."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/generate_class_pins.py",
+        "scripts/test/test_generate_class_pins.py"
+    )
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_generate_class_pins",
+        "-v"
+    )
 }
 
 /*
@@ -1363,6 +1386,7 @@ val checkCompletedCommit by tasks.registering {
         checkOfficialPluginReadmes,
         checkDraftPackMetadata,
         checkVersionSetCompleteness,
+        generateClassPinsSelfTest,
         checkVerificationRecordIndex,
         checkVerificationSources,
         "checkSdkApiBaselineTool",
