@@ -82,15 +82,43 @@ private fun configureGraalHost(task: Sync) {
     }
 }
 
+/*
+ * Check tasks prove a predicate over their declared inputs and produce no artifact;
+ * with no output Gradle can never mark them up-to-date and re-runs them on every
+ * build. The stamp file is that persistent output, written only after the check
+ * action succeeds. Call it after any doLast check action so the stamp cannot be
+ * written ahead of a failing check.
+ */
+private fun Task.verificationStamp() {
+    val stamp = project.layout.buildDirectory.file("verification-stamps/$name.stamp")
+    outputs.file(stamp)
+    doLast {
+        stamp.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("ok\n")
+        }
+    }
+}
+
 tasks.register<Exec>("checkDistributionProtocolContract") {
     group = "verification"
     description = "Verifies protocol fixtures, package privacy, source boundaries, and compiled module boundaries."
     val productionProjects = productionProjects()
     dependsOn(":runtime:protocolRecordValidationTest")
     dependsOn(productionProjects.map { it.tasks.named("classes") })
+    inputs.file("scripts/test/test_distribution_protocol_contract.sh")
+    inputs.files(
+        fileTree("runtime/src/main/java/dev/turboism/distribution/record") { include("**/*.java") },
+        fileTree("runtime/src/test/java/dev/turboism/distribution/record") { include("**/*.java") },
+        fileTree("runtime/src/test/resources/fixtures/schema/distribution-protocol-v1") { include("**/*.json") },
+        fileTree("sdk/src/main/java") { include("**/*.java") },
+        fileTree("plugins") { include("*/src/main/java/**/*.java") }
+    )
+    inputs.files(productionProjects.map { it.layout.buildDirectory.dir("classes/java/main") })
     environment("TURBOISM_SKIP_GRADLE_MODEL", "1")
     environment("TURBOISM_SDK_CLASSES_DIR", project(":sdk").layout.buildDirectory.dir("classes/java/main").get().asFile)
     environment("TURBOISM_PLUGIN_CLASSES_DIRS", pluginClassesDirectories(productionProjects))
+    verificationStamp()
     commandLine("bash", "scripts/test/test_distribution_protocol_contract.sh")
 }
 
@@ -141,6 +169,8 @@ val previewBootstrapBridgeTest by tasks.registering(JavaExec::class) {
     val bootstrapTests = project(":bootstrap").extensions.getByType<SourceSetContainer>().named("test")
     classpath(bootstrapTests.map { it.output })
     mainClass.set("dev.turboism.bootstrap.BootstrapBridgeVisibilityMain")
+    inputs.file(previewBundleDir.map { it.file("turboism-agent.jar") })
+    verificationStamp()
     doFirst {
         val agent = previewBundleDir.get().asFile.resolve("turboism-agent.jar")
         setJvmArgs(listOf("-javaagent:${agent.absolutePath}=hostClass=missing.Host;timeoutSeconds=1"))
@@ -154,6 +184,8 @@ val contractParentAgentTest by tasks.registering(JavaExec::class) {
     val bootstrapTests = project(":bootstrap").extensions.getByType<SourceSetContainer>().named("test")
     classpath(bootstrapTests.map { it.output })
     mainClass.set("dev.turboism.bootstrap.ContractParentVisibilityMain")
+    inputs.file(previewBundleDir.map { it.file("turboism-agent.jar") })
+    verificationStamp()
     doFirst {
         val agent = previewBundleDir.get().asFile.resolve("turboism-agent.jar")
         setJvmArgs(listOf("-javaagent:${agent.absolutePath}=hostClass=missing.Host;timeoutSeconds=1"))
@@ -164,10 +196,15 @@ tasks.register("checkPreviewBundleLayout") {
     group = "verification"
     description = "Build and verify the minimum Turboism 0.1 preview bundle layout and probe package isolation."
     dependsOn(previewBundle, performanceProbeValidationBundle)
+    inputs.dir(previewBundleDir)
+    inputs.dir(performanceProbeValidationDir)
+    // The layout rules live in this script's verify functions.
+    inputs.file("gradle/distribution-preview.gradle.kts")
     doLast {
         verifyPreviewBundle(previewBundleDir.get().asFile)
         verifyPerformanceProbeValidationBundle(performanceProbeValidationDir.get().asFile)
     }
+    verificationStamp()
 }
 
 private fun verifyPreviewBundle(root: File) {
