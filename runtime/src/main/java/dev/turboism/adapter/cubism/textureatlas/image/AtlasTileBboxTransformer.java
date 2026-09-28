@@ -7,6 +7,7 @@ import java.security.ProtectionDomain;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import dev.turboism.bootstrap.tilebbox.AtlasTileBboxDelegate;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 /**
  * Exact-selector transformer for the host's private per-image alpha workaround.
@@ -156,6 +157,7 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
                 + " " + target.internalName()
                 + (detail == null || detail.isEmpty() ? "" : " " + detail));
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // The console is evidence, never a failure source.
         }
     }

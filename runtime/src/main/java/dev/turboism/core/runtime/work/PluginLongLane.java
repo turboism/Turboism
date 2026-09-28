@@ -3,6 +3,7 @@ package dev.turboism.core.runtime.work;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.time.Duration;
 import java.util.Objects;
@@ -233,6 +234,7 @@ public final class PluginLongLane {
                 work.run();
                 completion.complete(PluginWorkResult.succeeded());
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 emit(
                     task,
                     PluginWorkBudgetEvent.Phase.FAILED,

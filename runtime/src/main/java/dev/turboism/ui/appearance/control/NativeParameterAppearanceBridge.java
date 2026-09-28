@@ -1,6 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 import java.awt.Component;
 import java.lang.reflect.Field;
@@ -52,6 +53,7 @@ public final class NativeParameterAppearanceBridge {
             if (folder) installed.bindFolder(row);
             else installed.bindParameter(row);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Native callback must remain fail-open.
         }
     }

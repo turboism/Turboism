@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -286,12 +287,14 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
                         try {
                             hook.onParameterValueChanged(parameter, oldValue, finalValue);
                         } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
                             logHookFailure(plugin, "onParameterValueChanged", failure);
                         }
                     }
                     try {
                         hook.afterSetParameterValue(parameter, finalValue);
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         logHookFailure(plugin, "afterSetParameterValue", failure);
                     }
                 }
@@ -336,6 +339,7 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
                 failure
             );
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Hook and diagnostic failures must not escape into the Cubism operation.
         }
     }

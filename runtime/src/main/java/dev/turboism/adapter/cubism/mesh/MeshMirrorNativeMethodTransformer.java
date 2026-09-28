@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
+import dev.turboism.core.runtime.work.FatalErrors;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -141,6 +142,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                         do current = current.getSuperclass(); while (!current.isAssignableFrom(rightType));
                         return current.getName().replace('.', '/');
                     } catch (Throwable ignored) {
+                        FatalErrors.rethrowIfFatal(ignored);
                         return "java/lang/Object";
                     }
                 }
@@ -488,6 +490,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         try {
             diagnostic.accept(message);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics must not block host class definition.
         }
     }

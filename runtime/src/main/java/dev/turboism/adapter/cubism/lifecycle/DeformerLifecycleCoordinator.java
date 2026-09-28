@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.DeformerLockEvent;
 import dev.turboism.sdk.cubism.event.DeformerOpacityEvent;
@@ -142,7 +143,8 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                         final float transformed = hook.beforeSetDeformerOpacity(deformer, effective);
                         if (Float.isFinite(transformed)) effective = transformed;
                         else plugin.logger().warn("Ignored non-finite beforeSetDeformerOpacity result for " + OPACITY_OPERATION_ID);
-                    } catch (Throwable failure) { logHookFailure(plugin, "beforeSetDeformerOpacity", failure); }
+                    } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeSetDeformerOpacity", failure); }
                 }
             }
             final RuntimeEventBroker broker = eventBroker;
@@ -205,7 +207,8 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                 final PluginHooks plugin = registration.plugin();
                 if (plugin.interceptAllowed()) for (DeformerHooks hook : plugin.entrypoints()) {
                     try { effective = hook.beforeSetDeformerVisible(deformer, effective); }
-                    catch (Throwable failure) { logHookFailure(plugin, "beforeSetDeformerVisible", failure); }
+                    catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeSetDeformerVisible", failure); }
                 }
             }
             final RuntimeEventBroker broker = eventBroker;
@@ -270,7 +273,8 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                 final PluginHooks plugin = registration.plugin();
                 if (plugin.interceptAllowed()) for (DeformerHooks hook : plugin.entrypoints()) {
                     try { effective = hook.beforeSetDeformerLocked(deformer, effective); }
-                    catch (Throwable failure) { logHookFailure(plugin, "beforeSetDeformerLocked", failure); }
+                    catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeSetDeformerLocked", failure); }
                 }
             }
             final RuntimeEventBroker broker = eventBroker;
@@ -342,7 +346,8 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                             hook.beforeReplaceWarpDeformerGrid(deformer, effective),
                             "beforeReplaceWarpDeformerGrid result"
                         );
-                    } catch (Throwable failure) { logHookFailure(plugin, "beforeReplaceWarpDeformerGrid", failure); }
+                    } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeReplaceWarpDeformerGrid", failure); }
                 }
             }
             final RuntimeEventBroker broker = eventBroker;
@@ -412,7 +417,8 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                         final float transformed = hook.beforeSetRotationDeformerBaseAngle(deformer, effective);
                         if (Float.isFinite(transformed)) effective = transformed;
                         else plugin.logger().warn("Ignored non-finite beforeSetRotationDeformerBaseAngle result for " + ROTATION_ANGLE_OPERATION_ID);
-                    } catch (Throwable failure) { logHookFailure(plugin, "beforeSetRotationDeformerBaseAngle", failure); }
+                    } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeSetRotationDeformerBaseAngle", failure); }
                 }
             }
             final RuntimeEventBroker broker = eventBroker;
@@ -488,7 +494,8 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                             hook.beforeReplaceRotationDeformerForm(deformer, effective),
                             "beforeReplaceRotationDeformerForm result"
                         );
-                    } catch (Throwable failure) { logHookFailure(plugin, "beforeReplaceRotationDeformerForm", failure); }
+                    } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeReplaceRotationDeformerForm", failure); }
                 }
             }
             final RuntimeEventBroker broker = eventBroker;
@@ -555,7 +562,8 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
             submit(registration, operationId, () -> {
                 for (DeformerHooks hook : hooks) {
                     try { call.invoke(hook); }
-                    catch (Throwable failure) { logHookFailure(plugin, operationId, failure); }
+                    catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, operationId, failure); }
                 }
             });
         }
@@ -596,7 +604,8 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
 
     private static void logHookFailure(final PluginHooks plugin, final String phase, final Throwable failure) {
         try { plugin.logger().error("Cubism Deformer lifecycle hook failed safely: " + phase, failure); }
-        catch (Throwable ignored) { }
+        catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored); }
     }
 
     private static String requireText(final String value, final String name) {

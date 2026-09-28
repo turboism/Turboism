@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 /**
  * Ports the legacy BoundingBox overlay mirror workflow: one overlay button opens a
@@ -59,7 +60,7 @@ public final class BoundingBoxWarpMirrorPlugin implements TurboismPlugin {
     @Override
     public void enable() {
         try {
-            context.disposableScope().register(context.uiHost().contributeBoundingBoxOverlayButton(
+            context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeBoundingBoxOverlayButton(
                 new BoundingBoxOverlayButton(
                     OVERLAY_BUTTON_ID,
                     context.localization().text("overlay.tooltip"),

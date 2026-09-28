@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
 import dev.turboism.sdk.cubism.mesh.MeshEditResult;
 import dev.turboism.sdk.cubism.mesh.MeshEditService;
@@ -42,6 +43,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
                 NativeMeshMirrorBridge.collectSnapshot(meshes.get(0), points, edges);
                 return new MeshSnapshot(points, edges);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 NativeMeshMirrorBridge.diagnostic("MESH_EDIT_SNAPSHOT_FAILED reason=" + failure.getClass().getName());
                 return MeshSnapshot.empty();
             }
@@ -125,6 +127,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
                 started = false;
                 return result(rejected);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 final String rollback = started && editMode != null
                     ? rollback(editMode, "MESH_EDIT_DELETE_POINTS_FAILED")
                     : null;
@@ -269,6 +272,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
                 started = false;
                 return result(rejected);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 final String rollback = started && editMode != null
                     ? rollback(editMode, "MESH_EDIT_DELETE_EDGES_FAILED")
                     : null;
@@ -310,6 +314,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
                 started = false;
                 return prepared.result;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 final String rollback = started && actionPack != null ? rollback(actionPack, failureMarker) : null;
                 NativeMeshMirrorBridge.diagnostic(failureMarker + " reason=" + failure.getClass().getName());
                 return refused(failure, rollback);
@@ -331,6 +336,7 @@ public final class RuntimeMeshEditService implements MeshEditService {
             NativeMeshMirrorBridge.cancelUndoGroup(owner);
             return null;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             final String detail = "rollback failed: " + failure.getClass().getName();
             NativeMeshMirrorBridge.diagnostic(marker + " rollback=" + failure.getClass().getName());
             return detail;
@@ -355,7 +361,8 @@ public final class RuntimeMeshEditService implements MeshEditService {
         try {
             SwingUtilities.invokeAndWait(() -> {
                 try { result[0] = operation.get(); }
-                catch (Throwable throwable) { failure[0] = throwable; }
+                catch (Throwable throwable) {
+                    FatalErrors.rethrowIfFatal(throwable); failure[0] = throwable; }
             });
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();

@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.mesh.MeshDeletion;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
@@ -77,6 +78,7 @@ public final class NativeMeshMirrorBridge {
         try {
             DIAGNOSTIC.get().accept("MESH_MIRROR_DIAG stage=" + stage);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics must never reach the host call site.
         }
     }
@@ -180,6 +182,7 @@ public final class NativeMeshMirrorBridge {
                 : MeshEditTool.UNKNOWN;
             return tool != MeshEditTool.UNKNOWN && TOOL_ELIGIBILITY.isExtended(tool);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("TOOL_ELIGIBILITY_FAILED reason=" + failure.getClass().getName());
             return original;
         }
@@ -830,6 +833,7 @@ public final class NativeMeshMirrorBridge {
                 diagnostic("MOVE_PARTICIPATION_APPLIED count=" + moved);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("MOVE_PARTICIPATION_FAILED reason=" + failure.getClass().getName());
         }
     }
@@ -958,6 +962,7 @@ public final class NativeMeshMirrorBridge {
                 restoreDispatchState(previous);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("PARTICIPATION_FAILED kind=POINTS reason=" + failure.getClass().getName());
         }
     }
@@ -1187,6 +1192,7 @@ public final class NativeMeshMirrorBridge {
                 restoreDispatchState(previous);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("PARTICIPATION_FAILED kind=ERASER_EDGES reason="
                 + failure.getClass().getName());
         }
@@ -1323,6 +1329,7 @@ public final class NativeMeshMirrorBridge {
                 restoreDispatchState(previous);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnostic("PARTICIPATION_FAILED kind=EDGES reason=" + failure.getClass().getName());
         }
     }
@@ -1591,6 +1598,7 @@ public final class NativeMeshMirrorBridge {
             return Class.forName(MIRROR_OWNER, false, pack.getClass().getClassLoader())
                 .getField("a").get(null);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return null;
         }
     }
@@ -1948,6 +1956,7 @@ public final class NativeMeshMirrorBridge {
             return noArg != null && noArg.getReturnType() == boolean.class
                 && Boolean.TRUE.equals(noArg.invoke(mirror));
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return false;
         }
     }

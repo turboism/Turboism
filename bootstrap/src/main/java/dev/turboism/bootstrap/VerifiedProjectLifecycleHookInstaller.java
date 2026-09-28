@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.lifecycle.NativeProjectLifecycleBridge;
 import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfile;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleNativeMethodTransformer;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
@@ -70,6 +71,7 @@ final class VerifiedProjectLifecycleHookInstaller implements AutoCloseable {
                 "Installed verified lifecycle hooks; retransformed=" + retransformed
             );
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }

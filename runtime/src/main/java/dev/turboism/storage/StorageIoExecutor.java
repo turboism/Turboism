@@ -1,5 +1,6 @@
 package dev.turboism.storage;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
@@ -161,6 +162,7 @@ final class StorageIoExecutor implements AutoCloseable {
             try {
                 settle(Thread.currentThread().isInterrupted() ? canceled.get() : action.get());
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 settleExceptionally(failure);
             } finally {
                 remove(this);

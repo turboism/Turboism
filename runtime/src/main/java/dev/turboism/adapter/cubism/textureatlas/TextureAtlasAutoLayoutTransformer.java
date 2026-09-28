@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -280,6 +281,7 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
                 StandardOpenOption.APPEND
             );
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // diagnostics are best-effort
         }
     }

@@ -1,6 +1,7 @@
 package dev.turboism.ui.filter;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
@@ -326,6 +327,7 @@ final class PaletteTreeFilter {
                 try {
                     filtered.prewarm();
                 } catch (Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
                     // Best-effort: on failure the model falls back to lazy EDT traversal (legacy behavior).
                 }
                 PaletteFilterHostOperations.onEdt(() -> {
@@ -362,6 +364,7 @@ final class PaletteTreeFilter {
                 });
             });
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             host.lastAttachStatus.put(state.kind, "tree-filter-failed:"
                 + failure.getClass().getSimpleName() + ":" + failure.getMessage());
         }

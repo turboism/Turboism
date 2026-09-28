@@ -1,5 +1,7 @@
 package dev.turboism.sdk.plugin;
 
+import dev.turboism.sdk.Incubating;
+
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
@@ -110,8 +112,9 @@ public interface PluginContext {
         return UserFileAccessService.unavailable();
     }
 
-    /** Returns the inert, plugin-scoped bridge for the native export settings flow. */
-    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    /** Returns the inert, plugin-scoped bridge for the native export settings flow.      * @deprecated superseded by the service directory: {@code services().get(ExportSettingsContributionService.class)}
+     */
+    @Deprecated
     default ExportSettingsContributionService exportSettings() {
         return ExportSettingsContributionService.unavailable();
     }
@@ -144,87 +147,121 @@ public interface PluginContext {
         return ModelObjectService.unavailable();
     }
 
-    /** Returns the clip-mask service. */
+    /** Returns the clip-mask service.      * @deprecated superseded by the service directory: {@code services().get(CubismClipMaskService.class)}
+     */
+    @Deprecated
     default CubismClipMaskService cubismClipMasks() {
         return CubismClipMaskService.unavailable();
     }
 
-    /** Returns the Recent Files menu projection. */
+    /** Returns the Recent Files menu projection.      * @deprecated superseded by the service directory: {@code services().get(RecentFileService.class)}
+     */
+    @Deprecated
     default RecentFileService recentFiles() {
         return RecentFileService.unavailable();
     }
 
-    /** Returns the asynchronous preview capture service for recent project files. */
+    /** Returns the asynchronous preview capture service for recent project files.      * @deprecated superseded by the service directory: {@code services().get(ScreenshotCaptureService.class)}
+     */
+    @Deprecated
     default ScreenshotCaptureService screenshots() {
         return ScreenshotCaptureService.unavailable();
     }
 
-    /** Returns the recent-file hover preview contribution service. */
+    /** Returns the recent-file hover preview contribution service.      * @deprecated superseded by the service directory: {@code services().get(RecentPreviewContributionService.class)}
+     */
+    @Deprecated
     default RecentPreviewContributionService recentPreviews() {
         return RecentPreviewContributionService.unavailable();
     }
 
-    /** Returns the Physics Settings contribution seam. */
+    /** Returns the Physics Settings contribution seam.      * @deprecated superseded by the service directory: {@code services().get(PhysicsEditorService.class)}
+     */
+    @Deprecated
     default PhysicsEditorService physicsEditor() {
         return PhysicsEditorService.unavailable();
     }
 
-    /** Returns the file-chooser history service. */
+    /** Returns the file-chooser history service.      * @deprecated superseded by the service directory: {@code services().get(FileChooserHistoryService.class)}
+     */
+    @Deprecated
     default FileChooserHistoryService fileChooserHistory() {
         return FileChooserHistoryService.unavailable();
     }
 
-    /** Returns the mesh mirror-axis service. */
+    /** Returns the mesh mirror-axis service.      * @deprecated superseded by the service directory: {@code services().get(MeshMirrorAxisService.class)}
+     */
+    @Deprecated
     default MeshMirrorAxisService meshMirrorAxis() {
         return MeshMirrorAxisService.unavailable();
     }
 
-    /** Returns the mesh editing service. */
+    /** Returns the mesh editing service.      * @deprecated superseded by the service directory: {@code services().get(MeshEditService.class)}
+     */
+    @Deprecated
     default MeshEditService meshEdit() {
         return MeshEditService.unavailable();
     }
 
-    /** Returns the mesh-edit participation service. */
+    /** Returns the mesh-edit participation service.      * @deprecated superseded by the service directory: {@code services().get(MeshEditParticipation.class)}
+     */
+    @Deprecated
     default MeshEditParticipation meshEditParticipation() {
         return MeshEditParticipation.unavailable();
     }
 
-    /** Returns the mesh mirror-counterpart resolution service. */
+    /** Returns the mesh mirror-counterpart resolution service.      * @deprecated superseded by the service directory: {@code services().get(MeshMirrorCounterparts.class)}
+     */
+    @Deprecated
     default MeshMirrorCounterparts meshMirrorCounterparts() {
         return MeshMirrorCounterparts.unavailable();
     }
 
-    /** Returns the mesh mirror tool-eligibility service. */
+    /** Returns the mesh mirror tool-eligibility service.      * @deprecated superseded by the service directory: {@code services().get(MeshMirrorToolEligibility.class)}
+     */
+    @Deprecated
     default MeshMirrorToolEligibility meshMirrorToolEligibility() {
         return MeshMirrorToolEligibility.unavailable();
     }
 
-    /** Returns the mesh mirror move-participation service. */
+    /** Returns the mesh mirror move-participation service.      * @deprecated superseded by the service directory: {@code services().get(MeshMirrorMoveParticipation.class)}
+     */
+    @Deprecated
     default MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
         return MeshMirrorMoveParticipation.unavailable();
     }
 
-    /** Returns the Warp Deformer Alt-symmetry participation backed by the reviewed native drag-tick hook. */
+    /** Returns the Warp Deformer Alt-symmetry participation backed by the reviewed native drag-tick hook.      * @deprecated superseded by the service directory: {@code services().get(WarpAltMirrorParticipation.class)}
+     */
+    @Deprecated
     default dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation warpAltMirrorParticipation() {
         return dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation.unavailable();
     }
 
-    /** Returns the canvas-top strip (view context menu) button surface. */
+    /** Returns the canvas-top strip (view context menu) button surface.      * @deprecated superseded by the service directory: {@code services().get(ViewContextMenuRegistry.class)}
+     */
+    @Deprecated
     default dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry viewContextMenu() {
         return dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.unavailable();
     }
 
-    /** Returns the mesh-edit UI service. */
+    /** Returns the mesh-edit UI service.      * @deprecated superseded by the service directory: {@code services().get(MeshEditUiService.class)}
+     */
+    @Deprecated
     default MeshEditUiService meshEditUi() {
         return MeshEditUiService.unavailable();
     }
 
-    /** Returns the Editor command execution service. */
+    /** Returns the Editor command execution service.      * @deprecated superseded by the service directory: {@code services().get(EditorCommandService.class)}
+     */
+    @Deprecated
     default EditorCommandService editorCommands() {
         return EditorCommandService.unavailable();
     }
 
-    /** Returns the Editor auto-backup service. */
+    /** Returns the Editor auto-backup service.      * @deprecated superseded by the service directory: {@code services().get(EditorAutoBackupService.class)}
+     */
+    @Deprecated
     default EditorAutoBackupService backup() {
         return EditorAutoBackupService.unavailable();
     }
@@ -242,9 +279,26 @@ public interface PluginContext {
      * on an unsupported host.</p>
      *
      * @return installed optional services; never {@code null}
+     * @deprecated use {@link #services()}.{@link PluginServiceDirectory#installed() installed()}
      */
+    @Deprecated
     default java.util.Set<PluginService> availableServices() {
         return java.util.Set.of();
+    }
+
+    /**
+     * Returns the typed directory over this context's optional services. New optional
+     * services land on the directory and on {@link PluginService} rather than gaining a
+     * context accessor, so this is the canonical read path for optional surface.
+     *
+     * <p>The default bridges every {@link PluginService} member to the context's existing
+     * optional accessors, so implementations need not override it.</p>
+     *
+     * @return the service directory for this context; never {@code null}
+     */
+    @Incubating
+    default PluginServiceDirectory services() {
+        return PluginServices.of(this);
     }
 
     /** Returns the typed event bus. */
@@ -256,58 +310,80 @@ public interface PluginContext {
     /** Returns the menu contribution registry. */
     MenuRegistry menus();
 
-    /** Returns the main-toolbar contribution registry. */
+    /** Returns the main-toolbar contribution registry.      * @deprecated superseded by the service directory: {@code services().get(MainToolbarRegistry.class)}
+     */
+    @Deprecated
     default MainToolbarRegistry mainToolbar() {
         return MainToolbarRegistry.unavailable();
     }
 
-    /** Returns the palette-toolbar contribution registry. */
+    /** Returns the palette-toolbar contribution registry.      * @deprecated superseded by the service directory: {@code services().get(PaletteToolbarRegistry.class)}
+     */
+    @Deprecated
     default PaletteToolbarRegistry paletteToolbar() {
         return PaletteToolbarRegistry.unavailable();
     }
 
-    /** Returns the palette filter-box contribution registry. */
+    /** Returns the palette filter-box contribution registry.      * @deprecated superseded by the service directory: {@code services().get(PaletteFilterRegistry.class)}
+     */
+    @Deprecated
     default PaletteFilterRegistry paletteFilter() {
         return PaletteFilterRegistry.unavailable();
     }
 
-    /** Returns the Scene palette table service. */
+    /** Returns the Scene palette table service.      * @deprecated superseded by the service directory: {@code services().get(SceneTableService.class)}
+     */
+    @Deprecated
     default SceneTableService sceneTable() {
         return SceneTableService.unavailable();
     }
 
-    /** Returns the UI-host capability surface. */
+    /** Returns the UI-host capability surface.      * @deprecated superseded by the service directory: {@code services().get(UiHostCapabilityService.class)}
+     */
+    @Deprecated
     default UiHostCapabilityService uiHost() {
         return UiHostCapabilityService.unavailable();
     }
 
-    /** Declarative native icon references; unavailable until a verified provider is installed. */
+    /** Declarative native icon references; unavailable until a verified provider is installed.      * @deprecated superseded by the service directory: {@code services().get(UiResourceService.class)}
+     */
+    @Deprecated
     default dev.turboism.sdk.ui.resource.UiResourceService uiResources() {
         return dev.turboism.sdk.ui.resource.UiResourceService.unavailable();
     }
 
-    /** Returns the host dialog automation service. */
+    /** Returns the host dialog automation service.      * @deprecated superseded by the service directory: {@code services().get(HostDialogAutomationService.class)}
+     */
+    @Deprecated
     default HostDialogAutomationService hostDialogs() {
         return HostDialogAutomationService.unavailable();
     }
 
-    /** Returns the theme appearance service. */
+    /** Returns the theme appearance service.      * @deprecated superseded by the service directory: {@code services().get(AppearanceService.class)}
+     */
+    @Deprecated
     default AppearanceService appearance() {
         return AppearanceService.unavailable();
     }
 
 
-    /** Returns the workspace arrangement service. */
+    /** Returns the workspace arrangement service.      * @deprecated superseded by the service directory: {@code services().get(WorkspaceService.class)}
+     */
+    @Deprecated
     default WorkspaceService workspace() {
         return WorkspaceService.unavailable();
     }
 
-    /** Returns the workspace dock-layout query service. */
+    /** Returns the workspace dock-layout query service.      * @deprecated superseded by the service directory: {@code services().get(WorkspaceLayoutService.class)}
+     */
+    @Deprecated
     default WorkspaceLayoutService workspaceLayout() {
         return WorkspaceLayoutService.unavailable();
     }
 
-    /** Returns the context-menu contribution registry. */
+    /** Returns the context-menu contribution registry.      * @deprecated superseded by the service directory: {@code services().get(ContextMenuRegistry.class)}
+     */
+    @Deprecated
     default ContextMenuRegistry contextMenu() {
         return ContextMenuRegistry.unavailable();
     }
@@ -318,12 +394,16 @@ public interface PluginContext {
     }
 
 
-    /** Returns the Cubism log stream service. */
+    /** Returns the Cubism log stream service.      * @deprecated superseded by the service directory: {@code services().get(CubismLogService.class)}
+     */
+    @Deprecated
     default CubismLogService cubismLog() {
         return CubismLogService.unavailable();
     }
 
-    /** Returns the global runtime settings service. */
+    /** Returns the global runtime settings service.      * @deprecated superseded by the service directory: {@code services().get(RuntimeSettingsService.class)}
+     */
+    @Deprecated
     default RuntimeSettingsService runtimeSettings() {
         return RuntimeSettingsService.unavailable();
     }
@@ -336,7 +416,9 @@ public interface PluginContext {
      * carries no credentials or authorization material.</p>
      *
      * @return the current plugin's MCP connection service
+          * @deprecated superseded by the service directory: {@code services().get(McpConnectionService.class)}
      */
+    @Deprecated
     default McpConnectionService mcpConnections() {
         return McpConnectionService.unavailable();
     }
@@ -344,7 +426,9 @@ public interface PluginContext {
     /** Returns the scheduler for UI-thread work. */
     UiScheduler uiScheduler();
 
-    /** Returns the performance probe service. */
+    /** Returns the performance probe service.      * @deprecated superseded by the service directory: {@code services().get(PerformanceProbeService.class)}
+     */
+    @Deprecated
     default PerformanceProbeService performanceStats() {
         return PerformanceProbeService.unavailable();
     }

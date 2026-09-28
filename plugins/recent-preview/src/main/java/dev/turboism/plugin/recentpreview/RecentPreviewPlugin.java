@@ -25,6 +25,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.time.Duration;
 import java.util.List;
+import dev.turboism.sdk.cubism.recentfile.RecentFileService;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 
 /**
  * Recent-file preview thumbnail plugin: captures a bounded preview when a model is
@@ -60,8 +62,8 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         this.context = Objects.requireNonNull(context, "context");
         cacheIndex = new PreviewCacheIndex(context.storage());
         controller = new RecentPreviewController(
-            context.recentFiles(),
-            context.screenshots(),
+            context.services().get(RecentFileService.class),
+            context.services().get(ScreenshotCaptureService.class),
             cacheIndex
         );
         renderer = new RecentPreviewRendererImpl(
@@ -295,7 +297,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
     }
 
     private void refreshPopup() {
-        final RecentPreviewContributionService service = context.recentPreviews();
+        final RecentPreviewContributionService service = context.services().get(RecentPreviewContributionService.class);
         try {
             service.refresh();
         } catch (RuntimeException unavailable) {
@@ -310,7 +312,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         if (active == null) return;
         try {
             contribution = context.disposableScope().register(
-                context.recentPreviews().contribute(active)
+                context.services().get(RecentPreviewContributionService.class).contribute(active)
             );
         } catch (RuntimeException unavailable) {
             // Safe mode / missing bridge: no popup contribution, capture still works.

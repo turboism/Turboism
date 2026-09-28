@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.backup;
 
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.sdk.cubism.backup.BackupArtifact;
@@ -648,6 +649,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
                     settle(action.get());
                 }
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 diagnose(name + ":failed " + failure.getClass().getName());
                 settleExceptionally(sanitize(failure));
             } finally {

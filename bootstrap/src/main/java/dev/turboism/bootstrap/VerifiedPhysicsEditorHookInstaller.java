@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.physics.NativePhysicsEditorBridge;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorConstructorTransformer;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
@@ -55,6 +56,7 @@ final class VerifiedPhysicsEditorHookInstaller implements AutoCloseable {
                 "Installed verified physics editor hook"
             );
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }

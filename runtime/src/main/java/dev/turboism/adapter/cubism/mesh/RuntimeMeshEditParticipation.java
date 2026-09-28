@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.mesh.MeshDeletion;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
 import dev.turboism.sdk.cubism.mesh.MeshEditParticipant;
@@ -51,6 +52,7 @@ public final class RuntimeMeshEditParticipation implements MeshEditParticipation
             try {
                 contribution = participant.onDeleting(deletion);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 NativeMeshMirrorBridge.restoreDefaultProvenance(provenance);
                 NativeMeshMirrorBridge.diagnostic(
                     "PARTICIPANT_FAILED reason=" + failure.getClass().getName()

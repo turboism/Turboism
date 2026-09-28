@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -130,6 +131,7 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
         try {
             return rewrite(classfileBuffer);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             outcome.set(Outcome.SHAPE_REJECTED);
             diagnostic.compareAndSet("", "transform failed: " + failure);
             return null;
@@ -191,7 +193,8 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
      * try {
      *   Object r = System.getProperties().get(key);
      *   if (r instanceof Runnable) ((Runnable) r).run();
-     * } catch (Throwable ignored) { }
+     * } catch (Throwable ignored) {
+         FatalErrors.rethrowIfFatal(ignored); }
      * </pre>
      */
     private void injectIngress(final MethodVisitor mv) {

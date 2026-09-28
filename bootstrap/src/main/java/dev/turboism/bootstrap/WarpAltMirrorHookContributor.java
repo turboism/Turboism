@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHookAdmission;
 import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 
@@ -105,6 +106,7 @@ final class WarpAltMirrorHookContributor implements HookContributor {
             }
             installer.set(candidate);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             candidate.close();
             throw failure;
         }
@@ -150,6 +152,7 @@ final class WarpAltMirrorHookContributor implements HookContributor {
             current.defineLazyTargets(environment.host().orElseThrow().classLoader());
             current.bind();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             current.close();
             installer.compareAndSet(current, null);
             CURRENT.compareAndSet(current, null);

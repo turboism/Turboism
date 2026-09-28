@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.cubism.ProjectContentKind;
@@ -160,6 +161,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
             try {
                 listener.accept(result);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Runtime cleanup listeners fail open and must not block plugin callbacks.
             }
         }
@@ -226,6 +228,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.beforeCloseModel(operation);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "before" + phaseName(operation) + "Model", failure);
         }
     }
@@ -243,6 +246,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.beforeCloseAnimation(operation);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "before" + phaseName(operation) + "Animation", failure);
         }
     }
@@ -261,6 +265,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.onModelClosed(content);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "onModel" + pastParticiple(operation), failure);
         }
     }
@@ -279,6 +284,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.onAnimationClosed(content);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "onAnimation" + pastParticiple(operation), failure);
         }
     }
@@ -297,6 +303,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.afterCloseModel(result);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "after" + phaseName(operation) + "Model", failure);
         }
     }
@@ -315,6 +322,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 case CLOSE -> hook.afterCloseAnimation(result);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(plugin, "after" + phaseName(operation) + "Animation", failure);
         }
     }
@@ -354,6 +362,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         try {
             plugin.logger().error("Cubism project-file hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Hook and diagnostic failures must not escape into Cubism.
         }
     }

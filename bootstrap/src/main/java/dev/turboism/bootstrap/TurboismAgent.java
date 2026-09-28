@@ -2,6 +2,7 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
 import dev.turboism.bootstrap.PreviewRuntimeLauncher.ResolvedHost;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.preview.PreviewRuntime;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 
@@ -123,6 +124,7 @@ public final class TurboismAgent {
                     "Agent start ignored because the runtime was already requested"
                 );
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Diagnostics must never propagate into the host JVM.
             }
             return;
@@ -170,6 +172,7 @@ public final class TurboismAgent {
                 )
             );
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failStartSafely(failure);
         }
     }
@@ -188,12 +191,14 @@ public final class TurboismAgent {
                     + ": " + failure.getMessage()
             );
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Even failure reporting must not reach the host JVM.
         }
         try {
             JvmShims.closeAll(TurboismAgent::runtimeWarn);
             HOOKS.get().closeAll(TurboismAgent::runtimeWarn, TurboismAgent::runtimeInfo);
         } catch (Throwable rollbackFailure) {
+            FatalErrors.rethrowIfFatal(rollbackFailure);
             // Rollback is best-effort. Anything left installed is a bounded
             // single-target transformer or hook handle that stays until process
             // exit, matching the teardown rules of the runtime-start path.
@@ -272,6 +277,7 @@ public final class TurboismAgent {
             Thread.currentThread().interrupt();
             runtimeWarn("Turboism bootstrap interrupted");
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             final PreviewRuntime runtime = RUNTIME.get();
             if (runtime == null) {
                 System.err.println(
@@ -292,6 +298,7 @@ public final class TurboismAgent {
                 try {
                     PreviewRuntimeLauncher.closePremainRuntimeHooks(meshMirrorHook, warpAltMirrorHook);
                 } catch (Throwable cleanupFailure) {
+                    FatalErrors.rethrowIfFatal(cleanupFailure);
                     runtimeWarn("Turboism premain runtime-hook cleanup failed safely: "
                         + cleanupFailure.getClass().getName());
                 }
@@ -358,6 +365,7 @@ public final class TurboismAgent {
             installed = true;
             return true;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             runtimeWarn("Turboism hook disabled safely: " + contributor.id());
             return false;
         } finally {
@@ -386,6 +394,7 @@ public final class TurboismAgent {
                 }
             });
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             disableHookCapabilities(contributor, environment);
             HOOKS.get().closeHook(contributor.id(), TurboismAgent::runtimeWarn, TurboismAgent::runtimeInfo);
             runtimeWarn("Turboism hook binding disabled safely: " + contributor.id());
@@ -450,6 +459,7 @@ public final class TurboismAgent {
         try {
             runtime.closeForProcessExit();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             System.err.println(
                 "Turboism process-exit report cleanup failed safely: RUNTIME_CLOSE_FAILED"
             );
@@ -466,6 +476,7 @@ public final class TurboismAgent {
         try {
             runtime.close();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             RuntimeDiagnostics.error(
                 "bootstrap",
                 "Shutdown hook failed safely: RUNTIME_CLOSE_FAILED",

@@ -47,6 +47,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 /**
  * 剪贴蒙版检查器窗口（JDialog，MODELESS，只读）。
@@ -342,7 +343,7 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
 
     private void notifyStatus(final String message) {
         try {
-            statusRegistrations.add(context.uiHost().notifyStatus(
+            statusRegistrations.add(context.services().get(UiHostCapabilityService.class).notifyStatus(
                 new StatusNotification(STATUS_NOTIFY_ID, "INFO", message)
             ));
         } catch (RuntimeException unavailable) {

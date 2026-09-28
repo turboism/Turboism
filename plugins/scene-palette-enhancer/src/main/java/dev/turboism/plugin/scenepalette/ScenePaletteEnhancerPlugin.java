@@ -8,6 +8,7 @@ import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
 import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
 
 import java.util.Objects;
+import dev.turboism.sdk.ui.table.SceneTableService;
 
 /** Scene palette sorting and manual-order workflow. */
 public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
@@ -37,7 +38,7 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
                 context.logger().info("Scene manual order storage is unavailable; persistence is disabled.");
             }
         }
-        sorter = new SceneTableSorter(context.sceneTable(), store, context.logger());
+        sorter = new SceneTableSorter(context.services().get(SceneTableService.class), store, context.logger());
     }
 
     /** Forwards a scene-table header click to the active palette sorter. */

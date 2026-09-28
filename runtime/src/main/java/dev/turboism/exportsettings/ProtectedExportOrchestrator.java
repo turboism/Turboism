@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -208,6 +209,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             refusalReporter.accept(
                 new ExportSettingsVetoDiagnostic(NOT_ADMITTED_KEY, detail));
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Reporting must never flip the fixed fail-closed refusal.
         }
         return false;
@@ -240,6 +242,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             document = modelSource == null ? null : host.modelSourceDocument(modelSource);
             sourceFile = document == null ? null : host.documentFile(document);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return refuse("host-read-failed");
         }
         if (modelSource == null || document == null || sourceFile == null) {
@@ -263,6 +266,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         try {
             worker.execute(() -> run(session));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             armed.compareAndSet(session, null);
             return refuse("worker-rejected");
         }
@@ -336,6 +340,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         } catch (SessionRejection rejection) {
             session.fail(rejection.failureKey, rejection.detail);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             session.fail("protected-export.internal-failure",
                 session.phase + " " + describe(failure));
         } finally {
@@ -346,6 +351,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             try {
                 session.cleanupErrors = restoreSession(session);
             } catch (Throwable teardown) {
+                FatalErrors.rethrowIfFatal(teardown);
                 session.cleanupErrors =
                     List.of("teardown-threw: " + describe(teardown));
                 if (session.pendingReport == null) {
@@ -886,6 +892,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                     requireExportLive(session);
                     session.exportDone.complete(null);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     session.exportDone.completeExceptionally(failure);
                 }
             });
@@ -1999,17 +2006,20 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 try {
                     restoreOriginalDocument(session, true);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     errors.add("restore-original: " + describe(failure));
                 }
             }
             try {
                 closeCopy(session, true);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 errors.add("close-copy: " + describe(failure));
             }
             try {
                 ProtectedExportStaging.deleteRecursively(session.stagingDir);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 errors.add("staging: " + describe(failure));
             }
             session.originalRestored = verifyRestored(session, errors);
@@ -2045,6 +2055,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 }
             }));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             errors.add("verify-restored: " + describe(failure));
             return false;
         }
@@ -2293,6 +2304,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             try {
                 reporter.accept(report);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Reporting must never disturb session teardown.
             }
         }

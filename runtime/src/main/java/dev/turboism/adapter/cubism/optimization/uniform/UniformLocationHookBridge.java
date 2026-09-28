@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -100,6 +101,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                             boolean.class, String.class, int.class, Object.class)),
                     lookup.findConstructor(exception, MethodType.methodType(void.class, String.class)));
             } catch (Throwable absent) {
+                FatalErrors.rethrowIfFatal(absent);
                 return null;
             }
         }
@@ -224,7 +226,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             long opened = ++nextMutation;
             mutations.put(opened, Thread.currentThread());
             return opened;
-        } catch (Throwable failure) { retire(); return 0L; }
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure); retire(); return 0L; }
     }
     /** Completes a matching native mutation on its owner thread. */
     public synchronized void endMutation(long scope) {
@@ -274,6 +277,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             deferredReport = null;
             return opened;
         } catch (Throwable problem) {
+            FatalErrors.rethrowIfFatal(problem);
             retire();
             return 0L;
         }
@@ -302,6 +306,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                     reportDeferred(observed);
                 }
             } catch (Throwable queryFailure) {
+                FatalErrors.rethrowIfFatal(queryFailure);
                 // The real frame-end query itself failed: never swallow it —
                 // retire the cache and arm the original throwable so the
                 // emitted frame-exit consult rethrows it unchanged.
@@ -320,6 +325,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         try {
             return ownedContext(frameGl) != null;
         } catch (Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             retire();
             return false;
         }
@@ -352,6 +358,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             shadowQueries++;
             return FrameUniformLocationCache.MISS;
         } catch (Throwable problem) {
+            FatalErrors.rethrowIfFatal(problem);
             retire();
             return FrameUniformLocationCache.MISS;
         }
@@ -367,7 +374,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             }
             expected = false; expectedName = null;
             cache.record(context, program, name, result);
-        } catch (Throwable problem) { retire(); }
+        } catch (Throwable problem) {
+            FatalErrors.rethrowIfFatal(problem); retire(); }
     }
     /** Observes an existing error result from the current frame's exact GL context. */
     public synchronized void error(Object gl, int error) {
@@ -388,7 +396,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             if (deferredMode && error == 0) return;
             if (error != 0) { glErrors++; frameSupported = false; }
             cache.checkedError(context, error);
-        } catch (Throwable problem) { retire(); }
+        } catch (Throwable problem) {
+            FatalErrors.rethrowIfFatal(problem); retire(); }
     }
     /**
      * Deferred error-check checkpoint emitted by the deferred-GL-error
@@ -462,7 +471,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         try {
             deferredAccessors.log().invokeExact(deferredAccessors.logger(), (Object) message,
                 false, (String) null, 6, (Object) null);
-        } catch (Throwable ignored) { }
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored); }
         if (deferredThrowSite) {
             deferredReport = newException(message);
             deferredThrows++;
@@ -476,7 +486,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                 // host exception type, not Throwable.
                 return (Throwable) deferredAccessors.exceptionNew().invoke(message);
             }
-        } catch (Throwable ignored) { }
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored); }
         return new IllegalStateException(message);
     }
     /** Conservatively retires the current frame on any covered program mutation. */

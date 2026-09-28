@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.PartNameEvent;
 import dev.turboism.sdk.cubism.event.PartOpacityEvent;
@@ -190,6 +191,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                         "Ignored non-finite beforeSetPartOpacity result for " + OPERATION_ID
                     );
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logHookFailure(plugin, "beforeSetPartOpacity", failure);
                 }
             }
@@ -240,6 +242,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                 try {
                     effectiveName = requireName(hook.beforeSetPartName(part, effectiveName));
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logHookFailure(plugin, "beforeSetPartName", failure);
                 }
             }
@@ -290,12 +293,14 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                         try {
                             hook.onPartOpacityChanged(part, oldOpacity, finalOpacity);
                         } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
                             logHookFailure(plugin, "onPartOpacityChanged", failure);
                         }
                     }
                     try {
                         hook.afterSetPartOpacity(part, finalOpacity);
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         logHookFailure(plugin, "afterSetPartOpacity", failure);
                     }
                 }
@@ -329,12 +334,14 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                         try {
                             hook.onPartNameChanged(part, oldName, finalName);
                         } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
                             logHookFailure(plugin, "onPartNameChanged", failure);
                         }
                     }
                     try {
                         hook.afterSetPartName(part, finalName);
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         logHookFailure(plugin, "afterSetPartName", failure);
                     }
                 }
@@ -392,6 +399,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         try {
             plugin.logger().error("Cubism Part lifecycle hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Hook and diagnostic failures must not escape into the Cubism operation.
         }
     }

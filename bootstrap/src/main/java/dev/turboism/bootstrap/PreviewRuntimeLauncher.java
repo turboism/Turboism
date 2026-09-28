@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.CompatibilityResolution;
 import dev.turboism.mapping.verification.CubismHostCompatibilityResolver;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -114,9 +115,11 @@ final class PreviewRuntimeLauncher {
         try {
             return starter.start();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             try {
                 closePremainRuntimeHooks(candidate, warpAltCandidate);
             } catch (Throwable cleanupFailure) {
+                FatalErrors.rethrowIfFatal(cleanupFailure);
                 failure.addSuppressed(cleanupFailure);
             }
             throw failure;
@@ -134,6 +137,7 @@ final class PreviewRuntimeLauncher {
             try {
                 closePremainRuntimeHooks(candidate, warpAltCandidate);
             } catch (Throwable cleanupFailure) {
+                FatalErrors.rethrowIfFatal(cleanupFailure);
                 failure.addSuppressed(cleanupFailure);
             }
             throw failure;
@@ -150,11 +154,13 @@ final class PreviewRuntimeLauncher {
         try {
             WarpAltMirrorHookContributor.closeCurrent(warp);
         } catch (Throwable problem) {
+            FatalErrors.rethrowIfFatal(problem);
             failure = problem;
         }
         try {
             MeshMirrorHookContributor.closeCurrent(mesh);
         } catch (Throwable problem) {
+            FatalErrors.rethrowIfFatal(problem);
             if (failure == null) failure = problem;
             else if (failure != problem) failure.addSuppressed(problem);
         }

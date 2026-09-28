@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.image;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -106,6 +107,7 @@ public final class ImageArchiveReuseBridge implements AutoCloseable {
             if (encoded == null) fallbackWithoutPng.increment();
             fallback.increment(); return null;
         } catch (Throwable rejected) {
+            FatalErrors.rethrowIfFatal(rejected);
             failures.increment();
             return null;
         }

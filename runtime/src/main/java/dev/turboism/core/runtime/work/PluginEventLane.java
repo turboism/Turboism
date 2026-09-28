@@ -2,6 +2,7 @@ package dev.turboism.core.runtime.work;
 
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -70,6 +71,7 @@ public final class PluginEventLane {
                     work.run();
                     completion.complete(PluginWorkResult.succeeded());
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     emit(
                         task,
                         PluginWorkBudgetEvent.Phase.FAILED,

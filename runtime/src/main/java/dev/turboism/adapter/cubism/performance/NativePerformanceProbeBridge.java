@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.performance;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 /**
  * The static entry points that instrumented Cubism methods call.
  *
@@ -25,6 +26,7 @@ public final class NativePerformanceProbeBridge {
         try {
             return recorder.enter(PerformanceProbeMetric.byId(metricId));
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             recorder.fail();
             return 0L;
         }
@@ -45,6 +47,7 @@ public final class NativePerformanceProbeBridge {
         try {
             recorder.exit(PerformanceProbeMetric.byId(metricId), startedNanos);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             recorder.fail();
         }
     }

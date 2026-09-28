@@ -14,6 +14,11 @@ import dev.turboism.sdk.ui.DialogRequest;
 
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
+import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
+import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 
 /**
  * The framework's own shell: the built-in Turboism menu, main-toolbar home entry, embedded
@@ -58,11 +63,11 @@ public final class CoreShell implements ShellHandle {
         this.logger = context.logger();
         final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings = services.settings();
         this.settings = runtimeSettings.read();
-        this.fileChooserHistory = context.fileChooserHistory();
+        this.fileChooserHistory = context.services().get(FileChooserHistoryService.class);
         this.plugins = services.plugins();
         this.closed = false;
         this.homeEntryService = new MainToolbarHomeEntryService(
-            context.uiHost(), context.mainToolbar(), context.menus(), localization(context),
+            context.services().get(UiHostCapabilityService.class), context.services().get(MainToolbarRegistry.class), context.menus(), localization(context),
             runtimeSettings, plugins
         );
         this.windows = new CoreWindows(
@@ -84,82 +89,82 @@ public final class CoreShell implements ShellHandle {
         registerAction(MainToolbarHomeEntryService.ABOUT_ACTION_ID,
             localization(context).text("main-toolbar.about-menu.label"), ignored -> windows.showAbout());
         registerSettingsActions();
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createPath(
                 localization(context), services.cubismJvmSettings()
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.create(localization(context), services.cubismJvmSettings())
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createBackupDisable(
                 localization(context),
                 services.cubismJvmSettings(),
                 this::applyAutoBackupPreference
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createZgcToggle(
                 localization(context),
                 services.cubismJvmSettings()
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createMemoryProfile(
                 localization(context),
                 services.cubismJvmSettings()
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createMemoryProfileNote(localization(context))
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createModelUpdateSkipToggle(
                 localization(context),
                 services.cubismJvmSettings()
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createIncrementalUpdateToggle(
                 localization(context),
                 services.cubismJvmSettings()
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createUniformLocationCacheToggle(
                 localization(context), services.cubismJvmSettings()
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createUploadElisionToggle(
                 localization(context), services.cubismJvmSettings()
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createInputPathElisionToggle(
                 localization(context), services.cubismJvmSettings()
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createMesaGlThreadToggle(
                 localization(context), services.cubismJvmSettings()
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             CubismJvmSettingsContribution.createPerformanceNote(localization(context))
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             MeshTriangulationSettingsContribution.create(
                 localization(context), services.meshTriangulationSettings()
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             AtlasTileBboxSettingsContribution.create(
                 localization(context), services.atlasTileBboxSettings()
             )
         ));
-        context.disposableScope().register(context.uiHost().contributeSettings(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
             AtlasCacheReuseSettingsContribution.create(
                 localization(context), services.atlasCacheReuseSettings()
             )
@@ -193,7 +198,7 @@ public final class CoreShell implements ShellHandle {
      */
     private void applyAutoBackupPreference(final boolean reduce) {
         try {
-            final dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup = context.backup();
+            final dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup = context.services().get(EditorAutoBackupService.class);
             final dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings current = backup.settings();
             if (reduce) {
                 if (saveBackupBaseline(current)) {
@@ -312,7 +317,7 @@ public final class CoreShell implements ShellHandle {
             logger.warn("Update menu contribution unavailable; continuing without it");
         }
         try {
-            context.disposableScope().register(context.uiHost().contributeSettings(
+            context.disposableScope().register(context.services().get(UiHostCapabilityService.class).contributeSettings(
                 CoreUpdateSettingsContribution.create(localization(context), updates)
             ));
         } catch (RuntimeException unavailable) {
@@ -383,7 +388,7 @@ public final class CoreShell implements ShellHandle {
         // The hint states that an update exists; the exact build stays in the log and the state
         // file, where it is diagnostics rather than something to read over the drawing area.
         final String message = localized("updates.hint.available", "Turboism update available");
-        updateHint = context.uiHost().showCanvasHintWhile(
+        updateHint = context.services().get(UiHostCapabilityService.class).showCanvasHintWhile(
             context.uiScheduler(),
             new CanvasHintNotification(
                 UPDATE_HINT_ID,
@@ -458,7 +463,7 @@ public final class CoreShell implements ShellHandle {
             default -> null;
         };
         if (message == null) return;
-        context.disposableScope().register(context.uiHost().notifyDismissibleCanvasHint(
+        context.disposableScope().register(context.services().get(UiHostCapabilityService.class).notifyDismissibleCanvasHint(
             new CanvasHintNotification(
                 CHECK_RESULT_HINT_ID,
                 message,
@@ -544,7 +549,7 @@ public final class CoreShell implements ShellHandle {
         );
         // Floating is offered only for docked tabs; closing a floating tab docks it
         // back (native close interception), matching the legacy semantics.
-        context.disposableScope().register(context.contextMenu().contribute(
+        context.disposableScope().register(context.services().get(ContextMenuRegistry.class).contribute(
             panelTabContribution("turboism.panel-tab.float", "context-menu.panel-tab.float", "panel.docked")
         ));
     }
@@ -585,7 +590,7 @@ public final class CoreShell implements ShellHandle {
             registerAction("turboism.core.plugins.disable." + plugin.id(), localization(context).format("plugins.disable", plugin.name()), ignored ->
                 runOperation(() -> plugins.setEnabled(plugin.id(), false)));
             registerAction("turboism.core.plugins.uninstall." + plugin.id(), localization(context).format("plugins.uninstall", plugin.name()), ignored -> {
-                if (context.uiHost().confirmDialog(new DialogRequest(
+                if (context.services().get(UiHostCapabilityService.class).confirmDialog(new DialogRequest(
                     "turboism.core.plugins.uninstall.confirm", localization(context).text("plugins.uninstall"),
                     localization(context).format("plugins.uninstall.confirm", plugin.name())
                 ))) runOperation(() -> plugins.uninstall(plugin.id()));

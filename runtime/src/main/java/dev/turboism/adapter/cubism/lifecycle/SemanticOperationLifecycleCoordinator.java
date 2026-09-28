@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.cubism.event.ModelUpdateEvent;
@@ -331,6 +332,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
                 try {
                     hook.beforeCubismOperation(event);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logHookFailure(plugin, "beforeCubismOperation", failure);
                 }
             }
@@ -348,12 +350,14 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
                         try {
                             hook.onCubismOperationConfirmed(event);
                         } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
                             logHookFailure(plugin, "onCubismOperationConfirmed", failure);
                         }
                     }
                     try {
                         hook.afterCubismOperation(event);
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         logHookFailure(plugin, "afterCubismOperation", failure);
                     }
                 }
@@ -400,6 +404,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         try {
             plugin.logger().error("Cubism semantic lifecycle hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Hook diagnostics must not escape into the Cubism operation.
         }
     }

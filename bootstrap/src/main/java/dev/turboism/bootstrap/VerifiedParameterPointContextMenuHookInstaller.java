@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.ui.context.ParameterPointContextMenuNativeMethodTransformer;
 
 import java.lang.instrument.ClassFileTransformer;
@@ -52,6 +53,7 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw new IllegalStateException("Verified parameter-point context-menu hook installation failed", failure);
         }
@@ -73,6 +75,7 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("Verified parameter-point context-menu hook restoration failed", failure);
         }
     }

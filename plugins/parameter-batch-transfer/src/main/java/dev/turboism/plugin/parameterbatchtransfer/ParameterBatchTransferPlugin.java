@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 /**
  * Official plugin shell for batch parameter-binding transfer.
@@ -133,7 +134,7 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
         final String id,
         final ContextMenuRegistry.Location location
     ) {
-        return context.contextMenu().contribute(new ContextMenuRegistry.ContextMenuContribution(
+        return context.services().get(ContextMenuRegistry.class).contribute(new ContextMenuRegistry.ContextMenuContribution(
             id,
             ACTION_ID,
             localization.text("menu.batchTransfer"),
@@ -258,7 +259,7 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
     }
 
     private void notify(final String id, final String severity, final String message) {
-        context.uiHost().notifyStatus(new StatusNotification(id, severity, message));
+        context.services().get(UiHostCapabilityService.class).notifyStatus(new StatusNotification(id, severity, message));
     }
 
     private void closeScopeQuietly() {

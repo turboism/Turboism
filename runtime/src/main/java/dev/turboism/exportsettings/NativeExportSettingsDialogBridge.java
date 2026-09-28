@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.Objects;
@@ -96,6 +97,7 @@ public final class NativeExportSettingsDialogBridge {
         try {
             return handler.attach(owner, container);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return null;
         }
     }
@@ -109,6 +111,7 @@ public final class NativeExportSettingsDialogBridge {
         try {
             handler.cancel(owner);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Native cancel must remain fail-open.
         }
     }
@@ -123,6 +126,7 @@ public final class NativeExportSettingsDialogBridge {
             final Boolean decision = handler.decide(owner);
             return decision == null ? Boolean.FALSE : decision;
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return Boolean.FALSE;
         }
     }
@@ -144,6 +148,7 @@ public final class NativeExportSettingsDialogBridge {
         try {
             return handler.redirectChooser(picked);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return null;
         }
     }

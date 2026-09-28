@@ -1,5 +1,6 @@
 package dev.turboism.preview;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -95,6 +96,7 @@ final class PluginLifecycleLane {
                 try {
                     invocation.result.complete(work.call());
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     invocation.result.completeExceptionally(failure);
                 } finally {
                     invocation.workerDone.complete(null);

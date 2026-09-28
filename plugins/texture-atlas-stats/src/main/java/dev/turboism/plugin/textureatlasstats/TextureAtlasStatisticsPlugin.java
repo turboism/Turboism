@@ -59,11 +59,15 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
                         .orElse(0);
                     final String text = i18n.format("texture-atlas-stats.line", whole, selected);
                     SwingUtilities.invokeLater(() -> attached.setText(text));
+                } catch (ThreadDeath | VirtualMachineError fatal) {
+                    throw fatal;
                 } catch (Throwable failure) {
                     final String unavailable = i18n.text("texture-atlas-stats.unavailable");
                     SwingUtilities.invokeLater(() -> attached.setText(unavailable));
                 }
             }, 1, 1, TimeUnit.SECONDS);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             disable();
             context.logger().warn("Texture Atlas Statistics panel unavailable: " + failure);

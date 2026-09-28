@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.mesh.MeshDeletion;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeKind;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
@@ -43,6 +44,7 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
             }
             return contribution;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             NativeMeshMirrorBridge.diagnostic(
                 "COUNTERPART_RESOLUTION_FAILED reason=" + failure.getClass().getName()
             );
@@ -149,6 +151,7 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
             try {
                 counterpart = resolver.counterpart(source, snapshot, deletion.mirrorAxis());
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 NativeMeshMirrorBridge.diagnostic(
                     "COUNTERPART_OVERRIDE_FAILED reason=" + failure.getClass().getName()
                 );

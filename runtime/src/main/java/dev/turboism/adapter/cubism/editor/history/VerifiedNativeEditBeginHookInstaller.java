@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
@@ -172,9 +173,11 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
                 retransform(entries.get(index).ownerInternalName().replace('/', '.'), transformers.get(index));
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             try {
                 close();
             } catch (Throwable cleanupFailure) {
+                FatalErrors.rethrowIfFatal(cleanupFailure);
                 failure.addSuppressed(cleanupFailure);
             }
             throw failure;
@@ -227,6 +230,7 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
             try {
                 instrumentation.removeTransformer(transformer);
             } catch (Throwable removalFailure) {
+                FatalErrors.rethrowIfFatal(removalFailure);
                 failure = appendFailure(failure, removalFailure);
             }
         }
@@ -245,6 +249,7 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
             try {
                 instrumentation.retransformClasses(loaded);
             } catch (Throwable restorationFailure) {
+                FatalErrors.rethrowIfFatal(restorationFailure);
                 failure = appendFailure(failure, restorationFailure);
             }
         }

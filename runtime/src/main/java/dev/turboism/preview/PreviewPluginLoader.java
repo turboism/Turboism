@@ -10,6 +10,7 @@ import dev.turboism.core.event.EventSubscriberDescriptor;
 import dev.turboism.core.event.EventSubscriptionPermissionCatalog;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.core.runtime.ContextClassLoaderScope;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -102,6 +103,7 @@ final class PreviewPluginLoader {
                 try {
                     return loadPlugin(candidate, runtime, resources, lease);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     resources.cleanupComplete = cleanupFailed(resources, descriptor.id(), true);
                     throw failure;
                 }
@@ -186,6 +188,7 @@ final class PreviewPluginLoader {
             try {
                 eventOwner.beginClosing();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 log.error(
                     "plugin-loader",
                     "Plugin event owner fencing after load timeout failed safely",
@@ -198,6 +201,7 @@ final class PreviewPluginLoader {
             try {
                 eventOwner.claimExecutors();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 log.error(
                     "plugin-loader",
                     "Plugin executor claim after load failure failed safely",
@@ -602,6 +606,7 @@ final class PreviewPluginLoader {
             try {
                 resources.eventOwner.releaseExecutors();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 log.error(
                     pluginId,
                     "Plugin executor release after load failure failed safely",
@@ -696,6 +701,7 @@ final class PreviewPluginLoader {
             classLoader.close();
             return true;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             log.error(
                 pluginId,
                 "Plugin classloader cleanup after load failure failed safely",

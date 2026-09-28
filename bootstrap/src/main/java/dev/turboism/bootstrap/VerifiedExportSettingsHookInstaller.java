@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.exportsettings.ExportSettingsHostProfile;
 import dev.turboism.exportsettings.ExportSettingsNativeMethodTransformer;
 import dev.turboism.exportsettings.NativeExportSettingsDialogBridge;
@@ -242,9 +243,11 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
                 break;
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             try {
                 close();
             } catch (Throwable cleanupFailure) {
+                FatalErrors.rethrowIfFatal(cleanupFailure);
                 failure.addSuppressed(cleanupFailure);
             }
             if (failure instanceof Exception exception) {
@@ -272,6 +275,7 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
                 break;
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // Keep the installation live: callers must restore host bytes before removing bridge callbacks.
             throw new IllegalStateException(
                 "Verified export settings hook restoration failed", failure

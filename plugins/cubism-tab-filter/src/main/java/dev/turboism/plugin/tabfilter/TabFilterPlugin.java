@@ -32,7 +32,7 @@ public final class TabFilterPlugin implements TurboismPlugin {
         if (context == null) {
             throw new IllegalStateException("TabFilterPlugin must be initialized before enable.");
         }
-        final PaletteFilterRegistry registry = context.paletteFilter();
+        final PaletteFilterRegistry registry = context.services().get(PaletteFilterRegistry.class);
         if (!registry.isAvailable()) {
             logger.warn("tab-filter: palette filter registry is unavailable; filter boxes are not installed");
             return;

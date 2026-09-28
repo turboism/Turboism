@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 import dev.turboism.sdk.cubism.edit.DeformerOps;
 import dev.turboism.sdk.cubism.edit.EditDeformerAttachMode;
@@ -284,6 +285,7 @@ final class EditApiRouter {
         try {
             writer.send(socket, frame);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Event delivery is best-effort: a dead socket must not break the undo path.
         }
     }

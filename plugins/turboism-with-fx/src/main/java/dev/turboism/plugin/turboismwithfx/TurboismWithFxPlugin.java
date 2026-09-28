@@ -99,7 +99,7 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
                 @Override public String actionId() { return SETTINGS_ACTION_ID; }
                 @Override public int order() { return SETTINGS_MENU_ORDER; }
             });
-            toolbar = context.mainToolbar().contributeButton(
+            toolbar = context.services().get(MainToolbarRegistry.class).contributeButton(
                 new MainToolbarRegistry.MainToolbarButtonContribution(
                     TOOLBAR_CONTRIBUTION_ID,
                     OPEN_ACTION_ID,

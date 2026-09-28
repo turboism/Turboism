@@ -4,6 +4,7 @@ import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
@@ -151,6 +152,7 @@ public final class SelectionObservationPublisher implements AutoCloseable {
         try {
             observeOnce();
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // A detached or mid-transition host must not kill the observer;
             // the probe retries on the next interval.
         } finally {

@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipTarge
 import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.Decision;
 import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.Frame;
 import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.ParamSet;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -322,6 +323,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
                     pendingDigest = digest(current.model());
                     pendingProbe = true;
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     // Undigestable decided-skip frames count as probe mismatches:
                     // the native update still runs and the error is recorded.
                     pendingDigest = null;
@@ -334,6 +336,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
             skippedFrame.set(skip);
             return skip;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.increment();
             return false;
         } finally {
@@ -357,11 +360,13 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
                         writeProbe(completed, post, null);
                     }
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     probeMismatch.increment();
                     writeProbe(completed, null, failure);
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.increment();
         }
     }
@@ -594,6 +599,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
             Files.writeString(Path.of(path), json.toString(), StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             failures.increment();
         }
     }
@@ -659,11 +665,13 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         @Override public int size() { return list == null ? -1 : list.size(); }
         @Override public Object idAt(final int index) {
             try { return (Object) paramId.invokeExact(list.get(index)); }
-            catch (Throwable failure) { throw new IllegalStateException(failure); }
+            catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure); throw new IllegalStateException(failure); }
         }
         @Override public float valueAt(final int index) {
             try { return (float) paramValue.invokeExact(list.get(index)); }
-            catch (Throwable failure) { throw new IllegalStateException(failure); }
+            catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure); throw new IllegalStateException(failure); }
         }
     }
 }

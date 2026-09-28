@@ -1,5 +1,6 @@
 package dev.turboism.shell.service;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.internal.core.CorePluginManagement;
@@ -201,6 +202,7 @@ public final class MainToolbarHomeEntryService {
                 TurboismWindowFactory.installWindowIcon(icon);
             }
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // window branding must never block the toolbar contribution
         }
     }

@@ -10,6 +10,7 @@ import dev.turboism.adapter.cubism.performance.PerformanceProbeTargets;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeMetric;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCallback;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCarrier;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 
@@ -234,6 +235,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             );
             startTriggerWatch();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }
@@ -262,6 +264,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                     try {
                         close();
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         dev.turboism.runtime.log.RuntimeDiagnostics.error(
                             "performance-probe",
                             "Performance probe trigger close failed safely",
@@ -369,6 +372,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                         recorder.snapshot()
                     );
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     dev.turboism.runtime.log.RuntimeDiagnostics.error(
                         "performance-probe",
                         "Performance probe report failed safely",
@@ -432,6 +436,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                 try {
                     if (instrumentation.isModifiableClass(target)) instrumentation.retransformClasses(target);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     cleanupFailure = failure;
                 }
             }
@@ -486,6 +491,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                 restorationMatches
             );
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("performance probe rollback manifest failed", failure);
         }
     }

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
@@ -278,6 +279,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }
@@ -294,6 +296,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                 "texture-atlas",
                 "Texture-atlas dialog contribution retransformation failed safely",
@@ -314,6 +317,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                 "texture-atlas",
                 "Texture-atlas statistics contribution retransformation failed safely",
@@ -345,6 +349,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             try {
                 instrumentation.retransformClasses(loaded);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw new IllegalStateException("Texture-atlas automatic-layout hook restoration failed.", failure);
             }
         }
@@ -354,6 +359,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             try {
                 instrumentation.retransformClasses(dialogLoaded);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw new IllegalStateException("Texture-atlas automatic-layout dialog restoration failed.", failure);
             }
         }
@@ -363,6 +369,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             try {
                 instrumentation.retransformClasses(statisticsLoaded);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw new IllegalStateException("Texture-atlas statistics contribution restoration failed.", failure);
             }
         }

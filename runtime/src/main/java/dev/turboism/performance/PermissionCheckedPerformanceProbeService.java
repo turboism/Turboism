@@ -1,5 +1,6 @@
 package dev.turboism.performance;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
@@ -120,7 +121,8 @@ public final class PermissionCheckedPerformanceProbeService
         Throwable failure = null;
         for (OwnedRegistration registration : pending) {
             try { registration.close(); }
-            catch (Throwable cleanup) { failure = append(failure, cleanup); }
+            catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup); failure = append(failure, cleanup); }
         }
         synchronized (lifecycle) {
             if (ownedDelegate != null && !delegateClosed) {
@@ -128,6 +130,7 @@ public final class PermissionCheckedPerformanceProbeService
                     ownedDelegate.close();
                     delegateClosed = true;
                 } catch (Throwable cleanup) {
+                    FatalErrors.rethrowIfFatal(cleanup);
                     failure = append(failure, cleanup);
                 }
             }

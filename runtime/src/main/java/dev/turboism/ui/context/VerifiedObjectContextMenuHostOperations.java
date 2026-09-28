@@ -1,5 +1,6 @@
 package dev.turboism.ui.context;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
@@ -74,6 +75,7 @@ public final class VerifiedObjectContextMenuHostOperations
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // Host UI callbacks must fail closed and preserve Cubism's original menu.
         }
         return menu;
@@ -97,6 +99,7 @@ public final class VerifiedObjectContextMenuHostOperations
                         && entry.contribution().matches(latest)) entry.action().run(latest, actionId);
                 }));
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 // Persistent native menus must preserve Cubism behavior when unavailable.
             }
         }

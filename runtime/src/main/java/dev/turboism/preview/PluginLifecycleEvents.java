@@ -1,6 +1,7 @@
 package dev.turboism.preview;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.runtime.PluginLifecycleEvent;
 
 import java.util.Objects;
@@ -69,6 +70,7 @@ final class PluginLifecycleEvents {
                 pluginId, generation, phase, outcome
             ));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             log.error(
                 "plugin-lifecycle",
                 "Plugin lifecycle event publication failed safely: "

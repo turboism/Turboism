@@ -51,7 +51,7 @@ public class DemoPlugin implements TurboismPlugin {
         ));
         context.disposableScope().register(menuReg);
 
-        Registration mainToolbarReg = context.mainToolbar().contribute(
+        Registration mainToolbarReg = context.services().get(MainToolbarRegistry.class).contribute(
             new MainToolbarRegistry.MainToolbarContribution(
                 "demo.toolbar",
                 "demo.hello",
@@ -63,7 +63,7 @@ public class DemoPlugin implements TurboismPlugin {
         );
         context.disposableScope().register(mainToolbarReg);
 
-        Registration paletteToolbarReg = context.paletteToolbar().contribute(
+        Registration paletteToolbarReg = context.services().get(PaletteToolbarRegistry.class).contribute(
             new PaletteToolbarRegistry.PaletteToolbarContribution(
                 "demo.palette",
                 "demo.hello",
@@ -76,7 +76,7 @@ public class DemoPlugin implements TurboismPlugin {
         );
         context.disposableScope().register(paletteToolbarReg);
 
-        Registration contextMenuReg = context.contextMenu().contribute(
+        Registration contextMenuReg = context.services().get(ContextMenuRegistry.class).contribute(
             new ContextMenuRegistry.ContextMenuContribution(
                 "demo.context.hello",
                 localization.text("demo.context.hello"),

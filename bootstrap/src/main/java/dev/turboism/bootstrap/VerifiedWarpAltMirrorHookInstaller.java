@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.warpalt.NativeWarpAltMirrorBridge;
 import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile;
 import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorNativeMethodTransformer;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -83,11 +84,13 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                 installed = true;
                 report("WARP_ALT_MIRROR_DIAG stage=TRANSFORMER_REGISTERED");
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 closed = true;
                 transformer.deactivate();
                 try {
                     instrumentation.removeTransformer(transformer);
                 } catch (Throwable cleanupFailure) {
+                    FatalErrors.rethrowIfFatal(cleanupFailure);
                     if (cleanupFailure != failure) failure.addSuppressed(cleanupFailure);
                 }
                 throw new IllegalStateException("warp alt mirror hook installation failed", failure);
@@ -183,12 +186,14 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             transformer.deactivate();
             final List<Throwable> failures = new ArrayList<>();
             try { capabilityRevocation.run(); }
-            catch (Throwable failure) { failures.add(failure); }
+            catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure); failures.add(failure); }
             capabilityRevocation = () -> { };
             if (bound) {
                 bound = false;
                 try { NativeWarpAltMirrorBridge.uninstall(); }
-                catch (Throwable failure) { failures.add(failure); }
+                catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure); failures.add(failure); }
             }
             if (installed) {
                 installed = false;
@@ -196,7 +201,8 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                     if (!instrumentation.removeTransformer(transformer)) {
                         failures.add(new IllegalStateException("warp transformer removal was not confirmed"));
                     }
-                } catch (Throwable failure) { failures.add(failure); }
+                } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure); failures.add(failure); }
                 restoreLoadedTargets(failures);
             }
             report("WARP_ALT_MIRROR_DIAG stage=HOOK_CLOSED");
@@ -223,11 +229,13 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                     }
                     instrumentation.retransformClasses(type);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     failures.add(failure);
                     report("WARP_ALT_MIRROR_RESTORE_FAILED owner=" + type.getName());
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.add(failure);
             report("WARP_ALT_MIRROR_RESTORE_ENUMERATION_FAILED");
         }

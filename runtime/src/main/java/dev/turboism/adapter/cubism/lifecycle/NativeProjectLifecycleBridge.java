@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;
@@ -176,6 +177,7 @@ public final class NativeProjectLifecycleBridge {
         try {
             invocation = bridge.editor.beginExit(bridge.hostVersion);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Native ingress must fail open when lifecycle state is unavailable.
         }
         bridge.exits.get().push(new ExitFrame(invocation));
@@ -216,6 +218,7 @@ public final class NativeProjectLifecycleBridge {
         try {
             beginOpen(kind, displayName, file, subject);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             files.get().push(FileInvocation.skipped());
         }
     }
@@ -247,6 +250,7 @@ public final class NativeProjectLifecycleBridge {
         try {
             beginExisting(content, kind, operation);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             files.get().push(FileInvocation.skipped());
         }
     }
@@ -279,6 +283,7 @@ public final class NativeProjectLifecycleBridge {
         try {
             completeFile(returnedContent, succeeded, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Native completion must never destabilize Cubism.
         }
     }
@@ -302,6 +307,7 @@ public final class NativeProjectLifecycleBridge {
                     invocation.lifecycle().operation()
                 );
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Closing content may already be detached; retain the immutable before snapshot.
             }
         }
@@ -320,6 +326,7 @@ public final class NativeProjectLifecycleBridge {
         try {
             completeExit(accepted, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Native completion must never destabilize Cubism.
         }
     }

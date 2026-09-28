@@ -11,6 +11,7 @@ import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
 import dev.turboism.ui.appearance.DynamicAppearanceHostProvider;
@@ -409,6 +410,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                     "connection.adapters()"
                 );
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
                     "host-session",
                     "Host adapter connect threw",
@@ -497,6 +499,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                     providers
                 );
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
                     "host-session",
                     "Editor UI provider install threw",
@@ -1052,6 +1055,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         try {
             dynamic.deactivate();
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             return CleanupOutcome.failed(throwable);
         }
 
@@ -1061,6 +1065,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 activeEditorUiProviders.close();
                 activeEditorUiProviders = null;
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 pendingEditorUiProviderCleanup = activeEditorUiProviders;
                 activeEditorUiProviders = null;
                 outcome = outcome.combine(CleanupOutcome.failed(throwable));
@@ -1071,6 +1076,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 pendingEditorUiProviderCleanup.close();
                 pendingEditorUiProviderCleanup = null;
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 outcome = outcome.combine(CleanupOutcome.failed(throwable));
             }
         }
@@ -1082,6 +1088,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 objectContextMenuHandler = null;
                 parameterPointMenuHandler = null;
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 outcome = outcome.combine(CleanupOutcome.failed(throwable));
             }
         }
@@ -1090,6 +1097,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 pendingConnectionCleanup.close();
                 pendingConnectionCleanup = null;
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 outcome = outcome.combine(CleanupOutcome.failed(throwable));
             }
         }
@@ -1104,6 +1112,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             candidate.close();
             return CleanupOutcome.success();
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             pendingConnectionCleanup = candidate;
             return CleanupOutcome.failed(throwable);
         }
@@ -1158,6 +1167,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             // remains bootstrap-owned, but direct callers must not be able to break host health.
             connection.refreshPresentation();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // Presentation refresh is optional and must not destabilize an active host session.
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                 "host-session",

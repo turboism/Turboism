@@ -4,6 +4,7 @@ import dev.turboism.core.runtime.CancellationContext;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 
@@ -160,6 +161,7 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
             try {
                 runGuarded(work, cancelled, token);
             } catch (Throwable exception) {
+                FatalErrors.rethrowIfFatal(exception);
                 failure = exception;
             } finally {
                 settled.countDown();

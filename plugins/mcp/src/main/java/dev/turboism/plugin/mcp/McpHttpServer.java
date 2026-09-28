@@ -114,20 +114,20 @@ final class McpHttpServer implements AutoCloseable {
             final SelectionQueryService selectionQuery = context.selectionQuery();
             stage.enter("context.cubismRead()");
             final CubismReadCapabilityService read = context.cubismRead();
-            stage.enter("context.cubismClipMasks()");
-            final CubismClipMaskService clipMasks = context.cubismClipMasks();
+            stage.enter("context.services().get(CubismClipMaskService.class)");
+            final CubismClipMaskService clipMasks = context.services().get(CubismClipMaskService.class);
             stage.enter("context.cubism()");
             final CubismFacade cubism = context.cubism();
             stage.enter("context.cubism().history()");
             final CubismHistory history = cubism.history();
-            stage.enter("context.workspace()");
-            final WorkspaceService workspace = context.workspace();
-            stage.enter("context.workspaceLayout()");
-            final WorkspaceLayoutService workspaceLayout = context.workspaceLayout();
+            stage.enter("context.services().get(WorkspaceService.class)");
+            final WorkspaceService workspace = context.services().get(WorkspaceService.class);
+            stage.enter("context.services().get(WorkspaceLayoutService.class)");
+            final WorkspaceLayoutService workspaceLayout = context.services().get(WorkspaceLayoutService.class);
             stage.enter("context.diagnostics()");
             final DiagnosticReport diagnostics = context.diagnostics();
-            stage.enter("context.editorCommands()");
-            final EditorCommandService editorCommands = context.editorCommands();
+            stage.enter("context.services().get(EditorCommandService.class)");
+            final EditorCommandService editorCommands = context.services().get(EditorCommandService.class);
             stage.enter("context.uiScheduler()");
             final UiScheduler uiScheduler = context.uiScheduler();
             stage.enter("context.paths().stateDir()");
@@ -161,6 +161,8 @@ final class McpHttpServer implements AutoCloseable {
             ), stage);
         } catch (McpStartupFailure failure) {
             throw failure;
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             throw stage.failure(failure);
         }
@@ -284,6 +286,8 @@ final class McpHttpServer implements AutoCloseable {
             transport.writeConnectionFile();
             logger.info("Turboism MCP server started on the local loopback interface");
             return transport;
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             closeAfterStartupFailure(transport, server, executor, failure);
             throw stage.failure(failure);
@@ -306,6 +310,8 @@ final class McpHttpServer implements AutoCloseable {
         if (transport != null) {
             try {
                 transport.close();
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
             } catch (Throwable cleanup) {
                 if (cleanup != original) {
                     original.addSuppressed(cleanup);
@@ -315,6 +321,8 @@ final class McpHttpServer implements AutoCloseable {
         if (server != null) {
             try {
                 server.stop(0);
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
             } catch (Throwable cleanup) {
                 if (cleanup != original) {
                     original.addSuppressed(cleanup);
@@ -324,6 +332,8 @@ final class McpHttpServer implements AutoCloseable {
         if (executor != null) {
             try {
                 executor.shutdownNow();
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
             } catch (Throwable cleanup) {
                 if (cleanup != original) {
                     original.addSuppressed(cleanup);

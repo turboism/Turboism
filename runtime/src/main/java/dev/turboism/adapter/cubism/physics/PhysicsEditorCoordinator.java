@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.physics;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorContribution;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.plugin.Registration;
@@ -130,6 +131,7 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
                 "Installed physics editor controls"
             );
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                 "physics-editor",
                 "Physics editor control installation failed safely",
@@ -188,6 +190,7 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
                 final Summary summary = summary();
                 if (summary.rows() > 0) applyAll(!summary.allEnabled(), true);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 header.setEnabled(false);
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
                     "physics-editor",
@@ -201,6 +204,7 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         public void tableChanged(final TableModelEvent event) {
             if (retainOnReopen) {
                 try { remember(sources()); } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     dev.turboism.runtime.log.RuntimeDiagnostics.error(
                         "physics-editor",
                         "Physics editor retention failed safely",
@@ -262,8 +266,10 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
                 }
                 invoke(outer, profile.commitMethod());
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (checkpoint != null) {
-                    try { invoke(outer, profile.rollbackMethod()); } catch (Throwable rollbackFailure) { failure.addSuppressed(rollbackFailure); }
+                    try { invoke(outer, profile.rollbackMethod()); } catch (Throwable rollbackFailure) {
+                        FatalErrors.rethrowIfFatal(rollbackFailure); failure.addSuppressed(rollbackFailure); }
                 }
                 throw failure;
             }

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.uploadelision;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -215,8 +216,10 @@ final class SkippedFrameUploadTracker {
             passReasons[reason.ordinal()]++;
             return false;
         } catch (Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             observerFailures++;
-            try { clearAll(ClearKind.EXCEPTION); } catch (Throwable ignored) { }
+            try { clearAll(ClearKind.EXCEPTION); } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored); }
             return false;
         }
     }
@@ -229,7 +232,8 @@ final class SkippedFrameUploadTracker {
     /** Observer-side bookkeeping failure: count it and clear, never elide. */
     void observerFailed() {
         observerFailures++;
-        try { clearAll(ClearKind.EXCEPTION); } catch (Throwable ignored) { }
+        try { clearAll(ClearKind.EXCEPTION); } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored); }
     }
 
     /**

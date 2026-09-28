@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.lifecycle.NativeParameterLifecycleBridge;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterNativeMethodTransformer;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -107,6 +108,7 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }

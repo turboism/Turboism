@@ -15,6 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import dev.turboism.sdk.mcp.McpConnectionService;
 
 /**
  * Serial lifecycle controller joining the paired Swing view, MCP registry, and one fx process.
@@ -375,7 +376,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         context.logger().info("fx connection: starting");
         disconnectNow();
         try {
-            final McpHttpConnection connection = context.mcpConnections().current()
+            final McpHttpConnection connection = context.services().get(McpConnectionService.class).current()
                 .orElseThrow(() -> new FxAcpException("Turboism MCP Server is not available"));
             context.logger().info("fx connection: Turboism MCP endpoint ready");
             final FxRuntimeResolver.Resolution resolution = runtimeResolver.resolve(executable);

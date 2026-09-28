@@ -1,5 +1,6 @@
 package dev.turboism.ui.panel;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.action.UiActionEvent;
@@ -221,6 +222,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                     root.revalidate();
                     root.repaint();
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     // An optional icon/theme refresh must not take down an otherwise healthy host.
                     dev.turboism.runtime.log.RuntimeDiagnostics.error(
                         "embedded-panels",
@@ -381,6 +383,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                     () -> refresh(dock)
                 );
             } catch (Throwable cleanupFailure) {
+                FatalErrors.rethrowIfFatal(cleanupFailure);
                 if (cleanupFailure != failure) {
                     failure.addSuppressed(cleanupFailure);
                 }
@@ -1315,6 +1318,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             try {
                 Objects.requireNonNull(operation, "operation").run();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (first == null) {
                     first = failure;
                 } else if (failure != first) {

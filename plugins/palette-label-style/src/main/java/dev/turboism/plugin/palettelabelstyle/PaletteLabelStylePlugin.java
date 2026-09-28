@@ -27,6 +27,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 
 /**
  * Official SDK-only plugin: label text and background colors for palette entries.
@@ -188,7 +190,7 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
                 selection.location(), item.id(), property))
             .map(persisted::get)
             .orElse(null);
-        context.uiHost().openColorPicker(
+        context.services().get(UiHostCapabilityService.class).openColorPicker(
             "palette-label-style.custom-color",
             i18n.text("dialog.title"),
             initialHex,
@@ -343,7 +345,7 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
             i18n.text("color.custom"),
             actionPrefix + LabelStylePresets.CUSTOM_KEY
         ));
-        context.disposableScope().register(context.contextMenu().contribute(
+        context.disposableScope().register(context.services().get(ContextMenuRegistry.class).contribute(
             new ContextMenuContribution(
                 contributionId,
                 location,

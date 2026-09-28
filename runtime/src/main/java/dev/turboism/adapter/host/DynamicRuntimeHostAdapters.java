@@ -6,6 +6,7 @@ import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.core.runtime.UncheckedThrowableException;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
 import dev.turboism.sdk.ui.resource.UiIconRef;
@@ -101,6 +102,7 @@ final class DynamicRuntimeHostAdapters {
             try {
                 registration.closeFromSession();
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 first = accumulate(first, throwable);
             }
         }
@@ -108,6 +110,7 @@ final class DynamicRuntimeHostAdapters {
             try {
                 registration.deactivate();
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 first = accumulate(first, throwable);
             }
         }
@@ -274,6 +277,7 @@ final class DynamicRuntimeHostAdapters {
         try {
             result = operation.apply(lease.adapters());
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             primary = throwable;
         }
 
@@ -311,6 +315,7 @@ final class DynamicRuntimeHostAdapters {
         try {
             stage = operation.apply(lease.adapters());
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             primary = throwable;
             stage = null;
         }
@@ -346,6 +351,7 @@ final class DynamicRuntimeHostAdapters {
             callback.run();
             return null;
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             return throwable;
         }
     }
@@ -424,6 +430,7 @@ final class DynamicRuntimeHostAdapters {
             tracked.connect(adapters);
             return tracked;
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             recentPreviewRegistrations.remove(tracked);
             rethrowUnchecked(throwable);
             throw new AssertionError("unreachable");
@@ -538,6 +545,7 @@ final class DynamicRuntimeHostAdapters {
                 registrations.remove(this);
                 completion.complete(null);
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 synchronized (this) {
                     state = CloseState.OPEN;
                     closeOwner = null;

@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -128,6 +129,7 @@ final class HookRegistry {
                     info.accept(entry.id + " cleanup=COMPLETE phase=" + phase);
                 }
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 warn.accept(
                     "Turboism hook cleanup failed safely: " + entry.id + " phase=" + phase
                 );

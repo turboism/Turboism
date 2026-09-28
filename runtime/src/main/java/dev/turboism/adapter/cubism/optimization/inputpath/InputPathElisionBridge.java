@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.inputpath;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.KeyboardFocusManager;
@@ -156,6 +157,7 @@ public final class InputPathElisionBridge implements AutoCloseable {
             if (elide) focusElided++; else focusPassed++;
             return elide;
         } catch (Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             observerFailures++;
             focusPassed++;
             return false;
@@ -181,6 +183,7 @@ public final class InputPathElisionBridge implements AutoCloseable {
             if (elide) cursorElided++; else cursorPassed++;
             return elide;
         } catch (Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             observerFailures++;
             cursorPassed++;
             return false;

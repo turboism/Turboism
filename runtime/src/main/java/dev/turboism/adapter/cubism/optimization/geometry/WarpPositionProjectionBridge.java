@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.geometry;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -83,6 +84,7 @@ public final class WarpPositionProjectionBridge implements AutoCloseable {
             projected.increment(); points.add(count);
             return result;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // No native mutation has occurred. The original block owns errors and fallback.
             failures.increment();
             return null;

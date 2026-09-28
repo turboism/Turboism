@@ -1,5 +1,6 @@
 package dev.turboism.ui.context;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 
 import java.util.Objects;
@@ -49,6 +50,7 @@ public final class NativeParameterPointContextMenuBridge {
         try {
             handler.shown(primaryMenu, secondaryMenu, context);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // Native host callbacks fail closed.
         }
     }

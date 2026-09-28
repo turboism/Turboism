@@ -12,6 +12,7 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.util.Objects;
 import java.util.Optional;
+import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 
 /**
  * Registers the default-off protected-export option.
@@ -54,7 +55,7 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
         final Object callbackToken = new Object();
         try {
             final Registration candidate = Objects.requireNonNull(
-                activeContext.exportSettings().contribute(
+                activeContext.services().get(ExportSettingsContributionService.class).contribute(
                     new ExportSettingsContribution(
                         OPTION_ID,
                         OPTION_LABEL_KEY,
@@ -138,6 +139,8 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
                     "Protected export preflight has unresolved conditions; protected export remains unavailable."
                 );
             }
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable unavailable) {
             warnSafely(
                 activeContext,
@@ -197,6 +200,8 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
         }
         try {
             context.logger().warn(message);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable ignored) {
             // A diagnostic sink must not alter the fixed fail-closed decision.
         }

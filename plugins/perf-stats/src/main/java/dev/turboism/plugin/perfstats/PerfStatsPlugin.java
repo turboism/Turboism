@@ -20,6 +20,7 @@ import java.util.function.Consumer;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 /**
  * Performance Statistics plugin: live CPU / FPS / JVM memory charts in an
@@ -85,7 +86,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         synchronized (lifecycleLock) {
             initialized = true;
         }
-        final Registration panel = context.uiHost().contributeEmbeddedPanel(embeddedPanel());
+        final Registration panel = context.services().get(UiHostCapabilityService.class).contributeEmbeddedPanel(embeddedPanel());
         context.disposableScope().register(panel);
         context.disposableScope().register(this::stopSampling);
         context.disposableScope().register(this::disposeWindow);
@@ -187,7 +188,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
                 return;
             }
         }
-        final PerformanceProbeService stats = context.performanceStats();
+        final PerformanceProbeService stats = context.services().get(PerformanceProbeService.class);
         sampling = stats.sample(SAMPLE_INTERVAL, this::onSnapshot);
         synchronized (lifecycleLock) {
             enabled = true;
@@ -280,7 +281,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
                 return;
             }
         }
-        final Registration next = context.uiHost().notifyStatus(new StatusNotification(
+        final Registration next = context.services().get(UiHostCapabilityService.class).notifyStatus(new StatusNotification(
             CPU_STATUS_ID,
             CPU_STATUS_SEVERITY,
             message,

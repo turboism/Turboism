@@ -877,6 +877,7 @@ public final class CorePluginContext implements PluginContext {
      * and {@code performanceStats}) are reported without a probe. Recomputed per call so late
      * {@code installScriptService} / {@code installMcpConnectionService} installs are visible.
      */
+    @Deprecated
     @Override
     public Set<PluginService> availableServices() {
         final EnumSet<PluginService> available = EnumSet.noneOf(PluginService.class);

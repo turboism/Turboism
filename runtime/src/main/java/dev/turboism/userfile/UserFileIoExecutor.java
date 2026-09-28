@@ -1,5 +1,6 @@
 package dev.turboism.userfile;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 
@@ -164,6 +165,7 @@ final class UserFileIoExecutor implements AutoCloseable {
                     ? canceled.get()
                     : action.get());
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 settle(failed.get());
             } finally {
                 remove(this);

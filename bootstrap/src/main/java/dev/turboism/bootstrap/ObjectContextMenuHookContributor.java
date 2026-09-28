@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.ui.context.NativeObjectContextMenuBridge;
 import dev.turboism.ui.context.NativeParameterPointContextMenuBridge;
@@ -80,6 +81,7 @@ final class ObjectContextMenuHookContributor implements HookContributor {
             parameterPointInstaller.install();
             handles.add(parameterPointInstaller);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             closeQuietly(handles);
             throw failure;
         }
@@ -91,6 +93,7 @@ final class ObjectContextMenuHookContributor implements HookContributor {
             try {
                 handles.get(index).close();
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Best-effort rollback; the install already failed closed.
             }
         }

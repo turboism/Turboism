@@ -3,6 +3,7 @@ package dev.turboism.graal;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.io.BoundedLineReader;
 import dev.turboism.sdk.script.ScriptExecutionId;
 
@@ -151,6 +152,7 @@ public final class GraalHostManager implements AutoCloseable {
                 submission.execution(), payload.scriptId(), payload.source(), payload.arguments()
             );
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             safeDiagnostic("GRAAL_HOST_SUBMISSION_FAILED: "
                 + safeMessage(failure, "submission task failed"));
             settle(submission.execution(), null, TransportResult.failed(
@@ -334,6 +336,7 @@ public final class GraalHostManager implements AutoCloseable {
             }
             processExited(owner, null);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             processExited(owner, failure);
         }
     }
@@ -458,6 +461,7 @@ public final class GraalHostManager implements AutoCloseable {
                 safeMessage(failure, "Host call rejected.")
             );
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             sendHostErrorIfActive(
                 owner, execution, callId, "SCRIPT_HOST_CALL_FAILED",
                 safeMessage(failure, "Host call failed.")
@@ -766,6 +770,7 @@ public final class GraalHostManager implements AutoCloseable {
         try {
             diagnostics.accept(message);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics are observational and cannot own transport lifecycle progress.
         }
     }

@@ -2,6 +2,7 @@ package dev.turboism.preview;
 
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.runtime.ContextClassLoaderScope;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -97,6 +98,7 @@ final class PreviewPluginShutdownStages {
             try {
                 loadedPlugin.eventOwner().releaseExecutors();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 log.error(id, "Plugin executor release failed safely", failure);
             }
         }
@@ -139,6 +141,7 @@ final class PreviewPluginShutdownStages {
             }
             return true;
         } catch (Throwable exception) {
+            FatalErrors.rethrowIfFatal(exception);
             failures.add(failure(
                 "PLUGIN_BACKUP_QUIESCENCE_FAILED",
                 "backup-quiescence",
@@ -166,6 +169,7 @@ final class PreviewPluginShutdownStages {
             )) {
                 loadedPlugin.entrypoints().get(index).disable();
             } catch (Throwable exception) {
+                FatalErrors.rethrowIfFatal(exception);
                 failed = true;
                 failures.add(failure(
                     "PLUGIN_DISABLE_FAILED",
@@ -198,6 +202,7 @@ final class PreviewPluginShutdownStages {
             )) {
                 loadedPlugin.entrypoints().get(index).shutdown();
             } catch (Throwable exception) {
+                FatalErrors.rethrowIfFatal(exception);
                 failed = true;
                 failures.add(failure(
                     "PLUGIN_SHUTDOWN_FAILED",
@@ -226,6 +231,7 @@ final class PreviewPluginShutdownStages {
             loadedPlugin.scope().close();
             return new ScopeResult(true, "SUCCEEDED");
         } catch (Throwable exception) {
+            FatalErrors.rethrowIfFatal(exception);
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
             failures.add(failure(
                 "PLUGIN_SCOPE_CLEANUP_FAILED", "scope-cleanup", "Plugin scope cleanup failed safely."
@@ -254,6 +260,7 @@ final class PreviewPluginShutdownStages {
             loadedPlugin.classLoader().close();
             return "SUCCEEDED";
         } catch (Throwable exception) {
+            FatalErrors.rethrowIfFatal(exception);
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
             failures.add(failure(
                 "PLUGIN_CLASSLOADER_CLOSE_FAILED", "classloader-cleanup",

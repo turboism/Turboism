@@ -2,6 +2,7 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
 import dev.turboism.adapter.jdk.PipeImplLoopbackInstaller;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 
 import java.lang.instrument.Instrumentation;
@@ -83,6 +84,7 @@ final class JvmShims {
         try {
             installation.close();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             warn.accept("Turboism " + name + " cleanup failed safely");
         }
     }

@@ -7,6 +7,7 @@ import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.TaskCanceledException;
 import dev.turboism.sdk.task.PluginTaskAction;
 import dev.turboism.sdk.task.TaskFailure;
@@ -182,6 +183,7 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
         } catch (TaskCanceledException exception) {
             cancelFromAction(token, runNumber);
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             failRunning(
                 token,
                 runNumber,

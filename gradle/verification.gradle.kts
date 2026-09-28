@@ -178,6 +178,42 @@ val checkCodeQualitySelfTest by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/test_check_code_quality.py")
 }
 
+val checkThrowableContainmentSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs negative fixtures proving the Throwable-containment rule fails closed."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/check_throwable_containment.py",
+        "scripts/test/test_check_throwable_containment.py"
+    )
+    commandLine("python3", "scripts/test/test_check_throwable_containment.py")
+}
+
+/*
+ * Every catch (Throwable) site must classify through FatalErrors.rethrowIfFatal, a preceding
+ * ThreadDeath/VirtualMachineError clause, or an inline @containment-exempt marker, so the
+ * fatal-vs-containable policy is decided once instead of per call site.
+ */
+tasks.register<Exec>("checkThrowableContainment") {
+    group = "verification"
+    description =
+        "Rejects catch (Throwable) sites that contain fatal JVM conditions without an " +
+            "auditable escape."
+    workingDir(rootDir)
+    inputs.files("scripts/test/check_throwable_containment.py")
+    inputs.files(
+        fileTree("sdk/src/main/java") { include("**/*.java") },
+        fileTree("core-contract/src/main/java") { include("**/*.java") },
+        fileTree("event-processor/src/main/java") { include("**/*.java") },
+        fileTree("graal-host/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("bootstrap/src/main/java") { include("**/*.java") },
+        fileTree("plugins") { include("**/src/main/java/**/*.java") },
+        fileTree("scripts/verification-sources/templates") { include("**/*.java") }
+    )
+    commandLine("python3", "scripts/test/check_throwable_containment.py", rootDir.absolutePath)
+}
+
 /*
  * Wired into devCheck as a ratchet: the digest, naming and asset rules are enforced absolutely,
  * and Javadoc is enforced as a non-increasing maximum so new undocumented public API is blocked
@@ -637,6 +673,7 @@ val devCheck by tasks.registering {
         checkPackageLayout,
         "checkModuleBoundaries",
         "checkCodeQuality",
+        "checkThrowableContainment",
         checkRepositoryHygiene,
         checkEditorModelAliases,
         "validatePluginMeta",
@@ -1160,6 +1197,7 @@ val checkCompletedCommit by tasks.registering {
         "checkSdkApiBaselineTool",
         "checkModuleBoundariesSelfTest",
         checkCodeQualitySelfTest,
+        checkThrowableContainmentSelfTest,
         checkRemoteHygieneSelfTest,
         checkPluginEventReference,
         checkPerformanceProbeReports,

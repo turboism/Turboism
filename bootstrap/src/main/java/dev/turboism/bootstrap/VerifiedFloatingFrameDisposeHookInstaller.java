@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.ui.panel.FloatingFrameDisposeNativeMethodTransformer;
 
@@ -51,6 +52,7 @@ final class VerifiedFloatingFrameDisposeHookInstaller implements AutoCloseable {
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw new IllegalStateException("Verified floating-frame dispose hook installation failed", failure);
         }

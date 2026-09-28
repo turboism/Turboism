@@ -11,6 +11,7 @@ import dev.turboism.adapter.cubism.integration.NativeEditToggleInjector;
 import dev.turboism.adapter.cubism.integration.SwingEditApprovalGate;
 import dev.turboism.adapter.cubism.integration.VerifiedEditApiDispatchInstaller;
 import dev.turboism.adapter.cubism.integration.VerifiedEditToggleHookInstaller;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.preview.PreviewRuntime;
 
 import java.util.Optional;
@@ -135,6 +136,7 @@ final class EditApiDispatchHookContributor implements HookContributor {
             try {
                 resources.get(index).close();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (first == null) {
                     first = failure;
                 } else if (first != failure) {

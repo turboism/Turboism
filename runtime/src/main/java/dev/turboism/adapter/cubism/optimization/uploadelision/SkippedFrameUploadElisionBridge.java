@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridg
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadTracker.ClearKind;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadTracker.Compare;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadTracker.Kind;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -173,6 +174,7 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
                 .get(ModelUpdateSkipBridge.SKIPPED_FRAME_PROPERTY);
             return slot instanceof AtomicBoolean flag && flag.get();
         } catch (Throwable denied) {
+            FatalErrors.rethrowIfFatal(denied);
             return false;
         }
     }
@@ -210,6 +212,7 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
             return tracker.consider(gl, name, size, buffer, position, limit,
                 frameSkipped(), armed, kind);
         } catch (Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             tracker.observerFailed();
             return false;
         }
@@ -231,6 +234,7 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
                 if (!Buffer.class.isAssignableFrom(method.getReturnType())) return null;
                 return MethodHandles.publicLookup().unreflect(method);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 return null;
             }
         });

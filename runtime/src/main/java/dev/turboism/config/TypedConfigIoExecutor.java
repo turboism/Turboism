@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 
@@ -160,6 +161,7 @@ final class TypedConfigIoExecutor implements AutoCloseable {
                     settle(action.get());
                 }
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 settleExceptionally(new IllegalStateException(
                     "Typed config operation failed safely."
                 ));

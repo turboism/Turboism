@@ -4,6 +4,7 @@ import com.sun.management.OperatingSystemMXBean;
 
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -194,6 +195,7 @@ public final class RuntimePerformanceProbeService
                 published.install();
                 hook = published;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
                     "performance",
                     "Performance FPS hook disabled safely",
@@ -251,6 +253,7 @@ public final class RuntimePerformanceProbeService
                 hook = null;
             }
         } catch (Throwable closeFailure) {
+            FatalErrors.rethrowIfFatal(closeFailure);
             failure = closeFailure;
         } finally {
             unpublishCharts();
@@ -302,6 +305,7 @@ public final class RuntimePerformanceProbeService
             try {
                 consumer.accept(snapshot);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
                     "performance",
                     "Performance sampling consumer failed safely",
