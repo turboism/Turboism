@@ -2,7 +2,6 @@ package dev.turboism.update;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Objects;
@@ -16,12 +15,7 @@ import java.util.OptionalLong;
  * retained. Asset URLs and free-form notes from the response are deliberately not
  * carried into the client: the download entry uses a fixed first-party page.</p>
  */
-public record UpdateDiscovery(
-    int schemaVersion,
-    String channel,
-    Status status,
-    Optional<Candidate> candidate
-) {
+public record UpdateDiscovery(int schemaVersion, String channel, Status status, Optional<Candidate> candidate) {
     public static final int SCHEMA_VERSION = 1;
     public static final String CHANNEL_STABLE = "stable";
 
@@ -85,11 +79,7 @@ public record UpdateDiscovery(
     }
 
     /** One published product build offered by the requested channel. */
-    public record Candidate(
-        UpdateVersion version,
-        OptionalLong buildNumber,
-        Optional<Instant> publishedAt
-    ) {
+    public record Candidate(UpdateVersion version, OptionalLong buildNumber, Optional<Instant> publishedAt) {
         public Candidate {
             version = Objects.requireNonNull(version, "version");
             buildNumber = Objects.requireNonNull(buildNumber, "buildNumber");
@@ -104,9 +94,7 @@ public record UpdateDiscovery(
 
         /** Human-readable candidate identity, including the recorded build number when present. */
         public String identity() {
-            return buildNumber.isPresent()
-                ? version + " (Build " + buildNumber.getAsLong() + ")"
-                : version.toString();
+            return buildNumber.isPresent() ? version + " (Build " + buildNumber.getAsLong() + ")" : version.toString();
         }
     }
 }

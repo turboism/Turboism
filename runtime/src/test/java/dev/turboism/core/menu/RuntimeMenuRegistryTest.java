@@ -1,16 +1,15 @@
 package dev.turboism.core.menu;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class RuntimeMenuRegistryTest {
 
@@ -18,7 +17,8 @@ class RuntimeMenuRegistryTest {
     void contributionIsRegisteredAndCanBeUnregistered() {
         // Given a registry with a capturing dispatcher
         CapturingDispatcher dispatcher = new CapturingDispatcher();
-        RuntimeMenuRegistry registry = new RuntimeMenuRegistry(dispatcher, "dev.turboism.plugin.demo", PermissionChecker.allowAll());
+        RuntimeMenuRegistry registry =
+                new RuntimeMenuRegistry(dispatcher, "dev.turboism.plugin.demo", PermissionChecker.allowAll());
 
         // When a contribution is registered
         Registration registration = registry.contribute(new StubContribution("view/selection", "select-all", 10));
@@ -39,7 +39,8 @@ class RuntimeMenuRegistryTest {
     void closingRegistrationRemovesContribution() {
         // Given a registry with one contribution
         CapturingDispatcher dispatcher = new CapturingDispatcher();
-        RuntimeMenuRegistry registry = new RuntimeMenuRegistry(dispatcher, "dev.turboism.plugin.demo", PermissionChecker.allowAll());
+        RuntimeMenuRegistry registry =
+                new RuntimeMenuRegistry(dispatcher, "dev.turboism.plugin.demo", PermissionChecker.allowAll());
         Registration registration = registry.contribute(new StubContribution("file", "open-project", 5));
 
         // When the registration is closed
@@ -54,7 +55,8 @@ class RuntimeMenuRegistryTest {
     void duplicateIdsAreHandledDeterministically() {
         // Given a registry with a registered contribution
         CapturingDispatcher dispatcher = new CapturingDispatcher();
-        RuntimeMenuRegistry registry = new RuntimeMenuRegistry(dispatcher, "dev.turboism.plugin.demo", PermissionChecker.allowAll());
+        RuntimeMenuRegistry registry =
+                new RuntimeMenuRegistry(dispatcher, "dev.turboism.plugin.demo", PermissionChecker.allowAll());
         Registration first = registry.contribute(new StubContribution("edit", "undo", 1));
 
         // When a contribution with the same action id is registered again
@@ -77,8 +79,8 @@ class RuntimeMenuRegistryTest {
         assertEquals(4, dispatcher.dispatched.size());
     }
 
-    private record StubContribution(String menuPath, String actionId, int order) implements MenuRegistry.MenuContribution {
-    }
+    private record StubContribution(String menuPath, String actionId, int order)
+            implements MenuRegistry.MenuContribution {}
 
     private static final class CapturingDispatcher implements BiConsumer<PluginTask, Runnable> {
         private final List<Dispatched> dispatched = new ArrayList<>();
@@ -89,7 +91,6 @@ class RuntimeMenuRegistryTest {
             callback.run();
         }
 
-        record Dispatched(PluginTask task, Runnable callback) {
-        }
+        record Dispatched(PluginTask task, Runnable callback) {}
     }
 }

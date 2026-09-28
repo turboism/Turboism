@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.DrawableGeometryEvent;
 import dev.turboism.sdk.cubism.event.DrawableLockEvent;
@@ -11,7 +12,6 @@ import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
@@ -32,7 +32,7 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
     private final ThreadLocal<Boolean> lifecycleActive = ThreadLocal.withInitial(() -> false);
 
     public DrawableLifecycleCoordinator() {
-        this(new PluginWorkExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()));
+        this(new PluginWorkExecutorRegistry(1, 64, ignored -> {}, Clock.systemUTC()));
     }
 
     public DrawableLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
@@ -44,9 +44,7 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
         synchronized (registrationLock) {
             if (eventBroker != null && eventBroker != value) {
-                throw new IllegalStateException(
-                    "Drawable lifecycle already belongs to another Runtime event broker."
-                );
+                throw new IllegalStateException("Drawable lifecycle already belongs to another Runtime event broker.");
             }
             eventBroker = value;
         }
@@ -63,7 +61,11 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(value.descriptor().id()));
+            plugins.removeIf(registration -> registration
+                    .plugin()
+                    .descriptor()
+                    .id()
+                    .equals(value.descriptor().id()));
             callbacks.shutdown(value.descriptor().id());
             plugins.add(new Registration(token, value));
         }
@@ -71,10 +73,8 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
 
     void register(final Object token, final PluginHooks plugin) {
         synchronized (registrationLock) {
-            plugins.add(new Registration(
-                Objects.requireNonNull(token, "token"),
-                Objects.requireNonNull(plugin, "plugin")
-            ));
+            plugins.add(
+                    new Registration(Objects.requireNonNull(token, "token"), Objects.requireNonNull(plugin, "plugin")));
         }
     }
 
@@ -89,7 +89,8 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(id));
+            plugins.removeIf(
+                    registration -> registration.plugin().descriptor().id().equals(id));
             callbacks.shutdown(id);
         }
     }
@@ -98,13 +99,12 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         final String id = requireText(pluginId, "pluginId");
         final Object generation = Objects.requireNonNull(token, "token");
         synchronized (registrationLock) {
-            final boolean removed = plugins.removeIf(registration ->
-                registration.token() == generation
-                    && registration.plugin().descriptor().id().equals(id)
-            );
-            if (removed && plugins.stream().noneMatch(registration ->
-                registration.plugin().descriptor().id().equals(id)
-            )) {
+            final boolean removed = plugins.removeIf(registration -> registration.token() == generation
+                    && registration.plugin().descriptor().id().equals(id));
+            if (removed
+                    && plugins.stream()
+                            .noneMatch(registration ->
+                                    registration.plugin().descriptor().id().equals(id))) {
                 callbacks.shutdown(id);
             }
         }
@@ -134,8 +134,14 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                         try {
                             final float transformed = hook.beforeSetDrawableOpacity(drawable, effective);
                             if (Float.isFinite(transformed)) effective = transformed;
-                            else plugin.logger().warn("Ignored non-finite beforeSetDrawableOpacity result for " + OPACITY_OPERATION_ID);
-                        } catch (Throwable failure) { logHookFailure(plugin, "beforeSetDrawableOpacity", failure); }
+                            else
+                                plugin.logger()
+                                        .warn("Ignored non-finite beforeSetDrawableOpacity result for "
+                                                + OPACITY_OPERATION_ID);
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            logHookFailure(plugin, "beforeSetDrawableOpacity", failure);
+                        }
                     }
                 }
             }
@@ -143,24 +149,24 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
             if (broker != null) {
                 final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
                 effective = broker.publishRuntimeTransform(
-                    DrawableOpacityEvent.Before.class,
-                    effective,
-                    candidate -> {
-                        final DrawableOpacityEvent.Before.Callback callback =
-                            DrawableOpacityEvent.Before.openCallback(
-                                detached,
-                                requested,
-                                candidate
-                            );
-                        return new RuntimeEventBroker.TransformCallback() {
-                            @Override public DrawableOpacityEvent.Before event() {
-                                return callback.event();
-                            }
-                            @Override public void close() { callback.close(); }
-                        };
-                    },
-                    event -> ((DrawableOpacityEvent.Before) event).opacity()
-                );
+                        DrawableOpacityEvent.Before.class,
+                        effective,
+                        candidate -> {
+                            final DrawableOpacityEvent.Before.Callback callback =
+                                    DrawableOpacityEvent.Before.openCallback(detached, requested, candidate);
+                            return new RuntimeEventBroker.TransformCallback() {
+                                @Override
+                                public DrawableOpacityEvent.Before event() {
+                                    return callback.event();
+                                }
+
+                                @Override
+                                public void close() {
+                                    callback.close();
+                                }
+                            };
+                        },
+                        event -> ((DrawableOpacityEvent.Before) event).opacity());
             }
             if (!Float.isFinite(effective)) throw new IllegalArgumentException("Drawable opacity must be finite.");
             final float oldValue = drawable.getOpacity();
@@ -173,9 +179,7 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
             if (broker != null) {
                 final Drawable detached = DetachedDrawable.capture(drawable, newValue);
                 if (Float.compare(oldValue, newValue) != 0) {
-                    broker.publishRuntime(new DrawableOpacityEvent.On(
-                        detached, oldValue, newValue
-                    ));
+                    broker.publishRuntime(new DrawableOpacityEvent.On(detached, oldValue, newValue));
                 }
                 broker.publishRuntime(new DrawableOpacityEvent.After(detached, newValue));
             }
@@ -199,8 +203,12 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                 final PluginHooks plugin = registration.plugin();
                 if (plugin.interceptAllowed()) {
                     for (DrawableHooks hook : plugin.entrypoints()) {
-                        try { effective = hook.beforeSetDrawableVisible(drawable, effective); }
-                        catch (Throwable failure) { logHookFailure(plugin, "beforeSetDrawableVisible", failure); }
+                        try {
+                            effective = hook.beforeSetDrawableVisible(drawable, effective);
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            logHookFailure(plugin, "beforeSetDrawableVisible", failure);
+                        }
                     }
                 }
             }
@@ -208,23 +216,25 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
             if (broker != null) {
                 final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
                 effective = broker.publishRuntimeTransform(
-                    DrawableVisibilityEvent.Before.class,
-                    effective,
-                    candidate -> {
-                        final DrawableVisibilityEvent.Before.Callback callback =
-                            DrawableVisibilityEvent.Before.openCallback(
-                                detached, requested, candidate
-                            );
-                        return new RuntimeEventBroker.TransformCallback() {
-                            @Override public DrawableVisibilityEvent.Before event() {
-                                return callback.event();
-                            }
-                            @Override public void close() { callback.close(); }
-                        };
-                    },
-                    event -> ((DrawableVisibilityEvent.Before) event).visible(),
-                    ignored -> true
-                );
+                        DrawableVisibilityEvent.Before.class,
+                        effective,
+                        candidate -> {
+                            final DrawableVisibilityEvent.Before.Callback callback =
+                                    DrawableVisibilityEvent.Before.openCallback(detached, requested, candidate);
+                            return new RuntimeEventBroker.TransformCallback() {
+                                @Override
+                                public DrawableVisibilityEvent.Before event() {
+                                    return callback.event();
+                                }
+
+                                @Override
+                                public void close() {
+                                    callback.close();
+                                }
+                            };
+                        },
+                        event -> ((DrawableVisibilityEvent.Before) event).visible(),
+                        ignored -> true);
             }
             final boolean oldValue = drawable.visible();
             nativeOperation.accept(effective);
@@ -236,9 +246,7 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
             if (broker != null) {
                 final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
                 if (oldValue != newValue) {
-                    broker.publishRuntime(new DrawableVisibilityEvent.On(
-                        detached, oldValue, newValue
-                    ));
+                    broker.publishRuntime(new DrawableVisibilityEvent.On(detached, oldValue, newValue));
                 }
                 broker.publishRuntime(new DrawableVisibilityEvent.After(detached, newValue));
             }
@@ -262,8 +270,12 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                 final PluginHooks plugin = registration.plugin();
                 if (plugin.interceptAllowed()) {
                     for (DrawableHooks hook : plugin.entrypoints()) {
-                        try { effective = hook.beforeSetDrawableLocked(drawable, effective); }
-                        catch (Throwable failure) { logHookFailure(plugin, "beforeSetDrawableLocked", failure); }
+                        try {
+                            effective = hook.beforeSetDrawableLocked(drawable, effective);
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            logHookFailure(plugin, "beforeSetDrawableLocked", failure);
+                        }
                     }
                 }
             }
@@ -271,21 +283,25 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
             if (broker != null) {
                 final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
                 effective = broker.publishRuntimeTransform(
-                    DrawableLockEvent.Before.class,
-                    effective,
-                    candidate -> {
-                        final DrawableLockEvent.Before.Callback callback =
-                            DrawableLockEvent.Before.openCallback(detached, requested, candidate);
-                        return new RuntimeEventBroker.TransformCallback() {
-                            @Override public DrawableLockEvent.Before event() {
-                                return callback.event();
-                            }
-                            @Override public void close() { callback.close(); }
-                        };
-                    },
-                    event -> ((DrawableLockEvent.Before) event).locked(),
-                    ignored -> true
-                );
+                        DrawableLockEvent.Before.class,
+                        effective,
+                        candidate -> {
+                            final DrawableLockEvent.Before.Callback callback =
+                                    DrawableLockEvent.Before.openCallback(detached, requested, candidate);
+                            return new RuntimeEventBroker.TransformCallback() {
+                                @Override
+                                public DrawableLockEvent.Before event() {
+                                    return callback.event();
+                                }
+
+                                @Override
+                                public void close() {
+                                    callback.close();
+                                }
+                            };
+                        },
+                        event -> ((DrawableLockEvent.Before) event).locked(),
+                        ignored -> true);
             }
             final boolean oldValue = drawable.locked();
             nativeOperation.accept(effective);
@@ -297,9 +313,7 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
             if (broker != null) {
                 final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
                 if (oldValue != newValue) {
-                    broker.publishRuntime(new DrawableLockEvent.On(
-                        detached, oldValue, newValue
-                    ));
+                    broker.publishRuntime(new DrawableLockEvent.On(detached, oldValue, newValue));
                 }
                 broker.publishRuntime(new DrawableLockEvent.After(detached, newValue));
             }
@@ -318,10 +332,7 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
      * @throws IllegalStateException when invoked from within another Drawable lifecycle operation
      */
     public void replaceGeometry(
-        final Drawable drawable,
-        final ArtMeshGeometry requested,
-        final Consumer<ArtMeshGeometry> nativeOperation
-    ) {
+            final Drawable drawable, final ArtMeshGeometry requested, final Consumer<ArtMeshGeometry> nativeOperation) {
         runGuarded(GEOMETRY_OPERATION_ID, () -> {
             ArtMeshGeometry effective = Objects.requireNonNull(requested, "geometry");
             for (Registration registration : plugins) {
@@ -330,10 +341,12 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                     for (DrawableHooks hook : plugin.entrypoints()) {
                         try {
                             effective = Objects.requireNonNull(
-                                hook.beforeReplaceDrawableGeometry(drawable, effective),
-                                "beforeReplaceDrawableGeometry result"
-                            );
-                        } catch (Throwable failure) { logHookFailure(plugin, "beforeReplaceDrawableGeometry", failure); }
+                                    hook.beforeReplaceDrawableGeometry(drawable, effective),
+                                    "beforeReplaceDrawableGeometry result");
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            logHookFailure(plugin, "beforeReplaceDrawableGeometry", failure);
+                        }
                     }
                 }
             }
@@ -341,23 +354,25 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
             if (broker != null) {
                 final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
                 effective = broker.publishRuntimeTransform(
-                    DrawableGeometryEvent.Before.class,
-                    effective,
-                    candidate -> {
-                        final DrawableGeometryEvent.Before.Callback callback =
-                            DrawableGeometryEvent.Before.openCallback(
-                                detached, requested, candidate
-                            );
-                        return new RuntimeEventBroker.TransformCallback() {
-                            @Override public DrawableGeometryEvent.Before event() {
-                                return callback.event();
-                            }
-                            @Override public void close() { callback.close(); }
-                        };
-                    },
-                    event -> ((DrawableGeometryEvent.Before) event).geometry(),
-                    Objects::nonNull
-                );
+                        DrawableGeometryEvent.Before.class,
+                        effective,
+                        candidate -> {
+                            final DrawableGeometryEvent.Before.Callback callback =
+                                    DrawableGeometryEvent.Before.openCallback(detached, requested, candidate);
+                            return new RuntimeEventBroker.TransformCallback() {
+                                @Override
+                                public DrawableGeometryEvent.Before event() {
+                                    return callback.event();
+                                }
+
+                                @Override
+                                public void close() {
+                                    callback.close();
+                                }
+                            };
+                        },
+                        event -> ((DrawableGeometryEvent.Before) event).geometry(),
+                        Objects::nonNull);
             }
             final ArtMeshGeometry oldValue = drawable.geometry();
             nativeOperation.accept(effective);
@@ -369,9 +384,7 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
             if (broker != null) {
                 final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
                 if (!oldValue.equals(newValue)) {
-                    broker.publishRuntime(new DrawableGeometryEvent.On(
-                        detached, oldValue, newValue
-                    ));
+                    broker.publishRuntime(new DrawableGeometryEvent.On(detached, oldValue, newValue));
                 }
                 broker.publishRuntime(new DrawableGeometryEvent.After(detached, newValue));
             }
@@ -384,8 +397,11 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
             throw new IllegalStateException("Recursive Cubism Drawable lifecycle is not allowed: " + operationId);
         }
         lifecycleActive.set(true);
-        try { operation.run(); }
-        finally { lifecycleActive.remove(); }
+        try {
+            operation.run();
+        } finally {
+            lifecycleActive.remove();
+        }
     }
 
     private void publish(final String operationId, final HookInvocation invocation) {
@@ -395,8 +411,12 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
             final List<? extends DrawableHooks> hooks = plugin.entrypoints();
             submit(registration, operationId, () -> {
                 for (DrawableHooks hook : hooks) {
-                    try { invocation.forPlugin(plugin).invoke(hook); }
-                    catch (Throwable failure) { logHookFailure(plugin, operationId, failure); }
+                    try {
+                        invocation.forPlugin(plugin).invoke(hook);
+                    } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
+                        logHookFailure(plugin, operationId, failure);
+                    }
                 }
             });
         }
@@ -418,26 +438,21 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         }
     }
 
-    private void submit(
-        final Registration registration,
-        final String operationId,
-        final Runnable callback
-    ) {
+    private void submit(final Registration registration, final String operationId, final Runnable callback) {
         synchronized (registrationLock) {
             if (!plugins.contains(registration)) {
                 return;
             }
-            callbacks.submit(
-                registration.plugin().descriptor().id(),
-                operationId,
-                callback
-            );
+            callbacks.submit(registration.plugin().descriptor().id(), operationId, callback);
         }
     }
 
     private static void logHookFailure(final PluginHooks plugin, final String phase, final Throwable failure) {
-        try { plugin.logger().error("Cubism Drawable lifecycle hook failed safely: " + phase, failure); }
-        catch (Throwable ignored) { }
+        try {
+            plugin.logger().error("Cubism Drawable lifecycle hook failed safely: " + phase, failure);
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
+        }
     }
 
     private static String requireText(final String value, final String name) {
@@ -446,12 +461,17 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         return value;
     }
 
-    @FunctionalInterface private interface HookInvocation {
+    @FunctionalInterface
+    private interface HookInvocation {
         HookCall forPlugin(PluginHooks plugin);
     }
-    @FunctionalInterface private interface HookCall { void invoke(DrawableHooks hook); }
 
-    private record Registration(Object token, PluginHooks plugin) { }
+    @FunctionalInterface
+    private interface HookCall {
+        void invoke(DrawableHooks hook);
+    }
+
+    private record Registration(Object token, PluginHooks plugin) {}
 
     /**
      * One plugin's participation in the ArtMesh lifecycle.
@@ -463,12 +483,11 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
      * @param observeAllowed whether this plugin receives asynchronous {@code after*}/{@code on*} callbacks
      */
     public record PluginHooks(
-        PluginDescriptor descriptor,
-        List<? extends DrawableHooks> entrypoints,
-        PluginLogger logger,
-        boolean interceptAllowed,
-        boolean observeAllowed
-    ) {
+            PluginDescriptor descriptor,
+            List<? extends DrawableHooks> entrypoints,
+            PluginLogger logger,
+            boolean interceptAllowed,
+            boolean observeAllowed) {
         /**
          * Registers a plugin with both interception and observation permitted.
          *
@@ -477,10 +496,11 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
          * @param logger sink for hook failures raised by this plugin
          */
         public PluginHooks(
-            final PluginDescriptor descriptor,
-            final List<? extends DrawableHooks> entrypoints,
-            final PluginLogger logger
-        ) { this(descriptor, entrypoints, logger, true, true); }
+                final PluginDescriptor descriptor,
+                final List<? extends DrawableHooks> entrypoints,
+                final PluginLogger logger) {
+            this(descriptor, entrypoints, logger, true, true);
+        }
 
         public PluginHooks {
             descriptor = Objects.requireNonNull(descriptor, "descriptor");

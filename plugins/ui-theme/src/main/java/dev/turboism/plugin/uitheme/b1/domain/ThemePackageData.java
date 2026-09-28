@@ -21,12 +21,11 @@ import java.util.Objects;
  * @param license the package's license text, or null when it has none
  */
 public record ThemePackageData(
-    ThemePackageMetadata metadata,
-    Map<String, String> colors,
-    Map<String, String> generatorMetadata,
-    String readme,
-    String license
-) {
+        ThemePackageMetadata metadata,
+        Map<String, String> colors,
+        Map<String, String> generatorMetadata,
+        String readme,
+        String license) {
     public ThemePackageData {
         metadata = Objects.requireNonNull(metadata, "metadata");
         colors = immutableMap(colors);

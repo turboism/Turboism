@@ -36,7 +36,9 @@ public interface PluginPackageInspector {
         }
 
         /** @return the validated install plan; never {@code null} */
-        public PluginInstallPlan plan() { return plan; }
+        public PluginInstallPlan plan() {
+            return plan;
+        }
     }
 
     /**

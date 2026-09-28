@@ -1,24 +1,23 @@
 package dev.turboism.adapter.ui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
-import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceTestSupport;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
+import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceTestSupport;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class ThemeStatusAdapterContractTest {
 
@@ -34,8 +33,12 @@ class ThemeStatusAdapterContractTest {
         ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> result = adapter.themeStatus();
 
         assertFalse(result.isAvailable());
-        assertEquals(SafeModeDiagnostic.Code.ADAPTER_UNAVAILABLE, result.diagnostic().orElseThrow().code());
-        assertEquals(ThemeStatusAdapter.CAPABILITY_ID, result.diagnostic().orElseThrow().capability());
+        assertEquals(
+                SafeModeDiagnostic.Code.ADAPTER_UNAVAILABLE,
+                result.diagnostic().orElseThrow().code());
+        assertEquals(
+                ThemeStatusAdapter.CAPABILITY_ID,
+                result.diagnostic().orElseThrow().capability());
     }
 
     @Test
@@ -46,7 +49,9 @@ class ThemeStatusAdapterContractTest {
         ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> result = adapter.themeStatus();
 
         assertFalse(result.isAvailable());
-        assertEquals(SafeModeDiagnostic.Code.CAPABILITY_UNAVAILABLE, result.diagnostic().orElseThrow().code());
+        assertEquals(
+                SafeModeDiagnostic.Code.CAPABILITY_UNAVAILABLE,
+                result.diagnostic().orElseThrow().code());
         assertEquals(0, host.themeDelegations);
     }
 
@@ -58,7 +63,9 @@ class ThemeStatusAdapterContractTest {
         ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> result = adapter.themeStatus();
 
         assertTrue(result.isAvailable());
-        assertEquals(Optional.of(new ThemeStatusSnapshot("dark", "Dark", true)), result.value().orElseThrow());
+        assertEquals(
+                Optional.of(new ThemeStatusSnapshot("dark", "Dark", true)),
+                result.value().orElseThrow());
         assertEquals(1, host.themeDelegations);
     }
 
@@ -70,7 +77,9 @@ class ThemeStatusAdapterContractTest {
         ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> result = adapter.themeStatus();
 
         assertFalse(result.isAvailable());
-        assertEquals(SafeModeDiagnostic.Code.HOST_VERSION_UNSUPPORTED, result.diagnostic().orElseThrow().code());
+        assertEquals(
+                SafeModeDiagnostic.Code.HOST_VERSION_UNSUPPORTED,
+                result.diagnostic().orElseThrow().code());
         assertEquals(0, host.themeDelegations);
     }
 
@@ -78,11 +87,10 @@ class ThemeStatusAdapterContractTest {
     void cubismReadServiceUsesThemeStatusAdapterAndDoesNotDependOnStatusToolbarAdapter() {
         RecordingHost host = new RecordingHost("5.3.02", true);
         CubismReadCapabilityServiceImpl service = CubismReadCapabilityServiceTestSupport.withThemeAdapter(
-            new CubismFacadeImpl(projectOnlySource(), projectReadGate()),
-            M12ReadSnapshotSource.EMPTY,
-            ThemeStatusAdapterImpl.connected(host),
-            projectReadGate()
-        );
+                new CubismFacadeImpl(projectOnlySource(), projectReadGate()),
+                M12ReadSnapshotSource.EMPTY,
+                ThemeStatusAdapterImpl.connected(host),
+                projectReadGate());
 
         Optional<ThemeStatusSnapshot> themeStatus = service.themeStatus();
 
@@ -94,36 +102,34 @@ class ThemeStatusAdapterContractTest {
     @Test
     void cubismReadServiceFallsBackToM12SourceWhenThemeAdapterIsUnavailable() {
         CubismReadCapabilityServiceImpl service = CubismReadCapabilityServiceTestSupport.withThemeAdapter(
-            new CubismFacadeImpl(projectOnlySource(), projectReadGate()),
-            new FixedThemeSource(),
-            ThemeStatusAdapterImpl.safeMode(),
-            projectReadGate()
-        );
+                new CubismFacadeImpl(projectOnlySource(), projectReadGate()),
+                new FixedThemeSource(),
+                ThemeStatusAdapterImpl.safeMode(),
+                projectReadGate());
 
         Optional<ThemeStatusSnapshot> themeStatus = service.themeStatus();
 
         assertEquals(Optional.of(new ThemeStatusSnapshot("aurora", "Aurora", true)), themeStatus);
-        assertEquals(SafeModeDiagnostic.Code.ADAPTER_UNAVAILABLE, service.themeStatusDiagnostics().get(0).code());
+        assertEquals(
+                SafeModeDiagnostic.Code.ADAPTER_UNAVAILABLE,
+                service.themeStatusDiagnostics().get(0).code());
     }
 
     private static HostSnapshotSource projectOnlySource() {
         return new TestHostSnapshotSource(
-            Optional.of(new HostSnapshotSource.HostProject("project-1", "Project", Optional.empty(), List.of())),
-            Optional.empty(),
-            Optional.empty(),
-            new HostSnapshotSource.HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty()),
-            true
-        );
+                Optional.of(new HostSnapshotSource.HostProject("project-1", "Project", Optional.empty(), List.of())),
+                Optional.empty(),
+                Optional.empty(),
+                new HostSnapshotSource.HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty()),
+                true);
     }
 
     private static CubismPermissionGate projectReadGate() {
         return new CubismPermissionGate(
-            "plugin.demo",
-            List.of(permission(CubismFacadeImpl.PROJECT_READ_PERMISSION)),
-            ignored -> {
-            },
-            Clock.fixed(Instant.parse("2026-07-09T00:00:00Z"), ZoneOffset.UTC)
-        );
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.PROJECT_READ_PERMISSION)),
+                ignored -> {},
+                Clock.fixed(Instant.parse("2026-07-09T00:00:00Z"), ZoneOffset.UTC));
     }
 
     private static PluginPermission permission(final String id) {
@@ -153,12 +159,12 @@ class ThemeStatusAdapterContractTest {
     }
 
     private record TestHostSnapshotSource(
-        Optional<HostProject> project,
-        Optional<HostDocument> document,
-        Optional<HostModel> model,
-        HostSelection selection,
-        boolean hostPresent
-    ) implements HostSnapshotSource {
+            Optional<HostProject> project,
+            Optional<HostDocument> document,
+            Optional<HostModel> model,
+            HostSelection selection,
+            boolean hostPresent)
+            implements HostSnapshotSource {
         @Override
         public Optional<HostProject> activeProject() {
             return project;

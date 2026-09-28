@@ -5,43 +5,47 @@ import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
 /** Declarative contributor for the verified floating-tab close hook. */
 final class FloatingTabCloseHookContributor implements HookContributor {
 
-    @Override public String id() {
+    @Override
+    public String id() {
         return "TURBOISM_FLOATING_TAB_CLOSE_HOOK";
     }
 
-    @Override public Phase phase() {
+    @Override
+    public Phase phase() {
         return Phase.RUNTIME_STARTED;
     }
 
-    @Override public boolean admitted(final HookEnvironment environment) {
+    @Override
+    public boolean admitted(final HookEnvironment environment) {
         if (!environment.hookRuntimeAdmitted()) {
             return false;
         }
         if (environment.safeMode()) {
-            environment.runtime().ifPresent(runtime ->
-                runtime.info("bootstrap", "Turboism floating-tab close hook skipped in safe mode"));
+            environment
+                    .runtime()
+                    .ifPresent(runtime ->
+                            runtime.info("bootstrap", "Turboism floating-tab close hook skipped in safe mode"));
             return false;
         }
         return true;
     }
 
-    @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
+    @Override
+    public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var host = environment.host().orElseThrow();
         final var resolver = environment.sliceResolver(
-            new VerifiedEmbeddedPanelResolverFactory(),
-            "cubism-" + environment.profile() + "-ui-embedded-panel.json",
-            "ui-embedded-panel"
-        );
-        final VerifiedFloatingTabCloseHookInstaller installer =
-            new VerifiedFloatingTabCloseHookInstaller(
+                new VerifiedEmbeddedPanelResolverFactory(),
+                "cubism-" + environment.profile() + "-ui-embedded-panel.json",
+                "ui-embedded-panel");
+        final VerifiedFloatingTabCloseHookInstaller installer = new VerifiedFloatingTabCloseHookInstaller(
                 environment.instrumentation(),
                 resolver.verifiedSelector("cubism.ui-panel.floating-tab-close.operation"),
                 resolver.verifiedSelector("cubism.ui-panel.floating-tab-close.palette-field"),
-                host.classLoader()
-            );
+                host.classLoader());
         installer.install();
-        environment.runtime().ifPresent(runtime ->
-            runtime.info("bootstrap", "Turboism floating-tab close hook installed"));
+        environment
+                .runtime()
+                .ifPresent(runtime -> runtime.info("bootstrap", "Turboism floating-tab close hook installed"));
         return installer;
     }
 }

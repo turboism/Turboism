@@ -1,17 +1,16 @@
 package dev.turboism.ui.panel;
 
-import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.mapping.verification.TestVerifiedResolvers;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 class DockTreeTraversalTest {
 
@@ -36,10 +35,9 @@ class DockTreeTraversalTest {
         // split(contents, split(boxA, boxB), boxC): only the boxes are visited, in
         // pre-order; the unknown contents component is skipped, never expanded.
         Object tree = new SplitContainer(List.of(
-            new ContentsBox(),
-            new SplitContainer(List.of(new PaletteBox(List.of()), new PaletteBox(List.of()))),
-            new PaletteBox(List.of())
-        ));
+                new ContentsBox(),
+                new SplitContainer(List.of(new PaletteBox(List.of()), new PaletteBox(List.of()))),
+                new PaletteBox(List.of())));
 
         List<Object> visited = new ArrayList<>();
         traversal.walkComponents(tree, visited::add);
@@ -69,9 +67,7 @@ class DockTreeTraversalTest {
     @Test
     void walkRejectsNullVisitor() {
         org.junit.jupiter.api.Assertions.assertThrows(
-            NullPointerException.class,
-            () -> traversal().walkComponents(new PaletteBox(List.of()), null)
-        );
+                NullPointerException.class, () -> traversal().walkComponents(new PaletteBox(List.of()), null));
     }
 
     @Test
@@ -85,8 +81,7 @@ class DockTreeTraversalTest {
         assertTrue(traversal.containsComponent(tree, box));
         assertTrue(traversal.containsComponent(box, box));
         assertFalse(traversal.containsComponent(tree, detached));
-        assertFalse(traversal.containsComponent(contents, box),
-            "unknown components are never expanded as containers");
+        assertFalse(traversal.containsComponent(contents, box), "unknown components are never expanded as containers");
         assertFalse(traversal.containsComponent(null, box));
     }
 
@@ -133,58 +128,26 @@ class DockTreeTraversalTest {
 
     static VerifiedMemberResolver resolver() {
         final List<StaticSelector> selectors = List.of(
-            StaticSelector.classSelector(
-                "cubism.ui-panel.palette-box.class", internal(PaletteBox.class)
-            ),
-            StaticSelector.classSelector(
-                "cubism.ui-panel.split.class", internal(SplitContainer.class)
-            ),
-            method(
-                "cubism.ui-panel.split.contents",
-                SplitContainer.class,
-                "contents",
-                "()Ljava/util/List;"
-            ),
-            method(
-                "cubism.ui-panel.split.remove",
-                SplitContainer.class,
-                "remove",
-                "(L" + internal(Component.class) + ";)V"
-            ),
-            method(
-                "cubism.ui-panel.component.palette-count",
-                Component.class,
-                "paletteCount",
-                "()I"
-            ),
-            method(
-                "cubism.ui-panel.palette-box.palettes",
-                PaletteBox.class,
-                "palettes",
-                "()Ljava/util/List;"
-            )
-        );
+                StaticSelector.classSelector("cubism.ui-panel.palette-box.class", internal(PaletteBox.class)),
+                StaticSelector.classSelector("cubism.ui-panel.split.class", internal(SplitContainer.class)),
+                method("cubism.ui-panel.split.contents", SplitContainer.class, "contents", "()Ljava/util/List;"),
+                method(
+                        "cubism.ui-panel.split.remove",
+                        SplitContainer.class,
+                        "remove",
+                        "(L" + internal(Component.class) + ";)V"),
+                method("cubism.ui-panel.component.palette-count", Component.class, "paletteCount", "()I"),
+                method("cubism.ui-panel.palette-box.palettes", PaletteBox.class, "palettes", "()Ljava/util/List;"));
         return TestVerifiedResolvers.create(
-            "adapter.editor-ui.embedded-panel",
-            Set.of("cubism.editor-ui.embedded-panel"),
-            selectors,
-            DockTreeTraversalTest.class.getClassLoader()
-        );
+                "adapter.editor-ui.embedded-panel",
+                Set.of("cubism.editor-ui.embedded-panel"),
+                selectors,
+                DockTreeTraversalTest.class.getClassLoader());
     }
 
     private static StaticSelector method(
-        final String alias,
-        final Class<?> owner,
-        final String name,
-        final String descriptor
-    ) {
-        return StaticSelector.method(
-            alias,
-            internal(owner),
-            name,
-            descriptor,
-            StaticSelector.ACCESS_PUBLIC
-        );
+            final String alias, final Class<?> owner, final String name, final String descriptor) {
+        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
     private static String internal(final Class<?> type) {

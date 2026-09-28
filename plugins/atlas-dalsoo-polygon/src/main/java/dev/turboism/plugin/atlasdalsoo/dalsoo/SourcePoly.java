@@ -33,15 +33,12 @@ final class SourcePoly {
         this.fixPosition = builder.fixPosition;
         this.fixRotate = builder.fixRotate || builder.fixPosition;
         this.fixScale = builder.fixScale;
-        this.issuedCosSin = builder.issuedCosSin == null
-            ? new double[] {1, 0}
-            : builder.issuedCosSin.clone();
+        this.issuedCosSin = builder.issuedCosSin == null ? new double[] {1, 0} : builder.issuedCosSin.clone();
         this.issuedPosition = builder.issuedPosition;
         this.issuedPlaced = builder.issuedPlaced;
     }
 
-    static Builder builder(final int id, final String textureId,
-        final double[][] inpts, final double[][] outpts) {
+    static Builder builder(final int id, final String textureId, final double[][] inpts, final double[][] outpts) {
         return new Builder(id, textureId, inpts, outpts);
     }
 
@@ -57,8 +54,7 @@ final class SourcePoly {
         private double[] issuedPosition;
         private boolean issuedPlaced;
 
-        private Builder(final int id, final String textureId,
-            final double[][] inpts, final double[][] outpts) {
+        private Builder(final int id, final String textureId, final double[][] inpts, final double[][] outpts) {
             this.id = id;
             this.textureId = Objects.requireNonNull(textureId, "textureId");
             this.inpts = Objects.requireNonNull(inpts, "inpts");

@@ -2,11 +2,10 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
-import dev.turboism.mapping.verification.selector.EditorModelProfileSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorModelProfileSelectorContract;
 import dev.turboism.sdk.cubism.model.Canvas;
 import dev.turboism.sdk.cubism.model.ModelProfile;
-
 import java.util.EnumSet;
 import java.util.Objects;
 
@@ -18,17 +17,14 @@ final class EditorModelProfileAccess {
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorModelProfileAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard
-    ) {
+            final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard modelGuard) {
         this(resolver, modelGuard, null);
     }
 
     EditorModelProfileAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard,
-        final EditorAuthoringTransactionCoordinator authoringCoordinator
-    ) {
+            final VerifiedMemberResolver resolver,
+            final EditorParameterCombinedAccess.ModelGuard modelGuard,
+            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.authoringCoordinator = authoringCoordinator;
@@ -41,20 +37,16 @@ final class EditorModelProfileAccess {
         });
     }
 
-    private void setNameOnEdt(
-        final String identity, final Object source, final Object model, final String name
-    ) {
+    private void setNameOnEdt(final String identity, final Object source, final Object model, final String name) {
         EditorHostThread.requireHostThread("Cubism model name write");
         Objects.requireNonNull(name, "name");
         if (name.isBlank()) throw new IllegalArgumentException("name must not be blank");
         if (!resolver.authorizesFeature(
-            EditorModelProfileSelectorContract.ADAPTER_SLICE_ID,
-            EditorModelProfileSelectorContract.NAME_WRITE_CAPABILITY_ID,
-            EditorModelProfileSelectorContract.NAME_WRITE_REQUIRED_ALIASES
-        )) {
+                EditorModelProfileSelectorContract.ADAPTER_SLICE_ID,
+                EditorModelProfileSelectorContract.NAME_WRITE_CAPABILITY_ID,
+                EditorModelProfileSelectorContract.NAME_WRITE_REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Model-name writing is unavailable without exact verified host evidence."
-            );
+                    "Model-name writing is unavailable without exact verified host evidence.");
         }
         modelGuard.requireCurrent(identity, model);
         final Object current = resolver.invoke("cubism.editor-model.model-source.name", source);
@@ -66,67 +58,57 @@ final class EditorModelProfileAccess {
             final HostUndoMutationScope join = ambientJoin.orElseThrow();
             final String beforeName = current instanceof String text ? text : null;
             join.admit(
-                "cubism.model.set-name",
-                identity + ":model:name",
-                "Turboism: Set Model Name",
-                (edit, transactionLabel) -> {
-                    final Object undo = resolver.construct(
-                        "cubism.editor-model.simple-undo.create",
-                        "Turboism: Set Model Name", source, null);
-                    HostUndoMutationScope.requireUndoAccepted(
-                        resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
-                        "Set Model Name");
-                    final Object listener = resolver.createFunctionalProxy(
-                        "cubism.editor-model.undo-listener.class",
-                        ignored -> {
-                            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                            refresh(app);
-                            return null;
-                        });
-                    resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-                },
-                () -> resolver.invoke("cubism.editor-model.model-source.set-name", source, name),
-                () -> name.equals(resolver.invoke("cubism.editor-model.model-source.name", source)),
-                beforeName != null
-                    ? () -> resolver.invoke(
-                        "cubism.editor-model.model-source.set-name", source, beforeName)
-                    : () -> { },
-                beforeName != null
-                    ? () -> beforeName.equals(
-                        resolver.invoke("cubism.editor-model.model-source.name", source))
-                    : join::groupUndoApplied,
-                EnumSet.of(
-                    EditorRefreshRequirement.MODEL_INSTANCES,
-                    EditorRefreshRequirement.PART_PALETTE,
-                    EditorRefreshRequirement.CANVAS,
-                    EditorRefreshRequirement.MARK_DIRTY
-                )
-            );
+                    "cubism.model.set-name",
+                    identity + ":model:name",
+                    "Turboism: Set Model Name",
+                    (edit, transactionLabel) -> {
+                        final Object undo = resolver.construct(
+                                "cubism.editor-model.simple-undo.create", "Turboism: Set Model Name", source, null);
+                        HostUndoMutationScope.requireUndoAccepted(
+                                resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
+                                "Set Model Name");
+                        final Object listener =
+                                resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                    resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                                    refresh(app);
+                                    return null;
+                                });
+                        resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                    },
+                    () -> resolver.invoke("cubism.editor-model.model-source.set-name", source, name),
+                    () -> name.equals(resolver.invoke("cubism.editor-model.model-source.name", source)),
+                    beforeName != null
+                            ? () -> resolver.invoke("cubism.editor-model.model-source.set-name", source, beforeName)
+                            : () -> {},
+                    beforeName != null
+                            ? () -> beforeName.equals(resolver.invoke("cubism.editor-model.model-source.name", source))
+                            : join::groupUndoApplied,
+                    EnumSet.of(
+                            EditorRefreshRequirement.MODEL_INSTANCES,
+                            EditorRefreshRequirement.PART_PALETTE,
+                            EditorRefreshRequirement.CANVAS,
+                            EditorRefreshRequirement.MARK_DIRTY));
             modelGuard.requireCurrent(identity, model);
             return;
         }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, "Model.setName"
-        );
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Model.setName");
         final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object edit = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin", editMode, "Turboism: Set Model Name");
+        final Object edit =
+                resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Turboism: Set Model Name");
         boolean completed = false;
         try {
             final Object undo = resolver.construct(
-                "cubism.editor-model.simple-undo.create", "Turboism: Set Model Name", source, null);
+                    "cubism.editor-model.simple-undo.create", "Turboism: Set Model Name", source, null);
             final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
             if (!(accepted instanceof Boolean value) || !value) {
                 throw new IllegalStateException("Cubism rejected the model-name Undo entry.");
             }
-            final Object listener = resolver.createFunctionalProxy(
-                "cubism.editor-model.undo-listener.class",
-                ignored -> {
-                    resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                    refresh(app);
-                    return null;
-                }
-            );
+            final Object listener =
+                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                        refresh(app);
+                        return null;
+                    });
             resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
             resolver.invoke("cubism.editor-model.model-source.set-name", source, name);
             resolver.invoke("cubism.editor-model.model-source.update-instances", source);
@@ -153,8 +135,10 @@ final class EditorModelProfileAccess {
         final Object rawX = resolver.invoke("cubism.editor-model.point.x", origin);
         final Object rawY = resolver.invoke("cubism.editor-model.point.y", origin);
         final Object rawPpu = resolver.invoke("cubism.editor-model.model-info.pixels-per-unit", info);
-        if (!(rawX instanceof Integer x) || !(rawY instanceof Integer y)
-            || !(rawPpu instanceof Float ppu) || !Float.isFinite(ppu)) {
+        if (!(rawX instanceof Integer x)
+                || !(rawY instanceof Integer y)
+                || !(rawPpu instanceof Float ppu)
+                || !Float.isFinite(ppu)) {
             throw new IllegalStateException("Editor model profile metrics are invalid.");
         }
         return new EditorProfile(x.floatValue(), y.floatValue(), ppu);
@@ -180,9 +164,12 @@ final class EditorModelProfileAccess {
         final Object rawPpu = resolver.invoke("cubism.editor-model.model-info.pixels-per-unit", info);
         final Object rawWidth = resolver.invoke("cubism.editor-model.image-canvas.width", canvas);
         final Object rawHeight = resolver.invoke("cubism.editor-model.image-canvas.height", canvas);
-        if (!(rawX instanceof Integer x) || !(rawY instanceof Integer y)
-            || !(rawPpu instanceof Float ppu) || !Float.isFinite(ppu)
-            || !(rawWidth instanceof Integer width) || !(rawHeight instanceof Integer height)) {
+        if (!(rawX instanceof Integer x)
+                || !(rawY instanceof Integer y)
+                || !(rawPpu instanceof Float ppu)
+                || !Float.isFinite(ppu)
+                || !(rawWidth instanceof Integer width)
+                || !(rawHeight instanceof Integer height)) {
             throw new IllegalStateException("Editor model canvas metrics are invalid.");
         }
         return new EditorCanvas(width, height, x.floatValue(), y.floatValue(), ppu);
@@ -190,13 +177,11 @@ final class EditorModelProfileAccess {
 
     private void requireProfileAuthorization() {
         if (!resolver.authorizesFeature(
-            EditorModelProfileSelectorContract.ADAPTER_SLICE_ID,
-            EditorModelProfileSelectorContract.PROFILE_READ_CAPABILITY_ID,
-            EditorModelProfileSelectorContract.PROFILE_READ_REQUIRED_ALIASES
-        )) {
+                EditorModelProfileSelectorContract.ADAPTER_SLICE_ID,
+                EditorModelProfileSelectorContract.PROFILE_READ_CAPABILITY_ID,
+                EditorModelProfileSelectorContract.PROFILE_READ_REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Model profile reading is unavailable without exact verified host evidence."
-            );
+                    "Model profile reading is unavailable without exact verified host evidence.");
         }
     }
 
@@ -207,19 +192,49 @@ final class EditorModelProfileAccess {
     }
 
     private record EditorProfile(float originXPixels, float originYPixels, float pixelsPerUnit)
-        implements ModelProfile {
-        @Override public float pixelsPerUnit() { return pixelsPerUnit; }
-        @Override public float originXPixels() { return originXPixels; }
-        @Override public float originYPixels() { return originYPixels; }
+            implements ModelProfile {
+        @Override
+        public float pixelsPerUnit() {
+            return pixelsPerUnit;
+        }
+
+        @Override
+        public float originXPixels() {
+            return originXPixels;
+        }
+
+        @Override
+        public float originYPixels() {
+            return originYPixels;
+        }
     }
 
     private record EditorCanvas(
-        float widthPixels, float heightPixels, float originXPixels, float originYPixels, float pixelsPerUnit
-    ) implements Canvas {
-        @Override public float widthPixels() { return widthPixels; }
-        @Override public float heightPixels() { return heightPixels; }
-        @Override public float originXPixels() { return originXPixels; }
-        @Override public float originYPixels() { return originYPixels; }
-        @Override public float pixelsPerUnit() { return pixelsPerUnit; }
+            float widthPixels, float heightPixels, float originXPixels, float originYPixels, float pixelsPerUnit)
+            implements Canvas {
+        @Override
+        public float widthPixels() {
+            return widthPixels;
+        }
+
+        @Override
+        public float heightPixels() {
+            return heightPixels;
+        }
+
+        @Override
+        public float originXPixels() {
+            return originXPixels;
+        }
+
+        @Override
+        public float originYPixels() {
+            return originYPixels;
+        }
+
+        @Override
+        public float pixelsPerUnit() {
+            return pixelsPerUnit;
+        }
     }
 }

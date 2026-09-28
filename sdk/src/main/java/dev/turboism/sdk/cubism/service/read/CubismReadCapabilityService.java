@@ -1,7 +1,7 @@
 package dev.turboism.sdk.cubism.service.read;
 
-import dev.turboism.sdk.cubism.AnimationSnapshot;
 import dev.turboism.sdk.cubism.ActiveReadProjections;
+import dev.turboism.sdk.cubism.AnimationSnapshot;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -17,9 +17,8 @@ import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
-import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.plugin.PluginContext;
-
+import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import java.util.List;
 import java.util.Optional;
 
@@ -136,66 +135,81 @@ public interface CubismReadCapabilityService {
     enum Unavailable implements CubismReadCapabilityService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
         @Deprecated
-        @Override public Optional<ProjectSnapshot> activeProject() {
+        @Override
+        public Optional<ProjectSnapshot> activeProject() {
             throw unavailable();
         }
 
         @Deprecated
-        @Override public Optional<DocumentSnapshot> activeDocument() {
+        @Override
+        public Optional<DocumentSnapshot> activeDocument() {
             throw unavailable();
         }
 
         @Deprecated
-        @Override public Optional<ModelSnapshot> activeModel() {
+        @Override
+        public Optional<ModelSnapshot> activeModel() {
             throw unavailable();
         }
 
-        @Override public SelectionSnapshot selection() {
+        @Override
+        public SelectionSnapshot selection() {
             throw unavailable();
         }
 
-        @Override public List<ParameterSnapshot> parameters() {
+        @Override
+        public List<ParameterSnapshot> parameters() {
             throw unavailable();
         }
 
-        @Override public List<ModelObjectSnapshot> modelObjects() {
+        @Override
+        public List<ModelObjectSnapshot> modelObjects() {
             throw unavailable();
         }
 
-        @Override public List<ArtMeshSnapshot> meshes() {
+        @Override
+        public List<ArtMeshSnapshot> meshes() {
             throw unavailable();
         }
 
-        @Override public List<DeformerSnapshot> deformers() {
+        @Override
+        public List<DeformerSnapshot> deformers() {
             throw unavailable();
         }
 
-        @Override public List<PsdDocumentSnapshot> psdDocuments() {
+        @Override
+        public List<PsdDocumentSnapshot> psdDocuments() {
             throw unavailable();
         }
 
-        @Override public List<ClipMaskSnapshot> clipMasks() {
+        @Override
+        public List<ClipMaskSnapshot> clipMasks() {
             throw unavailable();
         }
 
-        @Override public List<TextureAtlasSnapshot> textureAtlases() {
+        @Override
+        public List<TextureAtlasSnapshot> textureAtlases() {
             throw unavailable();
         }
 
-        @Override public Optional<RenderStatusSnapshot> renderStatus() {
+        @Override
+        public Optional<RenderStatusSnapshot> renderStatus() {
             throw unavailable();
         }
 
-        @Override public Optional<WorkspaceSnapshot> workspace() {
+        @Override
+        public Optional<WorkspaceSnapshot> workspace() {
             throw unavailable();
         }
 
-        @Override public Optional<ThemeStatusSnapshot> themeStatus() {
+        @Override
+        public Optional<ThemeStatusSnapshot> themeStatus() {
             throw unavailable();
         }
 

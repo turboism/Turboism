@@ -23,9 +23,7 @@ public interface PluginPaths {
      */
     @Deprecated(forRemoval = true)
     default Path logsDir() {
-        throw new UnsupportedOperationException(
-            "direct plugin log paths are unavailable; use PluginContext.logger()"
-        );
+        throw new UnsupportedOperationException("direct plugin log paths are unavailable; use PluginContext.logger()");
     }
 
     /** Returns the plugin's session or host-lifetime state directory. */

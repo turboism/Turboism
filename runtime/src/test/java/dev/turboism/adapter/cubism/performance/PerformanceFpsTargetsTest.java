@@ -1,10 +1,9 @@
 package dev.turboism.adapter.cubism.performance;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 /**
  * Exact-version FPS counting target pins. The 5.2.03 RENDER_SCENE entry was
@@ -16,24 +15,19 @@ class PerformanceFpsTargetsTest {
 
     @Test
     void cubism5203CarriesOnlyTheVerifiedRenderSceneTarget() {
-        final List<PerformanceProbeMethodTransformer.Target> targets =
-            PerformanceProbeTargets.cubism5203();
+        final List<PerformanceProbeMethodTransformer.Target> targets = PerformanceProbeTargets.cubism5203();
 
         assertEquals(1, targets.size());
         final PerformanceProbeMethodTransformer.Target target = targets.get(0);
         assertEquals("com/live2d/cubism/view/context/CEViewContext", target.ownerInternalName());
         assertEquals("renderScene_exe", target.methodName());
-        assertEquals(
-            "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
-            target.descriptor()
-        );
+        assertEquals("(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V", target.descriptor());
         assertEquals(PerformanceProbeMetric.RENDER_SCENE, target.metric());
     }
 
     @Test
     void cubism5303CarriesAnIndependentFullMetricTargetSet() {
-        final List<PerformanceProbeMethodTransformer.Target> targets =
-            PerformanceProbeTargets.cubism5303();
+        final List<PerformanceProbeMethodTransformer.Target> targets = PerformanceProbeTargets.cubism5303();
 
         assertEquals(7, targets.size());
         assertEquals(PerformanceProbeTargets.cubism5302(), targets);
@@ -41,17 +35,14 @@ class PerformanceFpsTargetsTest {
 
     @Test
     void cubism5302SetIsUnchanged() {
-        final List<PerformanceProbeMethodTransformer.Target> targets =
-            PerformanceProbeTargets.cubism5302();
+        final List<PerformanceProbeMethodTransformer.Target> targets = PerformanceProbeTargets.cubism5302();
 
         assertEquals(7, targets.size());
         final PerformanceProbeMethodTransformer.Target renderScene = targets.get(0);
         assertEquals("com/live2d/cubism/view/context/CEViewContext", renderScene.ownerInternalName());
         assertEquals("renderScene_exe", renderScene.methodName());
         assertEquals(
-            "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
-            renderScene.descriptor()
-        );
+                "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V", renderScene.descriptor());
         assertEquals(PerformanceProbeMetric.RENDER_SCENE, renderScene.metric());
     }
 }

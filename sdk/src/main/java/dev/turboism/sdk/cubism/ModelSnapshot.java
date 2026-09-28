@@ -18,13 +18,12 @@ import java.util.Objects;
  * @param deformers unmodifiable copy of the model's deformers
  */
 public record ModelSnapshot(
-    String modelId,
-    String name,
-    List<ModelObjectSnapshot> objects,
-    List<ParameterSnapshot> parameters,
-    List<ArtMeshSnapshot> artMeshes,
-    List<DeformerSnapshot> deformers
-) {
+        String modelId,
+        String name,
+        List<ModelObjectSnapshot> objects,
+        List<ParameterSnapshot> parameters,
+        List<ArtMeshSnapshot> artMeshes,
+        List<DeformerSnapshot> deformers) {
     public ModelSnapshot {
         modelId = Objects.requireNonNull(modelId, "modelId");
         name = Objects.requireNonNull(name, "name");

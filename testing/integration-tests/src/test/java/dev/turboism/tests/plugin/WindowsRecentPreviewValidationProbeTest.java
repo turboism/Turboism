@@ -1,24 +1,21 @@
 package dev.turboism.tests.plugin;
 
-import org.junit.jupiter.api.Test;
-
-import javax.imageio.ImageIO;
-
-import javax.swing.ImageIcon;
-
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.attribute.FileTime;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class WindowsRecentPreviewValidationProbeTest {
@@ -26,13 +23,13 @@ class WindowsRecentPreviewValidationProbeTest {
     @Test
     void opaqueIdIsExactly64LowercaseHex() {
         assertTrue(WindowsRecentPreviewValidationProbe.isOpaqueHexId(
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
         assertFalse(WindowsRecentPreviewValidationProbe.isOpaqueHexId(
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeF"));
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeF"));
         assertFalse(WindowsRecentPreviewValidationProbe.isOpaqueHexId(
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeg"));
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeg"));
         assertFalse(WindowsRecentPreviewValidationProbe.isOpaqueHexId(
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"));
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"));
         assertFalse(WindowsRecentPreviewValidationProbe.isOpaqueHexId(""));
         assertFalse(WindowsRecentPreviewValidationProbe.isOpaqueHexId(null));
     }
@@ -40,15 +37,13 @@ class WindowsRecentPreviewValidationProbeTest {
     @Test
     void closeRouteMapsSupportedVersionsAndFailsClosed() {
         assertEquals(
-            WindowsRecentPreviewValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
-            WindowsRecentPreviewValidationProbe.hostCloseRoute("5203"));
+                WindowsRecentPreviewValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+                WindowsRecentPreviewValidationProbe.hostCloseRoute("5203"));
         assertEquals(
-            WindowsRecentPreviewValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
-            WindowsRecentPreviewValidationProbe.hostCloseRoute("5302"));
-        assertThrows(IllegalArgumentException.class,
-            () -> WindowsRecentPreviewValidationProbe.hostCloseRoute("5100"));
-        assertThrows(IllegalArgumentException.class,
-            () -> WindowsRecentPreviewValidationProbe.hostCloseRoute(null));
+                WindowsRecentPreviewValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
+                WindowsRecentPreviewValidationProbe.hostCloseRoute("5302"));
+        assertThrows(IllegalArgumentException.class, () -> WindowsRecentPreviewValidationProbe.hostCloseRoute("5100"));
+        assertThrows(IllegalArgumentException.class, () -> WindowsRecentPreviewValidationProbe.hostCloseRoute(null));
     }
 
     @Test
@@ -65,13 +60,12 @@ class WindowsRecentPreviewValidationProbeTest {
     @Test
     void fixturePathSuffixMatchingAcceptsBothSeparators() {
         assertTrue(WindowsRecentPreviewValidationProbe.endsWithSeparator(
-            "C:\\home\\developer\\fixture.cmo3", "fixture.cmo3"));
+                "C:\\home\\developer\\fixture.cmo3", "fixture.cmo3"));
         assertTrue(WindowsRecentPreviewValidationProbe.endsWithSeparator(
-            "Z:/home/developer/fixture.cmo3", "fixture.cmo3"));
-        assertTrue(WindowsRecentPreviewValidationProbe.endsWithSeparator(
-            "fixture.cmo3", "fixture.cmo3"));
+                "Z:/home/developer/fixture.cmo3", "fixture.cmo3"));
+        assertTrue(WindowsRecentPreviewValidationProbe.endsWithSeparator("fixture.cmo3", "fixture.cmo3"));
         assertFalse(WindowsRecentPreviewValidationProbe.endsWithSeparator(
-            "C:\\home\\developer\\other.cmo3", "fixture.cmo3"));
+                "C:\\home\\developer\\other.cmo3", "fixture.cmo3"));
         assertFalse(WindowsRecentPreviewValidationProbe.endsWithSeparator(null, "fixture.cmo3"));
     }
 
@@ -95,10 +89,12 @@ class WindowsRecentPreviewValidationProbeTest {
 
     @Test
     void saveDiagnosticLineIsBooleanOnlyAndPathFree() {
-        assertEquals("Recent preview save diagnostic savedEvent=false fileModified=true menuPath=menu",
-            WindowsRecentPreviewValidationProbe.saveDiagnostic(false, true, "menu"));
-        assertEquals("Recent preview save diagnostic savedEvent=true fileModified=false menuPath=ctrls",
-            WindowsRecentPreviewValidationProbe.saveDiagnostic(true, false, "ctrls"));
+        assertEquals(
+                "Recent preview save diagnostic savedEvent=false fileModified=true menuPath=menu",
+                WindowsRecentPreviewValidationProbe.saveDiagnostic(false, true, "menu"));
+        assertEquals(
+                "Recent preview save diagnostic savedEvent=true fileModified=false menuPath=ctrls",
+                WindowsRecentPreviewValidationProbe.saveDiagnostic(true, false, "ctrls"));
         final String line = WindowsRecentPreviewValidationProbe.saveDiagnostic(false, true, "ctrls");
         assertFalse(WindowsRecentPreviewValidationProbe.containsAbsolutePath(line));
         assertFalse(line.contains("\\"));
@@ -123,8 +119,9 @@ class WindowsRecentPreviewValidationProbeTest {
 
     @Test
     void dialogIdentityIsClassHashKeyed() {
-        assertEquals("javax.swing.JDialog@42",
-            WindowsRecentPreviewValidationProbe.dialogIdentity("javax.swing.JDialog", 42));
+        assertEquals(
+                "javax.swing.JDialog@42",
+                WindowsRecentPreviewValidationProbe.dialogIdentity("javax.swing.JDialog", 42));
         assertEquals("a@0", WindowsRecentPreviewValidationProbe.dialogIdentity("a", 0));
     }
 
@@ -144,24 +141,20 @@ class WindowsRecentPreviewValidationProbeTest {
         Files.writeString(file, "v1");
         final long baselineModified = Files.getLastModifiedTime(file).toMillis();
         final long baselineSize = Files.size(file);
-        assertFalse(WindowsRecentPreviewValidationProbe.fileModifiedSince(
-            file, baselineModified, baselineSize));
+        assertFalse(WindowsRecentPreviewValidationProbe.fileModifiedSince(file, baselineModified, baselineSize));
 
         Files.writeString(file, "v1-longer-content");
-        assertTrue(WindowsRecentPreviewValidationProbe.fileModifiedSince(
-            file, baselineModified, baselineSize));
+        assertTrue(WindowsRecentPreviewValidationProbe.fileModifiedSince(file, baselineModified, baselineSize));
 
         // time-only change (same size, explicitly newer lastModified)
         final long size = Files.size(file);
         Files.setLastModifiedTime(file, FileTime.fromMillis(baselineModified + 60_000L));
         assertEquals(size, Files.size(file));
-        assertTrue(WindowsRecentPreviewValidationProbe.fileModifiedSince(
-            file, baselineModified, baselineSize));
+        assertTrue(WindowsRecentPreviewValidationProbe.fileModifiedSince(file, baselineModified, baselineSize));
 
         // missing file reads as not modified (deleted during the wait)
         final Path missing = dir.resolve("gone.cmo3");
-        assertFalse(WindowsRecentPreviewValidationProbe.fileModifiedSince(
-            missing, baselineModified, baselineSize));
+        assertFalse(WindowsRecentPreviewValidationProbe.fileModifiedSince(missing, baselineModified, baselineSize));
     }
 
     @Test
@@ -177,8 +170,7 @@ class WindowsRecentPreviewValidationProbeTest {
         fields.put("pathEndsWithFixture", "true");
         fields.put("directCaptureWidth", "150");
         fields.put("directCaptureHeight", "150");
-        fields.put("directPngSha256",
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+        fields.put("directPngSha256", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
         fields.put("directPngColors", "12");
         fields.put("savedEventMatched", "true");
         fields.put("productionCachePng", "true");
@@ -189,14 +181,14 @@ class WindowsRecentPreviewValidationProbeTest {
         assertFalse(WindowsRecentPreviewValidationProbe.containsAbsolutePath(content));
         assertTrue(content.contains("\nstatus=PASS\n"));
 
-        final String failure = WindowsRecentPreviewValidationProbe.failureResult(
-            "java.lang.IllegalStateException", "popup");
+        final String failure =
+                WindowsRecentPreviewValidationProbe.failureResult("java.lang.IllegalStateException", "popup");
         assertFalse(WindowsRecentPreviewValidationProbe.containsAbsolutePath(failure));
         assertTrue(failure.contains("failureClass=java.lang.IllegalStateException"));
         assertTrue(failure.contains("failurePhase=popup"));
 
-        final String saveEventFailure = WindowsRecentPreviewValidationProbe.failureResult(
-            "java.lang.IllegalStateException", "save-event");
+        final String saveEventFailure =
+                WindowsRecentPreviewValidationProbe.failureResult("java.lang.IllegalStateException", "save-event");
         assertFalse(WindowsRecentPreviewValidationProbe.containsAbsolutePath(saveEventFailure));
         assertTrue(saveEventFailure.contains("failurePhase=save-event"));
 
@@ -228,7 +220,7 @@ class WindowsRecentPreviewValidationProbeTest {
         final ByteArrayOutputStream bigPng = new ByteArrayOutputStream();
         assertTrue(ImageIO.write(oversized, "png", bigPng));
         assertFalse(WindowsRecentPreviewValidationProbe.isBoundedPng(bigPng.toByteArray(), 150));
-        assertFalse(WindowsRecentPreviewValidationProbe.isBoundedPng(new byte[]{1, 2, 3}, 150));
+        assertFalse(WindowsRecentPreviewValidationProbe.isBoundedPng(new byte[] {1, 2, 3}, 150));
     }
 
     @Test
@@ -236,8 +228,7 @@ class WindowsRecentPreviewValidationProbeTest {
         final BufferedImage source = new BufferedImage(58, 150, BufferedImage.TYPE_INT_RGB);
         for (int y = 0; y < source.getHeight(); y++) {
             for (int x = 0; x < source.getWidth(); x++) {
-                final int color = x < 29 ? (y < 75 ? 0xFF0000 : 0x0000FF)
-                    : (y < 75 ? 0x00FF00 : 0x000000);
+                final int color = x < 29 ? (y < 75 ? 0xFF0000 : 0x0000FF) : (y < 75 ? 0x00FF00 : 0x000000);
                 source.setRGB(x, y, color);
             }
         }
@@ -252,10 +243,12 @@ class WindowsRecentPreviewValidationProbeTest {
     @Test
     void sha256HexIsStableLowercase64() {
         final String digest = WindowsRecentPreviewValidationProbe.sha256Hex(
-            "fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                "fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         assertEquals(64, digest.length());
         assertTrue(digest.matches("[0-9a-f]{64}"));
-        assertEquals(digest, WindowsRecentPreviewValidationProbe.sha256Hex(
-            "fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        assertEquals(
+                digest,
+                WindowsRecentPreviewValidationProbe.sha256Hex(
+                        "fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 }

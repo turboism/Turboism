@@ -6,7 +6,6 @@ import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContent;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.PanelView;
-
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -20,7 +19,7 @@ import java.util.function.Consumer;
 public final class RecentPreviewRendererImpl implements RecentPreviewRenderer {
 
     static final DateTimeFormatter LAST_MODIFIED_FORMAT =
-        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     private final RecentPreviewController controller;
     private final Consumer<RecentFileId> captureRequester;
@@ -30,19 +29,17 @@ public final class RecentPreviewRendererImpl implements RecentPreviewRenderer {
     private final Set<RecentFileId> hideOnce = ConcurrentHashMap.newKeySet();
 
     public RecentPreviewRendererImpl(
-        final RecentPreviewController controller,
-        final Consumer<RecentFileId> captureRequester,
-        final PluginLogger logger
-    ) {
+            final RecentPreviewController controller,
+            final Consumer<RecentFileId> captureRequester,
+            final PluginLogger logger) {
         this(controller, captureRequester, logger, "Loading preview…");
     }
 
     public RecentPreviewRendererImpl(
-        final RecentPreviewController controller,
-        final Consumer<RecentFileId> captureRequester,
-        final PluginLogger logger,
-        final String loadingText
-    ) {
+            final RecentPreviewController controller,
+            final Consumer<RecentFileId> captureRequester,
+            final PluginLogger logger,
+            final String loadingText) {
         this.controller = Objects.requireNonNull(controller, "controller");
         this.captureRequester = Objects.requireNonNull(captureRequester, "captureRequester");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -68,7 +65,8 @@ public final class RecentPreviewRendererImpl implements RecentPreviewRenderer {
                 captureRequester.accept(id);
             } catch (RuntimeException failure) {
                 loading.remove(id);
-                logger.warn("Recent preview capture request failed: " + failure.getClass().getSimpleName());
+                logger.warn("Recent preview capture request failed: "
+                        + failure.getClass().getSimpleName());
                 return Optional.empty();
             }
         }
@@ -96,18 +94,16 @@ public final class RecentPreviewRendererImpl implements RecentPreviewRenderer {
     /** Builds the thumbnail plus the two legacy information rows. */
     static PanelView contentFor(final RecentFileSummary summary, final byte[] png) {
         return PanelView.column(
-            PanelView.image(png, summary.displayName()),
-            PanelView.text(summary.displayName()),
-            PanelView.text(formatLastModified(summary.lastModified()))
-        );
+                PanelView.image(png, summary.displayName()),
+                PanelView.text(summary.displayName()),
+                PanelView.text(formatLastModified(summary.lastModified())));
     }
 
     static PanelView loadingContentFor(final RecentFileSummary summary, final String loadingText) {
         return PanelView.column(
-            PanelView.text(summary.displayName()),
-            PanelView.text(formatLastModified(summary.lastModified())),
-            PanelView.text(requireText(loadingText, "loadingText"))
-        );
+                PanelView.text(summary.displayName()),
+                PanelView.text(formatLastModified(summary.lastModified())),
+                PanelView.text(requireText(loadingText, "loadingText")));
     }
 
     /** Formats the last edit time as local {@code yyyy-MM-dd HH:mm:ss}; empty when unknown. */

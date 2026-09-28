@@ -14,11 +14,10 @@ import java.util.Objects;
  *        and {@link WarpMirrorOutcome#NO_CHANGE}
  */
 public record WarpMirrorResult(
-    WarpMirrorOutcome outcome,
-    int changedPointCount,
-    int compensatedDescendantCount,
-    List<WarpMirrorBlocker> blockers
-) {
+        WarpMirrorOutcome outcome,
+        int changedPointCount,
+        int compensatedDescendantCount,
+        List<WarpMirrorBlocker> blockers) {
     public WarpMirrorResult {
         outcome = Objects.requireNonNull(outcome, "outcome");
         blockers = List.copyOf(Objects.requireNonNull(blockers, "blockers"));
@@ -45,7 +44,9 @@ public record WarpMirrorResult(
     /** Builds a recovery-failed result. */
     public static WarpMirrorResult recoveryFailed(final String reason) {
         return new WarpMirrorResult(
-            WarpMirrorOutcome.RECOVERY_FAILED, 0, 0,
-            List.of(new WarpMirrorBlocker(WarpMirrorBlockerCode.WRITE_FAILED, reason)));
+                WarpMirrorOutcome.RECOVERY_FAILED,
+                0,
+                0,
+                List.of(new WarpMirrorBlocker(WarpMirrorBlockerCode.WRITE_FAILED, reason)));
     }
 }

@@ -1,9 +1,9 @@
 package dev.turboism.bootstrap;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * Pins the native edit entry hook's admission gate.
@@ -24,8 +24,8 @@ class TurboismAgentNativeEditBeginAdmissionTest {
 
     private static HookEnvironment environment(final String profile, final boolean admitted) {
         return HookEnvironment.builder()
-            .profile(profile)
-            .fullRuntimeAdmission(admitted)
-            .build();
+                .profile(profile)
+                .fullRuntimeAdmission(admitted)
+                .build();
     }
 }

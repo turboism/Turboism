@@ -1,7 +1,6 @@
 package dev.turboism.distribution;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
 import java.time.Instant;
 
 final class ManifestPrimitives {
@@ -24,7 +23,9 @@ final class ManifestPrimitives {
         try {
             Instant.parse(value.textValue());
             return true;
-        } catch (Exception exception) { return false; }
+        } catch (Exception exception) {
+            return false;
+        }
     }
 
     static boolean schemaVersion(JsonNode value) {
@@ -32,7 +33,8 @@ final class ManifestPrimitives {
     }
 
     static boolean byteCount(JsonNode value) {
-        return value.isIntegralNumber() && value.bigIntegerValue().signum() >= 0
-            && value.bigIntegerValue().bitLength() <= 63;
+        return value.isIntegralNumber()
+                && value.bigIntegerValue().signum() >= 0
+                && value.bigIntegerValue().bitLength() <= 63;
     }
 }

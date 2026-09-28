@@ -17,12 +17,7 @@ import java.util.Objects;
  * @param lifetime          how long a resulting grant should remain usable
  */
 public record UserFileRequest(
-    String id,
-    String title,
-    List<String> allowedExtensions,
-    UserFileMode mode,
-    UserFileLifetime lifetime
-) {
+        String id, String title, List<String> allowedExtensions, UserFileMode mode, UserFileLifetime lifetime) {
     /**
      * Validates the record components.
      *

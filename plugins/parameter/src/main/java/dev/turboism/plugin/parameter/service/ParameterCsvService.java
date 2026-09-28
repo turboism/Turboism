@@ -12,7 +12,6 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,19 +45,15 @@ public final class ParameterCsvService {
     private String lastExportCsv = "";
 
     public ParameterCsvService(
-        final CubismFacade cubism,
-        final PluginContext pluginContext,
-        final UiHostCapabilityService uiHost
-    ) {
+            final CubismFacade cubism, final PluginContext pluginContext, final UiHostCapabilityService uiHost) {
         this(cubism, pluginContext, uiHost, CsvContentProvider.unavailable());
     }
 
     public ParameterCsvService(
-        final CubismFacade cubism,
-        final PluginContext pluginContext,
-        final UiHostCapabilityService uiHost,
-        final CsvContentProvider csvContentProvider
-    ) {
+            final CubismFacade cubism,
+            final PluginContext pluginContext,
+            final UiHostCapabilityService uiHost,
+            final CsvContentProvider csvContentProvider) {
         this.cubism = Objects.requireNonNull(cubism, "cubism");
         Objects.requireNonNull(pluginContext, "pluginContext");
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
@@ -89,27 +84,18 @@ public final class ParameterCsvService {
         } catch (IllegalStateException | UnsupportedOperationException unavailable) {
             lastExportCsv = "";
             uiHost.notifyStatus(new StatusNotification(
-                EXPORT_UNAVAILABLE,
-                "WARNING",
-                "No parameters are available for CSV export."
-            ));
+                    EXPORT_UNAVAILABLE, "WARNING", "No parameters are available for CSV export."));
             return;
         }
         if (parameters.isEmpty()) {
             lastExportCsv = "";
             uiHost.notifyStatus(new StatusNotification(
-                EXPORT_UNAVAILABLE,
-                "WARNING",
-                "No parameters are available for CSV export."
-            ));
+                    EXPORT_UNAVAILABLE, "WARNING", "No parameters are available for CSV export."));
             return;
         }
         lastExportCsv = toModelCsv(parameters);
         uiHost.notifyStatus(new StatusNotification(
-            EXPORT_COMPLETED,
-            "INFO",
-            "Exported " + parameters.size() + " parameter(s) to CSV."
-        ));
+                EXPORT_COMPLETED, "INFO", "Exported " + parameters.size() + " parameter(s) to CSV."));
     }
 
     /**
@@ -121,26 +107,17 @@ public final class ParameterCsvService {
      * file is rejected rather than consumed.
      */
     public void importCsv() {
-        final Optional<String> chosen = uiHost.requestFile(new FileChooserRequest(
-            "parameter.csv.import.file",
-            "Import parameter CSV",
-            List.of("csv")
-        ));
+        final Optional<String> chosen = uiHost.requestFile(
+                new FileChooserRequest("parameter.csv.import.file", "Import parameter CSV", List.of("csv")));
         if (chosen.isEmpty()) {
-            uiHost.notifyStatus(new StatusNotification(
-                IMPORT_CANCELLED,
-                "WARNING",
-                "Parameter CSV import was cancelled."
-            ));
+            uiHost.notifyStatus(
+                    new StatusNotification(IMPORT_CANCELLED, "WARNING", "Parameter CSV import was cancelled."));
             return;
         }
         final Optional<String> content = csvContentProvider.read(chosen.orElseThrow());
         if (content.isEmpty() || content.orElseThrow().isBlank()) {
-            uiHost.notifyStatus(new StatusNotification(
-                IMPORT_UNAVAILABLE,
-                "WARNING",
-                "Parameter CSV content is unavailable."
-            ));
+            uiHost.notifyStatus(
+                    new StatusNotification(IMPORT_UNAVAILABLE, "WARNING", "Parameter CSV content is unavailable."));
             return;
         }
         applyCsv(content.orElseThrow());
@@ -150,18 +127,14 @@ public final class ParameterCsvService {
         final ParseResult parsed = parseCsvStrict(csvText);
         if (!parsed.errors().isEmpty()) {
             uiHost.notifyStatus(new StatusNotification(
-                IMPORT_FAILED,
-                "WARNING",
-                "Parameter CSV import failed: " + parsed.errors().get(0)
-            ));
+                    IMPORT_FAILED,
+                    "WARNING",
+                    "Parameter CSV import failed: " + parsed.errors().get(0)));
             return;
         }
         if (parsed.rows().isEmpty()) {
-            uiHost.notifyStatus(new StatusNotification(
-                IMPORT_UNAVAILABLE,
-                "WARNING",
-                "Parameter CSV content is unavailable."
-            ));
+            uiHost.notifyStatus(
+                    new StatusNotification(IMPORT_UNAVAILABLE, "WARNING", "Parameter CSV content is unavailable."));
             return;
         }
 
@@ -170,10 +143,7 @@ public final class ParameterCsvService {
             model = cubism.model().active();
         } catch (IllegalStateException | UnsupportedOperationException unavailable) {
             uiHost.notifyStatus(new StatusNotification(
-                IMPORT_UNAVAILABLE,
-                "WARNING",
-                "Active model is unavailable for parameter CSV import."
-            ));
+                    IMPORT_UNAVAILABLE, "WARNING", "Active model is unavailable for parameter CSV import."));
             return;
         }
 
@@ -183,16 +153,13 @@ public final class ParameterCsvService {
                 final Parameter parameter = model.parameters().find(new ParameterId(row.id()));
                 if (row.value() < parameter.getMinimumValue() || row.value() > parameter.getMaximumValue()) {
                     throw new IllegalArgumentException("parameter " + row.id() + " is outside ["
-                        + parameter.getMinimumValue() + "," + parameter.getMaximumValue() + "]");
+                            + parameter.getMinimumValue() + "," + parameter.getMaximumValue() + "]");
                 }
                 writes.add(new ResolvedWrite(parameter, row.value()));
             }
         } catch (RuntimeException validationFailure) {
             uiHost.notifyStatus(new StatusNotification(
-                IMPORT_FAILED,
-                "WARNING",
-                "Parameter CSV import failed: " + safeMessage(validationFailure)
-            ));
+                    IMPORT_FAILED, "WARNING", "Parameter CSV import failed: " + safeMessage(validationFailure)));
             return;
         }
 
@@ -200,41 +167,29 @@ public final class ParameterCsvService {
             // One ambient transaction coalesces the per-write native palette
             // refresh into a single structure rebuild and makes the import
             // atomic (all rows or rolled back).
-            final AuthoringTransactionResult<Void> transactionResult = cubism
-                .authoringTransactions()
-                .execute(
-                    AuthoringTransactionOptions.of("Parameter CSV import"),
-                    () -> {
+            final AuthoringTransactionResult<Void> transactionResult = cubism.authoringTransactions()
+                    .execute(AuthoringTransactionOptions.of("Parameter CSV import"), () -> {
                         writeAll(writes);
                         return null;
                     });
             if (transactionResult.outcome() == AuthoringTransactionOutcome.UNAVAILABLE
-                || transactionResult.outcome() == AuthoringTransactionOutcome.REJECTED_SCOPE) {
+                    || transactionResult.outcome() == AuthoringTransactionOutcome.REJECTED_SCOPE) {
                 // No backend or already inside an ambient transaction — sequential
                 // writes still join the ambient scope and coalesce the same way.
                 writeAll(writes);
             } else if (!transactionResult.successful()) {
-                logger.warn("Parameter CSV import transaction did not commit: "
-                    + transactionResult.outcome());
+                logger.warn("Parameter CSV import transaction did not commit: " + transactionResult.outcome());
                 uiHost.notifyStatus(new StatusNotification(
-                    IMPORT_FAILED,
-                    "WARNING",
-                    "Parameter CSV import failed. The transaction did not commit."
-                ));
+                        IMPORT_FAILED, "WARNING", "Parameter CSV import failed. The transaction did not commit."));
                 return;
             }
             uiHost.notifyStatus(new StatusNotification(
-                IMPORT_COMPLETED,
-                "INFO",
-                "Imported " + parsed.rows().size() + " parameter value(s) from CSV."
-            ));
+                    IMPORT_COMPLETED, "INFO", "Imported " + parsed.rows().size() + " parameter value(s) from CSV."));
         } catch (RuntimeException failure) {
-            logger.warn("Parameter CSV import failed safely: " + failure.getClass().getSimpleName());
+            logger.warn(
+                    "Parameter CSV import failed safely: " + failure.getClass().getSimpleName());
             uiHost.notifyStatus(new StatusNotification(
-                IMPORT_FAILED,
-                "WARNING",
-                "Parameter CSV import failed. Some values may require Undo in Cubism."
-            ));
+                    IMPORT_FAILED, "WARNING", "Parameter CSV import failed. Some values may require Undo in Cubism."));
         }
     }
 
@@ -246,9 +201,7 @@ public final class ParameterCsvService {
 
     private static String safeMessage(final RuntimeException failure) {
         final String message = failure.getMessage();
-        return message == null || message.isBlank()
-            ? failure.getClass().getSimpleName()
-            : message;
+        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private static String toModelCsv(final List<Parameter> parameters) {
@@ -268,10 +221,7 @@ public final class ParameterCsvService {
         if (!Double.isFinite(value)) {
             throw new IllegalArgumentException("parameter value must be finite: " + id);
         }
-        builder.append(id)
-            .append(',')
-            .append(value)
-            .append('\n');
+        builder.append(id).append(',').append(value).append('\n');
     }
 
     static ParseResult parseCsvStrict(final String csvText) {
@@ -279,9 +229,8 @@ public final class ParameterCsvService {
         final List<CsvRow> rows = new ArrayList<>();
         final List<String> errors = new ArrayList<>();
         if (csvText.length() > MAX_CSV_CHARACTERS) {
-            return new ParseResult(List.of(), List.of(
-                "CSV exceeds maximum size of " + MAX_CSV_CHARACTERS + " characters"
-            ));
+            return new ParseResult(
+                    List.of(), List.of("CSV exceeds maximum size of " + MAX_CSV_CHARACTERS + " characters"));
         }
 
         final Map<String, Integer> firstLineById = new LinkedHashMap<>();
@@ -361,12 +310,9 @@ public final class ParameterCsvService {
         }
     }
 
-    record CsvRow(String id, float value) {
-    }
+    record CsvRow(String id, float value) {}
 
-    private record ResolvedWrite(Parameter parameter, float value) {
-    }
+    private record ResolvedWrite(Parameter parameter, float value) {}
 
-    record ParseResult(List<CsvRow> rows, List<String> errors) {
-    }
+    record ParseResult(List<CsvRow> rows, List<String> errors) {}
 }

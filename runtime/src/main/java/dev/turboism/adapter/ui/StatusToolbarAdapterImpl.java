@@ -1,10 +1,8 @@
 package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.CanvasHintNotification;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-
+import dev.turboism.sdk.ui.StatusNotification;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -43,9 +41,7 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
      * version and capability gating still applies through {@link #notifyStatus}.
      */
     public static StatusToolbarAdapter connectedVerifiedCx(
-        final String hostVersion,
-        final CxStatusBarHostAccess access
-    ) {
+            final String hostVersion, final CxStatusBarHostAccess access) {
         return connected(new CxStatusBarHostOperations(hostVersion, access));
     }
 
@@ -56,16 +52,18 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
      * @return an adapter bound to that resolver's declared host and mapping generation
      */
     public static StatusToolbarAdapter connectedVerifiedCx(
-        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver
-    ) {
+            final dev.turboism.mapping.verification.VerifiedMemberResolver resolver) {
         Objects.requireNonNull(resolver, "resolver");
-        if (!resolver.authorizes(dev.turboism.mapping.verification.StatusBarVerificationManifest.ADAPTER_SLICE_ID,
-            dev.turboism.mapping.verification.StatusBarVerificationManifest.CAPABILITY_IDS,
-            dev.turboism.mapping.verification.StatusBarVerificationManifest.REQUIRED_ALIASES)) {
+        if (!resolver.authorizes(
+                dev.turboism.mapping.verification.StatusBarVerificationManifest.ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.StatusBarVerificationManifest.CAPABILITY_IDS,
+                dev.turboism.mapping.verification.StatusBarVerificationManifest.REQUIRED_ALIASES)) {
             throw new IllegalArgumentException("complete status-bar contract is required");
         }
-        return connected(new CxStatusBarHostOperations(resolver.cubismVersion(), resolver.admittedCubismVersion(),
-            new VerifiedCxStatusBarHostAccess(resolver)));
+        return connected(new CxStatusBarHostOperations(
+                resolver.cubismVersion(),
+                resolver.admittedCubismVersion(),
+                new VerifiedCxStatusBarHostAccess(resolver)));
     }
 
     /**
@@ -92,17 +90,14 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
         Objects.requireNonNull(capability, "capability");
         Objects.requireNonNull(hostCall, "hostCall");
         return host.map(operations -> callIfSupported(operations, capability, hostCall))
-            .orElseGet(unavailable(capability));
+                .orElseGet(unavailable(capability));
     }
 
     private <T> AdapterResult<T> callIfSupported(
-        final HostOperations operations,
-        final Capability capability,
-        final HostCall<T> hostCall
-    ) {
+            final HostOperations operations, final Capability capability, final HostCall<T> hostCall) {
         try {
-            final Optional<SafeModeDiagnostic> versionDiagnostic =
-                HostUiVersionCheck.diagnosticFor(capability.id(), operations.hostVersion(), operations.contractVersion());
+            final Optional<SafeModeDiagnostic> versionDiagnostic = HostUiVersionCheck.diagnosticFor(
+                    capability.id(), operations.hostVersion(), operations.contractVersion());
             if (versionDiagnostic.isPresent()) {
                 return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
             }
@@ -114,9 +109,7 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
             return AdapterResult.unavailable(exception.diagnostic());
         } catch (RuntimeException exception) {
             return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
-                capability.id(),
-                "Host status/toolbar adapter call failed safely."
-            ));
+                    capability.id(), "Host status/toolbar adapter call failed safely."));
         }
     }
 

@@ -1,19 +1,18 @@
 package dev.turboism.mapping.verification;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
-
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class EditorParameterBindingSelectorContractTest {
 
@@ -21,48 +20,36 @@ class EditorParameterBindingSelectorContractTest {
     private static final Path LEGACY_EVIDENCE = locateLegacyEvidence();
 
     @ParameterizedTest
-    @CsvSource({
-        "Cubism-5.2, cubism-5.2.03-editor-model.json",
-        "Cubism-5.3.02, cubism-5.3.02-editor-model.json"
-    })
-    void exactRecordVerifiesTheCompleteParameterBindingContract(
-        final String artifactDirectory,
-        final String recordName
-    ) throws Exception {
-        assumeTrue(LEGACY_EVIDENCE != null,
-            "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
+    @CsvSource({"Cubism-5.2, cubism-5.2.03-editor-model.json", "Cubism-5.3.02, cubism-5.3.02-editor-model.json"})
+    void exactRecordVerifiesTheCompleteParameterBindingContract(final String artifactDirectory, final String recordName)
+            throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final Path artifact = LEGACY_EVIDENCE.resolve(artifactDirectory + "/jars/Live2D_Cubism.jar");
         try (URLClassLoader loader = loader(artifact)) {
-            final VerifiedMemberResolver resolver = new VerifiedEditorModelResolverFactory().create(
-                PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName),
-                artifact,
-                loader
-            );
+            final VerifiedMemberResolver resolver = new VerifiedEditorModelResolverFactory()
+                    .create(PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName), artifact, loader);
             assertTrue(resolver.authorizesFeature(
-                EditorParameterBindingReadSelectorContract.ADAPTER_SLICE_ID,
-                EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
-                EditorParameterBindingReadSelectorContract.REQUIRED_ALIASES
-            ));
+                    EditorParameterBindingReadSelectorContract.ADAPTER_SLICE_ID,
+                    EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
+                    EditorParameterBindingReadSelectorContract.REQUIRED_ALIASES));
             for (String capability : java.util.List.of(
-                EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
-                EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID,
-                EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID
-            )) {
+                    EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
+                    EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID,
+                    EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID)) {
                 assertTrue(resolver.authorizesFeature(
-                    EditorParameterBindingWriteSelectorContract.ADAPTER_SLICE_ID,
-                    capability,
-                    EditorParameterBindingWriteSelectorContract.REQUIRED_ALIASES
-                ));
+                        EditorParameterBindingWriteSelectorContract.ADAPTER_SLICE_ID,
+                        capability,
+                        EditorParameterBindingWriteSelectorContract.REQUIRED_ALIASES));
             }
             for (String capability : java.util.List.of(
-                EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
-                EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID
-            )) {
+                    EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
+                    EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID)) {
                 assertTrue(resolver.authorizesFeature(
-                    EditorParameterBindingBatchWriteSelectorContract.ADAPTER_SLICE_ID,
-                    capability,
-                    EditorParameterBindingBatchWriteSelectorContract.REQUIRED_ALIASES
-                ));
+                        EditorParameterBindingBatchWriteSelectorContract.ADAPTER_SLICE_ID,
+                        capability,
+                        EditorParameterBindingBatchWriteSelectorContract.REQUIRED_ALIASES));
             }
         }
     }
@@ -92,18 +79,18 @@ class EditorParameterBindingSelectorContractTest {
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
         try (Stream<Path> files = Files.list(artifact.getParent())) {
-            final URL[] classpath = files
-                .filter(path -> path.getFileName().toString().endsWith(".jar"))
-                .sorted()
-                .map(path -> {
-                    try {
-                        return path.toUri().toURL();
-                    } catch (java.net.MalformedURLException exception) {
-                        throw new IllegalArgumentException(exception);
-                    }
-                })
-                .toArray(URL[]::new);
+            final URL[] classpath = files.filter(
+                            path -> path.getFileName().toString().endsWith(".jar"))
+                    .sorted()
+                    .map(path -> {
+                        try {
+                            return path.toUri().toURL();
+                        } catch (java.net.MalformedURLException exception) {
+                            throw new IllegalArgumentException(exception);
+                        }
+                    })
+                    .toArray(URL[]::new);
             return new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());
         }
-}
+    }
 }

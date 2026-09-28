@@ -18,12 +18,7 @@ public final class FakeSidecarProcess {
         TIMEOUT
     }
 
-    public record Response(
-        Behavior behavior,
-        String payload,
-        String errorCode,
-        String errorMessage
-    ) {
+    public record Response(Behavior behavior, String payload, String errorCode, String errorMessage) {
         public Response {
             Objects.requireNonNull(behavior, "behavior");
         }
@@ -48,11 +43,10 @@ public final class FakeSidecarProcess {
      */
     public void simulateCrash(String errorCode, String errorMessage) {
         responses.add(new Response(
-            Behavior.ERROR,
-            null,
-            Objects.requireNonNull(errorCode, "errorCode"),
-            Objects.requireNonNull(errorMessage, "errorMessage")
-        ));
+                Behavior.ERROR,
+                null,
+                Objects.requireNonNull(errorCode, "errorCode"),
+                Objects.requireNonNull(errorMessage, "errorMessage")));
     }
 
     /**

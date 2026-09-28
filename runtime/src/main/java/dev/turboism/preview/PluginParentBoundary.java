@@ -14,10 +14,7 @@ package dev.turboism.preview;
  */
 final class PluginParentBoundary extends ClassLoader {
     private static final String[] DENIED_PREFIXES = {
-        "dev.turboism.internal.",
-        "dev.turboism.shell.",
-        "dev.turboism.plugin.core.",
-        "dev.turboism.agent.shaded."
+        "dev.turboism.internal.", "dev.turboism.shell.", "dev.turboism.plugin.core.", "dev.turboism.agent.shaded."
     };
 
     private PluginParentBoundary(final ClassLoader delegate) {
@@ -29,13 +26,10 @@ final class PluginParentBoundary extends ClassLoader {
     }
 
     @Override
-    protected Class<?> loadClass(final String name, final boolean resolve)
-        throws ClassNotFoundException {
+    protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
         for (final String prefix : DENIED_PREFIXES) {
             if (name.startsWith(prefix)) {
-                throw new ClassNotFoundException(
-                    name + " is implementation-internal, not a plugin-facing API"
-                );
+                throw new ClassNotFoundException(name + " is implementation-internal, not a plugin-facing API");
             }
         }
         return super.loadClass(name, resolve);

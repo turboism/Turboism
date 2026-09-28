@@ -6,7 +6,6 @@ import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -22,10 +21,7 @@ public final class MeshInspectorService {
     private final CubismReadCapabilityService cubismRead;
     private final UiHostCapabilityService uiHost;
 
-    public MeshInspectorService(
-        final CubismReadCapabilityService cubismRead,
-        final UiHostCapabilityService uiHost
-    ) {
+    public MeshInspectorService(final CubismReadCapabilityService cubismRead, final UiHostCapabilityService uiHost) {
         this.cubismRead = Objects.requireNonNull(cubismRead, "cubismRead");
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
     }
@@ -46,19 +42,15 @@ public final class MeshInspectorService {
 
         if (meshes.isEmpty() && deformers.isEmpty()) {
             uiHost.notifyStatus(new StatusNotification(
-                UNAVAILABLE,
-                "WARNING",
-                "No meshes or deformers are available in this host."
-            ));
+                    UNAVAILABLE, "WARNING", "No meshes or deformers are available in this host."));
             return;
         }
 
         uiHost.notifyStatus(new StatusNotification(
-            REFRESHED,
-            "INFO",
-            "Meshes: " + meshes.size()
-                + ", deformers: " + deformers.size()
-                + ", context: " + context.contextKind()
-        ));
+                REFRESHED,
+                "INFO",
+                "Meshes: " + meshes.size()
+                        + ", deformers: " + deformers.size()
+                        + ", context: " + context.contextKind()));
     }
 }

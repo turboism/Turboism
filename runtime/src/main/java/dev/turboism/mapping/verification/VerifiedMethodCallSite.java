@@ -90,23 +90,16 @@ public final class VerifiedMethodCallSite implements AutoCloseable {
             return resolved.invoke(target, arguments == null ? new Object[0] : arguments);
         } catch (InvocationTargetException exception) {
             throw new VerifiedAccessException(
-                alias,
-                VerifiedAccessException.FailureKind.INVOCATION,
-                "Verified host method execution failed safely.",
-                null
-            );
-        } catch (IllegalAccessException | IllegalArgumentException | LinkageError
-                 | SecurityException exception) {
+                    alias,
+                    VerifiedAccessException.FailureKind.INVOCATION,
+                    "Verified host method execution failed safely.",
+                    null);
+        } catch (IllegalAccessException | IllegalArgumentException | LinkageError | SecurityException exception) {
             throw resolutionFailure("Verified call-site invocation could not be resolved safely.");
         }
     }
 
     private VerifiedAccessException resolutionFailure(final String message) {
-        return new VerifiedAccessException(
-            alias,
-            VerifiedAccessException.FailureKind.RESOLUTION,
-            message,
-            null
-        );
+        return new VerifiedAccessException(alias, VerifiedAccessException.FailureKind.RESOLUTION, message, null);
     }
 }

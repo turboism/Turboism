@@ -15,17 +15,16 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
-
-import javax.swing.SwingUtilities;
 import java.awt.GraphicsEnvironment;
-import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import javax.swing.SwingUtilities;
 
 /**
  * Official plugin shell for batch parameter-binding transfer.
@@ -43,14 +42,13 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
     public static final String CONTEXT_MENU_PART_ID = "parameter.batchTransfer.part";
 
     static final Set<ContextMenuRegistry.ObjectKind> OBJECT_KINDS = Set.of(
-        ContextMenuRegistry.ObjectKind.ART_MESH,
-        ContextMenuRegistry.ObjectKind.WARP_DEFORMER,
-        ContextMenuRegistry.ObjectKind.ROTATION_DEFORMER
-    );
+            ContextMenuRegistry.ObjectKind.ART_MESH,
+            ContextMenuRegistry.ObjectKind.WARP_DEFORMER,
+            ContextMenuRegistry.ObjectKind.ROTATION_DEFORMER);
 
     /** The batch-transfer entry appears only when exactly one object is selected. */
     public static final Predicate<ContextMenuSelection> SINGLE_SELECTION =
-        selection -> selection.items().size() == 1;
+            selection -> selection.items().size() == 1;
 
     private ParameterBatchTransferService service;
     private PluginContext context;
@@ -80,19 +78,15 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
     public void enable() {
         try {
             registerAction();
-            context.disposableScope().register(contribute(
-                CONTEXT_MENU_DEFORMER_ID, ContextMenuRegistry.Location.DEFORMER_TAB
-            ));
-            context.disposableScope().register(contribute(
-                CONTEXT_MENU_PART_ID, ContextMenuRegistry.Location.PART_TAB
-            ));
+            context.disposableScope()
+                    .register(contribute(CONTEXT_MENU_DEFORMER_ID, ContextMenuRegistry.Location.DEFORMER_TAB));
+            context.disposableScope().register(contribute(CONTEXT_MENU_PART_ID, ContextMenuRegistry.Location.PART_TAB));
         } catch (RuntimeException failure) {
             closeScopeQuietly();
             throw failure;
         }
         logger.info(
-            "ParameterBatchTransferPlugin enabled: batch-transfer action and context-menu entries enrolled in disposable scope"
-        );
+                "ParameterBatchTransferPlugin enabled: batch-transfer action and context-menu entries enrolled in disposable scope");
     }
 
     @Override
@@ -106,43 +100,38 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
     }
 
     private void registerAction() {
-        final Registration registration = context.actions().register(
-            ACTION_ID,
-            new ActionRegistry.Action() {
-                @Override
-                public String id() {
-                    return ACTION_ID;
-                }
-
-                @Override
-                public String label() {
-                    return localization.text("action.label");
-                }
-
-                @Override
-                public Consumer<ActionRegistry.ActionContext> handler() {
-                    return actionContext ->
-                        open(actionContext.contextMenuSelection().orElse(null));
-                }
+        final Registration registration = context.actions().register(ACTION_ID, new ActionRegistry.Action() {
+            @Override
+            public String id() {
+                return ACTION_ID;
             }
-        );
+
+            @Override
+            public String label() {
+                return localization.text("action.label");
+            }
+
+            @Override
+            public Consumer<ActionRegistry.ActionContext> handler() {
+                return actionContext ->
+                        open(actionContext.contextMenuSelection().orElse(null));
+            }
+        });
         context.disposableScope().register(registration);
     }
 
-    private Registration contribute(
-        final String id,
-        final ContextMenuRegistry.Location location
-    ) {
-        return context.contextMenu().contribute(new ContextMenuRegistry.ContextMenuContribution(
-            id,
-            ACTION_ID,
-            localization.text("menu.batchTransfer"),
-            null,
-            location,
-            OBJECT_KINDS,
-            110,
-            SINGLE_SELECTION
-        ));
+    private Registration contribute(final String id, final ContextMenuRegistry.Location location) {
+        return context.services()
+                .require(ContextMenuRegistry.class)
+                .contribute(new ContextMenuRegistry.ContextMenuContribution(
+                        id,
+                        ACTION_ID,
+                        localization.text("menu.batchTransfer"),
+                        null,
+                        location,
+                        OBJECT_KINDS,
+                        110,
+                        SINGLE_SELECTION));
     }
 
     /**
@@ -161,65 +150,67 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
             return; // precondition notification already emitted
         }
         logger.info("PBT_OPEN items=" + selection.items()
-            + " owner=" + prepared.owner.type() + ":" + prepared.owner.id()
-            + " bound=" + prepared.session.bound().stream()
-                .map(snapshot -> snapshot.parameterId().value()
-                    + ":" + (snapshot.family() == null ? "?" : snapshot.family()))
-                .toList()
-            + " candidates=" + prepared.session.candidates().size());
+                + " owner=" + prepared.owner.type() + ":" + prepared.owner.id()
+                + " bound="
+                + prepared.session.bound().stream()
+                        .map(snapshot -> snapshot.parameterId().value() + ":"
+                                + (snapshot.family() == null ? "?" : snapshot.family()))
+                        .toList()
+                + " candidates=" + prepared.session.candidates().size());
         if (GraphicsEnvironment.isHeadless()) {
             logger.warn("Parameter batch transfer cannot open because the JVM is headless");
             return;
         }
         SwingUtilities.invokeLater(() -> {
             final List<BatchTransferRow> rows =
-                new BatchTransferDialog(localization, service, prepared.session).showDialog();
+                    new BatchTransferDialog(localization, service, prepared.session).showDialog();
             if (rows == null) {
                 return; // cancelled
             }
             final BatchTransferOutcome outcome = service.apply(prepared.model, prepared.owner, rows);
             switch (outcome.status()) {
-                case APPLIED -> notify(
-                    "parameter.batchTransfer.status.applied",
-                    "INFO",
-                    localization.format("status.applied", outcome.applied())
-                );
-                case PARTIAL -> notify(
-                    "parameter.batchTransfer.status.partial",
-                    "WARNING",
-                    localization.format("status.partial", outcome.applied(), outcome.failed())
-                );
-                case NO_CHANGES -> notify(
-                    "parameter.batchTransfer.status.noChanges",
-                    "INFO",
-                    localization.text("status.noChanges")
-                );
-                default -> { }
+                case APPLIED ->
+                    notify(
+                            "parameter.batchTransfer.status.applied",
+                            "INFO",
+                            localization.format("status.applied", outcome.applied()));
+                case PARTIAL ->
+                    notify(
+                            "parameter.batchTransfer.status.partial",
+                            "WARNING",
+                            localization.format("status.partial", outcome.applied(), outcome.failed()));
+                case NO_CHANGES ->
+                    notify("parameter.batchTransfer.status.noChanges", "INFO", localization.text("status.noChanges"));
+                default -> {}
             }
         });
     }
 
     /** Host-thread session preparation; emits precondition notifications. */
     private Prepared prepare(final ContextMenuSelection selection) {
-        final java.util.concurrent.atomic.AtomicReference<Prepared> prepared = new java.util.concurrent.atomic.AtomicReference<>();
+        final java.util.concurrent.atomic.AtomicReference<Prepared> prepared =
+                new java.util.concurrent.atomic.AtomicReference<>();
         try {
             runOnHostThread(() -> {
                 final CubismModel model = context.cubism().model().active();
                 logger.info("PBT_PREPARE items=" + selection.items()
-                    + " drawables=" + model.drawables().all().size()
-                    + " deformers=" + model.deformers().all().size());
-                final ParameterBindingTarget owner = resolveOwner(selection.items().get(0));
+                        + " drawables=" + model.drawables().all().size()
+                        + " deformers=" + model.deformers().all().size());
+                final ParameterBindingTarget owner =
+                        resolveOwner(selection.items().get(0));
                 if (owner == null) {
-                    notify("parameter.batchTransfer.status.noSelection", "INFO", localization.text("status.noSelection"));
+                    notify(
+                            "parameter.batchTransfer.status.noSelection",
+                            "INFO",
+                            localization.text("status.noSelection"));
                     return;
                 }
                 final ParameterBatchTransferService.Session session = service.sessionFor(model, owner);
                 if (session.bound().isEmpty()) {
                     notify(
-                        "parameter.batchTransfer.status.noBoundParameters",
-                        "INFO",
-                        localization.text("status.noBoundParameters")
-                    );
+                            "parameter.batchTransfer.status.noBoundParameters",
+                            "INFO",
+                            localization.text("status.noBoundParameters"));
                     return;
                 }
                 prepared.set(new Prepared(model, owner, session));
@@ -233,7 +224,7 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
     }
 
     private static void runOnHostThread(final Runnable action)
-        throws InterruptedException, java.lang.reflect.InvocationTargetException {
+            throws InterruptedException, java.lang.reflect.InvocationTargetException {
         if (SwingUtilities.isEventDispatchThread()) {
             action.run();
         } else {
@@ -242,11 +233,7 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
     }
 
     private record Prepared(
-        CubismModel model,
-        ParameterBindingTarget owner,
-        ParameterBatchTransferService.Session session
-    ) {
-    }
+            CubismModel model, ParameterBindingTarget owner, ParameterBatchTransferService.Session session) {}
 
     private static ParameterBindingTarget resolveOwner(final ContextMenuSelection.Item item) {
         return switch (item.kind()) {
@@ -258,16 +245,16 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
     }
 
     private void notify(final String id, final String severity, final String message) {
-        context.uiHost().notifyStatus(new StatusNotification(id, severity, message));
+        context.services()
+                .require(UiHostCapabilityService.class)
+                .notifyStatus(new StatusNotification(id, severity, message));
     }
 
     private void closeScopeQuietly() {
         try {
             context.disposableScope().close();
         } catch (Exception closeFailure) {
-            logger.warn(
-                "ParameterBatchTransferPlugin enable rollback close failed: " + closeFailure.getMessage()
-            );
+            logger.warn("ParameterBatchTransferPlugin enable rollback close failed: " + closeFailure.getMessage());
         }
     }
 }

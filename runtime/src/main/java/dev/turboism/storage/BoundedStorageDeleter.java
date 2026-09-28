@@ -2,7 +2,6 @@ package dev.turboism.storage;
 
 import dev.turboism.sdk.storage.StorageErrorCode;
 import dev.turboism.sdk.storage.StoragePath;
-
 import java.io.IOException;
 import java.nio.file.DirectoryIteratorException;
 import java.nio.file.DirectoryStream;
@@ -20,10 +19,7 @@ final class BoundedStorageDeleter {
     private final DeleteLimits limits;
     private final ExistingPathVerifier verifier;
 
-    BoundedStorageDeleter(
-        final DeleteLimits limits,
-        final ExistingPathVerifier verifier
-    ) {
+    BoundedStorageDeleter(final DeleteLimits limits, final ExistingPathVerifier verifier) {
         this.limits = Objects.requireNonNull(limits, "limits");
         this.verifier = Objects.requireNonNull(verifier, "verifier");
     }
@@ -41,12 +37,12 @@ final class BoundedStorageDeleter {
     }
 
     private void deleteRecursively(
-        final StoragePath logicalPath,
-        final Path target,
-        final int depth,
-        final DeleteProgress progress,
-        final DeleteBudget budget
-    ) throws DeleteFault {
+            final StoragePath logicalPath,
+            final Path target,
+            final int depth,
+            final DeleteProgress progress,
+            final DeleteBudget budget)
+            throws DeleteFault {
         try {
             checkCanceled(logicalPath);
             budget.enter(logicalPath, depth);
@@ -55,13 +51,7 @@ final class BoundedStorageDeleter {
             }
             if (Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)) {
                 for (DeleteChild child : deleteChildren(target, logicalPath, budget)) {
-                    deleteRecursively(
-                        child.logicalPath,
-                        child.target,
-                        depth + 1,
-                        progress,
-                        budget
-                    );
+                    deleteRecursively(child.logicalPath, child.target, depth + 1, progress, budget);
                 }
             }
             budget.beforeDelete(logicalPath);
@@ -75,27 +65,20 @@ final class BoundedStorageDeleter {
     }
 
     private List<DeleteChild> deleteChildren(
-        final Path directory,
-        final StoragePath logicalDirectory,
-        final DeleteBudget budget
-    ) throws IOException, DeleteFault {
+            final Path directory, final StoragePath logicalDirectory, final DeleteBudget budget)
+            throws IOException, DeleteFault {
         final List<DeleteChild> children = new ArrayList<>();
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
             try {
                 for (Path child : stream) {
                     checkCanceled(logicalDirectory);
                     final StoragePath logicalChild = new StoragePath(
-                        logicalDirectory.root(),
-                        logicalDirectory.relativePath() + "/" + child.getFileName()
-                    );
+                            logicalDirectory.root(), logicalDirectory.relativePath() + "/" + child.getFileName());
                     budget.discover(logicalDirectory);
                     if (Files.isSymbolicLink(child)) {
                         throw new DeleteFault(logicalChild, StorageErrorCode.LINK_ESCAPE);
                     }
-                    final StorageErrorCode verificationFailure = verifier.verify(
-                        logicalChild,
-                        child
-                    );
+                    final StorageErrorCode verificationFailure = verifier.verify(logicalChild, child);
                     if (verificationFailure != null) {
                         throw new DeleteFault(logicalChild, verificationFailure);
                     }
@@ -105,9 +88,7 @@ final class BoundedStorageDeleter {
                 throw failure.getCause();
             }
         }
-        children.sort(Comparator.comparing(
-            child -> child.target.getFileName().toString()
-        ));
+        children.sort(Comparator.comparing(child -> child.target.getFileName().toString()));
         return children;
     }
 
@@ -122,11 +103,7 @@ final class BoundedStorageDeleter {
         StorageErrorCode verify(StoragePath logicalPath, Path target) throws IOException;
     }
 
-    record Result(
-        boolean changed,
-        StoragePath failurePath,
-        StorageErrorCode failureCode
-    ) {
+    record Result(boolean changed, StoragePath failurePath, StorageErrorCode failureCode) {
         Result {
             if ((failurePath == null) != (failureCode == null)) {
                 throw new IllegalArgumentException("failure path and code must be supplied together");
@@ -137,11 +114,7 @@ final class BoundedStorageDeleter {
             return new Result(true, null, null);
         }
 
-        static Result failed(
-            final boolean changed,
-            final StoragePath failurePath,
-            final StorageErrorCode failureCode
-        ) {
+        static Result failed(final boolean changed, final StoragePath failurePath, final StorageErrorCode failureCode) {
             return new Result(changed, failurePath, failureCode);
         }
 
@@ -154,18 +127,11 @@ final class BoundedStorageDeleter {
         private final StoragePath path;
         private final StorageErrorCode code;
 
-        private DeleteFault(
-            final StoragePath path,
-            final StorageErrorCode code
-        ) {
+        private DeleteFault(final StoragePath path, final StorageErrorCode code) {
             this(path, code, null);
         }
 
-        private DeleteFault(
-            final StoragePath path,
-            final StorageErrorCode code,
-            final Throwable cause
-        ) {
+        private DeleteFault(final StoragePath path, final StorageErrorCode code, final Throwable cause) {
             super(cause);
             this.path = Objects.requireNonNull(path, "path");
             this.code = Objects.requireNonNull(code, "code");
@@ -187,10 +153,7 @@ final class BoundedStorageDeleter {
             consumeEntry(path);
         }
 
-        private void enter(
-            final StoragePath path,
-            final int depth
-        ) throws DeleteFault {
+        private void enter(final StoragePath path, final int depth) throws DeleteFault {
             if (depth > maxDepth) {
                 throw limit(path);
             }
@@ -213,10 +176,7 @@ final class BoundedStorageDeleter {
             entriesRemaining -= 1L;
         }
 
-        private void consumeWork(
-            final long amount,
-            final StoragePath path
-        ) throws DeleteFault {
+        private void consumeWork(final long amount, final StoragePath path) throws DeleteFault {
             if (workRemaining < amount) {
                 throw limit(path);
             }
@@ -232,10 +192,7 @@ final class BoundedStorageDeleter {
         private final StoragePath logicalPath;
         private final Path target;
 
-        private DeleteChild(
-            final StoragePath logicalPath,
-            final Path target
-        ) {
+        private DeleteChild(final StoragePath logicalPath, final Path target) {
             this.logicalPath = logicalPath;
             this.target = target;
         }

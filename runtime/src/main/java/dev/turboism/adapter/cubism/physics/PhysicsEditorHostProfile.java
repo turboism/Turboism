@@ -2,24 +2,22 @@ package dev.turboism.adapter.cubism.physics;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-
 import java.util.Objects;
 import java.util.Optional;
 
 /** Exact reviewed selector tuple for the supported Physics Settings group-list host. */
 public record PhysicsEditorHostProfile(
-    String panelOwnerInternalName,
-    String tableGetter,
-    String outerField,
-    String sourceSetGetter,
-    String sourcesGetter,
-    String enableGetter,
-    String enableSetter,
-    String identityGetter,
-    String checkpointMethod,
-    String commitMethod,
-    String rollbackMethod
-) {
+        String panelOwnerInternalName,
+        String tableGetter,
+        String outerField,
+        String sourceSetGetter,
+        String sourcesGetter,
+        String enableGetter,
+        String enableSetter,
+        String identityGetter,
+        String checkpointMethod,
+        String commitMethod,
+        String rollbackMethod) {
     private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
     private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
@@ -51,9 +49,7 @@ public record PhysicsEditorHostProfile(
      */
     public static Optional<PhysicsEditorHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
-        if (!artifact.equals(CUBISM_52)
-            && !artifact.equals(CUBISM_53)
-            && !artifact.equals(CUBISM_5303)) {
+        if (!artifact.equals(CUBISM_52) && !artifact.equals(CUBISM_53) && !artifact.equals(CUBISM_5303)) {
             return Optional.empty();
         }
         return reviewed();
@@ -78,10 +74,17 @@ public record PhysicsEditorHostProfile(
 
     private static Optional<PhysicsEditorHostProfile> reviewed() {
         return Optional.of(new PhysicsEditorHostProfile(
-            "com/live2d/cubism/doc/modeling/ui/viewer/physics/ViewerPhysics_GroupList$GroupListPanel",
-            "getTableArea", "this$0", "l", "getSources", "getEnable", "setEnable", "getGuid",
-            "b", "n", "d"
-        ));
+                "com/live2d/cubism/doc/modeling/ui/viewer/physics/ViewerPhysics_GroupList$GroupListPanel",
+                "getTableArea",
+                "this$0",
+                "l",
+                "getSources",
+                "getEnable",
+                "setEnable",
+                "getGuid",
+                "b",
+                "n",
+                "d"));
     }
 
     private static String text(final String value, final String name) {

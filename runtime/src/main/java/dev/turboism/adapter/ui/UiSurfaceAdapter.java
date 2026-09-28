@@ -3,7 +3,6 @@ package dev.turboism.adapter.ui;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.FileChooserRequest;
-
 import java.util.Objects;
 import java.util.Optional;
 

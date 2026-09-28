@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.event;
 
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -16,12 +15,11 @@ import java.util.Optional;
  *              is never an identity and is never proof of what an operation changed
  */
 public record CubismOperationEvent(
-    long sequence,
-    CubismOperation operation,
-    CubismOperationOrigin origin,
-    Optional<String> subjectId,
-    Optional<String> label
-) {
+        long sequence,
+        CubismOperation operation,
+        CubismOperationOrigin origin,
+        Optional<String> subjectId,
+        Optional<String> label) {
     /** Validates and normalizes one operation event. */
     public CubismOperationEvent {
         if (sequence < 1L) {
@@ -29,8 +27,7 @@ public record CubismOperationEvent(
         }
         operation = Objects.requireNonNull(operation, "operation");
         origin = Objects.requireNonNull(origin, "origin");
-        subjectId = Objects.requireNonNull(subjectId, "subjectId")
-            .map(value -> requireText(value, "subjectId"));
+        subjectId = Objects.requireNonNull(subjectId, "subjectId").map(value -> requireText(value, "subjectId"));
         label = Objects.requireNonNull(label, "label").map(value -> requireText(value, "label"));
     }
 

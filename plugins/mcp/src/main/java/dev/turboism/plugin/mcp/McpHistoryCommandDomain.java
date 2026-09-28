@@ -7,7 +7,6 @@ import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.command.EditorExternalAppSettingsRequest;
 import dev.turboism.sdk.cubism.command.EditorGridSettingsRequest;
 import dev.turboism.sdk.cubism.command.EditorModelingStatisticsRequest;
-import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
 import dev.turboism.sdk.cubism.command.EditorResizeModelRequest;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryAction;
@@ -15,7 +14,6 @@ import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.model.Color;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,8 +41,7 @@ final class McpHistoryCommandDomain {
 
     private static final String JSON_MIME_TYPE = "application/json";
     private static final int MAX_ARGUMENT_STRING_LENGTH = 256;
-    private static final List<String> HISTORY_SUPPORTED_VERSIONS =
-        List.of("5.2.03", "5.3.02", "5.3.03");
+    private static final List<String> HISTORY_SUPPORTED_VERSIONS = List.of("5.2.03", "5.3.02", "5.3.03");
 
     private final CubismHistory history;
     private final EditorCommandService editorCommands;
@@ -55,10 +52,9 @@ final class McpHistoryCommandDomain {
     }
 
     McpHistoryCommandDomain(
-        final CubismHistory history,
-        final EditorCommandService editorCommands,
-        final McpExecutionBridge execution
-    ) {
+            final CubismHistory history,
+            final EditorCommandService editorCommands,
+            final McpExecutionBridge execution) {
         this.history = Objects.requireNonNull(history, "history");
         this.editorCommands = Objects.requireNonNull(editorCommands, "editorCommands");
         this.execution = Objects.requireNonNull(execution, "execution");
@@ -66,44 +62,39 @@ final class McpHistoryCommandDomain {
 
     List<ResourceDefinition> resourceDefinitions() {
         return List.of(
-            new ResourceDefinition(
-                HISTORY_RESOURCE,
-                "Active document history",
-                "Current immutable Undo-history snapshot for the active Cubism document.",
-                JSON_MIME_TYPE
-            ),
-            new ResourceDefinition(
-                EDITOR_COMMANDS_RESOURCE,
-                "Editor command capabilities",
-                "Currently available direct Editor commands and the fixed typed request contracts.",
-                JSON_MIME_TYPE
-            )
-        );
+                new ResourceDefinition(
+                        HISTORY_RESOURCE,
+                        "Active document history",
+                        "Current immutable Undo-history snapshot for the active Cubism document.",
+                        JSON_MIME_TYPE),
+                new ResourceDefinition(
+                        EDITOR_COMMANDS_RESOURCE,
+                        "Editor command capabilities",
+                        "Currently available direct Editor commands and the fixed typed request contracts.",
+                        JSON_MIME_TYPE));
     }
 
     McpToolCatalog tools() {
         return McpToolCatalog.of(toolDefinitions().stream()
-            .map(definition -> McpRegisteredTool.typed(
-                publicDefinition(definition),
-                effect(definition.name()),
-                McpExecutionAffinity.UI_THREAD,
-                false,
-                versionSupport(definition.name()),
-                execution,
-                arguments -> toolEnvelope(call(definition.name(), arguments))
-            ))
-            .toList());
+                .map(definition -> McpRegisteredTool.typed(
+                        publicDefinition(definition),
+                        effect(definition.name()),
+                        McpExecutionAffinity.UI_THREAD,
+                        false,
+                        versionSupport(definition.name()),
+                        execution,
+                        arguments -> toolEnvelope(call(definition.name(), arguments))))
+                .toList());
     }
 
     private static Map<String, Object> publicDefinition(final ToolDefinition definition) {
         return immutableMap(
-            entry("name", definition.name()),
-            entry("title", definition.title()),
-            entry("description", definition.description()),
-            entry("inputSchema", definition.inputSchema()),
-            entry("outputSchema", outputSchema(definition.name())),
-            entry("annotations", definition.annotations())
-        );
+                entry("name", definition.name()),
+                entry("title", definition.title()),
+                entry("description", definition.description()),
+                entry("inputSchema", definition.inputSchema()),
+                entry("outputSchema", outputSchema(definition.name())),
+                entry("annotations", definition.annotations()));
     }
 
     private static McpOperationEffect effect(final String name) {
@@ -116,16 +107,10 @@ final class McpHistoryCommandDomain {
 
     private static McpVersionSupport versionSupport(final String name) {
         if (HISTORY_READ.equals(name)) {
-            return McpVersionSupport.exact(
-                "cubism.editor-history.read",
-                HISTORY_SUPPORTED_VERSIONS
-            );
+            return McpVersionSupport.exact("cubism.editor-history.read", HISTORY_SUPPORTED_VERSIONS);
         }
         if (HISTORY_UNDO.equals(name) || HISTORY_REDO.equals(name)) {
-            return McpVersionSupport.exact(
-                "cubism.editor-history.move",
-                HISTORY_SUPPORTED_VERSIONS
-            );
+            return McpVersionSupport.exact("cubism.editor-history.move", HISTORY_SUPPORTED_VERSIONS);
         }
         return McpVersionSupport.unscoped();
     }
@@ -135,14 +120,12 @@ final class McpHistoryCommandDomain {
             @Override
             public dev.turboism.sdk.plugin.Registration runOnUiThread(final Runnable work) {
                 work.run();
-                return () -> { };
+                return () -> {};
             }
 
             @Override
             public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(
-                final Runnable work,
-                final java.time.Duration delay
-            ) {
+                    final Runnable work, final java.time.Duration delay) {
                 throw new UnsupportedOperationException();
             }
         });
@@ -150,80 +133,77 @@ final class McpHistoryCommandDomain {
 
     McpResourceCatalog resources() {
         final List<Map<String, Object>> definitions = resourceDefinitions().stream()
-            .map(definition -> immutableMap(
-                entry("uri", definition.uri()),
-                entry("name", definition.name().toLowerCase(java.util.Locale.ROOT).replace(' ', '-')),
-                entry("title", definition.name()),
-                entry("description", definition.description()),
-                entry("mimeType", definition.mimeType())
-            ))
-            .toList();
-        return new McpResourceCatalog(definitions, List.of(), uri -> execution.ui(() -> {
-            final ResourceReadResult result;
-            try {
-                result = read(uri);
-            } catch (IllegalArgumentException failure) {
-                throw new McpResourceCatalog.ResourceNotFound(uri);
-            }
-            return List.of(immutableMap(
-                entry("uri", result.uri()),
-                entry("mimeType", result.mimeType()),
-                entry("text", Json.stringify(result.content()))
-            ));
-        }));
+                .map(definition -> immutableMap(
+                        entry("uri", definition.uri()),
+                        entry(
+                                "name",
+                                definition
+                                        .name()
+                                        .toLowerCase(java.util.Locale.ROOT)
+                                        .replace(' ', '-')),
+                        entry("title", definition.name()),
+                        entry("description", definition.description()),
+                        entry("mimeType", definition.mimeType())))
+                .toList();
+        return new McpResourceCatalog(
+                definitions,
+                List.of(),
+                uri -> execution.ui(() -> {
+                    final ResourceReadResult result;
+                    try {
+                        result = read(uri);
+                    } catch (IllegalArgumentException failure) {
+                        throw new McpResourceCatalog.ResourceNotFound(uri);
+                    }
+                    return List.of(immutableMap(
+                            entry("uri", result.uri()),
+                            entry("mimeType", result.mimeType()),
+                            entry("text", Json.stringify(result.content()))));
+                }));
     }
 
     List<ToolDefinition> toolDefinitions() {
         return List.of(
-            new ToolDefinition(
-                HISTORY_READ,
-                "Read active document history",
-                "Returns the current immutable Undo-history snapshot, including stable Turboism "
-                    + "entry identities and transaction identities when available.",
-                emptyObjectSchema(),
-                immutableMap(
-                    entry("readOnlyHint", true),
-                    entry("destructiveHint", false),
-                    entry("idempotentHint", true)
-                )
-            ),
-            new ToolDefinition(
-                HISTORY_UNDO,
-                "Undo active document history",
-                "Moves the active document Undo cursor backward by a positive number of steps. "
-                    + "The required generation and revision must match a freshly read history snapshot.",
-                historyStepSchema(),
-                immutableMap(
-                    entry("readOnlyHint", false),
-                    entry("destructiveHint", false),
-                    entry("idempotentHint", true)
-                )
-            ),
-            new ToolDefinition(
-                HISTORY_REDO,
-                "Redo active document history",
-                "Moves the active document Undo cursor forward by a positive number of steps. "
-                    + "The required generation and revision must match a freshly read history snapshot.",
-                historyStepSchema(),
-                immutableMap(
-                    entry("readOnlyHint", false),
-                    entry("destructiveHint", false),
-                    entry("idempotentHint", true)
-                )
-            ),
-            new ToolDefinition(
-                EDITOR_COMMANDS_EXECUTE,
-                "Execute an Editor command",
-                "Executes a currently available direct EditorCommand or one of five exact typed request "
-                    + "records. File-command requests and raw path fields are intentionally unsupported.",
-                editorCommandSchema(),
-                immutableMap(
-                    entry("readOnlyHint", false),
-                    entry("destructiveHint", false),
-                    entry("idempotentHint", false)
-                )
-            )
-        );
+                new ToolDefinition(
+                        HISTORY_READ,
+                        "Read active document history",
+                        "Returns the current immutable Undo-history snapshot, including stable Turboism "
+                                + "entry identities and transaction identities when available.",
+                        emptyObjectSchema(),
+                        immutableMap(
+                                entry("readOnlyHint", true),
+                                entry("destructiveHint", false),
+                                entry("idempotentHint", true))),
+                new ToolDefinition(
+                        HISTORY_UNDO,
+                        "Undo active document history",
+                        "Moves the active document Undo cursor backward by a positive number of steps. "
+                                + "The required generation and revision must match a freshly read history snapshot.",
+                        historyStepSchema(),
+                        immutableMap(
+                                entry("readOnlyHint", false),
+                                entry("destructiveHint", false),
+                                entry("idempotentHint", true))),
+                new ToolDefinition(
+                        HISTORY_REDO,
+                        "Redo active document history",
+                        "Moves the active document Undo cursor forward by a positive number of steps. "
+                                + "The required generation and revision must match a freshly read history snapshot.",
+                        historyStepSchema(),
+                        immutableMap(
+                                entry("readOnlyHint", false),
+                                entry("destructiveHint", false),
+                                entry("idempotentHint", true))),
+                new ToolDefinition(
+                        EDITOR_COMMANDS_EXECUTE,
+                        "Execute an Editor command",
+                        "Executes a currently available direct EditorCommand or one of five exact typed request "
+                                + "records. File-command requests and raw path fields are intentionally unsupported.",
+                        editorCommandSchema(),
+                        immutableMap(
+                                entry("readOnlyHint", false),
+                                entry("destructiveHint", false),
+                                entry("idempotentHint", false))));
     }
 
     private static Map<String, Object> outputSchema(final String name) {
@@ -236,56 +216,48 @@ final class McpHistoryCommandDomain {
 
     private static Map<String, Object> emptyObjectSchema() {
         return immutableMap(
-            entry("type", "object"),
-            entry("properties", Map.of()),
-            entry("additionalProperties", false)
-        );
+                entry("type", "object"), entry("properties", Map.of()), entry("additionalProperties", false));
     }
 
     private static Map<String, Object> historyStepSchema() {
         return immutableMap(
-            entry("type", "object"),
-            entry("properties", immutableMap(
-                entry("expectedGeneration", immutableMap(
-                    entry("type", "integer"),
-                    entry("minimum", 0)
-                )),
-                entry("expectedRevision", immutableMap(
-                    entry("type", "integer"),
-                    entry("minimum", 0)
-                )),
-                entry("steps", immutableMap(
-                    entry("type", "integer"),
-                    entry("minimum", 1)
-                )),
-                entry("expectedTopEntryId", immutableMap(
-                    entry("type", "string"),
-                    entry("minLength", 1),
-                    entry("maxLength", 128)
-                )),
-                entry("expectedTransactionId", immutableMap(
-                    entry("type", "string"),
-                    entry("minLength", 1),
-                    entry("maxLength", 128)
-                ))
-            )),
-            entry("required", List.of("expectedGeneration", "expectedRevision", "steps")),
-            entry("additionalProperties", false)
-        );
+                entry("type", "object"),
+                entry(
+                        "properties",
+                        immutableMap(
+                                entry(
+                                        "expectedGeneration",
+                                        immutableMap(entry("type", "integer"), entry("minimum", 0))),
+                                entry("expectedRevision", immutableMap(entry("type", "integer"), entry("minimum", 0))),
+                                entry("steps", immutableMap(entry("type", "integer"), entry("minimum", 1))),
+                                entry(
+                                        "expectedTopEntryId",
+                                        immutableMap(
+                                                entry("type", "string"),
+                                                entry("minLength", 1),
+                                                entry("maxLength", 128))),
+                                entry(
+                                        "expectedTransactionId",
+                                        immutableMap(
+                                                entry("type", "string"),
+                                                entry("minLength", 1),
+                                                entry("maxLength", 128))))),
+                entry("required", List.of("expectedGeneration", "expectedRevision", "steps")),
+                entry("additionalProperties", false));
     }
 
     ResourceReadResult read(final String uri) {
         final String requested = requireText(uri, "uri");
         return switch (requested) {
-            case HISTORY_RESOURCE -> new ResourceReadResult(requested, JSON_MIME_TYPE, historySnapshot(history.snapshot()));
-            case EDITOR_COMMANDS_RESOURCE -> new ResourceReadResult(
-                requested,
-                JSON_MIME_TYPE,
-                immutableMap(
-                    entry("availableDirectCommands", availableDirectCommandIds()),
-                    entry("typedContracts", typedContracts())
-                )
-            );
+            case HISTORY_RESOURCE ->
+                new ResourceReadResult(requested, JSON_MIME_TYPE, historySnapshot(history.snapshot()));
+            case EDITOR_COMMANDS_RESOURCE ->
+                new ResourceReadResult(
+                        requested,
+                        JSON_MIME_TYPE,
+                        immutableMap(
+                                entry("availableDirectCommands", availableDirectCommandIds()),
+                                entry("typedContracts", typedContracts())));
             default -> throw new IllegalArgumentException("Unknown MCP resource: " + requested);
         };
     }
@@ -312,25 +284,23 @@ final class McpHistoryCommandDomain {
         only(arguments);
         final HistorySnapshot snapshot = history.snapshot();
         return immutableMap(
-            entry("ok", snapshot.availability() == HistorySnapshot.Availability.AVAILABLE),
-            entry("snapshot", historySnapshot(snapshot)),
-            entry("diagnosticId", snapshot.availability() == HistorySnapshot.Availability.AVAILABLE
-                ? null : "mcp.history.unavailable")
-        );
+                entry("ok", snapshot.availability() == HistorySnapshot.Availability.AVAILABLE),
+                entry("snapshot", historySnapshot(snapshot)),
+                entry(
+                        "diagnosticId",
+                        snapshot.availability() == HistorySnapshot.Availability.AVAILABLE
+                                ? null
+                                : "mcp.history.unavailable"));
     }
 
-    private Map<String, Object> moveHistory(
-        final Map<String, Object> arguments,
-        final boolean undo
-    ) {
+    private Map<String, Object> moveHistory(final Map<String, Object> arguments, final boolean undo) {
         only(
-            arguments,
-            "expectedGeneration",
-            "expectedRevision",
-            "steps",
-            "expectedTopEntryId",
-            "expectedTransactionId"
-        );
+                arguments,
+                "expectedGeneration",
+                "expectedRevision",
+                "steps",
+                "expectedTopEntryId",
+                "expectedTransactionId");
         final long expectedGeneration = requiredNonNegativeLong(arguments, "expectedGeneration");
         final long expectedRevision = requiredNonNegativeLong(arguments, "expectedRevision");
         final int steps = requiredPositiveInteger(arguments, "steps");
@@ -344,77 +314,70 @@ final class McpHistoryCommandDomain {
             result = stale(current);
         } else {
             final int target = undo
-                ? Math.max(0, current.position() - steps)
-                : Math.min(current.entries().size(), current.position() + steps);
+                    ? Math.max(0, current.position() - steps)
+                    : Math.min(current.entries().size(), current.position() + steps);
             result = history.moveTo(expectedGeneration, expectedRevision, target);
         }
         return historyMoveResult(result);
     }
 
     private static boolean guardMatches(
-        final HistorySnapshot current,
-        final boolean undo,
-        final Map<String, Object> arguments
-    ) {
+            final HistorySnapshot current, final boolean undo, final Map<String, Object> arguments) {
         final Optional<String> expectedEntryId = optionalString(arguments, "expectedTopEntryId");
-        final Optional<String> expectedTransactionId = optionalString(
-            arguments,
-            "expectedTransactionId"
-        );
+        final Optional<String> expectedTransactionId = optionalString(arguments, "expectedTransactionId");
         if (expectedEntryId.isEmpty() && expectedTransactionId.isEmpty()) return true;
         final int guardedIndex = undo ? current.position() - 1 : current.position();
         if (guardedIndex < 0 || guardedIndex >= current.entries().size()) return false;
         final HistoryEntry guarded = current.entries().get(guardedIndex);
-        return expectedEntryId.map(expected -> guarded.entryId()
-                .map(id -> expected.equals(id.value()))
-                .orElse(false))
-            .orElse(true)
-            && expectedTransactionId.map(expected -> guarded.transactionId()
-                .map(expected::equals)
-                .orElse(false))
-            .orElse(true);
+        return expectedEntryId
+                        .map(expected -> guarded.entryId()
+                                .map(id -> expected.equals(id.value()))
+                                .orElse(false))
+                        .orElse(true)
+                && expectedTransactionId
+                        .map(expected ->
+                                guarded.transactionId().map(expected::equals).orElse(false))
+                        .orElse(true);
     }
 
     private Map<String, Object> executeEditorCommand(final Map<String, Object> arguments) {
         only(
-            arguments,
-            "kind",
-            "commandId",
-            "widthPixels",
-            "heightPixels",
-            "port",
-            "allowRemoteConnections",
-            "spacingPixels",
-            "color",
-            "autoUpdate",
-            "percent"
-        );
+                arguments,
+                "kind",
+                "commandId",
+                "widthPixels",
+                "heightPixels",
+                "port",
+                "allowRemoteConnections",
+                "spacingPixels",
+                "color",
+                "autoUpdate",
+                "percent");
         final String kind = requiredString(arguments, "kind");
-        final EditorCommandResult result = switch (kind) {
-            case "direct" -> executeDirect(requiredString(arguments, "commandId"));
-            case "canvas_settings" -> editorCommands.execute(new EditorCanvasSettingsRequest(
-                requiredInteger(arguments, "widthPixels"),
-                requiredInteger(arguments, "heightPixels")
-            ));
-            case "external_app_settings" -> editorCommands.execute(new EditorExternalAppSettingsRequest(
-                requiredInteger(arguments, "port"),
-                requiredBoolean(arguments, "allowRemoteConnections")
-            ));
-            case "grid_settings" -> editorCommands.execute(new EditorGridSettingsRequest(
-                requiredInteger(arguments, "spacingPixels"),
-                color(requiredObject(arguments, "color"))
-            ));
-            case "modeling_statistics" -> editorCommands.execute(new EditorModelingStatisticsRequest(
-                requiredBoolean(arguments, "autoUpdate")
-            ));
-            case "resize_model" -> editorCommands.execute(new EditorResizeModelRequest(
-                requiredInteger(arguments, "percent")
-            ));
-            default -> throw new InputException(
-                "kind must be direct, canvas_settings, external_app_settings, grid_settings, "
-                    + "modeling_statistics, or resize_model"
-            );
-        };
+        final EditorCommandResult result =
+                switch (kind) {
+                    case "direct" -> executeDirect(requiredString(arguments, "commandId"));
+                    case "canvas_settings" ->
+                        editorCommands.execute(new EditorCanvasSettingsRequest(
+                                requiredInteger(arguments, "widthPixels"), requiredInteger(arguments, "heightPixels")));
+                    case "external_app_settings" ->
+                        editorCommands.execute(new EditorExternalAppSettingsRequest(
+                                requiredInteger(arguments, "port"),
+                                requiredBoolean(arguments, "allowRemoteConnections")));
+                    case "grid_settings" ->
+                        editorCommands.execute(new EditorGridSettingsRequest(
+                                requiredInteger(arguments, "spacingPixels"),
+                                color(requiredObject(arguments, "color"))));
+                    case "modeling_statistics" ->
+                        editorCommands.execute(
+                                new EditorModelingStatisticsRequest(requiredBoolean(arguments, "autoUpdate")));
+                    case "resize_model" ->
+                        editorCommands.execute(new EditorResizeModelRequest(requiredInteger(arguments, "percent")));
+                    default ->
+                        throw new InputException(
+                                "kind must be direct, canvas_settings, external_app_settings, grid_settings, "
+                                        + "modeling_statistics, or resize_model");
+                };
         return commandResult(result);
     }
 
@@ -448,347 +411,317 @@ final class McpHistoryCommandDomain {
 
     private static List<Map<String, Object>> typedContracts() {
         return List.of(
-            typedContract("canvas_settings", "EditorCanvasSettingsRequest", "model.setting", "widthPixels", "heightPixels"),
-            typedContract("external_app_settings", "EditorExternalAppSettingsRequest", "external.app.setting", "port", "allowRemoteConnections"),
-            typedContract("grid_settings", "EditorGridSettingsRequest", "grid.setting", "spacingPixels", "color"),
-            typedContract("modeling_statistics", "EditorModelingStatisticsRequest", "modeling.statistics", "autoUpdate"),
-            typedContract("resize_model", "EditorResizeModelRequest", "resize.model.document", "percent")
-        );
+                typedContract(
+                        "canvas_settings",
+                        "EditorCanvasSettingsRequest",
+                        "model.setting",
+                        "widthPixels",
+                        "heightPixels"),
+                typedContract(
+                        "external_app_settings",
+                        "EditorExternalAppSettingsRequest",
+                        "external.app.setting",
+                        "port",
+                        "allowRemoteConnections"),
+                typedContract("grid_settings", "EditorGridSettingsRequest", "grid.setting", "spacingPixels", "color"),
+                typedContract(
+                        "modeling_statistics", "EditorModelingStatisticsRequest", "modeling.statistics", "autoUpdate"),
+                typedContract("resize_model", "EditorResizeModelRequest", "resize.model.document", "percent"));
     }
 
     private static Map<String, Object> typedContract(
-        final String kind,
-        final String requestType,
-        final String commandId,
-        final String... fields
-    ) {
+            final String kind, final String requestType, final String commandId, final String... fields) {
         return immutableMap(
-            entry("kind", kind),
-            entry("requestType", requestType),
-            entry("commandId", commandId),
-            entry("fields", List.of(fields))
-        );
+                entry("kind", kind),
+                entry("requestType", requestType),
+                entry("commandId", commandId),
+                entry("fields", List.of(fields)));
     }
 
     private static HistoryMoveResult stale(final HistorySnapshot current) {
         return new HistoryMoveResult(
-            HistoryMoveResult.Outcome.REJECTED_STALE,
-            current,
-            Optional.of("mcp.history.precondition.stale")
-        );
+                HistoryMoveResult.Outcome.REJECTED_STALE, current, Optional.of("mcp.history.precondition.stale"));
     }
 
     private static HistoryMoveResult unavailable(final HistorySnapshot current, final String diagnosticId) {
-        return new HistoryMoveResult(
-            HistoryMoveResult.Outcome.UNAVAILABLE,
-            current,
-            Optional.of(diagnosticId)
-        );
+        return new HistoryMoveResult(HistoryMoveResult.Outcome.UNAVAILABLE, current, Optional.of(diagnosticId));
     }
 
     private static Map<String, Object> historyMoveResult(final HistoryMoveResult result) {
         return immutableMap(
-            entry("ok", result.outcome() == HistoryMoveResult.Outcome.MOVED
-                || result.outcome() == HistoryMoveResult.Outcome.NO_CHANGE),
-            entry("outcome", result.outcome().name()),
-            entry("snapshot", historySnapshot(result.snapshot())),
-            entry("diagnosticId", result.diagnosticId().orElse(null))
-        );
+                entry(
+                        "ok",
+                        result.outcome() == HistoryMoveResult.Outcome.MOVED
+                                || result.outcome() == HistoryMoveResult.Outcome.NO_CHANGE),
+                entry("outcome", result.outcome().name()),
+                entry("snapshot", historySnapshot(result.snapshot())),
+                entry("diagnosticId", result.diagnosticId().orElse(null)));
     }
 
     private static Map<String, Object> historySnapshot(final HistorySnapshot snapshot) {
         return immutableMap(
-            entry("availability", snapshot.availability().name()),
-            entry("generation", snapshot.generation()),
-            entry("revision", snapshot.revision()),
-            entry("position", snapshot.position()),
-            entry("entries", snapshot.entries().stream().map(McpHistoryCommandDomain::historyEntry).toList()),
-            entry("canUndo", snapshot.canUndo()),
-            entry("canRedo", snapshot.canRedo())
-        );
+                entry("availability", snapshot.availability().name()),
+                entry("generation", snapshot.generation()),
+                entry("revision", snapshot.revision()),
+                entry("position", snapshot.position()),
+                entry(
+                        "entries",
+                        snapshot.entries().stream()
+                                .map(McpHistoryCommandDomain::historyEntry)
+                                .toList()),
+                entry("canUndo", snapshot.canUndo()),
+                entry("canRedo", snapshot.canRedo()));
     }
 
     private static Map<String, Object> historyEntry(final HistoryEntry value) {
         return immutableMap(
-            entry("index", value.index()),
-            entry("label", value.label()),
-            entry("significant", value.significant()),
-            entry("detailLevel", value.detailLevel().name()),
-            entry("entryId", value.entryId().map(id -> id.value()).orElse(null)),
-            entry("transactionId", value.transactionId().orElse(null)),
-            entry("action", value.action().map(McpHistoryCommandDomain::historyAction).orElse(null)),
-            entry("detail", historyDetail(value.detail()))
-        );
+                entry("index", value.index()),
+                entry("label", value.label()),
+                entry("significant", value.significant()),
+                entry("detailLevel", value.detailLevel().name()),
+                entry("entryId", value.entryId().map(id -> id.value()).orElse(null)),
+                entry("transactionId", value.transactionId().orElse(null)),
+                entry(
+                        "action",
+                        value.action()
+                                .map(McpHistoryCommandDomain::historyAction)
+                                .orElse(null)),
+                entry("detail", historyDetail(value.detail())));
     }
 
     private static Map<String, Object> historyAction(final HistoryAction value) {
         return immutableMap(
-            entry("kind", value.kind().name()),
-            entry("targetType", value.targetType()),
-            entry("targetId", value.targetId()),
-            entry("property", value.property()),
-            entry("before", value.before().orElse(null)),
-            entry("after", value.after().orElse(null)),
-            entry("detailLevel", value.detailLevel().name())
-        );
+                entry("kind", value.kind().name()),
+                entry("targetType", value.targetType()),
+                entry("targetId", value.targetId()),
+                entry("property", value.property()),
+                entry("before", value.before().orElse(null)),
+                entry("after", value.after().orElse(null)),
+                entry("detailLevel", value.detailLevel().name()));
     }
 
-    private static Map<String, Object> historyDetail(
-        final dev.turboism.sdk.cubism.history.HistoryEntryDetail value
-    ) {
+    private static Map<String, Object> historyDetail(final dev.turboism.sdk.cubism.history.HistoryEntryDetail value) {
         return immutableMap(
-            entry("summary", value.summary()),
-            entry("detailLevel", value.detailLevel().name()),
-            entry("origin", historyOrigin(value.origin())),
-            entry("targets", value.targets().stream().map(McpHistoryCommandDomain::historyTarget).toList()),
-            entry("changes", value.changes().stream().map(McpHistoryCommandDomain::historyChange).toList()),
-            entry("group", value.group().map(McpHistoryCommandDomain::historyGroup).orElse(null)),
-            entry("degradationCode", value.degradationCode().orElse(null))
-        );
+                entry("summary", value.summary()),
+                entry("detailLevel", value.detailLevel().name()),
+                entry("origin", historyOrigin(value.origin())),
+                entry(
+                        "targets",
+                        value.targets().stream()
+                                .map(McpHistoryCommandDomain::historyTarget)
+                                .toList()),
+                entry(
+                        "changes",
+                        value.changes().stream()
+                                .map(McpHistoryCommandDomain::historyChange)
+                                .toList()),
+                entry(
+                        "group",
+                        value.group().map(McpHistoryCommandDomain::historyGroup).orElse(null)),
+                entry("degradationCode", value.degradationCode().orElse(null)));
     }
 
-    private static Map<String, Object> historyOrigin(
-        final dev.turboism.sdk.cubism.history.HistoryOrigin value
-    ) {
+    private static Map<String, Object> historyOrigin(final dev.turboism.sdk.cubism.history.HistoryOrigin value) {
         return immutableMap(
-            entry("kind", value.kind().name()),
-            entry("producerId", value.producerId().orElse(null)),
-            entry("operationId", value.operationId().orElse(null))
-        );
+                entry("kind", value.kind().name()),
+                entry("producerId", value.producerId().orElse(null)),
+                entry("operationId", value.operationId().orElse(null)));
     }
 
-    private static Map<String, Object> historyTarget(
-        final dev.turboism.sdk.cubism.history.HistoryTarget value
-    ) {
+    private static Map<String, Object> historyTarget(final dev.turboism.sdk.cubism.history.HistoryTarget value) {
         return immutableMap(
-            entry("type", value.type()),
-            entry("id", value.id().orElse(null)),
-            entry("displayName", value.displayName().orElse(null))
-        );
+                entry("type", value.type()),
+                entry("id", value.id().orElse(null)),
+                entry("displayName", value.displayName().orElse(null)));
     }
 
-    private static Map<String, Object> historyChange(
-        final dev.turboism.sdk.cubism.history.HistoryChange value
-    ) {
+    private static Map<String, Object> historyChange(final dev.turboism.sdk.cubism.history.HistoryChange value) {
         return immutableMap(
-            entry("operation", value.operation().name()),
-            entry("targetIndex", value.targetIndex().orElse(null)),
-            entry("property", value.property().orElse(null)),
-            entry("before", value.before().orElse(null)),
-            entry("after", value.after().orElse(null)),
-            entry("context", historyEditContext(value.context())),
-            entry(
-                "relation",
-                value.relation().map(McpHistoryCommandDomain::historyRelationChange).orElse(null)
-            )
-        );
+                entry("operation", value.operation().name()),
+                entry("targetIndex", value.targetIndex().orElse(null)),
+                entry("property", value.property().orElse(null)),
+                entry("before", value.before().orElse(null)),
+                entry("after", value.after().orElse(null)),
+                entry("context", historyEditContext(value.context())),
+                entry(
+                        "relation",
+                        value.relation()
+                                .map(McpHistoryCommandDomain::historyRelationChange)
+                                .orElse(null)));
     }
 
     private static Map<String, Object> historyRelationChange(
-        final dev.turboism.sdk.cubism.history.HistoryRelationChange value
-    ) {
+            final dev.turboism.sdk.cubism.history.HistoryRelationChange value) {
         return immutableMap(
-            entry("kind", value.kind().name()),
-            entry("before", historyRelationEndpoint(value.before())),
-            entry("after", historyRelationEndpoint(value.after()))
-        );
+                entry("kind", value.kind().name()),
+                entry("before", historyRelationEndpoint(value.before())),
+                entry("after", historyRelationEndpoint(value.after())));
     }
 
     private static Map<String, Object> historyRelationEndpoint(
-        final dev.turboism.sdk.cubism.history.HistoryRelationChange.Endpoint value
-    ) {
+            final dev.turboism.sdk.cubism.history.HistoryRelationChange.Endpoint value) {
         return immutableMap(
-            entry("state", value.state().name()),
-            entry("target", value.target().map(McpHistoryCommandDomain::historyTarget).orElse(null))
-        );
+                entry("state", value.state().name()),
+                entry(
+                        "target",
+                        value.target()
+                                .map(McpHistoryCommandDomain::historyTarget)
+                                .orElse(null)));
     }
 
     private static Map<String, Object> historyEditContext(
-        final dev.turboism.sdk.cubism.history.HistoryEditContext value
-    ) {
+            final dev.turboism.sdk.cubism.history.HistoryEditContext value) {
         return immutableMap(
-            entry("kind", value.kind().name()),
-            entry("formId", value.formId().orElse(null)),
-            entry(
-                "coordinates",
-                value.coordinates().stream()
-                    .map(McpHistoryCommandDomain::historyParameterCoordinate)
-                    .toList()
-            )
-        );
+                entry("kind", value.kind().name()),
+                entry("formId", value.formId().orElse(null)),
+                entry(
+                        "coordinates",
+                        value.coordinates().stream()
+                                .map(McpHistoryCommandDomain::historyParameterCoordinate)
+                                .toList()));
     }
 
     private static Map<String, Object> historyParameterCoordinate(
-        final dev.turboism.sdk.cubism.history.HistoryParameterCoordinate value
-    ) {
-        return immutableMap(
-            entry("parameter", historyTarget(value.parameter())),
-            entry("value", value.value())
-        );
+            final dev.turboism.sdk.cubism.history.HistoryParameterCoordinate value) {
+        return immutableMap(entry("parameter", historyTarget(value.parameter())), entry("value", value.value()));
     }
 
-    private static Map<String, Object> historyGroup(
-        final dev.turboism.sdk.cubism.history.HistoryGroup value
-    ) {
+    private static Map<String, Object> historyGroup(final dev.turboism.sdk.cubism.history.HistoryGroup value) {
         return immutableMap(
-            entry("groupId", value.groupId().orElse(null)),
-            entry("children", value.children().stream().map(McpHistoryCommandDomain::historyDetail).toList()),
-            entry("observedChildCount", value.observedChildCount()),
-            entry("truncated", value.truncated())
-        );
+                entry("groupId", value.groupId().orElse(null)),
+                entry(
+                        "children",
+                        value.children().stream()
+                                .map(McpHistoryCommandDomain::historyDetail)
+                                .toList()),
+                entry("observedChildCount", value.observedChildCount()),
+                entry("truncated", value.truncated()));
     }
 
     private static Map<String, Object> commandResult(final EditorCommandResult result) {
         return immutableMap(
-            entry("ok", result.executed()),
-            entry("status", result.status().name()),
-            entry("commandId", result.commandId()),
-            entry("executed", result.executed())
-        );
+                entry("ok", result.executed()),
+                entry("status", result.status().name()),
+                entry("commandId", result.commandId()),
+                entry("executed", result.executed()));
     }
 
     private static Map<String, Object> toolEnvelope(final ToolCallResult result) {
         final boolean semanticError = result.isError()
-            || Boolean.FALSE.equals(result.structuredContent().get("ok"));
+                || Boolean.FALSE.equals(result.structuredContent().get("ok"));
         return immutableMap(
-            entry("content", List.of(immutableMap(
-                entry("type", "text"),
-                entry("text", Json.stringify(result.structuredContent()))
-            ))),
-            entry("structuredContent", result.structuredContent()),
-            entry("isError", semanticError)
-        );
+                entry(
+                        "content",
+                        List.of(immutableMap(
+                                entry("type", "text"), entry("text", Json.stringify(result.structuredContent()))))),
+                entry("structuredContent", result.structuredContent()),
+                entry("isError", semanticError));
     }
 
     private static Color color(final Map<String, Object> values) {
         only(values, "red", "green", "blue", "alpha");
         return new Color(
-            requiredFloat(values, "red"),
-            requiredFloat(values, "green"),
-            requiredFloat(values, "blue"),
-            requiredFloat(values, "alpha")
-        );
+                requiredFloat(values, "red"),
+                requiredFloat(values, "green"),
+                requiredFloat(values, "blue"),
+                requiredFloat(values, "alpha"));
     }
 
     private static Map<String, Object> editorCommandSchema() {
         return immutableMap(
-            entry("type", "object"),
-            entry("oneOf", List.of(
-                objectSchema(
-                    immutableMap(
-                        entry("kind", constantSchema("direct")),
-                        entry("commandId", stringSchema(
-                            "A direct command currently listed by turboism://host/editor-commands.", 1, MAX_ARGUMENT_STRING_LENGTH
-                        ))
-                    ),
-                    List.of("kind", "commandId")
-                ),
-                objectSchema(
-                    immutableMap(
-                        entry("kind", constantSchema("canvas_settings")),
-                        entry("widthPixels", integerSchema("Canvas width in pixels.", 16, 30_000)),
-                        entry("heightPixels", integerSchema("Canvas height in pixels.", 16, 30_000))
-                    ),
-                    List.of("kind", "widthPixels", "heightPixels")
-                ),
-                objectSchema(
-                    immutableMap(
-                        entry("kind", constantSchema("external_app_settings")),
-                        entry("port", integerSchema("External-application port.", 1, 65_535)),
-                        entry("allowRemoteConnections", booleanSchema())
-                    ),
-                    List.of("kind", "port", "allowRemoteConnections")
-                ),
-                objectSchema(
-                    immutableMap(
-                        entry("kind", constantSchema("grid_settings")),
-                        entry("spacingPixels", integerSchema("Grid spacing in pixels.", 1, 30_000)),
-                        entry("color", objectSchema(
-                            immutableMap(
-                                entry("red", numberSchema()),
-                                entry("green", numberSchema()),
-                                entry("blue", numberSchema()),
-                                entry("alpha", constantSchema(1))
-                            ),
-                            List.of("red", "green", "blue", "alpha")
-                        ))
-                    ),
-                    List.of("kind", "spacingPixels", "color")
-                ),
-                objectSchema(
-                    immutableMap(
-                        entry("kind", constantSchema("modeling_statistics")),
-                        entry("autoUpdate", booleanSchema())
-                    ),
-                    List.of("kind", "autoUpdate")
-                ),
-                objectSchema(
-                    immutableMap(
-                        entry("kind", constantSchema("resize_model")),
-                        entry("percent", integerSchema("Model scale percentage.", 1, 5_000))
-                    ),
-                    List.of("kind", "percent")
-                )
-            ))
-        );
+                entry("type", "object"),
+                entry(
+                        "oneOf",
+                        List.of(
+                                objectSchema(
+                                        immutableMap(
+                                                entry("kind", constantSchema("direct")),
+                                                entry(
+                                                        "commandId",
+                                                        stringSchema(
+                                                                "A direct command currently listed by turboism://host/editor-commands.",
+                                                                1,
+                                                                MAX_ARGUMENT_STRING_LENGTH))),
+                                        List.of("kind", "commandId")),
+                                objectSchema(
+                                        immutableMap(
+                                                entry("kind", constantSchema("canvas_settings")),
+                                                entry(
+                                                        "widthPixels",
+                                                        integerSchema("Canvas width in pixels.", 16, 30_000)),
+                                                entry(
+                                                        "heightPixels",
+                                                        integerSchema("Canvas height in pixels.", 16, 30_000))),
+                                        List.of("kind", "widthPixels", "heightPixels")),
+                                objectSchema(
+                                        immutableMap(
+                                                entry("kind", constantSchema("external_app_settings")),
+                                                entry("port", integerSchema("External-application port.", 1, 65_535)),
+                                                entry("allowRemoteConnections", booleanSchema())),
+                                        List.of("kind", "port", "allowRemoteConnections")),
+                                objectSchema(
+                                        immutableMap(
+                                                entry("kind", constantSchema("grid_settings")),
+                                                entry(
+                                                        "spacingPixels",
+                                                        integerSchema("Grid spacing in pixels.", 1, 30_000)),
+                                                entry(
+                                                        "color",
+                                                        objectSchema(
+                                                                immutableMap(
+                                                                        entry("red", numberSchema()),
+                                                                        entry("green", numberSchema()),
+                                                                        entry("blue", numberSchema()),
+                                                                        entry("alpha", constantSchema(1))),
+                                                                List.of("red", "green", "blue", "alpha")))),
+                                        List.of("kind", "spacingPixels", "color")),
+                                objectSchema(
+                                        immutableMap(
+                                                entry("kind", constantSchema("modeling_statistics")),
+                                                entry("autoUpdate", booleanSchema())),
+                                        List.of("kind", "autoUpdate")),
+                                objectSchema(
+                                        immutableMap(
+                                                entry("kind", constantSchema("resize_model")),
+                                                entry("percent", integerSchema("Model scale percentage.", 1, 5_000))),
+                                        List.of("kind", "percent")))));
     }
 
-    private static Map<String, Object> objectSchema(
-        final Map<String, Object> properties,
-        final List<String> required
-    ) {
+    private static Map<String, Object> objectSchema(final Map<String, Object> properties, final List<String> required) {
         return immutableMap(
-            entry("type", "object"),
-            entry("properties", properties),
-            entry("required", List.copyOf(required)),
-            entry("additionalProperties", false)
-        );
+                entry("type", "object"),
+                entry("properties", properties),
+                entry("required", List.copyOf(required)),
+                entry("additionalProperties", false));
     }
 
     private static Map<String, Object> enumSchema(final String description, final List<String> values) {
         return immutableMap(
-            entry("type", "string"),
-            entry("description", description),
-            entry("enum", List.copyOf(values))
-        );
+                entry("type", "string"), entry("description", description), entry("enum", List.copyOf(values)));
     }
 
     private static Map<String, Object> constantSchema(final Object value) {
         return immutableMap(entry("const", value));
     }
 
-    private static Map<String, Object> stringSchema(
-        final String description,
-        final int minimum,
-        final int maximum
-    ) {
+    private static Map<String, Object> stringSchema(final String description, final int minimum, final int maximum) {
         return immutableMap(
-            entry("type", "string"),
-            entry("description", description),
-            entry("minLength", minimum),
-            entry("maxLength", maximum)
-        );
+                entry("type", "string"),
+                entry("description", description),
+                entry("minLength", minimum),
+                entry("maxLength", maximum));
     }
 
-    private static Map<String, Object> integerSchema(
-        final String description,
-        final int minimum,
-        final int maximum
-    ) {
+    private static Map<String, Object> integerSchema(final String description, final int minimum, final int maximum) {
         return immutableMap(
-            entry("type", "integer"),
-            entry("description", description),
-            entry("minimum", minimum),
-            entry("maximum", maximum)
-        );
+                entry("type", "integer"),
+                entry("description", description),
+                entry("minimum", minimum),
+                entry("maximum", maximum));
     }
 
     private static Map<String, Object> nonNegativeLongSchema(final String description) {
-        return immutableMap(
-            entry("type", "integer"),
-            entry("description", description),
-            entry("minimum", 0)
-        );
+        return immutableMap(entry("type", "integer"), entry("description", description), entry("minimum", 0));
     }
 
     private static Map<String, Object> booleanSchema() {
@@ -833,10 +766,7 @@ final class McpHistoryCommandDomain {
         return normalized;
     }
 
-    private static Optional<String> optionalString(
-        final Map<String, Object> values,
-        final String key
-    ) {
+    private static Optional<String> optionalString(final Map<String, Object> values, final String key) {
         if (!values.containsKey(key)) return Optional.empty();
         return Optional.of(requiredString(values, key));
     }
@@ -865,7 +795,10 @@ final class McpHistoryCommandDomain {
             final long result;
             if (value instanceof BigDecimal decimal) {
                 result = decimal.longValueExact();
-            } else if (value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long) {
+            } else if (value instanceof Byte
+                    || value instanceof Short
+                    || value instanceof Integer
+                    || value instanceof Long) {
                 result = ((Number) value).longValue();
             } else {
                 throw new InputException(key + " must be an integer");
@@ -940,12 +873,11 @@ final class McpHistoryCommandDomain {
     }
 
     record ToolDefinition(
-        String name,
-        String title,
-        String description,
-        Map<String, Object> inputSchema,
-        Map<String, Object> annotations
-    ) {
+            String name,
+            String title,
+            String description,
+            Map<String, Object> inputSchema,
+            Map<String, Object> annotations) {
         ToolDefinition {
             name = requireText(name, "name");
             title = requireText(title, "title");
@@ -973,10 +905,11 @@ final class McpHistoryCommandDomain {
         }
 
         static ToolCallResult failure(final String code, final String message) {
-            return new ToolCallResult(true, immutableMap(
-                entry("ok", false),
-                entry("error", immutableMap(entry("code", code), entry("message", message)))
-            ));
+            return new ToolCallResult(
+                    true,
+                    immutableMap(
+                            entry("ok", false),
+                            entry("error", immutableMap(entry("code", code), entry("message", message)))));
         }
     }
 

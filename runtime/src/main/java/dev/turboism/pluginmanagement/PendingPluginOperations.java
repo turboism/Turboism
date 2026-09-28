@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.distribution.LocalPluginJarPreparer;
 import dev.turboism.distribution.PluginJarPreflight;
 import dev.turboism.distribution.PreparedPluginJar;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -25,8 +24,7 @@ import java.util.UUID;
 /** Runtime-owned staging journal applied before plugin discovery. */
 public final class PendingPluginOperations {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final String CORE_ID =
-        dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID;
+    private static final String CORE_ID = dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID;
     private final Path home;
     private final Path plugins;
     private final Path staging;
@@ -61,12 +59,15 @@ public final class PendingPluginOperations {
         }
         try {
             final List<Operation> previous = readOperations();
-            final List<Operation> operations = withoutPlugin(previous, prepared.descriptor().id());
+            final List<Operation> operations =
+                    withoutPlugin(previous, prepared.descriptor().id());
             operations.add(Operation.install(prepared));
             writeOperations(operations);
-            previous.stream().filter(operation -> operation.pluginId.equals(prepared.descriptor().id()))
-                .filter(operation -> operation.type.equals("INSTALL"))
-                .forEach(operation -> deleteQuietly(Path.of(operation.stagedJar)));
+            previous.stream()
+                    .filter(operation ->
+                            operation.pluginId.equals(prepared.descriptor().id()))
+                    .filter(operation -> operation.type.equals("INSTALL"))
+                    .forEach(operation -> deleteQuietly(Path.of(operation.stagedJar)));
             return new StagedInstall(true, "PLUGIN_INSTALL_PENDING", prepared);
         } catch (PendingJournalInvalidException failure) {
             deleteQuietly(prepared.stagedJar());
@@ -84,8 +85,9 @@ public final class PendingPluginOperations {
             final List<Operation> operations = withoutPlugin(previous, pluginId);
             operations.add(Operation.uninstall(pluginId));
             writeOperations(operations);
-            previous.stream().filter(operation -> operation.pluginId.equals(pluginId) && operation.type.equals("INSTALL"))
-                .forEach(operation -> deleteQuietly(Path.of(operation.stagedJar)));
+            previous.stream()
+                    .filter(operation -> operation.pluginId.equals(pluginId) && operation.type.equals("INSTALL"))
+                    .forEach(operation -> deleteQuietly(Path.of(operation.stagedJar)));
             return new StagedUninstall(true, "PLUGIN_UNINSTALL_PENDING");
         } catch (PendingJournalInvalidException failure) {
             return new StagedUninstall(false, "PLUGIN_PENDING_RECOVERY_REQUIRED");
@@ -94,7 +96,9 @@ public final class PendingPluginOperations {
         }
     }
 
-    synchronized List<Operation> operations() { return List.copyOf(readOperations()); }
+    synchronized List<Operation> operations() {
+        return List.copyOf(readOperations());
+    }
 
     synchronized boolean recoveryRequired() {
         try {
@@ -157,8 +161,9 @@ public final class PendingPluginOperations {
             }
         }
         deleteTreeQuietly(backup);
-        operations.stream().filter(operation -> operation.type.equals("INSTALL"))
-            .forEach(operation -> deleteQuietly(Path.of(operation.stagedJar)));
+        operations.stream()
+                .filter(operation -> operation.type.equals("INSTALL"))
+                .forEach(operation -> deleteQuietly(Path.of(operation.stagedJar)));
         cleanupOrphans();
         return new ApplyResult(Status.APPLIED, "PLUGIN_PENDING_APPLIED");
     }
@@ -172,20 +177,25 @@ public final class PendingPluginOperations {
             return;
         }
         final Path stagedJar = files.confined(Path.of(operation.stagedJar));
-        if (!stagedJar.startsWith(packages) || Files.isSymbolicLink(stagedJar)) throw new IOException("staged path rejected");
+        if (!stagedJar.startsWith(packages) || Files.isSymbolicLink(stagedJar))
+            throw new IOException("staged path rejected");
         files.rejectLinks(stagedJar);
         if (existing.size() > 1) throw new IOException("duplicate installed plugin ID");
         final Path target = plugins.resolve(operation.pluginId + ".jar");
         final Path temporary = plugins.resolve("." + operation.pluginId + "-" + UUID.randomUUID() + ".tmp");
         try {
             snapshotCopier.copy(stagedJar, temporary, pluginParent);
-            if (!PluginJarPreflight.matches(temporary, operation.pluginId, operation.version,
-                operation.descriptorSha256, operation.jarSha256, operation.jarSize)) {
+            if (!PluginJarPreflight.matches(
+                    temporary,
+                    operation.pluginId,
+                    operation.version,
+                    operation.descriptorSha256,
+                    operation.jarSha256,
+                    operation.jarSize)) {
                 throw new IOException("staged package identity mismatch");
             }
-            try (FileChannel snapshot = FileChannel.open(
-                temporary, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS
-            )) {
+            try (FileChannel snapshot =
+                    FileChannel.open(temporary, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
                 snapshot.force(true);
             }
             files.move(temporary, target, pluginParent, true);
@@ -201,8 +211,12 @@ public final class PendingPluginOperations {
         final List<Path> matches = new ArrayList<>();
         try (var entries = Files.list(plugins)) {
             for (Path path : entries.filter(candidate -> Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
-                .filter(candidate -> candidate.getFileName().toString().endsWith(".jar")).toList()) {
-                if (PluginArchiveMetadata.read(path).map(PluginArchiveMetadata::id).orElse("").equals(pluginId)) matches.add(path);
+                    .filter(candidate -> candidate.getFileName().toString().endsWith(".jar"))
+                    .toList()) {
+                if (PluginArchiveMetadata.read(path)
+                        .map(PluginArchiveMetadata::id)
+                        .orElse("")
+                        .equals(pluginId)) matches.add(path);
             }
         }
         return matches.stream().sorted().toList();
@@ -214,9 +228,12 @@ public final class PendingPluginOperations {
         final ConfinedPluginFiles.ParentIdentity parent = files.parent(backup.resolve("identity"));
         try (var entries = Files.list(plugins)) {
             for (Path path : entries.filter(candidate -> Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
-                .filter(candidate -> candidate.getFileName().toString().endsWith(".jar")).toList()) {
+                    .filter(candidate -> candidate.getFileName().toString().endsWith(".jar"))
+                    .toList()) {
                 final Path target = backup.resolve(path.getFileName());
-                try (var output = files.createNew(target, parent)) { output.write(ByteBuffer.wrap(Files.readAllBytes(path))); }
+                try (var output = files.createNew(target, parent)) {
+                    output.write(ByteBuffer.wrap(Files.readAllBytes(path)));
+                }
             }
         }
     }
@@ -225,15 +242,20 @@ public final class PendingPluginOperations {
         if (!Files.isDirectory(backup, LinkOption.NOFOLLOW_LINKS)) throw new IOException("backup missing");
         final ConfinedPluginFiles.ParentIdentity pluginParent = files.parent(plugins.resolve("identity"));
         try (var entries = Files.list(plugins)) {
-            for (Path path : entries.filter(candidate -> candidate.getFileName().toString().endsWith(".jar")).toList()) {
+            for (Path path : entries.filter(
+                            candidate -> candidate.getFileName().toString().endsWith(".jar"))
+                    .toList()) {
                 files.delete(path, pluginParent);
             }
         }
         try (var entries = Files.list(backup)) {
-            for (Path path : entries.filter(candidate -> Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)).toList()) {
+            for (Path path : entries.filter(candidate -> Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
+                    .toList()) {
                 final Path target = plugins.resolve(path.getFileName());
                 final Path temporary = plugins.resolve(".restore-" + UUID.randomUUID() + ".tmp");
-                try (var output = files.createNew(temporary, pluginParent)) { output.write(ByteBuffer.wrap(Files.readAllBytes(path))); }
+                try (var output = files.createNew(temporary, pluginParent)) {
+                    output.write(ByteBuffer.wrap(Files.readAllBytes(path)));
+                }
                 files.move(temporary, target, pluginParent, false);
             }
         }
@@ -243,13 +265,14 @@ public final class PendingPluginOperations {
     private List<Operation> readOperations() {
         try {
             files.rejectLinks(journal);
-            final BasicFileAttributes attributes = Files.readAttributes(
-                journal, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-            );
+            final BasicFileAttributes attributes =
+                    Files.readAttributes(journal, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
             if (!attributes.isRegularFile() || attributes.size() > 64L * 1024L) throw new IOException();
             final JsonNode root = JSON.readTree(Files.readAllBytes(journal));
-            if (root == null || !root.path("format").asText().equals("turboism.plugin.pending")
-                || root.path("schemaVersion").asInt() != 1 || !root.path("operations").isArray()) throw new IOException();
+            if (root == null
+                    || !root.path("format").asText().equals("turboism.plugin.pending")
+                    || root.path("schemaVersion").asInt() != 1
+                    || !root.path("operations").isArray()) throw new IOException();
             final List<Operation> result = new ArrayList<>();
             for (JsonNode node : root.path("operations")) result.add(Operation.from(node));
             return result;
@@ -266,12 +289,16 @@ public final class PendingPluginOperations {
             Files.createDirectories(staging);
             final ConfinedPluginFiles.ParentIdentity parent = files.parent(journal);
             final ObjectNode root = JSON.createObjectNode();
-            root.put("format", "turboism.plugin.pending"); root.put("schemaVersion", 1);
+            root.put("format", "turboism.plugin.pending");
+            root.put("schemaVersion", 1);
             final ArrayNode values = root.putArray("operations");
-            operations.stream().sorted(Comparator.comparing(operation -> operation.pluginId)).forEach(operation -> values.add(operation.json()));
+            operations.stream()
+                    .sorted(Comparator.comparing(operation -> operation.pluginId))
+                    .forEach(operation -> values.add(operation.json()));
             temporary = staging.resolve(".pending-" + UUID.randomUUID() + ".tmp");
             try (var output = files.createNew(temporary, parent)) {
-                output.write(ByteBuffer.wrap(JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(root)));
+                output.write(
+                        ByteBuffer.wrap(JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(root)));
             }
             files.move(temporary, journal, parent, true);
         } catch (IOException failure) {
@@ -287,7 +314,8 @@ public final class PendingPluginOperations {
             try (var entries = Files.list(packages)) {
                 for (Path path : entries.toList()) deleteQuietly(path);
             }
-        } catch (IOException ignored) { }
+        } catch (IOException ignored) {
+        }
     }
 
     private static List<Operation> withoutPlugin(final List<Operation> input, final String pluginId) {
@@ -297,18 +325,15 @@ public final class PendingPluginOperations {
     }
 
     private static void copySnapshot(
-        final Path source,
-        final Path snapshot,
-        final ConfinedPluginFiles.ParentIdentity parent
-    ) throws IOException {
+            final Path source, final Path snapshot, final ConfinedPluginFiles.ParentIdentity parent)
+            throws IOException {
         parent.verify();
         if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(source)) {
             throw new IOException("staged path rejected");
         }
         try (FileChannel input = FileChannel.open(source, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS);
-             FileChannel output = FileChannel.open(
-                 snapshot, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS
-             )) {
+                FileChannel output = FileChannel.open(
+                        snapshot, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
             final ByteBuffer buffer = ByteBuffer.allocateDirect(64 * 1024);
             while (input.read(buffer) >= 0) {
                 buffer.flip();
@@ -319,8 +344,21 @@ public final class PendingPluginOperations {
         parent.verify();
     }
 
-    private static void deleteQuietly(final Path path) { if (path != null) try { Files.deleteIfExists(path); } catch (IOException ignored) { } }
-    private static void deleteTreeQuietly(final Path path) { try { deleteTree(path); } catch (IOException ignored) { } }
+    private static void deleteQuietly(final Path path) {
+        if (path != null)
+            try {
+                Files.deleteIfExists(path);
+            } catch (IOException ignored) {
+            }
+    }
+
+    private static void deleteTreeQuietly(final Path path) {
+        try {
+            deleteTree(path);
+        } catch (IOException ignored) {
+        }
+    }
+
     private static void deleteTree(final Path root) throws IOException {
         if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) return;
         try (var paths = Files.walk(root)) {
@@ -336,8 +374,9 @@ public final class PendingPluginOperations {
         void copy(Path source, Path snapshot, ConfinedPluginFiles.ParentIdentity parent) throws IOException;
     }
 
-    record StagedInstall(boolean accepted, String code, PreparedPluginJar prepared) { }
-    record StagedUninstall(boolean accepted, String code) { }
+    record StagedInstall(boolean accepted, String code, PreparedPluginJar prepared) {}
+
+    record StagedUninstall(boolean accepted, String code) {}
     /** What happened to the plugin directory when the pending journal was applied. */
     public enum Status {
         /** All journalled operations were applied. */
@@ -358,35 +397,69 @@ public final class PendingPluginOperations {
          * @return {@code true} only when {@link #status()} is {@link Status#APPLIED}; a
          *         rolled-back or recovery-required apply does not count
          */
-        public boolean applied() { return status == Status.APPLIED; }
+        public boolean applied() {
+            return status == Status.APPLIED;
+        }
     }
 
     private static final class PendingJournalInvalidException extends IllegalStateException {
-        PendingJournalInvalidException(final Throwable cause) { super("PLUGIN_PENDING_INVALID", cause); }
+        PendingJournalInvalidException(final Throwable cause) {
+            super("PLUGIN_PENDING_INVALID", cause);
+        }
     }
 
-    record Operation(String type, String pluginId, String stagedJar, String version,
-        String rawSha256, String descriptorSha256, String jarSha256, long jarSize) {
+    record Operation(
+            String type,
+            String pluginId,
+            String stagedJar,
+            String version,
+            String rawSha256,
+            String descriptorSha256,
+            String jarSha256,
+            long jarSize) {
         static Operation install(final PreparedPluginJar prepared) {
             return new Operation(
-                "INSTALL", prepared.descriptor().id(), prepared.stagedJar().toString(),
-                prepared.descriptor().version(), prepared.jarSha256(), prepared.descriptorSha256(),
-                prepared.jarSha256(), prepared.jarSize()
-            );
+                    "INSTALL",
+                    prepared.descriptor().id(),
+                    prepared.stagedJar().toString(),
+                    prepared.descriptor().version(),
+                    prepared.jarSha256(),
+                    prepared.descriptorSha256(),
+                    prepared.jarSha256(),
+                    prepared.jarSize());
         }
-        static Operation uninstall(final String id) { return new Operation("UNINSTALL", id, "", "", "", "", "", 0); }
+
+        static Operation uninstall(final String id) {
+            return new Operation("UNINSTALL", id, "", "", "", "", "", 0);
+        }
+
         ObjectNode json() {
             final ObjectNode node = JSON.createObjectNode();
-            node.put("type", type); node.put("pluginId", pluginId); node.put("stagedJar", stagedJar);
-            node.put("version", version); node.put("rawSha256", rawSha256); node.put("descriptorSha256", descriptorSha256);
-            node.put("jarSha256", jarSha256); node.put("jarSize", jarSize); return node;
+            node.put("type", type);
+            node.put("pluginId", pluginId);
+            node.put("stagedJar", stagedJar);
+            node.put("version", version);
+            node.put("rawSha256", rawSha256);
+            node.put("descriptorSha256", descriptorSha256);
+            node.put("jarSha256", jarSha256);
+            node.put("jarSize", jarSize);
+            return node;
         }
+
         static Operation from(final JsonNode node) {
-            final String type = node.path("type").asText(); final String pluginId = node.path("pluginId").asText();
-            if (!(type.equals("INSTALL") || type.equals("UNINSTALL")) || pluginId.isBlank()) throw new IllegalArgumentException();
-            return new Operation(type, pluginId, node.path("stagedJar").asText(), node.path("version").asText(),
-                node.path("rawSha256").asText(), node.path("descriptorSha256").asText(),
-                node.path("jarSha256").asText(), node.path("jarSize").asLong());
+            final String type = node.path("type").asText();
+            final String pluginId = node.path("pluginId").asText();
+            if (!(type.equals("INSTALL") || type.equals("UNINSTALL")) || pluginId.isBlank())
+                throw new IllegalArgumentException();
+            return new Operation(
+                    type,
+                    pluginId,
+                    node.path("stagedJar").asText(),
+                    node.path("version").asText(),
+                    node.path("rawSha256").asText(),
+                    node.path("descriptorSha256").asText(),
+                    node.path("jarSha256").asText(),
+                    node.path("jarSize").asLong());
         }
     }
 }

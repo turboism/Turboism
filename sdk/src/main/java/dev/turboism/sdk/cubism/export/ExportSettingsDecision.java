@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.export;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.util.Objects;
 
 /**
@@ -44,9 +43,7 @@ public record ExportSettingsDecision(Outcome outcome, String messageKey) {
         outcome = Objects.requireNonNull(outcome, "outcome");
         messageKey = Objects.requireNonNull(messageKey, "messageKey");
         if (outcome == Outcome.PROCEED_UNCHANGED && !messageKey.isEmpty()) {
-            throw new IllegalArgumentException(
-                "PROCEED_UNCHANGED decision must not carry a message key"
-            );
+            throw new IllegalArgumentException("PROCEED_UNCHANGED decision must not carry a message key");
         }
         if (outcome == Outcome.REJECT && messageKey.isBlank()) {
             throw new IllegalArgumentException("REJECT decision requires a message key");

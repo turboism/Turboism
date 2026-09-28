@@ -8,7 +8,6 @@ import dev.turboism.sdk.hostread.AsyncHostReadResult;
 import dev.turboism.sdk.hostread.AsyncHostReadStatus;
 import dev.turboism.sdk.hostread.AsyncHostReadValue;
 import dev.turboism.task.PluginCompletionFuture;
-
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
@@ -18,21 +17,14 @@ final class RuntimeAsyncHostReadHandle implements AsyncHostReadHandle {
     private final RuntimeAsyncHostReadService owner;
     private final AsyncHostReadIntent intent;
     private final PluginCompletionFuture<AsyncHostReadResult> completion;
-    private final AtomicReference<AsyncHostReadStatus> status =
-        new AtomicReference<>(AsyncHostReadStatus.QUEUED);
-    private volatile SharedAsyncHostReadLane.OperationCancellation operationCancellation = () -> { };
-    private volatile AutoCloseable deadlineCancellation = () -> { };
+    private final AtomicReference<AsyncHostReadStatus> status = new AtomicReference<>(AsyncHostReadStatus.QUEUED);
+    private volatile SharedAsyncHostReadLane.OperationCancellation operationCancellation = () -> {};
+    private volatile AutoCloseable deadlineCancellation = () -> {};
 
-    RuntimeAsyncHostReadHandle(
-        final RuntimeAsyncHostReadService owner,
-        final AsyncHostReadIntent intent
-    ) {
+    RuntimeAsyncHostReadHandle(final RuntimeAsyncHostReadService owner, final AsyncHostReadIntent intent) {
         this.owner = owner;
         this.intent = intent;
-        this.completion = new PluginCompletionFuture<>(
-            owner::dispatchContinuation,
-            owner::acceptsContinuations
-        );
+        this.completion = new PluginCompletionFuture<>(owner::dispatchContinuation, owner::acceptsContinuations);
     }
 
     @Override
@@ -65,9 +57,8 @@ final class RuntimeAsyncHostReadHandle implements AsyncHostReadHandle {
     }
 
     void attach(
-        final SharedAsyncHostReadLane.OperationCancellation operationCancellation,
-        final AutoCloseable deadlineCancellation
-    ) {
+            final SharedAsyncHostReadLane.OperationCancellation operationCancellation,
+            final AutoCloseable deadlineCancellation) {
         this.operationCancellation = operationCancellation;
         this.deadlineCancellation = deadlineCancellation;
     }
@@ -85,17 +76,11 @@ final class RuntimeAsyncHostReadHandle implements AsyncHostReadHandle {
     }
 
     boolean succeed(final AsyncHostReadValue value) {
-        return proposeSettlement(
-            AsyncHostReadStatus.SUCCEEDED,
-            AsyncHostReadResult.success(intent, value)
-        );
+        return proposeSettlement(AsyncHostReadStatus.SUCCEEDED, AsyncHostReadResult.success(intent, value));
     }
 
     boolean fail(final AsyncHostReadError error) {
-        return proposeSettlement(
-            AsyncHostReadStatus.FAILED,
-            failedResult(error)
-        );
+        return proposeSettlement(AsyncHostReadStatus.FAILED, failedResult(error));
     }
 
     void timeout() {
@@ -109,12 +94,13 @@ final class RuntimeAsyncHostReadHandle implements AsyncHostReadHandle {
                 return false;
             }
             if (status.compareAndSet(current, AsyncHostReadStatus.CANCELED)) {
-                settleTerminal(new AsyncHostReadResult(
-                    intent,
-                    AsyncHostReadStatus.CANCELED,
-                    Optional.empty(),
-                    Optional.of(owner.error(AsyncHostReadErrorCode.CANCELED))
-                ), true);
+                settleTerminal(
+                        new AsyncHostReadResult(
+                                intent,
+                                AsyncHostReadStatus.CANCELED,
+                                Optional.empty(),
+                                Optional.of(owner.error(AsyncHostReadErrorCode.CANCELED))),
+                        true);
                 return true;
             }
         }
@@ -124,10 +110,7 @@ final class RuntimeAsyncHostReadHandle implements AsyncHostReadHandle {
         cancelInternal();
     }
 
-    private boolean proposeSettlement(
-        final AsyncHostReadStatus terminalStatus,
-        final AsyncHostReadResult result
-    ) {
+    private boolean proposeSettlement(final AsyncHostReadStatus terminalStatus, final AsyncHostReadResult result) {
         if (terminal(status.get())) {
             return false;
         }
@@ -141,10 +124,7 @@ final class RuntimeAsyncHostReadHandle implements AsyncHostReadHandle {
         return true;
     }
 
-    private boolean failImmediately(
-        final AsyncHostReadError error,
-        final boolean cancelPhysical
-    ) {
+    private boolean failImmediately(final AsyncHostReadError error, final boolean cancelPhysical) {
         while (true) {
             final AsyncHostReadStatus current = status.get();
             if (terminal(current)) {
@@ -158,18 +138,10 @@ final class RuntimeAsyncHostReadHandle implements AsyncHostReadHandle {
     }
 
     private AsyncHostReadResult failedResult(final AsyncHostReadError error) {
-        return new AsyncHostReadResult(
-            intent,
-            AsyncHostReadStatus.FAILED,
-            Optional.empty(),
-            Optional.of(error)
-        );
+        return new AsyncHostReadResult(intent, AsyncHostReadStatus.FAILED, Optional.empty(), Optional.of(error));
     }
 
-    private void settleTerminal(
-        final AsyncHostReadResult result,
-        final boolean cancelPhysical
-    ) {
+    private void settleTerminal(final AsyncHostReadResult result, final boolean cancelPhysical) {
         closeDeadline();
         owner.operationFinished(this);
         if (cancelPhysical) {
@@ -187,7 +159,7 @@ final class RuntimeAsyncHostReadHandle implements AsyncHostReadHandle {
 
     private static boolean terminal(final AsyncHostReadStatus status) {
         return status == AsyncHostReadStatus.SUCCEEDED
-            || status == AsyncHostReadStatus.FAILED
-            || status == AsyncHostReadStatus.CANCELED;
+                || status == AsyncHostReadStatus.FAILED
+                || status == AsyncHostReadStatus.CANCELED;
     }
 }

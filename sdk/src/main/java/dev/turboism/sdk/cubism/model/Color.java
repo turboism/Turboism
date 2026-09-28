@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 /** Immutable RGBA color projected from a Cubism backend. */
 public record Color(float red, float green, float blue, float alpha) {
 

@@ -1,12 +1,11 @@
 package dev.turboism.test.ui;
 
-import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import dev.turboism.sdk.plugin.Registration;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 class FakeDirectUiSchedulerTest {
 

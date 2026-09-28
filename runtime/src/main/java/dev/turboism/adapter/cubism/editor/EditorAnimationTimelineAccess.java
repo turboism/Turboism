@@ -13,7 +13,6 @@ import dev.turboism.sdk.cubism.model.AnimationScene;
 import dev.turboism.sdk.cubism.model.AnimationTrack;
 import dev.turboism.sdk.cubism.model.AnimationTrackKind;
 import dev.turboism.sdk.cubism.model.Point2;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -45,25 +44,23 @@ final class EditorAnimationTimelineAccess {
     private final String identity;
     private final Object model;
     private final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator
-        authoringCoordinator;
+            authoringCoordinator;
 
     EditorAnimationTimelineAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard,
-        final String identity,
-        final Object model
-    ) {
+            final VerifiedMemberResolver resolver,
+            final EditorParameterCombinedAccess.ModelGuard modelGuard,
+            final String identity,
+            final Object model) {
         this(resolver, modelGuard, identity, model, null);
     }
 
     EditorAnimationTimelineAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard,
-        final String identity,
-        final Object model,
-        final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator
-            authoringCoordinator
-    ) {
+            final VerifiedMemberResolver resolver,
+            final EditorParameterCombinedAccess.ModelGuard modelGuard,
+            final String identity,
+            final Object model,
+            final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator
+                    authoringCoordinator) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.identity = Objects.requireNonNull(identity, "identity");
@@ -73,53 +70,45 @@ final class EditorAnimationTimelineAccess {
 
     private boolean writeAuthorized() {
         return resolver.authorizesFeature(
-            EditorAnimationTimelineEditSelectorContract.ADAPTER_SLICE_ID,
-            EditorAnimationTimelineEditSelectorContract.WRITE_CAPABILITY_ID,
-            EditorAnimationTimelineEditSelectorContract.WRITE_REQUIRED_ALIASES
-        );
+                EditorAnimationTimelineEditSelectorContract.ADAPTER_SLICE_ID,
+                EditorAnimationTimelineEditSelectorContract.WRITE_CAPABILITY_ID,
+                EditorAnimationTimelineEditSelectorContract.WRITE_REQUIRED_ALIASES);
     }
 
     private void requireWriteAuthorization() {
         if (!writeAuthorized()) {
             throw new UnsupportedOperationException(
-                "Animation timeline writing is unavailable without exact verified host evidence."
-            );
+                    "Animation timeline writing is unavailable without exact verified host evidence.");
         }
     }
 
     private void requirePlaybackAuthorization() {
         if (!resolver.authorizesFeature(
-            EditorAnimationSceneOperationSelectorContract.ADAPTER_SLICE_ID,
-            EditorAnimationSceneOperationSelectorContract.PLAYBACK_CAPABILITY_ID,
-            EditorAnimationSceneOperationSelectorContract.PLAYBACK_REQUIRED_ALIASES
-        )) {
+                EditorAnimationSceneOperationSelectorContract.ADAPTER_SLICE_ID,
+                EditorAnimationSceneOperationSelectorContract.PLAYBACK_CAPABILITY_ID,
+                EditorAnimationSceneOperationSelectorContract.PLAYBACK_REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Animation playback control is unavailable without exact verified host evidence."
-            );
+                    "Animation playback control is unavailable without exact verified host evidence.");
         }
     }
 
     private void requireSceneEditAuthorization() {
         if (!resolver.authorizesFeature(
-            EditorAnimationSceneOperationSelectorContract.ADAPTER_SLICE_ID,
-            EditorAnimationSceneOperationSelectorContract.SCENE_EDIT_CAPABILITY_ID,
-            EditorAnimationSceneOperationSelectorContract.SCENE_EDIT_REQUIRED_ALIASES
-        )) {
+                EditorAnimationSceneOperationSelectorContract.ADAPTER_SLICE_ID,
+                EditorAnimationSceneOperationSelectorContract.SCENE_EDIT_CAPABILITY_ID,
+                EditorAnimationSceneOperationSelectorContract.SCENE_EDIT_REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Animation scene management is unavailable without exact verified host evidence."
-            );
+                    "Animation scene management is unavailable without exact verified host evidence.");
         }
     }
 
     private void requireEvalAuthorization() {
         if (!resolver.authorizesFeature(
-            EditorAnimationSceneOperationSelectorContract.ADAPTER_SLICE_ID,
-            EditorAnimationSceneOperationSelectorContract.EVAL_CAPABILITY_ID,
-            EditorAnimationSceneOperationSelectorContract.EVAL_REQUIRED_ALIASES
-        )) {
+                EditorAnimationSceneOperationSelectorContract.ADAPTER_SLICE_ID,
+                EditorAnimationSceneOperationSelectorContract.EVAL_CAPABILITY_ID,
+                EditorAnimationSceneOperationSelectorContract.EVAL_REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Animation evaluated writing is unavailable without exact verified host evidence."
-            );
+                    "Animation evaluated writing is unavailable without exact verified host evidence.");
         }
     }
 
@@ -136,81 +125,62 @@ final class EditorAnimationTimelineAccess {
     // ------------------------------------------------------------------
 
     private AnimationScene scene(final Object sceneSource, final Object fileContent) {
-        requireInstance(
-            "cubism.editor-model.scene-source.class",
-            sceneSource,
-            "Editor animation scene is invalid."
-        );
+        requireInstance("cubism.editor-model.scene-source.class", sceneSource, "Editor animation scene is invalid.");
         final String name = text(
-            resolver.invoke("cubism.editor-model.scene-source.scene-name", sceneSource),
-            "Editor animation scene name"
-        );
+                resolver.invoke("cubism.editor-model.scene-source.scene-name", sceneSource),
+                "Editor animation scene name");
         final String guid = guidValue(
-            resolver.invoke("cubism.editor-model.scene-source.guid", sceneSource),
-            "Editor animation scene guid"
-        );
-        final Object rawTag = resolver.invoke(
-            "cubism.editor-model.scene-source.tag", sceneSource
-        );
+                resolver.invoke("cubism.editor-model.scene-source.guid", sceneSource), "Editor animation scene guid");
+        final Object rawTag = resolver.invoke("cubism.editor-model.scene-source.tag", sceneSource);
         if (rawTag != null && !(rawTag instanceof String)) {
             throw unavailable("Editor animation scene tag is invalid.");
         }
-        final Optional<String> tag = rawTag instanceof String text && !text.isBlank()
-            ? Optional.of(text)
-            : Optional.empty();
-        final Object rawMarkers = resolver.invoke(
-            "cubism.editor-model.scene-source.marker", sceneSource
-        );
-        final Object movieInfo = resolver.invoke(
-            "cubism.editor-model.scene-source.movie-info", sceneSource
-        );
+        final Optional<String> tag =
+                rawTag instanceof String text && !text.isBlank() ? Optional.of(text) : Optional.empty();
+        final Object rawMarkers = resolver.invoke("cubism.editor-model.scene-source.marker", sceneSource);
+        final Object movieInfo = resolver.invoke("cubism.editor-model.scene-source.movie-info", sceneSource);
         requireInstance(
-            "cubism.editor-model.movie-info.class",
-            movieInfo,
-            "Editor animation scene movie info is invalid."
-        );
+                "cubism.editor-model.movie-info.class", movieInfo, "Editor animation scene movie info is invalid.");
         final int startFrame = intValue(
-            resolver.invoke("cubism.editor-model.movie-info.start-frame", movieInfo),
-            "Editor animation scene start frame"
-        );
+                resolver.invoke("cubism.editor-model.movie-info.start-frame", movieInfo),
+                "Editor animation scene start frame");
         final int durationFrames = intValue(
-            resolver.invoke("cubism.editor-model.movie-info.duration", movieInfo),
-            "Editor animation scene duration"
-        );
+                resolver.invoke("cubism.editor-model.movie-info.duration", movieInfo),
+                "Editor animation scene duration");
         final double framesPerSecond = doubleValue(
-            resolver.invoke("cubism.editor-model.movie-info.fps", movieInfo),
-            "Editor animation scene fps"
-        );
+                resolver.invoke("cubism.editor-model.movie-info.fps", movieInfo), "Editor animation scene fps");
         final int width = intValue(
-            resolver.invoke("cubism.editor-model.movie-info.width", movieInfo),
-            "Editor animation scene width"
-        );
+                resolver.invoke("cubism.editor-model.movie-info.width", movieInfo), "Editor animation scene width");
         final int height = intValue(
-            resolver.invoke("cubism.editor-model.movie-info.height", movieInfo),
-            "Editor animation scene height"
-        );
+                resolver.invoke("cubism.editor-model.movie-info.height", movieInfo), "Editor animation scene height");
         final boolean loopMotion = flag(
-            resolver.invoke("cubism.editor-model.movie-info.loop-motion", movieInfo),
-            "Editor animation scene loop flag"
-        );
+                resolver.invoke("cubism.editor-model.movie-info.loop-motion", movieInfo),
+                "Editor animation scene loop flag");
         final int workspaceStart = intValue(
-            resolver.invoke("cubism.editor-model.movie-info.workspace-start", movieInfo),
-            "Editor animation scene work-area start"
-        );
+                resolver.invoke("cubism.editor-model.movie-info.workspace-start", movieInfo),
+                "Editor animation scene work-area start");
         final int workspaceEnd = intValue(
-            resolver.invoke("cubism.editor-model.movie-info.workspace-end", movieInfo),
-            "Editor animation scene work-area end"
-        );
-        final Object rootTrack = resolver.invoke(
-            "cubism.editor-model.scene-source.root-track", sceneSource
-        );
+                resolver.invoke("cubism.editor-model.movie-info.workspace-end", movieInfo),
+                "Editor animation scene work-area end");
+        final Object rootTrack = resolver.invoke("cubism.editor-model.scene-source.root-track", sceneSource);
         final Map<Integer, String> markers = markers(rawMarkers);
         final List<AnimationTrack> tracks = tracks(rootTrack, sceneSource, fileContent);
         return new ProjectedScene(
-            sceneSource, fileContent,
-            name, guid, tag, markers, startFrame, durationFrames, framesPerSecond,
-            width, height, loopMotion, workspaceStart, workspaceEnd, tracks
-        );
+                sceneSource,
+                fileContent,
+                name,
+                guid,
+                tag,
+                markers,
+                startFrame,
+                durationFrames,
+                framesPerSecond,
+                width,
+                height,
+                loopMotion,
+                workspaceStart,
+                workspaceEnd,
+                tracks);
     }
 
     private final class ProjectedScene implements AnimationScene {
@@ -231,22 +201,21 @@ final class EditorAnimationTimelineAccess {
         private final List<AnimationTrack> tracks;
 
         private ProjectedScene(
-            final Object sceneSource,
-            final Object fileContent,
-            final String name,
-            final String guid,
-            final Optional<String> tag,
-            final Map<Integer, String> markers,
-            final int startFrame,
-            final int durationFrames,
-            final double framesPerSecond,
-            final int width,
-            final int height,
-            final boolean loopMotion,
-            final int workspaceStartFrame,
-            final int workspaceEndFrame,
-            final List<AnimationTrack> tracks
-        ) {
+                final Object sceneSource,
+                final Object fileContent,
+                final String name,
+                final String guid,
+                final Optional<String> tag,
+                final Map<Integer, String> markers,
+                final int startFrame,
+                final int durationFrames,
+                final double framesPerSecond,
+                final int width,
+                final int height,
+                final boolean loopMotion,
+                final int workspaceStartFrame,
+                final int workspaceEndFrame,
+                final List<AnimationTrack> tracks) {
             this.sceneSource = sceneSource;
             this.fileContent = fileContent;
             this.name = name;
@@ -264,21 +233,73 @@ final class EditorAnimationTimelineAccess {
             this.tracks = tracks;
         }
 
-        @Override public String name() { return name; }
-        @Override public String guid() { return guid; }
-        @Override public Optional<String> tag() { return tag; }
-        @Override public Map<Integer, String> markers() { return markers; }
-        @Override public int startFrame() { return startFrame; }
-        @Override public int durationFrames() { return durationFrames; }
-        @Override public double framesPerSecond() { return framesPerSecond; }
-        @Override public int width() { return width; }
-        @Override public int height() { return height; }
-        @Override public boolean loopMotion() { return loopMotion; }
-        @Override public int workspaceStartFrame() { return workspaceStartFrame; }
-        @Override public int workspaceEndFrame() { return workspaceEndFrame; }
-        @Override public List<AnimationTrack> tracks() { return tracks; }
+        @Override
+        public String name() {
+            return name;
+        }
 
-        @Override public void rename(final String newName) {
+        @Override
+        public String guid() {
+            return guid;
+        }
+
+        @Override
+        public Optional<String> tag() {
+            return tag;
+        }
+
+        @Override
+        public Map<Integer, String> markers() {
+            return markers;
+        }
+
+        @Override
+        public int startFrame() {
+            return startFrame;
+        }
+
+        @Override
+        public int durationFrames() {
+            return durationFrames;
+        }
+
+        @Override
+        public double framesPerSecond() {
+            return framesPerSecond;
+        }
+
+        @Override
+        public int width() {
+            return width;
+        }
+
+        @Override
+        public int height() {
+            return height;
+        }
+
+        @Override
+        public boolean loopMotion() {
+            return loopMotion;
+        }
+
+        @Override
+        public int workspaceStartFrame() {
+            return workspaceStartFrame;
+        }
+
+        @Override
+        public int workspaceEndFrame() {
+            return workspaceEndFrame;
+        }
+
+        @Override
+        public List<AnimationTrack> tracks() {
+            return tracks;
+        }
+
+        @Override
+        public void rename(final String newName) {
             EditorHostThread.dispatch("Cubism animation scene write", () -> {
                 renameOnEdt(newName);
                 return null;
@@ -293,25 +314,24 @@ final class EditorAnimationTimelineAccess {
             requireWriteAuthorization();
             modelGuard.requireCurrent(identity, model);
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
-            writeWithSceneBasicDataUndo(sceneDocument, sceneSource,
-                "Turboism: Rename Animation Scene",
-                () -> resolver.invoke(
-                    "cubism.editor-model.scene-source.set-scene-name",
-                    sceneSource, newName
-                ));
+            writeWithSceneBasicDataUndo(
+                    sceneDocument,
+                    sceneSource,
+                    "Turboism: Rename Animation Scene",
+                    () -> resolver.invoke("cubism.editor-model.scene-source.set-scene-name", sceneSource, newName));
         }
 
-        @Override public int playheadFrame() {
+        @Override
+        public int playheadFrame() {
             requirePlaybackAuthorization();
             modelGuard.requireCurrent(identity, model);
             final Object time = currentTime(firstSceneInstance());
             return intValue(
-                resolver.invoke("cubism.editor-model.scene-time.frame", time),
-                "Editor animation scene time"
-            );
+                    resolver.invoke("cubism.editor-model.scene-time.frame", time), "Editor animation scene time");
         }
 
-        @Override public void seekTo(final int frame) {
+        @Override
+        public void seekTo(final int frame) {
             EditorHostThread.dispatch("Cubism animation playback", () -> {
                 seekToOnEdt(frame);
                 return null;
@@ -323,28 +343,23 @@ final class EditorAnimationTimelineAccess {
             modelGuard.requireCurrent(identity, model);
             final List<?> instances = sceneInstances();
             for (Object instance : instances) {
-                resolver.invoke(
-                    "cubism.editor-model.scene-time.set-frame",
-                    currentTime(instance), frame
-                );
+                resolver.invoke("cubism.editor-model.scene-time.set-frame", currentTime(instance), frame);
             }
             repaint(sceneDocument(fileContent, sceneSource));
         }
 
-        @Override public boolean current() {
+        @Override
+        public boolean current() {
             requireSceneEditAuthorization();
             modelGuard.requireCurrent(identity, model);
-            final Object currentDoc = resolver.invoke(
-                "cubism.editor-model.animation-file-content.current-scene-doc",
-                fileContent
-            );
+            final Object currentDoc =
+                    resolver.invoke("cubism.editor-model.animation-file-content.current-scene-doc", fileContent);
             return currentDoc != null
-                && resolver.invoke(
-                    "cubism.editor-model.scene-document.scene-source", currentDoc
-                ) == sceneSource;
+                    && resolver.invoke("cubism.editor-model.scene-document.scene-source", currentDoc) == sceneSource;
         }
 
-        @Override public void activate() {
+        @Override
+        public void activate() {
             EditorHostThread.dispatch("Cubism animation scene activation", () -> {
                 activateOnEdt();
                 return null;
@@ -356,28 +371,21 @@ final class EditorAnimationTimelineAccess {
             modelGuard.requireCurrent(identity, model);
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
             resolver.invoke(
-                "cubism.editor-model.animation-file-content.set-current-scene-doc",
-                fileContent, sceneDocument
-            );
-            final Object animation = resolver.invoke(
-                "cubism.editor-model.scene-document.animation", sceneDocument
-            );
-            resolver.invoke(
-                "cubism.editor-model.animation.set-current-scene",
-                animation, sceneSource
-            );
+                    "cubism.editor-model.animation-file-content.set-current-scene-doc", fileContent, sceneDocument);
+            final Object animation = resolver.invoke("cubism.editor-model.scene-document.animation", sceneDocument);
+            resolver.invoke("cubism.editor-model.animation.set-current-scene", animation, sceneSource);
             repaint(sceneDocument);
         }
 
-        @Override public AnimationCurveType defaultCurveType() {
+        @Override
+        public AnimationCurveType defaultCurveType() {
             requireSceneEditAuthorization();
             modelGuard.requireCurrent(identity, model);
-            return curveType(resolver.invoke(
-                "cubism.editor-model.scene-source.default-curve-type", sceneSource
-            ));
+            return curveType(resolver.invoke("cubism.editor-model.scene-source.default-curve-type", sceneSource));
         }
 
-        @Override public void setDefaultCurveType(final AnimationCurveType curveType) {
+        @Override
+        public void setDefaultCurveType(final AnimationCurveType curveType) {
             EditorHostThread.dispatch("Cubism animation scene write", () -> {
                 setDefaultCurveTypeOnEdt(curveType);
                 return null;
@@ -389,31 +397,28 @@ final class EditorAnimationTimelineAccess {
             requireSceneEditAuthorization();
             modelGuard.requireCurrent(identity, model);
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
-            writeWithSceneBasicDataUndo(sceneDocument, sceneSource,
-                "Turboism: Set Default Curve Type",
-                () -> resolver.invoke(
-                    "cubism.editor-model.scene-source.set-default-curve-type",
-                    sceneSource, curveTypeConstant(curveType)
-                ));
+            writeWithSceneBasicDataUndo(
+                    sceneDocument,
+                    sceneSource,
+                    "Turboism: Set Default Curve Type",
+                    () -> resolver.invoke(
+                            "cubism.editor-model.scene-source.set-default-curve-type",
+                            sceneSource,
+                            curveTypeConstant(curveType)));
         }
 
         private List<?> sceneInstances() {
             final List<?> instances = list(
-                resolver.invoke(
-                    "cubism.editor-model.scene-source.scene-instances", sceneSource
-                ),
-                "Editor animation scene instances"
-            );
+                    resolver.invoke("cubism.editor-model.scene-source.scene-instances", sceneSource),
+                    "Editor animation scene instances");
             if (instances.isEmpty()) {
-                throw new IllegalStateException(
-                    "Editor animation scene has no live instance.");
+                throw new IllegalStateException("Editor animation scene has no live instance.");
             }
             for (Object instance : instances) {
                 requireInstance(
-                    "cubism.editor-model.scene-instance.class",
-                    instance,
-                    "Editor animation scene instance is invalid."
-                );
+                        "cubism.editor-model.scene-instance.class",
+                        instance,
+                        "Editor animation scene instance is invalid.");
             }
             return instances;
         }
@@ -423,9 +428,7 @@ final class EditorAnimationTimelineAccess {
         }
 
         private Object currentTime(final Object instance) {
-            final Object time = resolver.invoke(
-                "cubism.editor-model.scene-instance.current-time", instance
-            );
+            final Object time = resolver.invoke("cubism.editor-model.scene-instance.current-time", instance);
             if (time == null) {
                 throw unavailable("Editor animation scene time is invalid.");
             }
@@ -435,12 +438,9 @@ final class EditorAnimationTimelineAccess {
         /** Repaints the canvas through the document's complete pack. */
         private void repaint(final Object sceneDocument) {
             resolver.invoke(
-                "cubism.editor-model.complete-pack.repaint-canvas",
-                resolver.invoke(
-                    "cubism.editor-model.scene-document.complete-pack", sceneDocument
-                ),
-                Boolean.TRUE
-            );
+                    "cubism.editor-model.complete-pack.repaint-canvas",
+                    resolver.invoke("cubism.editor-model.scene-document.complete-pack", sceneDocument),
+                    Boolean.TRUE);
         }
     }
 
@@ -453,8 +453,7 @@ final class EditorAnimationTimelineAccess {
         }
         final Map<Integer, String> markers = new LinkedHashMap<>();
         for (Map.Entry<?, ?> entry : map.entrySet()) {
-            if (!(entry.getKey() instanceof Integer frame)
-                || !(entry.getValue() instanceof String label)) {
+            if (!(entry.getKey() instanceof Integer frame) || !(entry.getValue() instanceof String label)) {
                 throw unavailable("Editor animation scene marker is invalid.");
             }
             markers.put(frame, label);
@@ -466,84 +465,53 @@ final class EditorAnimationTimelineAccess {
     // track projection
     // ------------------------------------------------------------------
 
-    private List<AnimationTrack> tracks(
-        final Object rootTrack,
-        final Object sceneSource,
-        final Object fileContent
-    ) {
-        requireInstance(
-            "cubism.editor-model.track-group.class",
-            rootTrack,
-            "Editor animation root track is invalid."
-        );
+    private List<AnimationTrack> tracks(final Object rootTrack, final Object sceneSource, final Object fileContent) {
+        requireInstance("cubism.editor-model.track-group.class", rootTrack, "Editor animation root track is invalid.");
         final List<AnimationTrack> tracks = new ArrayList<>();
         for (Object child : list(
-            resolver.invoke("cubism.editor-model.track-group.children", rootTrack),
-            "Editor animation root track children"
-        )) {
+                resolver.invoke("cubism.editor-model.track-group.children", rootTrack),
+                "Editor animation root track children")) {
             tracks.add(track(child, sceneSource, fileContent, 1));
         }
         return List.copyOf(tracks);
     }
 
     private AnimationTrack track(
-        final Object trackSource,
-        final Object sceneSource,
-        final Object fileContent,
-        final int depth
-    ) {
+            final Object trackSource, final Object sceneSource, final Object fileContent, final int depth) {
         if (depth > MAX_TRACK_DEPTH) {
             throw unavailable("Editor animation track tree exceeds the supported depth.");
         }
-        requireInstance(
-            "cubism.editor-model.track-source.class",
-            trackSource,
-            "Editor animation track is invalid."
-        );
+        requireInstance("cubism.editor-model.track-source.class", trackSource, "Editor animation track is invalid.");
         final String guid = guidValue(
-            resolver.invoke("cubism.editor-model.track-source.guid", trackSource),
-            "Editor animation track guid"
-        );
+                resolver.invoke("cubism.editor-model.track-source.guid", trackSource), "Editor animation track guid");
         final String name = text(
-            resolver.invoke("cubism.editor-model.track-source.name", trackSource),
-            "Editor animation track name"
-        );
+                resolver.invoke("cubism.editor-model.track-source.name", trackSource), "Editor animation track name");
         final int startFrame = intValue(
-            resolver.invoke("cubism.editor-model.track-source.start", trackSource),
-            "Editor animation track start"
-        );
+                resolver.invoke("cubism.editor-model.track-source.start", trackSource), "Editor animation track start");
         final int durationFrames = intValue(
-            resolver.invoke("cubism.editor-model.track-source.duration", trackSource),
-            "Editor animation track duration"
-        );
+                resolver.invoke("cubism.editor-model.track-source.duration", trackSource),
+                "Editor animation track duration");
         final boolean visible = flag(
-            resolver.invoke("cubism.editor-model.track-source.visible", trackSource),
-            "Editor animation track visibility"
-        );
+                resolver.invoke("cubism.editor-model.track-source.visible", trackSource),
+                "Editor animation track visibility");
         final boolean editable = flag(
-            resolver.invoke("cubism.editor-model.track-source.editable", trackSource),
-            "Editor animation track editability"
-        );
+                resolver.invoke("cubism.editor-model.track-source.editable", trackSource),
+                "Editor animation track editability");
         final boolean muted = flag(
-            resolver.invoke("cubism.editor-model.track-source.mute", trackSource),
-            "Editor animation track mute"
-        );
+                resolver.invoke("cubism.editor-model.track-source.mute", trackSource), "Editor animation track mute");
         final boolean repeat = flag(
-            resolver.invoke("cubism.editor-model.track-source.repeat", trackSource),
-            "Editor animation track repeat"
-        );
+                resolver.invoke("cubism.editor-model.track-source.repeat", trackSource),
+                "Editor animation track repeat");
         final List<Integer> keyframeFrames = intArray(
-            resolver.invoke("cubism.editor-model.track-source.key-frames", trackSource),
-            "Editor animation track keyframes"
-        );
+                resolver.invoke("cubism.editor-model.track-source.key-frames", trackSource),
+                "Editor animation track keyframes");
         final AnimationTrackKind kind = trackKind(trackSource);
         final List<AnimationTrack> children;
         if (kind == AnimationTrackKind.GROUP) {
             final List<AnimationTrack> nested = new ArrayList<>();
             for (Object child : list(
-                resolver.invoke("cubism.editor-model.track-group.children", trackSource),
-                "Editor animation track children"
-            )) {
+                    resolver.invoke("cubism.editor-model.track-group.children", trackSource),
+                    "Editor animation track children")) {
                 nested.add(track(child, sceneSource, fileContent, depth + 1));
             }
             children = List.copyOf(nested);
@@ -552,25 +520,35 @@ final class EditorAnimationTimelineAccess {
         }
         final List<AnimationAttribute> attributes = attributes(trackSource, sceneSource, fileContent);
         final Optional<String> linkedModelGuid = linkedGuid(
-            trackSource,
-            "cubism.editor-model.track-model.class",
-            "cubism.editor-model.track-model.model",
-            "cubism.editor-model.model-source.guid",
-            "Editor animation linked model guid"
-        );
+                trackSource,
+                "cubism.editor-model.track-model.class",
+                "cubism.editor-model.track-model.model",
+                "cubism.editor-model.model-source.guid",
+                "Editor animation linked model guid");
         final Optional<String> linkedSceneGuid = linkedGuid(
-            trackSource,
-            "cubism.editor-model.track-scene.class",
-            "cubism.editor-model.track-scene.resource-scene-guid",
-            null,
-            "Editor animation linked scene guid"
-        );
+                trackSource,
+                "cubism.editor-model.track-scene.class",
+                "cubism.editor-model.track-scene.resource-scene-guid",
+                null,
+                "Editor animation linked scene guid");
         return new ProjectedTrack(
-            trackSource, sceneSource, fileContent,
-            guid, name, kind, startFrame, durationFrames, keyframeFrames,
-            visible, editable, muted, repeat, children, attributes,
-            linkedModelGuid, linkedSceneGuid
-        );
+                trackSource,
+                sceneSource,
+                fileContent,
+                guid,
+                name,
+                kind,
+                startFrame,
+                durationFrames,
+                keyframeFrames,
+                visible,
+                editable,
+                muted,
+                repeat,
+                children,
+                attributes,
+                linkedModelGuid,
+                linkedSceneGuid);
     }
 
     private final class ProjectedTrack implements AnimationTrack {
@@ -593,24 +571,23 @@ final class EditorAnimationTimelineAccess {
         private final Optional<String> linkedSceneGuid;
 
         private ProjectedTrack(
-            final Object trackSource,
-            final Object sceneSource,
-            final Object fileContent,
-            final String guid,
-            final String name,
-            final AnimationTrackKind kind,
-            final int startFrame,
-            final int durationFrames,
-            final List<Integer> keyframeFrames,
-            final boolean visible,
-            final boolean editable,
-            final boolean muted,
-            final boolean repeat,
-            final List<AnimationTrack> children,
-            final List<AnimationAttribute> attributes,
-            final Optional<String> linkedModelGuid,
-            final Optional<String> linkedSceneGuid
-        ) {
+                final Object trackSource,
+                final Object sceneSource,
+                final Object fileContent,
+                final String guid,
+                final String name,
+                final AnimationTrackKind kind,
+                final int startFrame,
+                final int durationFrames,
+                final List<Integer> keyframeFrames,
+                final boolean visible,
+                final boolean editable,
+                final boolean muted,
+                final boolean repeat,
+                final List<AnimationTrack> children,
+                final List<AnimationAttribute> attributes,
+                final Optional<String> linkedModelGuid,
+                final Optional<String> linkedSceneGuid) {
             this.trackSource = trackSource;
             this.sceneSource = sceneSource;
             this.fileContent = fileContent;
@@ -630,20 +607,75 @@ final class EditorAnimationTimelineAccess {
             this.linkedSceneGuid = linkedSceneGuid;
         }
 
-        @Override public String guid() { return guid; }
-        @Override public String name() { return name; }
-        @Override public AnimationTrackKind kind() { return kind; }
-        @Override public int startFrame() { return startFrame; }
-        @Override public int durationFrames() { return durationFrames; }
-        @Override public List<Integer> keyframeFrames() { return keyframeFrames; }
-        @Override public boolean visible() { return visible; }
-        @Override public boolean editable() { return editable; }
-        @Override public boolean muted() { return muted; }
-        @Override public boolean repeat() { return repeat; }
-        @Override public List<AnimationTrack> children() { return children; }
-        @Override public List<AnimationAttribute> attributes() { return attributes; }
-        @Override public Optional<String> linkedModelGuid() { return linkedModelGuid; }
-        @Override public Optional<String> linkedSceneGuid() { return linkedSceneGuid; }
+        @Override
+        public String guid() {
+            return guid;
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public AnimationTrackKind kind() {
+            return kind;
+        }
+
+        @Override
+        public int startFrame() {
+            return startFrame;
+        }
+
+        @Override
+        public int durationFrames() {
+            return durationFrames;
+        }
+
+        @Override
+        public List<Integer> keyframeFrames() {
+            return keyframeFrames;
+        }
+
+        @Override
+        public boolean visible() {
+            return visible;
+        }
+
+        @Override
+        public boolean editable() {
+            return editable;
+        }
+
+        @Override
+        public boolean muted() {
+            return muted;
+        }
+
+        @Override
+        public boolean repeat() {
+            return repeat;
+        }
+
+        @Override
+        public List<AnimationTrack> children() {
+            return children;
+        }
+
+        @Override
+        public List<AnimationAttribute> attributes() {
+            return attributes;
+        }
+
+        @Override
+        public Optional<String> linkedModelGuid() {
+            return linkedModelGuid;
+        }
+
+        @Override
+        public Optional<String> linkedSceneGuid() {
+            return linkedSceneGuid;
+        }
     }
 
     private AnimationTrackKind trackKind(final Object trackSource) {
@@ -675,12 +707,11 @@ final class EditorAnimationTimelineAccess {
     }
 
     private Optional<String> linkedGuid(
-        final Object trackSource,
-        final String trackClassAlias,
-        final String linkAlias,
-        final String linkedGuidAlias,
-        final String label
-    ) {
+            final Object trackSource,
+            final String trackClassAlias,
+            final String linkAlias,
+            final String linkedGuidAlias,
+            final String label) {
         if (!resolver.isInstance(trackClassAlias, trackSource)) {
             return Optional.empty();
         }
@@ -688,9 +719,7 @@ final class EditorAnimationTimelineAccess {
         if (linked == null) {
             return Optional.empty();
         }
-        final Object rawGuid = linkedGuidAlias == null
-            ? linked
-            : resolver.invoke(linkedGuidAlias, linked);
+        final Object rawGuid = linkedGuidAlias == null ? linked : resolver.invoke(linkedGuidAlias, linked);
         return Optional.of(guidValue(rawGuid, label));
     }
 
@@ -699,45 +728,28 @@ final class EditorAnimationTimelineAccess {
     // ------------------------------------------------------------------
 
     private List<AnimationAttribute> attributes(
-        final Object trackSource,
-        final Object sceneSource,
-        final Object fileContent
-    ) {
-        final Object effectManager = resolver.invoke(
-            "cubism.editor-model.track-source.effect-manager", trackSource
-        );
+            final Object trackSource, final Object sceneSource, final Object fileContent) {
+        final Object effectManager = resolver.invoke("cubism.editor-model.track-source.effect-manager", trackSource);
         if (effectManager == null) {
             return List.of();
         }
         requireInstance(
-            "cubism.editor-model.effect-manager.class",
-            effectManager,
-            "Editor animation effect manager is invalid."
-        );
+                "cubism.editor-model.effect-manager.class",
+                effectManager,
+                "Editor animation effect manager is invalid.");
         final List<AnimationAttribute> attributes = new ArrayList<>();
         for (Object effect : objectArray(
-            resolver.invoke("cubism.editor-model.effect-manager.effects", effectManager),
-            "Editor animation effects"
-        )) {
-            requireInstance(
-                "cubism.editor-model.effect.class",
-                effect,
-                "Editor animation effect is invalid."
-            );
-            final boolean parameterEffect = resolver.isInstance(
-                "cubism.editor-model.effect-parameter.class", effect
-            );
+                resolver.invoke("cubism.editor-model.effect-manager.effects", effectManager),
+                "Editor animation effects")) {
+            requireInstance("cubism.editor-model.effect.class", effect, "Editor animation effect is invalid.");
+            final boolean parameterEffect = resolver.isInstance("cubism.editor-model.effect-parameter.class", effect);
             final String effectId = text(
-                resolver.invoke(
-                    "cubism.editor-model.id.value",
-                    resolver.invoke("cubism.editor-model.effect.id", effect)
-                ),
-                "Editor animation effect id"
-            );
+                    resolver.invoke(
+                            "cubism.editor-model.id.value", resolver.invoke("cubism.editor-model.effect.id", effect)),
+                    "Editor animation effect id");
             for (Object attribute : objectArray(
-                resolver.invoke("cubism.editor-model.effect.attrs", effect),
-                "Editor animation effect attributes"
-            )) {
+                    resolver.invoke("cubism.editor-model.effect.attrs", effect),
+                    "Editor animation effect attributes")) {
                 attributes.add(attribute(attribute, effectId, parameterEffect, trackSource, sceneSource, fileContent));
             }
         }
@@ -745,67 +757,59 @@ final class EditorAnimationTimelineAccess {
     }
 
     private AnimationAttribute attribute(
-        final Object attribute,
-        final String effectId,
-        final boolean parameterEffect,
-        final Object trackSource,
-        final Object sceneSource,
-        final Object fileContent
-    ) {
-        requireInstance(
-            "cubism.editor-model.attr.class",
-            attribute,
-            "Editor animation attribute is invalid."
-        );
+            final Object attribute,
+            final String effectId,
+            final boolean parameterEffect,
+            final Object trackSource,
+            final Object sceneSource,
+            final Object fileContent) {
+        requireInstance("cubism.editor-model.attr.class", attribute, "Editor animation attribute is invalid.");
         final String id = text(
-            resolver.invoke(
-                "cubism.editor-model.id.value",
-                resolver.invoke("cubism.editor-model.attr.id", attribute)
-            ),
-            "Editor animation attribute id"
-        );
-        final String name = text(
-            resolver.invoke("cubism.editor-model.attr.name", attribute),
-            "Editor animation attribute name"
-        );
+                resolver.invoke(
+                        "cubism.editor-model.id.value", resolver.invoke("cubism.editor-model.attr.id", attribute)),
+                "Editor animation attribute id");
+        final String name =
+                text(resolver.invoke("cubism.editor-model.attr.name", attribute), "Editor animation attribute name");
         final String guid = guidValue(
-            resolver.invoke("cubism.editor-model.attr.guid", attribute),
-            "Editor animation attribute guid"
-        );
+                resolver.invoke("cubism.editor-model.attr.guid", attribute), "Editor animation attribute guid");
         final boolean active = flag(
-            resolver.invoke("cubism.editor-model.attr.active", attribute),
-            "Editor animation attribute active flag"
-        );
+                resolver.invoke("cubism.editor-model.attr.active", attribute),
+                "Editor animation attribute active flag");
         final boolean editable = flag(
-            resolver.invoke("cubism.editor-model.attr.editable", attribute),
-            "Editor animation attribute editability"
-        );
+                resolver.invoke("cubism.editor-model.attr.editable", attribute),
+                "Editor animation attribute editability");
         final AnimationAttributeKind kind = attributeKind(attribute);
         final Optional<ParameterId> parameterId = parameterEffect
-            && id.startsWith(PARAMETER_ATTRIBUTE_PREFIX)
-            && id.length() > PARAMETER_ATTRIBUTE_PREFIX.length()
-            ? Optional.of(new ParameterId(id.substring(PARAMETER_ATTRIBUTE_PREFIX.length())))
-            : Optional.empty();
+                        && id.startsWith(PARAMETER_ATTRIBUTE_PREFIX)
+                        && id.length() > PARAMETER_ATTRIBUTE_PREFIX.length()
+                ? Optional.of(new ParameterId(id.substring(PARAMETER_ATTRIBUTE_PREFIX.length())))
+                : Optional.empty();
         final List<AnimationKeyframe> projected = List.copyOf(keyframes(attribute, kind));
         return new ProjectedAttribute(
-            attribute, trackSource, sceneSource, fileContent,
-            id, name, guid, effectId, parameterId, kind, active, editable, projected
-        );
+                attribute,
+                trackSource,
+                sceneSource,
+                fileContent,
+                id,
+                name,
+                guid,
+                effectId,
+                parameterId,
+                kind,
+                active,
+                editable,
+                projected);
     }
 
-    private List<AnimationKeyframe> keyframes(
-        final Object attribute,
-        final AnimationAttributeKind kind
-    ) {
+    private List<AnimationKeyframe> keyframes(final Object attribute, final AnimationAttributeKind kind) {
         final int[] keyFrames = rawIntArray(
-            resolver.invoke("cubism.editor-model.attr.key-frames", attribute),
-            "Editor animation attribute keyframes"
-        );
+                resolver.invoke("cubism.editor-model.attr.key-frames", attribute),
+                "Editor animation attribute keyframes");
         final Object sequence = kind == AnimationAttributeKind.FLOAT
-            ? resolver.invoke("cubism.editor-model.attr-f.value-data", attribute)
-            : null;
-        final boolean mutableSequence = sequence != null
-            && resolver.isInstance("cubism.editor-model.mutable-sequence.class", sequence);
+                ? resolver.invoke("cubism.editor-model.attr-f.value-data", attribute)
+                : null;
+        final boolean mutableSequence =
+                sequence != null && resolver.isInstance("cubism.editor-model.mutable-sequence.class", sequence);
         final List<AnimationKeyframe> keyframes = new ArrayList<>(keyFrames.length);
         for (int frame : keyFrames) {
             keyframes.add(keyframe(attribute, sequence, mutableSequence, kind, frame));
@@ -829,20 +833,19 @@ final class EditorAnimationTimelineAccess {
         private final List<AnimationKeyframe> keyframes;
 
         private ProjectedAttribute(
-            final Object attribute,
-            final Object trackSource,
-            final Object sceneSource,
-            final Object fileContent,
-            final String id,
-            final String name,
-            final String guid,
-            final String effectId,
-            final Optional<ParameterId> parameterId,
-            final AnimationAttributeKind kind,
-            final boolean active,
-            final boolean editable,
-            final List<AnimationKeyframe> keyframes
-        ) {
+                final Object attribute,
+                final Object trackSource,
+                final Object sceneSource,
+                final Object fileContent,
+                final String id,
+                final String name,
+                final String guid,
+                final String effectId,
+                final Optional<ParameterId> parameterId,
+                final AnimationAttributeKind kind,
+                final boolean active,
+                final boolean editable,
+                final List<AnimationKeyframe> keyframes) {
             this.attribute = attribute;
             this.trackSource = trackSource;
             this.sceneSource = sceneSource;
@@ -858,17 +861,53 @@ final class EditorAnimationTimelineAccess {
             this.keyframes = keyframes;
         }
 
-        @Override public String id() { return id; }
-        @Override public String name() { return name; }
-        @Override public String guid() { return guid; }
-        @Override public String effectId() { return effectId; }
-        @Override public Optional<ParameterId> parameterId() { return parameterId; }
-        @Override public AnimationAttributeKind kind() { return kind; }
-        @Override public boolean active() { return active; }
-        @Override public boolean editable() { return editable; }
-        @Override public List<AnimationKeyframe> keyframes() { return keyframes; }
+        @Override
+        public String id() {
+            return id;
+        }
 
-        @Override public void setKeyframe(final int frame, final double value) {
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public String guid() {
+            return guid;
+        }
+
+        @Override
+        public String effectId() {
+            return effectId;
+        }
+
+        @Override
+        public Optional<ParameterId> parameterId() {
+            return parameterId;
+        }
+
+        @Override
+        public AnimationAttributeKind kind() {
+            return kind;
+        }
+
+        @Override
+        public boolean active() {
+            return active;
+        }
+
+        @Override
+        public boolean editable() {
+            return editable;
+        }
+
+        @Override
+        public List<AnimationKeyframe> keyframes() {
+            return keyframes;
+        }
+
+        @Override
+        public void setKeyframe(final int frame, final double value) {
             EditorHostThread.dispatch("Cubism animation keyframe write", () -> {
                 setKeyframeOnEdt(frame, value);
                 return null;
@@ -880,56 +919,52 @@ final class EditorAnimationTimelineAccess {
                 throw new IllegalArgumentException("keyframe value must be finite");
             }
             if (kind == AnimationAttributeKind.POINT) {
-                throw new IllegalArgumentException(
-                    "point attributes require x/y keyframe values");
+                throw new IllegalArgumentException("point attributes require x/y keyframe values");
             }
             requireWritableAttribute();
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
-            write(sceneDocument, attribute, "Turboism: Set Animation Keyframe",
-                () -> resolver.invoke(
-                    "cubism.editor-model.attr.set-value-auto",
-                    attribute, frame, value
-                ));
+            write(
+                    sceneDocument,
+                    attribute,
+                    "Turboism: Set Animation Keyframe",
+                    () -> resolver.invoke("cubism.editor-model.attr.set-value-auto", attribute, frame, value));
         }
 
-        @Override public void setKeyframe(
-            final int frame,
-            final double value,
-            final AnimationCurveType curveType
-        ) {
+        @Override
+        public void setKeyframe(final int frame, final double value, final AnimationCurveType curveType) {
             EditorHostThread.dispatch("Cubism animation keyframe write", () -> {
                 setKeyframeOnEdt(frame, value, curveType);
                 return null;
             });
         }
 
-        private void setKeyframeOnEdt(
-            final int frame,
-            final double value,
-            final AnimationCurveType curveType
-        ) {
+        private void setKeyframeOnEdt(final int frame, final double value, final AnimationCurveType curveType) {
             if (!Double.isFinite(value)) {
                 throw new IllegalArgumentException("keyframe value must be finite");
             }
             Objects.requireNonNull(curveType, "curveType");
             if (kind != AnimationAttributeKind.FLOAT) {
-                throw new IllegalArgumentException(
-                    "curve types only apply to float attributes");
+                throw new IllegalArgumentException("curve types only apply to float attributes");
             }
             requireWritableAttribute();
             if (mutableSequence(attribute) == null) {
-                throw new IllegalStateException(
-                    "Editor animation attribute sequence is not mutable.");
+                throw new IllegalStateException("Editor animation attribute sequence is not mutable.");
             }
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
-            write(sceneDocument, attribute, "Turboism: Set Animation Keyframe",
-                () -> resolver.invoke(
-                    "cubism.editor-model.attr-f.set-value-curve",
-                    attribute, frame, value, curveTypeConstant(curveType)
-                ));
+            write(
+                    sceneDocument,
+                    attribute,
+                    "Turboism: Set Animation Keyframe",
+                    () -> resolver.invoke(
+                            "cubism.editor-model.attr-f.set-value-curve",
+                            attribute,
+                            frame,
+                            value,
+                            curveTypeConstant(curveType)));
         }
 
-        @Override public void setKeyframe(final int frame, final float x, final float y) {
+        @Override
+        public void setKeyframe(final int frame, final float x, final float y) {
             EditorHostThread.dispatch("Cubism animation keyframe write", () -> {
                 setKeyframeOnEdt(frame, x, y);
                 return null;
@@ -941,19 +976,19 @@ final class EditorAnimationTimelineAccess {
                 throw new IllegalArgumentException("keyframe coordinates must be finite");
             }
             if (kind != AnimationAttributeKind.POINT) {
-                throw new IllegalArgumentException(
-                    "x/y keyframes only apply to point attributes");
+                throw new IllegalArgumentException("x/y keyframes only apply to point attributes");
             }
             requireWritableAttribute();
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
-            write(sceneDocument, attribute, "Turboism: Set Animation Keyframe",
-                () -> resolver.invoke(
-                    "cubism.editor-model.attr-pt.set-value-auto",
-                    attribute, frame, x, y
-                ));
+            write(
+                    sceneDocument,
+                    attribute,
+                    "Turboism: Set Animation Keyframe",
+                    () -> resolver.invoke("cubism.editor-model.attr-pt.set-value-auto", attribute, frame, x, y));
         }
 
-        @Override public void removeKeyframe(final int frame) {
+        @Override
+        public void removeKeyframe(final int frame) {
             EditorHostThread.dispatch("Cubism animation keyframe write", () -> {
                 removeKeyframeOnEdt(frame);
                 return null;
@@ -966,73 +1001,64 @@ final class EditorAnimationTimelineAccess {
             }
             requireWritableAttribute();
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
-            write(sceneDocument, attribute, "Turboism: Remove Animation Keyframe",
-                () -> resolver.invoke(
-                    "cubism.editor-model.attr.remove-value-auto",
-                    attribute, frame
-                ));
+            write(
+                    sceneDocument,
+                    attribute,
+                    "Turboism: Remove Animation Keyframe",
+                    () -> resolver.invoke("cubism.editor-model.attr.remove-value-auto", attribute, frame));
         }
 
-        @Override public int offsetKeyframes(final int frameDelta) {
+        @Override
+        public int offsetKeyframes(final int frameDelta) {
             if (frameDelta == 0) {
                 return keyframes.size();
             }
-            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
-                transformKeyframes(
-                    frame -> frame + frameDelta,
-                    KeyData::shiftedTo,
-                    "Turboism: Offset Animation Keyframes"
-                )
-            );
+            return EditorHostThread.dispatch(
+                    "Cubism animation keyframe write",
+                    () -> transformKeyframes(
+                            frame -> frame + frameDelta, KeyData::shiftedTo, "Turboism: Offset Animation Keyframes"));
         }
 
-        @Override public int scaleKeyframeTimes(final double factor, final int originFrame) {
+        @Override
+        public int scaleKeyframeTimes(final double factor, final int originFrame) {
             if (!Double.isFinite(factor) || factor <= 0.0) {
                 throw new IllegalArgumentException("scale factor must be positive and finite");
             }
-            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
-                transformKeyframes(
-                    frame -> originFrame + (int) Math.round((frame - originFrame) * factor),
-                    (key, newFrame) -> key.scaledTo(newFrame, originFrame, factor),
-                    "Turboism: Scale Animation Keyframe Times"
-                )
-            );
+            return EditorHostThread.dispatch(
+                    "Cubism animation keyframe write",
+                    () -> transformKeyframes(
+                            frame -> originFrame + (int) Math.round((frame - originFrame) * factor),
+                            (key, newFrame) -> key.scaledTo(newFrame, originFrame, factor),
+                            "Turboism: Scale Animation Keyframe Times"));
         }
 
-        @Override public int quantizeKeyframes(final int stepFrames) {
+        @Override
+        public int quantizeKeyframes(final int stepFrames) {
             if (stepFrames <= 0) {
                 throw new IllegalArgumentException("step must be positive");
             }
-            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
-                transformKeyframes(
-                    frame -> (int) (Math.round(frame / (double) stepFrames) * stepFrames),
-                    KeyData::shiftedTo,
-                    "Turboism: Quantize Animation Keyframes"
-                )
-            );
+            return EditorHostThread.dispatch(
+                    "Cubism animation keyframe write",
+                    () -> transformKeyframes(
+                            frame -> (int) (Math.round(frame / (double) stepFrames) * stepFrames),
+                            KeyData::shiftedTo,
+                            "Turboism: Quantize Animation Keyframes"));
         }
 
-        @Override public int copyKeyframesFrom(
-            final AnimationAttribute source,
-            final boolean replace
-        ) {
-            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
-                copyKeyframesFromOnEdt(source, replace)
-            );
+        @Override
+        public int copyKeyframesFrom(final AnimationAttribute source, final boolean replace) {
+            return EditorHostThread.dispatch(
+                    "Cubism animation keyframe write", () -> copyKeyframesFromOnEdt(source, replace));
         }
 
-        private int copyKeyframesFromOnEdt(
-            final AnimationAttribute source,
-            final boolean replace
-        ) {
+        private int copyKeyframesFromOnEdt(final AnimationAttribute source, final boolean replace) {
             Objects.requireNonNull(source, "source");
             if (!(source instanceof ProjectedAttribute projected)) {
-                throw new IllegalArgumentException(
-                    "source attribute must come from an Editor animation timeline");
+                throw new IllegalArgumentException("source attribute must come from an Editor animation timeline");
             }
             if (projected.kind != kind) {
                 throw new IllegalArgumentException(
-                    "source attribute kind " + projected.kind + " does not match " + kind);
+                        "source attribute kind " + projected.kind + " does not match " + kind);
             }
             requireWritableAttribute();
             final List<KeyData> sourceKeys = projected.captureKeys();
@@ -1040,44 +1066,38 @@ final class EditorAnimationTimelineAccess {
                 return 0;
             }
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
-            write(sceneDocument, attribute, "Turboism: Copy Animation Keyframes",
-                () -> replaceKeys(sourceKeys, replace));
+            write(
+                    sceneDocument,
+                    attribute,
+                    "Turboism: Copy Animation Keyframes",
+                    () -> replaceKeys(sourceKeys, replace));
             return sourceKeys.size();
         }
 
-        @Override public int applyCurveType(final AnimationCurveType curveType) {
+        @Override
+        public int applyCurveType(final AnimationCurveType curveType) {
             Objects.requireNonNull(curveType, "curveType");
             return applyCurveType(curveType, Integer.MIN_VALUE, Integer.MAX_VALUE);
         }
 
-        @Override public int applyCurveType(
-            final AnimationCurveType curveType,
-            final int fromFrame,
-            final int toFrame
-        ) {
-            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
-                applyCurveTypeOnEdt(curveType, fromFrame, toFrame)
-            );
+        @Override
+        public int applyCurveType(final AnimationCurveType curveType, final int fromFrame, final int toFrame) {
+            return EditorHostThread.dispatch(
+                    "Cubism animation keyframe write", () -> applyCurveTypeOnEdt(curveType, fromFrame, toFrame));
         }
 
-        private int applyCurveTypeOnEdt(
-            final AnimationCurveType curveType,
-            final int fromFrame,
-            final int toFrame
-        ) {
+        private int applyCurveTypeOnEdt(final AnimationCurveType curveType, final int fromFrame, final int toFrame) {
             Objects.requireNonNull(curveType, "curveType");
             if (fromFrame > toFrame) {
                 throw new IllegalArgumentException("fromFrame must be <= toFrame");
             }
             if (kind != AnimationAttributeKind.FLOAT) {
-                throw new IllegalArgumentException(
-                    "curve types only apply to float attributes");
+                throw new IllegalArgumentException("curve types only apply to float attributes");
             }
             requireWritableAttribute();
             final Object sequence = mutableSequence(attribute);
             if (sequence == null) {
-                throw new IllegalStateException(
-                    "Editor animation attribute sequence is not mutable.");
+                throw new IllegalStateException("Editor animation attribute sequence is not mutable.");
             }
             final List<Integer> targets = new ArrayList<>();
             for (int frame : keyframeFrames(attribute)) {
@@ -1089,62 +1109,55 @@ final class EditorAnimationTimelineAccess {
                 return 0;
             }
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
-            write(sceneDocument, attribute, "Turboism: Apply Animation Curve Type",
-                () -> {
-                    for (int frame : targets) {
-                        resolver.invoke(
+            write(sceneDocument, attribute, "Turboism: Apply Animation Curve Type", () -> {
+                for (int frame : targets) {
+                    resolver.invoke(
                             "cubism.editor-model.mutable-sequence.set-curve-type",
-                            sequence, frame, curveTypeConstant(curveType)
-                        );
-                    }
-                });
+                            sequence,
+                            frame,
+                            curveTypeConstant(curveType));
+                }
+            });
             return targets.size();
         }
 
-        @Override public void recordKeyframe(
-            final int frame,
-            final AnimationCurveType curveType
-        ) {
+        @Override
+        public void recordKeyframe(final int frame, final AnimationCurveType curveType) {
             EditorHostThread.dispatch("Cubism animation keyframe write", () -> {
                 recordKeyframeOnEdt(frame, curveType);
                 return null;
             });
         }
 
-        private void recordKeyframeOnEdt(
-            final int frame,
-            final AnimationCurveType curveType
-        ) {
+        private void recordKeyframeOnEdt(final int frame, final AnimationCurveType curveType) {
             Objects.requireNonNull(curveType, "curveType");
             requireEvalAuthorization();
             requireWritableAttribute();
             final Object parameterSet = modelParameterSet();
             final double value = evaluatedParameterValue(parameterSet);
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
-            write(sceneDocument, attribute, "Turboism: Record Animation Keyframe",
-                () -> resolver.invoke(
-                    "cubism.editor-model.attr-f.set-value-curve",
-                    attribute, frame, value, curveTypeConstant(curveType)
-                ));
+            write(
+                    sceneDocument,
+                    attribute,
+                    "Turboism: Record Animation Keyframe",
+                    () -> resolver.invoke(
+                            "cubism.editor-model.attr-f.set-value-curve",
+                            attribute,
+                            frame,
+                            value,
+                            curveTypeConstant(curveType)));
         }
 
-        @Override public int bakeEvaluated(
-            final int fromFrame,
-            final int toFrame,
-            final int stepFrames,
-            final AnimationCurveType curveType
-        ) {
-            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
-                bakeEvaluatedOnEdt(fromFrame, toFrame, stepFrames, curveType)
-            );
+        @Override
+        public int bakeEvaluated(
+                final int fromFrame, final int toFrame, final int stepFrames, final AnimationCurveType curveType) {
+            return EditorHostThread.dispatch(
+                    "Cubism animation keyframe write",
+                    () -> bakeEvaluatedOnEdt(fromFrame, toFrame, stepFrames, curveType));
         }
 
         private int bakeEvaluatedOnEdt(
-            final int fromFrame,
-            final int toFrame,
-            final int stepFrames,
-            final AnimationCurveType curveType
-        ) {
+                final int fromFrame, final int toFrame, final int stepFrames, final AnimationCurveType curveType) {
             Objects.requireNonNull(curveType, "curveType");
             if (fromFrame > toFrame) {
                 throw new IllegalArgumentException("fromFrame must be <= toFrame");
@@ -1156,72 +1169,50 @@ final class EditorAnimationTimelineAccess {
             requireWritableAttribute();
             final Object sceneInstance = firstSceneInstance();
             final Object parameterSet = modelParameterSet(sceneInstance);
-            final Object rootTrack = resolver.invoke(
-                "cubism.editor-model.scene-instance.root-track", sceneInstance
-            );
+            final Object rootTrack = resolver.invoke("cubism.editor-model.scene-instance.root-track", sceneInstance);
             final Object time = currentTime(sceneInstance);
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
             final Object viewContext = viewContext(sceneDocument);
-            final Object flags = resolver.construct(
-                "cubism.editor-model.eval-flags.create", Boolean.FALSE
-            );
+            final Object flags = resolver.construct("cubism.editor-model.eval-flags.create", Boolean.FALSE);
             final int originalFrame = intValue(
-                resolver.invoke("cubism.editor-model.scene-time.frame", time),
-                "Editor animation scene time"
-            );
+                    resolver.invoke("cubism.editor-model.scene-time.frame", time), "Editor animation scene time");
             final int[] written = {0};
-            write(sceneDocument, attribute, "Turboism: Bake Evaluated Keyframes",
-                () -> {
-                    try {
-                        for (long frame = fromFrame; frame <= toFrame; frame += stepFrames) {
-                            resolver.invoke(
-                                "cubism.editor-model.scene-time.set-frame",
-                                time, (int) frame
-                            );
-                            resolver.invoke(
-                                "cubism.editor-model.track-instance.update",
-                                rootTrack, viewContext, time, flags
-                            );
-                            resolver.invoke(
-                                "cubism.editor-model.attr-f.set-value-curve",
-                                attribute, (int) frame,
-                                evaluatedParameterValue(parameterSet),
-                                curveTypeConstant(curveType)
-                            );
-                            written[0]++;
-                        }
-                    } finally {
+            write(sceneDocument, attribute, "Turboism: Bake Evaluated Keyframes", () -> {
+                try {
+                    for (long frame = fromFrame; frame <= toFrame; frame += stepFrames) {
+                        resolver.invoke("cubism.editor-model.scene-time.set-frame", time, (int) frame);
                         resolver.invoke(
-                            "cubism.editor-model.scene-time.set-frame",
-                            time, originalFrame
-                        );
+                                "cubism.editor-model.track-instance.update", rootTrack, viewContext, time, flags);
+                        resolver.invoke(
+                                "cubism.editor-model.attr-f.set-value-curve",
+                                attribute,
+                                (int) frame,
+                                evaluatedParameterValue(parameterSet),
+                                curveTypeConstant(curveType));
+                        written[0]++;
                     }
-                });
+                } finally {
+                    resolver.invoke("cubism.editor-model.scene-time.set-frame", time, originalFrame);
+                }
+            });
             return written[0];
         }
 
         /** First live instance of the scene this attribute animates. */
         private Object firstSceneInstance() {
             final List<?> instances = list(
-                resolver.invoke(
-                    "cubism.editor-model.scene-source.scene-instances", sceneSource
-                ),
-                "Editor animation scene instances"
-            );
+                    resolver.invoke("cubism.editor-model.scene-source.scene-instances", sceneSource),
+                    "Editor animation scene instances");
             for (Object instance : instances) {
-                if (resolver.isInstance(
-                    "cubism.editor-model.scene-instance.class", instance)) {
+                if (resolver.isInstance("cubism.editor-model.scene-instance.class", instance)) {
                     return instance;
                 }
             }
-            throw new IllegalStateException(
-                "Editor animation scene has no live instance.");
+            throw new IllegalStateException("Editor animation scene has no live instance.");
         }
 
         private Object currentTime(final Object instance) {
-            final Object time = resolver.invoke(
-                "cubism.editor-model.scene-instance.current-time", instance
-            );
+            final Object time = resolver.invoke("cubism.editor-model.scene-instance.current-time", instance);
             if (time == null) {
                 throw unavailable("Editor animation scene time is invalid.");
             }
@@ -1235,68 +1226,45 @@ final class EditorAnimationTimelineAccess {
 
         private Object modelParameterSet(final Object sceneInstance) {
             if (parameterId.isEmpty()) {
-                throw new IllegalStateException(
-                    "Editor animation attribute " + id + " carries no model parameter.");
+                throw new IllegalStateException("Editor animation attribute " + id + " carries no model parameter.");
             }
             for (Object trackInstance : list(
-                resolver.invoke(
-                    "cubism.editor-model.scene-instance.all-tracks", sceneInstance
-                ),
-                "Editor animation track instances"
-            )) {
-                if (!resolver.isInstance(
-                    "cubism.editor-model.track-model-instance.class", trackInstance)) {
+                    resolver.invoke("cubism.editor-model.scene-instance.all-tracks", sceneInstance),
+                    "Editor animation track instances")) {
+                if (!resolver.isInstance("cubism.editor-model.track-model-instance.class", trackInstance)) {
                     continue;
                 }
-                if (resolver.invoke(
-                    "cubism.editor-model.track-instance.source", trackInstance
-                ) == trackSource) {
-                    return resolver.invoke(
-                        "cubism.editor-model.track-model-instance.parameter-set",
-                        trackInstance
-                    );
+                if (resolver.invoke("cubism.editor-model.track-instance.source", trackInstance) == trackSource) {
+                    return resolver.invoke("cubism.editor-model.track-model-instance.parameter-set", trackInstance);
                 }
             }
-            throw new IllegalStateException(
-                "Editor animation track has no live model instance.");
+            throw new IllegalStateException("Editor animation track has no live model instance.");
         }
 
         /** Current evaluated value of this attribute's bound parameter. */
         private double evaluatedParameterValue(final Object parameterSet) {
             final String wanted = parameterId.orElseThrow().value();
             for (Object parameter : list(
-                resolver.invoke(
-                    "cubism.editor-model.parameter-set.parameters", parameterSet
-                ),
-                "Editor animation evaluated parameters"
-            )) {
-                final Object parameterIdValue = resolver.invoke(
-                    "cubism.editor-model.parameter.id", parameter
-                );
+                    resolver.invoke("cubism.editor-model.parameter-set.parameters", parameterSet),
+                    "Editor animation evaluated parameters")) {
+                final Object parameterIdValue = resolver.invoke("cubism.editor-model.parameter.id", parameter);
                 if (wanted.equals(text(
-                    resolver.invoke("cubism.editor-model.id.value", parameterIdValue),
-                    "Editor animation parameter id"
-                ))) {
+                        resolver.invoke("cubism.editor-model.id.value", parameterIdValue),
+                        "Editor animation parameter id"))) {
                     return doubleValue(
-                        resolver.invoke("cubism.editor-model.parameter.value", parameter),
-                        "Editor animation parameter value"
-                    );
+                            resolver.invoke("cubism.editor-model.parameter.value", parameter),
+                            "Editor animation parameter value");
                 }
             }
-            throw new IllegalStateException(
-                "Editor animation parameter " + wanted + " is not evaluated.");
+            throw new IllegalStateException("Editor animation parameter " + wanted + " is not evaluated.");
         }
 
         private Object viewContext(final Object sceneDocument) {
             final List<?> contexts = list(
-                resolver.invoke(
-                    "cubism.editor-model.scene-document.view-contexts", sceneDocument
-                ),
-                "Editor animation scene view contexts"
-            );
+                    resolver.invoke("cubism.editor-model.scene-document.view-contexts", sceneDocument),
+                    "Editor animation scene view contexts");
             if (contexts.isEmpty()) {
-                throw new IllegalStateException(
-                    "Editor animation scene has no open view context.");
+                throw new IllegalStateException("Editor animation scene has no open view context.");
             }
             return contexts.get(0);
         }
@@ -1308,10 +1276,7 @@ final class EditorAnimationTimelineAccess {
          * delta while scaling applies the same affine transform as keyframes.
          */
         private int transformKeyframes(
-            final java.util.function.IntUnaryOperator mapping,
-            final KeyframeRemap remap,
-            final String label
-        ) {
+                final java.util.function.IntUnaryOperator mapping, final KeyframeRemap remap, final String label) {
             requireWritableAttribute();
             final List<KeyData> source = captureKeys();
             if (source.isEmpty()) {
@@ -1325,10 +1290,7 @@ final class EditorAnimationTimelineAccess {
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
             write(sceneDocument, attribute, label, () -> {
                 for (KeyData key : source) {
-                    resolver.invoke(
-                        "cubism.editor-model.attr.remove-value-auto",
-                        attribute, key.frame()
-                    );
+                    resolver.invoke("cubism.editor-model.attr.remove-value-auto", attribute, key.frame());
                 }
                 insertKeys(mapped);
             });
@@ -1338,27 +1300,21 @@ final class EditorAnimationTimelineAccess {
         private void replaceKeys(final List<KeyData> keys, final boolean replace) {
             if (replace) {
                 for (int frame : keyframeFrames(attribute)) {
-                    resolver.invoke(
-                        "cubism.editor-model.attr.remove-value-auto",
-                        attribute, frame
-                    );
+                    resolver.invoke("cubism.editor-model.attr.remove-value-auto", attribute, frame);
                 }
             }
             insertKeys(keys);
         }
 
         private void insertKeys(final List<KeyData> keys) {
-            final boolean handles = kind == AnimationAttributeKind.FLOAT
-                && keys.stream().anyMatch(KeyData::hasHandles);
+            final boolean handles =
+                    kind == AnimationAttributeKind.FLOAT && keys.stream().anyMatch(KeyData::hasHandles);
             for (KeyData key : keys) {
                 insertKey(key);
             }
             if (handles) {
                 restoreHandles(keys);
-                resolver.invoke(
-                    "cubism.editor-model.mutable-sequence.force-update",
-                    mutableSequence(attribute)
-                );
+                resolver.invoke("cubism.editor-model.mutable-sequence.force-update", mutableSequence(attribute));
             }
         }
 
@@ -1367,27 +1323,27 @@ final class EditorAnimationTimelineAccess {
                 case FLOAT -> {
                     if (key.curveType() != null) {
                         resolver.invoke(
-                            "cubism.editor-model.attr-f.set-value-curve",
-                            attribute, key.frame(), key.value(),
-                            curveTypeConstant(key.curveType())
-                        );
+                                "cubism.editor-model.attr-f.set-value-curve",
+                                attribute,
+                                key.frame(),
+                                key.value(),
+                                curveTypeConstant(key.curveType()));
                     } else {
-                        resolver.invoke(
-                            "cubism.editor-model.attr.set-value-auto",
-                            attribute, key.frame(), key.value()
-                        );
+                        resolver.invoke("cubism.editor-model.attr.set-value-auto", attribute, key.frame(), key.value());
                     }
                 }
-                case INTEGER -> resolver.invoke(
-                    "cubism.editor-model.attr-i.set-value-auto",
-                    attribute, key.frame(), key.value()
-                );
-                case POINT -> resolver.invoke(
-                    "cubism.editor-model.attr-pt.set-value-auto",
-                    attribute, key.frame(), key.pointX(), key.pointY()
-                );
-                default -> throw new IllegalStateException(
-                    "Editor animation attribute kind " + kind + " does not carry keys.");
+                case INTEGER ->
+                    resolver.invoke("cubism.editor-model.attr-i.set-value-auto", attribute, key.frame(), key.value());
+                case POINT ->
+                    resolver.invoke(
+                            "cubism.editor-model.attr-pt.set-value-auto",
+                            attribute,
+                            key.frame(),
+                            key.pointX(),
+                            key.pointY());
+                default ->
+                    throw new IllegalStateException(
+                            "Editor animation attribute kind " + kind + " does not carry keys.");
             }
         }
 
@@ -1401,25 +1357,15 @@ final class EditorAnimationTimelineAccess {
                 if (!key.hasHandles()) {
                     continue;
                 }
-                final Object point = resolver.invoke(
-                    "cubism.editor-model.mutable-sequence.point", sequence, key.frame()
-                );
+                final Object point =
+                        resolver.invoke("cubism.editor-model.mutable-sequence.point", sequence, key.frame());
                 if (point == null) {
                     continue;
                 }
                 requireInstance(
-                    "cubism.editor-model.bezier-point.class",
-                    point,
-                    "Editor animation bezier point is invalid."
-                );
-                restoreHandle(
-                    resolver.invoke("cubism.editor-model.bezier-point.prev", point),
-                    key.inHandle()
-                );
-                restoreHandle(
-                    resolver.invoke("cubism.editor-model.bezier-point.next", point),
-                    key.outHandle()
-                );
+                        "cubism.editor-model.bezier-point.class", point, "Editor animation bezier point is invalid.");
+                restoreHandle(resolver.invoke("cubism.editor-model.bezier-point.prev", point), key.inHandle());
+                restoreHandle(resolver.invoke("cubism.editor-model.bezier-point.next", point), key.outHandle());
             }
         }
 
@@ -1428,29 +1374,17 @@ final class EditorAnimationTimelineAccess {
                 return;
             }
             requireInstance(
-                "cubism.editor-model.bezier-ctrl-point.class",
-                controlPoint,
-                "Editor animation bezier control point is invalid."
-            );
-            resolver.invoke(
-                "cubism.editor-model.bezier-ctrl-point.set-pos",
-                controlPoint, handle.frame()
-            );
-            resolver.invoke(
-                "cubism.editor-model.bezier-ctrl-point.set-value",
-                controlPoint, handle.value()
-            );
-            resolver.invoke(
-                "cubism.editor-model.bezier-ctrl-point.set-corner",
-                controlPoint, handle.corner()
-            );
+                    "cubism.editor-model.bezier-ctrl-point.class",
+                    controlPoint,
+                    "Editor animation bezier control point is invalid.");
+            resolver.invoke("cubism.editor-model.bezier-ctrl-point.set-pos", controlPoint, handle.frame());
+            resolver.invoke("cubism.editor-model.bezier-ctrl-point.set-value", controlPoint, handle.value());
+            resolver.invoke("cubism.editor-model.bezier-ctrl-point.set-corner", controlPoint, handle.corner());
         }
 
         /** Snapshots this attribute's live keys for move/copy transforms. */
         private List<KeyData> captureKeys() {
-            final Object sequence = kind == AnimationAttributeKind.FLOAT
-                ? mutableSequence(attribute)
-                : null;
+            final Object sequence = kind == AnimationAttributeKind.FLOAT ? mutableSequence(attribute) : null;
             final List<KeyData> keys = new ArrayList<>();
             for (int frame : keyframeFrames(attribute)) {
                 final double value;
@@ -1467,27 +1401,19 @@ final class EditorAnimationTimelineAccess {
                 final HandleData outHandle;
                 if (sequence != null) {
                     curveType = curveType(
-                        resolver.invoke(
-                            "cubism.editor-model.mutable-sequence.curve-type",
-                            sequence, frame
-                        )
-                    );
-                    final Object bezier = resolver.invoke(
-                        "cubism.editor-model.mutable-sequence.point", sequence, frame
-                    );
+                            resolver.invoke("cubism.editor-model.mutable-sequence.curve-type", sequence, frame));
+                    final Object bezier =
+                            resolver.invoke("cubism.editor-model.mutable-sequence.point", sequence, frame);
                     if (bezier == null) {
                         inHandle = null;
                         outHandle = null;
                     } else {
                         requireInstance(
-                            "cubism.editor-model.bezier-point.class",
-                            bezier,
-                            "Editor animation bezier point is invalid."
-                        );
-                        inHandle = handleData(
-                            resolver.invoke("cubism.editor-model.bezier-point.prev", bezier));
-                        outHandle = handleData(
-                            resolver.invoke("cubism.editor-model.bezier-point.next", bezier));
+                                "cubism.editor-model.bezier-point.class",
+                                bezier,
+                                "Editor animation bezier point is invalid.");
+                        inHandle = handleData(resolver.invoke("cubism.editor-model.bezier-point.prev", bezier));
+                        outHandle = handleData(resolver.invoke("cubism.editor-model.bezier-point.next", bezier));
                     }
                 } else {
                     curveType = null;
@@ -1495,11 +1421,13 @@ final class EditorAnimationTimelineAccess {
                     outHandle = null;
                 }
                 keys.add(new KeyData(
-                    frame, value,
-                    point == null ? 0.0F : point[0],
-                    point == null ? 0.0F : point[1],
-                    curveType, inHandle, outHandle
-                ));
+                        frame,
+                        value,
+                        point == null ? 0.0F : point[0],
+                        point == null ? 0.0F : point[1],
+                        curveType,
+                        inHandle,
+                        outHandle));
             }
             return keys;
         }
@@ -1507,29 +1435,20 @@ final class EditorAnimationTimelineAccess {
         private void requireWritableAttribute() {
             requireWriteAuthorization();
             modelGuard.requireCurrent(identity, model);
-            requireInstance(
-                "cubism.editor-model.attr.class",
-                attribute,
-                "Editor animation attribute is invalid."
-            );
+            requireInstance("cubism.editor-model.attr.class", attribute, "Editor animation attribute is invalid.");
             if (resolver.invoke("cubism.editor-model.attr.track", attribute) != trackSource) {
-                throw new IllegalStateException(
-                    "Editor animation attribute reference is stale for the active scene.");
+                throw new IllegalStateException("Editor animation attribute reference is stale for the active scene.");
             }
             if (!flag(
-                resolver.invoke("cubism.editor-model.attr.editable", attribute),
-                "Editor animation attribute editability"
-            )) {
-                throw new IllegalStateException(
-                    "Editor animation attribute is not editable.");
+                    resolver.invoke("cubism.editor-model.attr.editable", attribute),
+                    "Editor animation attribute editability")) {
+                throw new IllegalStateException("Editor animation attribute is not editable.");
             }
             if (kind == AnimationAttributeKind.FLOAT
-                && flag(
-                    resolver.invoke("cubism.editor-model.attr-f.read-only", attribute),
-                    "Editor animation attribute read-only flag"
-                )) {
-                throw new IllegalStateException(
-                    "Editor animation attribute is read-only.");
+                    && flag(
+                            resolver.invoke("cubism.editor-model.attr-f.read-only", attribute),
+                            "Editor animation attribute read-only flag")) {
+                throw new IllegalStateException("Editor animation attribute is read-only.");
             }
         }
     }
@@ -1542,14 +1461,13 @@ final class EditorAnimationTimelineAccess {
 
     /** Live keyframe snapshot used by move/copy transforms. */
     private record KeyData(
-        int frame,
-        double value,
-        float pointX,
-        float pointY,
-        AnimationCurveType curveType,
-        HandleData inHandle,
-        HandleData outHandle
-    ) {
+            int frame,
+            double value,
+            float pointX,
+            float pointY,
+            AnimationCurveType curveType,
+            HandleData inHandle,
+            HandleData outHandle) {
         boolean hasHandles() {
             return inHandle != null || outHandle != null;
         }
@@ -1558,19 +1476,25 @@ final class EditorAnimationTimelineAccess {
         KeyData shiftedTo(final int newFrame) {
             final double delta = newFrame - (double) frame;
             return new KeyData(
-                newFrame, value, pointX, pointY, curveType,
-                inHandle == null ? null : inHandle.shifted(delta),
-                outHandle == null ? null : outHandle.shifted(delta)
-            );
+                    newFrame,
+                    value,
+                    pointX,
+                    pointY,
+                    curveType,
+                    inHandle == null ? null : inHandle.shifted(delta),
+                    outHandle == null ? null : outHandle.shifted(delta));
         }
 
         /** Scales the key position and its handle times around the origin. */
         KeyData scaledTo(final int newFrame, final int originFrame, final double factor) {
             return new KeyData(
-                newFrame, value, pointX, pointY, curveType,
-                inHandle == null ? null : inHandle.scaled(originFrame, factor),
-                outHandle == null ? null : outHandle.scaled(originFrame, factor)
-            );
+                    newFrame,
+                    value,
+                    pointX,
+                    pointY,
+                    curveType,
+                    inHandle == null ? null : inHandle.scaled(originFrame, factor),
+                    outHandle == null ? null : outHandle.scaled(originFrame, factor));
         }
     }
 
@@ -1581,11 +1505,7 @@ final class EditorAnimationTimelineAccess {
         }
 
         HandleData scaled(final int originFrame, final double factor) {
-            return new HandleData(
-                (float) (originFrame + ((double) frame - originFrame) * factor),
-                value,
-                corner
-            );
+            return new HandleData((float) (originFrame + ((double) frame - originFrame) * factor), value, corner);
         }
     }
 
@@ -1603,22 +1523,20 @@ final class EditorAnimationTimelineAccess {
     }
 
     private AnimationKeyframe keyframe(
-        final Object attribute,
-        final Object sequence,
-        final boolean mutableSequence,
-        final AnimationAttributeKind kind,
-        final int frame
-    ) {
+            final Object attribute,
+            final Object sequence,
+            final boolean mutableSequence,
+            final AnimationAttributeKind kind,
+            final int frame) {
         final Object rawValue = resolver.invoke("cubism.editor-model.attr.value", attribute, frame);
         final OptionalDouble value;
         final Optional<Point2> pointValue;
         if (kind == AnimationAttributeKind.POINT
-            && resolver.isInstance("cubism.editor-model.vector2.class", rawValue)) {
+                && resolver.isInstance("cubism.editor-model.vector2.class", rawValue)) {
             value = OptionalDouble.empty();
             pointValue = Optional.of(new Point2(
-                floatValue(resolver.invoke("cubism.editor-model.vector2.x", rawValue), "Editor point X"),
-                floatValue(resolver.invoke("cubism.editor-model.vector2.y", rawValue), "Editor point Y")
-            ));
+                    floatValue(resolver.invoke("cubism.editor-model.vector2.x", rawValue), "Editor point X"),
+                    floatValue(resolver.invoke("cubism.editor-model.vector2.y", rawValue), "Editor point Y")));
         } else if (rawValue instanceof Number number) {
             value = OptionalDouble.of(number.doubleValue());
             pointValue = Optional.empty();
@@ -1630,27 +1548,17 @@ final class EditorAnimationTimelineAccess {
         final Optional<AnimationBezierHandle> inHandle;
         final Optional<AnimationBezierHandle> outHandle;
         if (mutableSequence) {
-            curveType = Optional.of(curveType(
-                resolver.invoke("cubism.editor-model.mutable-sequence.curve-type", sequence, frame)
-            ));
-            final Object point = resolver.invoke(
-                "cubism.editor-model.mutable-sequence.point", sequence, frame
-            );
+            curveType = Optional.of(
+                    curveType(resolver.invoke("cubism.editor-model.mutable-sequence.curve-type", sequence, frame)));
+            final Object point = resolver.invoke("cubism.editor-model.mutable-sequence.point", sequence, frame);
             if (point == null) {
                 inHandle = Optional.empty();
                 outHandle = Optional.empty();
             } else {
                 requireInstance(
-                    "cubism.editor-model.bezier-point.class",
-                    point,
-                    "Editor animation bezier point is invalid."
-                );
-                inHandle = bezierHandle(
-                    resolver.invoke("cubism.editor-model.bezier-point.prev", point)
-                );
-                outHandle = bezierHandle(
-                    resolver.invoke("cubism.editor-model.bezier-point.next", point)
-                );
+                        "cubism.editor-model.bezier-point.class", point, "Editor animation bezier point is invalid.");
+                inHandle = bezierHandle(resolver.invoke("cubism.editor-model.bezier-point.prev", point));
+                outHandle = bezierHandle(resolver.invoke("cubism.editor-model.bezier-point.next", point));
             }
         } else {
             curveType = Optional.empty();
@@ -1658,12 +1566,35 @@ final class EditorAnimationTimelineAccess {
             outHandle = Optional.empty();
         }
         return new AnimationKeyframe() {
-            @Override public int frame() { return frame; }
-            @Override public OptionalDouble value() { return value; }
-            @Override public Optional<Point2> pointValue() { return pointValue; }
-            @Override public Optional<AnimationCurveType> curveType() { return curveType; }
-            @Override public Optional<AnimationBezierHandle> inHandle() { return inHandle; }
-            @Override public Optional<AnimationBezierHandle> outHandle() { return outHandle; }
+            @Override
+            public int frame() {
+                return frame;
+            }
+
+            @Override
+            public OptionalDouble value() {
+                return value;
+            }
+
+            @Override
+            public Optional<Point2> pointValue() {
+                return pointValue;
+            }
+
+            @Override
+            public Optional<AnimationCurveType> curveType() {
+                return curveType;
+            }
+
+            @Override
+            public Optional<AnimationBezierHandle> inHandle() {
+                return inHandle;
+            }
+
+            @Override
+            public Optional<AnimationBezierHandle> outHandle() {
+                return outHandle;
+            }
         };
     }
 
@@ -1674,20 +1605,14 @@ final class EditorAnimationTimelineAccess {
     /** Resolves the live scene document owning {@code sceneSource}. */
     private Object sceneDocument(final Object fileContent, final Object sceneSource) {
         requireInstance(
-            "cubism.editor-model.animation-file-content.class",
-            fileContent,
-            "Editor animation file content is invalid."
-        );
+                "cubism.editor-model.animation-file-content.class",
+                fileContent,
+                "Editor animation file content is invalid.");
         for (Object candidate : list(
-            resolver.invoke(
-                "cubism.editor-model.animation-file-content.scene-docs", fileContent
-            ),
-            "Editor animation scene documents"
-        )) {
+                resolver.invoke("cubism.editor-model.animation-file-content.scene-docs", fileContent),
+                "Editor animation scene documents")) {
             if (resolver.isInstance("cubism.editor-model.scene-document.class", candidate)
-                && resolver.invoke(
-                    "cubism.editor-model.scene-document.scene-source", candidate
-                ) == sceneSource) {
+                    && resolver.invoke("cubism.editor-model.scene-document.scene-source", candidate) == sceneSource) {
                 return candidate;
             }
         }
@@ -1707,95 +1632,61 @@ final class EditorAnimationTimelineAccess {
      * {@code SimpleUndo} deep copy is both heavier and unsafe here.
      */
     private void writeWithSceneBasicDataUndo(
-        final Object sceneDocument,
-        final Object sceneSource,
-        final String label,
-        final Runnable mutation
-    ) {
-        write(sceneDocument, label,
-            () -> resolver.invoke(
-                "cubism.editor-model.scene-handler.basic-undo",
-                resolver.construct(
-                    "cubism.editor-model.scene-handler.create", sceneSource
-                ),
-                label
-            ),
-            mutation);
+            final Object sceneDocument, final Object sceneSource, final String label, final Runnable mutation) {
+        write(
+                sceneDocument,
+                label,
+                () -> resolver.invoke(
+                        "cubism.editor-model.scene-handler.basic-undo",
+                        resolver.construct("cubism.editor-model.scene-handler.create", sceneSource),
+                        label),
+                mutation);
     }
 
     private void write(
-        final Object sceneDocument,
-        final Object undoTarget,
-        final String label,
-        final Runnable mutation
-    ) {
-        write(sceneDocument, label,
-            () -> resolver.construct(
-                "cubism.editor-model.simple-undo.create", label, undoTarget, null
-            ),
-            mutation);
+            final Object sceneDocument, final Object undoTarget, final String label, final Runnable mutation) {
+        write(
+                sceneDocument,
+                label,
+                () -> resolver.construct("cubism.editor-model.simple-undo.create", label, undoTarget, null),
+                mutation);
     }
 
     private void write(
-        final Object sceneDocument,
-        final String label,
-        final java.util.function.Supplier<Object> undoFactory,
-        final Runnable mutation
-    ) {
+            final Object sceneDocument,
+            final String label,
+            final java.util.function.Supplier<Object> undoFactory,
+            final Runnable mutation) {
         EditorHostThread.requireHostThread("Cubism animation timeline write");
         EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, "Animation timeline write: " + label
-        );
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.scene-document.current-edit-mode", sceneDocument
-        );
+                authoringCoordinator, "Animation timeline write: " + label);
+        final Object editMode = resolver.invoke("cubism.editor-model.scene-document.current-edit-mode", sceneDocument);
         if (editMode == null) {
             throw unavailable("Editor animation scene edit mode is unavailable.");
         }
-        final Object completePack = resolver.invoke(
-            "cubism.editor-model.scene-document.complete-pack", sceneDocument
-        );
-        final Object edit = resolver.invoke(
-            "cubism.editor-model.edit-mode-base.begin", editMode, label
-        );
+        final Object completePack = resolver.invoke("cubism.editor-model.scene-document.complete-pack", sceneDocument);
+        final Object edit = resolver.invoke("cubism.editor-model.edit-mode-base.begin", editMode, label);
         boolean completed = false;
         try {
             final Object undo = undoFactory.get();
-            final Object accepted = resolver.invoke(
-                "cubism.editor-model.undo.add", edit, undo, Boolean.TRUE
-            );
+            final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
             if (!(accepted instanceof Boolean acceptedValue) || !acceptedValue) {
-                throw new IllegalStateException(
-                    "Cubism rejected the animation timeline Undo entry.");
+                throw new IllegalStateException("Cubism rejected the animation timeline Undo entry.");
             }
-            final Object listener = resolver.createFunctionalProxy(
-                "cubism.editor-model.undo-listener.class",
-                ignored -> {
-                    resolver.invoke(
-                        "cubism.editor-model.complete-pack.update-project", completePack);
-                    resolver.invoke(
-                        "cubism.editor-model.complete-pack.repaint-canvas",
-                        completePack, Boolean.TRUE
-                    );
-                    return null;
-                }
-            );
+            final Object listener =
+                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                        resolver.invoke("cubism.editor-model.complete-pack.update-project", completePack);
+                        resolver.invoke("cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE);
+                        return null;
+                    });
             resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
             mutation.run();
-            resolver.invoke(
-                "cubism.editor-model.complete-pack.update-project", completePack);
-            resolver.invoke(
-                "cubism.editor-model.complete-pack.repaint-canvas",
-                completePack, Boolean.TRUE
-            );
-            resolver.invoke(
-                "cubism.editor-model.scene-document.update-modified", sceneDocument);
+            resolver.invoke("cubism.editor-model.complete-pack.update-project", completePack);
+            resolver.invoke("cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE);
+            resolver.invoke("cubism.editor-model.scene-document.update-modified", sceneDocument);
             completed = true;
         } finally {
-            resolver.invoke(
-                "cubism.editor-model.edit-mode-base.end",
-                editMode, Boolean.valueOf(!completed), null
-            );
+            resolver.invoke("cubism.editor-model.edit-mode-base.end", editMode, Boolean.valueOf(!completed), null);
         }
     }
 
@@ -1804,36 +1695,31 @@ final class EditorAnimationTimelineAccess {
     // ------------------------------------------------------------------
 
     private Object mutableSequence(final Object attribute) {
-        final Object sequence = resolver.invoke(
-            "cubism.editor-model.attr-f.value-data", attribute
-        );
-        return sequence != null
-            && resolver.isInstance("cubism.editor-model.mutable-sequence.class", sequence)
-            ? sequence
-            : null;
+        final Object sequence = resolver.invoke("cubism.editor-model.attr-f.value-data", attribute);
+        return sequence != null && resolver.isInstance("cubism.editor-model.mutable-sequence.class", sequence)
+                ? sequence
+                : null;
     }
 
     private List<Integer> keyframeFrames(final Object attribute) {
         return intArray(
-            resolver.invoke("cubism.editor-model.attr.key-frames", attribute),
-            "Editor animation attribute keyframes"
-        );
+                resolver.invoke("cubism.editor-model.attr.key-frames", attribute),
+                "Editor animation attribute keyframes");
     }
 
     private Object curveTypeConstant(final AnimationCurveType curveType) {
-        return resolver.readStaticField(switch (curveType) {
-            case LINEAR -> "cubism.editor-model.curve-type.linear";
-            case BEZIER -> "cubism.editor-model.curve-type.bezier";
-            case SMOOTH -> "cubism.editor-model.curve-type.smooth";
-            case STEP -> "cubism.editor-model.curve-type.step";
-            case INVERSE_STEP -> "cubism.editor-model.curve-type.inverse-step";
-        });
+        return resolver.readStaticField(
+                switch (curveType) {
+                    case LINEAR -> "cubism.editor-model.curve-type.linear";
+                    case BEZIER -> "cubism.editor-model.curve-type.bezier";
+                    case SMOOTH -> "cubism.editor-model.curve-type.smooth";
+                    case STEP -> "cubism.editor-model.curve-type.step";
+                    case INVERSE_STEP -> "cubism.editor-model.curve-type.inverse-step";
+                });
     }
 
     private double scalarValue(final Object attribute, final int frame) {
-        final Object rawValue = resolver.invoke(
-            "cubism.editor-model.attr.value", attribute, frame
-        );
+        final Object rawValue = resolver.invoke("cubism.editor-model.attr.value", attribute, frame);
         if (rawValue instanceof Number number) {
             return number.doubleValue();
         }
@@ -1841,11 +1727,9 @@ final class EditorAnimationTimelineAccess {
     }
 
     private float[] pointValueOf(final Object attribute, final int frame) {
-        final Object rawValue = resolver.invoke(
-            "cubism.editor-model.attr.value", attribute, frame
-        );
+        final Object rawValue = resolver.invoke("cubism.editor-model.attr.value", attribute, frame);
         if (resolver.isInstance("cubism.editor-model.vector2.class", rawValue)) {
-            return new float[]{
+            return new float[] {
                 floatValue(resolver.invoke("cubism.editor-model.vector2.x", rawValue), "Editor point X"),
                 floatValue(resolver.invoke("cubism.editor-model.vector2.y", rawValue), "Editor point Y")
             };
@@ -1877,31 +1761,26 @@ final class EditorAnimationTimelineAccess {
             return null;
         }
         requireInstance(
-            "cubism.editor-model.bezier-ctrl-point.class",
-            controlPoint,
-            "Editor animation bezier control point is invalid."
-        );
+                "cubism.editor-model.bezier-ctrl-point.class",
+                controlPoint,
+                "Editor animation bezier control point is invalid.");
         return new HandleData(
-            floatValue(
-                resolver.invoke("cubism.editor-model.bezier-ctrl-point.pos", controlPoint),
-                "Editor animation bezier handle frame"
-            ),
-            doubleValue(
-                resolver.invoke("cubism.editor-model.bezier-ctrl-point.value", controlPoint),
-                "Editor animation bezier handle value"
-            ),
-            flag(
-                resolver.invoke("cubism.editor-model.bezier-ctrl-point.corner", controlPoint),
-                "Editor animation bezier handle corner flag"
-            )
-        );
+                floatValue(
+                        resolver.invoke("cubism.editor-model.bezier-ctrl-point.pos", controlPoint),
+                        "Editor animation bezier handle frame"),
+                doubleValue(
+                        resolver.invoke("cubism.editor-model.bezier-ctrl-point.value", controlPoint),
+                        "Editor animation bezier handle value"),
+                flag(
+                        resolver.invoke("cubism.editor-model.bezier-ctrl-point.corner", controlPoint),
+                        "Editor animation bezier handle corner flag"));
     }
 
     private Optional<AnimationBezierHandle> bezierHandle(final Object controlPoint) {
         final HandleData handle = handleData(controlPoint);
         return handle == null
-            ? Optional.empty()
-            : Optional.of(new AnimationBezierHandle(handle.frame(), handle.value(), handle.corner()));
+                ? Optional.empty()
+                : Optional.of(new AnimationBezierHandle(handle.frame(), handle.value(), handle.corner()));
     }
 
     private boolean sameInstance(final Object value, final String fieldAlias) {

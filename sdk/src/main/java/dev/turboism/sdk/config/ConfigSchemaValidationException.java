@@ -14,7 +14,7 @@ public final class ConfigSchemaValidationException extends RuntimeException {
 
     public ConfigSchemaValidationException(final ConfigSchemaValidationError error) {
         super("typed config schema validation failed: "
-            + Objects.requireNonNull(error, "error").name());
+                + Objects.requireNonNull(error, "error").name());
         this.error = error;
     }
 

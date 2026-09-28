@@ -7,7 +7,6 @@ import dev.turboism.sdk.task.TaskOutcome;
 import dev.turboism.sdk.task.TaskOutcomeStatus;
 import dev.turboism.sdk.task.TaskProgress;
 import dev.turboism.sdk.task.TaskRejectionReason;
-
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
@@ -19,25 +18,13 @@ final class RejectedTaskHandle implements TaskHandle {
     private final CompletionStage<TaskOutcome> completion;
 
     RejectedTaskHandle(
-        final TaskId id,
-        final TaskRejectionReason reason,
-        final Consumer<Runnable> completionDispatcher
-    ) {
+            final TaskId id, final TaskRejectionReason reason, final Consumer<Runnable> completionDispatcher) {
         this.id = java.util.Objects.requireNonNull(id, "id");
-        final TaskFailure failure = new TaskFailure(
-            "TASK_REJECTED_" + reason.name(),
-            "Plugin task submission was rejected safely."
-        );
+        final TaskFailure failure =
+                new TaskFailure("TASK_REJECTED_" + reason.name(), "Plugin task submission was rejected safely.");
         final PluginCompletionFuture<TaskOutcome> controlled = new PluginCompletionFuture<>(
-            java.util.Objects.requireNonNull(completionDispatcher, "completionDispatcher")
-        );
-        controlled.settle(new TaskOutcome(
-            id,
-            TaskOutcomeStatus.REJECTED,
-            0,
-            Optional.empty(),
-            Optional.of(failure)
-        ));
+                java.util.Objects.requireNonNull(completionDispatcher, "completionDispatcher"));
+        controlled.settle(new TaskOutcome(id, TaskOutcomeStatus.REJECTED, 0, Optional.empty(), Optional.of(failure)));
         this.completion = controlled.stage();
     }
 
@@ -62,6 +49,5 @@ final class RejectedTaskHandle implements TaskHandle {
     }
 
     @Override
-    public void close() {
-    }
+    public void close() {}
 }

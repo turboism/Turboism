@@ -1,11 +1,11 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,18 +21,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * when its callback asks to proceed unchanged.</p>
  */
 public final class RuntimeExportSettingsContributionRegistry
-    implements ExportSettingsContributionService, AutoCloseable {
+        implements ExportSettingsContributionService, AutoCloseable {
 
     /** Bounded rejection identities surfaced through the runtime decision boundary. */
     static final String STALE_GENERATION_KEY = "export-settings.stale-generation";
+
     static final String RECURSION_KEY = "export-settings.recursive";
     static final String UNKNOWN_OPTION_KEY = "export-settings.option-unknown";
     static final String CALLBACK_FAILED_KEY = "export-settings.callback-failed";
     static final String PROCEED_UNEXPECTED_KEY = "export-settings.proceed-unexpected";
     static final String CALLBACK_DRAIN_TIMEOUT_KEY = "export-settings.callback-drain-timeout";
     private static final long CALLBACK_DRAIN_TIMEOUT_MILLIS = 5_000L;
-    static final String CALLBACK_ACTIVE_DURING_SCOPE_CLOSE_KEY =
-        "export-settings.callback-active-during-scope-close";
+    static final String CALLBACK_ACTIVE_DURING_SCOPE_CLOSE_KEY = "export-settings.callback-active-during-scope-close";
 
     private final String pluginId;
     private final long generation;
@@ -62,9 +62,7 @@ public final class RuntimeExportSettingsContributionRegistry
                 throw new IllegalStateException("export settings contribution registry is closed");
             }
             if (contributions.putIfAbsent(requested.optionId(), entry) != null) {
-                throw new IllegalArgumentException(
-                    "duplicate export settings option id: " + requested.optionId()
-                );
+                throw new IllegalArgumentException("duplicate export settings option id: " + requested.optionId());
             }
         }
         return new Registration() {
@@ -102,12 +100,11 @@ public final class RuntimeExportSettingsContributionRegistry
      */
     @SuppressWarnings("ReferenceEquality")
     ExportSettingsDecision invoke(
-        final String optionId,
-        final boolean selected,
-        final String documentId,
-        final ModelId modelId,
-        final long expectedGeneration
-    ) {
+            final String optionId,
+            final boolean selected,
+            final String documentId,
+            final ModelId modelId,
+            final long expectedGeneration) {
         Objects.requireNonNull(optionId, "optionId");
         Objects.requireNonNull(documentId, "documentId");
         Objects.requireNonNull(modelId, "modelId");
@@ -139,6 +136,7 @@ public final class RuntimeExportSettingsContributionRegistry
             try {
                 callbackDecision = entry.contribution().callback().decide(true, documentId, modelId);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 callbackFailure = failure;
             }
         } finally {
@@ -170,8 +168,8 @@ public final class RuntimeExportSettingsContributionRegistry
     List<ExportSettingsContribution> snapshotContributions() {
         synchronized (lifecycleLock) {
             return contributions.values().stream()
-                .map(ContributionEntry::contribution)
-                .toList();
+                    .map(ContributionEntry::contribution)
+                    .toList();
         }
     }
 
@@ -181,24 +179,17 @@ public final class RuntimeExportSettingsContributionRegistry
      * successful teardown.
      */
     public record LifecycleSnapshot(
-        boolean closed,
-        int activeCallbacks,
-        boolean closeReturnedReentrantly,
-        boolean closeDrainTimedOut,
-        boolean closeDrainInterrupted
-    ) {
-    }
+            boolean closed,
+            int activeCallbacks,
+            boolean closeReturnedReentrantly,
+            boolean closeDrainTimedOut,
+            boolean closeDrainInterrupted) {}
 
     /** Returns a synchronized snapshot without exposing plugin callback state or host objects. */
     public LifecycleSnapshot lifecycleSnapshot() {
         synchronized (lifecycleLock) {
             return new LifecycleSnapshot(
-                closed,
-                activeCallbacks,
-                closeReturnedReentrantly,
-                closeDrainTimedOut,
-                closeDrainInterrupted
-            );
+                    closed, activeCallbacks, closeReturnedReentrantly, closeDrainTimedOut, closeDrainInterrupted);
         }
     }
 
@@ -239,8 +230,7 @@ public final class RuntimeExportSettingsContributionRegistry
                 closeReturnedReentrantly = true;
                 return;
             }
-            final long deadline = System.nanoTime()
-                + CALLBACK_DRAIN_TIMEOUT_MILLIS * 1_000_000L;
+            final long deadline = System.nanoTime() + CALLBACK_DRAIN_TIMEOUT_MILLIS * 1_000_000L;
             while (activeCallbacks > 0) {
                 final long remainingNanos = deadline - System.nanoTime();
                 if (remainingNanos <= 0L) {

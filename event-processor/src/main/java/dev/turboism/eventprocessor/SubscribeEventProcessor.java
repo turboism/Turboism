@@ -2,12 +2,20 @@ package dev.turboism.eventprocessor;
 
 import dev.turboism.sdk.event.GeneratedSubscriberCatalog;
 import dev.turboism.sdk.event.SubscribeEvent;
-
+import java.io.IOException;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Generated;
 import javax.annotation.processing.Messager;
-import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
@@ -22,16 +30,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
-import java.io.IOException;
-import java.io.Writer;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 
 /** Generates direct, deterministic subscriber catalogs for {@link SubscribeEvent}. */
 public final class SubscribeEventProcessor extends AbstractProcessor {
@@ -53,10 +51,7 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
     }
 
     @Override
-    public boolean process(
-        final Set<? extends TypeElement> annotations,
-        final RoundEnvironment round
-    ) {
+    public boolean process(final Set<? extends TypeElement> annotations, final RoundEnvironment round) {
         final Map<TypeElement, List<ExecutableElement>> subscribers = new LinkedHashMap<>();
         final List<TypeElement> candidates = new ArrayList<>();
         for (Element root : round.getRootElements()) {
@@ -67,31 +62,27 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
         // candidate can ever expose are rejected below instead of disappearing silently.
         final Set<String> reachableSubscribers = new HashSet<>();
         for (TypeElement owner : candidates) {
-            final List<ExecutableElement> annotated = processingEnv.getElementUtils()
-                .getAllMembers(owner).stream()
-                .filter(element -> element.getKind() == ElementKind.METHOD)
-                .map(ExecutableElement.class::cast)
-                .filter(method -> method.getAnnotation(SubscribeEvent.class) != null)
-                .toList();
+            final List<ExecutableElement> annotated = processingEnv.getElementUtils().getAllMembers(owner).stream()
+                    .filter(element -> element.getKind() == ElementKind.METHOD)
+                    .map(ExecutableElement.class::cast)
+                    .filter(method -> method.getAnnotation(SubscribeEvent.class) != null)
+                    .toList();
             annotated.forEach(method -> reachableSubscribers.add(signature(method)));
-            final List<ExecutableElement> methods = annotated.stream()
-                .filter(this::validate)
-                .toList();
+            final List<ExecutableElement> methods =
+                    annotated.stream().filter(this::validate).toList();
             if (!methods.isEmpty()) {
                 subscribers.put(owner, methods);
             }
         }
         for (Element element : round.getElementsAnnotatedWith(SubscribeEvent.class)) {
-            if (element instanceof ExecutableElement method
-                && !reachableSubscribers.contains(signature(method))) {
+            if (element instanceof ExecutableElement method && !reachableSubscribers.contains(signature(method))) {
                 error(method, "subscriber owner must be a public concrete class");
             }
         }
         subscribers.entrySet().stream()
-            .sorted(Map.Entry.comparingByKey(Comparator.comparing(
-                owner -> owner.getQualifiedName().toString()
-            )))
-            .forEach(entry -> generate(entry.getKey(), entry.getValue()));
+                .sorted(Map.Entry.comparingByKey(
+                        Comparator.comparing(owner -> owner.getQualifiedName().toString())))
+                .forEach(entry -> generate(entry.getKey(), entry.getValue()));
         if (round.processingOver() && !serviceWritten) {
             writeServiceFile();
             serviceWritten = true;
@@ -99,14 +90,11 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
         return false;
     }
 
-    private static void collectCandidates(
-        final Element element,
-        final List<TypeElement> candidates
-    ) {
+    private static void collectCandidates(final Element element, final List<TypeElement> candidates) {
         if (element instanceof TypeElement owner
-            && owner.getKind() == ElementKind.CLASS
-            && owner.getModifiers().contains(Modifier.PUBLIC)
-            && !owner.getModifiers().contains(Modifier.ABSTRACT)) {
+                && owner.getKind() == ElementKind.CLASS
+                && owner.getModifiers().contains(Modifier.PUBLIC)
+                && !owner.getModifiers().contains(Modifier.ABSTRACT)) {
             candidates.add(owner);
         }
         for (Element enclosed : element.getEnclosedElements()) {
@@ -119,7 +107,7 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
     private boolean validate(final ExecutableElement method) {
         boolean valid = true;
         if (!method.getModifiers().contains(Modifier.PUBLIC)
-            || method.getModifiers().contains(Modifier.STATIC)) {
+                || method.getModifiers().contains(Modifier.STATIC)) {
             error(method, "subscriber must be a public instance method");
             valid = false;
         }
@@ -133,37 +121,29 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
         }
         final TypeElement eventRoot = processingEnv.getElementUtils().getTypeElement(EVENT_ROOT);
         final TypeMirror parameter = method.getParameters().get(0).asType();
-        if (eventRoot == null
-            || !processingEnv.getTypeUtils().isAssignable(parameter, eventRoot.asType())) {
+        if (eventRoot == null || !processingEnv.getTypeUtils().isAssignable(parameter, eventRoot.asType())) {
             error(method, "subscriber parameter must implement TurboismEvent");
             valid = false;
         }
         if (!(parameter instanceof DeclaredType declared)
-            || !declared.getTypeArguments().isEmpty()) {
+                || !declared.getTypeArguments().isEmpty()) {
             error(method, "subscriber parameter must be a concrete reifiable event type");
             valid = false;
         }
         return valid;
     }
 
-    private void generate(
-        final TypeElement owner,
-        final List<ExecutableElement> discovered
-    ) {
+    private void generate(final TypeElement owner, final List<ExecutableElement> discovered) {
         final List<ExecutableElement> methods = discovered.stream()
-            .sorted(Comparator.comparing(this::signature))
-            .toList();
+                .sorted(Comparator.comparing(this::signature))
+                .toList();
         final PackageElement ownerPackage = processingEnv.getElementUtils().getPackageOf(owner);
         final String packageName = ownerPackage.getQualifiedName().toString();
         final String ownerName = owner.getQualifiedName().toString();
-        final String relativeOwner = ownerName.substring(
-            packageName.isEmpty() ? 0 : packageName.length() + 1
-        );
-        final String simpleCatalog = relativeOwner.replace("_", "__")
-            .replace(".", "_N_") + "__TurboismSubscriberCatalog";
-        final String catalogName = packageName.isEmpty()
-            ? simpleCatalog
-            : packageName + "." + simpleCatalog;
+        final String relativeOwner = ownerName.substring(packageName.isEmpty() ? 0 : packageName.length() + 1);
+        final String simpleCatalog =
+                relativeOwner.replace("_", "__").replace(".", "_N_") + "__TurboismSubscriberCatalog";
+        final String catalogName = packageName.isEmpty() ? simpleCatalog : packageName + "." + simpleCatalog;
         if (!generatedCatalogs.add(catalogName)) {
             return;
         }
@@ -173,22 +153,24 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
                 if (!packageName.isEmpty()) {
                     writer.write("package " + packageName + ";\n\n");
                 }
-                writer.write("@" + Generated.class.getName() + "(\""
-                    + SubscribeEventProcessor.class.getName() + "\")\n");
+                writer.write(
+                        "@" + Generated.class.getName() + "(\"" + SubscribeEventProcessor.class.getName() + "\")\n");
                 writer.write("public final class " + simpleCatalog + " implements "
-                    + GeneratedSubscriberCatalog.class.getName() + "<" + ownerName + "> {\n");
-                writer.write("    @Override public Class<" + ownerName + "> entrypointType() { return "
-                    + ownerName + ".class; }\n\n");
+                        + GeneratedSubscriberCatalog.class.getName() + "<" + ownerName + "> {\n");
+                writer.write("    @Override public Class<" + ownerName + "> entrypointType() { return " + ownerName
+                        + ".class; }\n\n");
                 writer.write("    @Override public void register(" + ownerName + " target, "
-                    + "dev.turboism.sdk.event.EventSubscriberRegistrar registrar) {\n");
+                        + "dev.turboism.sdk.event.EventSubscriberRegistrar registrar) {\n");
                 for (int ordinal = 0; ordinal < methods.size(); ordinal++) {
                     final ExecutableElement method = methods.get(ordinal);
-                    final String eventType = method.getParameters().get(0).asType().toString();
+                    final String eventType =
+                            method.getParameters().get(0).asType().toString();
                     final SubscribeEvent annotation = method.getAnnotation(SubscribeEvent.class);
                     writer.write("        registrar.register(" + eventType + ".class, "
-                        + "dev.turboism.sdk.event.EventPriority." + annotation.priority().name()
-                        + ", " + ordinal + ", \"" + escape(signature(method)) + "\", "
-                        + "target::" + method.getSimpleName() + ");\n");
+                            + "dev.turboism.sdk.event.EventPriority."
+                            + annotation.priority().name()
+                            + ", " + ordinal + ", \"" + escape(signature(method)) + "\", "
+                            + "target::" + method.getSimpleName() + ");\n");
                 }
                 writer.write("    }\n}\n");
             }
@@ -200,10 +182,10 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
     private String signature(final ExecutableElement method) {
         final TypeElement declaringType = (TypeElement) method.getEnclosingElement();
         return declaringType.getQualifiedName() + "#" + method.getSimpleName()
-            + method.getParameters().stream()
-                .map(parameter -> parameter.asType().toString())
-                .collect(java.util.stream.Collectors.joining(",", "(", ")"))
-            + ":" + method.getReturnType();
+                + method.getParameters().stream()
+                        .map(parameter -> parameter.asType().toString())
+                        .collect(java.util.stream.Collectors.joining(",", "(", ")"))
+                + ":" + method.getReturnType();
     }
 
     private void writeServiceFile() {
@@ -212,11 +194,8 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
         }
         final Filer filer = processingEnv.getFiler();
         try {
-            final var resource = filer.createResource(
-                StandardLocation.CLASS_OUTPUT,
-                "",
-                "META-INF/services/" + SERVICE
-            );
+            final var resource =
+                    filer.createResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + SERVICE);
             try (Writer writer = resource.openWriter()) {
                 for (String catalog : generatedCatalogs) {
                     writer.write(catalog);
@@ -224,10 +203,11 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
                 }
             }
         } catch (IOException failure) {
-            processingEnv.getMessager().printMessage(
-                Diagnostic.Kind.ERROR,
-                "could not generate subscriber service catalog: " + failure.getMessage()
-            );
+            processingEnv
+                    .getMessager()
+                    .printMessage(
+                            Diagnostic.Kind.ERROR,
+                            "could not generate subscriber service catalog: " + failure.getMessage());
         }
     }
 

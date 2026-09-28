@@ -16,8 +16,7 @@ final class StrictZipSupport {
 
     private StrictZipSupport() {}
 
-    static byte[] read(SeekableByteChannel channel, long offset, int length)
-            throws Exception {
+    static byte[] read(SeekableByteChannel channel, long offset, int length) throws Exception {
         if (offset < 0 || length < 0 || offset > channel.size() - length) {
             invalid("ARCHIVE_TRUNCATED", "archive");
         }
@@ -31,9 +30,12 @@ final class StrictZipSupport {
 
     static String decode(byte[] bytes, int offset, int length) throws Exception {
         try {
-            return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes, offset, length)).toString();
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes, offset, length))
+                    .toString();
         } catch (CharacterCodingException exception) {
             invalid("ARCHIVE_PATH_UTF8_INVALID", "archive");
             return "";
@@ -45,8 +47,10 @@ final class StrictZipSupport {
     }
 
     static long uint(byte[] bytes, int at) {
-        return (bytes[at] & 255L) | (bytes[at + 1] & 255L) << 8
-            | (bytes[at + 2] & 255L) << 16 | (bytes[at + 3] & 255L) << 24;
+        return (bytes[at] & 255L)
+                | (bytes[at + 1] & 255L) << 8
+                | (bytes[at + 2] & 255L) << 16
+                | (bytes[at + 3] & 255L) << 24;
     }
 
     static void valid(boolean condition, String code, String path) throws Exception {

@@ -1,19 +1,18 @@
 package dev.turboism.adapter.ui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.CanvasHintNotification;
+import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
-import org.junit.jupiter.api.Test;
-
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class StatusToolbarAdapterContractTest {
 
@@ -63,25 +62,25 @@ class StatusToolbarAdapterContractTest {
 
     @Test
     void notifyStatusReturnsAdapterUnavailableDiagnosticWhenSafeModeIsDisconnected() {
-        StatusToolbarAdapter.AdapterResult<Registration> result = StatusToolbarAdapterImpl.safeMode()
-            .notifyStatus(notification("status.offline"));
+        StatusToolbarAdapter.AdapterResult<Registration> result =
+                StatusToolbarAdapterImpl.safeMode().notifyStatus(notification("status.offline"));
 
         assertFalse(result.isAvailable());
-        assertEquals(SafeModeDiagnostic.Code.ADAPTER_UNAVAILABLE, result.diagnostic().orElseThrow().code());
+        assertEquals(
+                SafeModeDiagnostic.Code.ADAPTER_UNAVAILABLE,
+                result.diagnostic().orElseThrow().code());
     }
 
     @Test
     void notifyStatusReturnsTimeoutDiagnosticWhenHostTimesOut() {
-        StatusToolbarAdapter adapter = StatusToolbarAdapterImpl.connected(new FailingHost(
-            new AdapterHostException(
+        StatusToolbarAdapter adapter = StatusToolbarAdapterImpl.connected(new FailingHost(new AdapterHostException(
                 SafeModeDiagnostic.Code.TIMEOUT,
                 StatusToolbarAdapter.Capability.STATUS_NOTIFY.id(),
-                "status timeout private-host-detail"
-            )
-        ));
+                "status timeout private-host-detail")));
 
         SafeModeDiagnostic diagnostic = adapter.notifyStatus(notification("status.timeout"))
-            .diagnostic().orElseThrow();
+                .diagnostic()
+                .orElseThrow();
 
         assertEquals(SafeModeDiagnostic.Code.TIMEOUT, diagnostic.code());
         assertFalse(diagnostic.message().contains("private-host-detail"));
@@ -92,12 +91,11 @@ class StatusToolbarAdapterContractTest {
         CountingHost host = new CountingHost();
         DisposableScope scope = new DisposableScope();
         RuntimeUiHostCapabilityService service = new RuntimeUiHostCapabilityService(
-            PermissionChecker.allowAll(),
-            "plugin.demo",
-            dev.turboism.ui.UiHostStateSource.DEFAULT,
-            scope,
-            StatusToolbarAdapterImpl.connected(host)
-        );
+                PermissionChecker.allowAll(),
+                "plugin.demo",
+                dev.turboism.ui.UiHostStateSource.DEFAULT,
+                scope,
+                StatusToolbarAdapterImpl.connected(host));
 
         Registration status = service.notifyStatus(notification("status.runtime"));
         scope.register(status);
@@ -112,49 +110,41 @@ class StatusToolbarAdapterContractTest {
     void runtimeUiServiceLogsEveryStatusInvocationAtItsDeclaredSeverity() {
         RecordingLogger logger = new RecordingLogger();
         RuntimeUiHostCapabilityService service = new RuntimeUiHostCapabilityService(
-            PermissionChecker.allowAll(),
-            "plugin.demo",
-            dev.turboism.ui.UiHostStateSource.DEFAULT,
-            new DisposableScope(),
-            StatusToolbarAdapterImpl.connected(new RecordingHost("5.3.02")),
-            dev.turboism.adapter.ui.UiSurfaceAdapterImpl.safeMode(),
-            null,
-            new dev.turboism.ui.settings.SettingsContributionStore(),
-            logger
-        );
+                PermissionChecker.allowAll(),
+                "plugin.demo",
+                dev.turboism.ui.UiHostStateSource.DEFAULT,
+                new DisposableScope(),
+                StatusToolbarAdapterImpl.connected(new RecordingHost("5.3.02")),
+                dev.turboism.adapter.ui.UiSurfaceAdapterImpl.safeMode(),
+                null,
+                new dev.turboism.ui.settings.SettingsContributionStore(),
+                logger);
 
         service.notifyStatus(new StatusNotification("one", "INFO", "Ready"));
         service.notifyStatus(new StatusNotification("two", "WARNING", "Slow"));
         service.notifyStatus(new StatusNotification("three", "ERROR", "Failed"));
 
-        assertEquals(java.util.List.of(
-            "INFO:Status: Ready",
-            "WARNING:Status: Slow",
-            "ERROR:Status: Failed"
-        ), logger.records);
+        assertEquals(
+                java.util.List.of("INFO:Status: Ready", "WARNING:Status: Slow", "ERROR:Status: Failed"),
+                logger.records);
     }
 
     @Test
     void runtimeUiServiceLogsCompactMetricsAtDebug() {
         RecordingLogger logger = new RecordingLogger();
         RuntimeUiHostCapabilityService service = new RuntimeUiHostCapabilityService(
-            PermissionChecker.allowAll(),
-            "plugin.cpu",
-            dev.turboism.ui.UiHostStateSource.DEFAULT,
-            new DisposableScope(),
-            StatusToolbarAdapterImpl.connected(new RecordingHost("5.3.02")),
-            dev.turboism.adapter.ui.UiSurfaceAdapterImpl.safeMode(),
-            null,
-            new dev.turboism.ui.settings.SettingsContributionStore(),
-            logger
-        );
+                PermissionChecker.allowAll(),
+                "plugin.cpu",
+                dev.turboism.ui.UiHostStateSource.DEFAULT,
+                new DisposableScope(),
+                StatusToolbarAdapterImpl.connected(new RecordingHost("5.3.02")),
+                dev.turboism.adapter.ui.UiSurfaceAdapterImpl.safeMode(),
+                null,
+                new dev.turboism.ui.settings.SettingsContributionStore(),
+                logger);
 
         service.notifyStatus(new StatusNotification(
-            "perf.cpu",
-            "INFO",
-            "CPU 12.3%",
-            StatusNotification.Presentation.COMPACT_METRIC
-        ));
+                "perf.cpu", "INFO", "CPU 12.3%", StatusNotification.Presentation.COMPACT_METRIC));
 
         assertEquals(java.util.List.of("DEBUG:Status: CPU 12.3%"), logger.records);
     }
@@ -193,17 +183,18 @@ class StatusToolbarAdapterContractTest {
     @Test
     void runtimeUiServiceFallbackKeepsOriginalNotificationIdentity() throws Exception {
         RuntimeUiHostCapabilityService service = new RuntimeUiHostCapabilityService(
-            PermissionChecker.allowAll(),
-            "plugin.fallback",
-            dev.turboism.ui.UiHostStateSource.DEFAULT,
-            new DisposableScope()
-        );
+                PermissionChecker.allowAll(),
+                "plugin.fallback",
+                dev.turboism.ui.UiHostStateSource.DEFAULT,
+                new DisposableScope());
 
         service.notifyStatus(new StatusNotification("build", "ERROR", "failed"));
 
         assertEquals(1, service.notifications().size());
-        assertEquals("build", service.notifications().get(0).id(),
-            "fallback memory state must keep the plugin's original notification");
+        assertEquals(
+                "build",
+                service.notifications().get(0).id(),
+                "fallback memory state must keep the plugin's original notification");
         assertEquals("ERROR", service.notifications().get(0).severity());
         assertEquals("failed", service.notifications().get(0).message());
     }
@@ -214,32 +205,23 @@ class StatusToolbarAdapterContractTest {
         RuntimeUiHostCapabilityService service = service("plugin.cpu", host);
 
         service.notifyStatus(new StatusNotification(
-            "perf.cpu",
-            "INFO",
-            "CPU 12.3%",
-            StatusNotification.Presentation.COMPACT_METRIC
-        ));
+                "perf.cpu", "INFO", "CPU 12.3%", StatusNotification.Presentation.COMPACT_METRIC));
 
         assertEquals("10:plugin.cpu:perf.cpu", host.notification.id(), "scoped id must be unchanged");
         assertEquals("CPU 12.3%", host.notification.message(), "message must pass through unchanged");
         assertEquals(
-            StatusNotification.Presentation.COMPACT_METRIC,
-            host.notification.presentation(),
-            "presentation must survive plugin-ID scoping and reconstruction"
-        );
+                StatusNotification.Presentation.COMPACT_METRIC,
+                host.notification.presentation(),
+                "presentation must survive plugin-ID scoping and reconstruction");
     }
 
-    private static RuntimeUiHostCapabilityService service(
-        final String pluginId,
-        final RecordingHost host
-    ) {
+    private static RuntimeUiHostCapabilityService service(final String pluginId, final RecordingHost host) {
         return new RuntimeUiHostCapabilityService(
-            PermissionChecker.allowAll(),
-            pluginId,
-            dev.turboism.ui.UiHostStateSource.DEFAULT,
-            new DisposableScope(),
-            StatusToolbarAdapterImpl.connected(host)
-        );
+                PermissionChecker.allowAll(),
+                pluginId,
+                dev.turboism.ui.UiHostStateSource.DEFAULT,
+                new DisposableScope(),
+                StatusToolbarAdapterImpl.connected(host));
     }
 
     private static StatusNotification notification(final String id) {
@@ -261,14 +243,24 @@ class StatusToolbarAdapterContractTest {
             this.hostVersion = hostVersion;
         }
 
-        @Override public String hostVersion() { return hostVersion; }
-        @Override public boolean supports(final StatusToolbarAdapter.Capability capability) { return true; }
-        @Override public Registration notifyStatus(final StatusNotification notification) {
+        @Override
+        public String hostVersion() {
+            return hostVersion;
+        }
+
+        @Override
+        public boolean supports(final StatusToolbarAdapter.Capability capability) {
+            return true;
+        }
+
+        @Override
+        public Registration notifyStatus(final StatusNotification notification) {
             this.notification = notification;
             return () -> statusClosed = true;
         }
 
-        @Override public Registration notifyCanvasHint(final CanvasHintNotification notification) {
+        @Override
+        public Registration notifyCanvasHint(final CanvasHintNotification notification) {
             this.canvasHint = notification;
             return () -> canvasHintClosed = true;
         }
@@ -281,7 +273,8 @@ class StatusToolbarAdapterContractTest {
             super("5.3.02");
         }
 
-        @Override public Registration notifyStatus(final StatusNotification notification) {
+        @Override
+        public Registration notifyStatus(final StatusNotification notification) {
             return () -> closeCount++;
         }
     }
@@ -289,11 +282,28 @@ class StatusToolbarAdapterContractTest {
     private static final class RecordingLogger implements PluginLogger {
         private final java.util.List<String> records = new java.util.ArrayList<>();
 
-        @Override public void debug(final String message) { records.add("DEBUG:" + message); }
-        @Override public void info(final String message) { records.add("INFO:" + message); }
-        @Override public void warn(final String message) { records.add("WARNING:" + message); }
-        @Override public void error(final String message) { records.add("ERROR:" + message); }
-        @Override public void error(final String message, final Throwable throwable) {
+        @Override
+        public void debug(final String message) {
+            records.add("DEBUG:" + message);
+        }
+
+        @Override
+        public void info(final String message) {
+            records.add("INFO:" + message);
+        }
+
+        @Override
+        public void warn(final String message) {
+            records.add("WARNING:" + message);
+        }
+
+        @Override
+        public void error(final String message) {
+            records.add("ERROR:" + message);
+        }
+
+        @Override
+        public void error(final String message, final Throwable throwable) {
             records.add("ERROR:" + message);
         }
     }
@@ -306,7 +316,8 @@ class StatusToolbarAdapterContractTest {
             this.failure = failure;
         }
 
-        @Override public Registration notifyStatus(final StatusNotification notification) {
+        @Override
+        public Registration notifyStatus(final StatusNotification notification) {
             throw failure;
         }
     }

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.transaction;
 
-
 /**
  * Signals that the calling plugin lacks a permission required by an operation attempted
  * inside a transaction; the operation is refused and nothing is staged. Carries error code

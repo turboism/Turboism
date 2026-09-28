@@ -28,10 +28,7 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
      * Publishes an Editor-owned borrowed model after a verified acquisition adapter resolves it.
      */
     void publishBorrowedModel(final Object model, final String identity) {
-        transitionTo(
-            Objects.requireNonNull(model, "model"),
-            requireText(identity, "identity")
-        );
+        transitionTo(Objects.requireNonNull(model, "model"), requireText(identity, "identity"));
     }
 
     /**
@@ -91,47 +88,36 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
         Objects.requireNonNull(provider, "provider");
         final boolean providerAvailable = provider.available();
         final String providerId = requireText(provider.providerId(), "provider.providerId()");
-        final String artifactProfile = requireText(
-            provider.artifactProfile(),
-            "provider.artifactProfile()"
-        );
+        final String artifactProfile = requireText(provider.artifactProfile(), "provider.artifactProfile()");
 
         synchronized (monitor) {
             if (closed) {
                 return CoreModelAcquisition.failed(
-                    CoreModelFailure.Code.SOURCE_CLOSED,
-                    "Active Core model source is closed."
-                );
+                        CoreModelFailure.Code.SOURCE_CLOSED, "Active Core model source is closed.");
             }
             if (transitioning) {
                 return CoreModelAcquisition.failed(
-                    CoreModelFailure.Code.TRANSITION_IN_PROGRESS,
-                    "Active Core model source is changing generation."
-                );
+                        CoreModelFailure.Code.TRANSITION_IN_PROGRESS,
+                        "Active Core model source is changing generation.");
             }
             if (!providerAvailable) {
                 return CoreModelAcquisition.failed(
-                    CoreModelFailure.Code.ADAPTER_UNAVAILABLE,
-                    "Core public API provider is unavailable."
-                );
+                        CoreModelFailure.Code.ADAPTER_UNAVAILABLE, "Core public API provider is unavailable.");
             }
             if (activeModel == null) {
                 return CoreModelAcquisition.failed(
-                    CoreModelFailure.Code.MODEL_UNAVAILABLE,
-                    "No verified active Core model is available."
-                );
+                        CoreModelFailure.Code.MODEL_UNAVAILABLE, "No verified active Core model is available.");
             }
 
             activeLeases++;
             return CoreModelAcquisition.acquired(new CoreModelLease(
-                generation,
-                modelIdentity,
-                providerId,
-                artifactProfile,
-                activeModel,
-                this::currentGeneration,
-                this::releaseLease
-            ));
+                    generation,
+                    modelIdentity,
+                    providerId,
+                    artifactProfile,
+                    activeModel,
+                    this::currentGeneration,
+                    this::releaseLease));
         }
     }
 
@@ -200,8 +186,7 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
      * the monitor; returns true when the model was actually forgotten.
      */
     private boolean applyIdleReleaseLocked() {
-        if (!releaseRequested || activeLeases != 0 || activeModel == null
-            || transitioning || closed) {
+        if (!releaseRequested || activeLeases != 0 || activeModel == null || transitioning || closed) {
             return false;
         }
         releaseRequested = false;

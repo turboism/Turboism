@@ -5,9 +5,9 @@ import dev.turboism.sdk.event.TurboismEvent;
 
 class InheritedSubscriberBase {
     @SubscribeEvent
-    public void inherited(final InheritedSubscriberFixture.InheritedEvent event) { }
+    public void inherited(final InheritedSubscriberFixture.InheritedEvent event) {}
 }
 
 public final class InheritedSubscriberFixture extends InheritedSubscriberBase {
-    public record InheritedEvent(String value) implements TurboismEvent { }
+    public record InheritedEvent(String value) implements TurboismEvent {}
 }

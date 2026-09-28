@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism;
 
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -27,17 +26,12 @@ public final class CubismEditorApiUnavailableException extends UnsupportedOperat
      *     empty when the declarations intentionally prohibit all reviewed versions
      */
     public CubismEditorApiUnavailableException(
-        final String apiId,
-        final Optional<String> activeVersion,
-        final List<String> supportedVersions
-    ) {
+            final String apiId, final Optional<String> activeVersion, final List<String> supportedVersions) {
         super(message(apiId, activeVersion, supportedVersions));
         this.apiId = requireText(apiId, "apiId");
         this.activeVersion = Objects.requireNonNull(activeVersion, "activeVersion")
-            .map(version -> requireText(version, "activeVersion"));
-        this.supportedVersions = List.copyOf(
-            Objects.requireNonNull(supportedVersions, "supportedVersions")
-        );
+                .map(version -> requireText(version, "activeVersion"));
+        this.supportedVersions = List.copyOf(Objects.requireNonNull(supportedVersions, "supportedVersions"));
     }
 
     /** @return stable SDK method identity in {@code owner#method(parameterTypes)} form */
@@ -59,18 +53,13 @@ public final class CubismEditorApiUnavailableException extends UnsupportedOperat
     }
 
     private static String message(
-        final String apiId,
-        final Optional<String> activeVersion,
-        final List<String> supportedVersions
-    ) {
+            final String apiId, final Optional<String> activeVersion, final List<String> supportedVersions) {
         final String id = requireText(apiId, "apiId");
         final Optional<String> version = Objects.requireNonNull(activeVersion, "activeVersion");
-        final List<String> supported = List.copyOf(
-            Objects.requireNonNull(supportedVersions, "supportedVersions")
-        );
+        final List<String> supported = List.copyOf(Objects.requireNonNull(supportedVersions, "supportedVersions"));
         return "Cubism SDK API " + id + " is unavailable on Editor "
-            + version.orElse("<no verified host>") + "; supported exact versions: "
-            + String.join(", ", supported) + ".";
+                + version.orElse("<no verified host>") + "; supported exact versions: "
+                + String.join(", ", supported) + ".";
     }
 
     private static String requireText(final String value, final String name) {

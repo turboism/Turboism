@@ -11,10 +11,7 @@ import java.util.Optional;
  *     only for {@link StorageErrorCode#PARTIAL_DELETE}, where some but not
  *     all of a recursive delete succeeded
  */
-public record StorageMutationResult(
-    boolean changed,
-    Optional<StorageError> error
-) {
+public record StorageMutationResult(boolean changed, Optional<StorageError> error) {
     public StorageMutationResult {
         error = StorageContracts.requireOptional(error, "error");
         StorageContracts.validateMutation(changed, error);

@@ -16,19 +16,14 @@ import java.util.Set;
  * @param revision the new store revision on success; not meaningful when {@code written} is false
  * @param error empty on success, otherwise the reason the write was rejected
  */
-public record ConfigWriteResult(
-    boolean written,
-    long revision,
-    Optional<ConfigError> error
-) {
+public record ConfigWriteResult(boolean written, long revision, Optional<ConfigError> error) {
     private static final Set<ConfigErrorCode> WRITE_ERRORS = Set.of(
-        ConfigErrorCode.SCHEMA_NOT_REGISTERED,
-        ConfigErrorCode.INVALID_VALUE,
-        ConfigErrorCode.REVISION_CONFLICT,
-        ConfigErrorCode.PERMISSION_DENIED,
-        ConfigErrorCode.PERSISTENCE_FAILED,
-        ConfigErrorCode.RUNTIME_UNAVAILABLE
-    );
+            ConfigErrorCode.SCHEMA_NOT_REGISTERED,
+            ConfigErrorCode.INVALID_VALUE,
+            ConfigErrorCode.REVISION_CONFLICT,
+            ConfigErrorCode.PERMISSION_DENIED,
+            ConfigErrorCode.PERSISTENCE_FAILED,
+            ConfigErrorCode.RUNTIME_UNAVAILABLE);
 
     public ConfigWriteResult {
         error = Objects.requireNonNull(error, "error");

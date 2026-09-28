@@ -16,9 +16,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class RuntimeInstallerConfigRoundTripTest {
-    @TempDir Path temporary;
+    @TempDir
+    Path temporary;
 
-    @Test void runtimeSavedProfilesSurviveRealInstallerUpgradeAndRuntimeReopen() throws Exception {
+    @Test
+    void runtimeSavedProfilesSurviveRealInstallerUpgradeAndRuntimeReopen() throws Exception {
         Path root = Path.of(System.getProperty("projectRoot"));
         Path classes = Files.createDirectory(temporary.resolve("installer-classes"));
         Path probe = temporary.resolve("UpgradeProbe.java");
@@ -39,15 +41,25 @@ class RuntimeInstallerConfigRoundTripTest {
             }
             """);
         Path sources = root.resolve("packaging/java-installer/listener-src/dev/turboism/installer");
-        assertEquals(0, ToolProvider.getSystemJavaCompiler().run(null, null, null,
-            "--release", "17", "-d", classes.toString(),
-            sources.resolve("ConfigMerge.java").toString(),
-            sources.resolve("BoundedJson.java").toString(), probe.toString()));
+        assertEquals(
+                0,
+                ToolProvider.getSystemJavaCompiler()
+                        .run(
+                                null,
+                                null,
+                                null,
+                                "--release",
+                                "17",
+                                "-d",
+                                classes.toString(),
+                                sources.resolve("ConfigMerge.java").toString(),
+                                sources.resolve("BoundedJson.java").toString(),
+                                probe.toString()));
         ObjectMapper mapper = new ObjectMapper();
-        try (URLClassLoader installer = new URLClassLoader(new URL[]{classes.toUri().toURL()},
-                ClassLoader.getPlatformClassLoader())) {
-            var upgrade = installer.loadClass("dev.turboism.installer.UpgradeProbe")
-                .getMethod("upgrade", Path.class);
+        try (URLClassLoader installer =
+                new URLClassLoader(new URL[] {classes.toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {
+            var upgrade =
+                    installer.loadClass("dev.turboism.installer.UpgradeProbe").getMethod("upgrade", Path.class);
             for (MemoryProfile profile : MemoryProfile.values()) {
                 Path home = Files.createDirectory(temporary.resolve(profile.name()));
                 Path config = home.resolve("config.json");
@@ -59,8 +71,10 @@ class RuntimeInstallerConfigRoundTripTest {
                 ObjectNode expected = (ObjectNode) mapper.readTree(config.toFile());
                 expected.putArray("disabledPlugins").add("dev.turboism.plugin.test");
                 upgrade.invoke(null, home);
-                assertEquals(expected, mapper.readTree(config.toFile()),
-                    "upgrade must preserve every runtime field: " + profile);
+                assertEquals(
+                        expected,
+                        mapper.readTree(config.toFile()),
+                        "upgrade must preserve every runtime field: " + profile);
                 try (var reopened = new CubismJvmSettingsFileService(home)) {
                     assertEquals(profile, reopened.memoryProfile());
                     assertFalse(reopened.zgc(), "unrelated persisted preference survives");

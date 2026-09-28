@@ -17,11 +17,7 @@ import java.util.Optional;
  * Cubism 5.2.03 has no such method on this owner and is intentionally absent.</p>
  */
 public record GlGetErrorElisionTarget(
-        HostArtifactDigest digest,
-        String version,
-        String owner,
-        String method,
-        String descriptor) {
+        HostArtifactDigest digest, String version, String owner, String method, String descriptor) {
 
     /** Obfuscated shader helper owning the unconditional error-check marker. */
     public static final String OWNER = "com/live2d/graphics3d/shader/A";
@@ -38,11 +34,11 @@ public record GlGetErrorElisionTarget(
         Objects.requireNonNull(descriptor, "descriptor");
     }
 
-    private static final GlGetErrorElisionTarget CUBISM_5302 = new GlGetErrorElisionTarget(
-        ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02", OWNER, METHOD, DESCRIPTOR);
+    private static final GlGetErrorElisionTarget CUBISM_5302 =
+            new GlGetErrorElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02", OWNER, METHOD, DESCRIPTOR);
 
-    private static final GlGetErrorElisionTarget CUBISM_5303 = new GlGetErrorElisionTarget(
-        ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03", OWNER, METHOD, DESCRIPTOR);
+    private static final GlGetErrorElisionTarget CUBISM_5303 =
+            new GlGetErrorElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03", OWNER, METHOD, DESCRIPTOR);
 
     /** The reviewed target for a host artifact digest, or empty when unsupported. */
     public static Optional<GlGetErrorElisionTarget> of(final HostArtifactDigest digest) {

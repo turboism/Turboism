@@ -1,10 +1,10 @@
 package dev.turboism.adapter.cubism.textureatlas.cache;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * Behaviour tests for the cache-reuse transformer.
@@ -16,18 +16,15 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 final class AtlasCacheReuseTransformerTest {
 
     private static final AtlasCacheReuseTarget TARGET =
-        AtlasCacheReuseTarget.reviewed(
-            "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas");
+            AtlasCacheReuseTarget.reviewed("com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas");
 
     @Test
     void patchesTheReviewedShape() throws Exception {
         final byte[] fixture = fixtureBytes(TARGET.internalName() + ".class");
         final AtlasCacheReuseTransformer transformer =
-            new AtlasCacheReuseTransformer(TARGET, java.util.Set.of(
-                AtlasCacheReuseTransformer.sha256(fixture)));
+                new AtlasCacheReuseTransformer(TARGET, java.util.Set.of(AtlasCacheReuseTransformer.sha256(fixture)));
 
-        final byte[] patched = transformer.transform(
-            null, getLoader(), TARGET.internalName(), null, null, fixture);
+        final byte[] patched = transformer.transform(null, getLoader(), TARGET.internalName(), null, null, fixture);
 
         assertNotNull(patched, "the reviewed shape must be patched");
         assertEquals(AtlasCacheReuseTransformer.Outcome.PATCHED, transformer.outcome());
@@ -37,8 +34,7 @@ final class AtlasCacheReuseTransformerTest {
     void refusesClassesWhoseBytesAreNotTheReviewedDigest() throws Exception {
         final AtlasCacheReuseTransformer transformer = new AtlasCacheReuseTransformer();
         final byte[] fixture = fixtureBytes(TARGET.internalName() + ".class");
-        assertNull(transformer.transform(
-            null, getLoader(), TARGET.internalName(), null, null, fixture));
+        assertNull(transformer.transform(null, getLoader(), TARGET.internalName(), null, null, fixture));
         assertEquals(AtlasCacheReuseTransformer.Outcome.HASH_MISMATCH, transformer.outcome());
     }
 
@@ -47,9 +43,8 @@ final class AtlasCacheReuseTransformerTest {
         final byte[] alien = fixtureBytes("com/live2d/type/CModelImageGuid.class");
         final String alienSha = AtlasCacheReuseTransformer.sha256(alien);
         final AtlasCacheReuseTransformer transformer =
-            new AtlasCacheReuseTransformer(TARGET, java.util.Set.of(alienSha));
-        assertNull(transformer.transform(
-            null, getLoader(), TARGET.internalName(), null, null, alien));
+                new AtlasCacheReuseTransformer(TARGET, java.util.Set.of(alienSha));
+        assertNull(transformer.transform(null, getLoader(), TARGET.internalName(), null, null, alien));
         assertEquals(AtlasCacheReuseTransformer.Outcome.SHAPE_REJECTED, transformer.outcome());
     }
 
@@ -62,9 +57,9 @@ final class AtlasCacheReuseTransformerTest {
         try {
             System.setProperty(property, fixtureSha);
             final AtlasCacheReuseTransformer transformer = new AtlasCacheReuseTransformer();
-            assertNotNull(transformer.transform(
-                null, getLoader(), TARGET.internalName(), null, null, fixture),
-                "the admitted extra digest must patch like the reviewed one");
+            assertNotNull(
+                    transformer.transform(null, getLoader(), TARGET.internalName(), null, null, fixture),
+                    "the admitted extra digest must patch like the reviewed one");
             assertEquals(AtlasCacheReuseTransformer.Outcome.PATCHED, transformer.outcome());
         } finally {
             if (saved == null) System.clearProperty(property);
@@ -80,8 +75,7 @@ final class AtlasCacheReuseTransformerTest {
         try {
             System.setProperty(property, "not-hex");
             final AtlasCacheReuseTransformer transformer = new AtlasCacheReuseTransformer();
-            assertNull(transformer.transform(
-                null, getLoader(), TARGET.internalName(), null, null, fixture));
+            assertNull(transformer.transform(null, getLoader(), TARGET.internalName(), null, null, fixture));
             assertEquals(AtlasCacheReuseTransformer.Outcome.HASH_MISMATCH, transformer.outcome());
         } finally {
             if (saved == null) System.clearProperty(property);

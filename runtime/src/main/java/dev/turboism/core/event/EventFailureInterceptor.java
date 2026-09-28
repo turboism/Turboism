@@ -4,7 +4,6 @@ import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.failure.ExceptionAdvice;
 import dev.turboism.sdk.failure.FailureContext;
 import dev.turboism.sdk.failure.HandlesException;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -21,18 +20,15 @@ final class EventFailureInterceptor {
 
     EventFailureInterceptor(final List<?> entrypoints) {
         final List<AdviceHandler> discovered = new ArrayList<>();
-        for (Object entrypoint : List.copyOf(Objects.requireNonNull(
-            entrypoints,
-            "entrypoints"
-        ))) {
+        for (Object entrypoint : List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"))) {
             final Object value = Objects.requireNonNull(entrypoint, "entrypoint");
             if (!value.getClass().isAnnotationPresent(ExceptionAdvice.class)) {
                 continue;
             }
             for (Method method : Arrays.stream(value.getClass().getMethods())
-                .filter(candidate -> candidate.isAnnotationPresent(HandlesException.class))
-                .sorted(Comparator.comparing(EventFailureInterceptor::signature))
-                .toList()) {
+                    .filter(candidate -> candidate.isAnnotationPresent(HandlesException.class))
+                    .sorted(Comparator.comparing(EventFailureInterceptor::signature))
+                    .toList()) {
                 discovered.add(advice(value, method));
             }
         }
@@ -40,21 +36,19 @@ final class EventFailureInterceptor {
     }
 
     boolean intercept(
-        final String pluginId,
-        final EventSubscriberDescriptor subscriber,
-        final EventBus.TurboismEvent event,
-        final Throwable failure
-    ) {
+            final String pluginId,
+            final EventSubscriberDescriptor subscriber,
+            final EventBus.TurboismEvent event,
+            final Throwable failure) {
         if (subscriber.noFailureInterception()) {
             return false;
         }
         final String operationId = subscriber.failureBoundary();
         final FailureContext context = new FailureContext(
-            pluginId,
-            operationId,
-            event.getClass().getName(),
-            failure.getClass().getName()
-        );
+                pluginId,
+                operationId,
+                event.getClass().getName(),
+                failure.getClass().getName());
         for (AdviceHandler handler : handlers) {
             if (!handler.handles(failure)) {
                 continue;
@@ -80,17 +74,14 @@ final class EventFailureInterceptor {
             throw invalid(method, "advice must return void");
         }
         final Class<?>[] parameters = method.getParameterTypes();
-        if (parameters.length < 1 || parameters.length > 2
-            || !Throwable.class.isAssignableFrom(parameters[0])
-            || (parameters.length == 2 && parameters[1] != FailureContext.class)) {
-            throw invalid(
-                method,
-                "advice parameters must be (Throwable) or (Throwable, FailureContext)"
-            );
+        if (parameters.length < 1
+                || parameters.length > 2
+                || !Throwable.class.isAssignableFrom(parameters[0])
+                || (parameters.length == 2 && parameters[1] != FailureContext.class)) {
+            throw invalid(method, "advice parameters must be (Throwable) or (Throwable, FailureContext)");
         }
-        final List<Class<? extends Throwable>> handled = List.of(
-            method.getAnnotation(HandlesException.class).value()
-        );
+        final List<Class<? extends Throwable>> handled =
+                List.of(method.getAnnotation(HandlesException.class).value());
         if (handled.isEmpty()) {
             throw invalid(method, "advice must declare at least one exception type");
         }
@@ -100,22 +91,17 @@ final class EventFailureInterceptor {
         return new AdviceHandler(entrypoint, method, handled, parameters.length == 2);
     }
 
-    private static IllegalArgumentException invalid(
-        final Method method,
-        final String message
-    ) {
-        return new IllegalArgumentException(
-            "Invalid @HandlesException method " + signature(method) + ": " + message
-        );
+    private static IllegalArgumentException invalid(final Method method, final String message) {
+        return new IllegalArgumentException("Invalid @HandlesException method " + signature(method) + ": " + message);
     }
 
     private static String signature(final Method method) {
         return method.getDeclaringClass().getName()
-            + "#" + method.getName()
-            + Arrays.stream(method.getParameterTypes())
-                .map(Class::getName)
-                .collect(java.util.stream.Collectors.joining(",", "(", ")"))
-            + ":" + method.getReturnType().getName();
+                + "#" + method.getName()
+                + Arrays.stream(method.getParameterTypes())
+                        .map(Class::getName)
+                        .collect(java.util.stream.Collectors.joining(",", "(", ")"))
+                + ":" + method.getReturnType().getName();
     }
 
     private static String requireText(final String value, final String name) {
@@ -127,19 +113,12 @@ final class EventFailureInterceptor {
     }
 
     private record AdviceHandler(
-        Object entrypoint,
-        Method method,
-        List<Class<? extends Throwable>> handled,
-        boolean acceptsContext
-    ) {
+            Object entrypoint, Method method, List<Class<? extends Throwable>> handled, boolean acceptsContext) {
         private boolean handles(final Throwable failure) {
             return handled.stream().anyMatch(type -> type.isInstance(failure));
         }
 
-        private void invoke(
-            final Throwable failure,
-            final FailureContext context
-        ) throws Throwable {
+        private void invoke(final Throwable failure, final FailureContext context) throws Throwable {
             try {
                 if (acceptsContext) {
                     method.invoke(entrypoint, failure, context);
@@ -150,9 +129,7 @@ final class EventFailureInterceptor {
                 throw invocationFailure.getCause();
             } catch (IllegalAccessException accessFailure) {
                 throw new IllegalStateException(
-                    "Validated exception advice became inaccessible: " + signature(method),
-                    accessFailure
-                );
+                        "Validated exception advice became inaccessible: " + signature(method), accessFailure);
             }
         }
     }

@@ -12,20 +12,19 @@ public final class RuntimeFailureCollector implements RuntimeFailureSink {
 
     public static final int ENTRY_LIMIT = 255;
     private static final RuntimeFailure OVERFLOW = new RuntimeFailure(
-        "FAILURE_COLLECTOR_ENTRY_LIMIT",
-        "ERROR",
-        "collection",
-        null,
-        null,
-        null,
-        "Runtime failure collector entry limit was reached.",
-        null,
-        1
-    );
+            "FAILURE_COLLECTOR_ENTRY_LIMIT",
+            "ERROR",
+            "collection",
+            null,
+            null,
+            null,
+            "Runtime failure collector entry limit was reached.",
+            null,
+            1);
 
     private final Object lock = new Object();
     private final EnumMap<RuntimeFailureDomain, LinkedHashMap<RuntimeFailure, Long>> entries =
-        new EnumMap<>(RuntimeFailureDomain.class);
+            new EnumMap<>(RuntimeFailureDomain.class);
 
     public RuntimeFailureCollector() {
         for (RuntimeFailureDomain domain : RuntimeFailureDomain.values()) {
@@ -34,10 +33,7 @@ public final class RuntimeFailureCollector implements RuntimeFailureSink {
     }
 
     @Override
-    public void record(
-        final RuntimeFailureDomain domain,
-        final RuntimeFailure failure
-    ) {
+    public void record(final RuntimeFailureDomain domain, final RuntimeFailure failure) {
         final RuntimeFailureDomain target = Objects.requireNonNull(domain, "domain");
         final RuntimeFailure key = Objects.requireNonNull(failure, "failure").key();
         synchronized (lock) {
@@ -57,8 +53,8 @@ public final class RuntimeFailureCollector implements RuntimeFailureSink {
                 return;
             }
             final RuntimeFailure evicted = domainEntries.keySet().stream()
-                .max(RuntimeFailure.KEY_ORDER)
-                .orElseThrow();
+                    .max(RuntimeFailure.KEY_ORDER)
+                    .orElseThrow();
             final long evictedCount = Objects.requireNonNull(domainEntries.remove(evicted));
             domainEntries.put(OVERFLOW, saturatingAdd(evictedCount, failure.count()));
         }
@@ -75,17 +71,14 @@ public final class RuntimeFailureCollector implements RuntimeFailureSink {
     public RuntimeFailureSnapshot snapshot() {
         synchronized (lock) {
             return new RuntimeFailureSnapshot(
-                snapshot(entries.get(RuntimeFailureDomain.TASK)),
-                snapshot(entries.get(RuntimeFailureDomain.STORAGE)),
-                snapshot(entries.get(RuntimeFailureDomain.CONFIG)),
-                snapshot(entries.get(RuntimeFailureDomain.EVENT))
-            );
+                    snapshot(entries.get(RuntimeFailureDomain.TASK)),
+                    snapshot(entries.get(RuntimeFailureDomain.STORAGE)),
+                    snapshot(entries.get(RuntimeFailureDomain.CONFIG)),
+                    snapshot(entries.get(RuntimeFailureDomain.EVENT)));
         }
     }
 
-    private static List<RuntimeFailure> snapshot(
-        final Map<RuntimeFailure, Long> domainEntries
-    ) {
+    private static List<RuntimeFailure> snapshot(final Map<RuntimeFailure, Long> domainEntries) {
         final List<RuntimeFailure> values = new ArrayList<>(domainEntries.size());
         domainEntries.forEach((key, count) -> values.add(key.withCount(count)));
         values.sort(RuntimeFailure.KEY_ORDER);

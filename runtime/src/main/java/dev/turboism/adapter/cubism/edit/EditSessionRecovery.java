@@ -25,8 +25,7 @@ public interface EditSessionRecovery {
      * @throws EditSessionException when recovery could not be verified — the caller reports the
      *     session close as {@code FAILED} rather than claiming a clean cancellation
      */
-    void recover(EditorEditSessionHost host, EditSessionRecoveryRequest request)
-        throws EditSessionException;
+    void recover(EditorEditSessionHost host, EditSessionRecoveryRequest request) throws EditSessionException;
 
     /**
      * Chooses the recovery strategy for one admitted session, evaluated at cancel time so the
@@ -38,9 +37,6 @@ public interface EditSessionRecovery {
          * Selects the recovery strategy for one session, evaluated at cancel time so the
          * decision follows the host's current verified capability state.
          */
-        EditSessionRecovery select(
-            EditorEditSessionHost host,
-            EditorAuthoringTransactionCoordinator.Binding binding
-        );
+        EditSessionRecovery select(EditorEditSessionHost host, EditorAuthoringTransactionCoordinator.Binding binding);
     }
 }

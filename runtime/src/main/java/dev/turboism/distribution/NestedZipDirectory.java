@@ -44,8 +44,7 @@ final class NestedZipDirectory {
         return records.stream().map(Record::name).toList();
     }
 
-    private List<Record> records(int cursor, long size, int count)
-        throws DistributionValidationException {
+    private List<Record> records(int cursor, long size, int count) throws DistributionValidationException {
         long end = cursor + size;
         List<Record> records = new ArrayList<>(count);
         Set<String> unique = new HashSet<>();
@@ -61,8 +60,11 @@ final class NestedZipDirectory {
             int commentLength = ushort(cursor + 32);
             long localOffset = uint(cursor + 42);
             long next = cursor + 46L + nameLength + extraLength + commentLength;
-            valid(flags(flags) && compressed != 0xffffffffL && expanded != 0xffffffffL
-                && next <= end && localOffset <= Integer.MAX_VALUE);
+            valid(flags(flags)
+                    && compressed != 0xffffffffL
+                    && expanded != 0xffffffffL
+                    && next <= end
+                    && localOffset <= Integer.MAX_VALUE);
             String name = decode(cursor + 46, nameLength);
             valid(unique.add(name));
             records.add(new Record(name, flags, method, crc, compressed, expanded, (int) localOffset));
@@ -72,8 +74,7 @@ final class NestedZipDirectory {
         return List.copyOf(records);
     }
 
-    private void validateLocals(List<Record> centralOrder, int centralOffset)
-        throws DistributionValidationException {
+    private void validateLocals(List<Record> centralOrder, int centralOffset) throws DistributionValidationException {
         List<Record> locals = new ArrayList<>(centralOrder);
         locals.sort(Comparator.comparingInt(Record::localOffset));
         int expected = 0;
@@ -92,8 +93,10 @@ final class NestedZipDirectory {
             valid(dataEnd <= centralOffset && record.name().equals(decode(at + 30, nameLength)));
             int next = index + 1 < locals.size() ? locals.get(index + 1).localOffset() : centralOffset;
             if ((flags & DATA_DESCRIPTOR) == 0) {
-                valid(uint(at + 14) == record.crc() && uint(at + 18) == record.compressed()
-                    && uint(at + 22) == record.expanded() && dataEnd == next);
+                valid(uint(at + 14) == record.crc()
+                        && uint(at + 18) == record.compressed()
+                        && uint(at + 22) == record.expanded()
+                        && dataEnd == next);
             } else {
                 validateDescriptor((int) dataEnd, next, record);
             }
@@ -102,8 +105,7 @@ final class NestedZipDirectory {
         valid(expected == centralOffset);
     }
 
-    private void validateDescriptor(int at, int next, Record record)
-        throws DistributionValidationException {
+    private void validateDescriptor(int at, int next, Record record) throws DistributionValidationException {
         int length = next - at;
         int values = at;
         if (length == 16) {
@@ -112,8 +114,9 @@ final class NestedZipDirectory {
         } else {
             valid(length == 12);
         }
-        valid(uint(values) == record.crc() && uint(values + 4) == record.compressed()
-            && uint(values + 8) == record.expanded());
+        valid(uint(values) == record.crc()
+                && uint(values + 4) == record.compressed()
+                && uint(values + 8) == record.expanded());
     }
 
     private int terminalEocd() throws DistributionValidationException {
@@ -125,10 +128,12 @@ final class NestedZipDirectory {
     private String decode(int at, int length) throws DistributionValidationException {
         valid(at >= 0 && at + (long) length <= bytes.length);
         try {
-            return StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes, at, length)).toString();
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes, at, length))
+                    .toString();
         } catch (CharacterCodingException exception) {
             invalid();
             return "";
@@ -147,8 +152,10 @@ final class NestedZipDirectory {
 
     private long uint(int at) {
         if (at < 0 || at + 4 > bytes.length) return -1;
-        return (bytes[at] & 255L) | (bytes[at + 1] & 255L) << 8
-            | (bytes[at + 2] & 255L) << 16 | (bytes[at + 3] & 255L) << 24;
+        return (bytes[at] & 255L)
+                | (bytes[at + 1] & 255L) << 8
+                | (bytes[at + 2] & 255L) << 16
+                | (bytes[at + 3] & 255L) << 24;
     }
 
     private void valid(boolean condition) throws DistributionValidationException {
@@ -156,10 +163,9 @@ final class NestedZipDirectory {
     }
 
     private void invalid() throws DistributionValidationException {
-        throw ArchivePolicy.problem(DistributionErrors.JAR_INVALID,
-            "Artifact is not a valid JAR", path);
+        throw ArchivePolicy.problem(DistributionErrors.JAR_INVALID, "Artifact is not a valid JAR", path);
     }
 
-    private record Record(String name, int flags, int method, long crc, long compressed,
-                          long expanded, int localOffset) {}
+    private record Record(
+            String name, int flags, int method, long crc, long compressed, long expanded, int localOffset) {}
 }

@@ -12,7 +12,6 @@ import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,49 +46,39 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
     private boolean localizationLocked;
 
     public RuntimeMainToolbarRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final String pluginId
-    ) {
+            final PermissionChecker permissionChecker, final RuntimeScheduler scheduler, final String pluginId) {
         this(
-            permissionChecker,
-            scheduler,
-            pluginId,
-            null,
-            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
-        );
+                permissionChecker,
+                scheduler,
+                pluginId,
+                null,
+                new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
     }
 
     public RuntimeMainToolbarRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final String pluginId,
-        final ToolbarVisibilitySink visibilitySink
-    ) {
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler,
+            final String pluginId,
+            final ToolbarVisibilitySink visibilitySink) {
         this(
-            permissionChecker,
-            scheduler,
-            pluginId,
-            visibilitySink,
-            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
-        );
+                permissionChecker,
+                scheduler,
+                pluginId,
+                visibilitySink,
+                new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
     }
 
     public RuntimeMainToolbarRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final String pluginId,
-        final ToolbarVisibilitySink visibilitySink,
-        final EditorUiContributionAuthority contributionAuthority
-    ) {
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler,
+            final String pluginId,
+            final ToolbarVisibilitySink visibilitySink,
+            final EditorUiContributionAuthority contributionAuthority) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginId = requireText(pluginId, "pluginId");
         this.visibilitySink = Optional.ofNullable(visibilitySink);
-        this.contributionAuthority = Objects.requireNonNull(
-            contributionAuthority,
-            "contributionAuthority"
-        );
+        this.contributionAuthority = Objects.requireNonNull(contributionAuthority, "contributionAuthority");
     }
 
     /**
@@ -105,9 +94,7 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
      * @throws IllegalStateException if contributions exist and {@code authority} differs from the
      *     current one
      */
-    public synchronized void bindContributionAuthority(
-        final EditorUiContributionAuthority authority
-    ) {
+    public synchronized void bindContributionAuthority(final EditorUiContributionAuthority authority) {
         final EditorUiContributionAuthority requested = Objects.requireNonNull(authority, "authority");
         if (!contributions.isEmpty() && contributionAuthority != requested) {
             throw new IllegalStateException("main toolbar contribution authority is already in use");
@@ -143,31 +130,22 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
     public Registration contribute(final MainToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         return contributeNormalized(
-            requireText(contribution.contributionId(), "contributionId"),
-            contribution.order(),
-            resolveLabel(contribution)
-        );
+                requireText(contribution.contributionId(), "contributionId"),
+                contribution.order(),
+                resolveLabel(contribution));
     }
 
     @Override
     public Registration contributeButton(final MainToolbarButtonContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         return contributeNormalized(
-            requireText(contribution.contributionId(), "contributionId"),
-            contribution.order(),
-            resolveButtonLabels(contribution)
-        );
+                requireText(contribution.contributionId(), "contributionId"),
+                contribution.order(),
+                resolveButtonLabels(contribution));
     }
 
-    private Registration contributeNormalized(
-        final String id,
-        final int order,
-        final Object descriptor
-    ) {
-        permissionChecker.check(
-            PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE,
-            "ui.main-toolbar.contribute"
-        );
+    private Registration contributeNormalized(final String id, final int order, final Object descriptor) {
+        permissionChecker.check(PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.main-toolbar.contribute");
         final StoredContribution stored = new StoredContribution(descriptor);
         final StoredContribution previous = contributions.put(id, stored);
         if (previous != null) {
@@ -176,10 +154,7 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
         final Registration authorityRegistration;
         try {
             authorityRegistration = contributionAuthority.contribute(new EditorUiContribution<>(
-                new EditorUiContributionIdentity(pluginId, EditorUiFamily.MAIN_TOOLBAR, id),
-                order,
-                descriptor
-            ));
+                    new EditorUiContributionIdentity(pluginId, EditorUiFamily.MAIN_TOOLBAR, id), order, descriptor));
         } catch (RuntimeException | Error failure) {
             contributions.remove(id, stored);
             throw failure;
@@ -203,31 +178,27 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
             return contribution;
         }
         return new MainToolbarContribution(
-            contribution.contributionId(),
-            contribution.actionId(),
-            pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
-            contribution.iconResourcePath(),
-            contribution.anchor(),
-            contribution.order()
-        );
+                contribution.contributionId(),
+                contribution.actionId(),
+                pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
+                contribution.iconResourcePath(),
+                contribution.anchor(),
+                contribution.order());
     }
 
-    private MainToolbarButtonContribution resolveButtonLabels(
-        final MainToolbarButtonContribution contribution
-    ) {
+    private MainToolbarButtonContribution resolveButtonLabels(final MainToolbarButtonContribution contribution) {
         final PluginLocalization pluginLocalization = lockLocalizationForContribution();
         if (pluginLocalization == null) {
             return contribution;
         }
         return new MainToolbarButtonContribution(
-            contribution.contributionId(),
-            contribution.actionId(),
-            pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
-            pluginLocalization.text(requireText(contribution.tooltipKey(), "tooltipKey")),
-            contribution.icons(),
-            contribution.placement(),
-            contribution.order()
-        );
+                contribution.contributionId(),
+                contribution.actionId(),
+                pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
+                pluginLocalization.text(requireText(contribution.tooltipKey(), "tooltipKey")),
+                contribution.icons(),
+                contribution.placement(),
+                contribution.order());
     }
 
     private synchronized PluginLocalization lockLocalizationForContribution() {
@@ -237,9 +208,9 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
 
     private void dispatchVisibilityUpdate(final String contributionId) {
         final List<MainToolbarContribution> snapshot = contributions.values().stream()
-            .map(StoredContribution::descriptor)
-            .map(RuntimeMainToolbarRegistry::legacyView)
-            .toList();
+                .map(StoredContribution::descriptor)
+                .map(RuntimeMainToolbarRegistry::legacyView)
+                .toList();
         scheduler.dispatch(task(contributionId), () -> updateVisibility(snapshot));
     }
 
@@ -258,7 +229,8 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
     }
 
     private PluginTask task(final String contributionId) {
-        return new PluginTask(UI_TASK_TYPE, pluginId, "main toolbar visibility for " + contributionId, DEFAULT_CAPABILITY);
+        return new PluginTask(
+                UI_TASK_TYPE, pluginId, "main toolbar visibility for " + contributionId, DEFAULT_CAPABILITY);
     }
 
     private static String requireText(final String value, final String name) {

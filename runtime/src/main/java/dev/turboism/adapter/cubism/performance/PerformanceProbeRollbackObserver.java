@@ -28,15 +28,16 @@ public final class PerformanceProbeRollbackObserver implements ClassFileTransfor
     private final AtomicBoolean restoring = new AtomicBoolean();
 
     public PerformanceProbeRollbackObserver(
-        final ClassLoader expectedLoader,
-        final Path expectedArtifact,
-        final List<PerformanceProbeMethodTransformer.Target> targets
-    ) {
+            final ClassLoader expectedLoader,
+            final Path expectedArtifact,
+            final List<PerformanceProbeMethodTransformer.Target> targets) {
         this.expectedLoader = expectedLoader;
-        this.expectedArtifact = expectedArtifact == null ? null : expectedArtifact.toAbsolutePath().normalize();
+        this.expectedArtifact = expectedArtifact == null
+                ? null
+                : expectedArtifact.toAbsolutePath().normalize();
         this.ownerInternalNames = targets.stream()
-            .map(PerformanceProbeMethodTransformer.Target::ownerInternalName)
-            .collect(Collectors.toUnmodifiableSet());
+                .map(PerformanceProbeMethodTransformer.Target::ownerInternalName)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     /** Arm restoration observation; must be called before the cleanup retransformation. */
@@ -46,17 +47,16 @@ public final class PerformanceProbeRollbackObserver implements ClassFileTransfor
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
         if (!restoring.get() || classfileBuffer == null) return null;
         if (expectedLoader != null && loader != expectedLoader) return null;
         if (expectedArtifact != null
-            && !PerformanceProbeMethodTransformer.comesFromArtifact(protectionDomain, expectedArtifact)) {
+                && !PerformanceProbeMethodTransformer.comesFromArtifact(protectionDomain, expectedArtifact)) {
             return null;
         }
         if (!ownerInternalNames.contains(className)) return null;

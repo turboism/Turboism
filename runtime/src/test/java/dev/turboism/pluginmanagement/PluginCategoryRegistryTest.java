@@ -1,13 +1,12 @@
 package dev.turboism.pluginmanagement;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 /** Runtime-owned category registry: admission values and presentation fallback. */
 class PluginCategoryRegistryTest {
@@ -15,16 +14,23 @@ class PluginCategoryRegistryTest {
     @Test
     void registryContainsTheEightReviewedCategories() {
         assertEquals(8, PluginCategoryRegistry.registered().size());
-        assertTrue(PluginCategoryRegistry.registered().containsAll(java.util.Set.of(
-            "modeling", "workflow", "appearance", "analysis",
-            "performance", "integration", "system", "development"
-        )));
+        assertTrue(PluginCategoryRegistry.registered()
+                .containsAll(java.util.Set.of(
+                        "modeling",
+                        "workflow",
+                        "appearance",
+                        "analysis",
+                        "performance",
+                        "integration",
+                        "system",
+                        "development")));
     }
 
     @Test
     void registryIsImmutable() {
-        assertThrows(UnsupportedOperationException.class,
-            () -> PluginCategoryRegistry.registered().add("new-category"));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> PluginCategoryRegistry.registered().add("new-category"));
     }
 
     @Test
@@ -52,8 +58,7 @@ class PluginCategoryRegistryTest {
         final dev.turboism.i18n.LocalizationDiagnosticSink sink = recorded::add;
 
         final String presentation = PluginCategoryRegistry.presentation(
-            "dev.turboism.plugin.local", java.util.Optional.of("custom-tooling"), sink
-        );
+                "dev.turboism.plugin.local", java.util.Optional.of("custom-tooling"), sink);
 
         assertEquals("other", presentation);
         assertEquals(1, recorded.size());

@@ -1,5 +1,12 @@
 package dev.turboism.adapter.cubism.edit;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
@@ -17,21 +24,13 @@ import dev.turboism.sdk.cubism.edit.EditUnavailableException;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.DocumentId;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class RuntimeEditSessionManagerTest {
 
@@ -45,18 +44,10 @@ final class RuntimeEditSessionManagerTest {
         assertTrue(session.isOpen());
         assertEquals(EditSessionState.OPEN, session.state());
         assertEquals(DOCUMENT, session.document());
-        assertEquals(
-            List.of("history", "beginEdit:ExternalAPI.EditBegin"),
-            fixture.host.calls
-        );
+        assertEquals(List.of("history", "beginEdit:ExternalAPI.EditBegin"), fixture.host.calls);
         assertTrue(fixture.lock.engaged);
         assertTrue(fixture.manager.sessionActive());
-        assertEquals(
-            List.of(
-                "edit-session.open"
-            ),
-            fixture.host.dispatchLabels
-        );
+        assertEquals(List.of("edit-session.open"), fixture.host.dispatchLabels);
     }
 
     @Test
@@ -65,9 +56,8 @@ final class RuntimeEditSessionManagerTest {
         fixture.open();
 
         assertThrows(
-            EditUnavailableException.class,
-            () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults())
-        );
+                EditUnavailableException.class,
+                () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults()));
         assertEquals(1, fixture.host.beginCount);
     }
 
@@ -88,9 +78,8 @@ final class RuntimeEditSessionManagerTest {
         fixture.editScopeGate.set(true);
 
         assertThrows(
-            EditUnavailableException.class,
-            () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults())
-        );
+                EditUnavailableException.class,
+                () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults()));
         assertEquals(0, fixture.host.beginCount);
     }
 
@@ -100,9 +89,8 @@ final class RuntimeEditSessionManagerTest {
         fixture.host.current = false;
 
         assertThrows(
-            EditUnavailableException.class,
-            () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults())
-        );
+                EditUnavailableException.class,
+                () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults()));
         assertEquals(0, fixture.host.beginCount);
         assertFalse(fixture.editScopeGate.get());
     }
@@ -113,9 +101,8 @@ final class RuntimeEditSessionManagerTest {
         fixture.host.admitted = false;
 
         assertThrows(
-            EditUnavailableException.class,
-            () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults())
-        );
+                EditUnavailableException.class,
+                () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults()));
         assertEquals(0, fixture.host.beginCount);
         assertFalse(fixture.editScopeGate.get());
     }
@@ -126,9 +113,8 @@ final class RuntimeEditSessionManagerTest {
         fixture.host.historyOverride = HistorySnapshot.unavailable();
 
         assertThrows(
-            EditUnavailableException.class,
-            () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults())
-        );
+                EditUnavailableException.class,
+                () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults()));
         assertEquals(0, fixture.host.beginCount);
         assertFalse(fixture.editScopeGate.get());
     }
@@ -139,9 +125,8 @@ final class RuntimeEditSessionManagerTest {
         fixture.failLock = true;
 
         assertThrows(
-            EditUnavailableException.class,
-            () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults())
-        );
+                EditUnavailableException.class,
+                () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults()));
         assertEquals(1, fixture.host.beginCount);
         assertEquals(List.of(Boolean.TRUE), fixture.host.endEditCancelFlags);
         assertFalse(fixture.editScopeGate.get());
@@ -210,8 +195,7 @@ final class RuntimeEditSessionManagerTest {
     }
 
     @Test
-    void cancelWithAnUnreadableHistorySnapshotCompensatesInsteadOfReverting()
-            throws EditSessionException {
+    void cancelWithAnUnreadableHistorySnapshotCompensatesInsteadOfReverting() throws EditSessionException {
         final Fixture fixture = new Fixture();
         fixture.host.revertVerified = true;
         final EditSession session = fixture.open();
@@ -225,8 +209,7 @@ final class RuntimeEditSessionManagerTest {
     }
 
     @Test
-    void displacedSessionWithForeignCommitAndRedoTailNeverRevertsPreSessionSlots()
-            throws EditSessionException {
+    void displacedSessionWithForeignCommitAndRedoTailNeverRevertsPreSessionSlots() throws EditSessionException {
         final Fixture fixture = new Fixture();
         fixture.host.revertVerified = true;
         for (int i = 0; i < 7; i++) {
@@ -253,8 +236,7 @@ final class RuntimeEditSessionManagerTest {
     }
 
     @Test
-    void displacedSessionWithRedoTailAndOpenForeignGroupPreservesHistory()
-            throws EditSessionException {
+    void displacedSessionWithRedoTailAndOpenForeignGroupPreservesHistory() throws EditSessionException {
         final Fixture fixture = new Fixture();
         fixture.host.revertVerified = true;
         for (int i = 0; i < 7; i++) {
@@ -277,24 +259,29 @@ final class RuntimeEditSessionManagerTest {
     @Test
     void diagnosticIdKeepsTheFailureClassAndSummaryInRuntimeLogs() {
         final List<String> records = new ArrayList<>();
-        RuntimeDiagnostics.install((level, component, message, failure) ->
-            records.add(level + "|" + component + "|" + message));
+        RuntimeDiagnostics.install(
+                (level, component, message, failure) -> records.add(level + "|" + component + "|" + message));
         try {
             final VerifiedEditorEditSessionHost verifiedHost = new VerifiedEditorEditSessionHost(
-                TestVerifiedResolvers.create(
-                    "5.3.02", "adapter.test", Set.of("cubism.test"),
-                    List.of(StaticSelector.method(
-                        "cubism.test.member", "java/lang/Object", "toString",
-                        "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC)),
-                    RuntimeEditSessionManagerTest.class.getClassLoader()),
-                () -> null,
-                () -> 0L);
+                    TestVerifiedResolvers.create(
+                            "5.3.02",
+                            "adapter.test",
+                            Set.of("cubism.test"),
+                            List.of(StaticSelector.method(
+                                    "cubism.test.member",
+                                    "java/lang/Object",
+                                    "toString",
+                                    "()Ljava/lang/String;",
+                                    StaticSelector.ACCESS_PUBLIC)),
+                            RuntimeEditSessionManagerTest.class.getClassLoader()),
+                    () -> null,
+                    () -> 0L);
 
             final String id = verifiedHost.diagnosticId(
-                "cubism.edit.cancel-failed",
-                new EditUnavailableException(
-                    "cubism.edit.recovery-failed",
-                    "Cubism edit session recovery left the Undo history changed"));
+                    "cubism.edit.cancel-failed",
+                    new EditUnavailableException(
+                            "cubism.edit.recovery-failed",
+                            "Cubism edit session recovery left the Undo history changed"));
 
             assertEquals("cubism.edit.cancel-failed", id);
             assertEquals(1, records.size());
@@ -311,13 +298,9 @@ final class RuntimeEditSessionManagerTest {
         final Fixture fixture = new Fixture();
         fixture.host.revertVerified = true;
         final RuntimeEditSessionManager alwaysCompensating = new RuntimeEditSessionManager(
-            fixture.host,
-            fixture.editScopeGate,
-            fixture.lockFactory,
-            EditSessionRecoveries.ALWAYS_COMPENSATING
-        );
-        final EditSession session = alwaysCompensating.open(
-            fixture.host.binding, DOCUMENT, EditSessionOptions.defaults());
+                fixture.host, fixture.editScopeGate, fixture.lockFactory, EditSessionRecoveries.ALWAYS_COMPENSATING);
+        final EditSession session =
+                alwaysCompensating.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults());
 
         session.cancel();
 
@@ -406,18 +389,12 @@ final class RuntimeEditSessionManagerTest {
         final EditSession session = fixture.open();
         session.cancel();
 
-        final EditCancelledException cancelled = assertThrows(
-            EditCancelledException.class,
-            () -> session.log("late")
-        );
+        final EditCancelledException cancelled = assertThrows(EditCancelledException.class, () -> session.log("late"));
         assertEquals(CancelSource.PLUGIN, cancelled.source());
         assertThrows(EditCancelledException.class, () -> session.progress(0.5));
         assertThrows(EditCancelledException.class, session::cancel);
         assertThrows(EditCancelledException.class, session::close);
-        assertThrows(
-            EditCancelledException.class,
-            () -> session.parameterKeys().addParameterKey(null)
-        );
+        assertThrows(EditCancelledException.class, () -> session.parameterKeys().addParameterKey(null));
     }
 
     @Test
@@ -437,10 +414,7 @@ final class RuntimeEditSessionManagerTest {
         final AtomicReference<CancelSource> notified = new AtomicReference<>();
         final EditSessionListener listener = (session, source) -> notified.set(source);
         final EditSession session = fixture.manager.open(
-            fixture.host.binding,
-            DOCUMENT,
-            EditSessionOptions.defaults().withUndoCancelListener(listener)
-        );
+                fixture.host.binding, DOCUMENT, EditSessionOptions.defaults().withUndoCancelListener(listener));
 
         fixture.lock.context.cancelRequest().run();
 
@@ -455,11 +429,9 @@ final class RuntimeEditSessionManagerTest {
         final Fixture fixture = new Fixture();
         final AtomicReference<CancelSource> notified = new AtomicReference<>();
         final EditSession session = fixture.manager.open(
-            fixture.host.binding,
-            DOCUMENT,
-            EditSessionOptions.defaults().withUndoCancelListener(
-                (cancelled, source) -> notified.set(source))
-        );
+                fixture.host.binding,
+                DOCUMENT,
+                EditSessionOptions.defaults().withUndoCancelListener((cancelled, source) -> notified.set(source)));
 
         session.cancel();
 
@@ -487,10 +459,7 @@ final class RuntimeEditSessionManagerTest {
         final EditSession session = fixture.open();
         fixture.host.current = false;
 
-        final EditCancelledException cancelled = assertThrows(
-            EditCancelledException.class,
-            () -> session.log("work")
-        );
+        final EditCancelledException cancelled = assertThrows(EditCancelledException.class, () -> session.log("work"));
         assertEquals(CancelSource.HOST, cancelled.source());
         assertEquals(EditSessionState.CANCELLED, session.state());
         assertFalse(fixture.editScopeGate.get());
@@ -502,10 +471,7 @@ final class RuntimeEditSessionManagerTest {
         final EditSession session = fixture.open();
         fixture.host.current = false;
 
-        final EditCancelledException cancelled = assertThrows(
-            EditCancelledException.class,
-            session::cancel
-        );
+        final EditCancelledException cancelled = assertThrows(EditCancelledException.class, session::cancel);
         assertEquals(CancelSource.HOST, cancelled.source());
         assertEquals(EditSessionState.CANCELLED, session.state());
     }
@@ -528,10 +494,7 @@ final class RuntimeEditSessionManagerTest {
         final EditSession session = fixture.open();
 
         // Phase 2: families are gated but still unavailable — a typed failure, never NPE.
-        assertThrows(
-            EditUnavailableException.class,
-            () -> session.selection().selectedObjects()
-        );
+        assertThrows(EditUnavailableException.class, () -> session.selection().selectedObjects());
         assertNotNull(session.parameterStructure());
         assertNotNull(session.selection());
         assertNotNull(session.partObjects());
@@ -541,47 +504,32 @@ final class RuntimeEditSessionManagerTest {
     @Test
     void transactionIsRejectedWhileASessionHoldsTheScopeGate() throws EditSessionException {
         final Fixture fixture = new Fixture();
-        final EditorAuthoringTransactionCoordinator coordinator =
-            new EditorAuthoringTransactionCoordinator(
-                new FakeCoordinatorHost(fixture.host.binding),
-                fixture.editScopeGate
-            );
+        final EditorAuthoringTransactionCoordinator coordinator = new EditorAuthoringTransactionCoordinator(
+                new FakeCoordinatorHost(fixture.host.binding), fixture.editScopeGate);
         fixture.open();
 
         final var result = coordinator.execute(
-            fixture.host.binding,
-            dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("t"),
-            () -> null
-        );
+                fixture.host.binding,
+                dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("t"),
+                () -> null);
 
-        assertEquals(
-            dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome.REJECTED_SCOPE,
-            result.outcome()
-        );
+        assertEquals(dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome.REJECTED_SCOPE, result.outcome());
     }
 
     @Test
     void sessionIsRejectedWhileATransactionHoldsTheScopeGate() {
         final Fixture fixture = new Fixture();
-        final EditorAuthoringTransactionCoordinator coordinator =
-            new EditorAuthoringTransactionCoordinator(
-                new FakeCoordinatorHost(fixture.host.binding),
-                fixture.editScopeGate
-            );
+        final EditorAuthoringTransactionCoordinator coordinator = new EditorAuthoringTransactionCoordinator(
+                new FakeCoordinatorHost(fixture.host.binding), fixture.editScopeGate);
 
         coordinator.execute(
-            fixture.host.binding,
-            dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("t"),
-            () -> {
-                assertThrows(
-                    EditUnavailableException.class,
-                    () -> fixture.manager.open(
-                        fixture.host.binding, DOCUMENT, EditSessionOptions.defaults())
-                );
-                assertEquals(0, fixture.host.beginCount);
-                return null;
-            }
-        );
+                fixture.host.binding, dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("t"), () -> {
+                    assertThrows(
+                            EditUnavailableException.class,
+                            () -> fixture.manager.open(fixture.host.binding, DOCUMENT, EditSessionOptions.defaults()));
+                    assertEquals(0, fixture.host.beginCount);
+                    return null;
+                });
     }
 
     @Test
@@ -606,16 +554,15 @@ final class RuntimeEditSessionManagerTest {
         };
         boolean failLock;
         final RuntimeEditSessionManager manager = new RuntimeEditSessionManager(
-            host,
-            editScopeGate,
-            context -> {
-                if (failLock) {
-                    throw new IllegalStateException("no dialogs");
-                }
-                return lockFactory.create(context);
-            },
-            EditSessionRecoveries.PREFER_REVERT_WHEN_VERIFIED
-        );
+                host,
+                editScopeGate,
+                context -> {
+                    if (failLock) {
+                        throw new IllegalStateException("no dialogs");
+                    }
+                    return lockFactory.create(context);
+                },
+                EditSessionRecoveries.PREFER_REVERT_WHEN_VERIFIED);
 
         EditSession open() throws EditSessionException {
             return manager.open(host.binding, DOCUMENT, EditSessionOptions.defaults());
@@ -655,15 +602,8 @@ final class RuntimeEditSessionManagerTest {
      * through {@link #dispatch}, standing in for host-thread confinement.
      */
     private static final class FakeEditSessionHost implements EditorEditSessionHost {
-        final EditorAuthoringTransactionCoordinator.Binding binding =
-            new EditorAuthoringTransactionCoordinator.Binding(
-                "plugin.test",
-                "document-1",
-                1,
-                "model-1",
-                1,
-                Thread.currentThread()
-            );
+        final EditorAuthoringTransactionCoordinator.Binding binding = new EditorAuthoringTransactionCoordinator.Binding(
+                "plugin.test", "document-1", 1, "model-1", 1, Thread.currentThread());
         final List<String> calls = new ArrayList<>();
         final List<String> dispatchLabels = new ArrayList<>();
         final List<Boolean> endEditCancelFlags = new ArrayList<>();
@@ -689,16 +629,12 @@ final class RuntimeEditSessionManagerTest {
         private int dispatchDepth;
 
         @Override
-        public Optional<EditorAuthoringTransactionCoordinator.Binding> currentBinding(
-            final String pluginId
-        ) {
+        public Optional<EditorAuthoringTransactionCoordinator.Binding> currentBinding(final String pluginId) {
             return Optional.of(binding);
         }
 
         @Override
-        public boolean isCurrent(
-            final EditorAuthoringTransactionCoordinator.Binding expected
-        ) {
+        public boolean isCurrent(final EditorAuthoringTransactionCoordinator.Binding expected) {
             return current;
         }
 
@@ -708,17 +644,14 @@ final class RuntimeEditSessionManagerTest {
         }
 
         @Override
-        public HistorySnapshot history(
-            final EditorAuthoringTransactionCoordinator.Binding expected
-        ) {
+        public HistorySnapshot history(final EditorAuthoringTransactionCoordinator.Binding expected) {
             onHost("history");
             if (failNextHistory) {
                 failNextHistory = false;
                 throw new IllegalStateException("history read failed");
             }
             if (historyChangedOnRecovery) {
-                return new HistorySnapshot(
-                    HistorySnapshot.Availability.AVAILABLE, 1, 9, 0, List.of(), false, false);
+                return new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE, 1, 9, 0, List.of(), false, false);
             }
             if (historyOverride != null) {
                 return historyOverride;
@@ -727,24 +660,20 @@ final class RuntimeEditSessionManagerTest {
             for (int i = 0; i < committedEntries.size(); i++) {
                 // Labels carry the entry's identity: a foreign entry occupying a
                 // pre-session slot must not compare equal to the entry it replaced.
-                rows.add(new HistoryEntry(
-                    i, "entry-" + System.identityHashCode(committedEntries.get(i)), true));
+                rows.add(new HistoryEntry(i, "entry-" + System.identityHashCode(committedEntries.get(i)), true));
             }
             return new HistorySnapshot(
-                HistorySnapshot.Availability.AVAILABLE,
-                1,
-                7,
-                position,
-                rows,
-                position > 0,
-                position < committedEntries.size());
+                    HistorySnapshot.Availability.AVAILABLE,
+                    1,
+                    7,
+                    position,
+                    rows,
+                    position > 0,
+                    position < committedEntries.size());
         }
 
         @Override
-        public Object beginEdit(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final String label
-        ) {
+        public Object beginEdit(final EditorAuthoringTransactionCoordinator.Binding expected, final String label) {
             onHost("beginEdit:" + label);
             beginCount++;
             currentGroup = editToken;
@@ -753,10 +682,7 @@ final class RuntimeEditSessionManagerTest {
 
         @Override
         public void endEdit(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final Object edit,
-            final boolean cancel
-        ) {
+                final EditorAuthoringTransactionCoordinator.Binding expected, final Object edit, final boolean cancel) {
             onHost("endEdit:" + cancel);
             endEditCancelFlags.add(cancel);
             if (failNextEndEdit) {
@@ -773,37 +699,26 @@ final class RuntimeEditSessionManagerTest {
         }
 
         @Override
-        public Object currentEditGroup(
-            final EditorAuthoringTransactionCoordinator.Binding expected
-        ) {
+        public Object currentEditGroup(final EditorAuthoringTransactionCoordinator.Binding expected) {
             onHost("currentEditGroup");
             return currentGroup;
         }
 
         @Override
-        public void undoGroup(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final Object group
-        ) {
+        public void undoGroup(final EditorAuthoringTransactionCoordinator.Binding expected, final Object group) {
             onHost("undoGroup");
             undoGroupCount++;
         }
 
         @Override
-        public void undoRedoTo(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final int target
-        ) {
+        public void undoRedoTo(final EditorAuthoringTransactionCoordinator.Binding expected, final int target) {
             onHost("undoRedoTo:" + target);
             cursorMoves.add(target);
             position = Math.min(target, committedEntries.size());
         }
 
         @Override
-        public void undoEditGroup(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final Object edit
-        ) {
+        public void undoEditGroup(final EditorAuthoringTransactionCoordinator.Binding expected, final Object edit) {
             onHost("undoEditGroup");
             undoGroupCount++;
             if (failUndoGroup) {
@@ -812,9 +727,7 @@ final class RuntimeEditSessionManagerTest {
         }
 
         @Override
-        public boolean undoRevertVerified(
-            final EditorAuthoringTransactionCoordinator.Binding expected
-        ) {
+        public boolean undoRevertVerified(final EditorAuthoringTransactionCoordinator.Binding expected) {
             return revertVerified;
         }
 
@@ -833,23 +746,18 @@ final class RuntimeEditSessionManagerTest {
         }
 
         @Override
-        public Optional<Object> mainWindow(
-            final EditorAuthoringTransactionCoordinator.Binding expected
-        ) {
+        public Optional<Object> mainWindow(final EditorAuthoringTransactionCoordinator.Binding expected) {
             return Optional.of(new Object());
         }
 
         @Override
-        public void refreshAfterSession(
-            final EditorAuthoringTransactionCoordinator.Binding expected
-        ) {
+        public void refreshAfterSession(final EditorAuthoringTransactionCoordinator.Binding expected) {
             onHost("refresh");
             refreshCount++;
         }
 
         @Override
-        public <T> T dispatch(final String label, final HostTask<T> task)
-            throws EditSessionException {
+        public <T> T dispatch(final String label, final HostTask<T> task) throws EditSessionException {
             dispatchLabels.add(label);
             dispatchDepth++;
             try {
@@ -873,8 +781,7 @@ final class RuntimeEditSessionManagerTest {
     }
 
     /** Minimal coordinator host so mutual-exclusion tests exercise the real coordinator. */
-    private static final class FakeCoordinatorHost
-        implements EditorAuthoringTransactionCoordinator.Host {
+    private static final class FakeCoordinatorHost implements EditorAuthoringTransactionCoordinator.Host {
 
         private final EditorAuthoringTransactionCoordinator.Binding binding;
         private final Object edit = new Object();
@@ -884,62 +791,43 @@ final class RuntimeEditSessionManagerTest {
         }
 
         @Override
-        public boolean isCurrent(
-            final EditorAuthoringTransactionCoordinator.Binding expected
-        ) {
+        public boolean isCurrent(final EditorAuthoringTransactionCoordinator.Binding expected) {
             return binding.documentIdentity().equals(expected.documentIdentity())
-                && binding.documentGeneration() == expected.documentGeneration()
-                && binding.modelIdentity().equals(expected.modelIdentity())
-                && binding.modelGeneration() == expected.modelGeneration();
+                    && binding.documentGeneration() == expected.documentGeneration()
+                    && binding.modelIdentity().equals(expected.modelIdentity())
+                    && binding.modelGeneration() == expected.modelGeneration();
         }
 
         @Override
-        public HistorySnapshot history(
-            final EditorAuthoringTransactionCoordinator.Binding expected
-        ) {
-            return new HistorySnapshot(
-                HistorySnapshot.Availability.AVAILABLE, 1, 1, 0, List.of(), false, false);
+        public HistorySnapshot history(final EditorAuthoringTransactionCoordinator.Binding expected) {
+            return new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE, 1, 1, 0, List.of(), false, false);
         }
 
         @Override
-        public Object beginEdit(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final String label
-        ) {
+        public Object beginEdit(final EditorAuthoringTransactionCoordinator.Binding expected, final String label) {
             return edit;
         }
 
         @Override
         public void endEdit(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final Object edit,
-            final boolean abort
-        ) {
-        }
+                final EditorAuthoringTransactionCoordinator.Binding expected, final Object edit, final boolean abort) {}
 
         @Override
-        public void undoEditGroup(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final Object edit
-        ) {
-        }
+        public void undoEditGroup(final EditorAuthoringTransactionCoordinator.Binding expected, final Object edit) {}
 
         @Override
         public void refresh(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final java.util.Set<dev.turboism.adapter.cubism.editor.transaction
-                .EditorRefreshRequirement> requirements
-        ) {
-        }
+                final EditorAuthoringTransactionCoordinator.Binding expected,
+                final java.util.Set<dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement>
+                        requirements) {}
 
         @Override
         public Optional<String> committedHistoryEntryId(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final HistorySnapshot before,
-            final HistorySnapshot after,
-            final String transactionId,
-            final String label
-        ) {
+                final EditorAuthoringTransactionCoordinator.Binding expected,
+                final HistorySnapshot before,
+                final HistorySnapshot after,
+                final String transactionId,
+                final String label) {
             return Optional.empty();
         }
 

@@ -1,20 +1,19 @@
 package dev.turboism.adapter.cubism.editor.history;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Consumer;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
  * Drives the injected {@code beginEdit} entry against a synthetic native class.
@@ -80,36 +79,26 @@ class NativeEditBeginTransformerTest {
         final NativeEditBeginTransformer transformer = transformer(DESCRIPTOR);
 
         assertNull(
-            transformer.transform(null, null, "fixture/Other", null, null, fixtureClass(DESCRIPTOR)),
-            "another class must not be transformed"
-        );
+                transformer.transform(null, null, "fixture/Other", null, null, fixtureClass(DESCRIPTOR)),
+                "another class must not be transformed");
         assertNull(
-            transformer.transform(null, null, OWNER, null, null, fixtureClass("(I)Ljava/lang/String;")),
-            "another descriptor must not be transformed"
-        );
-        final ClassLoader hostLoader = new ClassLoader() { };
-        final NativeEditBeginTransformer loaderBound = new NativeEditBeginTransformer(
-            OWNER, NAME, DESCRIPTOR, hostLoader, KEY
-        );
+                transformer.transform(null, null, OWNER, null, null, fixtureClass("(I)Ljava/lang/String;")),
+                "another descriptor must not be transformed");
+        final ClassLoader hostLoader = new ClassLoader() {};
+        final NativeEditBeginTransformer loaderBound =
+                new NativeEditBeginTransformer(OWNER, NAME, DESCRIPTOR, hostLoader, KEY);
         assertNull(
-            loaderBound.transform(
-                null, new ClassLoader() { }, OWNER, null, null, fixtureClass(DESCRIPTOR)
-            ),
-            "another loader must not be transformed"
-        );
+                loaderBound.transform(null, new ClassLoader() {}, OWNER, null, null, fixtureClass(DESCRIPTOR)),
+                "another loader must not be transformed");
         assertNotNull(
-            loaderBound.transform(null, hostLoader, OWNER, null, null, fixtureClass(DESCRIPTOR)),
-            "the bound loader must still be transformed"
-        );
+                loaderBound.transform(null, hostLoader, OWNER, null, null, fixtureClass(DESCRIPTOR)),
+                "the bound loader must still be transformed");
         assertTrue(received.isEmpty(), "no method was ever invoked, so no name was reported");
     }
 
     @Test
     void theTransformerRefusesADescriptorThatCannotCarryAnEditName() {
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> transformer("()Ljava/lang/String;")
-        );
+        assertThrows(IllegalArgumentException.class, () -> transformer("()Ljava/lang/String;"));
     }
 
     @Test
@@ -124,23 +113,32 @@ class NativeEditBeginTransformerTest {
 
     @Test
     void abstractNativeAndStaticEntriesCannotProduceInstallationEvidence() {
-        for (final int flags : new int[]{Opcodes.ACC_ABSTRACT, Opcodes.ACC_NATIVE, Opcodes.ACC_STATIC}) {
+        for (final int flags : new int[] {Opcodes.ACC_ABSTRACT, Opcodes.ACC_NATIVE, Opcodes.ACC_STATIC}) {
             final ClassWriter writer = new ClassWriter(0);
-            new org.objectweb.asm.ClassReader(fixtureClass(DESCRIPTOR)).accept(
-                new org.objectweb.asm.ClassVisitor(Opcodes.ASM9, writer) {
-                    @Override public MethodVisitor visitMethod(
-                        final int access, final String name, final String descriptor,
-                        final String signature, final String[] exceptions
-                    ) {
-                        final MethodVisitor visitor = super.visitMethod(
-                            NAME.equals(name) ? access | flags : access, name, descriptor, signature, exceptions);
-                        if (NAME.equals(name) && flags != Opcodes.ACC_STATIC) {
-                            visitor.visitEnd();
-                            return null;
-                        }
-                        return visitor;
-                    }
-                }, 0);
+            new org.objectweb.asm.ClassReader(fixtureClass(DESCRIPTOR))
+                    .accept(
+                            new org.objectweb.asm.ClassVisitor(Opcodes.ASM9, writer) {
+                                @Override
+                                public MethodVisitor visitMethod(
+                                        final int access,
+                                        final String name,
+                                        final String descriptor,
+                                        final String signature,
+                                        final String[] exceptions) {
+                                    final MethodVisitor visitor = super.visitMethod(
+                                            NAME.equals(name) ? access | flags : access,
+                                            name,
+                                            descriptor,
+                                            signature,
+                                            exceptions);
+                                    if (NAME.equals(name) && flags != Opcodes.ACC_STATIC) {
+                                        visitor.visitEnd();
+                                        return null;
+                                    }
+                                    return visitor;
+                                }
+                            },
+                            0);
             final NativeEditBeginTransformer transformer = transformer(DESCRIPTOR);
 
             assertNull(transformer.transform(null, null, OWNER, null, null, writer.toByteArray()));
@@ -157,9 +155,8 @@ class NativeEditBeginTransformerTest {
     }
 
     private static Class<?> loadTransformed() {
-        final byte[] transformed = transformer(DESCRIPTOR).transform(
-            null, null, OWNER, null, null, fixtureClass(DESCRIPTOR)
-        );
+        final byte[] transformed =
+                transformer(DESCRIPTOR).transform(null, null, OWNER, null, null, fixtureClass(DESCRIPTOR));
         assertNotNull(transformed, "the exact entry must be transformed");
         return new FixtureLoader().define("fixture.EditEntry", transformed);
     }
@@ -167,9 +164,8 @@ class NativeEditBeginTransformerTest {
     private static byte[] fixtureClass(final String descriptor) {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
-        writer.visitField(
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "calls", "I", null, null
-        ).visitEnd();
+        writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "calls", "I", null, null)
+                .visitEnd();
         final MethodVisitor constructor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
@@ -178,9 +174,7 @@ class NativeEditBeginTransformerTest {
         constructor.visitMaxs(0, 0);
         constructor.visitEnd();
 
-        final MethodVisitor method = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, NAME, descriptor, null, null
-        );
+        final MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC, NAME, descriptor, null, null);
         method.visitCode();
         method.visitFieldInsn(Opcodes.GETSTATIC, OWNER, "calls", "I");
         method.visitInsn(Opcodes.ICONST_1);

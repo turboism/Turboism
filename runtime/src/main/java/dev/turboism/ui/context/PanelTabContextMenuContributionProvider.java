@@ -7,7 +7,6 @@ import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.panel.PanelTabMenuCoordinator;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -18,9 +17,7 @@ public final class PanelTabContextMenuContributionProvider implements EditorUiCo
     private final PanelTabMenuCoordinator coordinator;
 
     public PanelTabContextMenuContributionProvider(
-        final EditorUiProviderAdmission admission,
-        final PanelTabMenuCoordinator coordinator
-    ) {
+            final EditorUiProviderAdmission admission, final PanelTabMenuCoordinator coordinator) {
         this.admission = Objects.requireNonNull(admission, "admission");
         if (admission.family() != EditorUiFamily.CONTEXT_MENU) {
             throw new IllegalArgumentException("panel-tab menu provider requires CONTEXT_MENU admission");
@@ -39,22 +36,20 @@ public final class PanelTabContextMenuContributionProvider implements EditorUiCo
     }
 
     @Override
-    public Registration apply(
-        final long hostGeneration,
-        final List<EditorUiContribution<?>> contributions
-    ) {
+    public Registration apply(final long hostGeneration, final List<EditorUiContribution<?>> contributions) {
         if (!admission.isAdmittedTo(hostGeneration)) {
             throw new IllegalStateException("panel-tab menu provider admission is stale");
         }
-        coordinator.update(hostGeneration, contributions.stream()
-            .filter(value -> value.descriptor() instanceof ContextMenuRegistry.ContextMenuContribution)
-            .map(value -> new dev.turboism.ui.panel.PanelTabMenuContribution(
+        coordinator.update(
                 hostGeneration,
-                value.identity().pluginId(),
-                (ContextMenuRegistry.ContextMenuContribution) value.descriptor()
-            ))
-            .filter(value -> value.contribution().target() == ContextMenuRegistry.Target.PANEL_TAB)
-            .toList());
+                contributions.stream()
+                        .filter(value -> value.descriptor() instanceof ContextMenuRegistry.ContextMenuContribution)
+                        .map(value -> new dev.turboism.ui.panel.PanelTabMenuContribution(
+                                hostGeneration,
+                                value.identity().pluginId(),
+                                (ContextMenuRegistry.ContextMenuContribution) value.descriptor()))
+                        .filter(value -> value.contribution().target() == ContextMenuRegistry.Target.PANEL_TAB)
+                        .toList());
         return () -> coordinator.update(hostGeneration, List.of());
     }
 }
