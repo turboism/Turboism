@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.image;
 
+import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -232,9 +233,6 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
         return REVIEWED_CLASS_SHA256;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = Map.of(
-            "5.3.02",
-            Map.ofEntries(Map.entry(
-                    "com/live2d/graphics3d/shader/A",
-                    "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")));
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
+            ClassPinTable.load("texture-upload-preparation");
 }
