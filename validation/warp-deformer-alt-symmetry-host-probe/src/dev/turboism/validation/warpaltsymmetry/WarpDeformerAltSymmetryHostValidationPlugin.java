@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
+import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 
@@ -59,9 +60,12 @@ import java.util.concurrent.atomic.AtomicReference;
  * before/after screenshots as evidence, and reports a {@code drive-verdict} for human
  * review instead of converting an inconclusive observation into a claim.</p>
  *
- * <p>All mutations are confined to the task-scoped fixture copy. The probe never saves,
- * never imports or reflects {@code com.live2d.*}, and inspects only its own process'
- * windows.</p>
+ * <p>All mutations are confined to the task-scoped fixture copy. The probe never saves
+ * and inspects only its own process' windows. The {@code weightStroke} mode additionally
+ * reflects into {@code com.live2d.*} editor objects to reproduce the toolbar's own
+ * activation path for the Brush Selection tool, the modeling selector's own object
+ * selection entry points, and the camera's own document→component projection, so the
+ * Robot stroke lands on a real control point without relying on calibrated pixels.</p>
  */
 public final class WarpDeformerAltSymmetryHostValidationPlugin implements CubismPlugin {
 
@@ -73,6 +77,13 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
     private static final String MODE_ANALYSE = "analyse";
     private static final String MODE_DRIVE = "drive";
     private static final String MODE_OBSERVE = "observe";
+    private static final String MODE_WEIGHT_STROKE = "weightStroke";
+    private static final String MODE_DRIVE_GESTURE = "driveGesture";
+    private static final String AXIS_PROPERTY = "turboism.validation.warpAlt.axis";
+    private static final String TOOL_PROPERTY = "turboism.validation.warpAlt.tool";
+    private static final String PRESELECT_PROPERTY = "turboism.validation.warpAlt.preselect";
+    private static final String STROKE2_PROPERTY = "turboism.validation.warpAlt.screen2";
+    private static final String POINT_PROPERTY = "turboism.validation.warpAlt.point";
     private static final String OBSERVE_SECONDS_PROPERTY = "turboism.validation.warpAlt.observeSeconds";
     private static final long OBSERVE_POLL_MILLIS = 1_000L;
     private static final long DEFAULT_OBSERVE_SECONDS = 900L;
@@ -205,7 +216,28 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
             recordBaseline(warps, report);
 
             final WarpDeformer target = selectTarget(warps);
-            if (MODE_OBSERVE.equals(mode())) {
+            if (MODE_WEIGHT_STROKE.equals(mode())) {
+                // Brush-selection weight mirroring: the probe drives real Robot
+                // strokes with the armed axis off (control) then on (mirror), and
+                // asserts the bridge's applied counter/pairing. The grid
+                // round-trip is skipped — this mode mutates selection weights,
+                // not the transform grid.
+                if (target != null) {
+                    report.put("target.id", safeId(target));
+                    report.put("target.name", safeName(target));
+                }
+                recordWeightStroke(target, report, failures);
+            } else if (MODE_DRIVE_GESTURE.equals(mode())) {
+                // Interactive-position-mirror regression: same deterministic host
+                // choreography as weightStroke (select target, activate the Arrow
+                // tool, project a control point), then a real Robot Alt-drag —
+                // the gesture path the plugin originally mirrored.
+                if (target != null) {
+                    report.put("target.id", safeId(target));
+                    report.put("target.name", safeName(target));
+                }
+                recordDriveGesture(target, report, failures);
+            } else if (MODE_OBSERVE.equals(mode())) {
                 // Human-in-the-loop mode: the probe never writes. The operator drags
                 // control points in the host window while the hook family records what
                 // the native ingress commits, which answers whether a real viewport
@@ -793,6 +825,777 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
             + " verdict=" + report.get("drive.verdict"));
     }
 
+    /**
+     * Deterministic interactive-drag regression. Unlike {@link #recordDrive}, which
+     * needs a hand-calibrated screen point and whatever tool/selection the host
+     * happens to hold, this mode resolves the host object graph itself: it selects
+     * the target deformer, activates the Arrow tool through {@code
+     * CECompletePack.setToolGroup} (the toolbar's own entry point), projects one
+     * control point to screen coordinates, then performs a real Robot Alt-drag.
+     * The plugin's native Alt-drag mirror must move the source point and its
+     * mirror-axis counterpart symmetrically — same assertion surface as
+     * {@link #recordDrive}.
+     */
+    private void recordDriveGesture(
+            final WarpDeformer target,
+            final Report report,
+            final List<String> failures
+    ) {
+        final int axis = (int) parseLong(System.getProperty(AXIS_PROPERTY, ""), 1);
+        report.put("drive.axis", Integer.toString(axis));
+        final WarpAltMirrorParticipation participation;
+        try {
+            participation = context.services().require(WarpAltMirrorParticipation.class);
+        } catch (RuntimeException | Error failure) {
+            failures.add("warpAltMirrorParticipation unavailable: " + failure.getClass().getSimpleName());
+            return;
+        }
+        final int[] screen = parsePair(System.getProperty(SCREEN_PROPERTY, "").strip());
+        final int[] drag = parsePair(System.getProperty(DRAG_PROPERTY, "").strip());
+        final int dragDx = drag == null ? DEFAULT_DRAG_DX : drag[0];
+        final int dragDy = drag == null ? DEFAULT_DRAG_DY : drag[1];
+        report.put("drive.drag", dragDx + "," + dragDy);
+        if (GraphicsEnvironment.isHeadless()) {
+            report.put("drive.performed", "false");
+            failures.add("driveGesture requested but the JVM is headless");
+            return;
+        }
+        if (target == null) {
+            report.put("drive.performed", "false");
+            failures.add("driveGesture has no readable Warp target");
+            return;
+        }
+        final Robot robot;
+        try {
+            robot = new Robot();
+        } catch (Exception | Error failure) {
+            report.put("drive.performed", "false");
+            failures.add("Robot unavailable: " + failure.getClass().getSimpleName());
+            return;
+        }
+        final WarpGrid before;
+        try {
+            before = target.grid();
+        } catch (RuntimeException | Error failure) {
+            failures.add("driveGesture baseline grid read failed: " + failure.getClass().getSimpleName());
+            return;
+        }
+        final Rectangle bounds = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
+        capture(robot, bounds, "warp-alt-drive-before.png", report, "drive.screenshotBefore");
+        final int hookBefore = hookChangedCount.get();
+        final int[] start;
+        try {
+            focusMainWindow();
+            final WeightHostHandles handles = resolveWeightHostHandles(target, report);
+            if (handles == null) {
+                report.put("drive.performed", "false");
+                failures.add("driveGesture could not resolve the host editor handles");
+                return;
+            }
+            selectWeightTarget(handles, report);
+            activateToolGroup(
+                    handles,
+                    report,
+                    "drive.arrowTool",
+                    "com.live2d.cubism.view.palette.tool.toolMode.arrow.ToolGroup_Arrow");
+            final int[] computed = computeStrokePoint(handles, target, report);
+            start = screen != null ? screen : computed;
+            if (start == null) {
+                report.put("drive.performed", "false");
+                failures.add("driveGesture could not project a screen point on the target grid");
+                return;
+            }
+            report.put("drive.screen", start[0] + "," + start[1]);
+
+            // The interactive mirror is armed-axis driven, not Alt-held: the
+            // editor consumes Alt+drag before control-point drags start, so the
+            // plugin arms an axis (strip button / Ctrl+Alt+V/H) and a plain drag
+            // mirrors. The probe arms through the same participation service.
+            participation.setArmedAxis(axis);
+            try {
+                robot.mouseMove(start[0], start[1]);
+                robot.delay((int) GESTURE_STEP_MILLIS);
+                robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+                robot.delay((int) GESTURE_STEP_MILLIS);
+                for (int step = 1; step <= 4; step++) {
+                    robot.mouseMove(
+                        start[0] + (dragDx * step) / 4,
+                        start[1] + (dragDy * step) / 4
+                    );
+                    robot.delay((int) GESTURE_STEP_MILLIS);
+                }
+                robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+                robot.delay((int) GESTURE_STEP_MILLIS);
+            } finally {
+                participation.setArmedAxis(0);
+            }
+            report.put("drive.performed", "true");
+        } catch (RuntimeException | Error failure) {
+            report.put("drive.performed", "false");
+            failures.add("driveGesture failed: " + failure.getClass().getName());
+            return;
+        } finally {
+            capture(robot, bounds, "warp-alt-drive-after.png", report, "drive.screenshotAfter");
+        }
+
+        sleep(SETTLE_MILLIS);
+        final WarpGrid after;
+        try {
+            after = target.grid();
+        } catch (RuntimeException | Error failure) {
+            failures.add("driveGesture result grid read failed: " + failure.getClass().getSimpleName());
+            return;
+        }
+        report.put("drive.gridBefore", fingerprint(before));
+        report.put("drive.gridAfter", fingerprint(after));
+        report.put("drive.hookChangedBefore", Integer.toString(hookBefore));
+        report.put("drive.hookChangedAfter", Integer.toString(hookChangedCount.get()));
+        report.put("drive.hookFired", Boolean.toString(hookChangedCount.get() > hookBefore));
+
+        final Symmetry symmetry = analyseMirror(before, after, axis);
+        report.put("drive.movedPoints", Integer.toString(symmetry.moved()));
+        report.put("drive.mirrorPairsMoved", Integer.toString(symmetry.pairsMoved()));
+        report.put("drive.mirrorPairsDeltaMirrored", Integer.toString(symmetry.pairsMirrored()));
+        report.put("drive.selfMirroredMoved", Integer.toString(symmetry.selfMirrored()));
+        report.put("drive.axisX", Float.toString(symmetry.axisX()));
+        report.put("drive.axisY", Float.toString(symmetry.axisY()));
+        final String verdict =
+            symmetry.moved() == 0 ? "unchanged"
+                : (symmetry.pairsMirrored() == symmetry.pairsMoved() && symmetry.pairsMoved() > 0
+                    ? "mirrored"
+                    : "asymmetric");
+        report.put("drive.verdict", verdict);
+        logger.info("WARP_ALT_DRIVE_RESULT performed=true"
+            + " moved=" + symmetry.moved()
+            + " pairsMoved=" + symmetry.pairsMoved()
+            + " pairsMirrored=" + symmetry.pairsMirrored()
+            + " hookFired=" + (hookChangedCount.get() > hookBefore)
+            + " verdict=" + verdict);
+        if (!"mirrored".equals(verdict)) {
+            failures.add("driveGesture verdict=" + verdict);
+        }
+    }
+
+    /**
+     * Weight-mirror drive mode. Two real Robot strokes run over the modeling
+     * viewport: a control stroke with the mirror axis disarmed, then a stroke
+     * with the axis armed through the same participation service the plugin's
+     * strip button drives. The bridge mirrors only the armed stroke, so the
+     * applied counter and the last source/counterpart index pair are the
+     * structured assertion surface — the counterpart must be the armed-axis
+     * image of the source index on the target's grid.
+     *
+     * <p>Choreography is calibrated per run like {@link #recordDrive}: the
+     * screen point must land on the target deformer's grid while the Brush
+     * Selection Tool is active ({@code warpAlt.tool} clicks its toolbar button
+     * first when supplied; {@code warpAlt.preselect} clicks a palette row to
+     * select the object before stroking).</p>
+     */
+    private void recordWeightStroke(
+        final WarpDeformer target,
+        final Report report,
+        final List<String> failures
+    ) {
+        final int axis = (int) parseLong(System.getProperty(AXIS_PROPERTY, ""), 0);
+        report.put("weight.axis", Integer.toString(axis));
+        if (axis != 1 && axis != 2) {
+            failures.add("weightStroke requires -D" + AXIS_PROPERTY + "=1|2");
+            return;
+        }
+        final WarpAltMirrorParticipation participation;
+        try {
+            participation = context.services().require(WarpAltMirrorParticipation.class);
+        } catch (RuntimeException | Error failure) {
+            failures.add("warpAltMirrorParticipation unavailable: " + failure.getClass().getSimpleName());
+            return;
+        }
+        report.put("weight.serviceAvailable", Boolean.toString(participation.isAvailable()));
+        try {
+            report.put("weight.nativeMirrorActive", Boolean.toString(participation.nativeMirrorActive()));
+        } catch (RuntimeException | Error failure) {
+            report.put("weight.nativeMirrorActive", "threw:" + failure.getClass().getSimpleName());
+        }
+
+        final int[] screen = parsePair(System.getProperty(SCREEN_PROPERTY, "").strip());
+        if (GraphicsEnvironment.isHeadless()) {
+            report.put("weight.performed", "false");
+            failures.add("weightStroke requested but the JVM is headless");
+            return;
+        }
+        final Robot robot;
+        try {
+            robot = new Robot();
+        } catch (Exception | Error failure) {
+            report.put("weight.performed", "false");
+            failures.add("Robot unavailable: " + failure.getClass().getSimpleName());
+            return;
+        }
+
+        final int[] secondStart = parsePair(System.getProperty(STROKE2_PROPERTY, "").strip());
+        final int[] drag = parsePair(System.getProperty(DRAG_PROPERTY, "").strip());
+        final int dragDx = drag == null ? 48 : drag[0];
+        final int dragDy = drag == null ? 0 : drag[1];
+        final Rectangle bounds = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
+        capture(robot, bounds, "warp-alt-weight-before.png", report, "weight.screenshotBefore");
+
+        try {
+            focusMainWindow();
+
+            // Deterministic setup inside the host JVM: resolve the editor
+            // controller, select the target deformer on the modeling selector,
+            // activate the Brush Selection tool through the same CECompletePack
+            // entry point the toolbar button drives, and project one grid point
+            // through the host camera to exact screen coordinates. Manual
+            // click/screen overrides remain available for re-calibration runs.
+            final WeightHostHandles handles = resolveWeightHostHandles(target, report);
+            if (handles == null) {
+                report.put("weight.performed", "false");
+                failures.add("weightStroke could not resolve the host editor handles");
+                return;
+            }
+            selectWeightTarget(handles, report);
+            activateBrushSelectionTool(handles, report);
+            final int[] computed = computeStrokePoint(handles, target, report);
+            int[] start = computed != null ? computed : screen;
+            if (screen != null) {
+                start = screen;
+            }
+            if (start == null) {
+                report.put("weight.performed", "false");
+                failures.add("weightStroke could not project a screen point on the target grid");
+                return;
+            }
+            report.put("weight.screen", start[0] + "," + start[1]);
+            report.put("weight.drag", dragDx + "," + dragDy);
+
+            clickAt(robot, parsePair(System.getProperty(PRESELECT_PROPERTY, "").strip()));
+            clickAt(robot, parsePair(System.getProperty(TOOL_PROPERTY, "").strip()));
+
+            report.put("weight.mapBefore", dumpWeightMap(handles));
+
+            // Control stroke: axis disarmed — the bridge must not mirror.
+            participation.setArmedAxis(0);
+            final int controlBefore = participation.weightMirrorAppliedCount();
+            paintStroke(robot, start[0], start[1], dragDx, dragDy);
+            sleep(SETTLE_MILLIS);
+            final int controlDelta = participation.weightMirrorAppliedCount() - controlBefore;
+            report.put("weight.control.appliedDelta", Integer.toString(controlDelta));
+            report.put("weight.mapControl", dumpWeightMap(handles));
+
+            // Mirror stroke: armed axis — every weighted write must mirror.
+            participation.setArmedAxis(axis);
+            final int mirrorBefore = participation.weightMirrorAppliedCount();
+            final int[] mirrorStart = secondStart != null ? secondStart : start;
+            paintStroke(robot, mirrorStart[0], mirrorStart[1], dragDx, dragDy);
+            sleep(SETTLE_MILLIS);
+            final int mirrorDelta = participation.weightMirrorAppliedCount() - mirrorBefore;
+            report.put("weight.mirror.appliedDelta", Integer.toString(mirrorDelta));
+            report.put("weight.mapAfter", dumpWeightMap(handles));
+            report.put("weight.mirror.lastSource",
+                Integer.toString(participation.weightMirrorLastSourceIndex()));
+            report.put("weight.mirror.lastCounterpart",
+                Integer.toString(participation.weightMirrorLastCounterpartIndex()));
+            report.put("weight.performed", "true");
+            logger.info("WARP_ALT_WEIGHT_RESULT controlDelta=" + controlDelta
+                + " mirrorDelta=" + mirrorDelta
+                + " pair=" + participation.weightMirrorLastSourceIndex()
+                + "->" + participation.weightMirrorLastCounterpartIndex());
+            if (controlDelta != 0) {
+                failures.add("control stroke mirrored writes while the axis was disarmed");
+            }
+            if (mirrorDelta <= 0) {
+                failures.add("armed weight stroke produced no mirrored writes");
+            }
+            assertPairConsistency(target, axis, report, failures);
+        } catch (RuntimeException | Error failure) {
+            report.put("weight.performed", "false");
+            failures.add("weight stroke failed: " + failure.getClass().getName());
+            return;
+        } finally {
+            try {
+                participation.setArmedAxis(0);
+            } catch (RuntimeException | Error ignored) {
+                // disarming must not mask the recorded result
+            }
+            capture(robot, bounds, "warp-alt-weight-after.png", report, "weight.screenshotAfter");
+        }
+
+        // Undo evidence is informational: the mirrored write rides the caller's
+        // own selection envelope, so a single native undo is expected to revert
+        // the whole stroke — the outcome is reported, not asserted.
+        try {
+            final HistoryMoveResult undo = context.cubism().history().undo(1);
+            report.put("weight.undoOutcome", undo.outcome().name());
+        } catch (RuntimeException | Error failure) {
+            report.put("weight.undoOutcome", "threw:" + failure.getClass().getSimpleName());
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Deterministic host choreography for weightStroke
+    // ------------------------------------------------------------------
+
+    /**
+     * Host handles the weight-stroke choreography needs, resolved reflectively on the
+     * EDT: the app controller's own document, modeling edit mode, selector, live model,
+     * complete pack, camera wrapper, viewport component and the target's host objects.
+     */
+    private record WeightHostHandles(
+        Object appController,
+        Object modelingDocument,
+        Object editMode,
+        Object selector,
+        Object model,
+        Object completePack,
+        Object cameraManager,
+        java.awt.Component viewport,
+        Object warpSource,
+        Object warpDeformer,
+        Object gv2Class,
+        ClassLoader hostClassLoader
+    ) {}
+
+    /**
+     * Resolves the editor object graph the brush stroke depends on. The chain mirrors
+     * the toolbar's own wiring: {@code CEAppCtrl._instance -> getCurrentDoc ->
+     * getEditMode_modeling -> {getSelector, getCurrentModel}} plus
+     * {@code getCompletePack} for tool activation and
+     * {@code getCurrentViewContext.getCameraManager} for the
+     * document→component projection. The SDK target unwraps to its {@code
+     * nativeSource()} (CWarpDeformerSource) so the live deformer instance can be
+     * re-bound by guid through {@code CModel.getWarpDeformer}.
+     */
+    private WeightHostHandles resolveWeightHostHandles(final WarpDeformer target, final Report report) {
+        final AtomicReference<WeightHostHandles> out = new AtomicReference<>();
+        final AtomicReference<String> step = new AtomicReference<>("start");
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    step.set("warpSource");
+                    // The SDK view is wrapped twice: a JDK proxy around the
+                    // permission-checked deformer around the editor view. Unwrap
+                    // invocation handlers and delegate fields until an object
+                    // exposing nativeSource() surfaces — that method hands back
+                    // the CWarpDeformerSource.
+                    Object node = target;
+                    Object warpSource = null;
+                    for (int depth = 0; depth < 8 && warpSource == null && node != null; depth++) {
+                        for (Class<?> c = node.getClass(); c != null && warpSource == null; c = c.getSuperclass()) {
+                            for (java.lang.reflect.Method method : c.getDeclaredMethods()) {
+                                if (method.getName().equals("nativeSource") && method.getParameterCount() == 0) {
+                                    method.setAccessible(true);
+                                    warpSource = method.invoke(node);
+                                    break;
+                                }
+                            }
+                        }
+                        Object next = null;
+                        if (java.lang.reflect.Proxy.isProxyClass(node.getClass())) {
+                            next = java.lang.reflect.Proxy.getInvocationHandler(node);
+                        }
+                        for (Class<?> c = node.getClass(); c != null && next == null; c = c.getSuperclass()) {
+                            for (final String field
+                                    : new String[] {"warp", "delegate", "inner", "impl", "target", "handler"}) {
+                                try {
+                                    final java.lang.reflect.Field f = c.getDeclaredField(field);
+                                    f.setAccessible(true);
+                                    final Object value = f.get(node);
+                                    if (value != null && !value.getClass().getName().startsWith("java.")) {
+                                        next = value;
+                                    }
+                                } catch (NoSuchFieldException ignored) {
+                                }
+                            }
+                        }
+                        if (next == node) {
+                            break;
+                        }
+                        node = next;
+                    }
+                    if (warpSource == null) {
+                        step.set("warpSource:no-nativeSource:" + target.getClass().getName());
+                        return;
+                    }
+                    final ClassLoader host = warpSource.getClass().getClassLoader();
+                    final Class<?> appClass = Class.forName("com.live2d.cubism.CEAppCtrl", true, host);
+                    final Class<?> gv2 = Class.forName("com.live2d.graphics3d.type.GVector2", true, host);
+
+                    step.set("appController");
+                    final java.lang.reflect.Field instanceField = appClass.getDeclaredField("_instance");
+                    instanceField.setAccessible(true);
+                    final Object app = instanceField.get(null);
+
+                    step.set("document");
+                    final Object doc = appClass.getMethod("getCurrentDoc").invoke(app);
+                    if (doc == null
+                            || !doc.getClass().getName().equals("com.live2d.cubism.doc.modeling.CModelingDocument")) {
+                        step.set("document:not-modeling:" + (doc == null ? "null" : doc.getClass().getName()));
+                        return;
+                    }
+
+                    step.set("editMode");
+                    final Object editMode = doc.getClass().getMethod("getEditMode_modeling").invoke(doc);
+                    final Object selector = editMode.getClass().getMethod("getSelector").invoke(editMode);
+                    final Object model = editMode.getClass().getMethod("getCurrentModel").invoke(editMode);
+
+                    step.set("completePack");
+                    final Object pack = appClass.getMethod("getCompletePack").invoke(app);
+
+                    step.set("camera");
+                    final Object viewContext = appClass.getMethod("getCurrentViewContext").invoke(app);
+                    final Object cameraManager =
+                            viewContext.getClass().getMethod("getCameraManager").invoke(viewContext);
+                    cameraManager.getClass().getMethod("getCameraWrapper").invoke(cameraManager);
+
+                    step.set("viewport");
+                    final java.awt.Component viewport = findViewportComponent();
+
+                    step.set("warpDeformer");
+                    final Object guid = warpSource.getClass().getMethod("getGuid").invoke(warpSource);
+                    final Object warp = model.getClass()
+                            .getMethod(
+                                    "getWarpDeformer",
+                                    Class.forName("com.live2d.type.CDeformerGuid", true, host))
+                            .invoke(model, guid);
+
+                    out.set(new WeightHostHandles(
+                            app, doc, editMode, selector, model, pack,
+                            cameraManager, viewport, warpSource, warp, gv2, host));
+                } catch (Exception | Error failure) {
+                    step.set(step.get() + ":" + failure.getClass().getSimpleName());
+                }
+            });
+        } catch (Exception | Error failure) {
+            report.put("weight.handlesError", failure.getClass().getSimpleName());
+            return null;
+        }
+        final WeightHostHandles handles = out.get();
+        report.put("weight.handles", handles == null ? "failed:" + step.get() : "ok");
+        if (handles != null) {
+            report.put("weight.viewport", describeComponent(handles.viewport()));
+        }
+        return handles;
+    }
+
+    /** Clears the modeling selection then selects the target warp's source object. */
+    private void selectWeightTarget(final WeightHostHandles handles, final Report report) {
+        final AtomicReference<String> state = new AtomicReference<>("skipped");
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    handles.selector().getClass().getMethod("clearSelection").invoke(handles.selector());
+                    handles.selector().getClass()
+                            .getMethod(
+                                    "addSelected",
+                                    Class.forName(
+                                            "com.live2d.cubism.doc.model.ACParameterControllableSource",
+                                            true, handles.hostClassLoader()),
+                                    int.class)
+                            .invoke(handles.selector(), handles.warpSource(), -1);
+                    final Object count = handles.selector().getClass()
+                            .getMethod("getSelectedCount")
+                            .invoke(handles.selector());
+                    state.set("selected:" + count);
+                } catch (Exception | Error failure) {
+                    state.set("failed:" + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
+                }
+            });
+        } catch (Exception | Error failure) {
+            state.set("failed:" + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
+        }
+        report.put("weight.objectSelected", state.get());
+    }
+
+    /**
+     * Activates the Brush Selection tool group through {@code
+     * CECompletePack.setToolGroup} — the identical entry point the toolbar toggle
+     * drives — then verifies the pack's current group switched.
+     */
+    private void activateBrushSelectionTool(final WeightHostHandles handles, final Report report) {
+        activateToolGroup(
+                handles,
+                report,
+                "weight.brushTool",
+                "com.live2d.cubism.view.palette.tool.toolMode.arrow.ToolGroup_BrushSelection");
+    }
+
+    private void activateToolGroup(
+            final WeightHostHandles handles,
+            final Report report,
+            final String reportKey,
+            final String toolGroupClassName
+    ) {
+        final AtomicReference<String> state = new AtomicReference<>("skipped");
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    final Class<?> brushGroupClass = Class.forName(
+                            toolGroupClassName,
+                            true, handles.hostClassLoader());
+                    final Object brushGroup = brushGroupClass.getField("INSTANCE").get(null);
+                    handles.completePack().getClass()
+                            .getMethod(
+                                    "setToolGroup",
+                                    Class.forName(
+                                            "com.live2d.cubism.view.palette.tool.toolMode.AToolGroup",
+                                            true, handles.hostClassLoader()))
+                            .invoke(handles.completePack(), brushGroup);
+                    final Object current = handles.completePack().getClass()
+                            .getMethod("getToolGroup")
+                            .invoke(handles.completePack());
+                    state.set(Boolean.toString(current == brushGroup)
+                            + ":" + (current == null ? "null" : current.getClass().getSimpleName()));
+                } catch (Exception | Error failure) {
+                    state.set("failed:" + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
+                }
+            });
+        } catch (Exception | Error failure) {
+            state.set("failed:" + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
+        }
+        report.put(reportKey, state.get());
+    }
+
+    /**
+     * Projects the target's row-1/col-1 grid point to screen coordinates:
+     * local → canvas via the live deformer's transform, canvas → component via the
+     * camera manager, component → screen via the viewport's location.
+     */
+    private int[] computeStrokePoint(
+            final WeightHostHandles handles,
+            final WarpDeformer target,
+            final Report report
+    ) {
+        if (handles.cameraManager() == null || handles.viewport() == null || handles.warpDeformer() == null) {
+            report.put("weight.projection", "skipped:missing-camera|viewport|deformer");
+            return null;
+        }
+        final AtomicReference<int[]> out = new AtomicReference<>();
+        final AtomicReference<String> state = new AtomicReference<>("skipped");
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    final WarpGrid grid = target.grid();
+                    final int width = grid.columns() + 1;
+                    int index = width + 1; // row 1, column 1 — off both mirror axes
+                    final int override = (int) parseLong(System.getProperty(POINT_PROPERTY, ""), -1);
+                    if (override >= 0 && override < grid.controlPoints().size()) {
+                        index = override;
+                    }
+                    final int pointIndex = index;
+                    final Point2 local = grid.controlPoints().get(index);
+                    final Class<?> gv2 = (Class<?>) handles.gv2Class();
+                    final Object dst = gv2.getConstructor(float.class, float.class)
+                            .newInstance(local.x(), local.y());
+                    report.put("weight.canvasPoint", local.x() + "," + local.y());
+                    report.put("weight.cameraScale",
+                            String.valueOf(handles.cameraManager().getClass()
+                                    .getMethod("getScaleComponentToDocument")
+                                    .invoke(handles.cameraManager())));
+                    report.put("weight.componentRect",
+                            String.valueOf(handles.cameraManager().getClass()
+                                    .getMethod("getComponentRect")
+                                    .invoke(handles.cameraManager())));
+                    final Object comp = handles.cameraManager().getClass()
+                            .getMethod("documentToComponent", gv2)
+                            .invoke(handles.cameraManager(), dst);
+                    final float cx = (Float) gv2.getMethod("getX").invoke(comp);
+                    final float cy = (Float) gv2.getMethod("getY").invoke(comp);
+                    try {
+                        final Object nearest = handles.warpDeformer().getClass()
+                                .getMethod("getNearestPointRefEx", gv2)
+                                .invoke(handles.warpDeformer(), dst);
+                        final Object ref = nearest.getClass().getMethod("a").invoke(nearest);
+                        report.put("weight.nearestRef",
+                                String.valueOf(ref.getClass().getMethod("a").invoke(ref))
+                                + ":" + ref.getClass().getName());
+                    } catch (Exception | Error nearestFailure) {
+                        report.put("weight.nearestRef", "failed:" + nearestFailure.getClass().getSimpleName());
+                    }
+                    report.put("weight.gridIndex", Integer.toString(pointIndex));
+                    report.put("weight.localPoint", local.x() + "," + local.y());
+                    report.put("weight.componentPoint", cx + "," + cy);
+                    final java.awt.Point origin = handles.viewport().getLocationOnScreen();
+                    out.set(new int[] {
+                        origin.x + Math.round(cx),
+                        origin.y + Math.round(cy)
+                    });
+                    state.set("ok");
+                } catch (Exception | Error failure) {
+                    state.set("failed:" + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
+                }
+            });
+        } catch (Exception | Error failure) {
+            state.set("failed:" + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
+        }
+        report.put("weight.projection", state.get());
+        return out.get();
+    }
+
+    /**
+     * Dumps the target's {@code PointSelector.weightMap} as sorted {@code index=weight}
+     * pairs — direct host-state evidence of which control-point indices carry weight.
+     */
+    private String dumpWeightMap(final WeightHostHandles handles) {
+        final AtomicReference<String> out = new AtomicReference<>("unavailable");
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    final Object selection = handles.warpSource().getClass()
+                            .getMethod("getSelection")
+                            .invoke(handles.warpSource());
+                    final Object pointSelector = selection.getClass()
+                            .getMethod("getPointSelector")
+                            .invoke(selection);
+                    @SuppressWarnings("unchecked")
+                    final java.util.Map<Object, Object> weightMap =
+                            (java.util.Map<Object, Object>) pointSelector.getClass()
+                                    .getMethod("getWeightMap")
+                                    .invoke(pointSelector);
+                    final java.util.Map<Integer, Float> byIndex = new java.util.TreeMap<>();
+                    for (java.util.Map.Entry<Object, Object> entry : weightMap.entrySet()) {
+                        final Object index = entry.getKey().getClass().getMethod("a").invoke(entry.getKey());
+                        if (index instanceof Integer i) {
+                            byIndex.put(i, (Float) entry.getValue());
+                        }
+                    }
+                    final StringBuilder text = new StringBuilder();
+                    for (java.util.Map.Entry<Integer, Float> entry : byIndex.entrySet()) {
+                        if (text.length() > 0) {
+                            text.append(' ');
+                        }
+                        text.append(entry.getKey()).append('=').append(entry.getValue());
+                    }
+                    out.set(text.length() == 0 ? "empty" : text.toString());
+                } catch (Exception | Error failure) {
+                    out.set("failed:" + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
+                }
+            });
+        } catch (Exception | Error failure) {
+            out.set("failed:" + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
+        }
+        return out.get();
+    }
+
+    /** Finds the largest showing GL viewport component in this process' windows. */
+    private static java.awt.Component findViewportComponent() {
+        java.awt.Component best = null;
+        for (final Window window : Window.getWindows()) {
+            if (!window.isShowing()) {
+                continue;
+            }
+            final java.awt.Component found = findGlComponent(window);
+            if (found != null && (best == null
+                    || found.getWidth() * (long) found.getHeight()
+                            > best.getWidth() * (long) best.getHeight())) {
+                best = found;
+            }
+        }
+        return best;
+    }
+
+    private static java.awt.Component findGlComponent(final java.awt.Component node) {
+        final String name = node.getClass().getName();
+        if (name.contains("GLJPanel") || name.contains("GLCanvas")) {
+            return node;
+        }
+        if (node instanceof java.awt.Container container) {
+            for (final java.awt.Component child : container.getComponents()) {
+                final java.awt.Component found = findGlComponent(child);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String describeComponent(final java.awt.Component component) {
+        if (component == null) {
+            return "none";
+        }
+        try {
+            final java.awt.Point at = component.getLocationOnScreen();
+            return component.getClass().getSimpleName()
+                    + " at " + at.x + "," + at.y + " " + component.getWidth() + "x" + component.getHeight();
+        } catch (RuntimeException | Error failure) {
+            return component.getClass().getSimpleName() + " (not-showing)";
+        }
+    }
+
+    /**
+     * Asserts the last mirrored (source, counterpart) pair matches the armed-axis
+     * index math on the target's grid: 垂直镜像 (axis 1) flips the row, 水平镜像
+     * (axis 2) flips the column. Out-of-target pairs are reported, not failed —
+     * the stroke may have painted a different deformer than the chosen target.
+     */
+    private void assertPairConsistency(
+        final WarpDeformer target,
+        final int axis,
+        final Report report,
+        final List<String> failures
+    ) {
+        if (target == null) {
+            report.put("weight.mirror.pairConsistent", "skipped:no-target");
+            return;
+        }
+        try {
+            final WarpGrid grid = target.grid();
+            final int width = grid.columns() + 1;
+            final int height = grid.rows() + 1;
+            final int source = Integer.parseInt(report.getOrDefault("weight.mirror.lastSource", "-1"));
+            final int counterpart = Integer.parseInt(report.getOrDefault("weight.mirror.lastCounterpart", "-1"));
+            if (source < 0 || source >= width * height || counterpart < 0) {
+                report.put("weight.mirror.pairConsistent", "skipped:out-of-target-range");
+                return;
+            }
+            final int row = source / width;
+            final int column = source % width;
+            final int expected = axis == 1
+                ? (height - 1 - row) * width + column
+                : row * width + (width - 1 - column);
+            report.put("weight.mirror.expectedCounterpart", Integer.toString(expected));
+            report.put("weight.mirror.pairConsistent", Boolean.toString(expected == counterpart));
+            if (expected != counterpart) {
+                failures.add("mirrored counterpart index inconsistent with the armed axis");
+            }
+        } catch (RuntimeException | Error failure) {
+            report.put("weight.mirror.pairConsistent", "skipped:" + failure.getClass().getSimpleName());
+        }
+    }
+
+    /** One optional single click, used to select a palette row or a toolbar tool. */
+    private static void clickAt(final Robot robot, final int[] point) {
+        if (point == null) {
+            return;
+        }
+        robot.mouseMove(point[0], point[1]);
+        robot.delay((int) GESTURE_STEP_MILLIS);
+        robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+        robot.delay(80);
+        robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+        robot.delay((int) GESTURE_STEP_MILLIS);
+    }
+
+    /** A plain left-button drag stroke — the weight-brush paint gesture. */
+    private static void paintStroke(
+        final Robot robot,
+        final int startX,
+        final int startY,
+        final int dx,
+        final int dy
+    ) {
+        robot.mouseMove(startX, startY);
+        robot.delay((int) GESTURE_STEP_MILLIS);
+        robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+        robot.delay((int) GESTURE_STEP_MILLIS);
+        for (int step = 1; step <= 6; step++) {
+            robot.mouseMove(startX + (dx * step) / 6, startY + (dy * step) / 6);
+            robot.delay((int) GESTURE_STEP_MILLIS);
+        }
+        robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+        robot.delay((int) GESTURE_STEP_MILLIS);
+    }
+
     /** Brings this process' own unique visible main window to front so the gesture lands. */
     private boolean focusMainWindow() {
         try {
@@ -1284,6 +2087,10 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
      * negates the horizontal delta and keeps the vertical one.
      */
     static Symmetry analyseMirror(final WarpGrid before, final WarpGrid after) {
+        return analyseMirror(before, after, 2);
+    }
+
+    static Symmetry analyseMirror(final WarpGrid before, final WarpGrid after, final int axis) {
         final int rows = before.rows();
         final int columns = before.columns();
         final List<Point2> from = before.controlPoints();
@@ -1327,8 +2134,9 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
             }
             final int row = index / width;
             final int column = index % width;
-            final int mirrorColumn = columns - column;
-            final int mirror = row * width + mirrorColumn;
+            final int mirror =
+                axis == 1 ? (rows - row) * width + column
+                    : row * width + (columns - column);
             if (mirror == index) {
                 selfMirrored++;
                 continue;
@@ -1337,7 +2145,12 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
                 continue;
             }
             pairsMoved++;
-            if (close(deltaX[mirror], -deltaX[index]) && close(deltaY[mirror], deltaY[index])) {
+            // Vertical mirror flips the row: deltas mirror about the horizontal
+            // axis (dx same, dy negated). Horizontal mirror flips the column.
+            final boolean mirrored = axis == 1
+                ? close(deltaX[mirror], deltaX[index]) && close(deltaY[mirror], -deltaY[index])
+                : close(deltaX[mirror], -deltaX[index]) && close(deltaY[mirror], deltaY[index]);
+            if (mirrored) {
                 pairsMirrored++;
             }
         }

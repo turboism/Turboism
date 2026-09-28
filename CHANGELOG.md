@@ -60,6 +60,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   drag-tick hook admits the exact reviewed Cubism 5.2.03, 5.3.02 and 5.3.03 artifacts —
   inside the native drag tick it provides live mirrored preview and a single undo entry —
   while unreviewed hosts keep the release-time AWT fallback with identical results.
+  While an axis is armed, selection-weight writes (the Brush Selection Tool and every other
+  weighted-selection flow) are mirrored onto the axis counterpart point in the same
+  selection/undo envelope, so weight painting stays symmetric in real time.
 - `Action.of` and `MenuContribution.of` build single-point contribution registrations as plain
   `SimpleAction`/`SimpleMenuContribution` values, so a plugin no longer needs an anonymous class
   for every action or menu item it contributes.
