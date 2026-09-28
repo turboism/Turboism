@@ -11,7 +11,12 @@ import java.util.Optional;
  * the permission-checked SDK wrapper. Paths and admission callbacks are trusted runtime inputs.
  */
 public interface PsdExportHost {
-    /** Runs current-model export with policy revalidation on the native host thread. */
+    /**
+     * Runs current-model export with policy revalidation. Identity binding and admission run on
+     * the host thread; the native PSD serialization runs on the calling thread, matching
+     * Cubism's own background export task so large exports do not freeze the editor UI.
+     * Callers must keep the document quiescent for the whole call.
+     */
     Observation exportPsdTo(RawImageId source, Path destination, Runnable admission);
 
     /**

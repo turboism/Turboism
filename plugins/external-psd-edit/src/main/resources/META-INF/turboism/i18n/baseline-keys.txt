@@ -16,6 +16,8 @@ external-psd-edit.error.subscribe-failed
 external-psd-edit.error.unresolved
 external-psd-edit.error.unsupported
 external-psd-edit.menu
+external-psd-edit.progress.body
+external-psd-edit.progress.title
 external-psd-edit.status.already-open
 external-psd-edit.status.applied
 external-psd-edit.status.editing

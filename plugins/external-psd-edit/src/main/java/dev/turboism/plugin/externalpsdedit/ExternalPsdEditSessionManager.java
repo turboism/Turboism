@@ -36,7 +36,20 @@ import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 
+import javax.swing.BorderFactory;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JProgressBar;
+import javax.swing.SwingUtilities;
+import javax.swing.WindowConstants;
+import java.awt.BorderLayout;
+import java.awt.Frame;
+import java.awt.GraphicsEnvironment;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -48,6 +61,9 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -68,11 +84,13 @@ final class ExternalPsdEditSessionManager {
     private final PluginLocalization localization;
     private final Map<SessionKey, Session> sessions = new LinkedHashMap<>();
     private final AtomicLong taskSequence = new AtomicLong();
+    private final AtomicInteger pendingExportOperations = new AtomicInteger();
     private long lifecycleEpoch;
     private long refreshAttemptedEpoch = -1L;
     private long refreshHandleEpoch = -1L;
     private TaskHandle refreshHandle;
     private volatile boolean stopped;
+    private volatile JDialog exportProgressDialog;
 
     ExternalPsdEditSessionManager(
         final PluginContext context,
@@ -249,13 +267,103 @@ final class ExternalPsdEditSessionManager {
                 text("external-psd-edit.status.already-open"));
             reopenSession(existing);
         }
+        openFreshWithProgress(model.textures(), fresh);
+    }
+
+    /**
+     * Dispatches fresh PSD exports and shows a modal progress dialog while they run.
+     *
+     * <p>Native PSD serialization runs on a worker thread, matching Cubism's own background
+     * export task; the modal keeps the document quiescent for that window so the save cannot
+     * observe a half-applied edit, and keeps the editor visibly alive instead of freezing.
+     * The dialog is dismissed once every dispatched export settles.</p>
+     */
+    private void openFreshWithProgress(
+        final ModelTextures textures,
+        final List<TargetSeed> fresh
+    ) {
+        if (fresh.isEmpty()) {
+            return;
+        }
+        final JDialog progress = GraphicsEnvironment.isHeadless()
+            ? null : newExportProgressDialog(fresh.size());
+        if (progress != null) {
+            exportProgressDialog = progress;
+            showExportProgress(progress);
+        }
         for (final TargetSeed target : fresh) {
             try {
-                beginSession(model.textures(), target);
+                beginSession(textures, target);
             } catch (RuntimeException exportRefused) {
                 notifyStatus("external-psd-edit.error.session-failed", "ERROR", format(
                     "external-psd-edit.error.export-failed", target.rawImageId().value()));
             }
+        }
+        if (pendingExportOperations.get() <= 0) {
+            exportProgressDialog = null;
+        }
+    }
+
+    /**
+     * Shows the modal export dialog without blocking the caller. On the EDT the FIFO event
+     * queue already orders this ahead of any export host-thread dispatch queued afterwards;
+     * on other threads the caller waits until the window is actually modal so the document
+     * stays quiescent before the first export can read it.
+     */
+    private void showExportProgress(final JDialog progress) {
+        final CountDownLatch shown = new CountDownLatch(1);
+        progress.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowOpened(final WindowEvent event) {
+                shown.countDown();
+            }
+        });
+        SwingUtilities.invokeLater(() -> progress.setVisible(true));
+        if (SwingUtilities.isEventDispatchThread()) {
+            return;
+        }
+        try {
+            if (!shown.await(30, TimeUnit.SECONDS)) {
+                context.logger().warn(
+                    "External PSD export progress dialog did not open; exports continue without its input block");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private JDialog newExportProgressDialog(final int count) {
+        final JDialog dialog = new JDialog(
+            (Frame) null,
+            text("external-psd-edit.progress.title"),
+            true
+        );
+        TurboismWindowFactory.style(dialog);
+        dialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        dialog.setResizable(false);
+        final JPanel content = new JPanel(new BorderLayout(10, 10));
+        content.setBorder(BorderFactory.createEmptyBorder(14, 18, 14, 18));
+        content.add(
+            new JLabel(format("external-psd-edit.progress.body", count)),
+            BorderLayout.NORTH
+        );
+        final JProgressBar bar = new JProgressBar();
+        bar.setIndeterminate(true);
+        content.add(bar, BorderLayout.CENTER);
+        dialog.setContentPane(content);
+        dialog.pack();
+        dialog.setLocationRelativeTo(null);
+        return dialog;
+    }
+
+    private void onExportSettled() {
+        if (pendingExportOperations.decrementAndGet() > 0) {
+            return;
+        }
+        final JDialog dialog = exportProgressDialog;
+        exportProgressDialog = null;
+        if (dialog != null) {
+            SwingUtilities.invokeLater(dialog::dispose);
         }
     }
 
@@ -347,8 +455,14 @@ final class ExternalPsdEditSessionManager {
             if (export == null) {
                 throw new IllegalStateException("export returned no completion");
             }
-            export.whenComplete((result, failure) ->
-                onExportComplete(session, result, failure));
+            pendingExportOperations.incrementAndGet();
+            export.whenComplete((result, failure) -> {
+                try {
+                    onExportComplete(session, result, failure);
+                } finally {
+                    onExportSettled();
+                }
+            });
         } catch (RuntimeException exportFailure) {
             failSession(session, format(
                 "external-psd-edit.error.export-failed", target.rawImageId().value()));

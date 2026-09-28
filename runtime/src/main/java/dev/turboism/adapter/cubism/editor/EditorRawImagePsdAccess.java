@@ -82,15 +82,33 @@ final class EditorRawImagePsdAccess {
             );
         }
 
-        return EditorHostThread.dispatch(
-            "Cubism PSD raw-image export",
-            () -> exportBoundOnHostThread(identity, model, boundNativeSource, target)
+        EditorHostThread.dispatch(
+            "Cubism PSD raw-image export pre-guard",
+            () -> {
+                currentGuard.requireCurrent(identity, model);
+                return null;
+            }
         );
+        final ExportResult result = exportNative(boundNativeSource, target);
+        if (result.saveReturned()) {
+            EditorHostThread.dispatch(
+                "Cubism PSD raw-image export post-guard",
+                () -> {
+                    currentGuard.requireCurrent(identity, model);
+                    return null;
+                }
+            );
+        }
+        return result;
     }
 
     /**
-     * Resolves the current model-source raw image by exact {@link RawImageId}, saves it, and
-     * reparses the output inside one synchronous host-thread/current-model boundary.
+     * Resolves the current model-source raw image by exact {@link RawImageId} and saves it.
+     *
+     * <p>Identity binding and the current-model guards run on the host thread; the native PSD
+     * serialization runs on the calling thread, matching Cubism's own background export task.
+     * The caller must keep the document quiescent for the whole call so the save cannot read
+     * layers mutated mid-export.</p>
      */
     ExportResult exportPsd(
         final String identity,
@@ -122,10 +140,43 @@ final class EditorRawImagePsdAccess {
             );
         }
 
-        return EditorHostThread.dispatch(
-            "Cubism PSD raw-image export",
-            () -> exportOnHostThread(identity, modelSource, model, sourceId, target)
+        final BoundExport bound = EditorHostThread.dispatch(
+            "Cubism PSD raw-image export binding",
+            () -> bindForExport(identity, modelSource, model, sourceId, target)
         );
+        if (bound.rejection() != null) {
+            return bound.rejection();
+        }
+        final ExportResult result = exportNative(bound.nativeSource(), target);
+        if (result.saveReturned()) {
+            EditorHostThread.dispatch(
+                "Cubism PSD raw-image export post-guard",
+                () -> {
+                    currentGuard.requireCurrent(identity, model);
+                    return null;
+                }
+            );
+        }
+        return result;
+    }
+
+    private BoundExport bindForExport(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final RawImageId sourceId,
+        final Path target
+    ) {
+        currentGuard.requireCurrent(identity, model);
+        final EditorRawImagePsdSourceBinding.BindingResult binding =
+            sourceBinding.bindIdentityOnHostThread(modelSource, sourceId);
+        if (binding.status() != EditorRawImagePsdSourceBinding.BindingStatus.MATCHED) {
+            return new BoundExport(ExportResult.bindingRejected(target, binding), null);
+        }
+        return new BoundExport(null, binding.candidate().nativeSource());
+    }
+
+    private record BoundExport(ExportResult rejection, Object nativeSource) {
     }
 
     /**
@@ -194,44 +245,16 @@ final class EditorRawImagePsdAccess {
         }
     }
 
-    private ExportResult exportOnHostThread(
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final RawImageId sourceId,
-        final Path target
-    ) {
-        currentGuard.requireCurrent(identity, model);
-        final EditorRawImagePsdSourceBinding.BindingResult binding =
-            sourceBinding.bindIdentityOnHostThread(modelSource, sourceId);
-        if (binding.status() != EditorRawImagePsdSourceBinding.BindingStatus.MATCHED) {
-            return ExportResult.bindingRejected(target, binding);
-        }
-        final ExportResult result = exportNativeOnHostThread(
-            binding.candidate().nativeSource(),
-            target
-        );
-        if (result.saveReturned()) {
-            currentGuard.requireCurrent(identity, model);
-        }
-        return result;
-    }
-
-    private ExportResult exportBoundOnHostThread(
-        final String identity,
-        final Object model,
-        final Object boundNativeSource,
-        final Path target
-    ) {
-        currentGuard.requireCurrent(identity, model);
-        final ExportResult result = exportNativeOnHostThread(boundNativeSource, target);
-        if (result.saveReturned()) {
-            currentGuard.requireCurrent(identity, model);
-        }
-        return result;
-    }
-
-    private ExportResult exportNativeOnHostThread(
+    /**
+     * Serializes one bound native layered image to {@code target} on the calling thread.
+     *
+     * <p>Cubism's own export runs {@code CLayeredImage.save} on a background progress thread
+     * rather than the Swing host thread; running it on the host thread freezes the editor UI
+     * for the whole encoding of large layered images. The current-model guards in the callers
+     * bracket this window on the host thread, and the caller is required to hold the document
+     * quiescent so the read cannot observe a half-applied edit.</p>
+     */
+    private ExportResult exportNative(
         final Object boundNativeSource,
         final Path target
     ) {
