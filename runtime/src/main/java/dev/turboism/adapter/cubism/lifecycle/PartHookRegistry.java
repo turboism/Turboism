@@ -38,15 +38,6 @@ public final class PartHookRegistry {
         return coordinator;
     }
 
-    /** Session-scoped compatibility registration retained for focused adapter tests. */
-    public void register(
-        final PluginDescriptor descriptor,
-        final List<? extends TurboismPlugin> entrypoints,
-        final PluginLogger logger
-    ) {
-        registerCompatibility(descriptor, entrypoints, logger, null);
-    }
-
     /** Scope-bound compatibility registration retained outside Preview composition. */
     public void register(
         final PluginDescriptor descriptor,

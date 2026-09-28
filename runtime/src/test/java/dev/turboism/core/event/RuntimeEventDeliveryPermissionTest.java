@@ -64,7 +64,7 @@ class RuntimeEventDeliveryPermissionTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            PLUGIN_ID,
+            broker.pluginOwner(PLUGIN_ID),
             grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE)
         );
         final List<EventBus.TurboismEvent> received = new CopyOnWriteArrayList<>();
@@ -72,7 +72,7 @@ class RuntimeEventDeliveryPermissionTest {
 
         broker.publishRuntime(new BackupCompletedEvent(1L, List.of(), List.of()));
 
-        awaitMailbox(broker, broker.legacyOwner(PLUGIN_ID));
+        awaitMailbox(broker, broker.pluginOwner(PLUGIN_ID));
         assertTrue(received.isEmpty(), "protected event must not reach a wildcard subscriber");
     }
 
@@ -81,7 +81,7 @@ class RuntimeEventDeliveryPermissionTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            PLUGIN_ID,
+            broker.pluginOwner(PLUGIN_ID),
             grantingOnly(
                 PermissionIds.TURBOISM_EVENT_SUBSCRIBE,
                 PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE
@@ -110,7 +110,7 @@ class RuntimeEventDeliveryPermissionTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            PLUGIN_ID,
+            broker.pluginOwner(PLUGIN_ID),
             grantingOnly(
                 PermissionIds.TURBOISM_EVENT_SUBSCRIBE,
                 PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE
@@ -177,7 +177,7 @@ class RuntimeEventDeliveryPermissionTest {
 
         final PluginEventBus deniedBus = new PluginEventBus(
             broker,
-            "dev.example.denied",
+            broker.pluginOwner("dev.example.denied"),
             grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE)
         );
         final List<EventBus.TurboismEvent> denied = new CopyOnWriteArrayList<>();
@@ -185,7 +185,7 @@ class RuntimeEventDeliveryPermissionTest {
 
         final PluginEventBus allowedBus = new PluginEventBus(
             broker,
-            "dev.example.allowed",
+            broker.pluginOwner("dev.example.allowed"),
             grantingOnly(
                 PermissionIds.TURBOISM_EVENT_SUBSCRIBE,
                 PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE
@@ -198,7 +198,7 @@ class RuntimeEventDeliveryPermissionTest {
         );
 
         assertTrue(replayed.await(5, TimeUnit.SECONDS));
-        awaitMailbox(broker, broker.legacyOwner("dev.example.denied"));
+        awaitMailbox(broker, broker.pluginOwner("dev.example.denied"));
         assertTrue(denied.isEmpty(), "retained replay must honor concrete permissions");
     }
 
@@ -208,7 +208,7 @@ class RuntimeEventDeliveryPermissionTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            PLUGIN_ID,
+            broker.pluginOwner(PLUGIN_ID),
             grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE)
         );
         final List<EventBus.TurboismEvent> observed = new CopyOnWriteArrayList<>();
@@ -237,7 +237,7 @@ class RuntimeEventDeliveryPermissionTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            PLUGIN_ID,
+            broker.pluginOwner(PLUGIN_ID),
             grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE)
         );
         final List<EventBus.TurboismEvent> observed = new CopyOnWriteArrayList<>();
@@ -265,7 +265,7 @@ class RuntimeEventDeliveryPermissionTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            PLUGIN_ID,
+            broker.pluginOwner(PLUGIN_ID),
             grantingOnly(
                 PermissionIds.TURBOISM_EVENT_SUBSCRIBE,
                 ParameterHookRegistry.INTERCEPT_PERMISSION
@@ -310,7 +310,7 @@ class RuntimeEventDeliveryPermissionTest {
         );
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            PLUGIN_ID,
+            broker.pluginOwner(PLUGIN_ID),
             (permissionId, operation) -> {
                 if (PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(permissionId)) {
                     return;
@@ -339,7 +339,7 @@ class RuntimeEventDeliveryPermissionTest {
         }
 
         assertTrue(denied.await(5, TimeUnit.SECONDS), "drain must re-authorize queued events");
-        awaitMailbox(broker, broker.legacyOwner(PLUGIN_ID));
+        awaitMailbox(broker, broker.pluginOwner(PLUGIN_ID));
         assertEquals(
             1,
             received.size(),
@@ -481,7 +481,7 @@ class RuntimeEventDeliveryPermissionTest {
         );
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            PLUGIN_ID,
+            broker.pluginOwner(PLUGIN_ID),
             grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE)
         );
         eventBus.subscribe(EventBus.TurboismEvent.class, ignored -> { });
@@ -489,7 +489,7 @@ class RuntimeEventDeliveryPermissionTest {
         broker.publishRuntime(new BackupCompletedEvent(1L, List.of(), List.of()));
         broker.publishRuntime(new BackupCompletedEvent(2L, List.of(), List.of()));
 
-        awaitMailbox(broker, broker.legacyOwner(PLUGIN_ID));
+        awaitMailbox(broker, broker.pluginOwner(PLUGIN_ID));
         assertEquals(
             1,
             diagnostics.stream()

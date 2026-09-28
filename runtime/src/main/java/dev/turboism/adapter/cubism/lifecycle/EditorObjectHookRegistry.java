@@ -49,32 +49,6 @@ public final class EditorObjectHookRegistry {
     }
 
     /**
-     * Registers a plugin's ArtMesh, Deformer, and semantic hooks for the lifetime of the host session.
-     * Entrypoints are filtered by the hook interfaces they implement and registered in the given order;
-     * a plugin contributing none of them installs nothing. Intercept and observe capability is derived
-     * from the descriptor's declared permissions.
-     *
-     * @param descriptor identity and permissions of the registering plugin
-     * @param entrypoints the plugin's entrypoint instances, in invocation order
-     * @param logger sink for hook failures raised by this plugin
-     * @throws IllegalStateException when editor-object hooks are already registered for this plugin id
-     */
-    public void register(
-        final PluginDescriptor descriptor,
-        final List<? extends TurboismPlugin> entrypoints,
-        final PluginLogger logger
-    ) {
-        final Object token = new Object();
-        synchronized (lifecycleLock) {
-            if (ownerships.containsKey(descriptor.id())) {
-                throw new IllegalStateException("Editor-object hooks already registered for " + descriptor.id());
-            }
-            unregisterHooks(descriptor.id());
-            registerHooks(token, descriptor, entrypoints, logger, true, true, true);
-        }
-    }
-
-    /**
      * Registers a plugin's editor-object hooks bound to a disposable scope, so closing the scope
      * detaches exactly this registration generation. If installation fails the partial registration is
      * rolled back before the failure is rethrown.

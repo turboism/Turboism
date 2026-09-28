@@ -61,12 +61,12 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final PluginEventBus publisher = new PluginEventBus(
             broker,
-            "dev.example.publisher",
+            broker.pluginOwner("dev.example.publisher"),
             PermissionChecker.allowAll()
         );
         final PluginEventBus subscriber = new PluginEventBus(
             broker,
-            "dev.example.subscriber",
+            broker.pluginOwner("dev.example.subscriber"),
             PermissionChecker.allowAll()
         );
         final CountDownLatch delivered = new CountDownLatch(1);
@@ -329,7 +329,7 @@ class RuntimeEventBrokerTest {
         );
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            "dev.example.failure",
+            broker.pluginOwner("dev.example.failure"),
             PermissionChecker.allowAll()
         );
         final CountDownLatch laterSubscriber = new CountDownLatch(1);
@@ -364,7 +364,7 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            "dev.example.subscriber",
+            broker.pluginOwner("dev.example.subscriber"),
             (permissionId, operation) -> {
                 if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
                     permissionId
@@ -392,7 +392,7 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            "dev.example.publisher",
+            broker.pluginOwner("dev.example.publisher"),
             PermissionChecker.allowAll()
         );
         final ParameterValueEvent.After event = new ParameterValueEvent.After(
@@ -410,7 +410,7 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            "dev.example.publisher",
+            broker.pluginOwner("dev.example.publisher"),
             PermissionChecker.allowAll()
         );
         final AppearanceStatus nativeStatus = new AppearanceStatus(
@@ -454,7 +454,7 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            "dev.example.subscriber",
+            broker.pluginOwner("dev.example.subscriber"),
             (permissionId, operation) -> {
                 if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
                     permissionId
@@ -482,7 +482,7 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            "dev.example.subscriber",
+            broker.pluginOwner("dev.example.subscriber"),
             (permissionId, operation) -> {
                 if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
                     permissionId
@@ -510,7 +510,7 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            "dev.example.publisher",
+            broker.pluginOwner("dev.example.publisher"),
             PermissionChecker.allowAll()
         );
 
@@ -536,7 +536,7 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            "dev.example.subscriber",
+            broker.pluginOwner("dev.example.subscriber"),
             (permissionId, operation) -> {
                 if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
                     permissionId
@@ -577,7 +577,7 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
-            "dev.example.publisher",
+            broker.pluginOwner("dev.example.publisher"),
             PermissionChecker.allowAll()
         );
 
@@ -912,12 +912,12 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final PluginEventBus publisher = new PluginEventBus(
             broker,
-            "dev.example.publisher",
+            broker.pluginOwner("dev.example.publisher"),
             PermissionChecker.allowAll()
         );
         final PluginEventBus subscriber = new PluginEventBus(
             broker,
-            "dev.example.subscriber",
+            broker.pluginOwner("dev.example.subscriber"),
             PermissionChecker.allowAll()
         );
         final CountDownLatch delivered = new CountDownLatch(1);
