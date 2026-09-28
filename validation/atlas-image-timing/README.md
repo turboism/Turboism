@@ -176,3 +176,63 @@ Page-level parallelism ceiling ≈ 115.3/92.5 ≈ **1.25×** — one page holds 
 Export path remains unmeasured (scene driver has no export action).
 
 Evidence: `TurboismValidation/atlas-image-shadow/5303-t020-timing-01-heavy-nolayout-atlastiming-jfr/queue-a9578d5ef86741c18aeadceca5734b1e/turboism-home/atlas-timing/`
+
+## T029-STACK — entry-side stack sampling (ids 0/1 only)
+
+Optional second opt-in: `-Dturboism.validation.atlasTiming.stackOptIn=ATLAS_STACK_SAMPLE_EXPLICIT_OPT_IN`
+on top of the base `atlasTiming.optIn` token. Only the `updateTexture` (0) and
+`setupCacheImage` (1) entries are sampled; sampling is independent of the
+enter/exit pairing (an entry that later exits by throwing still lands its
+sample) and shares no queue, flush, or file with the timing records.
+
+`StackSamples` (single class, not a framework):
+
+- Budget reserved **before** collecting: ≤512 reservations total; `seq` is the
+  unique reservation id. Over-cap attempts are counted (`droppedBudget`),
+  never collected.
+- JDK 17 `StackWalker` with a walk limit of 97 frames, keeping at most 96
+  (`truncated=1` past that). Only `getClassName()`/`getMethodName()` strings —
+  no `RETAIN_CLASS_REFERENCE`, no host getters, no retained host objects.
+- Producer side never waits: a bounded queue (≤512) is offered records
+  non-blockingly; overflow is `droppedQueue`.
+- One daemon writer drains to `timing-stacks.txt` and keeps a single-writer
+  `timing-stacks.status` fresh through its own temp-file + atomic rename
+  (independent of the timing probe's `.tmp` window).
+- Status counters: `attempted / reserved / sampleError / queued / droppedQueue
+  / droppedBudget / dequeued / written / ioLost / truncated / pending /
+  inFlight / inWrite / queueDepth`. `reserved = sampleError + droppedQueue +
+  queued + inFlight`; `queued = dequeued + pending`; `dequeued = written +
+  ioLost + inWrite`. In-flight work is never counted as lost — it stays
+  visible as `inFlight`/`pending`/`inWrite`.
+- Record line: `stack seq=<n> metric=<name> tid=<id> thread="<name>" depth=<d>
+  truncated=<0|1> frames="a.b;c.d;…"` (names escaped and length-capped).
+- Disabled = no writer thread, no walker, no files; an in-memory state only.
+  A missing/wrong stack token must not poison `blocked`, and the stack token
+  can never enable anything without the base token.
+
+Offline legs (build.sh): selfcheck drives direct/worker/deep/exceptional
+entries, over-budget (clamped injected caps), gated full-queue, failing IO,
+and a throwing collector, all deterministic; harness legs run both tokens,
+base-only, wrong-token, and stack-token-only. Marker fixtures
+(`appCtrlImpl.ap`/`al`, `exporter/w`) only place their owner.method names on
+the sampled stacks.
+
+### Stack-sampling evidence limits
+
+- Records are **raw frames only**. The tool never classifies callers and never
+  claims who initiated or scheduled a call — a marker frame only proves the
+  sampled entry ran underneath it. Under a nested event pump (SecondaryLoop),
+  unrelated EDT work can carry the same marker frames; read stacks as
+  "executed under", never "caused by".
+- This slice does not exercise any real nested pump; marker frames in fixtures
+  are name-shape evidence, not pump semantics.
+- A native host exit can drop undrained samples **and** the final status —
+  treat evidence as incomplete unless `pending=0`/`inFlight=0` with matching
+  `written`. A missing `timing-stacks.txt` or zero samples never proves a path
+  did not run (sampling may have been disabled, or the writer lost).
+- Budget and queue caps bound *output*, not per-sample cost — each accepted
+  sample still walks up to 97 frames. Host-side overhead is unmeasured; use
+  on/off paired legs before reading anything into timings.
+- Frame names are interpreted against the 5303 mapping; that says nothing
+  about other versions, and the JDK-side sampler itself does not verify host
+  version.

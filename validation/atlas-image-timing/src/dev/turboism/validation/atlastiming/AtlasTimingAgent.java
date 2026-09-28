@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
  */
 public final class AtlasTimingAgent {
     private static final String OPT_IN_TOKEN = "ATLAS_TIMING_EXPLICIT_OPT_IN";
+    private static final String STACK_OPT_IN_TOKEN = "ATLAS_STACK_SAMPLE_EXPLICIT_OPT_IN";
 
     private AtlasTimingAgent() {
     }
@@ -33,6 +34,17 @@ public final class AtlasTimingAgent {
             }
             require("turboism.validation.atlasTiming.output");
             instrumentation.addTransformer(new Transformer(), false);
+            // Optional entry-side stack sampling (T029-STACK) has its own token and its own
+            // failure domain: a missing/wrong token only disables it — it must not poison
+            // the timing probe's blocked state, and it can never enable sampling on its own.
+            final String stackOptIn =
+                System.getProperty("turboism.validation.atlasTiming.stackOptIn");
+            if (STACK_OPT_IN_TOKEN.equals(stackOptIn)) {
+                StackSamples.enable();
+            } else {
+                StackSamples.disabled(stackOptIn == null
+                    ? "stack-opt-in-absent" : "stack-opt-in-token-mismatch");
+            }
             AtlasTimingProbe.flush();
         } catch (RuntimeException failure) {
             try {

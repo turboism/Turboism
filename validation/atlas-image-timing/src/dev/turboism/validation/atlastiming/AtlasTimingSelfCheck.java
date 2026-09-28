@@ -36,6 +36,9 @@ public final class AtlasTimingSelfCheck {
                 "throwingPath", "()V", AtlasTimingTargets.UPDATE_MESH),
             new AtlasTimingTargets.Target(
                 "dev/turboism/validation/atlastiming/fixture/FixtureAtlas",
+                "throwingUpdate", "(ZLjava/lang/Object;)V", AtlasTimingTargets.UPDATE_TEXTURE),
+            new AtlasTimingTargets.Target(
+                "dev/turboism/validation/atlastiming/fixture/FixtureAtlas",
                 "catchingPath", "()V", AtlasTimingTargets.SETUP_EDIT_LAYER),
             new AtlasTimingTargets.Target(
                 "dev/turboism/validation/atlastiming/fixture/FixtureAtlas",
@@ -47,6 +50,8 @@ public final class AtlasTimingSelfCheck {
         check(outcome.bytes() != null, "instrumented bytes must be produced");
         check(outcome.matches().get("updateTexture(ZLjava/lang/Object;)V") == 1,
             "updateTexture must match exactly once");
+        check(outcome.matches().get("throwingUpdate(ZLjava/lang/Object;)V") == 1,
+            "throwingUpdate must match exactly once");
         check(outcome.matches().get("setupCacheImage(ZLjava/lang/Object;)V") == 1,
             "setupCacheImage must match exactly once");
         check(!outcome.matches().containsKey("missingMethod()V"),
@@ -173,6 +178,152 @@ public final class AtlasTimingSelfCheck {
             original, "dev/turboism/validation/atlastiming/fixture/Other", fixtureTargets);
         check(unrelated.bytes() == null, "unrelated class must pass through");
 
+        // --- T029-STACK: independent bounded entry-side stack sampling ---------------
+        // Everything above ran with no engine: disabled sampling must have zero footprint.
+        check(StackSamples.state().startsWith("disabled"),
+            "stack sampling must start disabled, got " + StackSamples.state());
+        check(!threadExists("turboism-stack-samples"),
+            "disabled sampling must not create the writer thread");
+        check(!Files.exists(output.resolve(StackSamples.RECORDS_FILE)),
+            "disabled sampling must not create the records file");
+
+        final Path stackDir = output.resolve("stack-evidence");
+        StackSamples.enableForTest(512, 512, stackDir, null, null);
+        // id0 + nested id1 = 2 samples; the id5/id6 path must not be sampled at all.
+        update.invoke(woven, true, new Object());
+        catching.invoke(woven);
+        // A sampled entry that exits by throwing still lands as entry-side evidence.
+        try {
+            woven.getClass().getMethod("throwingUpdate", boolean.class, Object.class)
+                .invoke(woven, true, new Object());
+            check(false, "throwingUpdate must throw");
+        } catch (java.lang.reflect.InvocationTargetException expected) {
+            // Expected fixture failure.
+        }
+        // Depth beyond the cap must be truncated, not dropped or unbounded.
+        woven.getClass().getMethod("deepDrive", int.class).invoke(woven, 140);
+        // A non-EDT-named thread records its own tid/thread name on the stack line.
+        final Thread markerWorker = new Thread(() -> {
+            try {
+                update.invoke(woven, false, new Object());
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure);
+            }
+        }, "t029-marker-worker");
+        markerWorker.start();
+        markerWorker.join();
+
+        final Path stackRecords = stackDir.resolve(StackSamples.RECORDS_FILE);
+        final Path stackStatus = stackDir.resolve(StackSamples.STATUS_FILE);
+        final String stackBody = awaitStatus(stackStatus, "written", 7L);
+        check(stackBody != null, "stack status must reach written=7");
+        check(Files.isRegularFile(stackRecords), "stack records file must exist");
+        final List<String> stackLines = Files.exists(stackRecords)
+            ? Files.readAllLines(stackRecords) : List.of();
+        check(stackLines.size() == 7,
+            "expected 7 stack records, got " + stackLines.size());
+        final java.util.Set<String> seqs = new java.util.HashSet<>();
+        boolean sawThrowing = false;
+        boolean sawTruncated = false;
+        int workerLines = 0;
+        for (final String line : stackLines) {
+            final int seqAt = line.indexOf("seq=");
+            if (seqAt >= 0) {
+                seqs.add(line.substring(seqAt + 4, line.indexOf(' ', seqAt)));
+            }
+            check(line.contains("metric=updateTexture")
+                    || line.contains("metric=setupCacheImage"),
+                "stack line must only carry sampled metric ids 0/1: " + line);
+            if (line.contains("FixtureAtlas.throwingUpdate")) {
+                sawThrowing = true;
+            }
+            if (line.contains("truncated=1") && line.contains("FixtureAtlas.deepDrive")) {
+                sawTruncated = true;
+            }
+            if (line.contains("thread=\"t029-marker-worker\"")) {
+                workerLines++;
+            }
+        }
+        check(seqs.size() == stackLines.size(),
+            "seq must be a unique reservation id, got " + seqs.size());
+        check(sawThrowing,
+            "an exceptional exit must still produce entry-side stack evidence");
+        check(sawTruncated, "deep stacks must be truncated at the depth cap");
+        check(workerLines == 2,
+            "worker-thread entry must record 2 lines, got " + workerLines);
+
+        // Over-budget: reservations stop at the cap; dropped budget is counted, not sampled.
+        final Path smallDir = output.resolve("stack-budget");
+        final StackSamples.Engine small =
+            StackSamples.enableForTest(3, 512, smallDir, null, null);
+        update.invoke(woven, true, new Object());
+        update.invoke(woven, false, new Object());
+        update.invoke(woven, true, new Object());
+        java.util.Map<String, Long> snap = small.snapshot();
+        check(snap.get("attempted") == 6L, "attempted must count all calls, got "
+            + snap.get("attempted"));
+        check(snap.get("reserved") == 3L, "reserved must cap at the budget, got "
+            + snap.get("reserved"));
+        check(snap.get("droppedBudget") == 3L, "over-budget drops must be counted, got "
+            + snap.get("droppedBudget"));
+
+        // Full queue: the gated writer holds the drain closed so the offer-fail path is
+        // deterministic — no timing race.
+        final Path fullDir = output.resolve("stack-queue");
+        final java.util.concurrent.CountDownLatch gate = new java.util.concurrent.CountDownLatch(1);
+        final StackSamples.Engine gated =
+            StackSamples.enableForTest(16, 1, fullDir, null, gate);
+        update.invoke(woven, true, new Object());
+        update.invoke(woven, false, new Object());
+        snap = gated.snapshot();
+        check(snap.get("reserved") == 4L, "gated run must reserve 4, got "
+            + snap.get("reserved"));
+        check(snap.get("queued") == 1L, "capacity-1 queue must accept one, got "
+            + snap.get("queued"));
+        check(snap.get("droppedQueue") == 3L, "queue overflow must be counted, got "
+            + snap.get("droppedQueue"));
+        gate.countDown();
+        check(awaitStatus(fullDir.resolve(StackSamples.STATUS_FILE), "written", 1L) != null,
+            "gated writer must drain the single queued record");
+
+        // IO loss: records file path is a directory, so every write fails and is counted.
+        final Path ioDir = output.resolve("stack-io");
+        Files.createDirectories(ioDir.resolve(StackSamples.RECORDS_FILE));
+        final StackSamples.Engine ioBroken =
+            StackSamples.enableForTest(16, 8, ioDir, null, null);
+        update.invoke(woven, true, new Object());
+        final String ioStatus = awaitStatus(ioDir.resolve(StackSamples.STATUS_FILE),
+            "ioLost", 2L);
+        check(ioStatus != null, "IO failures must surface in status ioLost");
+        check(ioBroken.snapshot().get("written") == 0L,
+            "no record may be counted written when writes fail");
+
+        // Sampling collector failure: counted, swallowed, and pairing/call records intact.
+        final Path failDir = output.resolve("stack-sampleerror");
+        final StackSamples.Engine broken =
+            StackSamples.enableForTest(16, 8, failDir,
+                () -> { throw new IllegalStateException("injected collector failure"); }, null);
+        update.invoke(woven, true, new Object());
+        snap = broken.snapshot();
+        check(snap.get("sampleError") == 2L, "collector failures must count, got "
+            + snap.get("sampleError"));
+        check(snap.get("queued") == 0L, "failed samples must not be queued");
+
+        // Second flush cycle so every leg above is on disk before the final counts.
+        AtlasTimingProbe.flush();
+        Thread.sleep(600);
+        AtlasTimingProbe.flush();
+        final List<String> allCalls =
+            Files.readAllLines(output.resolve("timing-calls.txt"));
+        final long totalUpdates =
+            allCalls.stream().filter(l -> l.contains("call updateTexture")).count();
+        final long totalSetups =
+            allCalls.stream().filter(l -> l.contains("call setupCacheImage")).count();
+        check(totalUpdates == 12L,
+            "timing pairing must be unaffected by sampling, updateTexture=" + totalUpdates);
+        check(totalSetups == 13L,
+            "timing pairing must be unaffected by sampling, setupCacheImage=" + totalSetups);
+
         if (failures > 0) {
             System.out.println("ATLAS_TIMING_SELFCHECK FAILED failures=" + failures);
             System.exit(1);
@@ -187,5 +338,34 @@ public final class AtlasTimingSelfCheck {
             failures++;
             System.out.println("  FAIL " + message);
         }
+    }
+
+    private static boolean threadExists(final String name) {
+        for (final Thread thread : Thread.getAllStackTraces().keySet()) {
+            if (name.equals(thread.getName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Bounded wait for the single-writer status file to reach a counter value. */
+    private static String awaitStatus(final Path status, final String key, final long expected)
+            throws java.io.IOException, InterruptedException {
+        final long deadline = System.currentTimeMillis() + 15_000L;
+        String body = null;
+        while (System.currentTimeMillis() < deadline) {
+            if (Files.isRegularFile(status)) {
+                body = Files.readString(status);
+                final java.util.Properties props = new java.util.Properties();
+                props.load(new java.io.StringReader(body));
+                final String value = props.getProperty(key);
+                if (value != null && Long.parseLong(value) >= expected) {
+                    return body;
+                }
+            }
+            Thread.sleep(50);
+        }
+        return null;
     }
 }
