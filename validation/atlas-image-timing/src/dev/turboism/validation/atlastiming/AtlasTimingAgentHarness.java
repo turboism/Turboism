@@ -80,21 +80,27 @@ public final class AtlasTimingAgentHarness {
                 + body);
             System.exit(1);
         }
-        System.out.println("ATLAS_TIMING_AGENT_HARNESS PASS records all sixteen metrics");
+        System.out.println("ATLAS_TIMING_AGENT_HARNESS PASS records 12 driven metric counts");
     }
 
     private static boolean complete(final String body) {
-        return body.contains("metric.updateMesh.count=1")
-            && body.contains("metric.drawModelImage.count=1")
-            && body.contains("metric.updateTexture.count=2")
-            && body.contains("metric.setupCacheImage.count=3")
-            && body.contains("metric.setupEditLayer.count=2")
-            && body.contains("metric.editorBatch.count=1")
-            && body.contains("metric.editorInit.count=1")
-            && body.contains("metric.updateVertices.count=1")
-            && body.contains("metric.updateIndices.count=1")
-            && body.contains("metric.delaunayCompute.count=1")
-            && body.contains("metric.delaunayApply.count=1")
-            && body.contains("metric.autoTriangulate.count=1");
+        final java.util.Properties summary = new java.util.Properties();
+        try {
+            summary.load(new java.io.StringReader(body));
+        } catch (java.io.IOException failure) {
+            return false;
+        }
+        final String[][] expectedCounts = {
+            {"updateMesh", "1"}, {"drawModelImage", "1"}, {"updateTexture", "2"},
+            {"setupCacheImage", "3"}, {"setupEditLayer", "2"}, {"editorBatch", "1"},
+            {"editorInit", "1"}, {"updateVertices", "1"}, {"updateIndices", "1"},
+            {"delaunayCompute", "1"}, {"delaunayApply", "1"}, {"autoTriangulate", "1"},
+        };
+        for (final String[] expected : expectedCounts) {
+            if (!expected[1].equals(summary.getProperty("metric." + expected[0] + ".count"))) {
+                return false;
+            }
+        }
+        return true;
     }
 }

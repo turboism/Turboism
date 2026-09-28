@@ -4,6 +4,9 @@ import java.util.List;
 
 /** Own fixture mirroring the updateMesh internals chain. Never a host class. */
 public class FixtureMesh {
+    /** Non-empty sentinel proving the woven ARETURN passes the real object through. */
+    public static final List<int[]> SENTINEL = List.of(new int[]{7, 8, 9}, new int[]{4, 2});
+
     public int calls;
 
     public void updateVertices() {
@@ -18,7 +21,7 @@ public class FixtureMesh {
 
     public List<int[]> delaunayCompute() {
         calls++;
-        return List.of();
+        return SENTINEL;
     }
 
     public void delaunayApply(final List<int[]> triangles, final boolean flag,
