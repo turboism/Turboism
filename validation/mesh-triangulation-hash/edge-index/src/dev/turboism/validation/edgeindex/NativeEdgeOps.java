@@ -6,6 +6,8 @@ package dev.turboism.validation.edgeindex;
  * tail append, per-call version bump, degenerate-edge log. No hash index.
  */
 final class NativeEdgeOps extends EdgeOps {
+    /** Endpoint-pair comparisons performed by the linear first-hit scan. */
+    long endpointComparisons;
 
     @Override
     int addEdgeIfNotExists(final int i1, final int i2, final EdgeType type) {
@@ -24,7 +26,7 @@ final class NativeEdgeOps extends EdgeOps {
         // chechExistingEdge_exe: linear 0..size-1 first endpoint match (any type).
         int hit = -1;
         for (int i = 0; i < edges.size(); i++) {
-            comparisons++;
+            endpointComparisons++;
             final MEdge e = edges.get(i);
             if (e.index1 == lo && e.index2 == hi) {
                 hit = i;

@@ -14,11 +14,18 @@ import java.util.Map;
  * retype never changes endpoints or order, appends extend the map immediately,
  * so lookup results are identical to scanning the live list.</p>
  *
- * <p>Deliberately scoped to the apply loop: the index is batch-local and never
- * mutates the shared list semantics; outside callers keep the linear path.</p>
+ * <p>Prototype domain note: a standalone {@code addEdgeIfNotExists} outside a
+ * batch does <b>not</b> fall back to the linear path — it lazily builds a
+ * batch-local index on first use. The candidate semantics are therefore always
+ * hash-index based; a production patch would scope index construction to the
+ * apply batch itself.</p>
  */
 final class IndexedEdgeOps extends EdgeOps {
     private Map<Long, Integer> index;
+    /** Entries scanned while (re)building the batch-local index. */
+    long indexBuildEntries;
+    /** Hash lookups issued during edge insertions. */
+    long indexLookups;
     /** Diagnostic only — how many initial entries shared an endpoint key. */
     int initialDuplicateKeys;
 
@@ -27,7 +34,7 @@ final class IndexedEdgeOps extends EdgeOps {
     void beginBatch() {
         index = new HashMap<>(edges.size() * 2 + 16);
         for (int i = 0; i < edges.size(); i++) {
-            comparisons++; // index-build scan cost is counted like the baseline
+            indexBuildEntries++;
             final MEdge e = edges.get(i);
             index.putIfAbsent(key(e.index1, e.index2), i);
         }
@@ -65,9 +72,9 @@ final class IndexedEdgeOps extends EdgeOps {
         final int hi = Math.max(i1, i2);
         version++;
         if (index == null) {
-            beginBatch(); // defensive: indexless call falls back to same semantics
+            beginBatch(); // standalone call: build the batch-local index lazily
         }
-        comparisons++;
+        indexLookups++;
         final Integer hit = index.get(key(lo, hi));
         if (hit != null) {
             final MEdge existing = edges.get(hit);

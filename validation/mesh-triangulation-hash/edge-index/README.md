@@ -25,20 +25,30 @@ apply 路径恒为 `checkSimilar=false`。确认语义：
 `checkSimilarEdge_exe` 需要几何数据)、`addEdge` 其它 flag 组合、`b.a` 的
 triangulation 计算阶段本身。
 
-## 等价定义(验收口径)
+## 等价定义（验收口径）
 
-逐**操作**比较,非终态:每次调用后比对返回值或异常类+消息前缀、完整有序边列表
-(端点+类型逐位)、版本计数、事件序列(退化日志/重定型/进度标记)。覆盖:初始重复边、
-反向端点、退化边、类型替换与抑制、极值下标、null、固定种子随机流
-(seed 1/7/42/199/2026,含 clear/apply 交错)。首处分歧即打印最小反例并 FAIL——
-反例保留、候选停止,不降低标准。
+逐**操作**比较，非终态：apply 批内逐边锁步——每次 addEdgeIfNotExists 调用后比对
+返回值或异常类+真实消息、完整有序边列表（端点+类型逐位）、版本计数、事件序列
+（退化日志/重定型/进度标记）。覆盖：初始重复边、反向端点、退化边、类型替换与抑制、
+极值下标、null type、畸形 triangle 行（null 数组/null 行/长度 0/1/2/超长行，按字节码
+实读顺序——length-2 行先完成 (v0,v1) 再于 (v1,v2) 读处 AIOOBE）、确定性取消注入
+（ArmCancel 武装 `progress()` 在指定 d() 次数后抛 ModeledCancel——模拟
+`jp.noids.framework.e.a` 的传播边界；取消点位 190/312 已由字节码证实，生产异常类型
+本身不在仿真层声称等价）、固定种子随机流（seed 1/7/42/199/2026，含 clear/apply/
+armCancel/progress 交错）。首处分歧即打印最小反例并 FAIL——反例保留、候选停止，
+不降低标准。取消后脚本继续执行，验证中止后的后续使用行为两边一致。
 
-## 已捕获反例（保留记录）
+索引生命周期：`beginBatch` 在 clear 后构建；`endBatch` 在 finally 中执行（索引是
+候选内部 scratch，释放不依赖正常终止且不产生宿主可见事件）；批外直调时索引惰性
+构建（非线性回退，语义恒为索引）。
 
-首轮 random-seed-1 step 1490 曾真实分歧：`Clear`(`removeIf` 压缩列表）后批内索引陈旧，
+## 已捕获反例（保留记录+最小回归用例）
+
+首轮 random-seed-1 step 1490 曾真实分歧：`Clear`（`removeIf` 压缩列表）后批内索引陈旧，
 indexed 命中越界下标而 native 返回正常——证明"仅比对终态"不足以发现此类缺陷。修正为
 `clearAutoTriangulation` 使批索引失效（真实 apply 顺序恒为 clear→build→adds，该修正
-不改变 apply 内行为，只覆盖批外直调的防御路径）。
+不改变 apply 内行为，只覆盖批外直调的防御路径）。最小确定回归用例已固化为
+`clear-invalidates-index-regression`（Add→Clear→Add 命中移位后的存活边）。
 
 ## 运行
 
@@ -47,6 +57,8 @@ bash validation/mesh-triangulation-hash/edge-index/run.sh
 ```
 
 编译到 `build/edge-index/compile.XXXXXX`,跑 `EdgeIndexSelfCheck` 与
-`EdgeIndexBenchmark`(含建索引与分配成本;输出比较次数与纳秒)。对比数字仅为
-合成成本;不外推宿主收益/上界,真实 `a.a(progress)` 三角化计算仍可能主导 apply 内部耗时。
+`EdgeIndexBenchmark`(含建索引与分配成本;报告 `referenceEndpointComparisons` 与
+`indexBuildEntries`/`indexLookups` 三个不同量纲的计数,不相除、不设速度阈值,
+全样本输出含 A/B 交错)。对比数字仅为合成成本;不外推宿主收益/上界,不能分解
+原 50s apply 观测(真实 `a.a(progress)` 三角化计算仍可能主导)。
 不改已有 meshhash patch/agent/构建,不动生产、SDK、Runner、timing 工具,不启动宿主。

@@ -30,26 +30,51 @@ import java.util.List;
  *       priority is strictly lower than the new type's; return that index.</li>
  *   <li>miss → append a new MEdge at the tail and return the pre-append size.</li>
  *   <li>{@code clearAutoTriangulation()} = order-preserving
- *       {@code removeIf(type==AUTO_TRIANGULATION)}.</li>
+ *       {@code removeIf(type==AUTO_TRIANGULATION)}, no version bump.</li>
  * </ul>
  *
- * <p>{@code comparisons} counts endpoint-pair comparisons (reference) or map
- * probes (candidate) so the benchmark can report operation counts instead of
- * extrapolating host time.</p>
+ * <p>{@code progress()} models {@code j/a.d()}: the bundled implementation
+ * {@code j/b.d()} delegates to {@code a$b.a(this)}, which throws
+ * {@code jp.noids.framework.e.a} (a checked Exception) when {@code c()} reports
+ * cancelled. All six call sites in the official apply method sit outside the
+ * edge-insertion loop; cancel inside the loop is impossible and is therefore
+ * not modeled. The modeled exception type is simulation-level — what is
+ * verified is the abort/propagation boundary, not the production class name.</p>
+ *
+ * <p>Impl-specific counters are declared in each subclass so units never mix:
+ * the reference counts endpoint-pair comparisons; the candidate counts index
+ * build entries and lookups separately.</p>
  */
 abstract class EdgeOps {
     final List<MEdge> edges = new ArrayList<>();
     final List<String> events = new ArrayList<>();
     int version;
-    long comparisons;
+    private int progressCallsUntilCancel = Integer.MAX_VALUE;
+
+    /** Models the production cancel exception propagation, not its type. */
+    static final class ModeledCancel extends Exception {
+        private static final long serialVersionUID = 1L;
+        ModeledCancel() {
+            super("modeled-cancel(jp.noids.framework.e.a)");
+        }
+    }
+
+    /** Arm {@link #progress()} to throw ModeledCancel after n prior calls. */
+    void armCancelAfter(final int progressCalls) {
+        progressCallsUntilCancel = progressCalls;
+    }
 
     void clearAutoTriangulation() {
         edges.removeIf(e -> e.type == EdgeType.AUTO_TRIANGULATION);
     }
 
     /** Models {@code j/a.d()} progress/cancel points; positions must match. */
-    void progress() {
+    void progress() throws ModeledCancel {
         events.add("progress.d");
+        if (progressCallsUntilCancel != Integer.MAX_VALUE
+            && --progressCallsUntilCancel < 0) {
+            throw new ModeledCancel();
+        }
     }
 
     /** Batch boundary hook; the indexed candidate builds its temporary index here. */
@@ -61,10 +86,11 @@ abstract class EdgeOps {
 
     abstract int addEdgeIfNotExists(int i1, int i2, EdgeType type);
 
+    /** Kotlin Intrinsics.checkNotNullParameter shape (stdlib 1.7.21 → NPE). */
     static NullPointerException nullTypeException() {
-        // kotlin.jvm.internal.Intrinsics.throwParameterIsNullNPE shape.
         return new NullPointerException(
-            "Parameter specified as non-null is null: method <modeled>, parameter type");
+            "Parameter specified as non-null is null: "
+                + "method GEditableMesh2.addEdgeIfNotExists, parameter type");
     }
 
     void logIllegalEdge(final int i1, final int i2) {
