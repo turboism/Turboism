@@ -35,14 +35,17 @@ class EditorRawImagePsdNativeInvocationTest {
     }
 
     @Test
-    void savesOnHostThreadWithoutParsingOrReconstructingExport(@TempDir final Path temp)
+    void savesOffHostThreadWithoutParsingOrReconstructingExport(@TempDir final Path temp)
         throws Exception {
         final Path target = temp.resolve("export.psd");
         Files.createFile(target);
         final Object model = new Object();
+        final java.util.List<Boolean> guardOnHostThread =
+            java.util.Collections.synchronizedList(new ArrayList<>());
         final EditorRawImagePsdNativeFixture.SyntheticLayeredImage source =
             new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source");
         final EditorRawImagePsdAccess access = access(resolver("5.3.02", true), (identity, current) -> {
+            guardOnHostThread.add(EditorHostThread.isCurrent());
             assertEquals("session-a", identity);
             assertSame(model, current);
         });
@@ -72,7 +75,9 @@ class EditorRawImagePsdNativeInvocationTest {
             List.of("progress", "name", "save"),
             EditorRawImagePsdNativeFixture.events()
         );
-        assertTrue(EditorRawImagePsdNativeFixture.edtEvents().stream().allMatch(Boolean::booleanValue));
+        assertTrue(EditorRawImagePsdNativeFixture.edtEvents().stream().noneMatch(Boolean::booleanValue));
+        assertEquals(2, guardOnHostThread.size());
+        assertTrue(guardOnHostThread.stream().allMatch(Boolean::booleanValue));
         assertTrue(EditorRawImagePsdNativeFixture.parseFirstFlag);
         assertTrue(EditorRawImagePsdNativeFixture.parseSecondFlag);
         assertEquals(null, EditorRawImagePsdNativeFixture.parseTarget);
@@ -357,7 +362,7 @@ class EditorRawImagePsdNativeInvocationTest {
             List.of("progress", "name", "save"),
             EditorRawImagePsdNativeFixture.events()
         );
-        assertTrue(EditorRawImagePsdNativeFixture.edtEvents().stream().allMatch(Boolean::booleanValue));
+        assertTrue(EditorRawImagePsdNativeFixture.edtEvents().stream().noneMatch(Boolean::booleanValue));
         assertTrue(Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS));
         assertTrue(Files.size(target) > 0);
     }
