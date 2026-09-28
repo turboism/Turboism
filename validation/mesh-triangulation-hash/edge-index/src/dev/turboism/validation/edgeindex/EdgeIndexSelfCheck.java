@@ -479,17 +479,19 @@ public final class EdgeIndexSelfCheck {
             new Op.Progress(),
             new Op.Add(1, 2, EdgeType.AUTO_TRIANGULATION)), List.of());
 
-        // Cancel aborts the first apply; a second apply still works (counter
-        // armed once — the second progress-pre throws as well).
+        // Cancel aborts the first apply; re-arm beyond this test's progress
+        // calls and verify that a fresh batch completes with its expected state.
         replay("cancel-then-new-apply", List.of(
             new Op.ArmCancel(0),
             new Op.ApplyIso(new int[][] {{0, 1, 2}},
                 "dev.turboism.validation.edgeindex.EdgeOps$ModeledCancel",
                 List.of(), 0, 1),
-            new Op.ArmCancel(0),
-            new Op.ApplyIso(new int[][] {{3, 4, 5}, {5, 6, 3}},
-                "dev.turboism.validation.edgeindex.EdgeOps$ModeledCancel",
-                List.of(), 0, 2)), List.of());
+            new Op.ArmCancel(Integer.MAX_VALUE),
+            new Op.ApplyIso(new int[][] {{3, 4, 5}, {5, 6, 3}}, null,
+                List.of("3,4,AUTO_TRIANGULATION", "4,5,AUTO_TRIANGULATION",
+                        "3,5,AUTO_TRIANGULATION", "5,6,AUTO_TRIANGULATION",
+                        "3,6,AUTO_TRIANGULATION"),
+                6, 3)), List.of());
     }
 
     /** Fixed-seed random op streams: adds, degenerates, clears, apply batches. */
