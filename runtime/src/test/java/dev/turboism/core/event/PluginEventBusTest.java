@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.plugin.Registration;
 
-class RuntimeEventBusTest {
+class PluginEventBusTest {
 
     private static final String PLUGIN_ID = "dev.turboism.plugin.demo";
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-08T00:00:00Z"), ZoneOffset.UTC);
@@ -39,7 +39,7 @@ class RuntimeEventBusTest {
     void subscriberReceivesEventAsynchronously_whenEventIsPublished() throws InterruptedException {
         // Given
         RuntimeScheduler scheduler = scheduler();
-        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
+        PluginEventBus eventBus = eventBus(scheduler);
         TestEvent event = new TestEvent("model-opened");
         CountDownLatch delivered = new CountDownLatch(1);
         AtomicReference<TestEvent> receivedEvent = new AtomicReference<>();
@@ -65,7 +65,7 @@ class RuntimeEventBusTest {
     void closedRegistrationStopsFutureDeliveries_whenEventIsPublishedAgain() throws InterruptedException {
         // Given
         RuntimeScheduler scheduler = scheduler();
-        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
+        PluginEventBus eventBus = eventBus(scheduler);
         CountDownLatch firstDelivery = new CountDownLatch(1);
         AtomicInteger deliveries = new AtomicInteger();
         var registration = eventBus.subscribe(TestEvent.class, ignored -> {
@@ -91,7 +91,7 @@ class RuntimeEventBusTest {
     void multipleSubscribersReceiveSameEventType_whenEventIsPublished() throws InterruptedException {
         // Given
         RuntimeScheduler scheduler = scheduler();
-        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
+        PluginEventBus eventBus = eventBus(scheduler);
         CountDownLatch delivered = new CountDownLatch(2);
         AtomicInteger deliveries = new AtomicInteger();
         eventBus.subscribe(TestEvent.class, ignored -> {
@@ -113,9 +113,9 @@ class RuntimeEventBusTest {
     }
 
     @Test
-    void baseTypeSubscriberDoesNotReceiveSubtypeUnderLegacyExactRouting() throws InterruptedException {
+    void baseTypeSubscriberDoesNotReceiveSubtype() throws InterruptedException {
         RuntimeScheduler scheduler = scheduler();
-        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
+        PluginEventBus eventBus = eventBus(scheduler);
         AtomicInteger baseDeliveries = new AtomicInteger();
         CountDownLatch concreteDelivered = new CountDownLatch(1);
         eventBus.subscribe(EventBus.TurboismEvent.class, ignored -> baseDeliveries.incrementAndGet());
@@ -131,7 +131,7 @@ class RuntimeEventBusTest {
     @Test
     void selfUnsubscribeDoesNotChangeDeliveryAlreadyDispatched() throws InterruptedException {
         RuntimeScheduler scheduler = scheduler();
-        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
+        PluginEventBus eventBus = eventBus(scheduler);
         CountDownLatch firstDelivered = new CountDownLatch(1);
         AtomicInteger deliveries = new AtomicInteger();
         AtomicReference<Registration> registration = new AtomicReference<>();
@@ -156,7 +156,7 @@ class RuntimeEventBusTest {
     void publisherThreadReturnsImmediately_whenSubscriberIsBlocked() throws InterruptedException {
         // Given
         RuntimeScheduler scheduler = scheduler();
-        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
+        PluginEventBus eventBus = eventBus(scheduler);
         CountDownLatch listenerStarted = new CountDownLatch(1);
         CountDownLatch releaseListener = new CountDownLatch(1);
         CountDownLatch listenerCompleted = new CountDownLatch(1);
@@ -180,6 +180,15 @@ class RuntimeEventBusTest {
         releaseListener.countDown();
         assertTrue(listenerCompleted.await(1, TimeUnit.SECONDS));
         scheduler.shutdown();
+    }
+
+    private static PluginEventBus eventBus(final RuntimeScheduler scheduler) {
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        return new PluginEventBus(
+            broker,
+            broker.pluginOwner(PLUGIN_ID),
+            PermissionChecker.allowAll()
+        );
     }
 
     private static RuntimeScheduler scheduler() {

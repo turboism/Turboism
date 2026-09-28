@@ -26,7 +26,7 @@ class ParameterHookRegistryTest {
             new NamedPlugin("second", events)
         );
 
-        registry.register(descriptor, entrypoints, logger());
+        registry.register(descriptor, entrypoints, logger(), new DisposableScope());
         final MutableParameter parameter = new MutableParameter();
         coordinator.setValue(parameter, 1.0F, value -> parameter.value = value);
         coordinator.awaitIdle();
@@ -101,7 +101,8 @@ class ParameterHookRegistryTest {
                     final float value
                 ) { events.add("after:" + value); }
             }),
-            logger()
+            logger(),
+            new DisposableScope()
         );
         final MutableParameter parameter = new MutableParameter();
 

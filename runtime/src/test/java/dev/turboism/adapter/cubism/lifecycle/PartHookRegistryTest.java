@@ -4,6 +4,7 @@ import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginLogger;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +27,7 @@ class PartHookRegistryTest {
             new NamedPlugin("second", events)
         );
 
-        registry.register(descriptor, entrypoints, logger());
+        registry.register(descriptor, entrypoints, logger(), new DisposableScope());
         final MutablePart part = new MutablePart();
         coordinator.setOpacity(part, 0.5F, value -> part.opacity = value);
         coordinator.awaitIdle();
@@ -61,7 +62,8 @@ class PartHookRegistryTest {
                     final float opacity
                 ) { events.add("after:" + opacity); }
             }),
-            logger()
+            logger(),
+            new DisposableScope()
         );
         final MutablePart part = new MutablePart();
 

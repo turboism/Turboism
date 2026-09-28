@@ -1391,7 +1391,7 @@ public final class CorePluginContext implements PluginContext {
                 clock,
                 failureSink,
                 eventBroker,
-                Objects.requireNonNull(eventBroker, "eventBroker").legacyOwner(descriptor.id())
+                Objects.requireNonNull(eventBroker, "eventBroker").pluginOwner(descriptor.id())
             );
         }
 

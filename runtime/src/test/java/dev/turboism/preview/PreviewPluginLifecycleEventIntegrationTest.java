@@ -94,7 +94,7 @@ class PreviewPluginLifecycleEventIntegrationTest {
             try {
                 final RuntimeEventBroker broker = brokerOf(runtime);
                 broker.subscribe(
-                    "test.lifecycle-recorder",
+                broker.pluginOwner("test.lifecycle-recorder"),
                     PluginLifecycleEvent.class,
                     event -> rawEvents.add(row(event))
                 );
@@ -159,7 +159,7 @@ class PreviewPluginLifecycleEventIntegrationTest {
             try {
                 final RuntimeEventBroker broker = brokerOf(runtime);
                 broker.subscribe(
-                    "test.lifecycle-recorder",
+                broker.pluginOwner("test.lifecycle-recorder"),
                     PluginLifecycleEvent.class,
                     event -> rawEvents.add(row(event))
                 );
@@ -220,7 +220,7 @@ class PreviewPluginLifecycleEventIntegrationTest {
             try {
                 final RuntimeEventBroker broker = brokerOf(runtime);
                 broker.subscribe(
-                    "test.lifecycle-recorder",
+                broker.pluginOwner("test.lifecycle-recorder"),
                     PluginLifecycleEvent.class,
                     event -> rawEvents.add(row(event))
                 );
@@ -292,7 +292,7 @@ class PreviewPluginLifecycleEventIntegrationTest {
             try {
                 final RuntimeEventBroker broker = brokerOf(runtime);
                 broker.subscribe(
-                    "test.lifecycle-recorder",
+                broker.pluginOwner("test.lifecycle-recorder"),
                     PluginLifecycleEvent.class,
                     event -> rawEvents.add(row(event))
                 );
@@ -354,7 +354,7 @@ class PreviewPluginLifecycleEventIntegrationTest {
             try {
                 final RuntimeEventBroker broker = brokerOf(runtime);
                 broker.subscribe(
-                    "test.lifecycle-recorder",
+                broker.pluginOwner("test.lifecycle-recorder"),
                     PluginLifecycleEvent.class,
                     event -> rawEvents.add(row(event))
                 );
@@ -412,7 +412,7 @@ class PreviewPluginLifecycleEventIntegrationTest {
             try {
                 final RuntimeEventBroker broker = brokerOf(runtime);
                 broker.subscribe(
-                    "test.lifecycle-recorder",
+                broker.pluginOwner("test.lifecycle-recorder"),
                     PluginLifecycleEvent.class,
                     event -> rawEvents.add(row(event))
                 );
@@ -472,7 +472,7 @@ class PreviewPluginLifecycleEventIntegrationTest {
             try {
                 final RuntimeEventBroker broker = brokerOf(runtime);
                 broker.subscribe(
-                    "test.lifecycle-recorder",
+                broker.pluginOwner("test.lifecycle-recorder"),
                     PluginLifecycleEvent.class,
                     event -> rawEvents.add(row(event))
                 );
@@ -536,7 +536,7 @@ class PreviewPluginLifecycleEventIntegrationTest {
             try {
                 final RuntimeEventBroker broker = brokerOf(runtime);
                 broker.subscribe(
-                    "test.lifecycle-recorder",
+                broker.pluginOwner("test.lifecycle-recorder"),
                     PluginLifecycleEvent.class,
                     event -> rawEvents.add(row(event))
                 );

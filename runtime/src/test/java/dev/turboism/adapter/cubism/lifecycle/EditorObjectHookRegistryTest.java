@@ -52,7 +52,8 @@ class EditorObjectHookRegistryTest {
         registry.register(
             descriptor("plugin", List.of(EditorObjectHookRegistry.OBSERVE_PERMISSION)),
             List.of(first, second),
-            logger()
+            logger(),
+            new DisposableScope()
         );
         final MutableDrawable drawable = new MutableDrawable();
 
@@ -63,10 +64,12 @@ class EditorObjectHookRegistryTest {
         assertEquals(List.of("first-after:0.5", "second-after:0.5"), events);
 
         events.clear();
+        registry.unregister("plugin");
         registry.register(
             descriptor("plugin", List.of(EditorObjectHookRegistry.INTERCEPT_PERMISSION)),
             List.of(first, second),
-            logger()
+            logger(),
+            new DisposableScope()
         );
         lifecycle.drawable().setOpacity(drawable, 0.8F, drawable::write);
         lifecycle.drawable().awaitIdle();
@@ -92,7 +95,8 @@ class EditorObjectHookRegistryTest {
         registry.register(
             descriptor("plugin", List.of(EditorObjectHookRegistry.OBSERVE_PERMISSION)),
             List.of(first, second),
-            logger()
+            logger(),
+            new DisposableScope()
         );
         lifecycle.semantic().runConfirmed(
             CubismOperation.OPEN_DOCUMENT,
@@ -110,10 +114,12 @@ class EditorObjectHookRegistryTest {
         );
 
         events.clear();
+        registry.unregister("plugin");
         registry.register(
             descriptor("plugin", List.of(EditorObjectHookRegistry.INTERCEPT_PERMISSION)),
             List.of(first, second),
-            logger()
+            logger(),
+            new DisposableScope()
         );
         lifecycle.semantic().runConfirmed(
             CubismOperation.SAVE_DOCUMENT,

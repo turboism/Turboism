@@ -22,7 +22,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class RuntimeEventBusPermissionTest {
+class PluginEventBusPermissionTest {
 
     private static final String PLUGIN_ID = "dev.turboism.plugin.test";
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-08T00:00:00Z"), ZoneOffset.UTC);
@@ -39,7 +39,7 @@ class RuntimeEventBusPermissionTest {
     @Test
     void subscribeWithoutPermissionThrowsCubismPermissionException() {
         // Given
-        RuntimeEventBus eventBus = eventBus((permissionId, operation) -> {
+        PluginEventBus eventBus = eventBus((permissionId, operation) -> {
             throw new CubismPermissionException(operation + " denied");
         });
 
@@ -54,7 +54,7 @@ class RuntimeEventBusPermissionTest {
     @Test
     void rootSubscriptionChecksOnlyBaselinePermission() {
         final List<String> checks = new CopyOnWriteArrayList<>();
-        final RuntimeEventBus eventBus = eventBus((permissionId, operation) ->
+        final PluginEventBus eventBus = eventBus((permissionId, operation) ->
             checks.add(permissionId + ":" + operation)
         );
 
@@ -73,7 +73,7 @@ class RuntimeEventBusPermissionTest {
     @Test
     void concreteRuntimeEventRequiresItsDomainPermission() {
         final List<String> checks = new CopyOnWriteArrayList<>();
-        final RuntimeEventBus eventBus = eventBus((permissionId, operation) -> {
+        final PluginEventBus eventBus = eventBus((permissionId, operation) -> {
             checks.add(permissionId + ":" + operation);
             if (PermissionIds.TURBOISM_CUBISM_SELECTION_OBSERVE.equals(permissionId)) {
                 throw new CubismPermissionException(operation + " denied");
@@ -100,7 +100,7 @@ class RuntimeEventBusPermissionTest {
     @Test
     void publishWithoutPermissionThrowsCubismPermissionException() {
         // Given
-        RuntimeEventBus eventBus = eventBus((permissionId, operation) -> {
+        PluginEventBus eventBus = eventBus((permissionId, operation) -> {
             if ("event.publish".equals(operation)) {
                 throw new CubismPermissionException(operation + " denied");
             }
@@ -116,7 +116,7 @@ class RuntimeEventBusPermissionTest {
         registration.close();
     }
 
-    private RuntimeEventBus eventBus(dev.turboism.permissions.PermissionChecker permissionChecker) {
+    private PluginEventBus eventBus(dev.turboism.permissions.PermissionChecker permissionChecker) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
@@ -124,7 +124,8 @@ class RuntimeEventBusPermissionTest {
             SidecarDispatcher.noop(),
             events::add
         );
-        return new RuntimeEventBus(scheduler, PLUGIN_ID, permissionChecker);
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        return new PluginEventBus(broker, broker.pluginOwner(PLUGIN_ID), permissionChecker);
     }
 
     private record TestEvent(String name) implements EventBus.TurboismEvent {

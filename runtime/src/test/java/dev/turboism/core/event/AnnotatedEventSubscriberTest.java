@@ -45,11 +45,11 @@ class AnnotatedEventSubscriberTest {
         final CountDownLatch delivered = new CountDownLatch(3);
         final Subscriber entrypoint = new Subscriber(calls, delivered);
         broker.registerAnnotated(
-            "dev.example.subscriber",
+            broker.pluginOwner("dev.example.subscriber"),
             new EntrypointSubscriberCatalog().inspect(List.of(entrypoint))
         );
 
-        broker.publish("turboism.core", new TestEvent("value"));
+        broker.publish(broker.pluginOwner("turboism.core"), new TestEvent("value"));
 
         assertTrue(delivered.await(1, TimeUnit.SECONDS));
         assertEquals(List.of("highest", "alpha", "zeta"), calls);
@@ -71,12 +71,12 @@ class AnnotatedEventSubscriberTest {
         final FailureAdvice advice = new FailureAdvice(advised);
         final FailingSubscriber subscriber = new FailingSubscriber();
         broker.registerAnnotated(
-            broker.legacyOwner("dev.example.failure"),
+            broker.pluginOwner("dev.example.failure"),
             new EntrypointSubscriberCatalog().inspect(List.of(subscriber, advice)),
             List.of(subscriber, advice)
         );
 
-        broker.publish("turboism.core", new TestEvent("value"));
+        broker.publish(broker.pluginOwner("turboism.core"), new TestEvent("value"));
 
         assertTrue(advised.await(1, TimeUnit.SECONDS));
         assertEquals("event.test", advice.context.operationId());
@@ -102,12 +102,12 @@ class AnnotatedEventSubscriberTest {
         final FailureAdvice advice = new FailureAdvice(adviceCalls);
         final UninterceptedSubscriber subscriber = new UninterceptedSubscriber();
         broker.registerAnnotated(
-            broker.legacyOwner("dev.example.unintercepted"),
+            broker.pluginOwner("dev.example.unintercepted"),
             new EntrypointSubscriberCatalog().inspect(List.of(subscriber, advice)),
             List.of(subscriber, advice)
         );
 
-        broker.publish("turboism.core", new TestEvent("value"));
+        broker.publish(broker.pluginOwner("turboism.core"), new TestEvent("value"));
 
         assertTrue(awaitSize(failures, 1));
         assertEquals(1L, adviceCalls.getCount());
