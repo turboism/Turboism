@@ -273,21 +273,12 @@ public final class RuntimeEventBroker {
         }
     }
 
-    /** Returns the active generation-zero owner used by compatibility integrations. */
-    public PluginEventOwnerKey legacyOwner(final String pluginId) {
+    /** Returns the active generation-zero owner shared by plugin contexts and integrations. */
+    public PluginEventOwnerKey pluginOwner(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         final PluginEventOwnerKey key = new PluginEventOwnerKey(id, 0L);
         owners.computeIfAbsent(key, ignored -> OwnerState.active(key, mailboxCapacity));
         return key;
-    }
-
-    /** Registers a compatibility subscription under the plugin generation-zero owner. */
-    public <T extends EventBus.TurboismEvent> Registration subscribe(
-        final String pluginId,
-        final Class<T> type,
-        final Consumer<T> listener
-    ) {
-        return subscribe(legacyOwner(pluginId), type, listener);
     }
 
     /** Registers a typed subscription owned by an exact active plugin generation. */
@@ -376,14 +367,6 @@ public final class RuntimeEventBroker {
                 ));
             }
         }
-    }
-
-    /** Registers annotated subscribers under the plugin generation-zero owner. */
-    public List<Registration> registerAnnotated(
-        final String pluginId,
-        final List<EventSubscriberDescriptor> descriptors
-    ) {
-        return registerAnnotated(legacyOwner(pluginId), descriptors, List.of());
     }
 
     /** Registers validated annotated subscribers for an exact plugin generation. */
@@ -631,32 +614,8 @@ public final class RuntimeEventBroker {
         }
     }
 
-    /** Publishes a plugin-owned event from the compatibility generation-zero owner. */
-    public <T extends EventBus.TurboismEvent> void publish(
-        final String publisherPluginId,
-        final T event
-    ) {
-        final PluginEventOwnerKey publisher = legacyOwner(publisherPluginId);
-        requireActiveOwner(publisher, "publish");
-        final T value = Objects.requireNonNull(event, "event");
-        contractCatalog.requirePluginPublicationAllowed(publisher, value);
-        publicRoutes.requirePublication(publisher, value);
-        publishExact(value);
-    }
-
     /** Publishes a plugin-owned event after exact-owner and contract validation. */
     public <T extends EventBus.TurboismEvent> void publish(
-        final PluginEventOwnerKey publisher,
-        final T event
-    ) {
-        requireActiveOwner(publisher, "publish");
-        final T value = Objects.requireNonNull(event, "event");
-        contractCatalog.requirePluginPublicationAllowed(publisher, value);
-        publicRoutes.requirePublication(publisher, value);
-        publishExact(value);
-    }
-
-    <T extends EventBus.TurboismEvent> void publishExact(
         final PluginEventOwnerKey publisher,
         final T event
     ) {
