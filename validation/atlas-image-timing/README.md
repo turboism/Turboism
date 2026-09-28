@@ -1,8 +1,9 @@
 # validation/atlas-image-timing — per-call atlas-path timing agent
 
 Validation-only timing instrumentation for spec 020 (T029/FR-01). Weaves
-stack-neutral enter/exit calls into seven reviewed Cubism 5.3.03 methods and
-records per-call durations + thread attribution inside the task home.
+stack-neutral enter/exit calls into reviewed Cubism methods (5.3.03 and 5.2.03
+target lists) and records per-call durations + thread attribution inside the
+task home.
 
 ## Targets (exact-signature, 5303-verified)
 
@@ -15,6 +16,17 @@ records per-call durations + thread attribution inside the task home.
 | editorInit | `TAE_DataModel.z()V` | edit-layer construction loop |
 | setupEditLayer | `TAE__EditLayer_ModelImage.setupEditLayer()V` | per-ModelImage layer setup |
 | updateMesh | `GEditableMesh2.updateMesh(Lcom/live2d/util/j/a;Z)V` | per-mesh triangulation |
+| updateVertices | `GEditableMesh2.updateVertices()V` | vertex-position buffer rebuild inside updateMesh |
+| updateIndices | `GEditableMesh2.updateIndices(Lcom/live2d/util/j/a;)V` | edge-version-gated index rebuild inside updateMesh |
+| delaunayCompute | `editableMesh.b.b(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;)Ljava/util/List;` | Delaunay candidate-triangle computation |
+| delaunayApply | `editableMesh.b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V` | Delaunay apply (edge/indices mutation) |
+| autoTriangulate | `editableMesh.triangulation.g.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Lcom/live2d/util/j/a;)V` | fused non-Delaunay auto-triangulation |
+
+The last five metrics (ids 11–15, T029-P3A) decompose `updateMesh`'s inclusive
+cost: `updateMesh` = `updateVertices` + cancellation check + `updateIndices`,
+and `updateIndices` runs either `delaunayCompute`+`delaunayApply` or
+`autoTriangulate`. On 5.2.03 the `com.live2d.util.j.a` context type is
+`com.live2d.util.i.a`; all other descriptors are identical between versions.
 
 Design: `enter(I)/exit(I)` push/pop a ThreadLocal stack — zero new locals,
 exception-table-neutral, unmatched exits counted as `unpaired`. Opt-in token
@@ -23,9 +35,32 @@ exception-table-neutral, unmatched exits counted as `unpaired`. Opt-in token
 (their reflective digest inside updateMesh distorts timing).
 
 Offline gates (build.sh): selfcheck (nesting/exceptions/unrelated-class
-pass-through), official-JAR non-execution shape probe (7/7 owner×desc exactly
-once, owner SHA256s recorded), live-JVM harness, opt-in gate. Agent jar sha256
-`03002299fc7b1b22a204d37fc84027e1216047d8c0ad7b54840962697e5ebeaa`.
+pass-through), official-JAR non-execution shape probe (per-profile owner×desc
+exactly-once, owner SHA256s recorded), live-JVM harness, opt-in gate. Agent jar
+sha256 `9f9d5be9e0e46e69261214058926382eb4b23f85865ef238f9dc7418acad0c79`.
+
+## Known measurement limits
+
+This agent's output is decomposition evidence only — never performance
+acceptance evidence.
+
+- **Inclusive timing only.** Records carry a millisecond `startEpochMs` and the
+  thread name, so nanosecond-level nesting cannot be reconstructed
+  unambiguously (same-named threads, wall-clock adjustments). Report per-method
+  inclusive statistics and call counts; do not derive precise exclusive time
+  from differences.
+- **Exceptional exits are invisible, not timed.** `exit` scans the thread stack
+  for a matching metric; a frame abandoned by recursion or an exception inside
+  the same metric can pair with an older entry, and `enter` pushes dropped at
+  stack depth ≥512 can let a later `exit` mis-pair with a stale frame.
+  `unpaired` counts discarded entries but is an incompleteness indicator, not
+  attribution.
+- **Recording is not fully asynchronous.** `record()` flushes to disk on the
+  host thread every 64 records in addition to the daemon flusher, and the two
+  writers share a `timing-summary.properties.tmp`→rename window — observer
+  overhead may only be estimated from off/on paired legs.
+- Reliable nested pairing and exceptional-completion semantics (call id,
+  thread id, monotonic timestamps, invalidation) are a separate follow-up task.
 
 ## Real-host baseline — job 245, queue-a9578d5ef86741c18aeadceca5734b1e
 
