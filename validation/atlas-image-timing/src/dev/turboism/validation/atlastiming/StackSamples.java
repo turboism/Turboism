@@ -6,13 +6,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Independent, bounded, entry-side stack sampler for metric ids {@code UPDATE_TEXTURE} and
@@ -26,13 +23,19 @@ import java.util.concurrent.atomic.AtomicLong;
  *   <li>Collection uses JDK 17 {@link StackWalker} with a depth limit and keeps only
  *       {@code getClassName() + "." + getMethodName()} strings — no {@code Class} or host
  *       object references are retained and no host getter is called.</li>
- *   <li>A single daemon writer drains a bounded queue with a non-blocking {@code offer} on
- *       the producer side; it owns both the records file and a status file written through
- *       its own temp-then-atomic-replace (independent of the timing probe's
- *       {@code .tmp} window).</li>
- *   <li>Every loss path has its own counter so a missing sample is distinguishable from a
- *       path that never ran. A native JVM exit can truncate tail samples and even the final
- *       status write — evidence without a drained queue is incomplete by construction.</li>
+ *   <li>Queue ownership transfer and counter mutation happen under one short lock, so every
+ *       counter snapshot is a consistent point-in-time view: a dequeued-but-unwritten batch
+ *       is {@code inWrite}, never negative {@code pending}. No lock is held while walking a
+ *       stack or doing file IO, and producers never wait for queue space.</li>
+ *   <li>A single daemon writer drains to {@code timing-stacks.txt} and keeps a single-writer
+ *       {@code timing-stacks.status} fresh through its own temp file + atomic rename
+ *       (independent of the timing probe's {@code .tmp} window). A batch whose write threw is
+ *       {@code unconfirmedWrites} — the file may hold a partial append; {@code seq} lets a
+ *       reviewer reconcile lines instead of trusting counts alone.</li>
+ *   <li>Every loss path has a counter and flips {@code incomplete}; a writer that dies keeps
+ *       its last status and an in-memory terminal reason. A native JVM exit can drop tail
+ *       samples and even the final status — evidence without a drained queue is incomplete
+ *       by construction. A missing file never proves a path did not run.</li>
  *   <li>Disabled state creates no thread, no walker and no file; enable/startup failures are
  *       swallowed into an in-memory state string and never propagate into the host.</li>
  *   <li>Records are raw frames only: no caller classification, no causal or scheduling
@@ -47,7 +50,8 @@ final class StackSamples {
     private static final int WALK_LIMIT = MAX_DEPTH + 1;
     private static final int MAX_THREAD_NAME = 64;
     private static final int MAX_FRAME_NAME = 160;
-    private static final long STATUS_IDLE_MILLIS = 250L;
+    private static final int MAX_STATUS_FAILURES = 8;
+    private static final long WRITER_IDLE_MILLIS = 250L;
     static final String RECORDS_FILE = "timing-stacks.txt";
     static final String STATUS_FILE = "timing-stacks.status";
     static final String STATUS_TMP = "timing-stacks.status.tmp";
@@ -82,7 +86,8 @@ final class StackSamples {
                 state = "failed:no-output-dir";
                 return;
             }
-            final Engine created = new Engine(MAX_SAMPLES, QUEUE_CAPACITY, output, null, null);
+            final Engine created = new Engine(MAX_SAMPLES, QUEUE_CAPACITY, output,
+                null, null, null);
             created.start();
             engine = created;
             state = "enabled";
@@ -105,14 +110,14 @@ final class StackSamples {
 
     /**
      * Package-private test seam: budgets may only be lowered (clamped to the production
-     * caps), never raised. The writer gate lets a test hold the writer closed so queue-full
-     * and backlog accounting are deterministic rather than timing races.
+     * caps), never raised. The writer gate holds the writer closed and the sink/collector
+     * hooks let a test force deterministic interleavings without timing races.
      */
     static synchronized Engine enableForTest(final int maxSamples, final int queueCapacity,
             final Path outputDir, final FrameCollector collector,
-            final CountDownLatch writerGate) throws IOException {
+            final CountDownLatch writerGate, final RecordSink sink) throws IOException {
         final Engine created =
-            new Engine(maxSamples, queueCapacity, outputDir, collector, writerGate);
+            new Engine(maxSamples, queueCapacity, outputDir, collector, writerGate, sink);
         created.start();
         engine = created;
         state = "enabled:test";
@@ -124,15 +129,33 @@ final class StackSamples {
         return value == null || value.isBlank() ? null : Path.of(value);
     }
 
+    /**
+     * Length is capped on the raw input first so a huge name never produces a huge escaped
+     * copy, then separators/control characters are neutralised. Truncation is made visible
+     * by a trailing {@code ..} and counted per record.
+     */
     private static String escape(final String value, final int maxLength) {
         if (value == null) {
             return "?";
         }
-        String cleaned = value.replace('"', '\'').replace('\n', ' ').replace('\r', ' ');
-        if (cleaned.length() > maxLength) {
-            cleaned = cleaned.substring(0, maxLength);
+        final boolean over = value.length() > maxLength;
+        final String bounded = over ? value.substring(0, maxLength) : value;
+        final StringBuilder out = new StringBuilder(bounded.length() + (over ? 2 : 0));
+        for (int i = 0; i < bounded.length(); i++) {
+            final char c = bounded.charAt(i);
+            switch (c) {
+                case '"':  out.append('\''); break;
+                case ';':  out.append(',');  break;
+                case '\\': out.append('/');  break;
+                case '\n': case '\r': out.append(' '); break;
+                default:
+                    out.append(c < 0x20 ? ' ' : c);
+            }
         }
-        return cleaned;
+        if (over) {
+            out.append("..");
+        }
+        return out.toString();
     }
 
     /** Swappable collector so tests can inject failures without touching the host path. */
@@ -140,37 +163,50 @@ final class StackSamples {
         List<String> collect();
     }
 
+    /** Swappable sink so tests can hold or fail the write side deterministically. */
+    interface RecordSink {
+        void write(List<String> batch) throws IOException;
+    }
+
     static final class Engine {
         private final int maxSamples;
+        private final int queueCapacity;
         private final Path outputDir;
         private final Path recordsFile;
         private final Path statusFile;
         private final Path statusTmp;
         private final FrameCollector collector;
+        private final RecordSink sink;
         private final CountDownLatch writerGate;
-        private final BlockingQueue<String> queue;
+        private final ArrayDeque<String> queue;
+        private final Object lock = new Object();
         private final Thread writer;
 
-        private final AtomicLong attempted = new AtomicLong();
-        private final AtomicLong reserved = new AtomicLong();
-        private final AtomicLong sampleError = new AtomicLong();
-        private final AtomicLong queued = new AtomicLong();
-        private final AtomicLong droppedQueue = new AtomicLong();
-        private final AtomicLong droppedBudget = new AtomicLong();
-        private final AtomicLong dequeued = new AtomicLong();
-        private final AtomicLong written = new AtomicLong();
-        private final AtomicLong ioLost = new AtomicLong();
-        private final AtomicLong truncated = new AtomicLong();
-        private final AtomicLong statusError = new AtomicLong();
+        // Every counter below is mutated only while holding {@code lock}.
+        private long attempted;
+        private long reserved;
+        private long sampleError;
+        private long queued;
+        private long droppedQueue;
+        private long droppedBudget;
+        private long dequeued;
+        private long written;
+        private long unconfirmedWrites;
+        private long truncated;
+        private long namesTruncated;
+        private long statusWriteFailures;
+        private boolean incomplete;
+        private boolean statusDisabled;
+        private volatile String terminal;
         private volatile String lastStatus;
 
         private Engine(final int requestedSamples, final int requestedQueue,
                 final Path outputDir, final FrameCollector collector,
-                final CountDownLatch writerGate) {
+                final CountDownLatch writerGate, final RecordSink sink) {
             this.outputDir = outputDir;
             this.maxSamples = Math.max(1, Math.min(requestedSamples, MAX_SAMPLES));
-            final int capacity = Math.max(1, Math.min(requestedQueue, QUEUE_CAPACITY));
-            this.queue = new LinkedBlockingQueue<>(capacity);
+            this.queueCapacity = Math.max(1, Math.min(requestedQueue, QUEUE_CAPACITY));
+            this.queue = new ArrayDeque<>();
             this.recordsFile = outputDir.resolve(RECORDS_FILE);
             this.statusFile = outputDir.resolve(STATUS_FILE);
             this.statusTmp = outputDir.resolve(STATUS_TMP);
@@ -184,6 +220,8 @@ final class StackSamples {
                         .map(frame -> frame.getClassName() + "." + frame.getMethodName())
                         .collect(java.util.stream.Collectors.toList()));
             }
+            this.sink = sink != null ? sink : batch -> Files.write(recordsFile, batch,
+                StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             this.writer = new Thread(this::runWriter, "turboism-stack-samples");
             this.writer.setDaemon(true);
         }
@@ -193,26 +231,32 @@ final class StackSamples {
             writer.start();
         }
 
-        /** Point-in-time counter snapshot for the package's own assertions. */
+        /** Consistent point-in-time counter snapshot for the package's own assertions. */
         java.util.Map<String, Long> snapshot() {
             final java.util.Map<String, Long> snap = new java.util.LinkedHashMap<>();
-            final long queuedNow = queued.get();
-            final long dequeuedNow = dequeued.get();
-            snap.put("attempted", attempted.get());
-            snap.put("reserved", reserved.get());
-            snap.put("sampleError", sampleError.get());
-            snap.put("queued", queuedNow);
-            snap.put("droppedQueue", droppedQueue.get());
-            snap.put("droppedBudget", droppedBudget.get());
-            snap.put("dequeued", dequeuedNow);
-            snap.put("written", written.get());
-            snap.put("ioLost", ioLost.get());
-            snap.put("truncated", truncated.get());
-            snap.put("pending", queuedNow - dequeuedNow);
-            snap.put("inFlight", reserved.get() - sampleError.get()
-                - droppedQueue.get() - queuedNow);
-            snap.put("inWrite", dequeuedNow - written.get() - ioLost.get());
+            synchronized (lock) {
+                snap.put("attempted", attempted);
+                snap.put("reserved", reserved);
+                snap.put("sampleError", sampleError);
+                snap.put("queued", queued);
+                snap.put("droppedQueue", droppedQueue);
+                snap.put("droppedBudget", droppedBudget);
+                snap.put("dequeued", dequeued);
+                snap.put("written", written);
+                snap.put("unconfirmedWrites", unconfirmedWrites);
+                snap.put("truncated", truncated);
+                snap.put("namesTruncated", namesTruncated);
+                snap.put("pending", queued - dequeued);
+                snap.put("inFlight", reserved - sampleError - droppedQueue - queued);
+                snap.put("inWrite", dequeued - written - unconfirmedWrites);
+                snap.put("incomplete", incomplete ? 1L : 0L);
+                snap.put("terminated", terminal != null ? 1L : 0L);
+            }
             return snap;
+        }
+
+        String terminal() {
+            return terminal;
         }
 
         /**
@@ -221,37 +265,50 @@ final class StackSamples {
          */
         private void sample(final int metricId) {
             try {
-                attempted.incrementAndGet();
-                final long seq = reserve();
-                if (seq < 0L) {
-                    droppedBudget.incrementAndGet();
-                    return;
+                final long seq;
+                synchronized (lock) {
+                    attempted++;
+                    if (reserved >= maxSamples) {
+                        droppedBudget++;
+                        incomplete = true;
+                        return;
+                    }
+                    seq = ++reserved;
                 }
+                // Collection is deliberately outside the lock: walking a stack is the slow
+                // part and must not serialize producers or the writer's dequeue.
                 final String record;
                 try {
                     record = collect(metricId, seq);
                 } catch (Throwable failure) {
-                    sampleError.incrementAndGet();
+                    synchronized (lock) {
+                        sampleError++;
+                        incomplete = true;
+                    }
                     return;
                 }
-                if (queue.offer(record)) {
-                    queued.incrementAndGet();
-                } else {
-                    droppedQueue.incrementAndGet();
+                synchronized (lock) {
+                    if (queue.size() < queueCapacity) {
+                        final boolean wasEmpty = queue.isEmpty();
+                        queue.addLast(record);
+                        queued++;
+                        if (wasEmpty) {
+                            lock.notify();
+                        }
+                    } else {
+                        droppedQueue++;
+                        incomplete = true;
+                    }
                 }
             } catch (Throwable failure) {
-                sampleError.incrementAndGet();
-            }
-        }
-
-        private long reserve() {
-            while (true) {
-                final long current = reserved.get();
-                if (current >= maxSamples) {
-                    return -1L;
-                }
-                if (reserved.compareAndSet(current, current + 1L)) {
-                    return current + 1L;
+                // Absolute last resort: a sample failure must never reach the host.
+                try {
+                    synchronized (lock) {
+                        sampleError++;
+                        incomplete = true;
+                    }
+                } catch (Throwable ignored) {
+                    // Even the counter update gave up; stay silent.
                 }
             }
         }
@@ -260,9 +317,9 @@ final class StackSamples {
             final List<String> frames = collector.collect();
             final boolean isTruncated = frames.size() > MAX_DEPTH;
             final List<String> kept = isTruncated ? frames.subList(0, MAX_DEPTH) : frames;
-            if (isTruncated) {
-                truncated.incrementAndGet();
-            }
+            final String threadName = Thread.currentThread().getName();
+            int clippedNames = threadName != null && threadName.length() > MAX_THREAD_NAME
+                ? 1 : 0;
             final String metric = metricId >= 0
                 && metricId < AtlasTimingTargets.METRIC_NAMES.length
                     ? AtlasTimingTargets.METRIC_NAMES[metricId] : "metric" + metricId;
@@ -270,77 +327,136 @@ final class StackSamples {
             line.append("stack seq=").append(seq)
                 .append(" metric=").append(metric)
                 .append(" tid=").append(Thread.currentThread().getId())
-                .append(" thread=\"").append(escape(Thread.currentThread().getName(),
-                    MAX_THREAD_NAME)).append('"')
+                .append(" thread=\"").append(escape(threadName, MAX_THREAD_NAME)).append('"')
                 .append(" depth=").append(kept.size())
                 .append(" truncated=").append(isTruncated ? 1 : 0)
                 .append(" frames=\"");
             for (int i = 0; i < kept.size(); i++) {
+                final String raw = kept.get(i);
+                if (raw != null && raw.length() > MAX_FRAME_NAME) {
+                    clippedNames++;
+                }
                 if (i > 0) {
                     line.append(';');
                 }
-                line.append(escape(kept.get(i), MAX_FRAME_NAME));
+                line.append(escape(raw, MAX_FRAME_NAME));
             }
-            return line.append('"').toString();
+            line.append('"').append(" truncNames=").append(clippedNames);
+            if (isTruncated || clippedNames > 0) {
+                synchronized (lock) {
+                    if (isTruncated) {
+                        truncated++;
+                    }
+                    namesTruncated += clippedNames;
+                }
+            }
+            return line.toString();
         }
 
         private void runWriter() {
+            final List<String> batch = new ArrayList<>();
+            String terminalReason = "exited";
             try {
                 if (writerGate != null) {
                     writerGate.await();
                 }
-            } catch (InterruptedException interrupted) {
-                return;
-            }
-            final List<String> batch = new ArrayList<>();
-            while (true) {
-                final String head;
-                try {
-                    head = queue.poll(STATUS_IDLE_MILLIS, TimeUnit.MILLISECONDS);
-                } catch (InterruptedException interrupted) {
-                    return;
-                }
-                if (head != null) {
-                    batch.add(head);
-                    final int drained = queue.drainTo(batch);
-                    dequeued.addAndGet(1L + drained);
+                while (true) {
+                    synchronized (lock) {
+                        String head = queue.pollFirst();
+                        if (head != null) {
+                            dequeued++;
+                            batch.add(head);
+                            String next;
+                            while ((next = queue.pollFirst()) != null) {
+                                dequeued++;
+                                batch.add(next);
+                            }
+                        }
+                    }
+                    if (batch.isEmpty()) {
+                        writeStatusIfChanged();
+                        synchronized (lock) {
+                            if (queue.isEmpty()) {
+                                try {
+                                    lock.wait(WRITER_IDLE_MILLIS);
+                                } catch (InterruptedException interrupted) {
+                                    terminalReason = "interrupted";
+                                    return;
+                                }
+                            }
+                        }
+                        continue;
+                    }
                     try {
-                        Files.write(recordsFile, batch, StandardCharsets.UTF_8,
-                            StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        written.addAndGet(batch.size());
-                    } catch (IOException failure) {
-                        ioLost.addAndGet(batch.size());
+                        sink.write(batch);
+                        synchronized (lock) {
+                            written += batch.size();
+                        }
+                    } catch (IOException | RuntimeException failure) {
+                        // A failed write may have partially appended; callers must reconcile
+                        // by seq, and this run is incomplete evidence.
+                        synchronized (lock) {
+                            unconfirmedWrites += batch.size();
+                            incomplete = true;
+                        }
                     }
                     batch.clear();
+                    writeStatusIfChanged();
                 }
-                writeStatusIfChanged();
+            } catch (Throwable failure) {
+                terminalReason = "failed:" + failure.getClass().getSimpleName();
+            } finally {
+                terminal = terminalReason;
+                synchronized (lock) {
+                    incomplete = true;
+                }
+                writeStatusTerminal(terminalReason);
             }
         }
 
-        /** Single-writer status: temp file plus atomic replace, independent of the probe's tmp. */
+        /** Terminal status is best-effort: a dying writer cannot guarantee any disk state. */
+        private void writeStatusTerminal(final String reason) {
+            writeStatus("TERMINATED:" + reason, true);
+        }
+
         private void writeStatusIfChanged() {
-            final long queuedNow = queued.get();
-            final long dequeuedNow = dequeued.get();
-            final String status = "state=RUNNING"
-                + "\nattempted=" + attempted.get()
-                + "\nreserved=" + reserved.get()
-                + "\nsampleError=" + sampleError.get()
-                + "\nqueued=" + queuedNow
-                + "\ndroppedQueue=" + droppedQueue.get()
-                + "\ndroppedBudget=" + droppedBudget.get()
-                + "\ndequeued=" + dequeuedNow
-                + "\nwritten=" + written.get()
-                + "\nioLost=" + ioLost.get()
-                + "\ntruncated=" + truncated.get()
-                + "\npending=" + (queuedNow - dequeuedNow)
-                + "\ninFlight=" + (reserved.get() - sampleError.get()
-                    - droppedQueue.get() - queuedNow)
-                + "\ninWrite=" + (dequeuedNow - written.get() - ioLost.get())
-                + "\nqueueDepth=" + queue.size()
-                + '\n';
-            if (status.equals(lastStatus)) {
-                return;
+            writeStatus("RUNNING", false);
+        }
+
+        /**
+         * Builds a consistent snapshot under {@code lock}, then performs the file IO outside
+         * it: the lock protects queue ownership and counters only, never IO or stack walks.
+         */
+        private void writeStatus(final String runState, final boolean force) {
+            final String status;
+            synchronized (lock) {
+                if (statusDisabled) {
+                    return;
+                }
+                status = "state=" + runState
+                    + "\nattempted=" + attempted
+                    + "\nreserved=" + reserved
+                    + "\nsampleError=" + sampleError
+                    + "\nqueued=" + queued
+                    + "\ndroppedQueue=" + droppedQueue
+                    + "\ndroppedBudget=" + droppedBudget
+                    + "\ndequeued=" + dequeued
+                    + "\nwritten=" + written
+                    + "\nunconfirmedWrites=" + unconfirmedWrites
+                    + "\ntruncated=" + truncated
+                    + "\nnamesTruncated=" + namesTruncated
+                    + "\npending=" + (queued - dequeued)
+                    + "\ninFlight=" + (reserved - sampleError - droppedQueue - queued)
+                    + "\ninWrite=" + (dequeued - written - unconfirmedWrites)
+                    + "\nqueueDepth=" + queue.size()
+                    + "\nincomplete=" + (incomplete ? 1 : 0)
+                    + "\nstatusWriteFailures=" + statusWriteFailures
+                    + '\n';
+                if (!force && status.equals(lastStatus)) {
+                    return;
+                }
             }
+            boolean ok = false;
             try {
                 Files.createDirectories(statusFile.getParent());
                 Files.write(statusTmp, status.getBytes(StandardCharsets.UTF_8));
@@ -350,10 +466,22 @@ final class StackSamples {
                 } catch (java.nio.file.AtomicMoveNotSupportedException fallback) {
                     Files.move(statusTmp, statusFile, StandardCopyOption.REPLACE_EXISTING);
                 }
-                lastStatus = status;
-            } catch (IOException failure) {
-                // The status file cannot report its own write failure; keep it in memory.
-                statusError.incrementAndGet();
+                ok = true;
+            } catch (IOException | RuntimeException failure) {
+                ok = false;
+            }
+            synchronized (lock) {
+                if (ok) {
+                    lastStatus = status;
+                    statusWriteFailures = 0;
+                } else {
+                    // Status writes cannot report their own failure; after a bounded run of
+                    // failures stop writing rather than keep producing suspect evidence.
+                    statusWriteFailures++;
+                    if (statusWriteFailures >= MAX_STATUS_FAILURES) {
+                        statusDisabled = true;
+                    }
+                }
             }
         }
     }

@@ -193,26 +193,44 @@ sample) and shares no queue, flush, or file with the timing records.
 - JDK 17 `StackWalker` with a walk limit of 97 frames, keeping at most 96
   (`truncated=1` past that). Only `getClassName()`/`getMethodName()` strings —
   no `RETAIN_CLASS_REFERENCE`, no host getters, no retained host objects.
-- Producer side never waits: a bounded queue (≤512) is offered records
-  non-blockingly; overflow is `droppedQueue`.
+- Producer side never waits: the bounded queue (≤512) is guarded by one short
+  lock that also owns every counter mutation, so queue ownership transfer and
+  accounting linearise together and every `snapshot()`/status build reads a
+  consistent point in time. The lock is never held while walking a stack or
+  performing file IO, and `offer` never waits for capacity — overflow is
+  `droppedQueue`.
 - One daemon writer drains to `timing-stacks.txt` and keeps a single-writer
-  `timing-stacks.status` fresh through its own temp-file + atomic rename
-  (independent of the timing probe's `.tmp` window).
+  `timing-stacks.status` fresh through its own temp file + atomic rename
+  (independent of the timing probe's `.tmp` window). A batch whose write threw
+  is `unconfirmedWrites` — a partial append may already be on disk; reconcile
+  by `seq` rather than trusting counts alone, and the run is `incomplete=1`.
+  Status writes failing 8 times in a row disable further status output rather
+  than emitting suspect evidence forever.
 - Status counters: `attempted / reserved / sampleError / queued / droppedQueue
-  / droppedBudget / dequeued / written / ioLost / truncated / pending /
-  inFlight / inWrite / queueDepth`. `reserved = sampleError + droppedQueue +
-  queued + inFlight`; `queued = dequeued + pending`; `dequeued = written +
-  ioLost + inWrite`. In-flight work is never counted as lost — it stays
-  visible as `inFlight`/`pending`/`inWrite`.
+  / droppedBudget / dequeued / written / unconfirmedWrites / truncated /
+  namesTruncated / statusWriteFailures / pending / inFlight / inWrite /
+  queueDepth / incomplete / state`. Invariants at every snapshot:
+  `reserved = sampleError + droppedQueue + queued + inFlight`,
+  `queued = dequeued + pending`, `dequeued = written + unconfirmedWrites +
+  inWrite`. In-flight work is never counted as lost — it stays visible as
+  `inFlight`/`pending`/`inWrite`.
+- If the writer dies (any failure outside the write path), `terminal` records
+  the reason in memory and a best-effort `state=TERMINATED:<reason>` status is
+  attempted; a dead writer cannot guarantee any disk state.
 - Record line: `stack seq=<n> metric=<name> tid=<id> thread="<name>" depth=<d>
-  truncated=<0|1> frames="a.b;c.d;…"` (names escaped and length-capped).
+  truncated=<0|1> frames="a.b;c.d;…" truncNames=<n>`. Names are length-capped
+  on the raw value first, then separators/control characters are neutralised
+  (`"`→`'`, `;`→`,`, `\`→`/`, CR/LF/control → space); a truncated name carries
+  a trailing `..` and is counted in `truncNames`.
 - Disabled = no writer thread, no walker, no files; an in-memory state only.
   A missing/wrong stack token must not poison `blocked`, and the stack token
   can never enable anything without the base token.
 
 Offline legs (build.sh): selfcheck drives direct/worker/deep/exceptional
-entries, over-budget (clamped injected caps), gated full-queue, failing IO,
-and a throwing collector, all deterministic; harness legs run both tokens,
+entries, over-budget (clamped injected caps), gated full-queue, unconfirmed
+writes, a throwing collector, a gate-controlled mid-write interleave with
+concurrent consistent snapshots, and writer death with terminal accounting —
+all deterministic, no timing races; harness legs run both tokens,
 base-only, wrong-token, and stack-token-only. Marker fixtures
 (`appCtrlImpl.ap`/`al`, `exporter/w`) only place their owner.method names on
 the sampled stacks.
@@ -227,9 +245,11 @@ the sampled stacks.
 - This slice does not exercise any real nested pump; marker frames in fixtures
   are name-shape evidence, not pump semantics.
 - A native host exit can drop undrained samples **and** the final status —
-  treat evidence as incomplete unless `pending=0`/`inFlight=0` with matching
-  `written`. A missing `timing-stacks.txt` or zero samples never proves a path
-  did not run (sampling may have been disabled, or the writer lost).
+  treat evidence as incomplete unless the status shows `state=TERMINATED` or a
+  drained queue (`pending=0`, `inFlight=0`, `inWrite=0`) with matching
+  `written`. A missing `timing-stacks.txt`, a missing/stale status file, or
+  zero samples never proves a path did not run (sampling may have been
+  disabled, or the writer lost).
 - Budget and queue caps bound *output*, not per-sample cost — each accepted
   sample still walks up to 97 frames. Host-side overhead is unmeasured; use
   on/off paired legs before reading anything into timings.
