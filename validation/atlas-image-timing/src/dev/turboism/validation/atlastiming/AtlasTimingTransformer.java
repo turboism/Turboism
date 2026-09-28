@@ -12,12 +12,14 @@ import org.objectweb.asm.Opcodes;
 /**
  * Stack-neutral enter/exit timing weave for the exact 5.3.03 atlas-path methods.
  *
- * <p>At method entry it emits {@code enter(metricId)}; immediately before every {@code RETURN}
- * it emits {@code exit(metricId)}. Both calls take an int constant and return void, so the operand
- * stack is unchanged at every insertion point and all original stack-map frames stay valid — the
- * writer recomputes only max stack. No new local slots are allocated and the exception table is
- * untouched: a method that exits by throwing simply leaves an unmatched entry on the probe's
- * per-thread stack, which the probe counts as unpaired instead of misattributing.</p>
+ * <p>At method entry it emits {@code enter(metricId)}; immediately before every return
+ * instruction ({@code IRETURN} through {@code RETURN}) it emits {@code exit(metricId)}. Both
+ * calls take an int constant and return void, so the operand stack is unchanged at every
+ * insertion point — for non-void methods the value being returned simply sits under the woven
+ * int argument — and all original stack-map frames stay valid; the writer recomputes only max
+ * stack. No new local slots are allocated and the exception table is untouched: a method that
+ * exits by throwing simply leaves an unmatched entry on the probe's per-thread stack, which the
+ * probe counts as unpaired instead of misattributing.</p>
  *
  * <p>Fails closed per class: targets that are absent, abstract/native, or multiply matched are
  * recorded and the class is left unmodified.</p>
@@ -80,7 +82,7 @@ final class AtlasTimingTransformer {
 
                     @Override
                     public void visitInsn(final int opcode) {
-                        if (opcode == Opcodes.RETURN) {
+                        if (opcode >= Opcodes.IRETURN && opcode <= Opcodes.RETURN) {
                             pushMetric(target.metricId());
                             mv.visitMethodInsn(Opcodes.INVOKESTATIC, PROBE_OWNER, "exit", "(I)V",
                                 false);
