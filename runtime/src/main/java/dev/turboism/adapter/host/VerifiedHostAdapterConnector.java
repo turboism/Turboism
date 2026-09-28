@@ -813,7 +813,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     }
                     final dev.turboism.ui.context.VerifiedObjectContextMenuNativeAccess nativeAccess =
                             new dev.turboism.ui.context.VerifiedObjectContextMenuNativeAccess(
-                                    resolver, hostGeneration, "host-generation-" + hostGeneration);
+                                    resolver, hostGeneration, () -> menuBindingIdentity(modelAccess));
                     menuGeneration = hostGeneration;
                     menuHandler = new dev.turboism.ui.context.VerifiedObjectContextMenuHostOperations(
                             nativeAccess, nativeAccess, nativeAccess::appendPersistent);
@@ -873,7 +873,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         final long hostGeneration) {
                     final var host = menuHandler(hostGeneration);
                     final var nativeAccess = new dev.turboism.ui.context.VerifiedObjectContextMenuNativeAccess(
-                            resolver, hostGeneration, "host-generation-" + hostGeneration);
+                            resolver, hostGeneration, () -> menuBindingIdentity(modelAccess));
                     return dev.turboism.ui.context.NativeParameterPointContextMenuBridge.handler(host, nativeAccess);
                 }
 
@@ -1283,6 +1283,23 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             return unavailableAppearanceProvider();
         }
         return new FlatLafAppearanceHostProvider(version, hostOperations);
+    }
+
+    /**
+     * The identity stamped into a menu-captured {@code ContextMenuSelection}: the live
+     * document/model binding identity when a verified editor binding exists, so a plugin action
+     * can detect that the document or model changed between menu build and invoke. The host
+     * generation is never reused as a document identity; an unbound menu reports {@code "unbound"}.
+     */
+    private static String menuBindingIdentity(final CubismModelAccess modelAccess) {
+        if (modelAccess instanceof EditorBackedCubismModelAccess editorAccess) {
+            try {
+                return editorAccess.currentBindingIdentity();
+            } catch (RuntimeException unavailable) {
+                // No verified modeling document/model is bound right now; stay unbound.
+            }
+        }
+        return "unbound";
     }
 
     @FunctionalInterface
