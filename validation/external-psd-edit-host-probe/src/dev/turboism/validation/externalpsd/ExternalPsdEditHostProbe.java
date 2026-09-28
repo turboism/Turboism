@@ -372,7 +372,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final var document = context.cubism().activeDocument().orElseThrow();
         final String expected = System.getProperty("turboism.validation.fixtureName", "");
         final String path = document.relativePath();
-        if (expected.isBlank() || !expected.equals(path.substring(path.lastIndexOf('/') + 1))) {
+        final String actual = path.substring(path.lastIndexOf('/') + 1);
+        result.setProperty("fixture.expected", expected);
+        result.setProperty("fixture.actual", actual);
+        if (expected.isBlank() || !expected.equals(actual)) {
             throw new IllegalStateException("Export profile requires the exact task fixture");
         }
         final var model = context.cubism().model().active();
@@ -3079,6 +3082,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final long deadline = System.nanoTime()
             + TimeUnit.MILLISECONDS.toNanos(TASK_WINDOW_BIND_TIMEOUT_MILLIS);
         int attempts = 0;
+        int revealedRows = 0;
         String lastDiagnostic = "no active reviewed host window has been observed";
         while (!stopped && System.nanoTime() < deadline) {
             attempts++;
@@ -3135,6 +3139,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         "active task fixture window contains exact ArtMesh entrances: "
                             + capture.diagnostic());
                     return;
+                }
+                if (capture.hostAvailable() && capture.rows().isEmpty()
+                    && capture.targetStatus() == ExactTargetSelectionStatus.NOT_FOUND
+                    && revealTaskWindowRow(reviewed.tables(), expectedDomainId)) {
+                    revealedRows++;
+                    result.setProperty("exit.targetWindow.revealedRows",
+                        Integer.toString(revealedRows));
                 }
                 lastDiagnostic = capture.diagnostic();
             }
@@ -9430,6 +9441,41 @@ n     * via the official undo and re-measure the post-GC heap, then redo. A drop
                 diagnostic, true, selection.status()));
         });
         return captured.get();
+    }
+
+    /**
+     * Reveals the exact target row in the reviewed tree-tables so the next capture can resolve
+     * it. Real projects keep ArtMesh rows inside collapsed parts and below the viewport, so the
+     * row must be scrolled into view before it can be bound. View-only mutation dispatched to
+     * the EDT; returns whether any table revealed the row. Failures leave the capture verdict
+     * untouched.
+     */
+    private boolean revealTaskWindowRow(final List<ExactTableRef> tables,
+        final String expectedDomainId) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("row reveal must be dispatched from off the EDT");
+        }
+        final AtomicBoolean revealed = new AtomicBoolean();
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                for (final ExactTableRef table : tables) {
+                    final ExactHostRowTarget.HostAccessPreparation preparation =
+                        hostAccessByLoader.get(table.modelClass().getClassLoader());
+                    if (preparation == null || !preparation.available()) continue;
+                    final JTable widget = table.table();
+                    final Object model = widget.getModel();
+                    if (model == null || model.getClass() != table.modelClass()
+                        || !isLiveComponent(widget)) continue;
+                    if (ExactHostRowTarget.revealRow(widget, preparation.context(),
+                        expectedDomainId)) {
+                        revealed.set(true);
+                    }
+                }
+            });
+        } catch (Exception failure) {
+            return revealed.get();
+        }
+        return revealed.get();
     }
 
     private static ExactCapturedRow exactCapturedRow(final JTable table,

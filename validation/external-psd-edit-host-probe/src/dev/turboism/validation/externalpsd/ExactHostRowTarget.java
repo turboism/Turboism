@@ -19,7 +19,11 @@ import java.nio.file.Path;
 import java.security.CodeSource;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -390,6 +394,86 @@ public final class ExactHostRowTarget {
             return Resolution.unavailable(reflectionFailure("host accessor", failure.getCause()));
         } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
             return Resolution.unavailable(reflectionFailure("exact host resolution", failure));
+        }
+    }
+
+    /**
+     * Reveals the exact ArtMesh row with the expected domain ID: expands its ancestors and
+     * scrolls it into the viewport so the row scan can resolve it. The walk traverses the tree
+     * model directly because collapsed or off-viewport rows are not enumerable as view rows.
+     * This mutates view state only; it never writes the document model. Runs on the EDT and
+     * returns whether the row was found and revealed.
+     */
+    static boolean revealRow(final JTable table, final HostAccessContext context,
+        final String expectedDomainId) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("row reveal must run on the EDT");
+        }
+        if (context == null || table == null || expectedDomainId == null
+            || expectedDomainId.isBlank() || !isLive(table)) {
+            return false;
+        }
+        try {
+            final Object model = table.getModel();
+            if (model == null || model.getClass() != context.tableModelClass
+                || model.getClass().getClassLoader() != context.loader) {
+                return false;
+            }
+            final Object backingModel = context.accessors.treeModelField().get(model);
+            if (backingModel == null || !context.treeModelBaseClass.isInstance(backingModel)) {
+                return false;
+            }
+            final Object treeValue = context.accessors.treeField().get(model);
+            if (!(treeValue instanceof JTree tree) || tree.getModel() != backingModel) {
+                return false;
+            }
+            final javax.swing.tree.TreeModel treeModel = tree.getModel();
+            final Object root = treeModel.getRoot();
+            if (root == null) return false;
+            final Deque<Object> stack = new ArrayDeque<>();
+            final Deque<List<Object>> paths = new ArrayDeque<>();
+            stack.push(root);
+            paths.push(List.of(root));
+            while (!stack.isEmpty()) {
+                final Object node = stack.pop();
+                final List<Object> nodePath = paths.pop();
+                Object source = null;
+                try {
+                    source = context.accessors.nodeSource().invoke(node);
+                } catch (InvocationTargetException ignored) {
+                    // A node without a readable source cannot be the exact target row.
+                }
+                if (source != null
+                    && exactSourceClass(source.getClass(), context.artMeshClass)) {
+                    final Object id = context.accessors.sourceId().invoke(source);
+                    final Object idValue = id == null ? null
+                        : context.accessors.idValue().invoke(id);
+                    if (expectedDomainId.equals(idValue)) {
+                        final TreePath path = new TreePath(nodePath.toArray());
+                        tree.scrollPathToVisible(path);
+                        final int row = tree.getRowForPath(path);
+                        final int viewColumn = table.convertColumnIndexToView(
+                            NAME_MODEL_COLUMN);
+                        if (row >= 0 && viewColumn >= 0) {
+                            table.scrollRectToVisible(
+                                table.getCellRect(row, viewColumn, true));
+                        }
+                        return true;
+                    }
+                }
+                for (int child = treeModel.getChildCount(node) - 1; child >= 0; child--) {
+                    final Object value = treeModel.getChild(node, child);
+                    if (value == null) continue;
+                    final List<Object> childPath = new ArrayList<>(nodePath.size() + 1);
+                    childPath.addAll(nodePath);
+                    childPath.add(value);
+                    stack.push(value);
+                    paths.push(childPath);
+                }
+            }
+            return false;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+            return false;
         }
     }
 
