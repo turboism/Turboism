@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -286,6 +287,7 @@ public final class ParameterHookRegistry {
         try {
             logger.error("Cubism parameter lifecycle hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostic failure must not replace the hook failure.
         }
         return failure instanceof RuntimeException runtimeFailure

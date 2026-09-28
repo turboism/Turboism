@@ -10,6 +10,7 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 import javax.swing.SwingUtilities;
 import java.awt.GraphicsEnvironment;
 import java.util.Objects;
+import dev.turboism.sdk.mcp.McpConnectionService;
 
 /** Plugin lifecycle owner of the loopback MCP transport and its local connection window. */
 public final class McpPlugin implements TurboismPlugin {
@@ -44,7 +45,7 @@ public final class McpPlugin implements TurboismPlugin {
         Registration action = null;
         Registration menu = null;
         try {
-            publication = context.mcpConnections().publish(new McpHttpConnection(
+            publication = context.services().get(McpConnectionService.class).publish(new McpHttpConnection(
                 started.endpoint(),
                 McpProtocol.VERSION
             ));

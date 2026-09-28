@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.exportsettings.ExportSettingsHostProfile;
 import dev.turboism.exportsettings.ProtectedExportChooserProfile;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -66,6 +67,7 @@ final class ExportSettingsHookContributor implements HookContributor {
         try {
             installer.install();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             installer.close();
             throw failure;
         }
@@ -120,10 +122,12 @@ final class ExportSettingsHookContributor implements HookContributor {
             runtime.info("bootstrap", "TURBOISM_PROTECTED_EXPORT_HOOK installation=COMPLETE");
             return installer;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             if (installer != null) {
                 try {
                     installer.close();
                 } catch (Throwable suppressed) {
+                    FatalErrors.rethrowIfFatal(suppressed);
                     failure.addSuppressed(suppressed);
                 }
             }

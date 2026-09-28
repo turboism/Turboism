@@ -99,6 +99,8 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
                     }
                 )
             );
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             context.logger().warn("Texture Atlas algorithm registration failed safely: " + failure);
         }

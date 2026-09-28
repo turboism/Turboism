@@ -21,6 +21,7 @@ import dev.turboism.preview.report.PreviewReportType;
 import dev.turboism.preview.report.PreviewReportWriter;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -1162,6 +1163,7 @@ public final class PreviewRuntime implements AutoCloseable {
             orchestrator.refusalReporter(vetoSurface);
             return orchestrator;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             log.warn(
                 "protected-export",
                 "Protected-export orchestration unavailable: " + failure.getClass().getName()
@@ -1368,6 +1370,7 @@ public final class PreviewRuntime implements AutoCloseable {
         try {
             shutdownLifecycle.logStopping();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.add(stableFailure("STOP_LOG_FAILED", "stop-log"));
         }
 
@@ -1375,6 +1378,7 @@ public final class PreviewRuntime implements AutoCloseable {
         try {
             observedHostState = shutdownLifecycle.hostState();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.add(stableFailure("HOST_STATE_CAPTURE_FAILED", "host-state"));
         }
         final HostSession.State finalObservedHostState = observedHostState;
@@ -1412,6 +1416,7 @@ public final class PreviewRuntime implements AutoCloseable {
             try {
                 shutdownLifecycle.logDegradedShutdown();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 failures.add(stableFailure("SHUTDOWN_SUMMARY_LOG_FAILED", "summary-log"));
             }
         }
@@ -1441,6 +1446,7 @@ public final class PreviewRuntime implements AutoCloseable {
             try {
                 orchestrator.close();
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // A stuck armed session must not block the authority teardown below.
             }
         }
@@ -1458,6 +1464,7 @@ public final class PreviewRuntime implements AutoCloseable {
             try {
                 stage.action().run();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 failures.add(stableFailure(stage.code(), stage.phase()));
             }
         }

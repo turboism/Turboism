@@ -6,6 +6,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.util.Objects;
+import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 
 /** First-party workflow policy for the native Physics Settings group list. */
 public final class PhysicsEditorPlugin implements TurboismPlugin {
@@ -20,7 +21,7 @@ public final class PhysicsEditorPlugin implements TurboismPlugin {
     @Override
     public void enable() {
         if (registration != null) return;
-        registration = context.physicsEditor().contribute(new PhysicsEditorContribution(true, true));
+        registration = context.services().get(PhysicsEditorService.class).contribute(new PhysicsEditorContribution(true, true));
         context.logger().info("Physics editor header select-all and reopen retention enabled");
     }
 

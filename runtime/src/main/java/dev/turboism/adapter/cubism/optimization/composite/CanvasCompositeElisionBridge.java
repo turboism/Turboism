@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.composite;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.Component;
 import java.awt.Container;
 import java.util.Map;
@@ -124,6 +125,7 @@ public final class CanvasCompositeElisionBridge implements AutoCloseable {
             if (elide) paintElided++; else paintPassed++;
             return elide;
         } catch (Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             observerFailures++;
             paintPassed++;
             return false;
@@ -143,6 +145,7 @@ public final class CanvasCompositeElisionBridge implements AutoCloseable {
             if (elide) fillElided++; else fillPassed++;
             return elide;
         } catch (Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             observerFailures++;
             fillPassed++;
             return false;

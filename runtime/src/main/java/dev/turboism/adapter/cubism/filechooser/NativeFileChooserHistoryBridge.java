@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.filechooser;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 
 import java.io.File;
@@ -116,6 +117,7 @@ public final class NativeFileChooserHistoryBridge {
                 List.of(directory.orElseThrow().toFile())
             );
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                 "file-chooser",
                 "File-chooser history apply failed safely",
@@ -139,6 +141,7 @@ public final class NativeFileChooserHistoryBridge {
                 service.setProjectRecentDirectory(history.get(0).toPath());
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                 "file-chooser",
                 "File-chooser history capture failed safely",

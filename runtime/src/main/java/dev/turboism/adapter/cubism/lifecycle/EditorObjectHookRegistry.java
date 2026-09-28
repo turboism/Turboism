@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.cubism.event.DrawableGeometryEvent;
@@ -653,6 +654,7 @@ public final class EditorObjectHookRegistry {
         try {
             logger.error("Cubism editor-object lifecycle hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostic failure must not replace the hook failure.
         }
         return failure instanceof RuntimeException runtimeFailure
@@ -697,6 +699,7 @@ public final class EditorObjectHookRegistry {
                     }
                     completion.complete(null);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     completion.completeExceptionally(failure);
                 }
             }

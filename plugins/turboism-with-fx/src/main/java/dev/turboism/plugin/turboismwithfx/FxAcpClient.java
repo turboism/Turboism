@@ -534,6 +534,8 @@ final class FxAcpClient implements AutoCloseable {
                 listener.permission(this, sessionId, request),
                 FxAcpListener.PermissionDecision.CANCELLED
             );
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             sendCancelledPermission(id);
             return;

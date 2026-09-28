@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -135,6 +136,7 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
         try {
             return rewrite(classfileBuffer);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             outcome.set(Outcome.SHAPE_REJECTED);
             diagnostic.compareAndSet("", "transform failed: " + failure);
             return null;
@@ -227,7 +229,8 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
      *     Object res = ((BiFunction) r).apply(arg1, arg2);
      *     if (res instanceof Boolean &amp;&amp; ((Boolean) res).booleanValue()) return;
      *   }
-     * } catch (Throwable ignored) { }
+     * } catch (Throwable ignored) {
+         FatalErrors.rethrowIfFatal(ignored); }
      * </pre>
      */
     private void injectGuard(final MethodVisitor mv) {

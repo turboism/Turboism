@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.plugin.Registration;
 
@@ -113,6 +114,7 @@ public final class ExportSettingsAttachBackend {
         } catch (ExportSettingsAttachException failure) {
             throw failure;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new ExportSettingsAttachException(BOUNDARY_FAILURE_KEY, failure);
         }
     }
@@ -165,6 +167,7 @@ public final class ExportSettingsAttachBackend {
             }
             throw failure;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             synchronized (lifecycleLock) {
                 attaching = false;
             }
@@ -197,6 +200,7 @@ public final class ExportSettingsAttachBackend {
             dialogGrowth.arm();
             return new AttachmentParts(panel, boxes, mount, dialogGrowth);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             if (dialogGrowth != null) {
                 dialogGrowth.undo();
             }
@@ -227,6 +231,7 @@ public final class ExportSettingsAttachBackend {
             dialogGrowth.arm();
             return new AttachmentParts(panel, boxes, mount, dialogGrowth);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             if (dialogGrowth != null) {
                 dialogGrowth.undo();
             }
@@ -300,16 +305,19 @@ public final class ExportSettingsAttachBackend {
                 parent.remove(panel);
             }
         } catch (Throwable rollback) {
+            FatalErrors.rethrowIfFatal(rollback);
             failure.addSuppressed(rollback);
         }
         try {
             target.revalidate();
         } catch (Throwable rollback) {
+            FatalErrors.rethrowIfFatal(rollback);
             failure.addSuppressed(rollback);
         }
         try {
             target.repaint();
         } catch (Throwable rollback) {
+            FatalErrors.rethrowIfFatal(rollback);
             failure.addSuppressed(rollback);
         }
     }
@@ -332,6 +340,7 @@ public final class ExportSettingsAttachBackend {
                 return null;
             }, false, true);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // The caller already has a typed attach/close failure. Do not mask it with cleanup.
         }
     }
@@ -371,6 +380,7 @@ public final class ExportSettingsAttachBackend {
         } catch (ExportSettingsAttachException failure) {
             throw failure;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new ExportSettingsAttachException(BOUNDARY_FAILURE_KEY, failure);
         }
     }
@@ -462,6 +472,7 @@ public final class ExportSettingsAttachBackend {
             try {
                 result.set(operation.run());
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 failure.set(throwable);
             } finally {
                 completed.countDown();
@@ -582,6 +593,7 @@ public final class ExportSettingsAttachBackend {
                 try {
                     top.setSize(size);
                 } catch (Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
                     // The window is going away; restore is best-effort.
                 }
             }

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.selector.EditorIntegrationWebSocketSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -162,9 +163,11 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
             transformerRegistered = true;
             retransform(DISPATCH_OWNER.replace('/', '.'));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             try {
                 close();
             } catch (Throwable cleanupFailure) {
+                FatalErrors.rethrowIfFatal(cleanupFailure);
                 failure.addSuppressed(cleanupFailure);
             }
             throw failure;
@@ -222,6 +225,7 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
             try {
                 instrumentation.removeTransformer(transformer);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 first = failure;
             }
             transformerRegistered = false;
@@ -236,6 +240,7 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
             try {
                 if (instrumentation.isModifiableClass(loaded)) instrumentation.retransformClasses(loaded);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (first == null) first = failure;
                 else if (first != failure) first.addSuppressed(failure);
             }

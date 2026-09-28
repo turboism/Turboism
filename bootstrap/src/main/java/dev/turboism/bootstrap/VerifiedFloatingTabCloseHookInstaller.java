@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.ui.panel.FloatingTabCloseNativeMethodTransformer;
 
@@ -61,6 +62,7 @@ final class VerifiedFloatingTabCloseHookInstaller implements AutoCloseable {
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw new IllegalStateException("Verified floating-tab close hook installation failed", failure);
         }

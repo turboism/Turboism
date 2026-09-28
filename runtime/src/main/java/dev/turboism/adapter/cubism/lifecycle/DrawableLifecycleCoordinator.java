@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.DrawableGeometryEvent;
 import dev.turboism.sdk.cubism.event.DrawableLockEvent;
@@ -135,7 +136,8 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                             final float transformed = hook.beforeSetDrawableOpacity(drawable, effective);
                             if (Float.isFinite(transformed)) effective = transformed;
                             else plugin.logger().warn("Ignored non-finite beforeSetDrawableOpacity result for " + OPACITY_OPERATION_ID);
-                        } catch (Throwable failure) { logHookFailure(plugin, "beforeSetDrawableOpacity", failure); }
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeSetDrawableOpacity", failure); }
                     }
                 }
             }
@@ -200,7 +202,8 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                 if (plugin.interceptAllowed()) {
                     for (DrawableHooks hook : plugin.entrypoints()) {
                         try { effective = hook.beforeSetDrawableVisible(drawable, effective); }
-                        catch (Throwable failure) { logHookFailure(plugin, "beforeSetDrawableVisible", failure); }
+                        catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeSetDrawableVisible", failure); }
                     }
                 }
             }
@@ -263,7 +266,8 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                 if (plugin.interceptAllowed()) {
                     for (DrawableHooks hook : plugin.entrypoints()) {
                         try { effective = hook.beforeSetDrawableLocked(drawable, effective); }
-                        catch (Throwable failure) { logHookFailure(plugin, "beforeSetDrawableLocked", failure); }
+                        catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeSetDrawableLocked", failure); }
                     }
                 }
             }
@@ -333,7 +337,8 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                                 hook.beforeReplaceDrawableGeometry(drawable, effective),
                                 "beforeReplaceDrawableGeometry result"
                             );
-                        } catch (Throwable failure) { logHookFailure(plugin, "beforeReplaceDrawableGeometry", failure); }
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, "beforeReplaceDrawableGeometry", failure); }
                     }
                 }
             }
@@ -396,7 +401,8 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
             submit(registration, operationId, () -> {
                 for (DrawableHooks hook : hooks) {
                     try { invocation.forPlugin(plugin).invoke(hook); }
-                    catch (Throwable failure) { logHookFailure(plugin, operationId, failure); }
+                    catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure); logHookFailure(plugin, operationId, failure); }
                 }
             });
         }
@@ -437,7 +443,8 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
 
     private static void logHookFailure(final PluginHooks plugin, final String phase, final Throwable failure) {
         try { plugin.logger().error("Cubism Drawable lifecycle hook failed safely: " + phase, failure); }
-        catch (Throwable ignored) { }
+        catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored); }
     }
 
     private static String requireText(final String value, final String name) {

@@ -72,6 +72,8 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
         try {
             executor.execute(() -> runImport(progress));
             return true;
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             if (!(failure instanceof RejectedExecutionException)) reportFailure(failure);
             finish(progress);
@@ -98,6 +100,8 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
         runningThread = Thread.currentThread();
         try {
             if (!progress.cancellationRequested()) operation.run(progress);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             reportFailure(failure);
         } finally {
@@ -134,6 +138,8 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
         final PsdClipMaskImportProgress progress;
         try {
             progress = progressFactory.get();
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable unavailable) {
             reportFailure(unavailable);
             return guarded(PsdClipMaskImportProgress.noop());
@@ -152,6 +158,8 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
                 if (closed.get() || Thread.currentThread().isInterrupted()) return true;
                 try {
                     return delegate.cancellationRequested();
+                } catch (ThreadDeath | VirtualMachineError fatal) {
+                    throw fatal;
                 } catch (Throwable failure) {
                     reportFailure(failure);
                     return true;
@@ -164,6 +172,8 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
     private void safely(final Runnable action) {
         try {
             action.run();
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             reportFailure(failure);
         }
@@ -172,6 +182,8 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
     private void reportFailure(final Throwable failure) {
         try {
             failureHandler.accept(failure);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable ignored) {
             // A failing diagnostic sink must not escape onto the executor thread.
         }

@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.warpalt;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
+import dev.turboism.core.runtime.work.FatalErrors;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -129,6 +130,7 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                         do current = current.getSuperclass(); while (!current.isAssignableFrom(rightType));
                         return current.getName().replace('.', '/');
                     } catch (Throwable ignored) {
+                        FatalErrors.rethrowIfFatal(ignored);
                         return "java/lang/Object";
                     }
                 }

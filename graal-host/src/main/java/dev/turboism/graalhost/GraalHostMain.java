@@ -233,6 +233,8 @@ public final class GraalHostMain {
                 message.put("scriptId", scriptId);
             }
             send(message);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             try {
                 send(executionFailure(

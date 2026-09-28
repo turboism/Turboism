@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.backup;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import javax.swing.SwingUtilities;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
@@ -63,6 +64,7 @@ final class VerifiedDispatchAutoBackupAdapter implements AutoBackupAdapter {
                 try {
                     result[0] = operation.run();
                 } catch (Throwable throwable) {
+                    FatalErrors.rethrowIfFatal(throwable);
                     failure[0] = throwable;
                 }
             });

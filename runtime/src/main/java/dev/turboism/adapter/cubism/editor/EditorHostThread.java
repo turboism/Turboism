@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import javax.swing.SwingUtilities;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
@@ -50,6 +51,7 @@ public final class EditorHostThread {
                 try {
                     result[0] = task.get();
                 } catch (Throwable throwable) {
+                    FatalErrors.rethrowIfFatal(throwable);
                     failure[0] = throwable;
                 }
             });

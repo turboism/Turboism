@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap.atlascache;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
 import java.awt.image.DataBufferInt;
@@ -177,6 +178,7 @@ public final class AtlasCacheReuseDelegate {
             return report(atlas, "miss:cache-content-differs installed="
                 + shortDigest(installedDigest));
         } catch (Throwable unreadable) {
+            FatalErrors.rethrowIfFatal(unreadable);
             return report(atlas, "miss:exception");
         }
     }
@@ -204,6 +206,7 @@ public final class AtlasCacheReuseDelegate {
                 }
             }
         } catch (Throwable unrecordable) {
+            FatalErrors.rethrowIfFatal(unrecordable);
             // Losing the record only loses reuse; the host rebuild stays correct.
         }
     }
@@ -230,6 +233,7 @@ public final class AtlasCacheReuseDelegate {
                     java.nio.file.StandardOpenOption.CREATE,
                     java.nio.file.StandardOpenOption.APPEND);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Evidence capture must never affect the guard decision.
             }
         }
@@ -303,6 +307,7 @@ public final class AtlasCacheReuseDelegate {
             host.setDirty.invoke(atlas, false);
             return true;
         } catch (Throwable unsupplied) {
+            FatalErrors.rethrowIfFatal(unsupplied);
             return false;
         }
     }

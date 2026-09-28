@@ -30,6 +30,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 /**
  * 剪贴蒙版检查器（clipmask-viewer）官方插件。
@@ -149,7 +151,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         final PanelView content = PanelView.column(
             PanelView.button(BUTTON_ID, localization.text("button.open"), OPEN_VIEWER_ACTION_ID)
         );
-        return context.uiHost().contributeCollapsibleSection(new CollapsibleSectionContribution(
+        return context.services().get(UiHostCapabilityService.class).contributeCollapsibleSection(new CollapsibleSectionContribution(
             EmbeddedPanelId.of(TURBOISM_PANEL_ID),
             SECTION_ID,
             localization.text("section.title"),
@@ -243,7 +245,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         }
         final List<ClipMaskRecord> records;
         try {
-            records = List.copyOf(context.cubismClipMasks().collectClipMaskRecords());
+            records = List.copyOf(context.services().get(CubismClipMaskService.class).collectClipMaskRecords());
         } catch (RuntimeException failure) {
             logger.warn("Clip Mask Viewer host snapshot failed safely: " + failure.getMessage());
             applyFailure(requestGeneration, expectedView);

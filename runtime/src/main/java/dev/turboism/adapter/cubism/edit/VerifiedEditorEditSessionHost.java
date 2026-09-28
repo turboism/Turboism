@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.edit;
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
@@ -365,6 +366,7 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
             try {
                 result.set(task.run());
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 failure.set(throwable);
             } finally {
                 done.countDown();

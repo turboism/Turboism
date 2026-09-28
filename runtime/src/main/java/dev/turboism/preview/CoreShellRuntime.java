@@ -1,5 +1,6 @@
 package dev.turboism.preview;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.internal.core.ShellAdmission;
 import dev.turboism.internal.core.ShellHandle;
 import dev.turboism.internal.core.ShellServices;
@@ -99,6 +100,7 @@ final class CoreShellRuntime implements AutoCloseable {
                         policy, lane, retention, log, state, lease
                     );
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     state.cleanupComplete = cleanupShell(
                         state, hookCleanup, log, policy, true,
                         () -> retention.drainedExcept(ShellManifest.ID)
@@ -231,6 +233,7 @@ final class CoreShellRuntime implements AutoCloseable {
             try {
                 state.context.eventOwner().beginClosing();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 log.error(ShellManifest.ID, "Shell event fencing failed safely", failure);
             }
         }
@@ -357,6 +360,7 @@ final class CoreShellRuntime implements AutoCloseable {
                 try {
                     quiesced = state.context.eventOwner().awaitQuiescence(bound);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logFailure(log, "SHELL_EVENT_QUIESCENCE_FAILED", failure);
                     return false;
                 }
@@ -379,6 +383,7 @@ final class CoreShellRuntime implements AutoCloseable {
                     hookCleanup.unregisterOwnedHooks(state.context.eventOwner().key());
                     state.hooksUnregistered = true;
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logFailure(log, "SHELL_HOOK_CLEANUP_FAILED", failure);
                 }
             }
@@ -392,6 +397,7 @@ final class CoreShellRuntime implements AutoCloseable {
                     state.context.context().quiesceBackupOperations();
                     state.backupQuiesced = true;
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logFailure(log, "SHELL_BACKUP_QUIESCENCE_FAILED", failure);
                 }
             }
@@ -419,6 +425,7 @@ final class CoreShellRuntime implements AutoCloseable {
                     state.shell.close();
                     state.shellClosed = true;
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logFailure(log, "SHELL_CLOSE_FAILED", failure);
                 }
             }
@@ -440,6 +447,7 @@ final class CoreShellRuntime implements AutoCloseable {
                     state.context.eventOwner().close();
                     state.eventOwnerClosed = true;
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logFailure(log, "SHELL_EVENT_OWNER_CLOSE_FAILED", failure);
                 }
             }
@@ -479,6 +487,7 @@ final class CoreShellRuntime implements AutoCloseable {
             scope.close();
             return true;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(log, "SHELL_SCOPE_CLOSE_FAILED", failure);
             return false;
         }
@@ -495,6 +504,7 @@ final class CoreShellRuntime implements AutoCloseable {
             resources.close();
             return true;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             logFailure(log, "SHELL_RESOURCE_LOADER_CLOSE_FAILED", failure);
             return false;
         }

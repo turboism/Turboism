@@ -1,5 +1,6 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.CanvasHintNotification;
@@ -356,6 +357,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
                 try {
                     result[0] = operation.get();
                 } catch (Throwable throwable) {
+                    FatalErrors.rethrowIfFatal(throwable);
                     failure[0] = throwable;
                 }
             });

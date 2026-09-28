@@ -1,5 +1,6 @@
 package dev.turboism.preview;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -174,6 +175,7 @@ final class RetainedPluginGenerations {
             try {
                 callback.run();
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 log.error(
                     "plugin-lifecycle",
                     "Retained-generation drain callback failed safely",

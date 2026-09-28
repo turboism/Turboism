@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -247,6 +248,7 @@ public final class ProtectedExportDeformerPlan {
         try {
             family = host.censusFamily(object);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             family = "unknown";
         }
         return family == null || family.isBlank() ? "unknown" : family;

@@ -143,6 +143,8 @@ final class McpExecutionBridge {
     ) {
         try {
             result.complete(invocation.get());
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             result.completeExceptionally(failure);
         }

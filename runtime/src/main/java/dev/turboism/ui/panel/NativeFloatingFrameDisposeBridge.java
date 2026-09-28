@@ -1,5 +1,6 @@
 package dev.turboism.ui.panel;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Fail-closed bridge from a verified palette-frame disposal hook to runtime cleanup. */
@@ -49,6 +50,7 @@ public final class NativeFloatingFrameDisposeBridge {
         try {
             handler.disposed(frame);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                 "floating-panels",
                 "Floating-frame cleanup failed safely",

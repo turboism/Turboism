@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.hook.AnimationFileHooks;
 import dev.turboism.sdk.cubism.hook.EditorLifecycleHooks;
@@ -557,6 +558,7 @@ public final class ProjectLifecycleHookRegistry {
             try {
                 logger.error("Cubism project-file hook failed safely: " + phase, failure);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Diagnostic failure must not replace the hook failure.
             }
             if (failure instanceof RuntimeException runtimeFailure) {

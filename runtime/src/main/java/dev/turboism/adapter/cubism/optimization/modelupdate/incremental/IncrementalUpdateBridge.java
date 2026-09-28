@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.modelupdate.incremental;
 
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateTarget.Dep;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -259,6 +260,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             priorSkipInterpolation = (boolean) getSkipInterpolation.invokeExact(updaterInstance);
             setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.TRUE);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw new IllegalStateException("host skip flag not writable", failure);
         }
@@ -302,6 +304,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                 currentInputs = inputsVersion(model, ctx);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             epochFull = true;
             epochUnsafe = true;
             failures.increment();
@@ -316,6 +319,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                 formsRecorded.increment();
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.increment();
         }
     }
@@ -349,10 +353,12 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                 markedClean.increment();
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.increment();
             try {
                 if (deformer != null) setDirty.invokeExact(deformer, (Object) Boolean.TRUE);
             } catch (Throwable nested) {
+                FatalErrors.rethrowIfFatal(nested);
                 failures.increment();
             }
         }
@@ -441,6 +447,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             final Object transform = (Object) createTransform.invokeExact(target3);
             return (Object) meshTransform.invokeExact(preDeform, transform, out);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.increment();
             // Rethrow so the injected fallback re-executes the exact native sequence.
             if (failure instanceof RuntimeException runtime) throw runtime;
@@ -459,6 +466,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             try {
                 digest = digest(model);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 probeMismatch.increment();
                 writeProbe(null, failure);
                 previousDigest = null;
@@ -481,6 +489,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             previousNarrowed = !epochFull;
             previousInputs = currentInputs;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.increment();
         }
     }
@@ -633,6 +642,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             Files.writeString(Path.of(path), json.toString(), StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             failures.increment();
         }
     }
@@ -677,6 +687,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             setSkipInterpolation.invokeExact(updaterInstance,
                 (Object) Boolean.valueOf(priorSkipInterpolation));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.increment();
         }
         final Properties properties = installedProperties;

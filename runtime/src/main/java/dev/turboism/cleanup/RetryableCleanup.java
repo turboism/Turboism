@@ -1,5 +1,6 @@
 package dev.turboism.cleanup;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -39,6 +40,7 @@ public final class RetryableCleanup implements AutoCloseable {
                     step.action.close();
                     step.action = null;
                 } catch (Throwable next) {
+                    FatalErrors.rethrowIfFatal(next);
                     failure = append(failure, next);
                 }
             }

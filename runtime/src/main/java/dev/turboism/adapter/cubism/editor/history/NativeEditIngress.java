@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.editor.history;
 
 import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecodeResult;
 import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecoderRegistry;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.event.CubismOperation;
@@ -243,6 +244,7 @@ public final class NativeEditIngress implements AutoCloseable {
                     + " operation=" + resolution.operation()
             );
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics must never disturb classification.
         }
     }

@@ -9,6 +9,7 @@ import dev.turboism.adapter.cubism.performance.PerformanceProbeRollbackObserver;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeTargets;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCallback;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCarrier;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.ui.appearance.SwingFlatLafHostOperations;
@@ -214,6 +215,7 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
                 try {
                     retransformLoadedTargets();
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     // Fail-open diagnostic: on-load instrumentation keeps
                     // counting; only pre-install loaded classes are missed.
                     dev.turboism.runtime.log.RuntimeDiagnostics.error(
@@ -322,6 +324,7 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
                 try {
                     instrumentation.retransformClasses(target);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     cleanupFailure = failure;
                 }
             }

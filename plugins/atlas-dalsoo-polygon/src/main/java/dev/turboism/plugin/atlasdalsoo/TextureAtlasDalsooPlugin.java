@@ -84,6 +84,8 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
                     new RectPathPolygonPlanner(() -> settings.confirmed())
                 )
             ));
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             context.logger().warn("Atlas Dalsoo algorithm registration failed safely: "
                 + failure);

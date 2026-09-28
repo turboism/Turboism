@@ -20,6 +20,9 @@ import java.util.Map;
 import java.util.List;
 import java.awt.image.BufferedImage;
 import java.util.concurrent.atomic.AtomicBoolean;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
+import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
 
 /**
  * Extends the native bounding-box Alt symmetric semantics to Warp Deformer
@@ -85,7 +88,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         // horizontal, Ctrl+Alt+O off. The AWT-level diff fallback stays armed for
         // the press path when the hook is not active.
         try {
-            context.disposableScope().register(context.warpAltMirrorParticipation().participate());
+            context.disposableScope().register(context.services().get(WarpAltMirrorParticipation.class).participate());
         } catch (RuntimeException | Error unsupported) {
             logger.warn("warpAltMirrorParticipation unavailable: "
                 + unsupported.getClass().getSimpleName());
@@ -103,7 +106,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     private void contributeStripButton() {
         try {
             final dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry registry =
-                context.viewContextMenu();
+                context.services().get(ViewContextMenuRegistry.class);
             final Map<Integer, UiRasterImage> icons = new java.util.LinkedHashMap<>();
             icons.put(1, loadIcon("Vertical.png"));
             icons.put(2, loadIcon("Horizon.png"));
@@ -149,8 +152,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     private void applyArmedAxis(final int axis) {
         armedAxis = axis;
         try {
-            context.warpAltMirrorParticipation().setArmedAxis(axis);
-            context.viewContextMenu().updateButtonState(AXIS_BUTTON_ID, axis);
+            context.services().get(WarpAltMirrorParticipation.class).setArmedAxis(axis);
+            context.services().get(ViewContextMenuRegistry.class).updateButtonState(AXIS_BUTTON_ID, axis);
         } catch (RuntimeException | Error unsupported) {
             logger.warn("armed-axis publish failed: " + unsupported.getClass().getSimpleName());
             return;
@@ -175,7 +178,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         dev.turboism.sdk.ui.CanvasHintHandle next = null;
         try {
             if (axis != 0) {
-                next = context.uiHost().notifyCanvasHint(
+                next = context.services().get(UiHostCapabilityService.class).notifyCanvasHint(
                     new dev.turboism.sdk.ui.CanvasHintNotification(
                         "warp-deformer-alt-symmetry.hint",
                         // Text convention (operator feedback): armed state 1
@@ -301,7 +304,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
 
     private boolean nativeMirrorActive() {
         try {
-            return context.warpAltMirrorParticipation().nativeMirrorActive();
+            return context.services().get(WarpAltMirrorParticipation.class).nativeMirrorActive();
         } catch (RuntimeException | Error unsupported) {
             return false;
         }

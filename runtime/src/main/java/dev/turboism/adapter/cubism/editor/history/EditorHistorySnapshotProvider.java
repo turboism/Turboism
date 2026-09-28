@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.editor.history;
 
 import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecodeResult;
 import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecoderRegistry;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
@@ -554,6 +555,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
             try {
                 result.set(call.call());
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 failure.set(throwable);
             }
         });

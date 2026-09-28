@@ -1,6 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 import javax.swing.JLabel;
 import java.awt.Component;
@@ -33,7 +34,8 @@ public final class NativePartTreeAppearanceBridge {
         final Callback callback = CALLBACK.get();
         if (callback == null || !javax.swing.SwingUtilities.isEventDispatchThread()) return component;
         try { return Objects.requireNonNullElse(callback.apply(component, value), component); }
-        catch (Throwable ignored) { return component; }
+        catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored); return component; }
     }
 
     /**
