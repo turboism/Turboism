@@ -80,7 +80,7 @@ public final class AtlasTimingAgentHarness {
                 + body);
             System.exit(1);
         }
-        System.out.println("ATLAS_TIMING_AGENT_HARNESS PASS records all seven targets");
+        System.out.println("ATLAS_TIMING_AGENT_HARNESS PASS records all sixteen metrics");
     }
 
     private static boolean complete(final String body) {
@@ -90,6 +90,11 @@ public final class AtlasTimingAgentHarness {
             && body.contains("metric.setupCacheImage.count=3")
             && body.contains("metric.setupEditLayer.count=2")
             && body.contains("metric.editorBatch.count=1")
-            && body.contains("metric.editorInit.count=1");
+            && body.contains("metric.editorInit.count=1")
+            && body.contains("metric.updateVertices.count=1")
+            && body.contains("metric.updateIndices.count=1")
+            && body.contains("metric.delaunayCompute.count=1")
+            && body.contains("metric.delaunayApply.count=1")
+            && body.contains("metric.autoTriangulate.count=1");
     }
 }

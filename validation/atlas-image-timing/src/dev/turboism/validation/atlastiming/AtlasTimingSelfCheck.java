@@ -67,14 +67,52 @@ public final class AtlasTimingSelfCheck {
             "abstract method must be marked, not woven");
         check(abstractOutcome.bytes() == null, "abstract-only class must not be rewritten");
 
+        // The five T029-P3A metrics weave and count on a fixture mirroring the
+        // updateMesh internals chain; a wrong descriptor must not be marked woven.
+        final byte[] meshOriginal = Files.readAllBytes(fixtureDir.resolve(
+            "dev/turboism/validation/atlastiming/fixture/FixtureMesh.class"));
+        final String meshOwner = "dev/turboism/validation/atlastiming/fixture/FixtureMesh";
+        final List<AtlasTimingTargets.Target> meshTargets = List.of(
+            new AtlasTimingTargets.Target(
+                meshOwner, "updateVertices", "()V", AtlasTimingTargets.UPDATE_VERTICES),
+            new AtlasTimingTargets.Target(
+                meshOwner, "updateIndices", "(Ljava/lang/Object;)V",
+                AtlasTimingTargets.UPDATE_INDICES),
+            new AtlasTimingTargets.Target(
+                meshOwner, "delaunayCompute", "()Ljava/util/List;",
+                AtlasTimingTargets.DELAUNAY_COMPUTE),
+            new AtlasTimingTargets.Target(
+                meshOwner, "delaunayApply", "(Ljava/util/List;ZLjava/lang/Object;)V",
+                AtlasTimingTargets.DELAUNAY_APPLY),
+            new AtlasTimingTargets.Target(
+                meshOwner, "autoTriangulate", "(Ljava/lang/Object;)V",
+                AtlasTimingTargets.AUTO_TRIANGULATE),
+            new AtlasTimingTargets.Target(
+                meshOwner, "updateIndices", "(I)V", AtlasTimingTargets.UPDATE_INDICES));
+        final AtlasTimingTransformer.Outcome meshOutcome = AtlasTimingTransformer.instrument(
+            meshOriginal, meshOwner, meshTargets);
+        check(meshOutcome.bytes() != null, "mesh fixture instrumented bytes must be produced");
+        check(meshOutcome.matches().get("updateVertices()V") == 1,
+            "updateVertices must match exactly once");
+        check(meshOutcome.matches().get("updateIndices(Ljava/lang/Object;)V") == 1,
+            "updateIndices must match exactly once");
+        check(meshOutcome.matches().get("delaunayCompute()Ljava/util/List;") == 1,
+            "delaunayCompute must match exactly once");
+        check(meshOutcome.matches().get("delaunayApply(Ljava/util/List;ZLjava/lang/Object;)V") == 1,
+            "delaunayApply must match exactly once");
+        check(meshOutcome.matches().get("autoTriangulate(Ljava/lang/Object;)V") == 1,
+            "autoTriangulate must match exactly once");
+        check(!meshOutcome.matches().containsKey("updateIndices(I)V"),
+            "a wrong descriptor must not be marked woven");
+
         // Define the woven fixture on an isolated loader and invoke the nested path.
         final class Loader extends ClassLoader {
-            Class<?> define(final byte[] bytes) {
-                return defineClass("dev.turboism.validation.atlastiming.fixture.FixtureAtlas",
-                    bytes, 0, bytes.length);
+            Class<?> define(final String name, final byte[] bytes) {
+                return defineClass(name, bytes, 0, bytes.length);
             }
         }
-        final Object woven = new Loader().define(outcome.bytes())
+        final Object woven = new Loader()
+            .define("dev.turboism.validation.atlastiming.fixture.FixtureAtlas", outcome.bytes())
             .getDeclaredConstructor().newInstance();
         final Method update = woven.getClass().getMethod("updateTexture", boolean.class, Object.class);
         update.invoke(woven, true, new Object());
@@ -83,6 +121,12 @@ public final class AtlasTimingSelfCheck {
         catching.invoke(woven);
         final Method setup = woven.getClass().getMethod("setupCacheImage", boolean.class, Object.class);
         setup.invoke(woven, true, new Object());
+
+        final Object wovenMesh = new Loader()
+            .define("dev.turboism.validation.atlastiming.fixture.FixtureMesh",
+                meshOutcome.bytes())
+            .getDeclaredConstructor().newInstance();
+        wovenMesh.getClass().getMethod("driveMesh", Object.class).invoke(wovenMesh, new Object());
 
         AtlasTimingProbe.flush();
         Thread.sleep(600);
@@ -103,6 +147,11 @@ public final class AtlasTimingSelfCheck {
             "the stale throwingPath entry must surface as unpaired when catchingPath exits");
         check(summary.contains("targets="), "summary must carry target states");
         check(summary.contains("blocked="), "summary must carry blocked state");
+        for (final String metric : new String[]{"updateVertices", "updateIndices",
+                "delaunayCompute", "delaunayApply", "autoTriangulate"}) {
+            check(summary.contains("metric." + metric + ".count=1"),
+                "summary must count " + metric + " exactly once");
+        }
 
         // Unrelated class is left alone.
         final AtlasTimingTransformer.Outcome unrelated = AtlasTimingTransformer.instrument(
