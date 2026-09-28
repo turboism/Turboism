@@ -509,6 +509,17 @@ runner_args+=(
   --jvm-option "-Dturboism.validation.atlasImageShadow.editorReopen=${editor_reopen}"
 )
 
+# The Runner's deferred GL gate samples the runtime log once right after launch when no
+# ready marker is configured; the JVM is then typically still inside Proton startup, so an
+# empty marker set turns admission into a race. Wait on the gate's own literal marker: the
+# ready loop only exits once that line exists in the same runtime log the gate reads.
+# This is not a new capability channel and weakens nothing — an INACTIVE or absent marker
+# still fails closed through the bounded ready timeout, and the final gate check is
+# unchanged. Should a future label ever stage a config that legitimately disables
+# mesaGlThread (safeMode/hooks.disabledIds/launcher prefs), this unconditional wait would
+# need review; none of the pinned configs do that today.
+runner_args+=(--ready-marker 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE')
+
 # The 5303 profile pins the whole T039 property contract; the 5203 profile must carry
 # none of it (the driver fails closed if any t039.* leaks through).
 if [[ "$version" == 5303 ]]; then
@@ -607,6 +618,7 @@ if [[ -n "$tilepatch_agent" ]]; then
   printf 'tilePatchMode=%s\n' "$tilepatch_mode" >&2
 fi
 
-# No readiness markers, hook, client, or collector option is permitted here; the only staged
-# home input is the hash-pinned -meshoff config above.
+# No hook, client, or collector option is permitted here; readiness is limited to the single
+# fixed deferred-check marker above. The only staged home inputs are the hash-pinned
+# -meshoff/-atlasoff/-reuseoff configs above.
 exec bash "$runner" "${runner_args[@]}"

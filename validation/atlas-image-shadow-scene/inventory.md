@@ -102,7 +102,7 @@ scripts/test/test_atlas_image_shadow_host_validation.sh                         
 ## 责任与剩余门禁
 
 - driver 负责固定 UI 动作、T039 freeze eligibility、payload 内容与 hash、secure output/run claim、自身 canonical 单次发布和失败 fail-closed。
-- Runner/队列管理器负责 prepare/submit、宿主生命周期、原生正常退出、containment、result timeout、cleanup 与最终任务判定；当前 wrapper 不提供 hook/client/collector/readiness 通道。只有队列看到宿主自身的 `-- successfully exited pid:N --` 标记（`com.live2d.cubism.appCtrlImpl.bn.c()`）才判定正常退出；driver 侧的 exit 证据不能替代它。
+- Runner/队列管理器负责 prepare/submit、宿主生命周期、原生正常退出、containment、result timeout、cleanup 与最终任务判定；当前 wrapper 不提供 hook/client/collector 通道；readiness 仅限固定的 `--ready-marker 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE'`（Runner deferred-GL gate 空 marker 时立即采样一次 runtime log，等待谓词与 gate 谓词同字面量，T029-READY 修正）。marker 缺失/INACTIVE 仍有界超时安全失败，不构成所有模式/日志旋转下的绝对保证。只有队列看到宿主自身的 `-- successfully exited pid:N --` 标记（`com.live2d.cubism.appCtrlImpl.bn.c()`）才判定正常退出；driver 侧的 exit 证据不能替代它。
 - 主代理仍须复核真实 production agent、T039 参数/依赖逐项 hash、Runner 展开后的 `{TASK_ID}-atlas_mapping_100.cmo3`、真实 UI OK 文案/归属、payload 后验、fixture 源/副本不变性，并经管理器解除 `runnable=false` 后才能实机准入。本次没有实机验收。
 
 ## Primary 整合产物（T040 首轮候选，取代上述历史 artifact 摘要）
