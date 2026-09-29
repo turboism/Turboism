@@ -90,7 +90,7 @@ public final class MatchList<E> extends ArrayList<E> {
   逐点一致（官方 ArrayList 允许 null 元素）。
 - **窗口后突变不失镜像可观测性**：`remove(0)`（h.b）不走 add 会留陈旧
   镜像，`h.a` 的 addAll 目标是另一张表；但 javap 证实窗口后再无
-  contains——陈旧不可观测。此为已知边界，非缺陷：MatchList 合同 = 
+  contains——陈旧不可观测。此为已知边界，非缺陷：MatchList 合同 =
   「add-only 使用域内逐点等价」。
 - **越界域（已在单测断言为可观测分歧）**：值语义元素（覆盖 equals）下
   `contains(equalNotSame)` 官方为 true、镜像为 false——故该 helper 仅
