@@ -32,6 +32,8 @@ public final class RuntimeActionRegistry implements ActionRegistry {
     private final PermissionChecker permissionChecker;
     private final RuntimeEventBroker eventBroker;
     private final ConcurrentHashMap<String, RegisteredAction> actions = new ConcurrentHashMap<>();
+    private final java.util.concurrent.CopyOnWriteArrayList<Runnable> changeListeners =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
 
     public RuntimeActionRegistry(
             RuntimeScheduler scheduler,
@@ -68,7 +70,27 @@ public final class RuntimeActionRegistry implements ActionRegistry {
             previous.handle().invalidate();
             emitDuplicate(key);
         }
+        notifyChanged();
         return handle;
+    }
+
+    /**
+     * Adds a listener invoked inline whenever the registered action set changes (register and
+     * unregister). The runtime keybinding service listens here so action rows and their
+     * bindings appear and disappear with their registrations; listeners must be cheap and
+     * non-blocking.
+     *
+     * @return a registration that removes the listener
+     */
+    public Registration listen(Runnable listener) {
+        changeListeners.add(Objects.requireNonNull(listener, "listener"));
+        return () -> changeListeners.remove(listener);
+    }
+
+    private void notifyChanged() {
+        for (Runnable listener : changeListeners) {
+            listener.run();
+        }
     }
 
     /**
@@ -100,6 +122,18 @@ public final class RuntimeActionRegistry implements ActionRegistry {
                     context.contextMenuSelection().isPresent(),
                     context.panelTabSelection().isPresent()));
         }
+    }
+
+    /**
+     * Returns a detached copy of the currently registered actions keyed by action id.
+     * The runtime keybinding service enumerates this to offer every action as a bindable
+     * row; the returned actions are the live objects so their labels and declared default
+     * shortcuts are read at snapshot time.
+     */
+    public java.util.Map<String, Action> snapshot() {
+        final java.util.Map<String, Action> copy = new java.util.LinkedHashMap<>();
+        actions.forEach((id, registered) -> copy.put(id, registered.action()));
+        return java.util.Collections.unmodifiableMap(copy);
     }
 
     private void emitDuplicate(String id) {
@@ -148,6 +182,7 @@ public final class RuntimeActionRegistry implements ActionRegistry {
             }
             valid = false;
             actions.computeIfPresent(id, (key, registered) -> registered.handle() == this ? null : registered);
+            notifyChanged();
         }
     }
 }

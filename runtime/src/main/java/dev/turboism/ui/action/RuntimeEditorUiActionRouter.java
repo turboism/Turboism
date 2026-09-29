@@ -13,6 +13,8 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
 
     private final ConcurrentHashMap<String, java.util.concurrent.CopyOnWriteArrayList<ActionRegistry>> registries =
             new ConcurrentHashMap<>();
+    private final java.util.concurrent.CopyOnWriteArrayList<Runnable> changeListeners =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
     private volatile boolean closed;
 
     /**
@@ -35,12 +37,32 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
         final java.util.concurrent.CopyOnWriteArrayList<ActionRegistry> owners =
                 registries.computeIfAbsent(owner, ignored -> new java.util.concurrent.CopyOnWriteArrayList<>());
         owners.add(requested);
+        notifyChanged();
         return () -> {
             owners.remove(requested);
             if (owners.isEmpty()) {
                 registries.remove(owner, owners);
             }
+            notifyChanged();
         };
+    }
+
+    /**
+     * Adds a listener invoked inline whenever an owner's registry set changes (register and
+     * unregister). The runtime keybinding service listens here so action bindings appear and
+     * disappear with their registrations; listeners must be cheap and non-blocking.
+     *
+     * @return a registration that removes the listener
+     */
+    public Registration listen(final Runnable listener) {
+        changeListeners.add(Objects.requireNonNull(listener, "listener"));
+        return () -> changeListeners.remove(listener);
+    }
+
+    private void notifyChanged() {
+        for (Runnable listener : changeListeners) {
+            listener.run();
+        }
     }
 
     @Override
@@ -67,6 +89,18 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
             throw new IllegalStateException("Editor UI actions require a runtime-owned action registry");
         }
         runtime.execute(requireText(actionId, "actionId"), Objects.requireNonNull(context, "context"));
+    }
+
+    /**
+     * Returns a detached copy of the registered action registries keyed by owner plugin id,
+     * in registration order. The runtime keybinding service enumerates this to expose every
+     * registered action as a bindable row; as with {@link #invoke}, only the last registry
+     * per owner is consulted.
+     */
+    public java.util.Map<String, java.util.List<ActionRegistry>> snapshot() {
+        final java.util.Map<String, java.util.List<ActionRegistry>> copy = new java.util.LinkedHashMap<>();
+        registries.forEach((owner, owners) -> copy.put(owner, java.util.List.copyOf(owners)));
+        return java.util.Collections.unmodifiableMap(copy);
     }
 
     @Override

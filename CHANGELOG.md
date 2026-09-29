@@ -63,6 +63,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `Action.of` and `MenuContribution.of` build single-point contribution registrations as plain
   `SimpleAction`/`SimpleMenuContribution` values, so a plugin no longer needs an anonymous class
   for every action or menu item it contributes.
+- Runtime-owned keybinding authority and a Keybindings window: the Turboism menu gains a
+  "Keybindings" item opening a table of every bindable row — plugin actions (including the core
+  shell's own) and native command translations. A global AWT key dispatcher intercepts host key
+  events so a bound key invokes a plugin action through the action router, while a native rebind
+  is translated back into the host's original shortcut and the displaced key is suppressed.
+  Rows carry a tri-state binding (unset/bound/disabled) persisted under
+  `state/runtime/keybindings.properties`, conflicting claims are marked in the table, plain
+  single-key bindings stay inactive while a text field holds focus, and the capture dialog
+  suspends interception while recording. `ActionRegistry.Action.defaultShortcut()` plus the new
+  `Action.of(id, label, shortcut, handler)` overload let plugins declare a default shortcut the
+  user can rebind. The core shell declares defaults for its window actions (Settings
+  `Ctrl+Alt+S`, Plugins `Ctrl+Alt+P`, Logs `Ctrl+Alt+L`, Keybindings `Ctrl+Shift+K`), and the
+  first-party mesh-inspect, history-toggle and demo actions ship declared defaults as SDK
+  examples. Double-clicking a row's shortcut cell opens the capture dialog directly.
 
 ### Changed
 
@@ -121,6 +135,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- `ClassPinTable.load` now falls back to the system class loader when the agent classes have no
+  defining loader: the distributed agent's `Boot-Class-Path` manifest entry bootstrap-loads them,
+  so the pin-table lookup dereferenced `null` during premain and the whole runtime failed safely
+  instead of starting on a real host.
 - Animation documents, scenes, tracks and attributes now enforce plugin permissions, scope liveness
   and document generations throughout the object graph. Keyframe copies reject stale or foreign
   sources while preserving valid copies between active views owned by the same plugin.
