@@ -18,6 +18,11 @@ import java.util.Optional;
  *   <li>{@code temporaryHandler.a.b(GVector2, aG)} — the drag-tick dispatcher of the
  *       dedicated bend (temporary handler) tool; the bridge sees the handler, the
  *       drag position and the modifier-carrying event.</li>
+ *   <li>{@code doc.selection.PointSelector.add(IPointRef, float, boolean)} and
+ *       {@code setWeight(IPointRef, float)} — the converged writes of every
+ *       weighted-selection flow, including the Brush Selection Tool; the bridge
+ *       sees the selector, the point reference and the incoming weight inside
+ *       the caller's selection/undo envelope.</li>
  * </ul>
  *
  * <p>The strip selectors differ between obfuscation generations: the mount pass is
@@ -43,7 +48,20 @@ public record WarpAltMirrorHostProfile(
         String stripLayoutDescriptor,
         String greenTickOwner,
         String greenTickMethod,
-        String greenTickDescriptor) {
+        String greenTickDescriptor,
+        String weightWriteOwner,
+        String weightAddMethod,
+        String weightAddDescriptor,
+        String weightSetMethod,
+        String weightSetDescriptor,
+        String actionDispatchOwner,
+        String actionDispatchMethod,
+        String actionDispatchDescriptor,
+        String actionClaimMethod,
+        String actionClaimDescriptor,
+        String inputIngressOwner,
+        String inputIngressMethod,
+        String inputIngressDescriptor) {
 
     private static final HostArtifactDigest CUBISM_5203 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_5302 = ReviewedHostArtifacts.CUBISM_5_3_02;
@@ -91,6 +109,9 @@ public record WarpAltMirrorHostProfile(
     private static final String DRAG_TICK = "com/live2d/cubism/view/context/temporaryHandler/a";
     private static final String STRIP = "com/live2d/cubism/view/context/a/b";
     private static final String GREEN_TICK = "com/live2d/cubism/doc/model/deformer/warp/a$b";
+    private static final String POINT_SELECTOR = "com/live2d/doc/selection/PointSelector";
+    private static final String ACTION_DISPATCH = "com/live2d/cubism/view/context/actionManager/CEActionManager";
+    private static final String INPUT_INGRESS = "com/live2d/cubism/view/context/CEViewContext";
 
     private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = ClassPinTable.load("warp-alt-mirror");
 
@@ -114,7 +135,20 @@ public record WarpAltMirrorHostProfile(
                 shared.stripLayoutDescriptor(),
                 shared.greenTickOwner(),
                 shared.greenTickMethod(),
-                shared.greenTickDescriptor());
+                shared.greenTickDescriptor(),
+                shared.weightWriteOwner(),
+                shared.weightAddMethod(),
+                shared.weightAddDescriptor(),
+                shared.weightSetMethod(),
+                shared.weightSetDescriptor(),
+                shared.actionDispatchOwner(),
+                shared.actionDispatchMethod(),
+                shared.actionDispatchDescriptor(),
+                shared.actionClaimMethod(),
+                shared.actionClaimDescriptor(),
+                shared.inputIngressOwner(),
+                shared.inputIngressMethod(),
+                shared.inputIngressDescriptor());
     }
 
     /** Selectors verified identical between the reviewed 5.3.02 and 5.3.03 artifacts. */
@@ -132,7 +166,21 @@ public record WarpAltMirrorHostProfile(
                 "a",
                 "(Lcom/live2d/cubism/view/context/actionManager/N;" + "Lcom/live2d/graphics3d/entity/GEntity;)V",
                 "com/live2d/cubism/doc/model/deformer/warp/a$b",
-                "a",
-                "(Lcom/live2d/cubism/view/context/actionManager/aG;)V");
+                "b",
+                "(Lcom/live2d/cubism/view/context/actionManager/N;)V",
+                POINT_SELECTOR,
+                "add",
+                "(Lcom/live2d/doc/selection/IPointRef;FZ)Z",
+                "setWeight",
+                "(Lcom/live2d/doc/selection/IPointRef;F)V",
+                ACTION_DISPATCH,
+                "mouseAction",
+                "(Lcom/live2d/cubism/view/context/actionManager/N;)V",
+                "setCurrentAction",
+                "(Lcom/live2d/cubism/view/context/actionManager/a;"
+                        + "Lcom/live2d/cubism/view/context/actionManager/N;)V",
+                INPUT_INGRESS,
+                "onInputEvent_exe",
+                "(Lcom/live2d/ui/event/h;)V");
     }
 }

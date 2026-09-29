@@ -96,6 +96,22 @@ final class WarpAltMirrorNativeMethodTransformerTest {
     }
 
     @Test
+    void weightWriteOwnerInstrumentsBothConvergedWrites() {
+        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
+        final WarpAltMirrorNativeMethodTransformer transformer =
+                new WarpAltMirrorNativeMethodTransformer(profile, null);
+
+        final byte[] transformed = transformer.transform(
+                null, null, profile.weightWriteOwner(), null, null, fixture(profile, profile.weightWriteOwner()));
+        assertNotNull(transformed);
+        assertEquals(WarpAltMirrorNativeMethodTransformer.Outcome.TARGET_TRANSFORMED, transformer.outcome());
+        assertTrue(containsBridgeCall(
+                transformed, "mirrorWeightAdd", "(Ljava/lang/Object;Ljava/lang/Object;FZ)V"));
+        assertTrue(containsBridgeCall(
+                transformed, "mirrorWeightSet", "(Ljava/lang/Object;Ljava/lang/Object;F)V"));
+    }
+
+    @Test
     void unrelatedMethodOnTheTargetOwnerIsLeftAlone() {
         final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
         final WarpAltMirrorNativeMethodTransformer transformer =
@@ -300,6 +316,16 @@ final class WarpAltMirrorNativeMethodTransformerTest {
         }
         if (owner.equals(profile.dragTickOwner())) {
             method(writer, profile.dragTickMethod(), profile.dragTickDescriptor(), Opcodes.RETURN);
+        }
+        if (owner.equals(profile.weightWriteOwner())) {
+            final MethodVisitor add = writer.visitMethod(
+                    Opcodes.ACC_PUBLIC, profile.weightAddMethod(), profile.weightAddDescriptor(), null, null);
+            add.visitCode();
+            add.visitInsn(Opcodes.ICONST_0);
+            add.visitInsn(Opcodes.IRETURN);
+            add.visitMaxs(0, 0);
+            add.visitEnd();
+            method(writer, profile.weightSetMethod(), profile.weightSetDescriptor(), Opcodes.RETURN);
         }
         method(writer, "unrelated", "()V", Opcodes.RETURN);
         writer.visitEnd();

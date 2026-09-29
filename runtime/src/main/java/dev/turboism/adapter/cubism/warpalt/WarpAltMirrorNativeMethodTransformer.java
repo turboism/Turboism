@@ -23,7 +23,7 @@ import org.objectweb.asm.Opcodes;
 /**
  * Exact-selector transformer for the Warp deformer Alt-symmetry hook.
  *
- * <p>Three reviewed injection points, each verified against the 5.2.03, 5.3.02
+ * <p>Reviewed injection points, each verified against the 5.2.03, 5.3.02
  * and 5.3.03 artifact digests with exact owner/method/descriptor selectors:</p>
  *
  * <ul>
@@ -32,6 +32,10 @@ import org.objectweb.asm.Opcodes;
  *       counterpart write lands inside the gesture's own undo envelope.</li>
  *   <li>{@code temporaryHandler.a.b(GVector2, aG)} — head: the dedicated bend-tool
  *       drag tick, carrying the handler, drag position and modifier event.</li>
+ *   <li>{@code doc.selection.PointSelector.add(IPointRef, float, boolean)} and
+ *       {@code setWeight(IPointRef, float)} — head: the converged weighted-
+ *       selection writes; the mirrored counterpart write lands inside the
+ *       caller's own selection/undo envelope.</li>
  * </ul>
  */
 public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTransformer {
@@ -97,7 +101,11 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         final boolean isDragTick = profile.dragTickOwner().equals(className);
         final boolean isStrip = profile.stripOwner().equals(className);
         final boolean isGreenTick = profile.greenTickOwner().equals(className);
-        if (!isPointMove && !isDragTick && !isGreenTick && !isStrip) return null;
+        final boolean isWeightWrite = profile.weightWriteOwner().equals(className);
+        final boolean isActionDispatch = profile.actionDispatchOwner().equals(className);
+        final boolean isInputIngress = profile.inputIngressOwner().equals(className);
+        if (!isPointMove && !isDragTick && !isGreenTick && !isStrip && !isWeightWrite
+                && !isActionDispatch && !isInputIngress) return null;
         if (classBeingRedefined != null) {
             reject(Outcome.RETRANSFORM_REJECTED, "WARP_ALT_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
@@ -156,11 +164,31 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                             final boolean greenTickHere = isGreenTick
                                     && profile.greenTickMethod().equals(name)
                                     && profile.greenTickDescriptor().equals(descriptor);
+                            final boolean weightAddHere = isWeightWrite
+                                    && profile.weightAddMethod().equals(name)
+                                    && profile.weightAddDescriptor().equals(descriptor);
+                            final boolean weightSetHere = isWeightWrite
+                                    && profile.weightSetMethod().equals(name)
+                                    && profile.weightSetDescriptor().equals(descriptor);
+                            final boolean actionDispatchHere = isActionDispatch
+                                    && profile.actionDispatchMethod().equals(name)
+                                    && profile.actionDispatchDescriptor().equals(descriptor);
+                            final boolean actionClaimHere = isActionDispatch
+                                    && profile.actionClaimMethod().equals(name)
+                                    && profile.actionClaimDescriptor().equals(descriptor);
+                            final boolean inputIngressHere = isInputIngress
+                                    && profile.inputIngressMethod().equals(name)
+                                    && profile.inputIngressDescriptor().equals(descriptor);
                             if (!pointMoveHere
                                     && !dragTickHere
                                     && !stripMountHere
                                     && !stripLayoutTail
-                                    && !greenTickHere) {
+                                    && !greenTickHere
+                                    && !weightAddHere
+                                    && !weightSetHere
+                                    && !actionDispatchHere
+                                    && !actionClaimHere
+                                    && !inputIngressHere) {
                                 return delegate;
                             }
                             transformed[0] = true;
@@ -204,6 +232,50 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                                                 BRIDGE,
                                                 "mirrorWarpDragMove",
                                                 "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                                                false);
+                                    } else if (weightAddHere) {
+                                        visitVarInsn(Opcodes.ALOAD, 1);
+                                        visitVarInsn(Opcodes.FLOAD, 2);
+                                        visitVarInsn(Opcodes.ILOAD, 3);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                BRIDGE,
+                                                "mirrorWeightAdd",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;FZ)V",
+                                                false);
+                                    } else if (weightSetHere) {
+                                        visitVarInsn(Opcodes.ALOAD, 1);
+                                        visitVarInsn(Opcodes.FLOAD, 2);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                BRIDGE,
+                                                "mirrorWeightSet",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;F)V",
+                                                false);
+                                    } else if (actionDispatchHere) {
+                                        visitVarInsn(Opcodes.ALOAD, 1);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                BRIDGE,
+                                                "diagMouseAction",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                                                false);
+                                    } else if (actionClaimHere) {
+                                        visitVarInsn(Opcodes.ALOAD, 1);
+                                        visitVarInsn(Opcodes.ALOAD, 2);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                BRIDGE,
+                                                "diagSetAction",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                                                false);
+                                    } else if (inputIngressHere) {
+                                        visitVarInsn(Opcodes.ALOAD, 1);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                BRIDGE,
+                                                "diagInputEvent",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;)V",
                                                 false);
                                     } else {
                                         visitMethodInsn(

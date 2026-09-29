@@ -35,6 +35,26 @@ public interface WarpAltMirrorParticipation {
     boolean nativeMirrorActive();
 
     /**
+     * @return how many mirrored selection-weight writes the bridge applied this
+     *     session. Validation probes assert this increments after a weighted
+     *     brush stroke while an axis is armed; default 0 for implementers that
+     *     do not expose the counter.
+     */
+    default int weightMirrorAppliedCount() {
+        return 0;
+    }
+
+    /** @return the source point index of the last mirrored weight write, or -1. */
+    default int weightMirrorLastSourceIndex() {
+        return -1;
+    }
+
+    /** @return the counterpart point index of the last mirrored weight write, or -1. */
+    default int weightMirrorLastCounterpartIndex() {
+        return -1;
+    }
+
+    /**
      * Reports whether a live runtime surface backs this instance.
      *
      * @return {@code false} only for the {@link #unavailable()} sentinel

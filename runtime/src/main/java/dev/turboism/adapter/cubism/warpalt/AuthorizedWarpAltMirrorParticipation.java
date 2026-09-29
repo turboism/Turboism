@@ -44,4 +44,19 @@ public final class AuthorizedWarpAltMirrorParticipation implements WarpAltMirror
     public void setArmedAxis(final int axis) {
         delegate.setArmedAxis(axis);
     }
+
+    @Override
+    public int weightMirrorAppliedCount() {
+        return delegate.weightMirrorAppliedCount();
+    }
+
+    @Override
+    public int weightMirrorLastSourceIndex() {
+        return delegate.weightMirrorLastSourceIndex();
+    }
+
+    @Override
+    public int weightMirrorLastCounterpartIndex() {
+        return delegate.weightMirrorLastCounterpartIndex();
+    }
 }
