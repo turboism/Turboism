@@ -4,12 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.live2d.cubism.view.context.action.U$b;
+import com.live2d.cubism.view.context.action.h$a;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import com.live2d.cubism.view.context.action.U$b;
-import com.live2d.cubism.view.context.action.h$a;
 
 /**
  * Behaviour contract of the converged point-write mirror ({@code mirrorPointMove})

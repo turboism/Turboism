@@ -38,8 +38,7 @@ final class NativeWarpAltMirrorBridgeGreenTest {
     }
 
     private StubAction drag(final int col, final int row, final StubKind kind, final float dx, final float dy) {
-        final StubRef ref = new StubRef(
-                grid, new StubVec(0, 0), grid.pts[col][row], col, row, kind, true);
+        final StubRef ref = new StubRef(grid, new StubVec(0, 0), grid.pts[col][row], col, row, kind, true);
         return new StubAction(new StubSelection(ref), 1.0f, new StubVec(dx, dy));
     }
 
@@ -87,30 +86,33 @@ final class NativeWarpAltMirrorBridgeGreenTest {
         // mirrored target pos(0,0)+(dx,-dy)=(2,-3), then both directional
         // smoothing passes — the propagation the lone ref write missed.
         assertEquals(3, com.live2d.cubism.doc.model.deformer.warp.k.calls.size());
-        assertTrue(com.live2d.cubism.doc.model.deformer.warp.k.calls.get(0)
-                .startsWith("move.a 1,4 -> 2.0,-3.0 flag=true"),
+        assertTrue(
+                com.live2d.cubism.doc.model.deformer.warp.k.calls.get(0).startsWith("move.a 1,4 -> 2.0,-3.0 flag=true"),
                 com.live2d.cubism.doc.model.deformer.warp.k.calls.get(0));
-        assertEquals("smooth.a 1,4 dim=4 smooth=4",
-                com.live2d.cubism.doc.model.deformer.warp.k.calls.get(1));
-        assertEquals("smooth.b 1,4 dim=4 smooth=4",
-                com.live2d.cubism.doc.model.deformer.warp.k.calls.get(2));
+        assertEquals("smooth.a 1,4 dim=4 smooth=4", com.live2d.cubism.doc.model.deformer.warp.k.calls.get(1));
+        assertEquals("smooth.b 1,4 dim=4 smooth=4", com.live2d.cubism.doc.model.deformer.warp.k.calls.get(2));
     }
 
     @Test
     void anchorDragRespectsKeepRelationEditType() {
         NativeWarpAltMirrorBridge.setArmedAxis(1);
-        com.live2d.cubism.setting.AppSetting.INSTANCE.getDeformer().getWarpDeformer()
+        com.live2d.cubism.setting.AppSetting.INSTANCE
+                .getDeformer()
+                .getWarpDeformer()
                 .setCurrentWarpEditType(com.live2d.cubism.doc.model.extension.warpBezier.WarpEditType.KEEP_RELATION);
         try {
             NativeWarpAltMirrorBridge.mirrorGreenTick(drag(1, 0, StubKind.ANCHOR, 2f, 3f), event(2f, 3f));
         } finally {
-            com.live2d.cubism.setting.AppSetting.INSTANCE.getDeformer().getWarpDeformer()
+            com.live2d.cubism.setting.AppSetting.INSTANCE
+                    .getDeformer()
+                    .getWarpDeformer()
                     .setCurrentWarpEditType(com.live2d.cubism.doc.model.extension.warpBezier.WarpEditType.SMOOTH_ALL);
         }
 
         // KEEP_RELATION replays the k.b variant only — no smoothing passes.
         assertEquals(1, com.live2d.cubism.doc.model.deformer.warp.k.calls.size());
-        assertTrue(com.live2d.cubism.doc.model.deformer.warp.k.calls.get(0).startsWith("move.b 1,4"),
+        assertTrue(
+                com.live2d.cubism.doc.model.deformer.warp.k.calls.get(0).startsWith("move.b 1,4"),
                 com.live2d.cubism.doc.model.deformer.warp.k.calls.get(0));
     }
 
@@ -161,8 +163,7 @@ final class NativeWarpAltMirrorBridgeGreenTest {
     @Test
     void subEpsilonDeltaDoesNotMirror() {
         NativeWarpAltMirrorBridge.setArmedAxis(1);
-        NativeWarpAltMirrorBridge.mirrorGreenTick(
-                drag(1, 1, StubKind.CONTROL_E, 1.0e-4f, 0f), event(1.0e-4f, 0f));
+        NativeWarpAltMirrorBridge.mirrorGreenTick(drag(1, 1, StubKind.CONTROL_E, 1.0e-4f, 0f), event(1.0e-4f, 0f));
         assertTrue(StubRef.moves.isEmpty());
     }
 
@@ -282,8 +283,13 @@ final class NativeWarpAltMirrorBridgeGreenTest {
             final float targetY;
             final float weight;
 
-            Move(final int col, final int row, final StubKind kind,
-                    final float targetX, final float targetY, final float weight) {
+            Move(
+                    final int col,
+                    final int row,
+                    final StubKind kind,
+                    final float targetX,
+                    final float targetY,
+                    final float weight) {
                 this.col = col;
                 this.row = row;
                 this.kind = kind;

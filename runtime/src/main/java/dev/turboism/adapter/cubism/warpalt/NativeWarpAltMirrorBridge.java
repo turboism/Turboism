@@ -45,9 +45,7 @@ public final class NativeWarpAltMirrorBridge {
      * {@code moveToOnLocal} over many refs per tick and must not mirror.
      */
     private static final java.util.Set<String> POINT_MOVE_DRAG_CALLERS =
-            java.util.Set.of(
-                    "com.live2d.cubism.view.context.action.U$b",
-                    "com.live2d.cubism.view.context.action.O$b");
+            java.util.Set.of("com.live2d.cubism.view.context.action.U$b", "com.live2d.cubism.view.context.action.O$b");
 
     private static final AtomicReference<Binding> INSTALLED = new AtomicReference<>();
     /** Armed mirror axis published by the plugin: 0=off, 1=vertical, 2=horizontal. */
@@ -64,6 +62,7 @@ public final class NativeWarpAltMirrorBridge {
 
     /** Reentrancy guard: the recursive counterpart write must not mirror again. */
     private static final ThreadLocal<Boolean> WEIGHT_MIRRORING = ThreadLocal.withInitial(() -> Boolean.FALSE);
+
     private static final AtomicBoolean WEIGHT_APPLIED_REPORTED = new AtomicBoolean();
     private static final AtomicLong WEIGHT_MIRROR_COUNT = new AtomicLong();
     private static final AtomicInteger WEIGHT_LAST_SOURCE = new AtomicInteger(-1);
@@ -71,10 +70,10 @@ public final class NativeWarpAltMirrorBridge {
     /** Per-host-class caches of the reviewed counterpart-ref constructors; a miss is permanent per class. */
     private static final ConcurrentHashMap<Class<?>, Optional<Constructor<?>>> BASE_REF_CTORS =
             new ConcurrentHashMap<>();
+
     private static final ConcurrentHashMap<Class<?>, Optional<Constructor<?>>> WRAP_REF_CTORS =
             new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<Class<?>, Optional<Field>> WRAP_TRANSFORM_FIELDS =
-            new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Class<?>, Optional<Field>> WRAP_TRANSFORM_FIELDS = new ConcurrentHashMap<>();
 
     private static final AtomicBoolean MOVE_APPLIED_REPORTED = new AtomicBoolean();
     private static final AtomicBoolean GREEN_APPLIED_REPORTED = new AtomicBoolean();
@@ -317,11 +316,7 @@ public final class NativeWarpAltMirrorBridge {
      * undo semantics stay exactly the host's own.
      */
     private static void mirrorWeightWrite(
-            final Object selector,
-            final Object ref,
-            final float weight,
-            final boolean reorder,
-            final boolean setOnly) {
+            final Object selector, final Object ref, final float weight, final boolean reorder, final boolean setOnly) {
         try {
             final Binding binding = INSTALLED.get();
             if (binding == null || !binding.enabled() || selector == null || ref == null) {
@@ -387,8 +382,7 @@ public final class NativeWarpAltMirrorBridge {
             // The IPointRef parameter type is resolved from the selector's own
             // getCompatible signature — no compiled or name-based dependency on
             // the host selection interface.
-            final Method getCompatible =
-                    MethodHandleCache.declaredByArity(selectorType, "getCompatible", 1);
+            final Method getCompatible = MethodHandleCache.declaredByArity(selectorType, "getCompatible", 1);
             final Class<?> pointRefType = getCompatible.getParameterTypes()[0];
             // Reuse the stored equal instance when the counterpart is already
             // selected — exactly what the brush itself does via getCompatible —
@@ -414,7 +408,8 @@ public final class NativeWarpAltMirrorBridge {
             WEIGHT_LAST_SOURCE.set(index);
             WEIGHT_LAST_COUNTERPART.set(counterpartIndex);
             if (WEIGHT_APPLIED_REPORTED.compareAndSet(false, true)) {
-                diagnostic("WEIGHT_MIRROR_APPLIED axis=" + axis + " index=" + index + " counterpart=" + counterpartIndex);
+                diagnostic(
+                        "WEIGHT_MIRROR_APPLIED axis=" + axis + " index=" + index + " counterpart=" + counterpartIndex);
             }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -740,11 +735,13 @@ public final class NativeWarpAltMirrorBridge {
      */
     public static void diagMouseAction(final Object manager, final Object event) {
         try {
-            if (!REPORTED_SKIPS.add("mouse:" + (event == null ? "null" : event.getClass().getSimpleName()))) {
+            if (!REPORTED_SKIPS.add(
+                    "mouse:" + (event == null ? "null" : event.getClass().getSimpleName()))) {
                 return;
             }
             final Object current = invoke(manager, "getCurAction", new Class<?>[0]);
-            diagnostic("MOUSE_ACTION event=" + (event == null ? "null" : event.getClass().getName())
+            diagnostic("MOUSE_ACTION event="
+                    + (event == null ? "null" : event.getClass().getName())
                     + " av=" + safeBool(event, "av") + " aw=" + safeBool(event, "aw")
                     + " cur=" + (current == null ? "null" : current.getClass().getName()));
         } catch (Throwable failure) {
@@ -766,7 +763,8 @@ public final class NativeWarpAltMirrorBridge {
         try {
             // Zero-reflection first: prove the ingress ran even if kind lookup fails.
             final String eventClass = event == null ? "null" : event.getClass().getName();
-            final String ctxClass = viewContext == null ? "null" : viewContext.getClass().getName();
+            final String ctxClass =
+                    viewContext == null ? "null" : viewContext.getClass().getName();
             String kindName;
             try {
                 final Object kind = invoke(event, "e", new Class<?>[0]);
@@ -796,7 +794,8 @@ public final class NativeWarpAltMirrorBridge {
      */
     public static void diagSetAction(final Object action, final Object event) {
         try {
-            diagnostic("SET_ACTION action=" + (action == null ? "null" : action.getClass().getName())
+            diagnostic("SET_ACTION action="
+                    + (action == null ? "null" : action.getClass().getName())
                     + " event=" + (event == null ? "null" : event.getClass().getName())
                     + " av=" + safeBool(event, "av") + " aw=" + safeBool(event, "aw")
                     + " ax=" + safeBool(event, "ax"));
@@ -839,8 +838,9 @@ public final class NativeWarpAltMirrorBridge {
     public static void mirrorGreenTick(final Object action, final Object event) {
         try {
             if (REPORTED_SKIPS.add("green:entered")) {
-                diagnostic("GREEN_TICK_ENTERED action=" + (action == null ? "null" : action.getClass().getName())
-                        + " event=" + (event == null ? "null" : event.getClass().getName()));
+                diagnostic("GREEN_TICK_ENTERED action="
+                        + (action == null ? "null" : action.getClass().getName()) + " event="
+                        + (event == null ? "null" : event.getClass().getName()));
             }
             final Binding binding = INSTALLED.get();
             if (binding == null || !binding.enabled() || action == null || event == null) {
@@ -958,12 +958,19 @@ public final class NativeWarpAltMirrorBridge {
                     return;
                 }
                 mirrorAnchorTick(
-                        grid, (Object[][]) table, counterpart,
-                        counterpartCol, counterpartRow,
-                        bezierCol, bezierRow, dx, dy, vertical);
+                        grid,
+                        (Object[][]) table,
+                        counterpart,
+                        counterpartCol,
+                        counterpartRow,
+                        bezierCol,
+                        bezierRow,
+                        dx,
+                        dy,
+                        vertical);
                 if (GREEN_APPLIED_REPORTED.compareAndSet(false, true)) {
-                    diagnostic("MIRROR_GREEN_APPLIED axis=" + (vertical ? "vertical" : "horizontal")
-                            + " kind=" + type + "->" + counterType);
+                    diagnostic("MIRROR_GREEN_APPLIED axis=" + (vertical ? "vertical" : "horizontal") + " kind=" + type
+                            + "->" + counterType);
                 }
                 return;
             }
@@ -971,8 +978,8 @@ public final class NativeWarpAltMirrorBridge {
             // counterpart side receives the same per-kind propagation the tick
             // performs on the dragged side (opposite-handle tangent continuity
             // and neighbor linkage) — a lone handle write lags behind.
-            final Object counterRef = bezierCounterpartRef(
-                    ref, grid, counterpart, counterpartCol, counterpartRow, counterType);
+            final Object counterRef =
+                    bezierCounterpartRef(ref, grid, counterpart, counterpartCol, counterpartRow, counterType);
             if (counterRef == null) {
                 greenSkip("NO_COUNTERPART_REF");
                 return;
@@ -982,8 +989,7 @@ public final class NativeWarpAltMirrorBridge {
                 greenSkip("NO_LOCAL_SPACE");
                 return;
             }
-            final Method compatMethod =
-                    MethodHandleCache.declaredByArity(grid.getClass(), "getCompatiblePointRef", 2);
+            final Method compatMethod = MethodHandleCache.declaredByArity(grid.getClass(), "getCompatiblePointRef", 2);
             final Object compat = compatMethod.invoke(grid, counterRef, space);
             if (compat == null) {
                 greenSkip("NO_COMPAT_REF");
@@ -1003,8 +1009,8 @@ public final class NativeWarpAltMirrorBridge {
                     .newInstance(invokeFloat(pos, "getX") + mirroredDx, invokeFloat(pos, "getY") + mirroredDy);
             invoke(compat, "moveToOnLocal", new Class<?>[] {vectorType, float.class}, target, weight);
             if (GREEN_APPLIED_REPORTED.compareAndSet(false, true)) {
-                diagnostic("MIRROR_GREEN_APPLIED axis=" + (vertical ? "vertical" : "horizontal")
-                        + " kind=" + type + "->" + counterType);
+                diagnostic("MIRROR_GREEN_APPLIED axis=" + (vertical ? "vertical" : "horizontal") + " kind=" + type
+                        + "->" + counterType);
             }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -1044,13 +1050,19 @@ public final class NativeWarpAltMirrorBridge {
             if (params.length == 7
                     && params[0].isInstance(grid)
                     && params[2].isInstance(counterpartPt)
-                    && params[3] == int.class && params[4] == int.class
+                    && params[3] == int.class
+                    && params[4] == int.class
                     && params[5].isAssignableFrom(kindType)
                     && params[6] == boolean.class) {
                 ctor.setAccessible(true);
                 return ctor.newInstance(
-                        grid, invoke(ref, "getPos", new Class<?>[0]), counterpartPt,
-                        counterpartCol, counterpartRow, kindConstant, flag);
+                        grid,
+                        invoke(ref, "getPos", new Class<?>[0]),
+                        counterpartPt,
+                        counterpartCol,
+                        counterpartRow,
+                        kindConstant,
+                        flag);
             }
         }
         return null;
@@ -1060,8 +1072,7 @@ public final class NativeWarpAltMirrorBridge {
      * Resolves the local selection space the tick converts refs into:
      * {@code com.live2d.doc.selection.d.b} (a static {@code d$a} field) {@code .a()}.
      */
-    private static Object bezierLocalSpace(final ClassLoader loader)
-            throws ReflectiveOperationException {
+    private static Object bezierLocalSpace(final ClassLoader loader) throws ReflectiveOperationException {
         final Class<?> spaceType = Class.forName("com.live2d.doc.selection.d", false, loader);
         final Field companionField = spaceType.getDeclaredField("b");
         companionField.setAccessible(true);
@@ -1096,8 +1107,7 @@ public final class NativeWarpAltMirrorBridge {
             final boolean vertical)
             throws ReflectiveOperationException {
         final ClassLoader loader = grid.getClass().getClassLoader();
-        final Class<?> engineType =
-                Class.forName("com.live2d.cubism.doc.model.deformer.warp.k", false, loader);
+        final Class<?> engineType = Class.forName("com.live2d.cubism.doc.model.deformer.warp.k", false, loader);
         final Field engineField = engineType.getDeclaredField("a");
         engineField.setAccessible(true);
         final Object engine = engineField.get(null);
@@ -1117,8 +1127,7 @@ public final class NativeWarpAltMirrorBridge {
             greenSkip("NO_EDIT_TYPE");
             return;
         }
-        final String editName =
-                editType instanceof Enum<?> e ? e.name() : String.valueOf(editType);
+        final String editName = editType instanceof Enum<?> e ? e.name() : String.valueOf(editType);
         if ("KEEP_RELATION".equals(editName)) {
             warpAnchorMove(engine, "b", points, counterpartPt, col, row, fx, fy);
             return;
@@ -1150,10 +1159,14 @@ public final class NativeWarpAltMirrorBridge {
             throws ReflectiveOperationException {
         for (final Method method : engine.getClass().getDeclaredMethods()) {
             final Class<?>[] params = method.getParameterTypes();
-            if (method.getName().equals(name) && params.length == 7
-                    && params[0] == float.class && params[1] == float.class
-                    && params[2] == boolean.class && params[3].isArray()
-                    && params[5] == int.class && params[6] == int.class) {
+            if (method.getName().equals(name)
+                    && params.length == 7
+                    && params[0] == float.class
+                    && params[1] == float.class
+                    && params[2] == boolean.class
+                    && params[3].isArray()
+                    && params[5] == int.class
+                    && params[6] == int.class) {
                 method.setAccessible(true);
                 method.invoke(engine, fx, fy, true, points, pt, col, row);
                 return;
@@ -1174,9 +1187,12 @@ public final class NativeWarpAltMirrorBridge {
             throws ReflectiveOperationException {
         for (final Method method : engine.getClass().getDeclaredMethods()) {
             final Class<?>[] params = method.getParameterTypes();
-            if (method.getName().equals(name) && params.length == 6
-                    && params[0].isArray() && params[1] == int.class
-                    && params[2] == int.class && params[4] == int.class
+            if (method.getName().equals(name)
+                    && params.length == 6
+                    && params[0].isArray()
+                    && params[1] == int.class
+                    && params[2] == int.class
+                    && params[4] == int.class
                     && params[5] == int.class) {
                 method.setAccessible(true);
                 method.invoke(engine, points, col, row, transform, dimension, smoothLevel);
@@ -1190,17 +1206,13 @@ public final class NativeWarpAltMirrorBridge {
      * {@code AppSetting.INSTANCE.getDeformer().getWarpDeformer()
      * .getCurrentWarpEditType()}.
      */
-    private static Object currentWarpEditType(final ClassLoader loader)
-            throws ReflectiveOperationException {
-        final Class<?> settingsType =
-                Class.forName("com.live2d.cubism.setting.AppSetting", false, loader);
+    private static Object currentWarpEditType(final ClassLoader loader) throws ReflectiveOperationException {
+        final Class<?> settingsType = Class.forName("com.live2d.cubism.setting.AppSetting", false, loader);
         final Field instanceField = settingsType.getDeclaredField("INSTANCE");
         instanceField.setAccessible(true);
         final Object settings = instanceField.get(null);
-        final Object deformer = settings == null
-                ? null : invoke(settings, "getDeformer", new Class<?>[0]);
-        final Object warp = deformer == null
-                ? null : invoke(deformer, "getWarpDeformer", new Class<?>[0]);
+        final Object deformer = settings == null ? null : invoke(settings, "getDeformer", new Class<?>[0]);
+        final Object warp = deformer == null ? null : invoke(deformer, "getWarpDeformer", new Class<?>[0]);
         return warp == null ? null : invoke(warp, "getCurrentWarpEditType", new Class<?>[0]);
     }
 
@@ -1208,10 +1220,9 @@ public final class NativeWarpAltMirrorBridge {
      * Resolves the {@code ITransformBetweenLocalAndCanvas} singleton via the
      * reviewed {@code Companion.a()} accessor.
      */
-    private static Object localCanvasTransform(final ClassLoader loader)
-            throws ReflectiveOperationException {
-        final Class<?> transformType = Class.forName(
-                "com.live2d.doc.selection.ITransformBetweenLocalAndCanvas", false, loader);
+    private static Object localCanvasTransform(final ClassLoader loader) throws ReflectiveOperationException {
+        final Class<?> transformType =
+                Class.forName("com.live2d.doc.selection.ITransformBetweenLocalAndCanvas", false, loader);
         final Field companionField = transformType.getDeclaredField("Companion");
         companionField.setAccessible(true);
         final Object companion = companionField.get(null);

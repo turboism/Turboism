@@ -44,8 +44,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     private final Object lock = new Object();
     private final Map<String, Entry> entries = new LinkedHashMap<>();
-    private final Set<Object> nativeSeatLogged =
-            java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    private final Set<Object> nativeSeatLogged = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
     private final List<Runnable> pendingBuilds = new ArrayList<>();
     private Object strip;
     private boolean mountAttempted;
@@ -213,13 +212,20 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         // Native strip buttons keep the same plate family in selected states
         // (sampled On_RollOver ≈ #D6CEC5 gray, not the accent selectedBackground),
         // so selected slots reuse the normal/hover/pressed plates.
-        final Object normal = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("background", 0xF0EFEF, hostLoader)), true);
-        final Object selected = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("background", 0xF0EFEF, hostLoader)), true);
-        final Object rollover = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("hoverBackground", 0xDBDADA, hostLoader)), true);
-        final Object pressed = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("pressedBackground", 0xC6C5C5, hostLoader)), true);
-        final Object disabled = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("disabledBackground", 0xF0EFEF, hostLoader)), true);
-        final Object selRollover = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("hoverBackground", 0xDBDADA, hostLoader)), true);
-        final Object selPressed = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("pressedBackground", 0xC6C5C5, hostLoader)), true);
+        final Object normal =
+                resourceCtor.newInstance(plateImage(glyph, iconButtonColor("background", 0xF0EFEF, hostLoader)), true);
+        final Object selected =
+                resourceCtor.newInstance(plateImage(glyph, iconButtonColor("background", 0xF0EFEF, hostLoader)), true);
+        final Object rollover = resourceCtor.newInstance(
+                plateImage(glyph, iconButtonColor("hoverBackground", 0xDBDADA, hostLoader)), true);
+        final Object pressed = resourceCtor.newInstance(
+                plateImage(glyph, iconButtonColor("pressedBackground", 0xC6C5C5, hostLoader)), true);
+        final Object disabled = resourceCtor.newInstance(
+                plateImage(glyph, iconButtonColor("disabledBackground", 0xF0EFEF, hostLoader)), true);
+        final Object selRollover = resourceCtor.newInstance(
+                plateImage(glyph, iconButtonColor("hoverBackground", 0xDBDADA, hostLoader)), true);
+        final Object selPressed = resourceCtor.newInstance(
+                plateImage(glyph, iconButtonColor("pressedBackground", 0xC6C5C5, hostLoader)), true);
         return setClass.getConstructor(
                         resourceClass,
                         resourceClass,
@@ -256,9 +262,8 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             final Class<?> registry = Class.forName("com.live2d.ui.FlatLaF$bi", false, hostLoader);
             final Field instance = registry.getDeclaredField("a");
             instance.setAccessible(true);
-            final Object resolved =
-                    registry.getMethod("a", String.class, boolean.class)
-                            .invoke(instance.get(null), "CubismCommon.gl.iconButton." + key, false);
+            final Object resolved = registry.getMethod("a", String.class, boolean.class)
+                    .invoke(instance.get(null), "CubismCommon.gl.iconButton." + key, false);
             if (resolved instanceof Color color) {
                 return color;
             }
@@ -506,14 +511,12 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                         icons.getOrDefault(axis, icons.values().iterator().next()),
                         axis);
                 insertIntoGroup(strip, built.button());
-                entries.put(contributionId,
-                        new Entry(entry.contribution(), built.button(), built.stateEntities()));
+                entries.put(contributionId, new Entry(entry.contribution(), built.button(), built.stateEntities()));
                 applyInitialState(built.button(), built.stateEntities(), axis);
                 diagnostic("BUTTON_STATE_REBUILT axis=" + axis);
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
-                diagnostic("UPDATE_STATE_FAILED " + failure.getClass().getSimpleName()
-                        + ": " + failure.getMessage());
+                diagnostic("UPDATE_STATE_FAILED " + failure.getClass().getSimpleName() + ": " + failure.getMessage());
             }
         }
     }
@@ -537,8 +540,8 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                     if (button == null || nativeSeatLogged.contains(button)) continue;
                     final Object our = rectOf(button);
                     if (our == null || width(our) <= 0f || height(our) <= 0f) continue;
-                    diagnostic("STRIP_NATIVE_SEAT x=" + minX(our) + " y=" + minY(our)
-                            + " w=" + width(our) + " h=" + height(our));
+                    diagnostic("STRIP_NATIVE_SEAT x=" + minX(our) + " y=" + minY(our) + " w=" + width(our) + " h="
+                            + height(our));
                     nativeSeatLogged.add(button);
                 }
             } catch (Throwable failure) {
