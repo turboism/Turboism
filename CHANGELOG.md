@@ -65,7 +65,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   for every action or menu item it contributes.
 - Runtime-owned keybinding authority and a Keybindings window: the Turboism menu gains a
   "Keybindings" item opening a table of every bindable row — plugin actions (including the core
-  shell's own) and native command translations. A global AWT key dispatcher intercepts host key
+  shell's own) and native commands enumerated live from the host's menu accelerators, so the
+  catalog always mirrors the shortcuts the running Cubism version actually declares; shortcuts
+  not exposed through menus can still be added as key-forwarding rows. A global AWT key dispatcher intercepts host key
   events so a bound key invokes a plugin action through the action router, while a native rebind
   is translated back into the host's original shortcut and the displaced key is suppressed.
   Rows carry a tri-state binding (unset/bound/disabled) persisted under

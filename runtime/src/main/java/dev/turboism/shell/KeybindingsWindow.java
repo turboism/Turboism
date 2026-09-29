@@ -416,22 +416,10 @@ final class KeybindingsWindow implements AutoCloseable {
             return switch (column) {
                 case 0 ->
                     row.scope() == KeybindingService.Scope.PLUGIN ? row.owner() : text("keybindings.scope.native");
-                case 1 -> commandLabel(row);
+                case 1 -> row.label();
                 case 2 -> row.disabled() ? text("keybindings.disabled") : row.effectiveStroke();
                 default -> row.conflict() ? text("keybindings.conflict") : "";
             };
-        }
-
-        /**
-         * Built-in native rows resolve their label through the {@code keybindings.native.*}
-         * catalog so the table is fully localized; custom rows keep their user-entered label.
-         */
-        private String commandLabel(final KeybindingService.Row row) {
-            if (row.scope() == KeybindingService.Scope.NATIVE && !row.removable()) {
-                final String key = "keybindings.native." + row.id().substring("native:".length());
-                if (i18n.contains(key)) return i18n.text(key);
-            }
-            return row.label();
         }
     }
 }
