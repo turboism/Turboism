@@ -10,14 +10,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Observes each definition event for the target owner (bounded to four records + one overflow
- * marker via {@link Probe#defineObserved}), then applies the source/loader/SHA/shape gates and, on
- * full acceptance, returns the iterator-weaved bytes. A SHA mismatch records the observation and
- * rejects without any claim of attribution — a different byte stream at this observation point does
- * not identify which transform produced it.
+ * Observes each definition event for the target owner (bounded to four events + one overflow
+ * marker), then applies loader/SHA/CodeSource-exact/shape gates and, on full acceptance, returns
+ * the iterator-weaved bytes. A SHA mismatch records the observation and rejects without any
+ * attribution claim.
  */
 final class DefinitionObserver implements ClassFileTransformer {
-    /** Definition-observation budget: at most four events recorded, one overflow marker after. */
     private static final int OBSERVE_BUDGET = 4;
 
     private final ProbeConfig config;
@@ -40,16 +38,15 @@ final class DefinitionObserver implements ClassFileTransformer {
             if (overflowMarked.compareAndSet(false, true)) {
                 observe("seq=" + ev + " overflow=true droppedFurther=true");
             }
-            // Events beyond the budget are still counted (seq keeps the observer-order metric)
-            // but never recorded, gated, or woven.
             return null;
         }
         String sha = sha256(classfileBuffer);
-        String loaderName = loader == null ? "bootstrap" : loader.getClass().getName();
+        String loaderTok = loaderToken(loader);
         String codeSource = codeSourceLocation(protectionDomain);
-        observe("seq=" + ev + " sha256=" + sha + " loader=" + loaderName + " module="
-            + (module == null ? "null" : module.getName()) + " codeSource=" + codeSource);
-        if (!config.expectLoader.equals(loaderName)) {
+        String moduleName = module == null ? "null" : module.getName();
+        observe("seq=" + ev + " sha256=" + sha + " loader=" + loaderTok
+            + " module=" + moduleName + " codeSource=" + codeSource);
+        if (!config.expectLoader.equals(loader == null ? "bootstrap" : loader.getClass().getName())) {
             observe("seq=" + ev + " gate=reject reason=loader expected=" + config.expectLoader);
             return null;
         }
@@ -58,10 +55,9 @@ final class DefinitionObserver implements ClassFileTransformer {
                 + config.expectClassSha + " note=sha-diff-is-not-attribution");
             return null;
         }
-        if (!config.expectCodeSourcePrefix.isEmpty()
-                && !codeSource.startsWith(config.expectCodeSourcePrefix)) {
-            observe("seq=" + ev + " gate=reject reason=codeSource prefix="
-                + config.expectCodeSourcePrefix);
+        if (!config.codeSourceMatches(codeSource)) {
+            observe("seq=" + ev + " gate=reject reason=codeSource expected="
+                + config.expectCodeSource);
             return null;
         }
         TriangleListShape.Result shape = TriangleListShape.check(classfileBuffer);
@@ -78,6 +74,11 @@ final class DefinitionObserver implements ClassFileTransformer {
                 + t.getClass().getSimpleName());
             return null;
         }
+    }
+
+    private static String loaderToken(ClassLoader loader) {
+        if (loader == null) return "bootstrap";
+        return loader.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(loader));
     }
 
     private static void observe(String line) {

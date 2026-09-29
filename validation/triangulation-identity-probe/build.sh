@@ -41,6 +41,13 @@ javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
   -d "$work/fixture-badshape" \
   $(find "$scene_dir/fixture-badshape" -name '*.java' | sort) \
   || fail 'badshape fixture did not compile'
+mkdir -p "$work/fixture-nolink" "$work/fixture-badinit"
+javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
+  -d "$work/fixture-nolink" $(find "$scene_dir/fixture-nolink" -name '*.java' | sort) \
+  || fail 'nolink stub did not compile'
+javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
+  -d "$work/fixture-badinit" $(find "$scene_dir/fixture-badinit" -name '*.java' | sort) \
+  || fail 'badinit stub did not compile'
 fixture_sha256="$(sha256sum \
   "$work/fixture/com/live2d/graphics3d/editableMesh/triangulation/TriangleList.class" \
   | awk '{print $1}')"
@@ -113,6 +120,7 @@ grep -Fqx 'dev/turboism/validation/triprobe/Probe.class' "$work/noh-list.txt" \
 printf 'agentJar=%s\nagentSha256=%s\nnoHelperJar=%s\nnoHelperSha256=%s\n' \
   "$agent_jar" "$(sha256sum "$agent_jar" | awk '{print $1}')" \
   "$noh_jar" "$(sha256sum "$noh_jar" | awk '{print $1}')"
-printf 'selfcheckClasses=%s\nfixtureClasses=%s\nbadshapeClasses=%s\nworkDir=%s\n' \
-  "$work/selfcheck" "$work/fixture" "$work/fixture-badshape" "$work"
+printf 'selfcheckClasses=%s\nfixtureClasses=%s\nbadshapeClasses=%s\nnolinkClasses=%s\nbadinitClasses=%s\nworkDir=%s\n' \
+  "$work/selfcheck" "$work/fixture" "$work/fixture-badshape" \
+  "$work/fixture-nolink" "$work/fixture-badinit" "$work"
 printf 'TRI_PROBE_BUILD PASS fixtureSha256=%s\n' "$fixture_sha256"
