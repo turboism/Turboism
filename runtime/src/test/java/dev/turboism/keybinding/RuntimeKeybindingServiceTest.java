@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -36,6 +37,10 @@ class RuntimeKeybindingServiceTest {
     private RuntimeEditorUiActionRouter router;
     private RuntimeActionRegistry registry;
     private final List<String> diagnostics = new CopyOnWriteArrayList<>();
+    private final AtomicReference<List<KeybindingTable.NativeRow>> catalog = new AtomicReference<>(List.of(
+            catalogRow("save", "File › Save", "Ctrl+S", 0),
+            catalogRow("open", "File › Open", "Ctrl+O", 1),
+            catalogRow("undo", "Edit › Undo", "Ctrl+Z", 2)));
 
     @AfterEach
     void shutdown() {
@@ -44,6 +49,12 @@ class RuntimeKeybindingServiceTest {
 
     private Path file() {
         return dir.resolve("keybindings.properties");
+    }
+
+    private static KeybindingTable.NativeRow catalogRow(
+            final String id, final String label, final String stroke, final int order) {
+        return new KeybindingTable.NativeRow(
+                id, label, KeyStrokeCodec.display(stroke), KeybindingTable.State.UNSET, "", false, order);
     }
 
     private RuntimeKeybindingService service() {
@@ -58,7 +69,7 @@ class RuntimeKeybindingServiceTest {
             router.register(PLUGIN_ID, registry);
         }
         return new RuntimeKeybindingService(
-                file(), router, id -> id.equals(PLUGIN_ID) ? "Example" : id, diagnostics::add);
+                file(), router, id -> id.equals(PLUGIN_ID) ? "Example" : id, diagnostics::add, catalog::get);
     }
 
     private KeybindingService.Row row(final KeybindingService service, final String rowId) {
@@ -69,7 +80,7 @@ class RuntimeKeybindingServiceTest {
     }
 
     @Test
-    void snapshotListsPluginActionsAndSeededNatives() {
+    void snapshotListsPluginActionsAndCatalogNatives() {
         service();
         registry.register("example.run", ActionRegistry.Action.of("example.run", "Run", "Ctrl+T", context -> {}));
         RuntimeKeybindingService service = service();
@@ -205,5 +216,29 @@ class RuntimeKeybindingServiceTest {
         assertEquals("Ctrl+Alt+S", row(second, "native:save").nativeStroke());
         assertEquals("Ctrl+Alt+S", row(second, "native:save").effectiveStroke());
         second.close();
+    }
+
+    @Test
+    void catalogRescanPicksUpLateMenuBars() {
+        catalog.set(List.of());
+        RuntimeKeybindingService service = service();
+        service.load();
+        assertTrue(service.snapshot().stream().noneMatch(row -> row.scope() == KeybindingService.Scope.NATIVE));
+
+        catalog.set(List.of(catalogRow("save", "File › Save", "Ctrl+S", 0)));
+        assertEquals("Ctrl+S", row(service, "native:save").effectiveStroke());
+    }
+
+    @Test
+    void catalogRescanPreservesBindingState() {
+        RuntimeKeybindingService service = service();
+        service.load();
+        service.bind("native:save", "F2");
+
+        catalog.set(List.of(catalogRow("save", "File › Save As", "Ctrl+Shift+S", 0)));
+        KeybindingService.Row save = row(service, "native:save");
+        assertEquals("F2", save.effectiveStroke());
+        assertEquals("Ctrl+Shift+S", save.nativeStroke());
+        assertEquals("File › Save As", save.label());
     }
 }

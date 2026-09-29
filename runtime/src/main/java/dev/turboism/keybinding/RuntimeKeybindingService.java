@@ -15,11 +15,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import javax.swing.KeyStroke;
 import javax.swing.text.JTextComponent;
 
@@ -50,26 +52,11 @@ import javax.swing.text.JTextComponent;
  */
 public final class RuntimeKeybindingService implements KeybindingService, AutoCloseable {
 
-    /** Built-in native rows. Ids are stable — persisted overrides reference them. */
-    private static final List<KeybindingTable.NativeRow> SEEDS = List.of(
-            seed("new", "New Project", "Ctrl+N", 0),
-            seed("open", "Open", "Ctrl+O", 1),
-            seed("save", "Save", "Ctrl+S", 2),
-            seed("save-as", "Save As", "Ctrl+Shift+S", 3),
-            seed("undo", "Undo", "Ctrl+Z", 4),
-            seed("redo", "Redo", "Ctrl+Y", 5),
-            seed("cut", "Cut", "Ctrl+X", 6),
-            seed("copy", "Copy", "Ctrl+C", 7),
-            seed("paste", "Paste", "Ctrl+V", 8),
-            seed("select-all", "Select All", "Ctrl+A", 9),
-            seed("deselect", "Deselect", "Ctrl+D", 10),
-            seed("delete", "Delete", "Delete", 11),
-            seed("find", "Find", "Ctrl+F", 12));
-
     private final KeybindingStore store;
     private final KeybindingTable table = new KeybindingTable();
     private final RuntimeEditorUiActionRouter actionRouter;
     private final Function<String, String> pluginNames;
+    private final Supplier<List<KeybindingTable.NativeRow>> nativeCatalog;
     private final Consumer<String> diagnostic;
     private final Object lock = new Object();
     private final AtomicInteger suspensions = new AtomicInteger();
@@ -78,6 +65,20 @@ public final class RuntimeKeybindingService implements KeybindingService, AutoCl
     private final Registration registryListener;
     /** Per-action-registry listeners, attached while the registry is live; guarded by {@link #lock}. */
     private final Map<RuntimeActionRegistry, Registration> actionListeners = new java.util.LinkedHashMap<>();
+    /** Last catalog stroke per non-custom native row id; guarded by {@link #lock}. */
+    private final Map<String, String> catalogStrokes = new TreeMap<>();
+    /**
+     * Non-custom rows whose forward target was explicitly overridden (via
+     * {@link #setNativeStroke} or a persisted override). Catalog rescans refresh their
+     * label but keep the overridden stroke; guarded by {@link #lock}.
+     */
+    private final Set<String> nativeOverrides = new java.util.HashSet<>();
+    /**
+     * Set when the last catalog scan found no menu accelerators — typically because the host
+     * builds its menu bar after the runtime installs. While set, each key event and snapshot
+     * re-scans until the host menu bar appears; cleared on the first non-empty scan.
+     */
+    private final AtomicBoolean catalogPending = new AtomicBoolean();
 
     private final java.awt.KeyEventDispatcher dispatcher = this::dispatchKeyEvent;
     /** Set on the EDT while a translated event is being redispatched so it passes through. */
@@ -88,10 +89,21 @@ public final class RuntimeKeybindingService implements KeybindingService, AutoCl
             final RuntimeEditorUiActionRouter actionRouter,
             final Function<String, String> pluginNames,
             final Consumer<String> diagnostic) {
+        this(storeFile, actionRouter, pluginNames, diagnostic, NativeShortcutCatalog::scan);
+    }
+
+    /** Visible for tests — injects the native catalog source. */
+    RuntimeKeybindingService(
+            final Path storeFile,
+            final RuntimeEditorUiActionRouter actionRouter,
+            final Function<String, String> pluginNames,
+            final Consumer<String> diagnostic,
+            final Supplier<List<KeybindingTable.NativeRow>> nativeCatalog) {
         this.store = new KeybindingStore(Objects.requireNonNull(storeFile, "storeFile"));
         this.actionRouter = Objects.requireNonNull(actionRouter, "actionRouter");
         this.pluginNames = Objects.requireNonNull(pluginNames, "pluginNames");
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
+        this.nativeCatalog = Objects.requireNonNull(nativeCatalog, "nativeCatalog");
         // Action rows enumerate lazily after plugins load: re-scan the router whenever an
         // owner's registry set changes so dormant persisted bindings activate without the
         // keybindings window ever having to open.
@@ -99,18 +111,19 @@ public final class RuntimeKeybindingService implements KeybindingService, AutoCl
     }
 
     /**
-     * Loads persisted state and seeds the built-in native rows. Invalid persisted entries are
-     * skipped and reported through the diagnostic sink; a missing file means defaults.
-     * The file read and the plugin-action scan run without the mutation lock so no IO can
-     * stall service mutations elsewhere.
+     * Loads persisted state and enumerates the host's native rows by reading live menu
+     * accelerators ({@link NativeShortcutCatalog}) — the catalog always reflects the running
+     * host version rather than a maintained key table. Invalid persisted entries are skipped
+     * and reported through the diagnostic sink; a missing file means defaults. The file read,
+     * the menu-bar scan and the plugin-action scan run without the mutation lock so no IO or
+     * EDT hop can stall service mutations elsewhere.
      */
     public void load() {
         final KeybindingStore.Snapshot snapshot = store.load();
         final PluginScan scan = scanPluginRows();
+        final List<KeybindingTable.NativeRow> catalog = scanNativeCatalog();
         synchronized (lock) {
-            for (KeybindingTable.NativeRow seed : SEEDS) {
-                table.putNativeRow(seed);
-            }
+            mergeNativeRows(catalog);
             snapshot.problems().forEach(problem -> diagnostic.accept("keybindings: " + problem));
             int order = 0;
             for (KeybindingStore.CustomNative custom : snapshot.customs()) {
@@ -126,6 +139,10 @@ public final class RuntimeKeybindingService implements KeybindingService, AutoCl
             snapshot.nativeKeyOverrides().forEach((id, stroke) -> {
                 try {
                     table.setNativeStroke(id, stroke);
+                    if (!catalogStrokes.containsKey(id)
+                            || !catalogStrokes.get(id).equals(stroke)) {
+                        nativeOverrides.add(id);
+                    }
                 } catch (RuntimeException unknown) {
                     diagnostic.accept("keybindings: native key override for unknown row " + id);
                 }
@@ -191,6 +208,7 @@ public final class RuntimeKeybindingService implements KeybindingService, AutoCl
 
     @Override
     public List<Row> snapshot() {
+        rescanNative();
         final PluginScan scan = scanPluginRows();
         synchronized (lock) {
             applyScan(scan);
@@ -243,7 +261,15 @@ public final class RuntimeKeybindingService implements KeybindingService, AutoCl
         Objects.requireNonNull(rowId, "rowId");
         final String text = KeyStrokeCodec.display(nativeStroke);
         synchronized (lock) {
-            table.setNativeStroke(KeybindingTable.nativeId(rowId), text);
+            final String id = KeybindingTable.nativeId(rowId);
+            table.setNativeStroke(id, text);
+            if (!table.nativeRows().get(id).custom()) {
+                if (text.equals(catalogStrokes.get(id))) {
+                    nativeOverrides.remove(id);
+                } else {
+                    nativeOverrides.add(id);
+                }
+            }
         }
         persist();
     }
@@ -295,6 +321,11 @@ public final class RuntimeKeybindingService implements KeybindingService, AutoCl
     private boolean dispatchKeyEvent(final KeyEvent event) {
         if (closed.get() || suspensions.get() > 0 || Boolean.TRUE.equals(translating.get())) {
             return false;
+        }
+        // Menu bars may be built after install(); retry the catalog on keystrokes until the
+        // host exposes accelerators. Runs on the EDT so the scan sees live components.
+        if (catalogPending.get()) {
+            rescanNative();
         }
         final KeybindingTable.DispatchView view = table.view();
         if (event.getID() == KeyEvent.KEY_TYPED) {
@@ -376,6 +407,69 @@ public final class RuntimeKeybindingService implements KeybindingService, AutoCl
     }
 
     // ------------------------------------------------------------------ internals
+
+    /**
+     * Re-enumerates the host's menu accelerators and merges them into the native row set.
+     * Runs on every {@link #snapshot()} so the window always mirrors the running host, and
+     * on key events while {@link #catalogPending} is set to recover from menus built after
+     * {@link #install()}. Catalog rows are authoritative for {@code nativeStroke}; existing
+     * rows keep their binding state, and rows absent from the latest scan stay put so
+     * bindings for momentarily-hidden commands are not dropped.
+     */
+    private void rescanNative() {
+        final List<KeybindingTable.NativeRow> catalog = scanNativeCatalog();
+        synchronized (lock) {
+            mergeNativeRows(catalog);
+        }
+    }
+
+    /**
+     * Runs the catalog supplier on the EDT (menu components are Swing objects). Scan failures
+     * degrade to an empty result plus a diagnostic; an empty catalog leaves
+     * {@link #catalogPending} set so the next event retries.
+     */
+    private List<KeybindingTable.NativeRow> scanNativeCatalog() {
+        if (closed.get()) {
+            return List.of();
+        }
+        try {
+            return EdtDispatch.call("keybinding native catalog scan", () -> nativeCatalog.get());
+        } catch (RuntimeException failure) {
+            diagnostic.accept("keybindings: native catalog scan failed: " + failure.getMessage());
+            return List.of();
+        }
+    }
+
+    /** Merges a scanned catalog under {@link #lock}; empty scans arm the pending retry flag. */
+    private void mergeNativeRows(final List<KeybindingTable.NativeRow> catalog) {
+        if (catalog.isEmpty()) {
+            catalogPending.set(true);
+            return;
+        }
+        catalogPending.set(false);
+        for (KeybindingTable.NativeRow row : catalog) {
+            catalogStrokes.put(row.id(), row.nativeStroke());
+            final KeybindingTable.NativeRow existing = table.nativeRows().get(row.id());
+            if (existing == null) {
+                table.putNativeRow(row);
+            } else if (!existing.custom()) {
+                // Overridden rows keep their user-set forward target; everything else
+                // tracks whatever the host currently reports.
+                final String stroke = nativeOverrides.contains(row.id()) ? existing.nativeStroke() : row.nativeStroke();
+                if (!existing.label().equals(row.label())
+                        || !existing.nativeStroke().equals(stroke)) {
+                    table.putNativeRow(new KeybindingTable.NativeRow(
+                            row.id(),
+                            row.label(),
+                            stroke,
+                            existing.state(),
+                            existing.boundStroke(),
+                            false,
+                            existing.order()));
+                }
+            }
+        }
+    }
 
     /**
      * Router change callback — runs inline on the registering/unregistering thread (plugin
@@ -484,14 +578,15 @@ public final class RuntimeKeybindingService implements KeybindingService, AutoCl
         final Map<String, String> nativeStates = new TreeMap<>();
         final Map<String, String> nativeKeys = new TreeMap<>();
         final List<KeybindingStore.CustomNative> customs = new ArrayList<>();
-        final Map<String, String> seedDefaults = seedDefaults();
         for (KeybindingTable.NativeRow row : table.nativeRows().values()) {
             if (row.state() != KeybindingTable.State.UNSET) {
                 nativeStates.put(row.id(), encodeState(row.state(), row.boundStroke()));
             }
             if (row.custom()) {
                 customs.add(new KeybindingStore.CustomNative(row.id(), row.label(), row.nativeStroke(), row.order()));
-            } else if (!row.nativeStroke().equals(seedDefaults.get(row.id()))) {
+            } else if (!row.nativeStroke().equals(catalogStrokes.get(row.id()))) {
+                // Persisted only when a row's forward target diverges from what the host
+                // itself reported (e.g. a setNativeStroke override or a stale catalog).
                 nativeKeys.put(row.id(), row.nativeStroke());
             }
         }
@@ -507,12 +602,6 @@ public final class RuntimeKeybindingService implements KeybindingService, AutoCl
         };
     }
 
-    private static Map<String, String> seedDefaults() {
-        final Map<String, String> defaults = new TreeMap<>();
-        SEEDS.forEach(row -> defaults.put(row.id(), row.nativeStroke()));
-        return defaults;
-    }
-
     private String nextCustomId() {
         int index = 1;
         while (table.nativeRows().containsKey("custom." + index)) {
@@ -523,11 +612,5 @@ public final class RuntimeKeybindingService implements KeybindingService, AutoCl
 
     private static boolean isPluginRow(final String rowId) {
         return rowId.startsWith("plugin:");
-    }
-
-    private static KeybindingTable.NativeRow seed(
-            final String id, final String label, final String stroke, final int order) {
-        return new KeybindingTable.NativeRow(
-                id, label, KeyStrokeCodec.display(stroke), KeybindingTable.State.UNSET, "", false, order);
     }
 }
