@@ -15,14 +15,19 @@ import org.objectweb.asm.Opcodes;
  * Official classes are never read, loaded, or executed.
  *
  * Two passes over b() (REAL-insn index = excludes label/line/frame events):
- *  pass 1  shape pin + record: k-init ASTORE anchor, exactly three 4-insn query
- *          sequences [ALOAD k, ALOAD jn, ICONST_0, INVOKEVIRTUAL EdgeK.a(LEdgeJ;Z)Z],
- *          three append sites, single ARETURN, and no branch target inside a
- *          replaced range.
+ *  pass 1  shape pin + record: k-init ASTORE anchor (index + slot), exactly
+ *          three 4-insn query sequences
+ *          [ALOAD k, ALOAD jn, ICONST_0, INVOKEVIRTUAL EdgeK.a(LEdgeJ;Z)Z]
+ *          all after the anchor and all loading the SAME k slot as the anchor,
+ *          three appends each pinned as
+ *          [conditional jump at site+4, ALOAD k, ALOAD j, INVOKEVIRTUAL a(LEdgeJ;)Z]
+ *          against their own site, single ARETURN, iterator init, and no
+ *          branch target inside a replaced range.
  *  pass 2  emit entry-init right after the anchor; replace each 4-insn sequence
  *          wholesale with the gated block (empty-stack start, per frozen CFG).
  *
- * Shape reject → weave() returns the ORIGINAL byte array unchanged.
+ * Shape reject → weave() returns the ORIGINAL byte array unchanged;
+ * weaveChecked() additionally exposes WHICH shape check rejected.
  */
 public final class Weave {
     private Weave() {}
@@ -42,19 +47,31 @@ public final class Weave {
     /** Shape analysis record for method b(). */
     static final class Plan {
         int anchorIndex = -1;               // real-insn index of ASTORE k (entry anchor)
+        int anchorSlot = -1;                // local slot the anchor ASTORE wrote (the k slot)
         int maxLocals;
         final List<int[]> sites = new ArrayList<>();  // [startIndex, kSlot, jSlot]
-        final java.util.Set<Integer> branchTargets = new java.util.HashSet<>();
         int areturns, queries, appends;
         boolean iteratorInitSeen;
     }
 
-    /** Returns woven bytes, or the ORIGINAL array unchanged on shape reject. */
-    public static byte[] weave(byte[] in) {
+    /** Weave outcome: bytes (original array on reject) + observable reject reason. */
+    public static final class Result {
+        public final byte[] bytes;
+        public final String rejectReason;   // null when the shape was accepted
+        Result(byte[] b, String r) { bytes = b; rejectReason = r; }
+    }
+
+    /** Same contract as weave() plus WHICH shape check fired (null = woven). */
+    public static Result weaveChecked(byte[] in) {
         Plan p;
         try { p = analyze(in); }
-        catch (ShapeReject re) { return in; }
-        return emit(in, p);
+        catch (ShapeReject re) { return new Result(in, re.getMessage()); }
+        return new Result(emit(in, p), null);
+    }
+
+    /** Returns woven bytes, or the ORIGINAL array unchanged on shape reject. */
+    public static byte[] weave(byte[] in) {
+        return weaveChecked(in).bytes;
     }
 
     // ------------------------------------------------------------------ pass 1
@@ -94,8 +111,10 @@ public final class Weave {
                             if (init != null && dup != null && nw != null
                                     && nw[1] == Opcodes.NEW && dup[1] == Opcodes.DUP
                                     && init[1] == Opcodes.INVOKESPECIAL
-                                    && init[3] == 1 /* owner=EdgeK, name=<init> */)
+                                    && init[3] == 1 /* owner=EdgeK, name=<init> */) {
                                 p.anchorIndex = idx;
+                                p.anchorSlot = var;
+                            }
                         }
                     }
                     @Override public void visitInsn(int op) { trail(op, -1, null, null, null); }
@@ -125,7 +144,34 @@ public final class Weave {
                                     throw new ShapeReject("query#" + p.queries + " missing aload k");
                                 p.sites.add(new int[] { ak[0], ak[2], aj[2] });
                             }
-                            if (d.equals(APPEND_DESC)) p.appends++;
+                            if (d.equals(APPEND_DESC)) {
+                                p.appends++;
+                                // append shape pin: at idx-3 a conditional jump that sits
+                                // IMMEDIATELY after a recorded query site (site+4), then
+                                // ALOAD k (that site's k slot), ALOAD j (that site's j slot).
+                                int sz = trail.size();
+                                int[] aj = sz >= 2 ? trail.get(sz - 2) : null;
+                                int[] ak = sz >= 3 ? trail.get(sz - 3) : null;
+                                int[] br = sz >= 4 ? trail.get(sz - 4) : null;
+                                if (br == null || (br[1] != Opcodes.IFNE
+                                        && br[1] != Opcodes.IFEQ))
+                                    throw new ShapeReject("append#" + p.appends
+                                        + " not gated by conditional jump");
+                                int[] site = null;
+                                for (int[] s : p.sites)
+                                    if (s[0] + 4 == br[0]) { site = s; break; }
+                                if (site == null)
+                                    throw new ShapeReject("append#" + p.appends
+                                        + " jump not adjacent to pinned query site");
+                                if (ak == null || ak[1] != Opcodes.ALOAD
+                                        || ak[2] != site[1])
+                                    throw new ShapeReject("append#" + p.appends
+                                        + " k slot does not match its query site");
+                                if (aj == null || aj[1] != Opcodes.ALOAD
+                                        || aj[2] != site[2])
+                                    throw new ShapeReject("append#" + p.appends
+                                        + " j slot does not match its query site");
+                            }
                         }
                         if (n.equals("iterator") && o.contains("LinkedHashSet"))
                             p.iteratorInitSeen = true;
@@ -152,6 +198,14 @@ public final class Weave {
             }
         }, 0);
 
+        if (p.anchorIndex < 0) throw new ShapeReject("no k-init anchor");
+        for (int[] s : p.sites) {
+            if (s[0] < p.anchorIndex)
+                throw new ShapeReject("site@" + s[0] + " before anchor@" + p.anchorIndex);
+            if (s[1] != p.anchorSlot)
+                throw new ShapeReject("site@" + s[0] + " k slot " + s[1]
+                    + " != anchor slot " + p.anchorSlot);
+        }
         if (p.queries != 3) throw new ShapeReject("queries=" + p.queries);
         if (p.appends != 3) throw new ShapeReject("appends=" + p.appends);
         if (p.areturns != 1) throw new ShapeReject("areturns=" + p.areturns);

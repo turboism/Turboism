@@ -399,7 +399,12 @@ public final class SelfCheck {
         Outcome r = runRef(in);
         assertTrue(w.list != null && sameList(w.list, r.finalList), "woven ordered reference parity");
 
-        // reversed-duplicate edge hits the index (membership) but original edge ref/order kept
+        // reversed-duplicate edge hits the index (membership) but original edge ref/order kept.
+        // Direct proof: exactly one undirected key hit inside Helper + exactly 5 unique edges —
+        // NOT inferred from "same length as reference".
+        assertTrue(Helper.HITS.get() == 1,
+            "helper undirected key hit==1 got " + Helper.HITS.get());
+        assertTrue(w.list.size() == 5, "woven dedupe size==5 got " + w.list.size());
         assertTrue(w.list.size() == r.finalList.size(), "woven dedupe count parity");
         for (int i = 0; i < w.list.size(); i++)
             assertTrue(w.list.get(i) == r.finalList.get(i), "woven ref-identity idx" + i);
@@ -418,11 +423,27 @@ public final class SelfCheck {
         // LinkageError at query #N -> permanent local null, no more helper calls
         resetAll();
         Helper.failQueryAt = 5;
-        runWoven(in);   // 6 query positions; failure at 5th
+        WovenOutcome f5 = runWoven(in);   // 6 query positions; failure at 5th
+        assertTrue(f5.thrown == null, "fail@5 no throw");
         assertTrue(Helper.QUERIES.get() == 5, "fail@5 helperQuery==5 got " + Helper.QUERIES.get());
         assertTrue(EdgeK.ORIGINAL_QUERIES.get() == 2,
             "fail@5 original==2 got " + EdgeK.ORIGINAL_QUERIES.get());
+        // result list still matches the unwoven reference element-by-element
+        assertTrue(sameList(f5.list, runRef(in).finalList), "fail@5 result parity vs reference");
         Helper.failQueryAt = -1;
+        // the disable is per-call only: the NEXT b() call re-inits a fresh box and
+        // the helper path works normally again. ORIGINAL asserted BEFORE the
+        // parity runRef — the reference run itself consumes ORIGINAL_QUERIES.
+        int origAfterFail = EdgeK.ORIGINAL_QUERIES.get();
+        WovenOutcome again = runWoven(in);
+        assertTrue(again.thrown == null, "post-fail@5 no throw");
+        assertTrue(Helper.NEWBOX_CALLS.get() == 2,
+            "post-fail@5 fresh box got " + Helper.NEWBOX_CALLS.get());
+        assertTrue(Helper.QUERIES.get() == 11,
+            "post-fail@5 helper queries resumed got " + Helper.QUERIES.get());
+        assertTrue(EdgeK.ORIGINAL_QUERIES.get() == origAfterFail,
+            "post-fail@5 no extra original got " + EdgeK.ORIGINAL_QUERIES.get());
+        assertTrue(sameList(again.list, runRef(in).finalList), "post-fail@5 parity");
 
         // null edge -> original query -> real NPE
         resetAll();
@@ -442,16 +463,18 @@ public final class SelfCheck {
         assertTrue(EdgeK.ORIGINAL_QUERIES.get() == 0, "RE no original retry");
         Helper.injectError = 0;
 
-        // ThreadDeath and VirtualMachineError propagate
+        // ThreadDeath and VirtualMachineError propagate — same no-retry contract as RE
         resetAll();
         Helper.injectError = 2;
         WovenOutcome td = runWoven(in);
         assertTrue(td.thrown instanceof ThreadDeath, "woven ThreadDeath propagates");
+        assertTrue(EdgeK.ORIGINAL_QUERIES.get() == 0, "ThreadDeath no original retry");
         Helper.injectError = 0;
         resetAll();
         Helper.injectError = 3;
         WovenOutcome ve = runWoven(in);
         assertTrue(ve.thrown instanceof VirtualMachineError, "woven VMErr propagates");
+        assertTrue(EdgeK.ORIGINAL_QUERIES.get() == 0, "VMErr no original retry");
         Helper.injectError = 0;
 
         // repeated b() calls: independent boxes
@@ -473,24 +496,43 @@ public final class SelfCheck {
 
     static void resetAll() { Helper.reset(); EdgeK.ORIGINAL_QUERIES.set(0); }
 
-    /** Shape-gate negative controls: reject AND return bytes unchanged. */
+    /** Shape-gate negative controls: every variant must be rejected AT THE
+     *  EXPECTED check — the observable reason from weaveChecked() — not merely
+     *  byte-equal. weave(byte[]) keeps its contract alongside: original array. */
     static void shapeRejects() {
         try {
             byte[] orig = targetBytes();
-            // true-operand variant: patch one iconst_0 -> iconst_1
-            byte[] trueVar = mutateZtoTrue(orig);
-            byte[] out = Weave.weave(trueVar);
-            assertTrue(java.util.Arrays.equals(out, trueVar), "true-Z rejected bytes unchanged");
-            assertTrue(out == trueVar, "reject returns original array");
-            // wrong-owner variant: retarget one query call to Object.toString desc mismatch
-            byte[] badOwner = retargetQueryDesc(orig);
-            assertTrue(java.util.Arrays.equals(Weave.weave(badOwner), badOwner),
-                "wrong owner/desc rejected unchanged");
-            // wrong site count: drop one query call -> 2 queries
-            byte[] fewer = dropOneQuery(orig);
-            assertTrue(java.util.Arrays.equals(Weave.weave(fewer), fewer),
-                "site-count-2 rejected unchanged");
+            // Z-operand variants: constant-true AND a non-constant (ILOAD) form.
+            expectReject("iconst1-Z", mutateZtoTrue(orig), "Z not iconst_0");
+            expectReject("iload-Z", mutateZtoIload(orig), "Z not iconst_0");
+            // retargeted query desc: the call stops matching QUERY_DESC so it is
+            // no longer a pinned site; its trailing append then fails the
+            // site-adjacency pin — that is the ACTUAL rejecting check.
+            expectReject("retargeted-query-desc", retargetQueryDesc(orig),
+                "not adjacent to pinned query site");
+            // site count: drop the whole first query+append statement -> queries=2.
+            expectReject("site-count-2", dropCompleteSite(orig), "queries=2");
+            // anchor wrote a different slot than the sites load as k.
+            expectReject("anchor-k-slot", mutateAnchorSlot(orig), "k slot");
+            // a query site earlier than the k-init anchor.
+            expectReject("site-before-anchor", injectSiteBeforeAnchor(orig),
+                "before anchor");
+            // append loads a different j slot than its own query site.
+            expectReject("append-j-slot", mutateAppendJSlot(orig), "j slot");
+            // no NEW/DUP/<init>/ASTORE sequence -> no anchor at all.
+            expectReject("no-anchor", mutateDupToPop(orig), "no k-init anchor");
         } catch (Throwable t) { System.out.println("FAIL shapeRejects " + t); System.exit(1); }
+    }
+
+    static void expectReject(String tag, byte[] variant, String reasonPart) {
+        Weave.Result r = Weave.weaveChecked(variant);
+        assertTrue(r.rejectReason != null, tag + " must reject (no reason)");
+        assertTrue(r.bytes == variant, tag + " reject returns the original array");
+        assertTrue(r.rejectReason.contains(reasonPart),
+            tag + " reason '" + r.rejectReason + "' must hit '" + reasonPart + "'");
+        assertTrue(Weave.weave(variant) == variant,
+            tag + " weave() also returns the original array");
+        System.out.println("SHAPE_REJECT " + tag + " reason=" + r.rejectReason);
     }
 
     /** Replace first ICONST_0 in b() with ICONST_1 (true-operand variant). */
@@ -510,6 +552,32 @@ public final class SelfCheck {
                             if (!patched && op == org.objectweb.asm.Opcodes.ICONST_0) {
                                 patched = true;
                                 super.visitInsn(org.objectweb.asm.Opcodes.ICONST_1);
+                                return;
+                            }
+                            super.visitInsn(op);
+                        }
+                    };
+                }
+            }, 0);
+        return cw.toByteArray();
+    }
+    /** Replace first ICONST_0 in b() with ILOAD 0 (non-constant operand variant). */
+    static byte[] mutateZtoIload(byte[] in) {
+        org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(in).accept(
+            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, cw) {
+                boolean patched;
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(
+                        int acc, String name, String desc, String sig, String[] exc) {
+                    org.objectweb.asm.MethodVisitor mv =
+                        super.visitMethod(acc, name, desc, sig, exc);
+                    if (!name.equals("b") || mv == null) return mv;
+                    return new org.objectweb.asm.MethodVisitor(
+                            org.objectweb.asm.Opcodes.ASM9, mv) {
+                        @Override public void visitInsn(int op) {
+                            if (!patched && op == org.objectweb.asm.Opcodes.ICONST_0) {
+                                patched = true;
+                                super.visitVarInsn(org.objectweb.asm.Opcodes.ILOAD, 0);
                                 return;
                             }
                             super.visitInsn(op);
@@ -549,12 +617,13 @@ public final class SelfCheck {
             }, 0);
         return cw.toByteArray();
     }
-    /** Remove the first full 4-insn query sequence (site count becomes 2). */
-    static byte[] dropOneQuery(byte[] in) {
+    /** Remove the whole first query statement: the 4-insn query sequence plus its
+     *  conditional jump, the append pair, and the result POP — site count 2,
+     *  append count 2 (the already-emitted 3-insn prefix becomes dead code). */
+    static byte[] dropCompleteSite(byte[] in) {
         org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
         new org.objectweb.asm.ClassReader(in).accept(
             new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, cw) {
-                int siteStart = -1;
                 @Override public org.objectweb.asm.MethodVisitor visitMethod(
                         int acc, String name, String desc, String sig, String[] exc) {
                     org.objectweb.asm.MethodVisitor mv =
@@ -563,29 +632,202 @@ public final class SelfCheck {
                     return new org.objectweb.asm.MethodVisitor(
                             org.objectweb.asm.Opcodes.ASM9, mv) {
                         int idx = -1;
-                        final java.util.List<int[]> trail = new java.util.ArrayList<>();
                         int dropUntil = -1;
-                        void tick() {
-                            idx++;
-                            trail.add(new int[]{idx});
-                            if (trail.size() > 8) trail.remove(0);
-                        }
+                        void tick() { idx++; }
                         boolean drop() { return idx <= dropUntil; }
                         @Override public void visitMethodInsn(int op, String o,
                                 String n, String d, boolean itf) {
                             tick();
-                            if (siteStart < 0 && op == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                                    && o.equals(Weave.KTYPE) && d.equals(Weave.QUERY_DESC)) {
-                                siteStart = trail.get(trail.size() - 4)[0];
-                                dropUntil = siteStart + 3;
-                            }
+                            if (dropUntil < 0 && op == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                                    && o.equals(Weave.KTYPE) && d.equals(Weave.QUERY_DESC))
+                                dropUntil = idx + 5;   // invoke+jump+aload+aload+append+pop
                             if (!drop()) super.visitMethodInsn(op, o, n, d, itf);
+                        }
+                        @Override public void visitJumpInsn(int op,
+                                org.objectweb.asm.Label l) {
+                            tick(); if (!drop()) super.visitJumpInsn(op, l);
                         }
                         @Override public void visitInsn(int op) {
                             tick(); if (!drop()) super.visitInsn(op);
                         }
                         @Override public void visitVarInsn(int op, int v) {
                             tick(); if (!drop()) super.visitVarInsn(op, v);
+                        }
+                    };
+                }
+            }, 0);
+        return cw.toByteArray();
+    }
+
+    /** Patch the k-init anchor ASTORE to a different local slot: the anchor is
+     *  still found but its slot no longer matches the sites' k loads. */
+    static byte[] mutateAnchorSlot(byte[] in) {
+        org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(in).accept(
+            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, cw) {
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(
+                        int acc, String name, String desc, String sig, String[] exc) {
+                    org.objectweb.asm.MethodVisitor mv =
+                        super.visitMethod(acc, name, desc, sig, exc);
+                    if (!name.equals("b") || mv == null) return mv;
+                    return new org.objectweb.asm.MethodVisitor(
+                            org.objectweb.asm.Opcodes.ASM9, mv) {
+                        boolean patched;
+                        final java.util.List<int[]> trail = new java.util.ArrayList<>();
+                        void tick(int op, int flags) {
+                            trail.add(new int[]{op, flags});
+                            if (trail.size() > 4) trail.remove(0);
+                        }
+                        @Override public void visitTypeInsn(int op, String t) {
+                            tick(op, 0); super.visitTypeInsn(op, t);
+                        }
+                        @Override public void visitInsn(int op) {
+                            tick(op, 0); super.visitInsn(op);
+                        }
+                        @Override public void visitJumpInsn(int op,
+                                org.objectweb.asm.Label l) {
+                            tick(op, 0); super.visitJumpInsn(op, l);
+                        }
+                        @Override public void visitIntInsn(int op, int v) {
+                            tick(op, 0); super.visitIntInsn(op, v);
+                        }
+                        @Override public void visitMethodInsn(int op, String o,
+                                String n, String d, boolean itf) {
+                            tick(op, o.equals(Weave.KTYPE) && "<init>".equals(n) ? 1 : 0);
+                            super.visitMethodInsn(op, o, n, d, itf);
+                        }
+                        @Override public void visitVarInsn(int op, int var) {
+                            tick(op, 0);
+                            int sz = trail.size();
+                            if (!patched && op == org.objectweb.asm.Opcodes.ASTORE
+                                    && sz >= 4
+                                    && trail.get(sz - 2)[0] == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                                    && trail.get(sz - 2)[1] == 1
+                                    && trail.get(sz - 3)[0] == org.objectweb.asm.Opcodes.DUP
+                                    && trail.get(sz - 4)[0] == org.objectweb.asm.Opcodes.NEW) {
+                                patched = true;
+                                super.visitVarInsn(op, var + 16);
+                                return;
+                            }
+                            super.visitVarInsn(op, var);
+                        }
+                    };
+                }
+            }, 0);
+        return cw.toByteArray();
+    }
+
+    /** Inject a full 4-insn query sequence BEFORE the k-init NEW — a site whose
+     *  real-insn index precedes the anchor. */
+    static byte[] injectSiteBeforeAnchor(byte[] in) {
+        org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(in).accept(
+            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, cw) {
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(
+                        int acc, String name, String desc, String sig, String[] exc) {
+                    org.objectweb.asm.MethodVisitor mv =
+                        super.visitMethod(acc, name, desc, sig, exc);
+                    if (!name.equals("b") || mv == null) return mv;
+                    return new org.objectweb.asm.MethodVisitor(
+                            org.objectweb.asm.Opcodes.ASM9, mv) {
+                        boolean injected;
+                        @Override public void visitTypeInsn(int op, String t) {
+                            if (!injected && op == org.objectweb.asm.Opcodes.NEW
+                                    && t.equals(Weave.KTYPE)) {
+                                injected = true;
+                                super.visitVarInsn(org.objectweb.asm.Opcodes.ALOAD, 40);
+                                super.visitVarInsn(org.objectweb.asm.Opcodes.ALOAD, 41);
+                                super.visitInsn(org.objectweb.asm.Opcodes.ICONST_0);
+                                super.visitMethodInsn(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                                    Weave.KTYPE, "a", Weave.QUERY_DESC, false);
+                            }
+                            super.visitTypeInsn(op, t);
+                        }
+                    };
+                }
+            }, 0);
+        return cw.toByteArray();
+    }
+
+    /** Patch the first append's j load to a different slot: the append no longer
+     *  references the same j as its own query site. */
+    static byte[] mutateAppendJSlot(byte[] in) {
+        org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(in).accept(
+            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, cw) {
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(
+                        int acc, String name, String desc, String sig, String[] exc) {
+                    org.objectweb.asm.MethodVisitor mv =
+                        super.visitMethod(acc, name, desc, sig, exc);
+                    if (!name.equals("b") || mv == null) return mv;
+                    return new org.objectweb.asm.MethodVisitor(
+                            org.objectweb.asm.Opcodes.ASM9, mv) {
+                        // 0 wait query, 1 saw query invoke, 2 saw jump,
+                        // 3 saw append aload k -> next aload j is patched
+                        int phase;
+                        @Override public void visitMethodInsn(int op, String o,
+                                String n, String d, boolean itf) {
+                            if (phase == 0 && op == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                                    && o.equals(Weave.KTYPE) && d.equals(Weave.QUERY_DESC))
+                                phase = 1;
+                            super.visitMethodInsn(op, o, n, d, itf);
+                        }
+                        @Override public void visitJumpInsn(int op,
+                                org.objectweb.asm.Label l) {
+                            if (phase == 1) phase = 2;
+                            super.visitJumpInsn(op, l);
+                        }
+                        @Override public void visitVarInsn(int op, int var) {
+                            if (phase == 2) phase = 3;
+                            else if (phase == 3) {
+                                phase = 4;
+                                super.visitVarInsn(op, var + 16);
+                                return;
+                            }
+                            super.visitVarInsn(op, var);
+                        }
+                    };
+                }
+            }, 0);
+        return cw.toByteArray();
+    }
+
+    /** Drop the DUP inside the NEW/DUP/<init>/ASTORE k-init sequence — the
+     *  anchor pattern no longer matches anywhere. */
+    static byte[] mutateDupToPop(byte[] in) {
+        org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(in).accept(
+            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, cw) {
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(
+                        int acc, String name, String desc, String sig, String[] exc) {
+                    org.objectweb.asm.MethodVisitor mv =
+                        super.visitMethod(acc, name, desc, sig, exc);
+                    if (!name.equals("b") || mv == null) return mv;
+                    return new org.objectweb.asm.MethodVisitor(
+                            org.objectweb.asm.Opcodes.ASM9, mv) {
+                        boolean afterNewK;
+                        @Override public void visitTypeInsn(int op, String t) {
+                            afterNewK = op == org.objectweb.asm.Opcodes.NEW
+                                    && t.equals(Weave.KTYPE);
+                            super.visitTypeInsn(op, t);
+                        }
+                        @Override public void visitInsn(int op) {
+                            if (afterNewK && op == org.objectweb.asm.Opcodes.DUP) {
+                                afterNewK = false;
+                                super.visitInsn(org.objectweb.asm.Opcodes.POP);
+                                return;
+                            }
+                            afterNewK = false;
+                            super.visitInsn(op);
+                        }
+                        @Override public void visitMethodInsn(int op, String o,
+                                String n, String d, boolean itf) {
+                            afterNewK = false;
+                            super.visitMethodInsn(op, o, n, d, itf);
+                        }
+                        @Override public void visitVarInsn(int op, int var) {
+                            afterNewK = false;
+                            super.visitVarInsn(op, var);
                         }
                     };
                 }
