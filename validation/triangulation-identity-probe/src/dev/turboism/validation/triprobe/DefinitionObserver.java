@@ -12,8 +12,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Observes each definition event for the target owner (bounded to four events + one overflow
  * marker), then applies loader/SHA/CodeSource-exact/shape gates and, on full acceptance, returns
- * the iterator-weaved bytes. A SHA mismatch records the observation and rejects without any
- * attribution claim.
+ * the iterator-weaved bytes. Lines are assembled field-by-field through the bounded field writer —
+ * no long raw string is concatenated before capping. A SHA mismatch records the observation and
+ * rejects without any attribution claim.
  */
 final class DefinitionObserver implements ClassFileTransformer {
     private static final int OBSERVE_BUDGET = 4;
@@ -36,44 +37,63 @@ final class DefinitionObserver implements ClassFileTransformer {
         int ev = eventSeq.incrementAndGet();
         if (ev > OBSERVE_BUDGET) {
             if (overflowMarked.compareAndSet(false, true)) {
-                observe("seq=" + ev + " overflow=true droppedFurther=true");
+                observe(fields("seq", Integer.toString(ev),
+                        "overflow", "true", "droppedFurther", "true"));
             }
             return null;
         }
         String sha = sha256(classfileBuffer);
-        String loaderTok = loaderToken(loader);
         String codeSource = codeSourceLocation(protectionDomain);
         String moduleName = module == null ? "null" : module.getName();
-        observe("seq=" + ev + " sha256=" + sha + " loader=" + loaderTok
-            + " module=" + moduleName + " codeSource=" + codeSource);
+        observe(fields("seq", Integer.toString(ev),
+                "sha256", sha,
+                "loader", loaderToken(loader),
+                "module", moduleName,
+                "codeSource", codeSource));
         if (!config.expectLoader.equals(loader == null ? "bootstrap" : loader.getClass().getName())) {
-            observe("seq=" + ev + " gate=reject reason=loader expected=" + config.expectLoader);
+            observe(fields("seq", Integer.toString(ev),
+                    "gate", "reject", "reason", "loader", "expected", config.expectLoader));
             return null;
         }
         if (!config.expectClassSha.equalsIgnoreCase(sha)) {
-            observe("seq=" + ev + " gate=reject reason=classSha expected="
-                + config.expectClassSha + " note=sha-diff-is-not-attribution");
+            observe(fields("seq", Integer.toString(ev),
+                    "gate", "reject", "reason", "classSha", "expected", config.expectClassSha,
+                    "note", "sha-diff-is-not-attribution"));
             return null;
         }
-        if (!config.codeSourceMatches(codeSource)) {
-            observe("seq=" + ev + " gate=reject reason=codeSource expected="
-                + config.expectCodeSource);
+        if (!ProbeConfig.codeSourceMatches(config.expectCodeSource, codeSource)) {
+            observe(fields("seq", Integer.toString(ev),
+                    "gate", "reject", "reason", "codeSource", "expected", config.expectCodeSource));
             return null;
         }
         TriangleListShape.Result shape = TriangleListShape.check(classfileBuffer);
         if (!shape.accepted) {
-            observe("seq=" + ev + " gate=reject reason=" + shape.reason);
+            observe(fields("seq", Integer.toString(ev),
+                    "gate", "reject", "reason", shape.reason));
             return null;
         }
         try {
             byte[] woven = IteratorWeave.weave(classfileBuffer);
-            observe("seq=" + ev + " gate=accept weave=applied");
+            observe(fields("seq", Integer.toString(ev), "gate", "accept", "weave", "applied"));
             return woven;
         } catch (Throwable t) {
-            observe("seq=" + ev + " gate=reject reason=weave-error:"
-                + t.getClass().getSimpleName());
+            observe(fields("seq", Integer.toString(ev),
+                    "gate", "reject", "reason", "weave-error:" + t.getClass().getSimpleName()));
             return null;
         }
+    }
+
+    /**
+     * Assembles a structured line from already-bounded fields; separators remain real spaces.
+     * Each value is escaped and capped per character — the raw value is never fully scanned or
+     * concatenated before capping.
+     */
+    private static String fields(String... kv) {
+        StringBuilder sb = new StringBuilder(512);
+        for (int i = 0; i + 1 < kv.length; i += 2) {
+            Probe.field(sb, kv[i], kv[i + 1]);
+        }
+        return sb.toString();
     }
 
     private static String loaderToken(ClassLoader loader) {

@@ -28,8 +28,9 @@ deps="$scene_dir/deps"
 P=turboism.validation.triIdentity
 LOADER=dev.turboism.validation.triprobe.fixture.FixtureLoader
 
-# The fixture dir's URL with a trailing slash normalizes to itself — exact-match gate.
-fx_url="$(python3 -c "import pathlib,sys; print(pathlib.Path('$fx').as_uri())")"
+# Expectation derived from the real CodeSource.toExternalForm of the fixture dir URL —
+# the same URL construction the fixture loader passes to the JVM.
+fx_url="$(java -cp "$sc" dev.turboism.validation.triprobe.CodeSourceUrl "$fx")"
 
 run_scenario() {
   local scenario="$1" jar="$2" fxdir="$3" outdir="$4" sarg="${5:-}"
@@ -94,7 +95,7 @@ run_scenario_props wrongSha "$agent_jar" "$fx" "$work/out-wrongsha" \
   && note wrongSha
 run_scenario wrongLoader "$agent_jar" "$fx" "$work/out-wrongloader" && note wrongLoader
 badsha="$(sha256sum "$bs/com/live2d/graphics3d/editableMesh/triangulation/TriangleList.class" | awk '{print $1}')"
-bs_url="$(python3 -c "import pathlib; print(pathlib.Path('$bs').as_uri())")"
+bs_url="$(java -cp "$sc" dev.turboism.validation.triprobe.CodeSourceUrl "$bs")"
 run_scenario_props badShape "$agent_jar" "$bs" "$work/out-badshape" \
   "-D$P.expectClassSha256=$badsha" "-D$P.expectCodeSource=$bs_url" && note badShape
 # helper failures: premain refusal (missing jar helper, broken clinit at warm)
@@ -116,9 +117,12 @@ run_scenario writeFailure "$agent_jar" "$fx" "$work/blocking-file" && note write
 # definition-observation bound
 run_scenario observerBudget "$agent_jar" "$fx" "$work/out-observer" && note observerBudget
 # hostile field content: newline + controls + overlong phase value
-evil_phase="$(printf 'EVIL\nLINE\tTAB\x01END%s' "$(head -c 3000 < /dev/zero | tr '\0' 'x')")"
+evil_phase="$(printf 'EVIL\nLIT\\nREAL\tTAB\x01END SP\sACE %s' "$(head -c 3000 < /dev/zero | tr '\0' 'x')")"
 run_scenario_props maliciousFields "$agent_jar" "$fx" "$work/out-malicious" \
   "-D$P.phase=$evil_phase" && note maliciousFields
+# CodeSource matching rules — pure static helper check, no agent needed.
+java -Xverify:all -cp "$sc:$work/classes" dev.turboism.validation.triprobe.IdentityProbeSelfCheck \
+  codeSourceUnit "$fx" "$work/out-csu/d.log" "$work/out-csu/u.log" && note codeSourceUnit
 
 # official read-only shape verification (never defines/executes official bytes)
 official_jar="${TURBOISM_TRI_IDENTITY_OFFICIAL_JAR:-$HOME/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar}"

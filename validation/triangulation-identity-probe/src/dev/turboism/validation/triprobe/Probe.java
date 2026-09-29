@@ -16,17 +16,23 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * One-shot use-site recorder plus bounded definition-observation sink.
  *
- * <p>Host-path contract: {@link #record} builds one bounded sanitized snapshot string and performs
- * one non-blocking offer. The single daemon writer is started at premain by {@link #startWriter} —
- * callbacks never create threads. Every queued line is escaped and length-capped before writing;
- * per-file output is byte-capped. No collection traversal, no element access, no reflective field
- * access, no field writes, no business calls, no retained strong references.
+ * <p>Host-path contract: {@link #record} builds one bounded snapshot string and performs one
+ * non-blocking offer. The single daemon writer is started at premain by {@link #startWriter} —
+ * callbacks never create threads. Every field is escaped and length-capped per character while
+ * appending (bounded scan, bounded output, truncation marked); a per-file byte cap applies on the
+ * writer side. No collection traversal, no element access, no reflective field access, no field
+ * writes, no business calls, no retained strong references.
  */
 public final class Probe {
+    /** Per-field output cap in characters, including the key and any truncation marker. */
     private static final int FIELD_CAP = 256;
+    /** Hard per-line cap; per-field bounds make this a backstop, not the primary limiter. */
     private static final int LINE_CAP = 2000;
     private static final int FILE_CAP_BYTES = 64 * 1024;
     private static final int QUEUE_CAP = 32;
+    private static final String TRUNC = "~truncated";
+
+    private static final char[] HEX = "0123456789abcdef".toCharArray();
 
     private static final AtomicBoolean USE_SITE_CLAIMED = new AtomicBoolean();
     private static final AtomicInteger WRITES_ATTEMPTED = new AtomicInteger();
@@ -93,9 +99,9 @@ public final class Probe {
     }
 
     /**
-     * Bounded per-run loader identity: class name plus {@link System#identityHashCode} of the
-     * loader instance. The hash token distinguishes same-named loader instances within THIS run
-     * only — it is not stable or comparable across runs.
+     * Bounded per-run loader identity hint: class name plus {@link System#identityHashCode} of
+     * the loader instance. identityHashCode can collide — this is an association hint within
+     * THIS run only, not a unique instance ID and not stable across runs.
      */
     static String loaderToken(Object o) {
         if (o == null) return "null-arg";
@@ -130,40 +136,89 @@ public final class Probe {
         field(sb, "java.version", System.getProperty("java.version"));
         field(sb, "java.vm.version", System.getProperty("java.vm.version"));
         field(sb, "java.home", System.getProperty("java.home"));
+        return bound(sb);
+    }
+
+    /**
+     * Appends {@code key=escaped(value)}. Escape + cap happen per character while appending —
+     * the input is scanned only until the field's output budget is exhausted, the full input is
+     * never allocated or walked. Field separators outside this method stay literal spaces.
+     */
+    static void field(StringBuilder sb, String key, String value) {
+        if (sb.length() > 0) sb.append(' ');
+        int room = FIELD_CAP - key.length() - 1;
+        if (room <= TRUNC.length()) {
+            sb.append(key).append('=').append(TRUNC, 0, Math.max(0, room));
+            return;
+        }
+        sb.append(key).append('=');
+        if (value == null || value.isEmpty()) {
+            sb.append("unset");
+            return;
+        }
+        // room counts the remaining output budget for this field; escape output counts against
+        // the same budget so a multi-char escape can never overflow.
+        // Reserve room for the truncation marker so the marker is inside the field cap.
+        int budget = room;
+        int i = 0;
+        int len = value.length();
+        boolean truncated = false;
+        while (i < len) {
+            char c = value.charAt(i);
+            int cost = escCost(c);
+            if (cost > budget - TRUNC.length()) {
+                truncated = true;
+                break;
+            }
+            appendEsc(sb, c);
+            budget -= cost;
+            i++;
+        }
+        if (truncated) {
+            sb.append(TRUNC);
+        }
+    }
+
+    /** Standalone bounded field for callers building observation lines field-by-field. */
+    static String boundedField(String key, String value) {
+        StringBuilder sb = new StringBuilder(FIELD_CAP + 16);
+        field(sb, key, value);
         return sb.toString();
     }
 
-    /** Escape first, cap second, truncation marked. Values never contain raw control chars. */
-    private static void field(StringBuilder sb, String key, String value) {
-        if (sb.length() > 0) sb.append(' ');
-        sb.append(key).append('=');
-        String v = value == null || value.isEmpty() ? "unset" : escape(value);
-        if (v.length() > FIELD_CAP) {
-            sb.append(v, 0, FIELD_CAP).append("~truncated");
-        } else {
-            sb.append(v);
+    private static int escCost(char c) {
+        if (c == '\\' || c == '\n' || c == '\r' || c == '\t' || c == ' ') return 2;
+        if (c < 0x20 || c == 0x7f) return 4;
+        return 1;
+    }
+
+    /**
+     * Escapes: {@code \}→{@code \\} so a literal two-character backslash-n stays distinguishable
+     * from a real newline; {@code \n}→{@code \n} (escape), {@code \r}→{@code \r},
+     * {@code \t}→{@code \t}, space→{@code \s} (inside values only — field separators in the
+     * surrounding line remain real spaces), other control chars→{@code \xNN}.
+     */
+    private static void appendEsc(StringBuilder sb, char c) {
+        switch (c) {
+            case '\\' -> sb.append("\\\\");
+            case '\n' -> sb.append("\\n");
+            case '\r' -> sb.append("\\r");
+            case '\t' -> sb.append("\\t");
+            case ' ' -> sb.append("\\s");
+            default -> {
+                if (c < 0x20 || c == 0x7f) {
+                    sb.append("\\x").append(HEX[c >> 4]).append(HEX[c & 0xf]);
+                } else {
+                    sb.append(c);
+                }
+            }
         }
     }
 
-    /** Replaces CR/LF/TAB and other control characters with escaped forms; also replaces spaces. */
-    static String escape(String s) {
-        StringBuilder out = new StringBuilder(s.length() + 8);
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '\n') out.append("\\n");
-            else if (c == '\r') out.append("\\r");
-            else if (c == '\t') out.append("\\t");
-            else if (c == ' ') out.append('_');
-            else if (c < 0x20 || c == 0x7f) out.append(String.format("\\x%02x", (int) c));
-            else out.append(c);
-        }
-        return out.toString();
-    }
-
-    /** Line-level bound applied to everything the writer can receive. */
-    private static String boundLine(String line) {
-        String e = escape(line);
-        return e.length() > LINE_CAP ? e.substring(0, LINE_CAP) + "~truncated" : e;
+    /** Hard line bound; callers are already per-field bounded so this is a backstop. */
+    private static String bound(StringBuilder sb) {
+        if (sb.length() <= LINE_CAP) return sb.toString();
+        return sb.substring(0, LINE_CAP - TRUNC.length()) + TRUNC;
     }
 
     private static String codeSource(Class<?> cls) {
@@ -175,7 +230,9 @@ public final class Probe {
     }
 
     private static void offer(String[] tagged) {
-        tagged[1] = boundLine(tagged[1]);
+        if (tagged[1].length() > LINE_CAP) {
+            tagged[1] = tagged[1].substring(0, LINE_CAP - TRUNC.length()) + TRUNC;
+        }
         if (!QUEUE.offer(tagged)) {
             // Definite evidence-absence semantics: the drop is counted, never retried.
             QUEUE_DROPPED.incrementAndGet();
