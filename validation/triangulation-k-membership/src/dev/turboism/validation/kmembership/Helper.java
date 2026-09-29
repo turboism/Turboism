@@ -20,6 +20,7 @@ public final class Helper {
     // --- observable counters (fixture instrumentation) ----------------------
     public static final AtomicInteger NEWBOX_CALLS = new AtomicInteger();
     public static final AtomicInteger QUERIES = new AtomicInteger();
+    public static final AtomicInteger HITS = new AtomicInteger();
     public static final AtomicInteger BOX_ALLOCS = new AtomicInteger();
     public static final AtomicInteger SET_ALLOCS = new AtomicInteger();
 
@@ -59,11 +60,13 @@ public final class Helper {
         long key = directed
             ? ((long) i0 << 32) | (i1 & 0xffffffffL)
             : ((long) Math.min(i0, i1) << 32) | (Math.max(i0, i1) & 0xffffffffL);
-        return !b.seen.add(key);
+        boolean contained = !b.seen.add(key);
+        if (contained) HITS.incrementAndGet();   // undirected key already present
+        return contained;
     }
 
     public static void reset() {
-        NEWBOX_CALLS.set(0); QUERIES.set(0);
+        NEWBOX_CALLS.set(0); QUERIES.set(0); HITS.set(0);
         BOX_ALLOCS.set(0); SET_ALLOCS.set(0);
         failNewBox = false; failQueryAt = -1; injectError = 0;
     }

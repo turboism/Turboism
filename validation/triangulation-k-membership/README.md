@@ -52,21 +52,30 @@ getter/query 重排（拒）、步骤轨迹截断（拒）、用户自造故障�
   `RefTriangleList`/`CandTriangleList` 是不同形态——woven 走真实字节改写，
   observer 版本仅做差分建模，二者分工已明示）。
 - `Weave`：核心 ASM(无 asm-tree）两遍处理。pass1 形状钉：恰好 3 处
-  `[ALOAD k, ALOAD jn, ICONST_0, INVOKEVIRTUAL k.a(LEdgeJ;Z)Z]`、3 处 append、
-  单 ARETURN、iterator 初始化存在、k-init 锚点、跳转目标不落入替换区；
-  任一不符→**返回原字节不改**。pass2 在锚点后插入 entry init
+  `[ALOAD k, ALOAD jn, ICONST_0, INVOKEVIRTUAL k.a(LEdgeJ;Z)Z]`（全部晚于
+  k-init 锚点、且 k 槽位两两一致并等于锚点 ASTORE 槽位）、3 处 append
+  逐位置钉形态（位点+4 处条件跳转 IFEQ/IFNE、ALOAD k 为该位点 k 槽、
+  ALOAD j 为该位点 j 槽、INVOKEVIRTUAL append 描述符）、单 ARETURN、
+  iterator 初始化存在、跳转目标不落入替换区；任一不符→**返回原字节不改**。
+  `weaveChecked(byte[])` 在同语义上额外返回命中的拒织检查 reason;
+  `weave(byte[])` 语义不变（拒绝即原数组）。pass2 在锚点后插入 entry init
   (`aconst_null;astore box` + 窄 try `Helper.newBox()` catch LinkageError→null),
   每调用点整段替换为 `box/j null 前置门 → 窄try invokestatic query → handler
   置 box=null → 原查询` CFG;COMPUTE_FRAMES/MAXS 全量重算。
 - `Helper`：独立编译目录（classes-helper)——真实隔离 loader 负控；`newBox`/
-  `query` 计数器+注入故障旋钮（仅 fixture)；宿主纯读白名单仅
-  `j.a()/j.b()/getIndex()`。
-- 验收断言（59 checks 含原 28)：正常路径 newBox=1/helperQuery>0/originalQuery=0、
-  反向重复边命中且原引用序保持、init LinkageError 每位点恰 1 次原查询、
-  第 N 次 query LinkageError 后永久本地 null(helperQuery 冻结）、null 边走
-  真实 NPE、RuntimeException/ThreadDeath/VMErr 透传不重试、两次 b() 独立 box、
-  空输入 newBox=1/query=0 且分配计数如实（box=1,set=0 懒建）、shape
-  拒织（true/错desc/位点数）字节不改。
+  `query`/`HITS`（无向键命中）计数器+注入故障旋钮（仅 fixture)；宿主纯读
+  白名单仅 `j.a()/j.b()/getIndex()`。
+- 验收断言（98 checks 含原 28)：正常路径 newBox=1/helperQuery>0/originalQuery=0、
+  反向重复边无向键命中（Helper.HITS==1 直接断言+去重后 size==5）且原引用序
+  保持、init LinkageError 每位点恰 1 次原查询、第 N 次 query LinkageError 后
+  本调用内永久本地 null(helperQuery 冻结、结果列表与参考逐引用/逐方向 parity)、
+  紧接着一次正常调用重新启用（新 box、helper 计数恢复）——永久禁用仅限单次
+  调用、null 边走真实 NPE、RuntimeException/ThreadDeath/VMErr 透传且
+  ORIGINAL_QUERIES==0 不重试、两次 b() 独立 box、空输入 newBox=1/query=0 且
+  分配计数如实（box=1,set=0 懒建）、shape 拒织 8 变体均断言命中预期检查
+  reason 且原数组返回（iconst_1/ILOAD 非恒 false Z、改 desc→位点邻接 append
+  检查、整句删除→queries=2、锚点槽位≠位点 k 槽、位点早于锚点、append j 槽
+  不符、无 k-init 锚点）。
 - `IsolatedRun`：无 Helper classpath 单独 JVM(-Xverify:all)——织后类可加载、
   全量委托原路径（originalQueries=6×2 调用）。
 - 依赖：kotlin-stdlib 1.7.21(sha `d46a9d77…`)+ ASM core 9.7.1
