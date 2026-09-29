@@ -93,6 +93,9 @@ public enum PluginService {
     /** {@link PluginContext#editorCommands()} */
     EDITOR_COMMANDS(dev.turboism.sdk.cubism.command.EditorCommandService.class),
 
+    /** {@link PluginContext#actionCatalog()} */
+    ACTION_CATALOG(dev.turboism.sdk.action.ActionCatalogService.class),
+
     /** {@link PluginContext#backup()} */
     BACKUP(dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class),
 
@@ -260,6 +263,8 @@ public enum PluginService {
                 available(context.meshEditUi(), dev.turboism.sdk.cubism.mesh.MeshEditUiService.unavailable());
             case EDITOR_COMMANDS ->
                 available(context.editorCommands(), dev.turboism.sdk.cubism.command.EditorCommandService.unavailable());
+            case ACTION_CATALOG ->
+                available(context.actionCatalog(), dev.turboism.sdk.action.ActionCatalogService.unavailable());
             case BACKUP ->
                 available(context.backup(), dev.turboism.sdk.cubism.backup.EditorAutoBackupService.unavailable());
             case MAIN_TOOLBAR ->
