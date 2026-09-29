@@ -36,6 +36,7 @@ Usage:
   run-atlas-image-shadow-host-validation.sh <5303|5203> <run-label>
     [--tri-identity-probe <path-to-pinned-tri-identity-probe.jar>]
     [--tri-weave-ab <dump-only|dump+weave>]
+    [--tri-weave-agent <absolute path to tri-weave-agent.jar>]
     [--bundle-manifest <published manifest>]
     [--prepare-dir <directory> | --dry-run]
 
@@ -369,6 +370,7 @@ prepare_dir=''
 dry_run=0
 tri_identity_probe=''
 tri_weave_ab=''
+tri_weave_agent_arg=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bundle-manifest)
@@ -388,6 +390,10 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || fail 'missing --tri-weave-ab value'
       [[ -z "$tri_weave_ab" ]] || fail 'tri-weave-ab supplied twice'
       tri_weave_ab="$2"; shift 2 ;;
+    --tri-weave-agent)
+      [[ $# -ge 2 ]] || fail 'missing --tri-weave-agent value'
+      [[ -z "$tri_weave_agent_arg" ]] || fail 'tri-weave-agent supplied twice'
+      tri_weave_agent_arg="$2"; shift 2 ;;
     --dry-run)
       [[ -z "$prepare_dir" && "$dry_run" == 0 ]] || fail 'prepare/dry-run may be selected once'
       dry_run=1; shift ;;
@@ -424,8 +430,15 @@ if [[ -n "$tri_weave_ab" ]]; then
   [[ "$tri_weave_leg" == woven* ]] && tri_weave_expected='dump+weave'
   [[ "$tri_weave_mode" == "$tri_weave_expected" ]] \
     || fail "--tri-weave-ab $tri_weave_mode inconsistent with leg label $run_label"
-  tri_weave_agent="${TURBOISM_TRI_WEAVE_AGENT:-}"
-  [[ -n "$tri_weave_agent" ]] || fail '--tri-weave-ab requires TURBOISM_TRI_WEAVE_AGENT'
+  # The agent jar arrives either as an explicit argument (queue-stable: the runner
+  # replays frozen args in a worker env without TURBOISM_TRI_WEAVE_AGENT) or via the
+  # env var (interactive/dry-run compatibility). Supplying both is ambiguous → fail;
+  # neither is fail-closed. Validation is identical for both sources.
+  if [[ -n "$tri_weave_agent_arg" && -n "${TURBOISM_TRI_WEAVE_AGENT:-}" ]]; then
+    fail 'tri-weave agent supplied twice (argument and TURBOISM_TRI_WEAVE_AGENT)'
+  fi
+  tri_weave_agent="${tri_weave_agent_arg:-${TURBOISM_TRI_WEAVE_AGENT:-}}"
+  [[ -n "$tri_weave_agent" ]] || fail '--tri-weave-ab requires --tri-weave-agent or TURBOISM_TRI_WEAVE_AGENT'
   [[ "$tri_weave_agent" = /* ]] || fail 'tri-weave agent path must be absolute'
   [[ -f "$tri_weave_agent" && ! -L "$tri_weave_agent" ]] \
     || fail 'tri-weave agent is not a regular non-symlink file'
