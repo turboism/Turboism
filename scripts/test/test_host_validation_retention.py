@@ -16,6 +16,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import host_validation_queue as q
 import host_validation_retention as gc
 import host_validation as cli
