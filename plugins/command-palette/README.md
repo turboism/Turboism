@@ -16,7 +16,7 @@ interface: swing
 
 > **Official Turboism plugin** · **Status: Development**
 
-Opens a Ctrl+K launcher over the Editor's supported menu commands, searchable by command id or localized name.
+Opens a Ctrl+K launcher over the Editor's supported menu commands and other plugins' registered actions, searchable by id or localized name.
 
 | Detail | Value |
 |---|---|
@@ -32,11 +32,11 @@ Opens a Ctrl+K launcher over the Editor's supported menu commands, searchable by
 ## What it does
 
 - Opens a command palette with **Ctrl+K** (also available from **Turboism → Command Palette**).
-- Lists every Editor command the host currently admits, ordered by localized name.
-- Filters by subsequence as you type: the query matches both the localized command name and the stable command id (for example `new.model`).
+- Lists every Editor command the host currently admits plus every action other plugins register, ordered by display name. Action rows show the label the owning plugin supplied and dispatch back to that plugin.
+- Filters by subsequence as you type: the query matches both the display name and the stable identifier (for example `new.model` or `perf-stats.window.show`).
 - Highlights the matched characters in green inside each result row; all other text stays in the normal foreground.
 - Shows a gray inline completion hint for the top match; **Tab** accepts it.
-- **Enter** executes the selected command through the safe Editor-command service and closes the palette. Typing a full command id and pressing **Enter** executes it even when the dropdown is empty.
+- **Enter** executes the selected command or action and closes the palette. Typing a full id and pressing **Enter** executes it even when the dropdown is empty.
 - **Up/Down** move the selection, **Esc** or clicking away closes the palette without running anything.
 
 ## Requirements and compatibility
@@ -62,12 +62,14 @@ This official plugin is under development and not yet part of release packaging.
 | Declared capability | User effect |
 |---|---|
 | `cubism.editor-commands.execute` | Runs the Editor command chosen in the palette through the host menu system. |
+| `action.catalog.invoke` | Lists other plugins' registered actions and invokes the one the user picks. |
 
 ## Permissions
 
 | Declared permission | Scope | User effect |
 |---|---|---|
 | `turboism.action.register` | `application` | Registers the Command Palette open action and its default Ctrl+K shortcut. |
+| `turboism.action.invoke` | `application` | Enumerates other plugins' registered actions as palette rows and invokes the one the user picks. |
 | `turboism.ui.menu.contribute` | `application` | Adds the Command Palette entry to the Turboism top-level menu. |
 | `turboism.cubism.model.read` | `application` | Executes read-tier Editor commands chosen in the palette. |
 | `turboism.cubism.model.write` | `application` | Executes write-tier Editor commands chosen in the palette. |
@@ -94,8 +96,9 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 ## Status and limitations
 
 - **Status:** Development.
-- The palette lists the parameterless Editor command set exposed by `EditorCommandService`; file-path and parameterized commands and other plugins' actions are not included.
-- Only commands the host reports as currently available (and permitted for this plugin) appear in the list.
+- The palette lists the parameterless Editor command set exposed by `EditorCommandService` and plugin actions exposed by `ActionCatalogService`; file-path and parameterized commands are not included.
+- Only commands the host reports as currently available (and permitted for this plugin) appear in the list; actions appear while their owning plugin stays enabled. The palette's own action and the shell's internal `turboism.core` actions are excluded.
+- Action rows display the label supplied by the owning plugin, which may be English-only when that plugin does not localize its action labels.
 - A user's own Ctrl+K keybinding override takes precedence over the plugin default.
 
 ## Troubleshooting
@@ -104,7 +107,8 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 |---|---|
 | Ctrl+K does nothing | Confirm the plugin is enabled and no user keybinding overrides Ctrl+K. |
 | A command is missing from the list | The host reports it as unavailable in the current state, or this plugin lacks a permission the command requires. |
-| A command does not run on Enter | Check the host log; the result status is logged when execution is denied or fails. |
+| A plugin action is missing from the list | The owning plugin is disabled or registers no actions; shell-internal `turboism.core` actions are intentionally hidden. |
+| A command or action does not run on Enter | Check the host log; the result status is logged when execution is denied or fails, and action invocations are audited with this plugin's identity. |
 
 ## Support and license
 
