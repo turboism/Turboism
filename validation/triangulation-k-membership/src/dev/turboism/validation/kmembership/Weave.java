@@ -11,16 +11,22 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Core-ASM (no asm-tree dependency) weaver for the OWN fixture target only.
- * Official classes are never read, loaded, or executed.
+ * Core-ASM (no asm-tree dependency) weaver for the membership-query candidate.
+ * Official classes are never read, loaded, or executed by this codebase.
  *
- * Two passes over b() (REAL-insn index = excludes label/line/frame events):
+ * The transform is parameterized by {@link Config}: the own-fixture
+ * configuration ({@link #FIXTURE}) is what the KWEAVE acceptance exercised;
+ * T029-TRIAB reuses the same transform with a different Config — there is no
+ * second implementation of the weaving logic.
+ *
+ * Two passes over the target method (REAL-insn index = excludes label/line/
+ * frame events):
  *  pass 1  shape pin + record: k-init ASTORE anchor (index + slot), exactly
  *          three 4-insn query sequences
- *          [ALOAD k, ALOAD jn, ICONST_0, INVOKEVIRTUAL EdgeK.a(LEdgeJ;Z)Z]
+ *          [ALOAD k, ALOAD jn, ICONST_0, INVOKEVIRTUAL k.query(Lj;Z)Z]
  *          all after the anchor and all loading the SAME k slot as the anchor,
  *          three appends each pinned as
- *          [conditional jump at site+4, ALOAD k, ALOAD j, INVOKEVIRTUAL a(LEdgeJ;)Z]
+ *          [conditional jump at site+4, ALOAD k, ALOAD j, INVOKEVIRTUAL k.append(Lj;)Z]
  *          against their own site, single ARETURN, iterator init, and no
  *          branch target inside a replaced range.
  *  pass 2  emit entry-init right after the anchor; replace each 4-insn sequence
@@ -32,19 +38,94 @@ import org.objectweb.asm.Opcodes;
 public final class Weave {
     private Weave() {}
 
-    static final String HELPER = "dev/turboism/validation/kmembership/Helper";
-    static final String KTYPE  = "dev/turboism/validation/kmembership/Fixture$EdgeK";
-    static final String JTYPE  = "dev/turboism/validation/kmembership/Fixture$EdgeJ";
-    static final String QUERY_DESC  = "(L" + JTYPE + ";Z)Z";
-    static final String APPEND_DESC = "(L" + JTYPE + ";)Z";
-    static final String HELPER_QUERY_SIG =
-        "(L" + KTYPE + ";L" + JTYPE + ";ZLjava/lang/Object;)Z";
+    /**
+     * Target shape + helper binding for one weaving variant. All owner /
+     * descriptor / anchor-shape constants that the KWEAVE fixture hardcoded
+     * live here, so the same transform code serves any verified target.
+     */
+    public static final class Config {
+        /** Target method name, e.g. {@code b}. */
+        public final String methodName;
+        /** Target method descriptor, {@code ()Lk;}. */
+        public final String methodDesc;
+        /** Internal name of the edge-list type built inside the method (k). */
+        public final String kType;
+        /** Internal name of the edge type (j). */
+        public final String jType;
+        /** Descriptor of the no-arg k constructor used as the entry anchor. */
+        public final String ctorDesc;
+        /** Name of the membership query on k, e.g. {@code a}. */
+        public final String queryName;
+        /** Query descriptor, {@code (Lj;Z)Z}. */
+        public final String queryDesc;
+        /** Name of the raw append on k, e.g. {@code a}. */
+        public final String appendName;
+        /** Append descriptor, {@code (Lj;)Z}. */
+        public final String appendDesc;
+        /** Internal name of the iterated set type, {@code java/util/LinkedHashSet}. */
+        public final String iteratorOwner;
+        /** Iterator method name. */
+        public final String iteratorName;
+        /** Iterator method descriptor. */
+        public final String iteratorDesc;
+        /** Internal name of the woven-path helper class. */
+        public final String helperInternal;
+        /** Helper entry-init name/descriptor. */
+        public final String helperNewBoxName;
+        public final String helperNewBoxDesc;
+        /** Helper query name; descriptor is {@code (Lk;Lj;ZLjava/lang/Object;)Z}. */
+        public final String helperQueryName;
+        public final String helperQueryDesc;
+
+        /**
+         * Full config; descriptors that are structurally fixed by the shape are
+         * derived from the two type names rather than accepted independently.
+         */
+        public Config(String methodName, String kType, String jType,
+                String queryName, String appendName, String helperInternal) {
+            this.methodName = methodName;
+            this.kType = kType;
+            this.jType = jType;
+            this.ctorDesc = "()V";
+            this.queryName = queryName;
+            this.queryDesc = "(L" + jType + ";Z)Z";
+            this.appendName = appendName;
+            this.appendDesc = "(L" + jType + ";)Z";
+            this.iteratorOwner = "java/util/LinkedHashSet";
+            this.iteratorName = "iterator";
+            this.iteratorDesc = "()Ljava/util/Iterator;";
+            this.helperInternal = helperInternal;
+            this.helperNewBoxName = "newBox";
+            this.helperNewBoxDesc = "()Ljava/lang/Object;";
+            this.helperQueryName = "query";
+            this.helperQueryDesc =
+                "(L" + kType + ";L" + jType + ";ZLjava/lang/Object;)Z";
+            this.methodDesc = "()L" + kType + ";";
+        }
+    }
+
+    /** The KWEAVE own-fixture configuration — unchanged accepted semantics. */
+    public static final Config FIXTURE = new Config(
+        "b",
+        "dev/turboism/validation/kmembership/Fixture$EdgeK",
+        "dev/turboism/validation/kmembership/Fixture$EdgeJ",
+        "a", "a",
+        "dev/turboism/validation/kmembership/Helper");
+
+    // Legacy fixture-shaped constants retained for the existing test code.
+    static final String HELPER = FIXTURE.helperInternal;
+    static final String KTYPE  = FIXTURE.kType;
+    static final String JTYPE  = FIXTURE.jType;
+    static final String QUERY_DESC  = FIXTURE.queryDesc;
+    static final String APPEND_DESC = FIXTURE.appendDesc;
+    static final String HELPER_QUERY_SIG = FIXTURE.helperQueryDesc;
 
     public static final class ShapeReject extends RuntimeException {
+        private static final long serialVersionUID = 1L;
         public ShapeReject(String m) { super(m); }
     }
 
-    /** Shape analysis record for method b(). */
+    /** Shape analysis record for the target method. */
     static final class Plan {
         int anchorIndex = -1;               // real-insn index of ASTORE k (entry anchor)
         int anchorSlot = -1;                // local slot the anchor ASTORE wrote (the k slot)
@@ -61,26 +142,35 @@ public final class Weave {
         Result(byte[] b, String r) { bytes = b; rejectReason = r; }
     }
 
-    /** Same contract as weave() plus WHICH shape check fired (null = woven). */
-    public static Result weaveChecked(byte[] in) {
+    /** Same contract as weave(cfg, in) plus WHICH shape check fired (null = woven). */
+    public static Result weaveChecked(Config cfg, byte[] in) {
         Plan p;
-        try { p = analyze(in); }
+        try { p = analyze(cfg, in); }
         catch (ShapeReject re) { return new Result(in, re.getMessage()); }
-        return new Result(emit(in, p), null);
+        return new Result(emit(cfg, in, p), null);
     }
 
     /** Returns woven bytes, or the ORIGINAL array unchanged on shape reject. */
+    public static byte[] weave(Config cfg, byte[] in) {
+        return weaveChecked(cfg, in).bytes;
+    }
+
+    /** Own-fixture overloads: identical semantics, Config defaults to FIXTURE. */
+    public static Result weaveChecked(byte[] in) {
+        return weaveChecked(FIXTURE, in);
+    }
+
     public static byte[] weave(byte[] in) {
-        return weaveChecked(in).bytes;
+        return weaveChecked(FIXTURE, in).bytes;
     }
 
     // ------------------------------------------------------------------ pass 1
-    static Plan analyze(byte[] in) {
+    static Plan analyze(Config cfg, byte[] in) {
         Plan p = new Plan();
         new ClassReader(in).accept(new ClassVisitor(Opcodes.ASM9) {
             @Override public MethodVisitor visitMethod(int acc, String name,
                     String desc, String sig, String[] exc) {
-                if (!(name.equals("b") && desc.equals("()L" + KTYPE + ";"))) return null;
+                if (!(name.equals(cfg.methodName) && desc.equals(cfg.methodDesc))) return null;
                 return new MethodVisitor(Opcodes.ASM9) {
                     int idx = -1;                 // real-insn index
                     final List<int[]> trail = new ArrayList<>();  // recent insns
@@ -89,8 +179,8 @@ public final class Weave {
 
                     void trail(int opcode, int var, String owner, String name, String desc) {
                         idx++;
-                        int flags = (owner != null && owner.equals(KTYPE)
-                                && "<init>".equals(name)) ? 1 : 0;
+                        int flags = (owner != null && owner.equals(cfg.kType)
+                                && "<init>".equals(name) && cfg.ctorDesc.equals(desc)) ? 1 : 0;
                         trail.add(new int[] { idx, opcode, var, flags });
                         if (trail.size() > 8) trail.remove(0);
                         if (opcode == Opcodes.ARETURN) p.areturns++;
@@ -102,7 +192,7 @@ public final class Weave {
                     }
                     @Override public void visitVarInsn(int op, int var) {
                         trail(op, var, null, null, null);
-                        // entry anchor: NEW EdgeK; DUP; INVOKESPECIAL <init>; ASTORE
+                        // entry anchor: NEW k; DUP; INVOKESPECIAL <init>; ASTORE
                         if (op == Opcodes.ASTORE && p.anchorIndex < 0) {
                             int sz = trail.size();
                             int[] init = sz >= 2 ? trail.get(sz - 2) : null;
@@ -111,7 +201,7 @@ public final class Weave {
                             if (init != null && dup != null && nw != null
                                     && nw[1] == Opcodes.NEW && dup[1] == Opcodes.DUP
                                     && init[1] == Opcodes.INVOKESPECIAL
-                                    && init[3] == 1 /* owner=EdgeK, name=<init> */) {
+                                    && init[3] == 1 /* owner=k, name=<init>, desc=ctorDesc */) {
                                 p.anchorIndex = idx;
                                 p.anchorSlot = var;
                             }
@@ -123,13 +213,12 @@ public final class Weave {
                     }
                     @Override public void visitFieldInsn(int op, String o, String n, String d) {
                         trail(op, -1, o, n, d);
-                        if (o.equals(KTYPE) && op == Opcodes.GETFIELD) {}
                     }
                     @Override public void visitMethodInsn(int op, String o, String n,
                             String d, boolean itf) {
                         trail(op, -1, o, n, d);
-                        if (op == Opcodes.INVOKEVIRTUAL && o.equals(KTYPE)) {
-                            if (d.equals(QUERY_DESC)) {
+                        if (op == Opcodes.INVOKEVIRTUAL && o.equals(cfg.kType)) {
+                            if (d.equals(cfg.queryDesc) && n.equals(cfg.queryName)) {
                                 p.queries++;
                                 // verify 3-insn prefix: ALOAD k, ALOAD jn, ICONST_0
                                 int sz = trail.size();
@@ -144,7 +233,7 @@ public final class Weave {
                                     throw new ShapeReject("query#" + p.queries + " missing aload k");
                                 p.sites.add(new int[] { ak[0], ak[2], aj[2] });
                             }
-                            if (d.equals(APPEND_DESC)) {
+                            if (d.equals(cfg.appendDesc) && n.equals(cfg.appendName)) {
                                 p.appends++;
                                 // append shape pin: at idx-3 a conditional jump that sits
                                 // IMMEDIATELY after a recorded query site (site+4), then
@@ -173,7 +262,8 @@ public final class Weave {
                                         + " j slot does not match its query site");
                             }
                         }
-                        if (n.equals("iterator") && o.contains("LinkedHashSet"))
+                        if (o.equals(cfg.iteratorOwner) && n.equals(cfg.iteratorName)
+                                && d.equals(cfg.iteratorDesc))
                             p.iteratorInitSeen = true;
                     }
                     @Override public void visitMaxs(int ms, int ml) { p.maxLocals = ml; }
@@ -215,7 +305,7 @@ public final class Weave {
     }
 
     // ------------------------------------------------------------------ pass 2
-    static byte[] emit(byte[] in, Plan p) {
+    static byte[] emit(Config cfg, byte[] in, Plan p) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
             @Override protected String getCommonSuperClass(String a, String c) {
                 return "java/lang/Object";
@@ -225,7 +315,7 @@ public final class Weave {
             @Override public MethodVisitor visitMethod(int acc, String name,
                     String desc, String sig, String[] exc) {
                 MethodVisitor mv = super.visitMethod(acc, name, desc, sig, exc);
-                if (!(name.equals("b") && desc.equals("()L" + KTYPE + ";"))
+                if (!(name.equals(cfg.methodName) && desc.equals(cfg.methodDesc))
                         || mv == null) return mv;
                 return new MethodVisitor(Opcodes.ASM9, mv) {
                     int idx = -1;
@@ -240,10 +330,6 @@ public final class Weave {
                         return null;
                     }
 
-                    @Override public void visitCode() {
-                        super.visitCode();
-                    }
-
                     /** Emit entry-init block right after the anchor ASTORE. */
                     void emitEntry() {
                         Label eTry = new Label(), eEnd = new Label(),
@@ -252,8 +338,8 @@ public final class Weave {
                         super.visitVarInsn(Opcodes.ASTORE, boxSlot);
                         super.visitTryCatchBlock(eTry, eEnd, eCatch, "java/lang/LinkageError");
                         super.visitLabel(eTry);
-                        super.visitMethodInsn(Opcodes.INVOKESTATIC, HELPER,
-                            "newBox", "()Ljava/lang/Object;", false);
+                        super.visitMethodInsn(Opcodes.INVOKESTATIC, cfg.helperInternal,
+                            cfg.helperNewBoxName, cfg.helperNewBoxDesc, false);
                         super.visitLabel(eEnd);
                         super.visitVarInsn(Opcodes.ASTORE, boxSlot);
                         super.visitJumpInsn(Opcodes.GOTO, ePost);
@@ -278,8 +364,8 @@ public final class Weave {
                         super.visitVarInsn(Opcodes.ALOAD, jSlot);
                         super.visitInsn(Opcodes.ICONST_0);
                         super.visitVarInsn(Opcodes.ALOAD, boxSlot);
-                        super.visitMethodInsn(Opcodes.INVOKESTATIC, HELPER,
-                            "query", HELPER_QUERY_SIG, false);
+                        super.visitMethodInsn(Opcodes.INVOKESTATIC, cfg.helperInternal,
+                            cfg.helperQueryName, cfg.helperQueryDesc, false);
                         super.visitLabel(qEnd);
                         super.visitJumpInsn(Opcodes.GOTO, qJoin);
                         super.visitLabel(qCatch);
@@ -290,7 +376,8 @@ public final class Weave {
                         super.visitVarInsn(Opcodes.ALOAD, kSlot);
                         super.visitVarInsn(Opcodes.ALOAD, jSlot);
                         super.visitInsn(Opcodes.ICONST_0);
-                        super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, KTYPE, "a", QUERY_DESC, false);
+                        super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, cfg.kType,
+                            cfg.queryName, cfg.queryDesc, false);
                         super.visitLabel(qJoin);
                     }
 
