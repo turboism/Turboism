@@ -32,6 +32,7 @@ include(
     "plugins:physics-editor",
     "plugins:history-panel",
     "plugins:perf-stats",
+    "plugins:command-palette",
     "plugins:palette-label-style",
     "plugins:parameter-batch-transfer",
     "plugins:warp-deformer-alt-symmetry",
