@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.plugin.parameterbatchtransfer.b1.domain.BoundParameterSnapshot;
+import dev.turboism.plugin.parameterbatchtransfer.domain.BoundParameterSnapshot;
 import dev.turboism.plugin.parameterbatchtransfer.service.ParameterBatchTransferService;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;

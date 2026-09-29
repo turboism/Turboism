@@ -98,7 +98,7 @@ def verify_failures(args: argparse.Namespace, baseline: Path) -> None:
         output = run_failure(args.tool, command, "--input", str(args.tmp / variant / "sdk.jar"), "--reference-input", str(reference), "--baseline", str(baseline))
         if not output:
             continue
-    missing = run_failure(args.tool, "verify-compatible", "--input", str(reference), "--reference-input", str(reference), "--baseline", str(args.tmp / "missing.json"))
+    run_failure(args.tool, "verify-compatible", "--input", str(reference), "--reference-input", str(reference), "--baseline", str(args.tmp / "missing.json"))
     malformed = args.tmp / "malformed.json"
     malformed.write_text('{"format":"wrong"}\n', encoding="utf-8")
     run_failure(args.tool, "verify-compatible", "--input", str(reference), "--reference-input", str(reference), "--baseline", str(malformed))

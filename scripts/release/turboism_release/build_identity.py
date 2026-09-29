@@ -1,6 +1,11 @@
 """A source-bound, cross-channel product build sequence. Never assigns history numbers."""
 from __future__ import annotations
-import base64, io, json, re, time, zipfile
+import base64
+import io
+import json
+import re
+import time
+import zipfile
 from pathlib import Path
 BRANCH = 'build-ledger'
 VERSION = re.compile(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?')

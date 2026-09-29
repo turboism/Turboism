@@ -815,6 +815,21 @@ val checkRepositoryHygiene by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/check_remote_hygiene.py", "--worktree")
 }
 
+/*
+ * scripts/ lint is part of the daily gate: ruff.toml pins the rule set and the
+ * wrapper pins the ruff release, so the baseline cannot drift with ambient tools.
+ */
+tasks.register<Exec>("checkPythonLint") {
+    group = "verification"
+    description = "Lints scripts/ with the pinned ruff ruleset in ruff.toml."
+    workingDir(rootDir)
+    inputs.file("ruff.toml")
+    inputs.files("scripts/check_python_lint.py")
+    inputs.files(fileTree("scripts") { include("**/*.py") })
+    verificationStamp()
+    commandLine("python3", "scripts/check_python_lint.py")
+}
+
 val devCheck by tasks.registering {
     group = "verification"
     description = "Fast production compilation and permanent structural boundaries for an implementation slice."
@@ -826,6 +841,7 @@ val devCheck by tasks.registering {
         "checkModuleBoundaries",
         "checkCodeQuality",
         "checkThrowableContainment",
+        "checkPythonLint",
         checkRepositoryHygiene,
         checkEditorModelAliases,
         "validatePluginMeta",

@@ -334,12 +334,6 @@ def scan_terminal_host_artifacts(context: SafetyContext) -> list[ArtifactItem]:
                     if is_task_dir_active(task_dir):
                         continue
 
-                    # Check if terminal (has lifecycle-result.json or wrapper.exit)
-                    evidence_dir = task_dir / "evidence"
-                    lifecycle = evidence_dir / "lifecycle-result.json"
-                    wrapper_exit = evidence_dir / "wrapper.exit"
-                    is_terminal = lifecycle.is_file() or wrapper_exit.is_file()
-
                     # 1. Proton prefix (primary disk consumer, 1.8G+)
                     prefix = task_dir / "prefix"
                     if prefix.exists():
@@ -603,7 +597,7 @@ def main(argv: list[str] | None = None) -> int:
     if not result["dryRun"]:
         print(f"\nSuccessfully cleaned {result['deletedItems']} items. Space reclaimed: {result['totalApparentFormatted']}")
     else:
-        print(f"\nDry run complete. No files were removed.")
+        print("\nDry run complete. No files were removed.")
 
     return 0
 

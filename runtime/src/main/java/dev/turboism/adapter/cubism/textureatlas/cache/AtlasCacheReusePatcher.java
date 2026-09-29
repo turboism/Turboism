@@ -47,7 +47,7 @@ public final class AtlasCacheReusePatcher {
     static final String SETUP_NAME = "setupCacheImage$cubism";
     static final String SETUP_DESC = "(ZLcom/live2d/util/a/a;)V";
     static final String MANAGER = "com/live2d/graphics/cachedImage/CCachedImageManager";
-    static final String DELEGATE = "dev/turboism/bootstrap/atlascache/AtlasCacheReuseDelegate";
+    static final String DELEGATE = "dev/turboism/adapter/cubism/textureatlas/cache/AtlasCacheReuseDelegate";
 
     private AtlasCacheReusePatcher() {}
 

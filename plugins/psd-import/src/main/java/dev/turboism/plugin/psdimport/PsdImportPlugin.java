@@ -1,6 +1,6 @@
 package dev.turboism.plugin.psdimport;
 
-import dev.turboism.plugin.psdimport.b1.application.PsdActionApplication;
+import dev.turboism.plugin.psdimport.application.PsdActionApplication;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.util.Objects;

@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.textureatlas.cache;
 
-import dev.turboism.bootstrap.atlascache.AtlasCacheReuseDelegate;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.MessageDigest;

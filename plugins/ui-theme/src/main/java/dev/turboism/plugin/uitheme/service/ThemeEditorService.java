@@ -1,11 +1,11 @@
 package dev.turboism.plugin.uitheme.service;
 
-import dev.turboism.plugin.uitheme.b1.domain.LegacyThemePaletteResolver;
-import dev.turboism.plugin.uitheme.b1.domain.ThemeBase;
-import dev.turboism.plugin.uitheme.b1.domain.ThemeIcons;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageMetadata;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePaletteGenerator;
+import dev.turboism.plugin.uitheme.domain.LegacyThemePaletteResolver;
+import dev.turboism.plugin.uitheme.domain.ThemeBase;
+import dev.turboism.plugin.uitheme.domain.ThemeIcons;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.ThemePackageMetadata;
+import dev.turboism.plugin.uitheme.domain.ThemePaletteGenerator;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.i18n.PluginLocalization;

@@ -1,7 +1,7 @@
 package dev.turboism.plugin.parameterbatchtransfer;
 
-import dev.turboism.plugin.parameterbatchtransfer.b1.domain.BatchTransferOutcome;
-import dev.turboism.plugin.parameterbatchtransfer.b1.domain.BatchTransferRow;
+import dev.turboism.plugin.parameterbatchtransfer.domain.BatchTransferOutcome;
+import dev.turboism.plugin.parameterbatchtransfer.domain.BatchTransferRow;
 import dev.turboism.plugin.parameterbatchtransfer.service.ParameterBatchTransferService;
 import dev.turboism.plugin.parameterbatchtransfer.ui.BatchTransferDialog;
 import dev.turboism.sdk.action.ActionRegistry;

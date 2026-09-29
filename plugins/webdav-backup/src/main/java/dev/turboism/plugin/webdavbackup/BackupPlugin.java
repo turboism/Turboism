@@ -1,8 +1,8 @@
 package dev.turboism.plugin.webdavbackup;
 
-import dev.turboism.plugin.webdavbackup.b1.application.ConfigBindingResult;
-import dev.turboism.plugin.webdavbackup.b1.application.WebDavSettingsBinding;
-import dev.turboism.plugin.webdavbackup.b1.application.WebDavSettingsDialog;
+import dev.turboism.plugin.webdavbackup.application.ConfigBindingResult;
+import dev.turboism.plugin.webdavbackup.application.WebDavSettingsBinding;
+import dev.turboism.plugin.webdavbackup.application.WebDavSettingsDialog;
 import dev.turboism.plugin.webdavbackup.webdav.WebDavConfig;
 import dev.turboism.plugin.webdavbackup.webdav.WebDavSyncTarget;
 import dev.turboism.sdk.action.ActionRegistry;

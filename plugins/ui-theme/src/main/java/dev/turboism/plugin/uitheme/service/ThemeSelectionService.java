@@ -1,7 +1,7 @@
 package dev.turboism.plugin.uitheme.service;
 
-import dev.turboism.plugin.uitheme.b1.domain.LegacyThemePaletteResolver;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.LegacyThemePaletteResolver;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceRestoreResult;
 import dev.turboism.sdk.appearance.AppearanceService;

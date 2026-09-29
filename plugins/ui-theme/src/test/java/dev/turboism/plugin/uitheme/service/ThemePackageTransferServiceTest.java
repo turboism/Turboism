@@ -3,11 +3,11 @@ package dev.turboism.plugin.uitheme.service;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import dev.turboism.plugin.uitheme.b1.domain.ThemeBase;
-import dev.turboism.plugin.uitheme.b1.domain.ThemeIcons;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageArchive;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageMetadata;
+import dev.turboism.plugin.uitheme.domain.ThemeBase;
+import dev.turboism.plugin.uitheme.domain.ThemeIcons;
+import dev.turboism.plugin.uitheme.domain.ThemePackageArchive;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.ThemePackageMetadata;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UserFileHandle;
 import dev.turboism.sdk.ui.UserFileHandleState;

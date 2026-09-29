@@ -1,7 +1,5 @@
 """End-to-end policy inputs for the shared three-channel build entry."""
 import importlib
-import json
-import os
 import sys
 import unittest
 from pathlib import Path
