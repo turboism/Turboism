@@ -68,7 +68,8 @@ class DeclarativeSettingsRendererTest {
                                         OptionalInt.of(150),
                                         OptionalInt.empty()))),
                 plugins(),
-                RuntimeLogReader.unavailable());
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
         final Map<String, CoreWindows.BuiltinTab> builtins = new LinkedHashMap<>();
         builtins.put("runtime", new CoreWindows.BuiltinTab("Runtime", 100, new JPanel()));
         builtins.put("performance", new CoreWindows.BuiltinTab("Performance", 200, new JPanel()));
@@ -146,7 +147,8 @@ class DeclarativeSettingsRendererTest {
                                 new SettingsSnapshot.Entry("turboism.core", pathContribution),
                                 new SettingsSnapshot.Entry("turboism.core", jvmContribution)))),
                 plugins(),
-                RuntimeLogReader.unavailable());
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
         final Map<String, CoreWindows.BuiltinTab> builtins = new LinkedHashMap<>();
         builtins.put("performance", new CoreWindows.BuiltinTab("Performance", 200, new JPanel(new GridBagLayout())));
         final Method render = CoreWindows.class.getDeclaredMethod("renderSettings", JDialog.class, Map.class);
@@ -221,7 +223,8 @@ class DeclarativeSettingsRendererTest {
                                         "turboism.core",
                                         CubismJvmSettingsContribution.createMemoryProfileNote(localization()))))),
                 plugins(),
-                RuntimeLogReader.unavailable());
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
         final Map<String, CoreWindows.BuiltinTab> builtins = new LinkedHashMap<>();
         builtins.put("performance", new CoreWindows.BuiltinTab("Performance", 200, new JPanel(new GridBagLayout())));
         final Method render = CoreWindows.class.getDeclaredMethod("renderSettings", JDialog.class, Map.class);
@@ -264,8 +267,13 @@ class DeclarativeSettingsRendererTest {
 
     @Test
     void customGraalVmPathUsesAVisibleHomeDirectoryPlaceholder() throws Exception {
-        final CoreWindows windows =
-                new CoreWindows(localization(), settings(), List::of, plugins(), RuntimeLogReader.unavailable());
+        final CoreWindows windows = new CoreWindows(
+                localization(),
+                settings(),
+                List::of,
+                plugins(),
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
         final JPanel panel = new JPanel(new GridBagLayout());
         final SettingsControl.Text control = new SettingsControl.Text(
                 CubismJvmSettingsContribution.PATH_CONTRIBUTION_ID,
@@ -290,8 +298,13 @@ class DeclarativeSettingsRendererTest {
 
     @Test
     void noteRendersAsDisabledSmallCaptionWithNothingToSave() throws Exception {
-        final CoreWindows windows =
-                new CoreWindows(localization(), settings(), List::of, plugins(), RuntimeLogReader.unavailable());
+        final CoreWindows windows = new CoreWindows(
+                localization(),
+                settings(),
+                List::of,
+                plugins(),
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
         final JPanel panel = new JPanel(new GridBagLayout());
         final SettingsControl.Note control = new SettingsControl.Note(
                 "performance-restart-note", "All performance adjustments take effect after restarting the editor");
@@ -324,7 +337,8 @@ class DeclarativeSettingsRendererTest {
                         settings(),
                         () -> List.of(manySettings()),
                         plugins(),
-                        RuntimeLogReader.unavailable())) {
+                        RuntimeLogReader.unavailable(),
+                        dev.turboism.internal.core.KeybindingService.unavailable())) {
                     CoreWindows.RenderedSettings rendered = render(windows);
                     JTabbedPane tabs = rendered.tabs();
                     tabs.setSize(620, 280);
@@ -374,7 +388,8 @@ class DeclarativeSettingsRendererTest {
                     settings(),
                     () -> List.of(manySettings()),
                     plugins(),
-                    RuntimeLogReader.unavailable())) {
+                    RuntimeLogReader.unavailable(),
+                    dev.turboism.internal.core.KeybindingService.unavailable())) {
                 CoreWindows.RenderedSettings rendered = render(windows);
                 rendered.tabs().setSize(280, 240);
                 JScrollPane scroll =
@@ -447,7 +462,8 @@ class DeclarativeSettingsRendererTest {
                         () -> List.of(
                                 new SettingsSnapshot.Tab("performance", "Performance", OptionalInt.of(200), entries)),
                         plugins(),
-                        RuntimeLogReader.unavailable())) {
+                        RuntimeLogReader.unavailable(),
+                        dev.turboism.internal.core.KeybindingService.unavailable())) {
                     CoreWindows.RenderedSettings rendered = render(windows);
                     JScrollPane scroll =
                             assertInstanceOf(JScrollPane.class, rendered.tabs().getComponentAt(0));
@@ -477,7 +493,12 @@ class DeclarativeSettingsRendererTest {
                 "opt-in virtual-display test; not Cubism host evidence");
         assertFalse(java.awt.GraphicsEnvironment.isHeadless());
         final CoreWindows windows = new CoreWindows(
-                localization(), settings(), () -> List.of(manySettings()), plugins(), RuntimeLogReader.unavailable());
+                localization(),
+                settings(),
+                () -> List.of(manySettings()),
+                plugins(),
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
         final JDialog[] dialog = {null};
         final JScrollPane[] page = {null};
         final JCheckBox[] last = {null};

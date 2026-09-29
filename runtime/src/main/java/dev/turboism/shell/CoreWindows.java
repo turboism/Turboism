@@ -51,6 +51,7 @@ final class CoreWindows implements AutoCloseable {
     private final SettingsContributionSource settingsContributions;
     private final CorePluginManagement plugins;
     private final CoreLogWindow logWindow;
+    private final KeybindingsWindow keybindingsWindow;
     private JDialog settingsDialog;
     private JDialog pluginsDialog;
     private JDialog pluginDetailsDialog;
@@ -79,12 +80,14 @@ final class CoreWindows implements AutoCloseable {
             final RuntimeSettingsService settings,
             final SettingsContributionSource settingsContributions,
             final CorePluginManagement plugins,
-            final RuntimeLogReader logs) {
+            final RuntimeLogReader logs,
+            final dev.turboism.internal.core.KeybindingService keybindings) {
         this.i18n = Objects.requireNonNull(i18n, "i18n");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.settingsContributions = Objects.requireNonNull(settingsContributions, "settingsContributions");
         this.plugins = Objects.requireNonNull(plugins, "plugins");
         this.logWindow = new CoreLogWindow(i18n, logs);
+        this.keybindingsWindow = new KeybindingsWindow(i18n, keybindings);
     }
 
     void showSettings() {
@@ -107,6 +110,10 @@ final class CoreWindows implements AutoCloseable {
         logWindow.show();
     }
 
+    void showKeybindings() {
+        keybindingsWindow.show();
+    }
+
     void showAbout() {
         CoreDialogs.onEdt(() -> {
             if (aboutDialog == null) aboutDialog = createAboutDialog();
@@ -120,6 +127,7 @@ final class CoreWindows implements AutoCloseable {
         pluginDetailsExecutor.shutdownNow();
         CoreDialogs.onEdt(() -> {
             logWindow.close();
+            keybindingsWindow.close();
             final ActiveSettingsAction active = activeSettingsAction;
             activeSettingsAction = null;
             if (active != null) {
