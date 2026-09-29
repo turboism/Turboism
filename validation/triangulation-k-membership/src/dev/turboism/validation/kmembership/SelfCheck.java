@@ -84,50 +84,56 @@ public final class SelfCheck {
         return rec.o;
     }
 
-    /** Deliberately wrong candidate — directed key only. Must be rejected. */
+    /** Deliberately wrong candidate — identical structure to CandTriangleList.b()
+     *  (three getters first, same ordinals, same event/snapshot pattern); only the
+     *  membership key keeps direction. Must be rejected on reversed-duplicate input. */
+    static boolean queryDirected(java.util.HashSet<Long> seen, EdgeJ j) {
+        kotlin.jvm.internal.Intrinsics.checkNotNullParameter(j, "edge");
+        int i0 = j.a().getIndex(), i1 = j.b().getIndex();
+        return !seen.add(((long) i0 << 32) | (i1 & 0xffffffffL));
+    }
     static Outcome runBrokenDirected(LinkedHashSet<TriL> tris) {
+        Recorder rec = new Recorder();
         EdgeK k = new EdgeK();
+        rec.live = k;
         java.util.HashSet<Long> seen = new java.util.HashSet<>();
-        Outcome o = new Outcome();
         try {
             for (TriL tri : tris) {
-                for (EdgeJ j : new EdgeJ[] { tri.d(), tri.e(), tri.f() }) {
-                    o.steps.add(new Step(0, tri, -1, null, null));
-                    kotlin.jvm.internal.Intrinsics.checkNotNullParameter(j, "edge");
-                    int i0 = j.a().getIndex(), i1 = j.b().getIndex();
-                    boolean contained = !seen.add(((long) i0 << 32) | (i1 & 0xffffffffL));
-                    o.steps.add(new Step(1, j, -1, contained, new ArrayList<>(k.a())));
-                    if (!contained) {
-                        boolean added = k.a(j);
-                        o.steps.add(new Step(2, j, -1, added, new ArrayList<>(k.a())));
-                    }
-                }
+                rec.getter(tri, 0); EdgeJ j4 = tri.d();
+                rec.getter(tri, 1); EdgeJ j5 = tri.e();
+                rec.getter(tri, 2); EdgeJ j6 = tri.f();
+                boolean p4 = queryDirected(seen, j4); rec.query(j4, p4);
+                if (!p4) rec.append(j4, k.a(j4));
+                boolean p5 = queryDirected(seen, j5); rec.query(j5, p5);
+                if (!p5) rec.append(j5, k.a(j5));
+                boolean p6 = queryDirected(seen, j6); rec.query(j6, p6);
+                if (!p6) rec.append(j6, k.a(j6));
             }
-            o.finalList = new ArrayList<>(k.a());
-        } catch (Throwable t) { o.thrown = t; }
-        return o;
+            rec.o.finalList = new ArrayList<>(k.a());
+        } catch (Throwable t) { rec.o.thrown = t; }
+        return rec.o;
     }
 
     /** Deliberately wrong candidate — queries run BEFORE the remaining getters are
      *  read (getter/query reorder). Must be rejected by event-order comparison. */
     static Outcome runBrokenReordered(LinkedHashSet<TriL> tris) {
+        Recorder rec = new Recorder();
         EdgeK k = new EdgeK();
+        rec.live = k;
         java.util.HashSet<Long> seen = new java.util.HashSet<>();
-        Outcome o = new Outcome();
         try {
             for (TriL tri : tris) {
                 for (int i = 0; i < 3; i++) {
                     EdgeJ j = i == 0 ? tri.d() : i == 1 ? tri.e() : tri.f();
-                    o.steps.add(new Step(0, tri, i, null, null));
+                    rec.getter(tri, i);
                     boolean contained = CandTriangleList.queryLocal(seen, j);
-                    o.steps.add(new Step(1, j, -1, contained, new ArrayList<>(k.a())));
-                    if (!contained)
-                        o.steps.add(new Step(2, j, -1, k.a(j), new ArrayList<>(k.a())));
+                    rec.query(j, contained);
+                    if (!contained) rec.append(j, k.a(j));
                 }
             }
-            o.finalList = new ArrayList<>(k.a());
-        } catch (Throwable t) { o.thrown = t; }
-        return o;
+            rec.o.finalList = new ArrayList<>(k.a());
+        } catch (Throwable t) { rec.o.thrown = t; }
+        return rec.o;
     }
 
     static void diff(String tag, LinkedHashSet<TriL> input) {
@@ -136,6 +142,20 @@ public final class SelfCheck {
 
     static void reject(String tag, Outcome ref, Outcome cand) {
         assertTrue(!same(ref, cand), tag + " (negative control) must be rejected");
+    }
+
+    /** First differing step index across kind/which/arg/result/snapshot, or -1. */
+    static int firstDivergence(Outcome a, Outcome b) {
+        int n = Math.min(a.steps.size(), b.steps.size());
+        for (int i = 0; i < n; i++) {
+            Step sa = a.steps.get(i), sb = b.steps.get(i);
+            if (sa.kind != sb.kind || sa.which != sb.which) return i;
+            if (sa.arg != sb.arg) return i;
+            if (!java.util.Objects.equals(sa.result, sb.result)) return i;
+            if ((sa.snapshot == null) != (sb.snapshot == null)) return i;
+            if (sa.snapshot != null && !sameList(sa.snapshot, sb.snapshot)) return i;
+        }
+        return a.steps.size() == b.steps.size() ? -1 : n;
     }
 
     static boolean same(Outcome a, Outcome b) {
@@ -248,13 +268,27 @@ public final class SelfCheck {
                    && rN.thrown.getMessage().contains("Parameter specified as non-null"),
                    "null-edge ref intrinsic NPE");
         assertTrue(sameThrowable(rN.thrown, cN.thrown), "null-edge NPE narrow-normalized equal");
+        assertTrue(same(rN, cN), "null-edge full trace equal (getters recorded, no query)");
         // OUT OF DOMAIN (declared, not normalized): a STORED edge whose a()/b() returns
         // null — unconstructable under the Kotlin non-null contract; the linear scan
         // evaluates stored-endpoint accessors per element while the index reads the
         // query edge's endpoints, so fault order cannot be made identical here.
 
         // ---- comparator negative controls ------------------------------------
-        reject("directed-only candidate", runRef(shared), runBrokenDirected(shared));
+        // directed-key candidate: identical to Ref on inputs without reversed duplicates…
+        LinkedHashSet<TriL> noReversed = set(tri(edge(1,2), edge(2,3), edge(1,3)));
+        assertTrue(same(runRef(noReversed), runBrokenDirected(noReversed)),
+            "directed candidate agrees on input without reversed duplicates");
+        // …and must be rejected where a reversed shared edge flips a query result.
+        {
+            Outcome dr = runRef(shared), dc = runBrokenDirected(shared);
+            assertTrue(!same(dr, dc), "directed-only candidate rejected on reversed edge");
+            int d = firstDivergence(dr, dc);
+            assertTrue(d >= 0, "directed-only divergence located");
+            Step sd = dr.steps.get(d);
+            assertTrue(sd.kind == 1 || sd.kind == 2,
+                "directed-only first divergence is a query/append step, not getter");
+        }
 
         Outcome r2 = runRef(shared), c2 = runCand(shared);
         // forged list: equal-index NEW edge objects -> identity reject
