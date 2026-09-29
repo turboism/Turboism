@@ -5,6 +5,8 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 
+import org.objectweb.asm.Opcodes;
+
 import dev.turboism.validation.kmembership.Fixture.CandTriangleList;
 import dev.turboism.validation.kmembership.Fixture.EdgeJ;
 import dev.turboism.validation.kmembership.Fixture.EdgeK;
@@ -325,6 +327,269 @@ public final class SelfCheck {
         assertTrue(refK.b(refK.a().get(0)) == candK.b(candK.a().get(0)), "post-return remove parity");
         assertTrue(sameList(refK.a(), candK.a()), "post-return full ordered reference parity");
 
+        wovenSuite(shared);
+
         System.out.println("KBUILD_SELFCHECK PASS checks=" + checks);
+    }
+
+    // ======================= woven-target acceptance =========================
+
+    static java.lang.Class<?> wovenClass;
+
+    /** Load the woven WeaveTarget bytes through a child loader (defines the class
+     *  itself; model classes + Helper resolve through the parent when present). */
+    static java.lang.Class<?> loadWoven(byte[] bytes) throws Exception {
+        String name = "dev.turboism.validation.kmembership.WeaveTarget";
+        // child-first for the target name only — otherwise parent delegation would
+        // silently load the UNWOVEN copy from classes-main.
+        ClassLoader cl = new ClassLoader(SelfCheck.class.getClassLoader()) {
+            @Override public Class<?> loadClass(String n, boolean resolve)
+                    throws ClassNotFoundException {
+                synchronized (getClassLoadingLock(n)) {
+                    Class<?> c = findLoadedClass(n);
+                    if (c == null && n.equals(name))
+                        c = defineClass(n, bytes, 0, bytes.length);
+                    if (c == null) c = super.loadClass(n, false);
+                    if (resolve) resolveClass(c);
+                    return c;
+                }
+            }
+        };
+        return Class.forName(name, true, cl);
+    }
+
+    static byte[] targetBytes() throws Exception {
+        String res = "/dev/turboism/validation/kmembership/WeaveTarget.class";
+        try (java.io.InputStream is = SelfCheck.class.getResourceAsStream(res)) {
+            return is.readAllBytes();
+        }
+    }
+
+    static final class WovenOutcome {
+        List<EdgeJ> list; Throwable thrown;
+    }
+    static WovenOutcome runWoven(LinkedHashSet<TriL> tris) {
+        WovenOutcome o = new WovenOutcome();
+        try {
+            Object tl = wovenClass.getDeclaredConstructor(LinkedHashSet.class)
+                .newInstance(tris);
+            EdgeK k = (EdgeK) wovenClass.getMethod("b").invoke(tl);
+            o.list = new ArrayList<>(k.a());
+        } catch (java.lang.reflect.InvocationTargetException ite) {
+            o.thrown = ite.getCause();
+        } catch (Throwable t) { o.thrown = t; }
+        return o;
+    }
+
+    static void wovenSuite(LinkedHashSet<TriL> shared) {
+        try { wovenClass = loadWoven(Weave.weave(targetBytes())); }
+        catch (Throwable t) { System.out.println("FAIL weave/load " + t); System.exit(1); return; }
+
+        // normal path: helper really runs (not full fallback)
+        resetAll();
+        LinkedHashSet<TriL> in = set(
+            tri(edge(1,2), edge(2,3), edge(1,3)),
+            tri(edge(3,2), edge(2,4), edge(3,4)));
+        WovenOutcome w = runWoven(in);
+        assertTrue(w.thrown == null, "woven normal no throw");
+        assertTrue(Helper.NEWBOX_CALLS.get() == 1, "woven newBox=1 got " + Helper.NEWBOX_CALLS.get());
+        assertTrue(Helper.QUERIES.get() > 0, "woven helperQuery>0");
+        assertTrue(EdgeK.ORIGINAL_QUERIES.get() == 0,
+            "woven originalQuery=0 got " + EdgeK.ORIGINAL_QUERIES.get());
+        Outcome r = runRef(in);
+        assertTrue(w.list != null && sameList(w.list, r.finalList), "woven ordered reference parity");
+
+        // reversed-duplicate edge hits the index (membership) but original edge ref/order kept
+        assertTrue(w.list.size() == r.finalList.size(), "woven dedupe count parity");
+        for (int i = 0; i < w.list.size(); i++)
+            assertTrue(w.list.get(i) == r.finalList.get(i), "woven ref-identity idx" + i);
+
+        // init LinkageError -> every site takes original path exactly once
+        resetAll();
+        Helper.failNewBox = true;
+        WovenOutcome f = runWoven(in);
+        assertTrue(f.thrown == null, "newbox-fail no throw");
+        assertTrue(Helper.QUERIES.get() == 0, "newbox-fail helperQuery=0");
+        assertTrue(EdgeK.ORIGINAL_QUERIES.get() == 6, "newbox-fail original=6 got "
+            + EdgeK.ORIGINAL_QUERIES.get());
+        assertTrue(sameList(f.list, runRef(in).finalList), "newbox-fail parity");
+        Helper.failNewBox = false;
+
+        // LinkageError at query #N -> permanent local null, no more helper calls
+        resetAll();
+        Helper.failQueryAt = 5;
+        runWoven(in);   // 6 query positions; failure at 5th
+        assertTrue(Helper.QUERIES.get() == 5, "fail@5 helperQuery==5 got " + Helper.QUERIES.get());
+        assertTrue(EdgeK.ORIGINAL_QUERIES.get() == 2,
+            "fail@5 original==2 got " + EdgeK.ORIGINAL_QUERIES.get());
+        Helper.failQueryAt = -1;
+
+        // null edge -> original query -> real NPE
+        resetAll();
+        WovenOutcome n = runWoven(set(new TriL(null, edge(1,2), edge(2,3))));
+        assertTrue(n.thrown instanceof NullPointerException, "woven null-edge NPE");
+        assertTrue(n.thrown.getMessage() != null
+            && n.thrown.getMessage().contains("Parameter specified as non-null"),
+            "woven null-edge intrinsic NPE");
+        assertTrue(Helper.QUERIES.get() == 0, "null-edge helperQuery=0");
+
+        // RuntimeException propagates; no retry of original query
+        resetAll();
+        Helper.injectError = 1;
+        WovenOutcome re = runWoven(in);
+        assertTrue(re.thrown instanceof RuntimeException
+            && "injected-re".equals(re.thrown.getMessage()), "woven RE propagates");
+        assertTrue(EdgeK.ORIGINAL_QUERIES.get() == 0, "RE no original retry");
+        Helper.injectError = 0;
+
+        // ThreadDeath and VirtualMachineError propagate
+        resetAll();
+        Helper.injectError = 2;
+        WovenOutcome td = runWoven(in);
+        assertTrue(td.thrown instanceof ThreadDeath, "woven ThreadDeath propagates");
+        Helper.injectError = 0;
+        resetAll();
+        Helper.injectError = 3;
+        WovenOutcome ve = runWoven(in);
+        assertTrue(ve.thrown instanceof VirtualMachineError, "woven VMErr propagates");
+        Helper.injectError = 0;
+
+        // repeated b() calls: independent boxes
+        resetAll();
+        runWoven(in); runWoven(in);
+        assertTrue(Helper.NEWBOX_CALLS.get() == 2, "two calls -> two boxes");
+        assertTrue(Helper.QUERIES.get() == 12, "two calls -> 12 helper queries");
+
+        // empty input: init runs once, zero queries; extra allocs reported
+        resetAll();
+        WovenOutcome e = runWoven(set());
+        assertTrue(Helper.NEWBOX_CALLS.get() == 1 && Helper.QUERIES.get() == 0,
+            "empty input newBox=1 query=0");
+        System.out.println("KBUILD_WOVEN_EMPTY boxAllocs=" + Helper.BOX_ALLOCS.get()
+            + " setAllocs=" + Helper.SET_ALLOCS.get());
+
+        shapeRejects();
+    }
+
+    static void resetAll() { Helper.reset(); EdgeK.ORIGINAL_QUERIES.set(0); }
+
+    /** Shape-gate negative controls: reject AND return bytes unchanged. */
+    static void shapeRejects() {
+        try {
+            byte[] orig = targetBytes();
+            // true-operand variant: patch one iconst_0 -> iconst_1
+            byte[] trueVar = mutateZtoTrue(orig);
+            byte[] out = Weave.weave(trueVar);
+            assertTrue(java.util.Arrays.equals(out, trueVar), "true-Z rejected bytes unchanged");
+            assertTrue(out == trueVar, "reject returns original array");
+            // wrong-owner variant: retarget one query call to Object.toString desc mismatch
+            byte[] badOwner = retargetQueryDesc(orig);
+            assertTrue(java.util.Arrays.equals(Weave.weave(badOwner), badOwner),
+                "wrong owner/desc rejected unchanged");
+            // wrong site count: drop one query call -> 2 queries
+            byte[] fewer = dropOneQuery(orig);
+            assertTrue(java.util.Arrays.equals(Weave.weave(fewer), fewer),
+                "site-count-2 rejected unchanged");
+        } catch (Throwable t) { System.out.println("FAIL shapeRejects " + t); System.exit(1); }
+    }
+
+    /** Replace first ICONST_0 in b() with ICONST_1 (true-operand variant). */
+    static byte[] mutateZtoTrue(byte[] in) {
+        org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(in).accept(
+            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, cw) {
+                boolean patched;
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(
+                        int acc, String name, String desc, String sig, String[] exc) {
+                    org.objectweb.asm.MethodVisitor mv =
+                        super.visitMethod(acc, name, desc, sig, exc);
+                    if (!name.equals("b") || mv == null) return mv;
+                    return new org.objectweb.asm.MethodVisitor(
+                            org.objectweb.asm.Opcodes.ASM9, mv) {
+                        @Override public void visitInsn(int op) {
+                            if (!patched && op == org.objectweb.asm.Opcodes.ICONST_0) {
+                                patched = true;
+                                super.visitInsn(org.objectweb.asm.Opcodes.ICONST_1);
+                                return;
+                            }
+                            super.visitInsn(op);
+                        }
+                    };
+                }
+            }, 0);
+        return cw.toByteArray();
+    }
+    /** Retarget the first query call's descriptor to (Ljava/lang/Object;Z)Z. */
+    static byte[] retargetQueryDesc(byte[] in) {
+        org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(in).accept(
+            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, cw) {
+                boolean patched;
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(
+                        int acc, String name, String desc, String sig, String[] exc) {
+                    org.objectweb.asm.MethodVisitor mv =
+                        super.visitMethod(acc, name, desc, sig, exc);
+                    if (!name.equals("b") || mv == null) return mv;
+                    return new org.objectweb.asm.MethodVisitor(
+                            org.objectweb.asm.Opcodes.ASM9, mv) {
+                        @Override public void visitMethodInsn(int op, String o,
+                                String n, String d, boolean itf) {
+                            if (!patched && op == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                                    && o.equals(Weave.KTYPE)
+                                    && d.equals(Weave.QUERY_DESC)) {
+                                patched = true;
+                                super.visitMethodInsn(op, o, n,
+                                    "(Ljava/lang/Object;Z)Z", itf);
+                                return;
+                            }
+                            super.visitMethodInsn(op, o, n, d, itf);
+                        }
+                    };
+                }
+            }, 0);
+        return cw.toByteArray();
+    }
+    /** Remove the first full 4-insn query sequence (site count becomes 2). */
+    static byte[] dropOneQuery(byte[] in) {
+        org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(in).accept(
+            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, cw) {
+                int siteStart = -1;
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(
+                        int acc, String name, String desc, String sig, String[] exc) {
+                    org.objectweb.asm.MethodVisitor mv =
+                        super.visitMethod(acc, name, desc, sig, exc);
+                    if (!name.equals("b") || mv == null) return mv;
+                    return new org.objectweb.asm.MethodVisitor(
+                            org.objectweb.asm.Opcodes.ASM9, mv) {
+                        int idx = -1;
+                        final java.util.List<int[]> trail = new java.util.ArrayList<>();
+                        int dropUntil = -1;
+                        void tick() {
+                            idx++;
+                            trail.add(new int[]{idx});
+                            if (trail.size() > 8) trail.remove(0);
+                        }
+                        boolean drop() { return idx <= dropUntil; }
+                        @Override public void visitMethodInsn(int op, String o,
+                                String n, String d, boolean itf) {
+                            tick();
+                            if (siteStart < 0 && op == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                                    && o.equals(Weave.KTYPE) && d.equals(Weave.QUERY_DESC)) {
+                                siteStart = trail.get(trail.size() - 4)[0];
+                                dropUntil = siteStart + 3;
+                            }
+                            if (!drop()) super.visitMethodInsn(op, o, n, d, itf);
+                        }
+                        @Override public void visitInsn(int op) {
+                            tick(); if (!drop()) super.visitInsn(op);
+                        }
+                        @Override public void visitVarInsn(int op, int v) {
+                            tick(); if (!drop()) super.visitVarInsn(op, v);
+                        }
+                    };
+                }
+            }, 0);
+        return cw.toByteArray();
     }
 }

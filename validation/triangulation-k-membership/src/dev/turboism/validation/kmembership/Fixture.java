@@ -79,6 +79,9 @@ public final class Fixture {
 
     /** Faithful port of k: live ArrayList, identical method set, real Intrinsics. */
     public static class EdgeK {
+        /** Test instrumentation: real linear query invocations (original path). */
+        public static final java.util.concurrent.atomic.AtomicInteger ORIGINAL_QUERIES
+            = new java.util.concurrent.atomic.AtomicInteger();
         protected final ArrayList<EdgeJ> a = new ArrayList<>();
         public ArrayList<EdgeJ> a() { return a; }
         public int b() { return a.size(); }
@@ -92,6 +95,7 @@ public final class Fixture {
             return a.remove(j);
         }
         public boolean a(EdgeJ j, boolean directed) {
+            ORIGINAL_QUERIES.incrementAndGet();
             kotlin.jvm.internal.Intrinsics.checkNotNullParameter(j, "edge");
             for (EdgeJ e : a) {
                 if (directed) {
