@@ -1,0 +1,5 @@
+-cp
+/tmp/nonexistent:validation/../../triangulation-identity-probe/deps/asm-9.7.1.jar
+-d
+/tmp/wtest
+src/dev/turboism/validation/kmembership/Weave.java
