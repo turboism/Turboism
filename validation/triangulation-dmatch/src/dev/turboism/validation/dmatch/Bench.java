@@ -84,7 +84,8 @@ public final class Bench {
     public static void main(String[] args) {
         Impl ref = Shadow::matchRef;
         Impl cand = Shadow::matchCand;
-        int[][] sizes = {{0, 0}, {1, 1}, {2, 2}, {16, 16}, {64, 64}, {128, 64}, {128, 128}};
+        int[][] sizes = {{0, 0}, {1, 1}, {2, 2}, {16, 16}, {64, 64}, {128, 64}, {128, 128},
+            {512, 400}, {1200, 800}};
         for (int[] s : sizes) {
             Object[] in = input(s[0], s[1]);
             ShadowK k = (ShadowK) in[0];
