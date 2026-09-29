@@ -6,31 +6,53 @@ import java.util.regex.Pattern;
 import dev.turboism.validation.kmembership.Weave;
 
 /**
- * System-property contract for the T029-TRIAB dump+weave agent. Every field needed for a gated
- * run is mandatory and validated; invalid admission config must refuse installation, never
- * throw out of premain.
+ * System-property contract for the T029 dump+weave agents. Two independent
+ * property namespaces share this config:
  *
- * Target constants (owner / descriptor / anchor shape) are pinned from javap evidence on the
- * reviewed official jar — see DESIGN.md. They are compile-time constants, not configurable
- * properties; the only target variation is the {@code shadow-selfcheck} test profile that lets
- * the offline fixture drive the SAME code path under its own owner names.
+ * <ul>
+ *   <li>{@code turboism.validation.triWeave.*} — T029-TRIAB: the candidate weave and
+ *       the return capture both target {@code TriangleList.b()Lk;}.</li>
+ *   <li>{@code turboism.validation.dmWeave.*} — T029-DWEAVE: the candidate weave
+ *       targets {@code h.c()V} (single {@code new ArrayList} -> MatchList), while
+ *       the SAME capture still observes {@code TriangleList.b()Lk;} — a two-class
+ *       target set.</li>
+ * </ul>
+ *
+ * Enabling both namespaces is an admission conflict and refuses installation.
+ * Every field needed for a gated run is mandatory and validated; invalid
+ * admission config must refuse installation, never throw out of premain.
+ *
+ * Target constants (owner / descriptor / pinned shape) are compile-time
+ * constants derived from javap evidence on the reviewed official jar — see
+ * DESIGN.md files of triangulation-weave-ab and triangulation-dweave. The only
+ * target variation is the {@code *-selfcheck} test profile that lets the offline
+ * fixtures drive the SAME code path under their own owner names.
  */
 public final class WeaveAbConfig {
-    static final String PREFIX = "turboism.validation.triWeave.";
-    static final String ENABLED = PREFIX + "enabled";
-    static final String MODE = PREFIX + "mode";
-    static final String PHASE = PREFIX + "phase";
-    static final String OUTPUT_DIR = PREFIX + "outputDir";
-    static final String RUN_ID = PREFIX + "runId";
-    static final String EXPECT_CLASS_SHA = PREFIX + "expectClassSha256";
-    static final String EXPECT_LOADER = PREFIX + "expectLoader";
-    static final String EXPECT_CODESOURCE = PREFIX + "expectCodeSource";
-    static final String CAPTURE_N = PREFIX + "captureN";
+    static final String TRI_PREFIX = "turboism.validation.triWeave.";
+    static final String DM_PREFIX = "turboism.validation.dmWeave.";
+
+    /** Property key names relative to each namespace prefix. */
+    static final String ENABLED = "enabled";
+    static final String MODE = "mode";
+    static final String PHASE = "phase";
+    static final String OUTPUT_DIR = "outputDir";
+    static final String RUN_ID = "runId";
+    /** SHA-256 of the candidate-weave class (TriangleList for TRIAB, h for DWEAVE). */
+    static final String EXPECT_CLASS_SHA = "expectClassSha256";
+    /** SHA-256 of the captured class when it differs from the weave class
+     *  (DWEAVE only; for TRIAB it must be absent or equal to expectClassSha256). */
+    static final String EXPECT_CAPTURE_SHA = "expectCaptureClassSha256";
+    static final String EXPECT_LOADER = "expectLoader";
+    static final String EXPECT_CODESOURCE = "expectCodeSource";
+    static final String CAPTURE_N = "captureN";
     /** Test-only: selects the shadow-fixture target set. Never part of host admission. */
-    static final String PROFILE = PREFIX + "profile";
+    static final String PROFILE = "profile";
 
     public static final String MODE_DUMP_ONLY = "dump-only";
     public static final String MODE_DUMP_WEAVE = "dump+weave";
+    public static final String MODE_DM_DUMP_ONLY = "dm-dump-only";
+    public static final String MODE_DM_DUMP_WEAVE = "dm-dump+weave";
 
     /** Official 5.3.03 TriangleList.class sha256 (jar bd0a23b9...) — same digest the
      *  T029-IDENTITY probe pinned. */
@@ -49,9 +71,28 @@ public final class WeaveAbConfig {
         "dev/turboism/validation/triweave/Helper");
     static final String OFFICIAL_CAPTURE_INTERNAL =
         "dev/turboism/validation/triweave/Capture";
+    static final String OFFICIAL_CAPTURE_METHOD = "b";
+    static final String OFFICIAL_CAPTURE_DESC =
+        "()Lcom/live2d/graphics3d/editableMesh/triangulation/k;";
+
+    /** Official 5.3.03 h.class sha256 — javap/unzip read-only derived, never the
+     *  TriangleList digest. Same pin as triangulation-dweave/OfficialProbe. */
+    static final String OFFICIAL_H_INTERNAL =
+        "com/live2d/graphics3d/editableMesh/triangulation/h";
+    static final String OFFICIAL_H_CLASS_SHA256 =
+        "5aa7031e3726355fde25d6d4412f0a295a3725cb8e510a3076007f3270445f0d";
+    /** javap-pinned: c()V, ArrayList()V site on ASTORE slot 7, exactly two pattern
+     *  sites total (slots 7 and 8); only slot 7 is woven. */
+    static final dev.turboism.validation.dweave.Weave.Config OFFICIAL_DM_WEAVE =
+        new dev.turboism.validation.dweave.Weave.Config(
+            "c", "()V", "java/util/ArrayList", "()V", 7, 2,
+            "dev/turboism/validation/dweave/MatchList");
 
     static final String PROFILE_OFFICIAL = "official";
     static final String PROFILE_SHADOW = "shadow-selfcheck";
+    static final String PROFILE_DM_OFFICIAL = "dm-official";
+    static final String PROFILE_DM_SHADOW = "dm-shadow-selfcheck";
+
     static final String SHADOW_TARGET_INTERNAL =
         "dev/turboism/validation/triweave/shadow/ShadowTriangleList";
     /** Shadow target names differ on purpose: this proves the weave is driven by the
@@ -64,6 +105,21 @@ public final class WeaveAbConfig {
         "dev/turboism/validation/triweave/shadow/ShadowHelper");
     static final String SHADOW_CAPTURE_INTERNAL =
         "dev/turboism/validation/triweave/shadow/ShadowCapture";
+    static final String SHADOW_CAPTURE_METHOD = "produce";
+    static final String SHADOW_CAPTURE_DESC =
+        "()Ldev/turboism/validation/triweave/shadow/ShadowK;";
+
+    static final String SHADOW_H_INTERNAL =
+        "dev/turboism/validation/triweave/shadow/ShadowH";
+    static final String SHADOW_MATCHLIST_INTERNAL =
+        "dev/turboism/validation/triweave/shadow/ShadowMatchList";
+    /** Pinned ASTORE slot of the ShadowH Phase-3 site (javap-verified on the
+     *  fixture build); second site lives on a different slot, total sites = 2. */
+    static final int SHADOW_H_PINNED_SLOT = 1;
+    static final dev.turboism.validation.dweave.Weave.Config SHADOW_DM_WEAVE =
+        new dev.turboism.validation.dweave.Weave.Config(
+            "c", "()V", "java/util/ArrayList", "()V", SHADOW_H_PINNED_SLOT, 2,
+            SHADOW_MATCHLIST_INTERNAL);
 
     static final String DEFAULT_LOADER = "jdk.internal.loader.ClassLoaders$AppClassLoader";
     static final int MAX_CAPTURE = 4;
@@ -72,39 +128,147 @@ public final class WeaveAbConfig {
     static final Pattern RUN_ID_OK = Pattern.compile("[A-Za-z0-9._-]{1,32}");
     static final Pattern SHA_OK = Pattern.compile("[0-9a-fA-F]{64}");
 
-    public final boolean enabled = "true".equals(System.getProperty(ENABLED));
-    public final String mode = System.getProperty(MODE, "");
-    public final String phase = System.getProperty(PHASE, "unlabelled");
-    public final String outputDir = System.getProperty(OUTPUT_DIR, "");
-    public final String runId = System.getProperty(RUN_ID, "");
-    public final String profile = System.getProperty(PROFILE, PROFILE_OFFICIAL);
+    /** One class the transformer watches: identity gate + optional candidate weave
+     *  + optional return capture. */
+    public static final class Target {
+        public final String internal;
+        public final String expectSha;
+        /** KWEAVE membership transform (TRIAB); mutually exclusive with matchListWeave. */
+        public final Weave.Config membershipWeave;
+        /** DWEAVE single-allocation-site transform; mutually exclusive with membershipWeave. */
+        public final dev.turboism.validation.dweave.Weave.Config matchListWeave;
+        public final String captureMethod;
+        public final String captureDesc;
+        public final String captureInternal;
+        /** Helper internal name the woven path must resolve (null when no weave). */
+        public final String candidateHelperInternal;
+        /** Per-class definition-event counter for the observe budget. */
+        final java.util.concurrent.atomic.AtomicInteger events =
+            new java.util.concurrent.atomic.AtomicInteger();
+        /** Per-class overflow marker (one line per class). */
+        final java.util.concurrent.atomic.AtomicBoolean overflow =
+            new java.util.concurrent.atomic.AtomicBoolean();
+
+        Target(String internal, String expectSha, Weave.Config membershipWeave,
+                dev.turboism.validation.dweave.Weave.Config matchListWeave,
+                String captureMethod, String captureDesc, String captureInternal) {
+            this.internal = internal;
+            this.expectSha = expectSha;
+            this.membershipWeave = membershipWeave;
+            this.matchListWeave = matchListWeave;
+            this.captureMethod = captureMethod;
+            this.captureDesc = captureDesc;
+            this.captureInternal = captureInternal;
+            this.candidateHelperInternal = membershipWeave != null
+                ? membershipWeave.helperInternal
+                : matchListWeave != null ? matchListWeave.matchListInternal : null;
+        }
+    }
+
+    public final boolean enabled;
+    /** Both namespaces enabled — ambiguous admission, refuse installation. */
+    public final boolean namespaceConflict;
+    /** True when the dmWeave namespace drove this config. */
+    public final boolean dm;
+    public final String mode;
+    public final String phase;
+    public final String outputDir;
+    public final String runId;
+    public final String profile;
     public final String expectClassSha;
+    public final String expectCaptureClassSha;
     public final String expectLoader;
-    public final String expectCodeSource = System.getProperty(EXPECT_CODESOURCE, "");
+    public final String expectCodeSource;
     public final int captureN;
 
-    /** Resolved from the profile — the only source of target shape. */
-    public final String targetInternal;
-    public final Weave.Config weave;
-    public final String captureInternal;
+    /** Resolved target set — the only source of transform shape. */
+    public final Target[] targets;
+    /** Candidate helper of this profile's weave target (Params/helperLinked + premain warm). */
+    public final String candidateHelperInternal;
 
     public WeaveAbConfig() {
-        boolean shadow = PROFILE_SHADOW.equals(profile);
-        this.targetInternal = shadow ? SHADOW_TARGET_INTERNAL : OFFICIAL_TARGET_INTERNAL;
-        this.weave = shadow ? SHADOW_WEAVE : OFFICIAL_WEAVE;
-        this.captureInternal = shadow ? SHADOW_CAPTURE_INTERNAL : OFFICIAL_CAPTURE_INTERNAL;
-        this.expectClassSha = System.getProperty(EXPECT_CLASS_SHA,
-            shadow ? "" : OFFICIAL_CLASS_SHA256);
-        this.expectLoader = System.getProperty(EXPECT_LOADER,
-            shadow ? "" : DEFAULT_LOADER);
+        boolean triEnabled = "true".equals(System.getProperty(TRI_PREFIX + ENABLED));
+        boolean dmEnabled = "true".equals(System.getProperty(DM_PREFIX + ENABLED));
+        this.enabled = triEnabled || dmEnabled;
+        this.namespaceConflict = triEnabled && dmEnabled;
+        this.dm = dmEnabled;
+        String prefix = dm ? DM_PREFIX : TRI_PREFIX;
+
+        this.mode = System.getProperty(prefix + MODE, "");
+        this.phase = System.getProperty(prefix + PHASE, "unlabelled");
+        this.outputDir = System.getProperty(prefix + OUTPUT_DIR, "");
+        this.runId = System.getProperty(prefix + RUN_ID, "");
+        this.profile = System.getProperty(prefix + PROFILE,
+            dm ? PROFILE_DM_OFFICIAL : PROFILE_OFFICIAL);
+        this.expectClassSha = System.getProperty(prefix + EXPECT_CLASS_SHA,
+            defaultWeaveSha());
+        this.expectCaptureClassSha = System.getProperty(prefix + EXPECT_CAPTURE_SHA,
+            defaultCaptureSha());
+        this.expectLoader = System.getProperty(prefix + EXPECT_LOADER,
+            shadowProfile() ? "" : DEFAULT_LOADER);
+        this.expectCodeSource = System.getProperty(prefix + EXPECT_CODESOURCE, "");
         int n;
         try {
-            n = Integer.parseInt(System.getProperty(CAPTURE_N,
+            n = Integer.parseInt(System.getProperty(prefix + CAPTURE_N,
                 Integer.toString(DEFAULT_CAPTURE)));
         } catch (NumberFormatException e) {
             n = -1;
         }
         this.captureN = n;
+        this.targets = buildTargets();
+        String helper = null;
+        for (Target t : targets) {
+            if (t.candidateHelperInternal != null) { helper = t.candidateHelperInternal; break; }
+        }
+        this.candidateHelperInternal = helper;
+    }
+
+    private boolean shadowProfile() {
+        return PROFILE_SHADOW.equals(profile) || PROFILE_DM_SHADOW.equals(profile);
+    }
+
+    private String defaultWeaveSha() {
+        if (PROFILE_SHADOW.equals(profile) || PROFILE_DM_SHADOW.equals(profile)) return "";
+        return dm ? OFFICIAL_H_CLASS_SHA256 : OFFICIAL_CLASS_SHA256;
+    }
+
+    private String defaultCaptureSha() {
+        // TRIAB: the captured class IS the weave class — same sha in every profile,
+        // so expectCaptureClassSha256 only needs to be passed to diverge (refused).
+        if (!dm) return expectClassSha;
+        if (PROFILE_DM_SHADOW.equals(profile)) return "";
+        // DWEAVE: capture is on TriangleList — independent identity digest.
+        return OFFICIAL_CLASS_SHA256;
+    }
+
+    private Target[] buildTargets() {
+        if (dm) {
+            if (PROFILE_DM_SHADOW.equals(profile)) {
+                return new Target[] {
+                    new Target(SHADOW_H_INTERNAL, expectClassSha, null, SHADOW_DM_WEAVE,
+                        null, null, null),
+                    new Target(SHADOW_TARGET_INTERNAL, expectCaptureClassSha, null, null,
+                        SHADOW_CAPTURE_METHOD, SHADOW_CAPTURE_DESC, SHADOW_CAPTURE_INTERNAL),
+                };
+            }
+            return new Target[] {
+                new Target(OFFICIAL_H_INTERNAL, expectClassSha, null, OFFICIAL_DM_WEAVE,
+                    null, null, null),
+                new Target(OFFICIAL_TARGET_INTERNAL, expectCaptureClassSha, null, null,
+                    OFFICIAL_CAPTURE_METHOD, OFFICIAL_CAPTURE_DESC, OFFICIAL_CAPTURE_INTERNAL),
+            };
+        }
+        boolean shadow = PROFILE_SHADOW.equals(profile);
+        return new Target[] {
+            new Target(
+                shadow ? SHADOW_TARGET_INTERNAL : OFFICIAL_TARGET_INTERNAL,
+                expectClassSha,
+                shadow ? SHADOW_WEAVE : OFFICIAL_WEAVE,
+                null,
+                shadow ? SHADOW_CAPTURE_METHOD : OFFICIAL_CAPTURE_METHOD,
+                shadow ? SHADOW_CAPTURE_DESC : OFFICIAL_CAPTURE_DESC,
+                shadow ? SHADOW_CAPTURE_INTERNAL : OFFICIAL_CAPTURE_INTERNAL),
+        };
     }
 
     /**
@@ -113,9 +277,14 @@ public final class WeaveAbConfig {
      */
     String validate() {
         if (!enabled) return "disabled";
-        if (!PROFILE_OFFICIAL.equals(profile) && !PROFILE_SHADOW.equals(profile))
-            return "profile-invalid";
-        if (!MODE_DUMP_ONLY.equals(mode) && !MODE_DUMP_WEAVE.equals(mode))
+        if (namespaceConflict) return "namespaces-conflict";
+        boolean profileOk = dm
+            ? (PROFILE_DM_OFFICIAL.equals(profile) || PROFILE_DM_SHADOW.equals(profile))
+            : (PROFILE_OFFICIAL.equals(profile) || PROFILE_SHADOW.equals(profile));
+        if (!profileOk) return "profile-invalid";
+        String weaveMode = dm ? MODE_DM_DUMP_WEAVE : MODE_DUMP_WEAVE;
+        String onlyMode = dm ? MODE_DM_DUMP_ONLY : MODE_DUMP_ONLY;
+        if (!onlyMode.equals(mode) && !weaveMode.equals(mode))
             return mode.isEmpty() ? "mode-missing" : "mode-invalid";
         if (outputDir.isEmpty()) return "outputDir-missing";
         try {
@@ -126,6 +295,10 @@ public final class WeaveAbConfig {
         }
         if (runId.isEmpty() || !RUN_ID_OK.matcher(runId).matches()) return "runId-invalid";
         if (!SHA_OK.matcher(expectClassSha).matches()) return "expectClassSha256-invalid";
+        if (!SHA_OK.matcher(expectCaptureClassSha).matches())
+            return "expectCaptureClassSha256-invalid";
+        if (!dm && !expectClassSha.equalsIgnoreCase(expectCaptureClassSha))
+            return "expectCaptureClassSha256-conflict";
         if (expectLoader.isEmpty()) return "expectLoader-missing";
         if (expectCodeSource.isEmpty()) return "expectCodeSource-missing";
         if (normalizeCodeSource(expectCodeSource) == null) return "expectCodeSource-invalid";
@@ -133,7 +306,14 @@ public final class WeaveAbConfig {
         return null;
     }
 
-    boolean woven() { return MODE_DUMP_WEAVE.equals(mode); }
+    boolean woven() {
+        return MODE_DUMP_WEAVE.equals(mode) || MODE_DM_DUMP_WEAVE.equals(mode);
+    }
+
+    /** True for the official (non-fixture) profiles of either namespace. */
+    boolean officialProfile() {
+        return PROFILE_OFFICIAL.equals(profile) || PROFILE_DM_OFFICIAL.equals(profile);
+    }
 
     /**
      * CodeSource comparison rule — identical to the T029-IDENTITY contract: real URI parsing,

@@ -6,33 +6,33 @@ import java.security.CodeSource;
 import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.HexFormat;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import dev.turboism.validation.kmembership.Weave;
+import dev.turboism.validation.triweave.WeaveAbConfig.Target;
 
 /**
- * Gated transformer for the T029-TRIAB A/B agent. Per target definition event (bounded to
- * four plus an overflow marker): record sha/loader/codeSource, apply the identity gates,
- * then
+ * Gated transformer for the T029 dump+weave A/B agents. Per target-class definition event
+ * (bounded to four plus an overflow marker, per class): record sha/loader/codeSource, apply
+ * the identity gates, then dispatch on the resolved target role:
  *
  * <ul>
- *   <li>{@code dump-only}: apply the capture weave only — the candidate transform is never
- *       attempted; Helper is never needed.</li>
- *   <li>{@code dump+weave}: require Helper resolvable through the target loader, apply the
- *       generalized KWEAVE candidate transform, then the identical capture weave.</li>
+ *   <li>TRIAB ({@code dump-only|dump+weave}): a single target — TriangleList.b() gets the
+ *       KWEAVE candidate weave (woven mode) and the return capture (both modes).</li>
+ *   <li>DWEAVE ({@code dm-dump-only|dm-dump+weave}): two targets — h.c() gets the
+ *       single-allocation-site MatchList weave in woven mode only (no capture on h),
+ *       TriangleList.b() gets the identical capture in both modes and no candidate.</li>
  * </ul>
  *
- * Any transform-level reject on pinned-correct bytes (helper missing in woven mode, capture
- * missing, candidate shape reject, capture shape reject) marks the leg INVALID — the class
- * is returned unmodified and the leg must not be silently graded as baseline.
+ * In any dump-only mode the candidate transform is never attempted and the candidate helper
+ * is never needed. Any transform-level reject on pinned-correct bytes (helper missing in
+ * woven mode, capture missing, candidate shape reject, capture shape reject) marks the leg
+ * INVALID — the class is returned unmodified and the leg must not be silently graded as
+ * baseline.
  */
 final class AbTransformer implements ClassFileTransformer {
     private static final int OBSERVE_BUDGET = 4;
 
     private final WeaveAbConfig config;
-    private final AtomicInteger eventSeq = new AtomicInteger();
-    private final AtomicBoolean overflowMarked = new AtomicBoolean();
 
     AbTransformer(WeaveAbConfig config) {
         this.config = config;
@@ -41,14 +41,15 @@ final class AbTransformer implements ClassFileTransformer {
     @Override
     public byte[] transform(Module module, ClassLoader loader, String className,
             Class<?> redefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) {
-        if (className == null || !className.equals(config.targetInternal)
-                || classfileBuffer == null) {
+        Target t = className == null ? null : targetOf(className);
+        if (t == null || classfileBuffer == null) {
             return null;
         }
-        int ev = eventSeq.incrementAndGet();
+        int ev = t.events.incrementAndGet();
         if (ev > OBSERVE_BUDGET) {
-            if (overflowMarked.compareAndSet(false, true)) {
+            if (t.overflow.compareAndSet(false, true)) {
                 observe(fields("seq", Integer.toString(ev),
+                        "class", className,
                         "overflow", "true", "droppedFurther", "true"));
             }
             return null;
@@ -57,69 +58,104 @@ final class AbTransformer implements ClassFileTransformer {
         String codeSource = codeSourceLocation(protectionDomain);
         String moduleName = module == null ? "null" : module.getName();
         observe(fields("seq", Integer.toString(ev),
+                "class", className,
                 "sha256", sha,
                 "loader", loaderToken(loader),
                 "module", moduleName,
                 "codeSource", codeSource));
         if (!config.expectLoader.equals(loader == null ? "bootstrap"
                 : loader.getClass().getName())) {
-            return reject(ev, "loader", "expected", config.expectLoader);
+            return reject(t, ev, "loader", "expected", config.expectLoader);
         }
-        if (!config.expectClassSha.equalsIgnoreCase(sha)) {
-            return reject(ev, "classSha", "expected", config.expectClassSha,
+        if (!t.expectSha.equalsIgnoreCase(sha)) {
+            return reject(t, ev, "classSha", "expected", t.expectSha,
                     "note", "sha-diff-is-not-attribution");
         }
         if (!WeaveAbConfig.codeSourceMatches(config.expectCodeSource, codeSource)) {
-            return reject(ev, "codeSource", "expected", config.expectCodeSource);
+            return reject(t, ev, "codeSource", "expected", config.expectCodeSource);
         }
 
         // --- resolvability gates on the TARGET loader (the callsite's resolver) ----------
-        if (config.woven() && !resolvable(config.weave.helperInternal, loader)) {
-            return legInvalid(ev, "helper-unavailable");
+        if (config.woven() && t.candidateHelperInternal != null
+                && !resolvable(t.candidateHelperInternal, loader)) {
+            return legInvalid(t, ev, "helper-unavailable");
         }
-        if (!resolvable(config.captureInternal, loader)) {
-            return legInvalid(ev, "capture-unavailable");
+        if (t.captureInternal != null && !resolvable(t.captureInternal, loader)) {
+            return legInvalid(t, ev, "capture-unavailable");
         }
 
         // --- candidate weave (woven leg only), then the identical capture weave ----------
         byte[] stage = classfileBuffer;
-        if (config.woven()) {
-            Weave.Result r = Weave.weaveChecked(config.weave, classfileBuffer);
-            if (r.rejectReason != null) {
-                return legInvalid(ev, "weave-reject:" + r.rejectReason);
+        String candidate = "none";
+        if (t.membershipWeave != null || t.matchListWeave != null) {
+            if (config.woven()) {
+                byte[] woven;
+                String reject;
+                if (t.membershipWeave != null) {
+                    Weave.Result r = Weave.weaveChecked(t.membershipWeave, stage);
+                    woven = r.bytes;
+                    reject = r.rejectReason;
+                } else {
+                    dev.turboism.validation.dweave.Weave.Result r =
+                        dev.turboism.validation.dweave.Weave.weaveChecked(
+                            t.matchListWeave, stage);
+                    woven = r.bytes;
+                    reject = r.rejectReason;
+                }
+                if (reject != null) {
+                    return legInvalid(t, ev, "weave-reject:" + reject);
+                }
+                stage = woven;
+                candidate = "applied";
+            } else {
+                candidate = "skipped";
             }
-            stage = r.bytes;
         }
-        CaptureWeave.Result c = CaptureWeave.weaveChecked(config.weave.methodName,
-            config.weave.methodDesc, config.captureInternal, stage);
-        if (c.rejectReason != null) {
-            return legInvalid(ev, "capture-reject:" + c.rejectReason);
+        String capture = "none";
+        if (t.captureInternal != null) {
+            CaptureWeave.Result c = CaptureWeave.weaveChecked(t.captureMethod,
+                t.captureDesc, t.captureInternal, stage);
+            if (c.rejectReason != null) {
+                return legInvalid(t, ev, "capture-reject:" + c.rejectReason);
+            }
+            stage = c.bytes;
+            capture = "applied";
         }
-        observe(fields("seq", Integer.toString(ev), "gate", "accept",
+        observe(fields("seq", Integer.toString(ev),
+                "class", className,
+                "gate", "accept",
                 "mode", config.mode,
-                "candidate", config.woven() ? "applied" : "skipped",
-                "capture", "applied"));
-        return c.bytes;
+                "candidate", candidate,
+                "capture", capture));
+        return stage == classfileBuffer ? null : stage;
     }
 
-    private byte[] reject(int ev, String reason, String... extra) {
-        observe(fields(rejectKv(ev, reason, extra)));
+    private Target targetOf(String className) {
+        for (Target t : config.targets) {
+            if (t.internal.equals(className)) return t;
+        }
         return null;
     }
 
-    private byte[] legInvalid(int ev, String reason) {
+    private byte[] reject(Target t, int ev, String reason, String... extra) {
+        observe(fields(rejectKv(t, ev, reason, extra)));
+        return null;
+    }
+
+    private byte[] legInvalid(Target t, int ev, String reason) {
         Sink.markInvalid(reason);
-        observe(fields(rejectKv(ev, reason, "legStatus", "INVALID")));
+        observe(fields(rejectKv(t, ev, reason, "legStatus", "INVALID")));
         report("leg-invalid reason=" + reason);
         return null;
     }
 
-    private static String[] rejectKv(int ev, String reason, String... rest) {
-        String[] kv = new String[6 + rest.length];
+    private static String[] rejectKv(Target t, int ev, String reason, String... rest) {
+        String[] kv = new String[8 + rest.length];
         kv[0] = "seq"; kv[1] = Integer.toString(ev);
-        kv[2] = "gate"; kv[3] = "reject";
-        kv[4] = "reason"; kv[5] = reason;
-        System.arraycopy(rest, 0, kv, 6, rest.length);
+        kv[2] = "class"; kv[3] = t.internal;
+        kv[4] = "gate"; kv[5] = "reject";
+        kv[6] = "reason"; kv[7] = reason;
+        System.arraycopy(rest, 0, kv, 8, rest.length);
         return kv;
     }
 
