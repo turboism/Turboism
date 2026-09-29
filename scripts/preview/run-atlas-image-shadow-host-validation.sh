@@ -35,6 +35,7 @@ usage() {
 Usage:
   run-atlas-image-shadow-host-validation.sh <5303|5203> <run-label>
     [--tri-identity-probe <path-to-pinned-tri-identity-probe.jar>]
+    [--tri-weave-ab <dump-only|dump+weave>]
     [--bundle-manifest <published manifest>]
     [--prepare-dir <directory> | --dry-run]
 
@@ -53,13 +54,29 @@ shift 2
 # T029-IDENTITY: the probe flag's version/label contract must reject before any other gate —
 # a wrong profile cannot even reach fixture resolution with the flag present.
 tri_identity_probe_flag=0
+tri_weave_ab_flag=0
 for arg in "$@"; do
   [[ "$arg" == --tri-identity-probe ]] && tri_identity_probe_flag=1
+  [[ "$arg" == --tri-weave-ab ]] && tri_weave_ab_flag=1
 done
 if [[ "$tri_identity_probe_flag" == 1 ]]; then
   [[ "$version" == 5303 ]] || fail '--tri-identity-probe is 5303-only'
   [[ "$run_label" == t029-identity-01-heavy-nolayout ]] \
     || fail '--tri-identity-probe requires the exact label t029-identity-01-heavy-nolayout'
+fi
+# T029-TRIAB: the dump+weave A/B flag is 5303-only and only ever runs on the interleaved
+# leg labels. A triab label without the flag would silently run baseline — fail closed
+# both directions; the mode/label consistency check runs after option parsing.
+tri_weave_leg=''
+if [[ "$run_label" =~ ^t029-triab-(base|woven)([0-9]+)-heavy-nolayout(-jfr)?$ ]]; then
+  tri_weave_leg="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+fi
+if [[ "$tri_weave_ab_flag" == 1 || -n "$tri_weave_leg" ]]; then
+  [[ "$version" == 5303 ]] || fail '--tri-weave-ab is 5303-only'
+  [[ -n "$tri_weave_leg" ]] \
+    || fail '--tri-weave-ab requires a label t029-triab-<base|woven><N>-heavy-nolayout[-jfr]'
+  [[ "$tri_weave_ab_flag" == 1 ]] \
+    || fail 'a t029-triab-* label requires --tri-weave-ab so the leg cannot run uninstrumented'
 fi
 case "$version" in
   5303)
@@ -351,6 +368,7 @@ manifest="${TURBOISM_ATLAS_IMAGE_SHADOW_BUNDLE_MANIFEST:-$root/build/preview/$wo
 prepare_dir=''
 dry_run=0
 tri_identity_probe=''
+tri_weave_ab=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bundle-manifest)
@@ -366,6 +384,10 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || fail 'missing --tri-identity-probe value'
       [[ -z "$tri_identity_probe" ]] || fail 'tri-identity probe supplied twice'
       tri_identity_probe="$2"; shift 2 ;;
+    --tri-weave-ab)
+      [[ $# -ge 2 ]] || fail 'missing --tri-weave-ab value'
+      [[ -z "$tri_weave_ab" ]] || fail 'tri-weave-ab supplied twice'
+      tri_weave_ab="$2"; shift 2 ;;
     --dry-run)
       [[ -z "$prepare_dir" && "$dry_run" == 0 ]] || fail 'prepare/dry-run may be selected once'
       dry_run=1; shift ;;
@@ -384,6 +406,33 @@ if [[ -n "$tri_identity_probe" ]]; then
   [[ "$(sha256sum "$tri_identity_probe" | cut -d' ' -f1)" == \
       9c4a4ccc37c630c8134428334cd4131faccf8f6250e6f45035c659b3bb10ab71 ]] \
     || fail 'tri-identity probe SHA-256 mismatch'
+fi
+
+# --tri-weave-ab (T029-TRIAB): the mode must match the leg token encoded in the label —
+# a base leg carrying dump+weave (or vice versa) would silently mislabel the verdict
+# direction. The agent jar is a new artifact: regular non-symlink file with the fixed
+# basename; its SHA-256 is recorded for the admission review rather than hard-pinned here.
+tri_weave_mode=''
+tri_weave_agent=''
+tri_weave_agent_sha256=''
+if [[ -n "$tri_weave_ab" ]]; then
+  case "$tri_weave_ab" in
+    dump-only|dump+weave) tri_weave_mode="$tri_weave_ab" ;;
+    *) fail '--tri-weave-ab mode must be dump-only or dump+weave' ;;
+  esac
+  tri_weave_expected=dump-only
+  [[ "$tri_weave_leg" == woven* ]] && tri_weave_expected='dump+weave'
+  [[ "$tri_weave_mode" == "$tri_weave_expected" ]] \
+    || fail "--tri-weave-ab $tri_weave_mode inconsistent with leg label $run_label"
+  tri_weave_agent="${TURBOISM_TRI_WEAVE_AGENT:-}"
+  [[ -n "$tri_weave_agent" ]] || fail '--tri-weave-ab requires TURBOISM_TRI_WEAVE_AGENT'
+  [[ "$tri_weave_agent" = /* ]] || fail 'tri-weave agent path must be absolute'
+  [[ -f "$tri_weave_agent" && ! -L "$tri_weave_agent" ]] \
+    || fail 'tri-weave agent is not a regular non-symlink file'
+  tri_weave_agent="$(realpath -e -- "$tri_weave_agent")"
+  [[ "$(basename -- "$tri_weave_agent")" == tri-weave-agent.jar ]] \
+    || fail 'tri-weave agent basename must be tri-weave-agent.jar'
+  tri_weave_agent_sha256="$(sha256sum "$tri_weave_agent" | cut -d' ' -f1)"
 fi
 
 [[ -f "$manifest" && ! -L "$manifest" ]] || fail "bundle manifest is not a regular file: $manifest"
@@ -510,6 +559,10 @@ fi
 if [[ -n "$tri_identity_probe" ]]; then
   runner_args+=(--aux-agent "$tri_identity_probe:tri-identity-probe.jar")
 fi
+# T029-TRIAB: the dump+weave aux agent premains after production and before the driver.
+if [[ -n "$tri_weave_mode" ]]; then
+  runner_args+=(--aux-agent "$tri_weave_agent:tri-weave-agent.jar")
+fi
 runner_args+=(
   --aux-agent "$driver:atlas-image-shadow-scene-driver.jar"
   --fixture-local "$fixture"
@@ -568,6 +621,26 @@ if [[ -n "$tri_identity_probe" ]]; then
     --jvm-option '-Dturboism.validation.triIdentity.expectClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29'
     --jvm-option '-Dturboism.validation.triIdentity.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader'
     --jvm-option '-Dturboism.validation.triIdentity.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar'
+  )
+fi
+
+# T029-TRIAB leg contract: nine fixed properties — no fixture hash, no test knobs, no
+# generic passthrough. runId is a bounded literal derived from the leg token (the task id
+# exceeds the 32-char runId cap). expectCodeSource doubles % so the launch.bat `set` line
+# leaves %20 for the JVM — same %%20 contract as the identity probe; the launch chain
+# reduced %% to % on the first leg (verified in the T029-IDENTITY host evidence). mode is
+# the leg token the label declared; captureN pinned to the 4-record bound.
+if [[ -n "$tri_weave_mode" ]]; then
+  runner_args+=(
+    --jvm-option '-Dturboism.validation.triWeave.enabled=true'
+    --jvm-option "-Dturboism.validation.triWeave.mode=$tri_weave_mode"
+    --jvm-option '-Dturboism.validation.triWeave.phase=t029-triab'
+    --jvm-option "-Dturboism.validation.triWeave.runId=triab-$tri_weave_leg"
+    --jvm-option '-Dturboism.validation.triWeave.outputDir={HOME}/tri-weave'
+    --jvm-option '-Dturboism.validation.triWeave.expectClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29'
+    --jvm-option '-Dturboism.validation.triWeave.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader'
+    --jvm-option '-Dturboism.validation.triWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar'
+    --jvm-option '-Dturboism.validation.triWeave.captureN=4'
   )
 fi
 
@@ -667,6 +740,10 @@ fi
 if [[ -n "$tilepatch_agent" ]]; then
   printf 'tilePatchAgentSha256=%s\n' "$tilepatch_agent_sha256" >&2
   printf 'tilePatchMode=%s\n' "$tilepatch_mode" >&2
+fi
+if [[ -n "$tri_weave_mode" ]]; then
+  printf 'triWeaveMode=%s\ntriWeaveAgentSha256=%s\ntriWeaveLeg=%s\n' \
+    "$tri_weave_mode" "$tri_weave_agent_sha256" "$tri_weave_leg" >&2
 fi
 
 # No hook, client, or collector option is permitted here; readiness is limited to the single
