@@ -34,6 +34,7 @@ usage() {
   cat >&2 <<'EOF'
 Usage:
   run-atlas-image-shadow-host-validation.sh <5303|5203> <run-label>
+    [--tri-identity-probe <path-to-pinned-tri-identity-probe.jar>]
     [--bundle-manifest <published manifest>]
     [--prepare-dir <directory> | --dry-run]
 
@@ -49,6 +50,17 @@ EOF
 version="$1"
 run_label="$2"
 shift 2
+# T029-IDENTITY: the probe flag's version/label contract must reject before any other gate —
+# a wrong profile cannot even reach fixture resolution with the flag present.
+tri_identity_probe_flag=0
+for arg in "$@"; do
+  [[ "$arg" == --tri-identity-probe ]] && tri_identity_probe_flag=1
+done
+if [[ "$tri_identity_probe_flag" == 1 ]]; then
+  [[ "$version" == 5303 ]] || fail '--tri-identity-probe is 5303-only'
+  [[ "$run_label" == t029-identity-01-heavy-nolayout ]] \
+    || fail '--tri-identity-probe requires the exact label t029-identity-01-heavy-nolayout'
+fi
 case "$version" in
   5303)
     official_jar_sha256=bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166
@@ -338,6 +350,7 @@ default_manifest_name=bundle.manifest
 manifest="${TURBOISM_ATLAS_IMAGE_SHADOW_BUNDLE_MANIFEST:-$root/build/preview/$worktree_id/atlas-image-shadow/$default_manifest_name}"
 prepare_dir=''
 dry_run=0
+tri_identity_probe=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bundle-manifest)
@@ -349,12 +362,29 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || fail 'missing --prepare-dir value'
       [[ -z "$prepare_dir" && "$dry_run" == 0 ]] || fail 'prepare/dry-run may be selected once'
       prepare_dir="$2"; shift 2 ;;
+    --tri-identity-probe)
+      [[ $# -ge 2 ]] || fail 'missing --tri-identity-probe value'
+      [[ -z "$tri_identity_probe" ]] || fail 'tri-identity probe supplied twice'
+      tri_identity_probe="$2"; shift 2 ;;
     --dry-run)
       [[ -z "$prepare_dir" && "$dry_run" == 0 ]] || fail 'prepare/dry-run may be selected once'
       dry_run=1; shift ;;
     *) usage ;;
   esac
 done
+
+# --tri-identity-probe (T029-IDENTITY): a single frozen diagnostic aux agent with the
+# strictest admission in this wrapper — only the pinned review build, only the exact frozen
+# run label, only under 5303 (the version/label contract already rejected above).
+if [[ -n "$tri_identity_probe" ]]; then
+  [[ "$tri_identity_probe" = /* ]] || fail 'tri-identity probe path must be absolute'
+  [[ -f "$tri_identity_probe" && ! -L "$tri_identity_probe" ]] \
+    || fail 'tri-identity probe is not a regular non-symlink file'
+  tri_identity_probe="$(realpath -e -- "$tri_identity_probe")"
+  [[ "$(sha256sum "$tri_identity_probe" | cut -d' ' -f1)" == \
+      9c4a4ccc37c630c8134428334cd4131faccf8f6250e6f45035c659b3bb10ab71 ]] \
+    || fail 'tri-identity probe SHA-256 mismatch'
+fi
 
 [[ -f "$manifest" && ! -L "$manifest" ]] || fail "bundle manifest is not a regular file: $manifest"
 manifest="$(realpath -e -- "$manifest")"
@@ -476,6 +506,10 @@ runner_args=(
 if [[ "$version" == 5303 ]]; then
   runner_args+=(--aux-agent "$t039_agent:t039-shadow-agent.jar")
 fi
+# T029-IDENTITY: probe premains after production and before the scene driver.
+if [[ -n "$tri_identity_probe" ]]; then
+  runner_args+=(--aux-agent "$tri_identity_probe:tri-identity-probe.jar")
+fi
 runner_args+=(
   --aux-agent "$driver:atlas-image-shadow-scene-driver.jar"
   --fixture-local "$fixture"
@@ -519,6 +553,23 @@ runner_args+=(
 # mesaGlThread (safeMode/hooks.disabledIds/launcher prefs), this unconditional wait would
 # need review; none of the pinned configs do that today.
 runner_args+=(--ready-marker 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE')
+
+# T029-IDENTITY probe admission contract: exactly seven fixed properties — no fixture hash,
+# no test knobs, no generic passthrough. runId is a bounded literal because the task id
+# exceeds the probe's 32-char runId cap. expectCodeSource doubles % so the launch.bat
+# `set` line leaves %20 for the JVM; this value is a first-leg safe-reject candidate —
+# a gate reject or missing files means missing evidence, never a retry.
+if [[ -n "$tri_identity_probe" ]]; then
+  runner_args+=(
+    --jvm-option '-Dturboism.validation.triIdentity.enabled=true'
+    --jvm-option '-Dturboism.validation.triIdentity.phase=t029-identity-01'
+    --jvm-option '-Dturboism.validation.triIdentity.runId=t029-id-01'
+    --jvm-option '-Dturboism.validation.triIdentity.outputDir={HOME}/tri-identity'
+    --jvm-option '-Dturboism.validation.triIdentity.expectClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29'
+    --jvm-option '-Dturboism.validation.triIdentity.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader'
+    --jvm-option '-Dturboism.validation.triIdentity.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar'
+  )
+fi
 
 # The 5303 profile pins the whole T039 property contract; the 5203 profile must carry
 # none of it (the driver fails closed if any t039.* leaks through).
