@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.warpalt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -152,8 +151,7 @@ final class NativeWarpAltMirrorBridgeWeightTest {
         selector.add(ref(0), 0.9f, true);
 
         assertEquals(2, selector.selected.size(), "stored counterpart plus the source — no duplicate");
-        assertTrue(selector.selected.stream().anyMatch(entry -> entry == stored),
-                "the stored ref instance is reused");
+        assertTrue(selector.selected.stream().anyMatch(entry -> entry == stored), "the stored ref instance is reused");
         assertEquals(0.9f, selector.weightMap.get(stored), 1.0e-6f);
         assertEquals(1, NativeWarpAltMirrorBridge.weightMirrorAppliedCount());
     }

@@ -266,9 +266,12 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
     /** Premain guarantee: the exact targets must not already be defined when we register. */
     private void rejectLoadedTargets() {
         for (final String name : List.of(
-                pointMoveClassName, dragTickClassName,
-                weightWriteClassName, greenTickClassName,
-                        actionDispatchClassName, inputIngressClassName)) {
+                pointMoveClassName,
+                dragTickClassName,
+                weightWriteClassName,
+                greenTickClassName,
+                actionDispatchClassName,
+                inputIngressClassName)) {
             for (final Class<?> type : instrumentation.getAllLoadedClasses()) {
                 if (name.equals(type.getName())) {
                     throw new IllegalStateException("warp alt mirror target is already loaded: " + name);
