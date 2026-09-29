@@ -22,15 +22,17 @@ public final class OfficialShapeProbe {
         }
         boolean triOk = false;
         boolean dmOk = false;
+        boolean tlOk = false;
         try (ZipFile zip = new ZipFile(args[0])) {
             byte[] tlBytes = entry(zip, WeaveAbConfig.OFFICIAL_TARGET_INTERNAL);
             if (tlBytes != null) triOk = triab(tlBytes);
+            if (tlBytes != null) tlOk = tlindex(tlBytes);
             byte[] hBytes = entry(zip, WeaveAbConfig.OFFICIAL_H_INTERNAL);
             if (hBytes != null) dmOk = dweave(hBytes, tlBytes);
         }
         System.out.println("officialClassLoaded=false");
-        boolean ok = triOk && dmOk;
-        System.out.println(ok ? "TRI_WEAVE_OFFICIAL_PROBE PASS triab=true dweave=true"
+        boolean ok = triOk && dmOk && tlOk;
+        System.out.println(ok ? "TRI_WEAVE_OFFICIAL_PROBE PASS triab=true dweave=true tlindex=true"
                               : "TRI_WEAVE_OFFICIAL_PROBE FAIL");
         if (!ok) System.exit(1);
     }
@@ -71,6 +73,38 @@ public final class OfficialShapeProbe {
             && weave.rejectReason == null && capture.rejectReason == null
             && captureAfterWeave != null && captureAfterWeave.rejectReason == null;
         System.out.println(ok ? "TRIAB_PROBE PASS" : "TRIAB_PROBE FAIL");
+        return ok;
+    }
+
+    /** TLINDEX: TriangleList four-method weave (a(l)/b(l)/c()/a(j) prepend) on
+     *  official bytes — pinned site counts must be exactly 1/1/1/1, the weave
+     *  must be accepted, and the b() capture must still apply on the staged
+     *  (woven) bytes. Read-only; the class is never defined. */
+    private static boolean tlindex(byte[] bytes) {
+        String sha = AbTransformer.sha256(bytes);
+        dev.turboism.validation.tlindex.TliWeave.Config cfg =
+            WeaveAbConfig.OFFICIAL_TLI_WEAVE;
+        dev.turboism.validation.tlindex.TliWeave.Result r =
+            dev.turboism.validation.tlindex.TliWeave.weaveChecked(cfg, bytes);
+        System.out.println("tl.classSha256=" + sha);
+        System.out.println("tl.weave=" + (r.rejectReason == null
+            ? "accepted" : "reject:" + r.rejectReason));
+        boolean ok = sha.equals(WeaveAbConfig.OFFICIAL_CLASS_SHA256)
+            && r.rejectReason == null;
+        if (ok) {
+            System.out.println("tl.sites=a(l).add:" + r.plan.aL_addSites
+                + " b(l).remove:" + r.plan.bL_removeSites
+                + " c().clear:" + r.plan.c_clearSites
+                + " a(j).prologue:" + r.plan.aJ_prologues);
+            CaptureWeave.Result cap = CaptureWeave.weaveChecked(
+                WeaveAbConfig.OFFICIAL_CAPTURE_METHOD,
+                WeaveAbConfig.OFFICIAL_CAPTURE_DESC,
+                WeaveAbConfig.OFFICIAL_CAPTURE_INTERNAL, r.bytes);
+            System.out.println("tl.captureAfterWeave=" + (cap.rejectReason == null
+                ? "accepted" : "reject:" + cap.rejectReason));
+            ok = cap.rejectReason == null;
+        }
+        System.out.println(ok ? "TLINDEX_PROBE PASS" : "TLINDEX_PROBE FAIL");
         return ok;
     }
 

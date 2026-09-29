@@ -19,12 +19,17 @@ shadow_h_sha="$(printf '%s\n' "$build_out" | sed -n 's/^shadowHClassSha256=//p')
 badshape_sha="$(printf '%s\n' "$build_out" | sed -n 's/^badshapeClassSha256=//p')"
 badreturn_sha="$(printf '%s\n' "$build_out" | sed -n 's/^badreturnClassSha256=//p')"
 badsite_sha="$(printf '%s\n' "$build_out" | sed -n 's/^badsiteClassSha256=//p')"
+tl_own_sha="$(printf '%s\n' "$build_out" | sed -n 's/^tlOwnClassSha256=//p')"
+tl_bad_sha="$(printf '%s\n' "$build_out" | sed -n 's/^tlBadshapeClassSha256=//p')"
 sc="$(printf '%s\n' "$build_out" | sed -n 's/^selfcheckClasses=//p')"
 fx="$(printf '%s\n' "$build_out" | sed -n 's/^shadowClasses=//p')"
 noh="$(printf '%s\n' "$build_out" | sed -n 's/^nohelperClasses=//p')"
 bs="$(printf '%s\n' "$build_out" | sed -n 's/^badshapeClasses=//p')"
 br="$(printf '%s\n' "$build_out" | sed -n 's/^badreturnClasses=//p')"
 badsite="$(printf '%s\n' "$build_out" | sed -n 's/^badsiteClasses=//p')"
+tlbs="$(printf '%s\n' "$build_out" | sed -n 's/^tlbadshapeClasses=//p')"
+tlfx="$(printf '%s\n' "$build_out" | sed -n 's/^tlfxClasses=//p')"
+tlfx_noh="$(printf '%s\n' "$build_out" | sed -n 's/^tlfxNohelperClasses=//p')"
 ac="$(printf '%s\n' "$build_out" | sed -n 's/^agentClasses=//p')"
 stdlib="$(printf '%s\n' "$build_out" | sed -n 's/^stdlibJar=//p')"
 work="$(printf '%s\n' "$build_out" | sed -n 's/^workDir=//p')"
@@ -36,6 +41,7 @@ deps="$scene_dir/deps"
 
 P=turboism.validation.triWeave
 DP=turboism.validation.dmWeave
+LP=turboism.validation.tlWeave
 SP=turboism.validation.triweave.shadow
 LOADER=dev.turboism.validation.triweave.fixture.FixtureLoader
 
@@ -319,6 +325,73 @@ java -Xverify:all -javaagent:"$agent_jar" \
 grep -q 'admission=reject reason=expectCaptureClassSha256-invalid' \
   "$work/out-dm-nocsha-stderr.log" \
   || fail 'dmMissingCaptureSha missing admission reject line'
+
+# --- T029-TLINDEX namespace (tl-* modes): OwnTri$TList four-method weave -----
+# scenario jar mode expectSha expectCodeSource primaryFxDir tlfxDir outDir
+#        [extra -D...]
+run_tl_scenario() {
+  local scenario="$1" jar="$2" mode="$3" sha="$4" src="$5" fxdir="$6" tlfxdir="$7" outdir="$8"
+  shift 8
+  local extra_props=()
+  for a in "$@"; do
+    if [[ "$a" == -D* ]]; then extra_props+=("$a"); fi
+  done
+  mkdir -p "$outdir"
+  java -Xverify:all ${jar:+-javaagent:"$jar"} \
+    "-D$LP.enabled=true" "-D$LP.profile=tl-shadow-selfcheck" "-D$LP.mode=$mode" \
+    "-D$LP.phase=tlWeaveSelfCheck" "-D$LP.runId=$scenario" \
+    "-D$LP.outputDir=$outdir" "-D$LP.expectClassSha256=$sha" \
+    "-D$LP.expectCaptureClassSha256=$sha" \
+    "-D$LP.expectLoader=$LOADER" "-D$LP.expectCodeSource=$src" \
+    ${extra_props:+"${extra_props[@]}"} \
+    -cp "$sc:$stdlib" dev.turboism.validation.triweave.WeaveAbSelfCheck \
+    "$scenario" "$fxdir" \
+    "$outdir/tri-weave-def-$scenario.log" "$outdir/tri-weave-dump-$scenario.log" \
+    "$outdir/tri-weave-status-$scenario.txt" "$tlfxdir"
+}
+
+# core tl A/B legs on the own fixture (index correctness proven by the
+# tlindex WeaveSelfCheck; here the agent plumbing + in-JVM woven behavior)
+run_tl_scenario tlHappyDump "$agent_jar" tl-dump-only "$tl_own_sha" "$fx_url" \
+  "$fx" "$tlfx" "$work/out-tl-dump"  && note tlHappyDump || fail "scenario tlHappyDump failed"
+run_tl_scenario tlHappyWeave "$agent_jar" tl-dump+weave "$tl_own_sha" "$fx_url" \
+  "$fx" "$tlfx" "$work/out-tl-weave"  && note tlHappyWeave || fail "scenario tlHappyWeave failed"
+
+# missing Bridge: the no-helper agent jar (Bridge dropped from the jar, which
+# the system loader carries) AND a tlfx dir without Bridge close both
+# resolution paths - the woven leg must go INVALID, never silently baseline.
+run_tl_scenario tlMissingHelperWeave "$noh_jar" tl-dump+weave "$tl_own_sha" "$fx_url" \
+  "$fx" "$tlfx_noh" "$work/out-tl-noh"  && note tlMissingHelperWeave || fail "scenario tlMissingHelperWeave failed"
+
+# shape gate: badshape OwnTri$TList (two add sites) merged over the fixture dir
+mtlb="$work/tlbadshape-merged"; mkdir -p "$mtlb"; cp -a "$fx/." "$mtlb/"
+cp "$tlbs/dev/turboism/validation/tlindex/own/OwnTri\$TList.class" \
+  "$mtlb/dev/turboism/validation/tlindex/own/OwnTri\$TList.class"
+mtlb_url="$(java -cp "$sc" dev.turboism.validation.triweave.CodeSourceUrl "$mtlb")"
+run_tl_scenario tlShapeRejectWeave "$agent_jar" tl-dump+weave "$tl_bad_sha" "$mtlb_url" \
+  "$mtlb" "$tlfx" "$work/out-tl-badshape"  && note tlShapeRejectWeave || fail "scenario tlShapeRejectWeave failed"
+
+# identity gate on the weave/capture class
+run_tl_scenario tlWrongSha "$agent_jar" tl-dump+weave \
+  0000000000000000000000000000000000000000000000000000000000000000 "$fx_url" \
+  "$fx" "$tlfx" "$work/out-tl-wrongsha"  && note tlWrongSha || fail "scenario tlWrongSha failed"
+
+# in-JVM shape pins on the own-fixture bytes
+java -Xverify:all -cp "$sc:$ac:$stdlib:$deps/asm-9.7.1.jar" \
+  dev.turboism.validation.triweave.WeaveAbSelfCheck \
+  tlShapePins "$fx" "$work/out-tlpins/d.log" "$work/out-tlpins/u.log" \
+  "$work/out-tlpins/s.txt"  && note tlShapePins || fail "scenario tlShapePins failed"
+
+# three-way namespace conflict: tl + tri enabled refuses installation
+mkdir -p "$work/out-tl-conflict"
+java -Xverify:all -javaagent:"$agent_jar" \
+  "-D$P.enabled=true" "-D$LP.enabled=true" "-D$LP.mode=tl-dump-only" \
+  -cp "$sc:$stdlib" dev.turboism.validation.triweave.WeaveAbSelfCheck \
+  refusedConfig "$fx" "$work/out-tl-conflict/d.log" "$work/out-tl-conflict/u.log" \
+  "$work/out-tl-conflict/s.txt" 2> "$work/out-tl-conflict/stderr.log" \
+   && note tlNamespaceConflict || fail "scenario tlNamespaceConflict failed"
+grep -q 'admission=reject reason=namespaces-conflict' "$work/out-tl-conflict/stderr.log" \
+  || fail 'tlNamespaceConflict missing admission reject line'
 
 # --- official read-only shape verification (never defines/executes official bytes) -------
 official_jar="${TURBOISM_TRI_WEAVE_OFFICIAL_JAR:-$HOME/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar}"

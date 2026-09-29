@@ -87,12 +87,18 @@ final class AbTransformer implements ClassFileTransformer {
         // --- candidate weave (woven leg only), then the identical capture weave ----------
         byte[] stage = classfileBuffer;
         String candidate = "none";
-        if (t.membershipWeave != null || t.matchListWeave != null) {
+        if (t.membershipWeave != null || t.matchListWeave != null || t.tliWeave != null) {
             if (config.woven()) {
                 byte[] woven;
                 String reject;
                 if (t.membershipWeave != null) {
                     Weave.Result r = Weave.weaveChecked(t.membershipWeave, stage);
+                    woven = r.bytes;
+                    reject = r.rejectReason;
+                } else if (t.tliWeave != null) {
+                    dev.turboism.validation.tlindex.TliWeave.Result r =
+                        dev.turboism.validation.tlindex.TliWeave.weaveChecked(
+                            t.tliWeave, stage);
                     woven = r.bytes;
                     reject = r.rejectReason;
                 } else {

@@ -9,6 +9,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 scene_dir="$root/validation/triangulation-weave-ab"
 km_dir="$root/validation/triangulation-k-membership"
 dw_dir="$root/validation/triangulation-dweave"
+tli_dir="$root/validation/triangulation-tlindex"
 deps="$scene_dir/deps"
 asm_source="${TURBOISM_ASM_JAR:-${HOME:-/nonexistent}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1/f0ed132a49244b042cd0e15702ab9f2ce3cc8436/asm-9.7.1.jar}"
 asm_sha256=8cadd43ac5eb6d09de05faecca38b917a040bb9139c7edeb4cc81c740b713281
@@ -69,7 +70,8 @@ cp "$asm_source" "$deps/asm-9.7.1.jar"
 work="$(mktemp -d "$root/build/tri-weave-ab.XXXXXX")"
 printf 'work=%s\n' "$work"
 mkdir -p "$work/classes" "$work/shadow" "$work/shadow-nohelper" "$work/badshape" \
-  "$work/badreturn" "$work/badsite" "$work/selfcheck"
+  "$work/badreturn" "$work/badsite" "$work/tlbadshape" "$work/tlifx" \
+  "$work/tlifx-noh" "$work/selfcheck"
 
 # --- agent classes --------------------------------------------------------------
 # group 1: weavers + agent plumbing (no official-type references). Both weavers are
@@ -82,6 +84,8 @@ javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
   "$km_dir/src/dev/turboism/validation/kmembership/Weave.java" \
   "$dw_dir/src/dev/turboism/validation/dweave/Weave.java" \
   "$dw_dir/src/dev/turboism/validation/dweave/MatchList.java" \
+  "$tli_dir/src/dev/turboism/validation/tlindex/TliWeave.java" \
+  "$tli_dir/src/dev/turboism/validation/tlindex/Bridge.java" \
   "$src/WeaveAbAgent.java" "$src/WeaveAbConfig.java" "$src/AbTransformer.java" \
   "$src/CaptureWeave.java" "$src/Sink.java" "$src/Counters.java" \
   "$src/OfficialShapeProbe.java" \
@@ -100,7 +104,22 @@ javac --release 17 -proc:none -implicit:none -Xlint:all \
 javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
   -cp "$stdlib:$work/classes" -d "$work/shadow" \
   $(find "$scene_dir/shadow" -name '*.java' | sort) \
+  "$tli_dir/src/dev/turboism/validation/tlindex/own/OwnTri.java" \
   || fail 'shadow fixture did not compile'
+# tlindex shape-mutant fixture (same binary name, extra LinkedHashSet.add site)
+# -> separate dir; the scenario merges its single TList class over the fixture.
+javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
+  -cp "$stdlib" -d "$work/tlbadshape" \
+  "$scene_dir/shadow-tlbadshape/dev/turboism/validation/tlindex/own/OwnTri.java" \
+  || fail 'tl badshape fixture did not compile'
+# tlindex fixture-side helper classpath: the REAL Bridge (single shared
+# implementation), compiled standalone so the FixtureLoader resolves it via a
+# second URL; the no-helper variant deletes it for the INVALID leg.
+javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
+  -d "$work/tlifx" "$tli_dir/src/dev/turboism/validation/tlindex/Bridge.java" \
+  || fail 'tlfx helper classes did not compile'
+cp -a "$work/tlifx/." "$work/tlifx-noh/"
+find "$work/tlifx-noh" -name 'Bridge*.class' -delete
 cp -a "$work/shadow/." "$work/shadow-nohelper/"
 rm -f "$work/shadow-nohelper/dev/turboism/validation/triweave/shadow/ShadowHelper.class" \
       "$work/shadow-nohelper/dev/turboism/validation/triweave/shadow/ShadowHelper\$Box.class" \
@@ -132,8 +151,15 @@ badreturn_sha256="$(sha256sum \
 badsite_sha256="$(sha256sum \
   "$work/badsite/dev/turboism/validation/triweave/shadow/ShadowH.class" \
   | awk '{print $1}')"
-printf 'shadowClassSha256=%s\nshadowHClassSha256=%s\nbadshapeClassSha256=%s\nbadreturnClassSha256=%s\nbadsiteClassSha256=%s\n' \
-  "$shadow_sha256" "$shadow_h_sha256" "$badshape_sha256" "$badreturn_sha256" "$badsite_sha256"
+tl_own_sha256="$(sha256sum \
+  "$work/shadow/dev/turboism/validation/tlindex/own/OwnTri\$TList.class" \
+  | awk '{print $1}')"
+tl_badsha256="$(sha256sum \
+  "$work/tlbadshape/dev/turboism/validation/tlindex/own/OwnTri\$TList.class" \
+  | awk '{print $1}')"
+printf 'shadowClassSha256=%s\nshadowHClassSha256=%s\nbadshapeClassSha256=%s\nbadreturnClassSha256=%s\nbadsiteClassSha256=%s\ntlOwnClassSha256=%s\ntlBadshapeClassSha256=%s\n' \
+  "$shadow_sha256" "$shadow_h_sha256" "$badshape_sha256" "$badreturn_sha256" "$badsite_sha256" \
+  "$tl_own_sha256" "$tl_badsha256"
 
 # --- selfcheck harness --------------------------------------------------------------
 javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
@@ -184,6 +210,7 @@ jar --create --file "$agent_jar" --manifest "$manifest" -C "$agent_dir" .
 noh_jar="$work/tri-weave-agent-no-helper.jar"
 mkdir -p "$work/agent-no-helper" && cp -a "$agent_dir/." "$work/agent-no-helper/"
 find "$work/agent-no-helper" -path '*triweave/Helper*' -delete
+find "$work/agent-no-helper" -path '*tlindex/Bridge*' -delete
 jar --create --file "$noh_jar" --manifest "$manifest" -C "$work/agent-no-helper" .
 
 jar_list="$work/agent-list.txt"
@@ -212,7 +239,8 @@ grep -q 'triweave/Helper' "$work/noh-list.txt" \
 printf 'agentJar=%s\nagentSha256=%s\nnoHelperJar=%s\nnoHelperSha256=%s\n' \
   "$agent_jar" "$(sha256sum "$agent_jar" | awk '{print $1}')" \
   "$noh_jar" "$(sha256sum "$noh_jar" | awk '{print $1}')"
-printf 'selfcheckClasses=%s\nshadowClasses=%s\nnohelperClasses=%s\nbadshapeClasses=%s\nbadreturnClasses=%s\nbadsiteClasses=%s\nagentClasses=%s\nstdlibJar=%s\nworkDir=%s\n' \
+printf 'selfcheckClasses=%s\nshadowClasses=%s\nnohelperClasses=%s\nbadshapeClasses=%s\nbadreturnClasses=%s\nbadsiteClasses=%s\ntlbadshapeClasses=%s\ntlfxClasses=%s\ntlfxNohelperClasses=%s\nagentClasses=%s\nstdlibJar=%s\nworkDir=%s\n' \
   "$work/selfcheck" "$work/shadow" "$work/shadow-nohelper" "$work/badshape" \
-  "$work/badreturn" "$work/badsite" "$work/classes" "$stdlib" "$work"
+  "$work/badreturn" "$work/badsite" "$work/tlbadshape" "$work/tlifx" "$work/tlifx-noh" \
+  "$work/classes" "$stdlib" "$work"
 printf 'TRI_WEAVE_AB_BUILD PASS shadowSha256=%s\n' "$shadow_sha256"

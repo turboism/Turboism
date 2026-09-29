@@ -1040,4 +1040,137 @@ assert not any("triWeave." in a for a in argv)
 print("T029_DWEAVE_BASE_PLAN PASS mode=dm-dump-only noJfr=true")
 PYEOF
 
+
+# T029-TLINDEX: --tri-tlindex <tl-dump-only|tl-dump+weave> shares the same physical
+# agent jar and the same bidirectional label<->mode contract, in the tlWeave
+# namespace. The candidate rewrites four TriangleList methods on the SAME class
+# the b()Lk; capture observes, so both class digests are the TriangleList sha.
+! grep -Fq -- 'tlWeave' "$test_root/dry-run.log" || fail 'default run leaked tlWeave options'
+# label/mode mismatch: a base leg must not run tl-dump+weave
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 t029-tlindex-base1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump+weave' --dry-run \
+    > "$test_root/tlindex-mismatch.log" 2>&1; then
+  fail 'wrapper accepted a tlindex base leg with tl-dump+weave'
+fi
+grep -q 'inconsistent with leg label' "$test_root/tlindex-mismatch.log"
+# unknown mode token
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 t029-tlindex-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-tlindex 'weave' --dry-run \
+    > "$test_root/tlindex-badmode.log" 2>&1; then
+  fail 'wrapper accepted an unknown --tri-tlindex mode'
+fi
+grep -q 'must be tl-dump-only or tl-dump+weave' "$test_root/tlindex-badmode.log"
+# missing env jar
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    "$wrapper" 5303 t029-tlindex-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump+weave' --dry-run \
+    > "$test_root/tlindex-noenv.log" 2>&1; then
+  fail 'wrapper accepted --tri-tlindex without TURBOISM_TRI_WEAVE_AGENT'
+fi
+grep -q 'requires --tri-weave-agent or TURBOISM_TRI_WEAVE_AGENT' "$test_root/tlindex-noenv.log"
+# argument-form agent jar
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    "$wrapper" 5303 t029-tlindex-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump+weave' \
+    --tri-weave-agent "$tri_weave_agent_stub" --dry-run \
+    > "$test_root/tlindex-argform.log" 2>&1; then
+  :
+else
+  fail 'wrapper rejected --tri-tlindex argument-form agent'
+fi
+grep -q '^auxAgentCount=3$' "$test_root/tlindex-argform.log"
+grep -q '^tlWeaveMode=tl-dump+weave$' "$test_root/tlindex-argform.log" \
+  || fail 'dry-run report missing tlWeaveMode'
+# wrong version
+if env "${runner_env[@]}" TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5203 t029-tlindex-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest" --tri-tlindex 'tl-dump+weave' --dry-run \
+    > "$test_root/tlindex-version.log" 2>&1; then
+  fail 'wrapper accepted --tri-tlindex under 5203'
+fi
+grep -q 'tri-tlindex is 5303-only' "$test_root/tlindex-version.log"
+# tlindex label without the flag must not silently run uninstrumented
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    "$wrapper" 5303 t029-tlindex-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --dry-run \
+    > "$test_root/tlindex-noflag.log" 2>&1; then
+  fail 'wrapper accepted a t029-tlindex label without --tri-tlindex'
+fi
+grep -q 'requires --tri-tlindex' "$test_root/tlindex-noflag.log"
+# flag with a non-tlindex label
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 offline-heavy \
+    --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump-only' --dry-run \
+    > "$test_root/tlindex-badlabel.log" 2>&1; then
+  fail 'wrapper accepted --tri-tlindex with a non-tlindex label'
+fi
+grep -q 'requires a label t029-tlindex-' "$test_root/tlindex-badlabel.log"
+# woven leg with JFR: aux order + eleven fixed tlWeave props
+prepare_tl="$test_root/prepare-tl-weave-woven"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+  TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+  "$wrapper" 5303 t029-tlindex-woven1-heavy-nolayout-jfr \
+  --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump+weave' \
+  --prepare-dir "$prepare_tl" > "$test_root/prepare-tl-weave-woven.log" 2>&1 \
+  || fail 'tlindex woven-leg prepare failed'
+grep -q 'tlWeaveMode=tl-dump+weave' "$test_root/prepare-tl-weave-woven.log"
+grep -q 'tlWeaveLeg=woven1' "$test_root/prepare-tl-weave-woven.log"
+python3 - "$prepare_tl/runner-request.json" <<'PYTL'
+import json
+import sys
+from pathlib import Path
+
+argv = json.loads(Path(sys.argv[1]).read_text())["argv"]
+aux = [argv[i + 1].split(":")[-1] for i, flag in enumerate(argv) if flag == "--aux-agent"]
+assert aux == ["t039-shadow-agent.jar", "tri-weave-agent.jar",
+               "atlas-image-shadow-scene-driver.jar"], aux
+props = [argv[i + 1] for i, flag in enumerate(argv)
+         if flag == "--jvm-option" and "tlWeave." in argv[i + 1]]
+expected = [
+    "-Dturboism.validation.tlWeave.enabled=true",
+    "-Dturboism.validation.tlWeave.mode=tl-dump+weave",
+    "-Dturboism.validation.tlWeave.profile=tl-official",
+    "-Dturboism.validation.tlWeave.phase=t029-tlindex",
+    "-Dturboism.validation.tlWeave.runId=tlindex-woven1",
+    "-Dturboism.validation.tlWeave.outputDir={HOME}/tl-weave",
+    "-Dturboism.validation.tlWeave.expectClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29",
+    "-Dturboism.validation.tlWeave.expectCaptureClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29",
+    "-Dturboism.validation.tlWeave.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader",
+    "-Dturboism.validation.tlWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar",
+    "-Dturboism.validation.tlWeave.captureN=4",
+]
+assert props == expected, props
+jfr = [a for a in argv if "StartFlightRecording" in a]
+assert len(jfr) == 1 and "settings=profile" in jfr[0] and "stackdepth=256" in jfr[0], jfr
+assert not any("triWeave." in a or "dmWeave." in a for a in argv)
+print("T029_TLINDEX_PLAN PASS auxOrder=t039-triweave-driver props=11 jfrReviewed=true")
+PYTL
+# base leg (no -jfr suffix): mode prop flips to tl-dump-only, no recording added
+prepare_tlb="$test_root/prepare-tl-weave-base"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+  TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+  "$wrapper" 5303 t029-tlindex-base2-heavy-nolayout \
+  --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump-only' \
+  --prepare-dir "$prepare_tlb" > "$test_root/prepare-tl-weave-base.log" 2>&1 \
+  || fail 'tlindex base-leg prepare failed'
+python3 - "$prepare_tlb/runner-request.json" <<'PYTL2'
+import json
+import sys
+from pathlib import Path
+
+argv = json.loads(Path(sys.argv[1]).read_text())["argv"]
+props = [argv[i + 1] for i, flag in enumerate(argv)
+         if flag == "--jvm-option" and "tlWeave." in argv[i + 1]]
+assert "-Dturboism.validation.tlWeave.mode=tl-dump-only" in props, props
+assert "-Dturboism.validation.tlWeave.runId=tlindex-base2" in props, props
+assert len(props) == 11, props
+assert not any("StartFlightRecording" in a for a in argv)
+print("T029_TLINDEX_BASE_PLAN PASS mode=tl-dump-only noJfr=true")
+PYTL2
+
 printf 'ATLAS_IMAGE_SHADOW_HOST_VALIDATION_OFFLINE_TEST PASS hostLaunched=false\n'
