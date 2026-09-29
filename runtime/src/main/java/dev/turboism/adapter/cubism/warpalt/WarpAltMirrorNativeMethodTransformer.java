@@ -102,7 +102,10 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         final boolean isStrip = profile.stripOwner().equals(className);
         final boolean isGreenTick = profile.greenTickOwner().equals(className);
         final boolean isWeightWrite = profile.weightWriteOwner().equals(className);
-        if (!isPointMove && !isDragTick && !isGreenTick && !isStrip && !isWeightWrite) return null;
+        final boolean isActionDispatch = profile.actionDispatchOwner().equals(className);
+        final boolean isInputIngress = profile.inputIngressOwner().equals(className);
+        if (!isPointMove && !isDragTick && !isGreenTick && !isStrip && !isWeightWrite
+                && !isActionDispatch && !isInputIngress) return null;
         if (classBeingRedefined != null) {
             reject(Outcome.RETRANSFORM_REJECTED, "WARP_ALT_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
@@ -167,13 +170,25 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                             final boolean weightSetHere = isWeightWrite
                                     && profile.weightSetMethod().equals(name)
                                     && profile.weightSetDescriptor().equals(descriptor);
+                            final boolean actionDispatchHere = isActionDispatch
+                                    && profile.actionDispatchMethod().equals(name)
+                                    && profile.actionDispatchDescriptor().equals(descriptor);
+                            final boolean actionClaimHere = isActionDispatch
+                                    && profile.actionClaimMethod().equals(name)
+                                    && profile.actionClaimDescriptor().equals(descriptor);
+                            final boolean inputIngressHere = isInputIngress
+                                    && profile.inputIngressMethod().equals(name)
+                                    && profile.inputIngressDescriptor().equals(descriptor);
                             if (!pointMoveHere
                                     && !dragTickHere
                                     && !stripMountHere
                                     && !stripLayoutTail
                                     && !greenTickHere
                                     && !weightAddHere
-                                    && !weightSetHere) {
+                                    && !weightSetHere
+                                    && !actionDispatchHere
+                                    && !actionClaimHere
+                                    && !inputIngressHere) {
                                 return delegate;
                             }
                             transformed[0] = true;
@@ -236,6 +251,31 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                                                 BRIDGE,
                                                 "mirrorWeightSet",
                                                 "(Ljava/lang/Object;Ljava/lang/Object;F)V",
+                                                false);
+                                    } else if (actionDispatchHere) {
+                                        visitVarInsn(Opcodes.ALOAD, 1);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                BRIDGE,
+                                                "diagMouseAction",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                                                false);
+                                    } else if (actionClaimHere) {
+                                        visitVarInsn(Opcodes.ALOAD, 1);
+                                        visitVarInsn(Opcodes.ALOAD, 2);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                BRIDGE,
+                                                "diagSetAction",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                                                false);
+                                    } else if (inputIngressHere) {
+                                        visitVarInsn(Opcodes.ALOAD, 1);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                BRIDGE,
+                                                "diagInputEvent",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;)V",
                                                 false);
                                     } else {
                                         visitMethodInsn(

@@ -4,6 +4,8 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.resource.UiRasterImage;
 import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
+import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -168,17 +170,13 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
         factory.setAccessible(true);
 
-        final BufferedImage offImg = rasterImage(contribution.stateIcons().getOrDefault(0, iconImage));
-        final BufferedImage vertImg = rasterImage(contribution.stateIcons().getOrDefault(1, iconImage));
-        final BufferedImage horizImg = rasterImage(contribution.stateIcons().getOrDefault(2, iconImage));
-        final Object[] resources = stateResources(offImg, vertImg, horizImg, hostLoader);
-        final Object iconSet = iconSetFor(resources, hostLoader);
+        final Object iconSet =
+                iconSetFor(rasterImage(contribution.stateIcons().getOrDefault(state, iconImage)), hostLoader);
         final Object button = factory.invoke(
                 null, stripInstance, "warpAltMirrorAxis" + state, null, null, false, false, iconSet, 30, null);
 
-        final Map<Integer, Object> stateEntities = mountStateIcons(button, resources, hostLoader);
         setOnAction(button, contribution, state);
-        return new BuiltButton(button, stateEntities);
+        return new BuiltButton(button, Map.of());
     }
 
     static BufferedImage rasterImage(final UiRasterImage source) {
@@ -188,76 +186,40 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     }
 
     /**
-     * Builds one icon entity per state with the host's own icon-entity factory
-     * ({@code AGSimpleIconButtonEntity$c.a(CImageResource, String)}), registers
-     * each in the button's {@code items} list and scene-graph children, and
-     * returns them keyed by state. State visuals are driven by calling
-     * {@code setSelected(entity)} — the host enables only the chosen item — so
-     * the three-state cycle does not depend on the two-state toggle flags.
-     * Entity names must be resolvable by the host's {@code _selectedState}
-     * parser: Disabled / Normal / Selected.
+     * Assembles the seven-slot icon set for the CURRENT state glyph — every
+     * slot carries the same glyph, so whichever entity the host's
+     * {@code updateAppearance()} enables, the displayed icon matches the
+     * armed axis. The button is rebuilt on each state change (see
+     * {@link #updateButtonState}) because the baked {@code GImageEntity}
+     * images cannot be swapped in place.
+     *
+     * <p>Native strip buttons bake an opaque background plate into every state
+     * image — sampled 5.3.02 pixels are #F0EFEF at rest and #DBDADA on rollover —
+     * which is what produces the gray hover/pressed backdrop. Our contributed
+     * glyphs are alpha-only, so each slot here is composited onto the matching
+     * FlatLaF plate color ({@code CubismCommon.gl.iconButton.*Background},
+     * falling back to the sampled light-theme values).</p>
      */
-    private static Map<Integer, Object> mountStateIcons(
-            final Object button, final Object[] resources, final ClassLoader hostLoader)
-            throws ReflectiveOperationException {
-        final Class<?> gEntityClass = Class.forName("com.live2d.graphics3d.entity.GEntity", false, hostLoader);
-        final Object icon = button.getClass().getMethod("getIcon").invoke(button);
-        final Method createIcon =
-                icon.getClass().getMethod("a", Class.forName(RESOURCE_CLASS, false, hostLoader), String.class);
-        final Object items = button.getClass().getMethod("getItems").invoke(button);
-        final Object children = button.getClass().getMethod("getChildren").invoke(button);
-        final Method addChild = children.getClass().getMethod("add", gEntityClass, int.class);
-
-        final String[] names = {"Disabled", "Normal", "Selected"};
-        final Map<Integer, Object> entities = new LinkedHashMap<>();
-        for (int state = 0; state < resources.length; state++) {
-            final Object entity = createIcon.invoke(icon, resources[state], names[state]);
-            @SuppressWarnings("unchecked")
-            final List<Object> itemList = (List<Object>) items;
-            itemList.add(entity);
-            addChild.invoke(children, entity, -1);
-            entities.put(state, entity);
-        }
-        return entities;
-    }
-
-    /**
-     * Builds the three state {@code CImageResource}s (off / vertical /
-     * horizontal) via {@code CImageResource(BufferedImage, boolean)} — wraps
-     * the image in a {@code CWritableImage} directly so no deferred file-byte
-     * decoding is involved on the render path.
-     */
-    private static Object[] stateResources(
-            final BufferedImage offImage,
-            final BufferedImage verticalImage,
-            final BufferedImage horizontalImage,
-            final ClassLoader hostLoader)
-            throws ReflectiveOperationException {
-        final Class<?> resourceClass = Class.forName(RESOURCE_CLASS, false, hostLoader);
-        final var ctor = resourceClass.getConstructor(BufferedImage.class, boolean.class);
-        return new Object[] {
-            ctor.newInstance(offImage, true),
-            ctor.newInstance(verticalImage, true),
-            ctor.newInstance(horizontalImage, true),
-        };
-    }
-
-    /**
-     * Assembles the seven-slot fallback icon set from the state resources.
-     * Primary state visuals are driven by the self-built entities (see
-     * {@link #mountStateIcons}); this set only covers transient
-     * {@code updateAppearance()} passes triggered by the host's
-     * enabled/selected flag writes, so each slot carries a sensible icon:
-     *   a=NORMAL(vertical) b=SELECTED(horizontal) c/d=vertical hover/press
-     *   e=DISABLED(off) f/g=horizontal hover/press.
-     */
-    private static Object iconSetFor(final Object[] resources, final ClassLoader hostLoader)
+    private static Object iconSetFor(final BufferedImage glyph, final ClassLoader hostLoader)
             throws ReflectiveOperationException {
         final Class<?> resourceClass = Class.forName(RESOURCE_CLASS, false, hostLoader);
         final Class<?> setClass = Class.forName(ICON_SET_CLASS, false, hostLoader);
-        final Object offRes = resources[0];
-        final Object vertRes = resources[1];
-        final Object horizRes = resources[2];
+        final var resourceCtor = resourceClass.getConstructor(BufferedImage.class, boolean.class);
+        // TODO(visual): gray-plate parity with native strip buttons is parked.
+        //   The plates below reproduce the native hover/pressed backdrop in
+        //   most states, but the exact per-slot plate mapping vs the host's
+        //   FlatLaF iconButton.*Background tinting has not been fully verified
+        //   on real hosts across themes. Revisit before polishing visuals.
+        // Native strip buttons keep the same plate family in selected states
+        // (sampled On_RollOver ≈ #D6CEC5 gray, not the accent selectedBackground),
+        // so selected slots reuse the normal/hover/pressed plates.
+        final Object normal = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("background", 0xF0EFEF, hostLoader)), true);
+        final Object selected = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("background", 0xF0EFEF, hostLoader)), true);
+        final Object rollover = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("hoverBackground", 0xDBDADA, hostLoader)), true);
+        final Object pressed = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("pressedBackground", 0xC6C5C5, hostLoader)), true);
+        final Object disabled = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("disabledBackground", 0xF0EFEF, hostLoader)), true);
+        final Object selRollover = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("hoverBackground", 0xDBDADA, hostLoader)), true);
+        final Object selPressed = resourceCtor.newInstance(plateImage(glyph, iconButtonColor("pressedBackground", 0xC6C5C5, hostLoader)), true);
         return setClass.getConstructor(
                         resourceClass,
                         resourceClass,
@@ -266,14 +228,44 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                         resourceClass,
                         resourceClass,
                         resourceClass)
-                .newInstance(
-                        vertRes, // a  NORMAL      (vertical)
-                        horizRes, // b  SELECTED    (horizontal)
-                        vertRes, // c  ROLLOVER    (vertical hover)
-                        vertRes, // d  PRESSED     (vertical press)
-                        offRes, // e  DISABLED    (off)
-                        horizRes, // f  SELECTEDROLLOVER
-                        horizRes); // g  SELECTEDPRESSED
+                .newInstance(normal, selected, rollover, pressed, disabled, selRollover, selPressed);
+    }
+
+    /** Composites the alpha-only state glyph onto a solid plate, like the baked native icons. */
+    private static BufferedImage plateImage(final BufferedImage glyph, final Color plate) {
+        final BufferedImage image = new BufferedImage(glyph.getWidth(), glyph.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D g = image.createGraphics();
+        try {
+            g.setColor(plate);
+            g.fillRect(0, 0, image.getWidth(), image.getHeight());
+            g.drawImage(glyph, 0, 0, null);
+        } finally {
+            g.dispose();
+        }
+        return image;
+    }
+
+    /**
+     * Resolves {@code CubismCommon.gl.iconButton.<key>} through the host's
+     * FlatLaF color registry ({@code FlatLaF$bi.a(String, boolean)}) so the
+     * plated images track the active theme; falls back to the sampled light-
+     * theme value when the registry is unreachable.
+     */
+    private static Color iconButtonColor(final String key, final int fallbackRgb, final ClassLoader hostLoader) {
+        try {
+            final Class<?> registry = Class.forName("com.live2d.ui.FlatLaF$bi", false, hostLoader);
+            final Field instance = registry.getDeclaredField("a");
+            instance.setAccessible(true);
+            final Object resolved =
+                    registry.getMethod("a", String.class, boolean.class)
+                            .invoke(instance.get(null), "CubismCommon.gl.iconButton." + key, false);
+            if (resolved instanceof Color color) {
+                return color;
+            }
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+        }
+        return new Color(fallbackRgb);
     }
 
     private static void setOnAction(
@@ -313,15 +305,19 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         setOnAction.invoke(button, handler);
     }
 
-    /** Applies the initial state visuals so the state entity shows at mount. */
+    /**
+     * Applies the initial state visuals. The button stays ENABLED in every
+     * state — {@code onMouseEvent} returns early for disabled buttons, so
+     * marking the off state disabled would suppress hover/press entirely;
+     * "mirror off" is a toggle-off, not a disabled control. The selected flag
+     * then picks the appearance slot: off → Normal, armed → Selected.
+     */
     private static void applyInitialState(
             final Object button, final Map<Integer, Object> stateEntities, final int state)
             throws ReflectiveOperationException {
-        final boolean enabled = state != 0;
-        final boolean selected = state == 2;
         final Class<?> buttonClass = button.getClass();
-        buttonClass.getMethod("setButtonEnabled", boolean.class).invoke(button, enabled);
-        buttonClass.getMethod("setButtonSelected", boolean.class).invoke(button, selected);
+        buttonClass.getMethod("setButtonEnabled", boolean.class).invoke(button, true);
+        buttonClass.getMethod("setButtonSelected", boolean.class).invoke(button, state != 0);
         final Object entity = stateEntities.get(state);
         if (entity != null) {
             buttonClass
@@ -356,6 +352,17 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         diagnostic("BUTTON_INSERTED group=H index=" + target.size() + " after=leftClusterEnd(F)");
         reparentToStrip(stripInstance, button);
         ensureRect(button);
+    }
+
+    /** Removes the button from the strip's left-cluster group list (H). */
+    private static void removeFromGroup(final Object stripInstance, final Object button)
+            throws ReflectiveOperationException {
+        final Field groupField = stripInstance.getClass().getDeclaredField("H");
+        groupField.setAccessible(true);
+        final Object group = groupField.get(stripInstance);
+        if (group instanceof List<?> list) {
+            list.remove(button);
+        }
     }
 
     /**
@@ -478,41 +485,35 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
     }
     /**
-     * Updates the button's visual state. Flag writes first (they fire the
-     * native {@code updateAppearance()} over the fallback q slots), then
-     * {@code setSelected(self-built entity)} — the host enables only the
-     * chosen item — so the displayed icon is always ours:
-     * off → Disabled entity, vertical → Normal entity, horizontal →
-     * Selected entity.
+     * Updates the button's visual state by REBUILDING it: the icon set's plated
+     * images carry the glyph baked at construction (native {@code GImageEntity}
+     * exposes no image setter), so an in-place {@code setSelected} would leave
+     * the host's hover/pressed entities showing the previous state's glyph.
+     * Removing the button from group H and the scene graph, then re-creating
+     * it with the new state's icon, keeps every native appearance slot —
+     * normal/hover/pressed/disabled — on the current glyph.
      */
     public void updateButtonState(final String contributionId, final int axis) {
         synchronized (lock) {
-            for (final Entry entry : entries.values()) {
-                if (!contributionId.equals(entry.contribution().contributionId())) continue;
-                try {
-                    final Object button = entry.currentButton();
-                    final Class<?> buttonClass = button.getClass();
-                    final boolean enabled = axis != 0;
-                    final boolean selected = axis == 2;
-                    buttonClass.getMethod("setButtonEnabled", boolean.class).invoke(button, enabled);
-                    buttonClass.getMethod("setButtonSelected", boolean.class).invoke(button, selected);
-                    final Object entity = entry.stateEntities().get(axis);
-                    if (entity != null) {
-                        buttonClass
-                                .getMethod(
-                                        "setSelected",
-                                        Class.forName(
-                                                "com.live2d.graphics3d.entity.GEntity",
-                                                false,
-                                                buttonClass.getClassLoader()))
-                                .invoke(button, entity);
-                    }
-                    diagnostic("BUTTON_STATE_UPDATED axis=" + axis
-                            + " enabled=" + enabled + " selected=" + selected
-                            + " entity=" + (entity != null));
-                } catch (ReflectiveOperationException | RuntimeException failure) {
-                    diagnostic("UPDATE_STATE_FAILED " + failure.getClass().getSimpleName());
-                }
+            final Entry entry = entries.get(contributionId);
+            if (entry == null || strip == null) return;
+            try {
+                removeFromGroup(strip, entry.currentButton());
+                removeButton(entry.currentButton());
+                final Map<Integer, UiRasterImage> icons = entry.contribution().stateIcons();
+                final BuiltButton built = createButton(
+                        entry.contribution(),
+                        icons.getOrDefault(axis, icons.values().iterator().next()),
+                        axis);
+                insertIntoGroup(strip, built.button());
+                entries.put(contributionId,
+                        new Entry(entry.contribution(), built.button(), built.stateEntities()));
+                applyInitialState(built.button(), built.stateEntities(), axis);
+                diagnostic("BUTTON_STATE_REBUILT axis=" + axis);
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                diagnostic("UPDATE_STATE_FAILED " + failure.getClass().getSimpleName()
+                        + ": " + failure.getMessage());
             }
         }
     }

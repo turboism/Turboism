@@ -592,8 +592,15 @@ public final class NativeWarpAltMirrorBridge {
     private static Object invoke(
             final Object target, final String name, final Class<?>[] parameterTypes, final Object... args)
             throws ReflectiveOperationException {
-        final Method method = target.getClass().getMethod(name, parameterTypes);
-        return method.invoke(target, args);
+        Method method = target.getClass().getMethod(name, parameterTypes);
+        try {
+            return method.invoke(target, args);
+        } catch (IllegalAccessException accessFailure) {
+            // Host event/action classes are package-private; the method itself is
+            // public but the declaring class is not accessible without override.
+            method.setAccessible(true);
+            return method.invoke(target, args);
+        }
     }
 
     private static boolean invokeBoolean(final Object target, final String name) throws ReflectiveOperationException {
@@ -682,12 +689,102 @@ public final class NativeWarpAltMirrorBridge {
     }
 
     /**
-     * Green bezier tick mirror, injected at the head of the reviewed drag-tick
-     * ({@code warp.a$b.a(aG)}). The green cage drag writes bezier points
-     * directly (anchor/cn/cs/cw/ce as absolute local coordinates) and never
+     * Diagnostic entry injected at the head of {@code CEActionManager.mouseAction(N)}:
+     * reports whether gesture events reach the action pipeline at all, and which
+     * action object owns them — used to trace where bezier-handle drags die.
+     */
+    public static void diagMouseAction(final Object manager, final Object event) {
+        try {
+            if (!REPORTED_SKIPS.add("mouse:" + (event == null ? "null" : event.getClass().getSimpleName()))) {
+                return;
+            }
+            final Object current = invoke(manager, "getCurAction", new Class<?>[0]);
+            diagnostic("MOUSE_ACTION event=" + (event == null ? "null" : event.getClass().getName())
+                    + " av=" + safeBool(event, "av") + " aw=" + safeBool(event, "aw")
+                    + " cur=" + (current == null ? "null" : current.getClass().getName()));
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+        }
+    }
+
+    private static final AtomicReference<String> LAST_INPUT_KIND = new AtomicReference<>("");
+    private static final java.util.concurrent.atomic.AtomicInteger INPUT_KIND_RUN =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    /**
+     * Diagnostic entry injected at the head of {@code CEViewContext.onInputEvent_exe(h)}:
+     * the single ingress for every canvas input event — proves which event kinds
+     * actually reach the view-context dispatch during a bezier-handle drag.
+     * Consecutive events of the same kind are coalesced into a run count.
+     */
+    public static void diagInputEvent(final Object viewContext, final Object event) {
+        try {
+            // Zero-reflection first: prove the ingress ran even if kind lookup fails.
+            final String eventClass = event == null ? "null" : event.getClass().getName();
+            final String ctxClass = viewContext == null ? "null" : viewContext.getClass().getName();
+            String kindName;
+            try {
+                final Object kind = invoke(event, "e", new Class<?>[0]);
+                kindName = kind instanceof Enum<?> e ? e.name() : String.valueOf(kind);
+            } catch (Throwable kindFailure) {
+                FatalErrors.rethrowIfFatal(kindFailure);
+                kindName = "kind-fail:" + kindFailure.getClass().getSimpleName();
+            }
+            if (kindName.equals(LAST_INPUT_KIND.get()) && !kindName.startsWith("kind-fail")) {
+                INPUT_KIND_RUN.incrementAndGet();
+                return;
+            }
+            final int run = INPUT_KIND_RUN.getAndSet(0);
+            if (run > 0) {
+                diagnostic("INPUT_EVENT_RUN x" + run);
+            }
+            LAST_INPUT_KIND.set(kindName);
+            diagnostic("INPUT_EVENT kind=" + kindName + " event=" + eventClass + " ctx=" + ctxClass);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+        }
+    }
+
+    /**
+     * Diagnostic entry injected at the head of {@code CEActionManager.setCurrentAction(a, N)}:
+     * reports exactly which action object claims each gesture event.
+     */
+    public static void diagSetAction(final Object action, final Object event) {
+        try {
+            diagnostic("SET_ACTION action=" + (action == null ? "null" : action.getClass().getName())
+                    + " event=" + (event == null ? "null" : event.getClass().getName())
+                    + " av=" + safeBool(event, "av") + " aw=" + safeBool(event, "aw")
+                    + " ax=" + safeBool(event, "ax"));
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+        }
+    }
+
+    private static boolean safeBool(final Object target, final String name) {
+        try {
+            return invokeBoolean(target, name);
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            return false;
+        }
+    }
+
+    /**
+     * Green bezier tick mirror, injected at the head of the reviewed drag
+     * dispatcher ({@code warp.a$b.b(N)}). Each drag tick writes bezier points
+     * directly per handle kind ({@code CBezierGrid$b}) and edit type, including
+     * the opposite-handle tangent continuity and neighbor linkage, and never
      * touches {@code moveToOnLocal}; the same tick's native bake afterwards
-     * rewrites {@code positions} from the cage, so mirroring the cage point
-     * here joins the gesture's own GroupUndo with no second history entry.
+     * rewrites {@code positions} from the cage, so mirroring here joins the
+     * gesture's own GroupUndo with no second history entry.
+     *
+     * <p>The mirrored side is replayed through the ref-level native write:
+     * a constructed counterpart {@code CBezierGrid$a} (mirrored col/row +
+     * mirrored handle kind, propagation flag copied) is converted by
+     * {@code getCompatiblePointRef} into the same local space the tick uses,
+     * then {@code moveToOnLocal(pos + mirroredDelta, action.b())} runs the
+     * host's own per-kind write and propagation on the counterpart. A bare
+     * handle-vector write would leave the symmetric side without the native
+     * linkage (user report: neighbors' handles move, symmetric ones don't).
      *
      * <p>Axis semantics (r32 feedback): 垂直镜像 = counterpart moves vertically
      * (mirror across the horizontal line: row flips, dy negated, dx follows,
@@ -696,33 +793,58 @@ public final class NativeWarpAltMirrorBridge {
      */
     public static void mirrorGreenTick(final Object action, final Object event) {
         try {
+            if (REPORTED_SKIPS.add("green:entered")) {
+                diagnostic("GREEN_TICK_ENTERED action=" + (action == null ? "null" : action.getClass().getName())
+                        + " event=" + (event == null ? "null" : event.getClass().getName()));
+            }
             final Binding binding = INSTALLED.get();
             if (binding == null || !binding.enabled() || action == null || event == null) {
+                greenSkip("NO_BINDING_OR_EVENT");
                 return;
             }
             if (!PARTICIPATION.hasParticipants()) {
+                greenSkip("NO_PARTICIPANT");
                 return;
             }
             final int axis = ARMED_AXIS.get();
             if (axis == 0) {
+                greenSkip("AXIS_OFF");
+                return;
+            }
+            // b(N) also dispatches gesture-end (av) events; only live drag
+            // ticks (aw) drive the native write we mirror.
+            if (!invokeBoolean(event, "aw")) {
+                greenSkip("NOT_TICK");
                 return;
             }
             final boolean vertical = axis == 1;
             final Field selectionField = action.getClass().getDeclaredField("b");
             selectionField.setAccessible(true);
             final Object selection = selectionField.get(action);
-            if (selection == null) return;
+            if (selection == null) {
+                greenSkip("NO_SELECTION");
+                return;
+            }
             final Object ref = invoke(selection, "a", new Class<?>[0]);
-            if (ref == null) return;
+            if (ref == null) {
+                greenSkip("NO_REF");
+                return;
+            }
             final Object point = invoke(ref, "b", new Class<?>[0]);
             final int column = invokeInt(ref, "c");
             final int row = invokeInt(ref, "d");
             final String type = String.valueOf(invoke(ref, "e", new Class<?>[0]));
             final Object grid = invoke(ref, "a", new Class<?>[0]);
-            if (point == null || grid == null) return;
+            if (point == null || grid == null) {
+                greenSkip("NO_POINT_OR_GRID");
+                return;
+            }
             final int bezierCol = invokeInt(grid, "getBezierCol");
             final int bezierRow = invokeInt(grid, "getBezierRow");
-            if (bezierCol < 0 || bezierRow < 0) return;
+            if (bezierCol < 0 || bezierRow < 0) {
+                greenSkip("BAD_DIMS col=" + bezierCol + " row=" + bezierRow);
+                return;
+            }
             final int counterpartCol = vertical ? column : bezierCol - column;
             final int counterpartRow = vertical ? bezierRow - row : row;
             final boolean selfMirrored = counterpartCol == column && counterpartRow == row;
@@ -736,47 +858,145 @@ public final class NativeWarpAltMirrorBridge {
             } else {
                 final Object table = invoke(grid, "getBezierPtRef", new Class<?>[0]);
                 if (!(table instanceof Object[][] columns) || counterpartCol < 0 || counterpartCol >= columns.length) {
+                    greenSkip("BAD_TABLE col=" + counterpartCol);
                     return;
                 }
                 if (!(columns[counterpartCol] instanceof Object[])) {
+                    greenSkip("BAD_COLUMN col=" + counterpartCol);
                     return;
                 }
                 final Object[] counterpartColumnList = (Object[]) columns[counterpartCol];
                 if (counterpartRow < 0 || counterpartRow >= counterpartColumnList.length) {
+                    greenSkip("BAD_ROW row=" + counterpartRow + " len=" + counterpartColumnList.length);
                     return;
                 }
                 counterpart = counterpartColumnList[counterpartRow];
-                if (counterpart == null) return;
+                if (counterpart == null) {
+                    greenSkip("NULL_COUNTERPART");
+                    return;
+                }
             }
             final Object delta = invoke(event, "aH", new Class<?>[0]);
-            if (delta == null) return;
+            if (delta == null) {
+                greenSkip("NO_DELTA");
+                return;
+            }
             final float dx = invokeFloat(delta, "getX");
             final float dy = invokeFloat(delta, "getY");
             if (Math.abs(dx) <= AltAxisMirrorMath.MOVE_EPSILON && Math.abs(dy) <= AltAxisMirrorMath.MOVE_EPSILON) {
+                greenSkip("TINY_DELTA");
                 return;
             }
-            final Object draggedHandle = handleOf(point, type);
             final String counterType = counterpartHandleType(type, vertical);
             if (selfMirrored && counterType.equals(type)) {
                 // The handle offset lies along the axis: its mirror is itself
                 // and the native drag already moved it — nothing to mirror.
+                greenSkip("SELF_ON_AXIS");
                 return;
             }
-            final Object counterHandle = handleOf(counterpart, counterType);
-            if (draggedHandle == null || counterHandle == null) return;
-            final float curX = invokeFloat(counterHandle, "getX");
-            final float curY = invokeFloat(counterHandle, "getY");
+            // Re-dispatch the gesture through the ref-level native write so the
+            // counterpart side receives the same per-kind propagation the tick
+            // performs on the dragged side (opposite-handle tangent continuity
+            // and neighbor linkage) — a lone handle write lags behind.
+            final Object counterRef = bezierCounterpartRef(
+                    ref, grid, counterpart, counterpartCol, counterpartRow, counterType);
+            if (counterRef == null) {
+                greenSkip("NO_COUNTERPART_REF");
+                return;
+            }
+            final Object space = bezierLocalSpace(grid.getClass().getClassLoader());
+            if (space == null) {
+                greenSkip("NO_LOCAL_SPACE");
+                return;
+            }
+            final Method compatMethod =
+                    MethodHandleCache.declaredByArity(grid.getClass(), "getCompatiblePointRef", 2);
+            final Object compat = compatMethod.invoke(grid, counterRef, space);
+            if (compat == null) {
+                greenSkip("NO_COMPAT_REF");
+                return;
+            }
+            final Object pos = invoke(compat, "getPos", new Class<?>[0]);
+            if (pos == null) {
+                greenSkip("NO_POS");
+                return;
+            }
             final float mirroredDx = vertical ? dx : -dx;
             final float mirroredDy = vertical ? -dy : dy;
-            invoke(counterHandle, "setX", new Class<?>[] {float.class}, curX + mirroredDx);
-            invoke(counterHandle, "setY", new Class<?>[] {float.class}, curY + mirroredDy);
+            final float weight = invokeFloat(action, "b");
+            final Class<?> vectorType = pos.getClass();
+            final Object target = vectorType
+                    .getConstructor(float.class, float.class)
+                    .newInstance(invokeFloat(pos, "getX") + mirroredDx, invokeFloat(pos, "getY") + mirroredDy);
+            invoke(compat, "moveToOnLocal", new Class<?>[] {vectorType, float.class}, target, weight);
             if (GREEN_APPLIED_REPORTED.compareAndSet(false, true)) {
-                diagnostic("MIRROR_GREEN_APPLIED axis=" + (vertical ? "vertical" : "horizontal"));
+                diagnostic("MIRROR_GREEN_APPLIED axis=" + (vertical ? "vertical" : "horizontal")
+                        + " kind=" + type + "->" + counterType);
             }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-            diagnostic("GREEN_TICK_MIRROR_FAILED reason=" + failure.getClass().getName());
+            greenSkip("FAILED_" + failure.getClass().getSimpleName());
         }
+    }
+
+    /**
+     * Builds the counterpart {@code CBezierGrid$a} for the mirrored
+     * re-dispatch via the reviewed seven-argument public constructor
+     * {@code (grid, pos, pt, col, row, kind, flag)}. {@code pos} is only used
+     * for hit-testing — {@code moveToOnLocal} never reads it — so the source
+     * ref's position is a safe placeholder; the propagation flag {@code f} is
+     * copied verbatim from the dragged ref.
+     */
+    private static Object bezierCounterpartRef(
+            final Object ref,
+            final Object grid,
+            final Object counterpartPt,
+            final int counterpartCol,
+            final int counterpartRow,
+            final String counterType)
+            throws ReflectiveOperationException {
+        final Class<?> refClass = ref.getClass();
+        final Object kind = invoke(ref, "e", new Class<?>[0]);
+        if (kind == null) {
+            return null;
+        }
+        final Class<?> kindType = kind.getClass();
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        final Object kindConstant = java.lang.Enum.valueOf((Class) kindType, counterType);
+        final Field flagField = refClass.getDeclaredField("f");
+        flagField.setAccessible(true);
+        final boolean flag = flagField.getBoolean(ref);
+        for (final Constructor<?> ctor : refClass.getConstructors()) {
+            final Class<?>[] params = ctor.getParameterTypes();
+            if (params.length == 7
+                    && params[0].isInstance(grid)
+                    && params[2].isInstance(counterpartPt)
+                    && params[3] == int.class && params[4] == int.class
+                    && params[5].isAssignableFrom(kindType)
+                    && params[6] == boolean.class) {
+                ctor.setAccessible(true);
+                return ctor.newInstance(
+                        grid, invoke(ref, "getPos", new Class<?>[0]), counterpartPt,
+                        counterpartCol, counterpartRow, kindConstant, flag);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Resolves the local selection space the tick converts refs into:
+     * {@code com.live2d.doc.selection.d.b} (a static {@code d$a} field) {@code .a()}.
+     */
+    private static Object bezierLocalSpace(final ClassLoader loader)
+            throws ReflectiveOperationException {
+        final Class<?> spaceType = Class.forName("com.live2d.doc.selection.d", false, loader);
+        final Field companionField = spaceType.getDeclaredField("b");
+        companionField.setAccessible(true);
+        final Object companion = companionField.get(null);
+        if (companion == null) {
+            return null;
+        }
+        return companion.getClass().getMethod("a").invoke(companion);
     }
 
     /** Maps a dragged handle type to the axis-mirrored counterpart handle type. */
@@ -790,19 +1010,6 @@ public final class NativeWarpAltMirrorBridge {
             case "CONTROL_E" -> vertical ? "CONTROL_E" : "CONTROL_W";
             default -> draggedType;
         };
-    }
-
-    private static final java.util.Map<String, String> HANDLE_ACCESSORS = java.util.Map.of(
-            "ANCHOR", "getAnchor",
-            "CONTROL_N", "getCn",
-            "CONTROL_S", "getCs",
-            "CONTROL_W", "getCw",
-            "CONTROL_E", "getCe");
-
-    private static Object handleOf(final Object point, final String type) throws ReflectiveOperationException {
-        final String accessor = HANDLE_ACCESSORS.get(type);
-        if (accessor == null) return null;
-        return invoke(point, accessor, new Class<?>[0]);
     }
 
     /** Route stage marker with the event's modifier snapshot. */
@@ -864,6 +1071,12 @@ public final class NativeWarpAltMirrorBridge {
     private static void skipOnce(final String reason) {
         if (REPORTED_SKIPS.add(reason)) {
             diagnostic("TICK_SKIP reason=" + reason);
+        }
+    }
+
+    private static void greenSkip(final String reason) {
+        if (REPORTED_SKIPS.add("green:" + reason)) {
+            diagnostic("GREEN_SKIP reason=" + reason);
         }
     }
 

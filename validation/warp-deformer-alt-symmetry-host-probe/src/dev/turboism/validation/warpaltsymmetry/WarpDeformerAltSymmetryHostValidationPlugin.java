@@ -79,6 +79,7 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
     private static final String MODE_OBSERVE = "observe";
     private static final String MODE_WEIGHT_STROKE = "weightStroke";
     private static final String MODE_DRIVE_GESTURE = "driveGesture";
+    private static final String MODE_BEZIER_HANDLE = "bezierHandle";
     private static final String AXIS_PROPERTY = "turboism.validation.warpAlt.axis";
     private static final String TOOL_PROPERTY = "turboism.validation.warpAlt.tool";
     private static final String PRESELECT_PROPERTY = "turboism.validation.warpAlt.preselect";
@@ -115,6 +116,7 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
 
     /** Reference drag offset used when the task does not supply one. */
     private static final int DEFAULT_DRAG_DX = 48;
+    private static final int BEZIER_DIM = 4;
     private static final int DEFAULT_DRAG_DY = -32;
 
     private PluginContext context;
@@ -237,6 +239,17 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
                     report.put("target.name", safeName(target));
                 }
                 recordDriveGesture(target, report, failures);
+            } else if (MODE_BEZIER_HANDLE.equals(mode())) {
+                // Green bezier-handle mirroring: same deterministic choreography,
+                // then a real Robot drag on a projected CONTROL_* handle tip. The
+                // before/after bezier-ref snapshots must pair up under the armed
+                // axis' (col,row,kind) mirror map — including propagated
+                // opposite-handle/neighbor writes.
+                if (target != null) {
+                    report.put("target.id", safeId(target));
+                    report.put("target.name", safeName(target));
+                }
+                recordBezierHandle(target, report, failures);
             } else if (MODE_OBSERVE.equals(mode())) {
                 // Human-in-the-loop mode: the probe never writes. The operator drags
                 // control points in the host window while the hook family records what
@@ -977,6 +990,770 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
     }
 
     /**
+     * Bezier-handle mirror regression. The target's live bezier controller cache
+     * exposes the {@code CBezierGrid}; {@code getAllPointRef(identity-space,true)}
+     * enumerates every anchor/handle ref with its local position. One CONTROL_*
+     * (or ANCHOR) ref off the armed axis is projected to the screen and dragged
+     * with a real Robot stroke. The before/after per-(col,row,kind) position
+     * snapshots must mirror-pair under the armed axis — including the propagated
+     * opposite-handle and neighbor writes, which is what distinguishes this path
+     * from the old single-handle mirror.
+     */
+    private void recordBezierHandle(
+            final WarpDeformer target,
+            final Report report,
+            final List<String> failures
+    ) {
+        final int axis = (int) parseLong(System.getProperty(AXIS_PROPERTY, ""), 1);
+        report.put("bezier.axis", Integer.toString(axis));
+        final WarpAltMirrorParticipation participation;
+        try {
+            participation = context.services().require(WarpAltMirrorParticipation.class);
+        } catch (RuntimeException | Error failure) {
+            failures.add("warpAltMirrorParticipation unavailable: " + failure.getClass().getSimpleName());
+            return;
+        }
+        final int[] drag = parsePair(System.getProperty(DRAG_PROPERTY, "").strip());
+        final int dragDx = drag == null ? DEFAULT_DRAG_DX : drag[0];
+        final int dragDy = drag == null ? DEFAULT_DRAG_DY : drag[1];
+        if (GraphicsEnvironment.isHeadless()) {
+            report.put("bezier.performed", "false");
+            failures.add("bezierHandle requested but the JVM is headless");
+            return;
+        }
+        if (target == null) {
+            report.put("bezier.performed", "false");
+            failures.add("bezierHandle has no readable Warp target");
+            return;
+        }
+        final Robot robot;
+        try {
+            robot = new Robot();
+        } catch (Exception | Error failure) {
+            report.put("bezier.performed", "false");
+            failures.add("Robot unavailable: " + failure.getClass().getSimpleName());
+            return;
+        }
+        final int hookBefore = hookChangedCount.get();
+        long logMark = -1L;
+        java.util.Map<String, float[]> before;
+        String dragKey;
+        int[] start;
+        try {
+            focusMainWindow();
+            final WeightHostHandles handles = resolveWeightHostHandles(target, report);
+            if (handles == null) {
+                report.put("bezier.performed", "false");
+                failures.add("bezierHandle could not resolve the host editor handles");
+                return;
+            }
+            selectWeightTarget(handles, report);
+            activateToolGroup(
+                    handles,
+                    report,
+                    "bezier.arrowTool",
+                    "com.live2d.cubism.view.palette.tool.toolMode.arrow.ToolGroup_Arrow");
+            final Object grid = bezierGrid(handles, report);
+            if (grid == null) {
+                report.put("bezier.performed", "false");
+                failures.add("bezierHandle target warp has no bezier controller cache");
+                return;
+            }
+            before = snapshotBezierRefs(grid, handles, report);
+            if (before.isEmpty()) {
+                report.put("bezier.performed", "false");
+                failures.add("bezierHandle could not enumerate bezier refs");
+                return;
+            }
+            final BezierPick pick = pickBezierHandle(grid, before, axis, handles, target, report);
+            if (pick == null) {
+                report.put("bezier.performed", "false");
+                failures.add("bezierHandle found no projectable off-axis handle ref");
+                return;
+            }
+            dragKey = pick.key;
+            start = pick.screen;
+            report.put("bezier.dragRef", dragKey);
+            report.put("bezier.screen", start[0] + "," + start[1]);
+            logMark = runtimeLogMark();
+
+            participation.setArmedAxis(axis);
+            setActionRecording(handles, true);
+            final java.util.List<String> awtSeen = new java.util.ArrayList<>();
+            final java.awt.event.AWTEventListener awtListener = event -> {
+                if (awtSeen.size() < 120) {
+                    final String name = event instanceof java.awt.event.MouseEvent me
+                            ? Integer.toString(me.getID())
+                            : event.getClass().getSimpleName() + "/" + event.getID();
+                    final String source = event.getSource() == null ? "null"
+                            : event.getSource().getClass().getName();
+                    awtSeen.add(name + "@" + source.substring(source.lastIndexOf('.') + 1));
+                }
+            };
+            java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(
+                    awtListener,
+                    java.awt.AWTEvent.MOUSE_EVENT_MASK | java.awt.AWTEvent.MOUSE_MOTION_EVENT_MASK
+                            | java.awt.AWTEvent.MOUSE_WHEEL_EVENT_MASK | java.awt.AWTEvent.WINDOW_EVENT_MASK
+                            | java.awt.AWTEvent.FOCUS_EVENT_MASK | java.awt.AWTEvent.COMPONENT_EVENT_MASK);
+            final java.awt.Component glPanel = findGlPanel();
+            report.put("bezier.glPanel", describeComponent(glPanel));
+            final java.awt.Point panelOrigin = glPanel == null ? null : glPanel.getLocationOnScreen();
+            try {
+                if (glPanel != null && panelOrigin != null) {
+                    dispatchGesture(glPanel, panelOrigin, start[0], start[1], dragDx, dragDy);
+                    awtSeen.add("POLL_END=" + describeDragState(handles));
+                } else {
+                    robot.mouseMove(start[0], start[1]);
+                    robot.delay((int) GESTURE_STEP_MILLIS);
+                    robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+                    robot.delay((int) GESTURE_STEP_MILLIS);
+                    for (int step = 1; step <= 4; step++) {
+                        robot.mouseMove(
+                            start[0] + (dragDx * step) / 4,
+                            start[1] + (dragDy * step) / 4
+                        );
+                        robot.delay((int) GESTURE_STEP_MILLIS);
+                        awtSeen.add("POLL" + step + "=" + describeDragState(handles));
+                    }
+                    robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+                    robot.delay((int) GESTURE_STEP_MILLIS);
+                    awtSeen.add("POLL_END=" + describeDragState(handles));
+                }
+            } finally {
+                participation.setArmedAxis(0);
+                java.awt.Toolkit.getDefaultToolkit().removeAWTEventListener(awtListener);
+            }
+            report.put("bezier.awtEvents", String.join(";", awtSeen));
+            report.put("bezier.candidates", describeActionCandidates(handles));
+            setActionRecording(handles, false);
+            report.put("bezier.performed", "true");
+        } catch (RuntimeException | Error failure) {
+            report.put("bezier.performed", "false");
+            failures.add("bezierHandle failed: " + failure.getClass().getName());
+            return;
+        }
+
+        sleep(SETTLE_MILLIS);
+        final java.util.Map<String, float[]> after;
+        try {
+            final WeightHostHandles handles = resolveWeightHostHandles(target, report);
+            final Object grid = handles == null ? null : bezierGrid(handles, report);
+            after = grid == null ? java.util.Map.of() : snapshotBezierRefs(grid, handles, report);
+        } catch (RuntimeException | Error failure) {
+            failures.add("bezierHandle result read failed: " + failure.getClass().getName());
+            return;
+        }
+        report.put("bezier.hookFired", Boolean.toString(hookChangedCount.get() > hookBefore));
+        final String greenDiag = logMark < 0 ? "" : tailRuntimeLog(logMark);
+        report.put("bezier.greenDiag", greenDiag.isEmpty() ? "none" : greenDiag);
+        report.put("bezier.mirrorApplied",
+                Boolean.toString(greenDiag.contains("MIRROR_GREEN_APPLIED")));
+
+        final java.util.List<String> moved = new java.util.ArrayList<>();
+        for (java.util.Map.Entry<String, float[]> entry : before.entrySet()) {
+            final float[] now = after.get(entry.getKey());
+            if (now == null) continue;
+            final float[] was = entry.getValue();
+            if (Math.abs(now[0] - was[0]) > MOVE_EPSILON
+                    || Math.abs(now[1] - was[1]) > MOVE_EPSILON) {
+                moved.add(entry.getKey());
+            }
+        }
+        java.util.Collections.sort(moved);
+        report.put("bezier.moved", Integer.toString(moved.size()));
+        report.put("bezier.movedKeys", String.join(";", moved));
+        // Mirror pairing: for every moved ref its axis-mirrored counterpart key
+        // must also have moved. A plain handle write would move only the direct
+        // pair; propagation expands both sides symmetrically.
+        final int bezierCol = (int) parseLong(report.get("bezier.cols"), -1);
+        final int bezierRow = (int) parseLong(report.get("bezier.rows"), -1);
+        int pairs = 0;
+        int unmatched = 0;
+        final java.util.Set<String> movedSet = new java.util.HashSet<>(moved);
+        for (final String key : movedSet) {
+            final String counterpart = bezierCounterpartKey(key, axis, bezierCol, bezierRow);
+            if (counterpart == null || counterpart.equals(key)) {
+                continue; // on-axis self-mirror
+            }
+            if (movedSet.contains(counterpart)) {
+                pairs++;
+            } else {
+                unmatched++;
+                failures.add("unpaired moved ref " + key + " (counterpart " + counterpart + " did not move)");
+            }
+        }
+        report.put("bezier.pairsMoved", Integer.toString(pairs / 2));
+        report.put("bezier.unpaired", Integer.toString(unmatched));
+        if (moved.isEmpty()) {
+            failures.add("bezierHandle drag moved no bezier ref (projection or hit-test failed)");
+        } else if (unmatched > 0) {
+            report.put("bezier.verdict", "asymmetric");
+        } else {
+            report.put("bezier.verdict", "mirrored");
+        }
+        logger.info("WARP_ALT_BEZIER_RESULT performed=true"
+            + " dragRef=" + dragKey
+            + " moved=" + moved.size()
+            + " pairs=" + (pairs / 2)
+            + " unpaired=" + unmatched
+            + " verdict=" + report.get("bezier.verdict"));
+    }
+
+    /** (col,row,kind) mirror map for the armed axis, or null when unparseable. */
+    private static String bezierCounterpartKey(
+            final String key, final int axis, final int bezierCol, final int bezierRow) {
+        final String[] parts = key.split(",");
+        if (parts.length != 3 || bezierCol < 0 || bezierRow < 0) return null;
+        final int col;
+        final int row;
+        try {
+            col = Integer.parseInt(parts[0]);
+            row = Integer.parseInt(parts[1]);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+        final int cpCol = axis == 1 ? col : bezierCol - col;
+        final int cpRow = axis == 1 ? bezierRow - row : row;
+        final String kind = switch (parts[2]) {
+            case "CONTROL_N" -> axis == 1 ? "CONTROL_S" : "CONTROL_N";
+            case "CONTROL_S" -> axis == 1 ? "CONTROL_N" : "CONTROL_S";
+            case "CONTROL_W" -> axis == 1 ? "CONTROL_W" : "CONTROL_E";
+            case "CONTROL_E" -> axis == 1 ? "CONTROL_E" : "CONTROL_W";
+            default -> parts[2];
+        };
+        return cpCol + "," + cpRow + "," + kind;
+    }
+
+    /**
+     * Resolves the live {@code CBezierGrid} of the target warp through
+     * {@code CWarpDeformer.getBezierControllerCache(i) -> grid accessor}.
+     * The cache slot is only ever filled by the WarpDeformer_Draw pass, which
+     * reads the source's bezier extension and calls setupBezier itself — so
+     * when the warp has no authored extension this installs one on
+     * {@code _extensions} and keeps repainting until the draw path
+     * materialises the same cache an authored warp would have.
+     */
+    private Object bezierGrid(final WeightHostHandles handles, final Report report) {
+        final AtomicReference<String> state = new AtomicReference<>("skipped");
+        Object found = null;
+        boolean extensionInstalled = false;
+        // The editor-side cache slot is populated by WarpDeformer_Draw: on each
+        // draw pass it finds the warp's CWarpDeformerBezierExtension in the
+        // source _extensions list and calls setupBezier + setBezierControllerCache
+        // itself. A manually-assembled cache is not rendered or hittable, so
+        // when the warp has no authored extension we only add the extension to
+        // _extensions and let the draw path produce the real cache.
+        for (int attempt = 0; attempt < 30 && found == null; attempt++) {
+            if (attempt > 0) {
+                sleep(400);
+            }
+            final AtomicReference<Object> round = new AtomicReference<>();
+            final AtomicReference<String> roundState = new AtomicReference<>();
+            final boolean installExtension = !extensionInstalled && attempt >= 4;
+            try {
+                SwingUtilities.invokeAndWait(() -> {
+                    try {
+                        if (installExtension) {
+                            installBezierExtension(handles);
+                        }
+                        handles.viewport().repaint();
+                        Object grid = null;
+                        for (int i = 0; i < 4 && grid == null; i++) {
+                            final Object cache = handles.warpDeformer().getClass()
+                                    .getMethod("getBezierControllerCache", int.class)
+                                    .invoke(handles.warpDeformer(), i);
+                            if (cache != null) {
+                                // 5.2.x exposes the grid as f.a(), 5.3.x as
+                                // g.b() — resolve by return type instead.
+                                grid = bezierGridOf(cache);
+                            }
+                        }
+                        round.set(grid);
+                    } catch (Exception | Error failure) {
+                        roundState.set("failed:" + describeFailure(failure));
+                    }
+                });
+            } catch (Exception | Error failure) {
+                roundState.set("failed:" + describeFailure(failure));
+            }
+            if (installExtension) {
+                extensionInstalled = true;
+            }
+            if (roundState.get() != null) {
+                state.set(roundState.get());
+                report.put("bezier.grid", state.get());
+                return null;
+            }
+            found = round.get();
+        }
+        if (found != null) {
+            state.set(extensionInstalled ? "created" : "ok");
+        } else {
+            state.set("absent");
+        }
+        report.put("bezier.grid", state.get());
+        return found;
+    }
+
+    /**
+     * Adds a {@code CWarpDeformerBezierExtension} to the warp source's
+     * {@code _extensions} list (idempotent) so the next draw pass materializes
+     * the real bezier controller cache through {@code setupBezier}.
+     */
+    private void installBezierExtension(final WeightHostHandles handles) throws Exception {
+        final Object warp = handles.warpDeformer();
+        final Object source = warp.getClass().getMethod("getSource").invoke(warp);
+        final java.lang.reflect.Field extensionsField = source.getClass().getDeclaredField("_extensions");
+        extensionsField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        final java.util.List<Object> extensions =
+                (java.util.List<Object>) extensionsField.get(source);
+        final ClassLoader loader = handles.hostClassLoader();
+        final Class<?> extType = Class.forName(
+                "com.live2d.cubism.doc.model.extension.warpBezier.CWarpDeformerBezierExtension",
+                true, loader);
+        for (final Object existing : extensions) {
+            if (extType.isInstance(existing)) {
+                return;
+            }
+        }
+        final Class<?> sourceType = Class.forName(
+                "com.live2d.cubism.doc.model.deformer.warp.CWarpDeformerSource", true, loader);
+        extensions.add(extType
+                .getConstructor(sourceType, int.class, int.class, int.class)
+                .newInstance(source, BEZIER_DIM, BEZIER_DIM, 0));
+    }
+
+    private static String describeFailure(final Throwable failure) {
+        Throwable cursor = failure;
+        final StringBuilder out = new StringBuilder();
+        while (cursor != null) {
+            if (out.length() > 0) {
+                out.append(" <- ");
+            }
+            out.append(cursor.getClass().getSimpleName());
+            if (cursor.getMessage() != null) {
+                out.append('(').append(cursor.getMessage()).append(')');
+            }
+            final StackTraceElement[] trace = cursor.getStackTrace();
+            if (trace != null && trace.length > 0) {
+                out.append('@').append(trace[0].getClassName())
+                        .append('.').append(trace[0].getMethodName())
+                        .append(':').append(trace[0].getLineNumber());
+            }
+            cursor = cursor.getCause();
+            if (cursor == failure) {
+                break;
+            }
+        }
+        return out.toString();
+    }
+
+    /** {@code f.a()} on 5.2.x / {@code g.b()} on 5.3.x — resolved by return type. */
+    private static Object bezierGridOf(final Object cache) throws Exception {
+        for (final java.lang.reflect.Method m : cache.getClass().getMethods()) {
+            if (m.getParameterCount() == 0
+                    && m.getReturnType().getName().endsWith("warp.bezier.CBezierGrid")) {
+                return m.invoke(cache);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Byte offset of the newest {@code logs/runtime} file under the isolated
+     * Turboism home, used to capture only diagnostics written after the drag.
+     */
+    private long runtimeLogMark() {
+        final Path log = newestRuntimeLog();
+        try {
+            return log == null ? -1L : Files.size(log);
+        } catch (IOException failure) {
+            return -1L;
+        }
+    }
+
+    private Path newestRuntimeLog() {
+        try {
+            final Path home = context.paths().stateDir().getParent().getParent();
+            final Path runtimeLogs = home.resolve("logs").resolve("runtime");
+            if (!Files.isDirectory(runtimeLogs)) {
+                return null;
+            }
+            try (var dates = Files.list(runtimeLogs)) {
+                Path newest = null;
+                for (final Path dateDir : (Iterable<Path>) dates::iterator) {
+                    try (var files = Files.list(dateDir)) {
+                        for (final Path file : (Iterable<Path>) files::iterator) {
+                            if (!file.getFileName().toString().endsWith(".log")) {
+                                continue;
+                            }
+                            if (newest == null
+                                    || Files.getLastModifiedTime(file)
+                                            .compareTo(Files.getLastModifiedTime(newest)) > 0) {
+                                newest = file;
+                            }
+                        }
+                    }
+                }
+                return newest;
+            }
+        } catch (IOException | RuntimeException failure) {
+            return null;
+        }
+    }
+
+    private String tailRuntimeLog(final long mark) {
+        final Path log = newestRuntimeLog();
+        if (log == null) {
+            return "";
+        }
+        try {
+            final byte[] bytes = Files.readAllBytes(log);
+            if (bytes.length <= mark) {
+                return "";
+            }
+            final String tail = new String(
+                    bytes, (int) mark, bytes.length - (int) mark, StandardCharsets.UTF_8);
+            final StringBuilder out = new StringBuilder();
+            for (final String line : tail.split("\n")) {
+                if (line.contains("GREEN")) {
+                    if (out.length() > 0) {
+                        out.append(" | ");
+                    }
+                    final int at = line.indexOf("WARP_ALT_MIRROR_DIAG");
+                    out.append(at >= 0 ? line.substring(at).strip() : line.strip());
+                }
+            }
+            return out.length() > 400 ? out.substring(0, 400) : out.toString();
+        } catch (IOException | RuntimeException failure) {
+            return "read-failed:" + failure.getClass().getSimpleName();
+        }
+    }
+
+    private static java.lang.reflect.Field findField(final Class<?> type, final String name) {
+        Class<?> cursor = type;
+        while (cursor != null) {
+            try {
+                return cursor.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+                cursor = cursor.getSuperclass();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Enumerates {@code grid.getAllPointRef(identity-space, true)} into a
+     * {@code "col,row,kind" -> local pos} snapshot. The identity selection space
+     * ({@code doc.selection.d.b} companion {@code .a()}) is what the green-tick
+     * converts refs into, so the positions are the local coordinates the native
+     * writes compare against.
+     */
+    private java.util.Map<String, float[]> snapshotBezierRefs(
+            final Object grid, final WeightHostHandles handles, final Report report) {
+        final java.util.Map<String, float[]> out = new java.util.TreeMap<>();
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    final Class<?> dType = Class.forName(
+                            "com.live2d.doc.selection.d", true, handles.hostClassLoader());
+                    final Object companion = dType.getDeclaredField("b").get(null);
+                    final Object space = companion.getClass().getMethod("a").invoke(companion);
+                    @SuppressWarnings("unchecked")
+                    final java.util.List<Object> refs = (java.util.List<Object>) grid.getClass()
+                            .getMethod("getAllPointRef", dType, boolean.class)
+                            .invoke(grid, space, true);
+                    int bezierCol = -1, bezierRow = -1;
+                    for (final Object ref : refs) {
+                        final int col = (Integer) ref.getClass().getMethod("c").invoke(ref);
+                        final int row = (Integer) ref.getClass().getMethod("d").invoke(ref);
+                        bezierCol = Math.max(bezierCol, col);
+                        bezierRow = Math.max(bezierRow, row);
+                        final String kind = String.valueOf(ref.getClass().getMethod("e").invoke(ref));
+                        final Object pos = ref.getClass().getMethod("getPos").invoke(ref);
+                        out.put(col + "," + row + "," + kind, new float[] {
+                            (Float) pos.getClass().getMethod("getX").invoke(pos),
+                            (Float) pos.getClass().getMethod("getY").invoke(pos)
+                        });
+                    }
+                    report.put("bezier.cols", Integer.toString(bezierCol));
+                    report.put("bezier.rows", Integer.toString(bezierRow));
+                    report.put("bezier.refs", Integer.toString(refs.size()));
+                } catch (Exception | Error failure) {
+                    report.put("bezier.snapshot", "failed:" + failure.getClass().getSimpleName()
+                            + ":" + String.valueOf(failure.getMessage()));
+                }
+            });
+        } catch (Exception | Error failure) {
+            report.put("bezier.snapshot", "failed:" + failure.getClass().getSimpleName());
+        }
+        return out;
+    }
+
+    private record BezierPick(String key, int[] screen) {}
+
+    /**
+     * Flips {@code CEActionManager.setRecordAction} so the gesture's provider
+     * candidates land in {@code actionCandidateHistory} — the exact record of
+     * which action claimed the drag (bezier a$b vs quad/binder actions).
+     */
+    private void setActionRecording(final WeightHostHandles handles, final boolean on) {
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    final Object manager = handles.viewContext().getClass()
+                            .getMethod("getActionManager")
+                            .invoke(handles.viewContext());
+                    manager.getClass().getMethod("setRecordAction", boolean.class)
+                            .invoke(manager, on);
+                    // The history gate is a private static flag; set it
+                    // directly in case setRecordAction writes a different one.
+                    final java.lang.reflect.Field flag = manager.getClass()
+                            .getDeclaredField("recordActionCandidate");
+                    flag.setAccessible(true);
+                    flag.setBoolean(null, on);
+                } catch (Exception | Error ignored) {
+                }
+            });
+        } catch (Exception | Error ignored) {
+        }
+    }
+
+    /**
+     * Renders the recorded gesture candidates as
+     * {@code eventN=[actionA;actionB]|...} — which providers produced which
+     * action class per dispatched event.
+     */
+    private String describeActionCandidates(final WeightHostHandles handles) {
+        final AtomicReference<String> out = new AtomicReference<>("unavailable");
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    final Object manager = handles.viewContext().getClass()
+                            .getMethod("getActionManager")
+                            .invoke(handles.viewContext());
+                    final StringBuilder sb = new StringBuilder();
+                    final Object current = manager.getClass()
+                            .getMethod("getCurAction").invoke(manager);
+                    sb.append("cur=")
+                            .append(current == null ? "null" : current.getClass().getName());
+                    for (final String historyName
+                            : new String[] {"getPressActionCandidateHistory", "getActionCandidateHistory"}) {
+                        final Object history = manager.getClass()
+                                .getMethod(historyName).invoke(manager);
+                        if (!(history instanceof java.util.List<?> events)) continue;
+                        int i = 0;
+                        for (final Object group : events) {
+                            if (!(group instanceof java.util.List<?> actions)) continue;
+                            final StringBuilder line = new StringBuilder();
+                            for (final Object action : actions) {
+                                if (line.length() > 0) line.append(';');
+                                line.append(action == null ? "null"
+                                        : action.getClass().getName());
+                            }
+                            if (line.length() > 0) {
+                                sb.append(sb.length() == 0 ? "" : "|")
+                                        .append(historyName.contains("Press") ? "p" : "a")
+                                        .append(i++).append("=[")
+                                        .append(line).append(']');
+                            }
+                        }
+                    }
+                    out.set(sb.length() == 0 ? "empty" : sb.toString());
+                } catch (Exception | Error failure) {
+                    out.set("failed:" + failure.getClass().getSimpleName());
+                }
+            });
+        } catch (Exception | Error failure) {
+            out.set("failed:" + failure.getClass().getSimpleName());
+        }
+        return out.get();
+    }
+
+    /** Mid-gesture state probe: current action + temporary-handler occupancy. */
+    private String describeDragState(final WeightHostHandles handles) {
+        final AtomicReference<String> out = new AtomicReference<>("unavailable");
+        final Runnable body = () -> {
+            try {
+                final Object manager = handles.viewContext().getClass()
+                        .getMethod("getActionManager")
+                        .invoke(handles.viewContext());
+                final Object current = manager.getClass()
+                        .getMethod("getCurAction").invoke(manager);
+                final StringBuilder sb = new StringBuilder()
+                        .append("cur=")
+                        .append(current == null ? "null" : current.getClass().getSimpleName());
+                final Object tempMgr = handles.viewContext().getClass()
+                        .getMethod("getTemporaryHandlerManager")
+                        .invoke(handles.viewContext());
+                if (tempMgr != null) {
+                    final Object busy = tempMgr.getClass().getMethod("b").invoke(tempMgr);
+                    final Object handler = tempMgr.getClass().getMethod("a").invoke(tempMgr);
+                    sb.append(" tempBusy=").append(busy)
+                            .append(" handler=")
+                            .append(handler == null ? "null" : handler.getClass().getName());
+                }
+                out.set(sb.toString());
+            } catch (Exception | Error failure) {
+                out.set("failed:" + failure.getClass().getSimpleName());
+            }
+        };
+        try {
+            if (SwingUtilities.isEventDispatchThread()) {
+                body.run();
+            } else {
+                SwingUtilities.invokeAndWait(body);
+            }
+        } catch (Exception | Error failure) {
+            out.set("failed:" + failure.getClass().getSimpleName());
+        }
+        return out.get();
+    }
+
+    /**
+     * Picks a handle ref off the armed axis whose tip projects inside the
+     * viewport, preferring CONTROL_* kinds (their drags exercise the
+     * opposite-handle continuity) and interior points.
+     */
+    private BezierPick pickBezierHandle(
+            final Object grid,
+            final java.util.Map<String, float[]> refs,
+            final int axis,
+            final WeightHostHandles handles,
+            final WarpDeformer target,
+            final Report report
+    ) {
+        final int bezierCol = (int) parseLong(report.get("bezier.cols"), -1);
+        final int bezierRow = (int) parseLong(report.get("bezier.rows"), -1);
+        // Quad control points compete for the same drag event through their own
+        // provider; the chosen handle tip must be isolated from them too.
+        final java.util.List<float[]> quadPoints = new java.util.ArrayList<>();
+        try {
+            for (final Point2 p : target.grid().controlPoints()) {
+                quadPoints.add(new float[] {p.x(), p.y()});
+            }
+        } catch (RuntimeException | Error ignored) {
+            // quad isolation is best-effort; the self-resolve gate stays authoritative
+        }
+        report.put("bezier.quadPoints", Integer.toString(quadPoints.size()));
+        final AtomicReference<BezierPick> out = new AtomicReference<>();
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    final Class<?> gv2 = (Class<?>) handles.gv2Class();
+                    final Class<?> dType = Class.forName(
+                            "com.live2d.doc.selection.d", true, handles.hostClassLoader());
+                    final Class<?> cpointType = Class.forName(
+                            "com.live2d.type.CPoint", true, handles.hostClassLoader());
+                    java.lang.reflect.Constructor<?> cpointCtor = null;
+                    for (final java.lang.reflect.Constructor<?> c : cpointType.getConstructors()) {
+                        if (c.getParameterCount() == 2) {
+                            cpointCtor = c;
+                            break;
+                        }
+                    }
+                    if (cpointCtor == null) {
+                        throw new IllegalStateException("CPoint has no 2-arg ctor");
+                    }
+                    final Object companion = dType.getDeclaredField("b").get(null);
+                    final Object space = companion.getClass().getMethod("a").invoke(companion);
+                    final java.awt.Point origin = handles.viewport().getLocationOnScreen();
+                    final java.awt.Rectangle view =
+                            new java.awt.Rectangle(handles.viewport().getSize());
+                    BezierPick fallback = null;
+                    float fallbackScore = -1f;
+                    float bestScore = -1f;
+                    int resolved = 0;
+                    for (java.util.Map.Entry<String, float[]> entry : refs.entrySet()) {
+                        final String[] parts = entry.getKey().split(",");
+                        final int col = Integer.parseInt(parts[0]);
+                        final int row = Integer.parseInt(parts[1]);
+                        final String kind = parts[2];
+                        if ("ANCHOR".equals(kind)) continue;
+                        // Skip points sitting on the mirror axis.
+                        if (axis == 1 && row * 2 == bezierRow) continue;
+                        if (axis == 2 && col * 2 == bezierCol) continue;
+                        final float[] pos = entry.getValue();
+                        final Object dst = gv2.getConstructor(float.class, float.class)
+                                .newInstance(pos[0], pos[1]);
+                        final Object comp = handles.cameraManager().getClass()
+                                .getMethod("documentToComponent", gv2)
+                                .invoke(handles.cameraManager(), dst);
+                        final float cx = (Float) gv2.getMethod("getX").invoke(comp);
+                        final float cy = (Float) gv2.getMethod("getY").invoke(comp);
+                        if (cx < 20 || cy < 20 || cx > view.width - 20 || cy > view.height - 20) {
+                            continue;
+                        }
+                        // Replicate the host hit-test at the point the Robot
+                        // actually presses: project to component pixels, round
+                        // like the Robot does, map back to document space, then
+                        // ask getNearestPointRef. Projection rounding can push
+                        // a CONTROL tip's click inside a neighbouring ANCHOR's
+                        // claim radius — reject candidates that mis-resolve.
+                        final int rx = Math.round(cx);
+                        final int ry = Math.round(cy);
+                        final Object cpoint = cpointCtor.getParameterTypes()[0] == int.class
+                                ? cpointCtor.newInstance(rx, ry)
+                                : cpointCtor.newInstance((float) rx, (float) ry);
+                        final Object back = handles.cameraManager().getClass()
+                                .getMethod("componentToDocument", cpointType)
+                                .invoke(handles.cameraManager(), cpoint);
+                        final Object hit = grid.getClass()
+                                .getMethod("getNearestPointRef", gv2, dType, boolean.class)
+                                .invoke(grid, back, space, true);
+                        if (hit == null) continue;
+                        final String hitKey = hit.getClass().getMethod("c").invoke(hit) + ","
+                                + hit.getClass().getMethod("d").invoke(hit) + ","
+                                + hit.getClass().getMethod("e").invoke(hit);
+                        if (!hitKey.equals(entry.getKey())) continue;
+                        resolved++;
+                        float isolation = Float.MAX_VALUE;
+                        for (java.util.Map.Entry<String, float[]> other : refs.entrySet()) {
+                            if (other.getKey().equals(entry.getKey())) {
+                                continue;
+                            }
+                            final float[] o = other.getValue();
+                            final float ddx = pos[0] - o[0];
+                            final float ddy = pos[1] - o[1];
+                            isolation = Math.min(isolation, ddx * ddx + ddy * ddy);
+                        }
+                        for (final float[] q : quadPoints) {
+                            final float ddx = pos[0] - q[0];
+                            final float ddy = pos[1] - q[1];
+                            isolation = Math.min(isolation, ddx * ddx + ddy * ddy);
+                        }
+                        final BezierPick pick = new BezierPick(
+                                entry.getKey(),
+                                new int[] {origin.x + rx, origin.y + ry});
+                        if (kind.startsWith("CONTROL_")) {
+                            if (isolation > bestScore) {
+                                bestScore = isolation;
+                                out.set(pick);
+                            }
+                            continue;
+                        }
+                        if (isolation > fallbackScore) {
+                            fallbackScore = isolation;
+                            fallback = pick;
+                        }
+                    }
+                    report.put("bezier.selfResolved", Integer.toString(resolved));
+                    if (out.get() == null && fallback != null) {
+                        out.set(fallback);
+                    }
+                } catch (Exception | Error failure) {
+                    report.put("bezier.pick", "failed:" + failure.getClass().getSimpleName()
+                            + ":" + String.valueOf(failure.getMessage()));
+                }
+            });
+        } catch (Exception | Error failure) {
+            report.put("bezier.pick", "failed:" + failure.getClass().getSimpleName());
+        }
+        return out.get();
+    }
+
+    /**
      * Weight-mirror drive mode. Two real Robot strokes run over the modeling
      * viewport: a control stroke with the mirror axis disarmed, then a stroke
      * with the axis armed through the same participation service the plugin's
@@ -1152,7 +1929,8 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
         Object warpSource,
         Object warpDeformer,
         Object gv2Class,
-        ClassLoader hostClassLoader
+        ClassLoader hostClassLoader,
+        Object viewContext
     ) {}
 
     /**
@@ -1260,7 +2038,8 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
 
                     out.set(new WeightHostHandles(
                             app, doc, editMode, selector, model, pack,
-                            cameraManager, viewport, warpSource, warp, gv2, host));
+                            cameraManager, viewport, warpSource, warp, gv2, host,
+                            viewContext));
                 } catch (Exception | Error failure) {
                     step.set(step.get() + ":" + failure.getClass().getSimpleName());
                 }
@@ -1491,6 +2270,62 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
             }
         }
         return best;
+    }
+
+    /** Locates the visible GL canvas inside the main editor frame hierarchy. */
+    private static java.awt.Component findGlPanel() {
+        for (final java.awt.Frame frame : java.awt.Frame.getFrames()) {
+            final java.awt.Component found = findGlComponent(frame);
+            if (found != null && found.isShowing()) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Delivers a press/drag/release gesture straight to the GL component's own
+     * dispatch path — bypasses native pointer grabs that swallow Robot events.
+     */
+    private static void dispatchGesture(
+            final java.awt.Component panel,
+            final java.awt.Point panelOrigin,
+            final int screenX, final int screenY,
+            final int dx, final int dy) {
+        final int localX = screenX - panelOrigin.x;
+        final int localY = screenY - panelOrigin.y;
+        final long when = System.currentTimeMillis();
+        sendMouse(panel, java.awt.event.MouseEvent.MOUSE_MOVED, localX, localY, 0, when);
+        sleep(GESTURE_STEP_MILLIS);
+        sendMouse(panel, java.awt.event.MouseEvent.MOUSE_PRESSED, localX, localY,
+                java.awt.event.InputEvent.BUTTON1_DOWN_MASK, when);
+        sleep(GESTURE_STEP_MILLIS);
+        for (int step = 1; step <= 4; step++) {
+            sendMouse(panel, java.awt.event.MouseEvent.MOUSE_DRAGGED,
+                    localX + (dx * step) / 4, localY + (dy * step) / 4,
+                    java.awt.event.InputEvent.BUTTON1_DOWN_MASK, when);
+            sleep(GESTURE_STEP_MILLIS);
+        }
+        sendMouse(panel, java.awt.event.MouseEvent.MOUSE_RELEASED,
+                localX + dx, localY + dy, 0, when);
+        sleep(GESTURE_STEP_MILLIS);
+    }
+
+    private static void sendMouse(
+            final java.awt.Component target,
+            final int id, final int x, final int y, final int modifiers, final long when) {
+        final Runnable deliver = () -> target.dispatchEvent(new java.awt.event.MouseEvent(
+                target, id, when, modifiers, x, y, 1, false,
+                java.awt.event.MouseEvent.BUTTON1));
+        try {
+            if (SwingUtilities.isEventDispatchThread()) {
+                deliver.run();
+            } else {
+                SwingUtilities.invokeAndWait(deliver);
+            }
+        } catch (Exception | Error failure) {
+            throw new IllegalStateException("mouse dispatch failed", failure);
+        }
     }
 
     private static java.awt.Component findGlComponent(final java.awt.Component node) {
