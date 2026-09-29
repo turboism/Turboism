@@ -164,7 +164,6 @@ def load_manifest(path: Path, environment: dict[str, str] | None = None) -> Mani
         raise SchedulerError(f"manifest format must be {FORMAT}")
     if data.get("schemaVersion") != SCHEMA_VERSION:
         raise SchedulerError(f"manifest schemaVersion must be {SCHEMA_VERSION}")
-    placement = os.environ if environment is None else environment
     scheduler_root = str(queue.account_root())
 
     resource_values = require_dict(data.get("resources"), "resources")

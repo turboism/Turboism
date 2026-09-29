@@ -1,6 +1,5 @@
 package dev.turboism.core.plugin.context;
 
-import dev.turboism.core.menu.RuntimeMenuRegistry;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
@@ -9,6 +8,7 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.filter.RuntimePaletteFilterRegistry;
+import dev.turboism.ui.menu.RuntimeMenuRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
 

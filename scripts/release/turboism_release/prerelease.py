@@ -5,9 +5,9 @@ import json
 import re
 import subprocess
 from pathlib import Path
-from .build_identity import identity, read_optional_receipt, verify_receipt
+from .build_identity import identity, verify_receipt
 from .candidate import _load_script
-from .channels import channel_for, require_version, resolve_version, NIGHTLY
+from .channels import channel_for, resolve_version, NIGHTLY
 from .promotion import ensure_tag, find_release, release_by_id, tag_binding
 from .versions import framework_version
 

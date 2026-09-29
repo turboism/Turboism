@@ -1,7 +1,7 @@
 package dev.turboism.plugin.clipmaskviewer.ui;
 
 import dev.turboism.plugin.clipmaskviewer.ClipMaskViewerPlugin.WindowView;
-import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
+import dev.turboism.plugin.clipmaskviewer.domain.ClipMaskViewerState;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.i18n.PluginLocalization;

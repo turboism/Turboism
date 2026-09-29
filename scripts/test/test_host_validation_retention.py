@@ -2,14 +2,12 @@
 """Retention safety regressions: synthetic files and private queues; never Cubism."""
 from pathlib import Path
 import contextlib
-import copy
 import io
 import json
 import multiprocessing
 import os
 import shutil
 import sqlite3
-import stat
 import sys
 import tarfile
 import tempfile
@@ -214,7 +212,7 @@ class RetentionTest(unittest.TestCase):
         self.assertEqual([], [c for c in report["candidates"] if c["id"] == job["job_id"]])
         # Non-terminal references keep failing closed.
         kept = self.make_prepared(marker=True)
-        submitted = self.store.submit(kept, kept, "queued-missing-prepared")
+        self.store.submit(kept, kept, "queued-missing-prepared")
         shutil.rmtree(self.root / "prepared" / kept)
         report = self.plan()
         self.assertTrue(any("cannot establish all protected input paths" in reason for reason in report["blocked"]))
@@ -382,7 +380,6 @@ class RetentionTest(unittest.TestCase):
 
     def test_interrupted_prepared_retirement_remains_recoverable_and_unsubmittable(self):
         report = self.plan()  # orphan prepared, over seven days
-        original = gc.remove_manifest
         def interrupted(path, manifest):
             (path / "fixture.cmo3").unlink()
             raise OSError("injected crash")

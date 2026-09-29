@@ -153,16 +153,7 @@ private val runtimePackageRules = listOf(
  * Accepted layering debt, one entry per file. Each waiver names the file relative to
  * {@code runtime/src/main/java/dev/turboism/} plus the direction it is allowed to keep.
  */
-private val runtimePackageWaivers = mapOf(
-    // core.menu consumes editor UI contribution DTOs pending a type move into a neutral layer.
-    "core/menu/RuntimeMenuRegistry.java" to setOf("ui"),
-    // Hook admission consults preview load summaries to gate plugin-driven installs.
-    "adapter/cubism/mesh/MeshMirrorHookAdmission.java" to setOf("preview"),
-    "adapter/cubism/warpalt/WarpAltMirrorHookAdmission.java" to setOf("preview"),
-    // Atlas transformers delegate to the early-boot code split in the bootstrap package.
-    "adapter/cubism/textureatlas/cache/AtlasCacheReuseTransformer.java" to setOf("bootstrap"),
-    "adapter/cubism/textureatlas/image/AtlasTileBboxTransformer.java" to setOf("bootstrap")
-)
+private val runtimePackageWaivers = mapOf<String, Set<String>>()
 
 private fun checkModuleBoundaries(project: Project) {
     val state = BoundaryState(project.logger)

@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.core.lifecycle.PluginAdmissionView;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.core.runtime.RuntimeScheduler;
@@ -672,7 +673,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
             String scopeCleanupState,
             String classloaderCleanupState,
             List<PluginSummaryFailure> failures,
-            CleanupEvidenceCollector.Snapshot cleanupEvidence) {
+            CleanupEvidenceCollector.Snapshot cleanupEvidence)
+            implements PluginAdmissionView {
         public LoadedPluginSummary {
             capabilities = List.copyOf(capabilities);
             permissionIds = List.copyOf(permissionIds);
