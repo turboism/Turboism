@@ -61,27 +61,48 @@ final class ProbeConfig {
     }
 
     /**
-     * CodeSource comparison rule (explicit, both sides normalized identically):
-     * {@code toExternalForm} → trim → require {@code scheme:} → collapse redundant leading
-     * slashes after the scheme to one → strip trailing '/'. Exact case-sensitive equality only —
-     * no prefix, substring, or wildcard matching. Known limitation: an {@code //authority}
-     * component is folded into the path form, so authority-bearing URLs lose the authority
-     * distinction — acceptable for file-based sources.
+     * CodeSource comparison rule (explicit): real URI parsing only.
+     *
+     * <ul>
+     *   <li>Must parse as an absolute {@code file} URI (scheme case-insensitive).</li>
+     *   <li>Authority must be empty or absent — {@code file:///x} and {@code file:/x} are the
+     *       same resource and canonicalize identically; {@code file://host/x} is rejected.</li>
+     *   <li>Query, fragment, user-info, and port are rejected.</li>
+     *   <li>Path must be absolute and non-empty; a {@code .} or {@code ..} path segment is
+     *       rejected (segment-level check on the parsed path, not string search).</li>
+     *   <li>Canonical form is {@code file:<rawPath>} — the raw path is preserved verbatim,
+     *       including any trailing slash; different external forms that do not share this
+     *       canonical form never match.</li>
+     * </ul>
      */
     static String normalizeCodeSource(String externalForm) {
         if (externalForm == null) return null;
-        String s = externalForm.trim();
-        int colon = s.indexOf(':');
-        if (s.isEmpty() || s.contains("..") || colon < 1) return null;
-        String scheme = s.substring(0, colon);
-        String rest = s.substring(colon + 1).replaceAll("^/+", "/");
-        s = scheme + ":" + rest;
-        while (s.endsWith("/")) s = s.substring(0, s.length() - 1);
-        return s;
+        java.net.URI uri;
+        try {
+            uri = new java.net.URI(externalForm);
+        } catch (java.net.URISyntaxException e) {
+            return null;
+        }
+        if (!uri.isAbsolute()) return null;
+        String scheme = uri.getScheme();
+        if (scheme == null || !scheme.equalsIgnoreCase("file")) return null;
+        String authority = uri.getRawAuthority();
+        if (authority != null && !authority.isEmpty()) return null; // file://host/... rejected
+        if (uri.getRawUserInfo() != null || uri.getPort() != -1
+                || uri.getRawQuery() != null || uri.getRawFragment() != null) {
+            return null;
+        }
+        String path = uri.getRawPath();
+        if (path == null || !path.startsWith("/") || path.length() < 2) return null;
+        for (String seg : path.split("/")) {
+            if (seg.equals(".") || seg.equals("..")) return null;
+        }
+        return "file:" + path;
     }
 
-    boolean codeSourceMatches(String actualExternalForm) {
-        String expected = normalizeCodeSource(expectCodeSource);
+    /** Exact canonical-form equality on both sides; invalid input never matches. */
+    static boolean codeSourceMatches(String expectedExternalForm, String actualExternalForm) {
+        String expected = normalizeCodeSource(expectedExternalForm);
         String actual = normalizeCodeSource(actualExternalForm);
         return expected != null && expected.equals(actual);
     }

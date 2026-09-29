@@ -47,6 +47,7 @@ public final class IdentityProbeSelfCheck {
             case "writeFailure" -> writeFailure(urls, defLog, useLog);
             case "observerBudget" -> observerBudget(urls, defLog, useLog);
             case "maliciousFields" -> maliciousFields(urls, defLog, useLog);
+            case "codeSourceUnit" -> codeSourceUnit();
             default -> throw new IllegalArgumentException("unknown scenario " + scenario);
         }
     }
@@ -273,12 +274,47 @@ public final class IdentityProbeSelfCheck {
         List<String> lines = Files.readAllLines(useLog);
         check(lines.size() == 1, "expected one line, got " + lines.size());
         String line = lines.get(0);
-        check(line.contains("\\n"), "newline must be escaped: " + line);
+        // Input order: real newline then literal backslash-n → exact escaped sequence
+        // EVIL\n LIT\\n distinguishes \n (real newline) from \\n (literal backslash+n).
+        check(line.contains("EVIL\\nLIT\\\\n"), "newline/backslash-n distinction lost: " + line);
+        check(line.contains("\\t"), "tab must be escaped: " + line);
+        check(line.contains("\\x01"), "control char must be escaped: " + line);
+        check(line.contains("\\s"), "value-internal space must be escaped: " + line);
         check(line.contains("~truncated"), "expected truncation marker: " + line);
+        // Field separators remain REAL spaces: a field boundary must be parseable.
+        check(line.matches(".*phase=\\S+ runId=.*"), "field separators mangled: " + line);
         check(line.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 4000,
                 "line exceeds byte bound");
-        check(!line.contains("EVIL\n"), "raw newline leaked: " + line);
-        pass("maliciousFields", "escapedAndBounded=true");
+        for (String tok : line.split(" ")) {
+            check(tok.length() <= 256, "field exceeds per-field cap: " + tok.length());
+        }
+        pass("maliciousFields", "escapedBoundedDistinguishable=true");
+    }
+
+    private static void codeSourceUnit() {
+        // exp / act pairs; file:///x ≡ file:/x; authority/query/fragment/.. never normalize in.
+        cs(true,  "file:/a/b",  "file:///a/b");
+        cs(true,  "file:///a/b", "file:/a/b");
+        cs(false, "file:/a/b",  "file://host/a/b");
+        cs(false, "file://host/a/b", "file:/a/b");
+        cs(false, "file:/a/b",  "file://a/b");      // authority 'a' is not path '/a'
+        cs(false, "file:/a/b",  "file:/a/bc");      // suffix divergence
+        cs(false, "file:/a/bc", "file:/a/b");       // prefix divergence
+        cs(false, "file:/a/",   "file:/a");         // trailing slash is literal
+        cs(false, "http:/a/b",  "file:/a/b");       // scheme
+        cs(false, "file:",      "file:/a");         // empty path
+        cs(false, "file:x",     "file:/x");         // opaque form
+        cs(false, "file:/",     "file:/");          // root-only path rejected
+        cs(false, "file:/a/../b", "file:/b");       // dot segments rejected, not normalized
+        cs(false, "file:/a%20b", "file:/a b");      // raw path preserved, no decode
+        cs(true,  "FILE:/a/b",  "file:/a/b");       // scheme case-insensitive
+        pass("codeSourceUnit", "authority/dotsegment/rawpath/exact-equality verified");
+    }
+
+    private static void cs(boolean expected, String exp, String act) {
+        boolean got = ProbeConfig.codeSourceMatches(exp, act);
+        check(got == expected, "codeSourceMatches(" + exp + "," + act + ")=" + got
+                + " expected " + expected);
     }
 
     private static String read(Path p) throws Exception {

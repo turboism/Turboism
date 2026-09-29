@@ -10,9 +10,9 @@ identity evidence — it does not optimize anything and does not interpret resul
 Admission (premain order): config validation → helper warm → writer pre-start → already-loaded
 gate → transformer registration. `outputDir` must be an explicit absolute path, `runId` must match
 `[A-Za-z0-9._-]{1,32}`, `expectClassSha256` 64 hex, `expectLoader` non-empty, and
-`expectCodeSource` a non-empty URL-ish string. Any missing/invalid value → one bounded
-`admission=reject reason=…` stderr line and **nothing is installed** — no transformer, no helper,
-no writer thread, no files. Premain never throws.
+`expectCodeSource` must be a valid absolute `file` URI (see below). Any missing/invalid value →
+one bounded `admission=reject reason=…` stderr line and **nothing is installed** — no
+transformer, no helper, no writer thread, no files. Premain never throws.
 
 1. **Definition observation** — on each definition event for
    `com/live2d/graphics3d/editableMesh/triangulation/TriangleList` records (bounded to 4 events +
@@ -20,10 +20,12 @@ no writer thread, no files. Premain never throws.
    CodeSource, observer seq. A sha mismatch is recorded and rejects weaving — it is an observation,
    *not* attribution of any prior transformer.
 2. **Gates** — loader class name (`expectLoader`), class sha (`expectClassSha256`, default the
-   official `87835641…`), **exact** CodeSource match (`expectCodeSource`; normalization:
-   `toExternalForm` → collapse redundant leading slashes after `scheme:` → strip trailing `/`;
-   case-sensitive equality only, no prefix/wildcard — authority-bearing URLs fold the authority
-   into the path, a documented limitation), and a structural shape check
+   official `87835641…`), **exact** CodeSource match (`expectCodeSource`; both sides normalized
+   identically via real URI parsing: must be an absolute `file` URI — `file:///x` ≡ `file:/x`
+   (empty authority); `file://host/x`, query, fragment, user-info, port, opaque forms, and `.` /
+   `..` path segments are rejected outright; canonical form `file:<rawPath>` keeps the raw path
+   verbatim including trailing slash — different resources never silently equate), and a
+   structural shape check
    (private final `b: LinkedHashSet`; `<init>` allocates `new LinkedHashSet`; `iterator()`
    dispatches `getfield b → invokevirtual LinkedHashSet.iterator`).
 3. **Use-site weave** — prepends `Probe.record(this, this.b)` to `iterator()` inside a
@@ -32,11 +34,13 @@ no writer thread, no files. Premain never throws.
    callsite; the original return reference and exceptions pass through unchanged.
 4. **Recording** — record() claims a process-wide one-shot slot (first successful claim wins),
    builds one bounded snapshot string (set/owner actual class + per-run loader token
-   `class@identityHashCode` — distinguishes same-named loader instances within THIS run only, not
-   a stable ID + modules + CodeSources + JRE + thread + phase tag). Every emitted line is escaped
-   (CR/LF/TAB/control/space) and capped (field 256 chars + `~truncated`, line 2000 + `~truncated`,
-   per-file 64KiB + `bytesCapReached` marker). Non-blocking offer into a 32-slot queue; a full
-   queue increments `queueDropped` (declared evidence-absence). One daemon writer **pre-started at
+   `class@identityHashCode` — identityHashCode may collide: association hint within THIS run
+   only, not a unique instance ID + modules + CodeSources + JRE + thread + phase tag). Fields are
+   escaped and capped per character while appending (input scanned only until the field budget is
+   spent; `\`→`\\`, real newline→`\n`, `\r`/`\t`/`\xNN`, value-internal space→`\s` while
+   field separators remain real spaces; field cap 256 incl. `~truncated`, line cap 2000, per-file
+   64KiB + `bytesCapReached` marker). Non-blocking offer into a 32-slot queue; a full queue
+   increments `queueDropped` (declared evidence-absence). One daemon writer **pre-started at
    premain**; each line written once, never retried; write failure is in-process status only and
    does not count as a successful sample file.
 
@@ -83,8 +87,9 @@ failure), throwOnRecord (weave-level call failure absorbed), directLinkFail/dire
 (fixture-local stub Probe → NoSuchMethodError/ExceptionInInitializerError absorbed by the
 weave catch), passthrough (exception class+message), concurrency (8 threads → exactly 1 sample),
 writeFailure (unwritable dir → bounded, no retry, no host-path throw), observerBudget
-(6 definitions → ≤4 recorded + overflow), maliciousFields (hostile phase value escaped +
-`~truncated`), officialShape (read-only shape verify against the official jar).
+(6 definitions → ≤4 recorded + overflow), maliciousFields (real newline vs literal backslash-n
+vs `\xNN` vs `\s` distinction + `~truncated`), codeSourceUnit (authority/dot-segment/raw-path/
+adjacent-string equivalence table), officialShape (read-only shape verify).
 
 ## Dependencies
 
