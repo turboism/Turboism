@@ -105,10 +105,8 @@ final class WarpAltMirrorNativeMethodTransformerTest {
                 null, null, profile.weightWriteOwner(), null, null, fixture(profile, profile.weightWriteOwner()));
         assertNotNull(transformed);
         assertEquals(WarpAltMirrorNativeMethodTransformer.Outcome.TARGET_TRANSFORMED, transformer.outcome());
-        assertTrue(containsBridgeCall(
-                transformed, "mirrorWeightAdd", "(Ljava/lang/Object;Ljava/lang/Object;FZ)V"));
-        assertTrue(containsBridgeCall(
-                transformed, "mirrorWeightSet", "(Ljava/lang/Object;Ljava/lang/Object;F)V"));
+        assertTrue(containsBridgeCall(transformed, "mirrorWeightAdd", "(Ljava/lang/Object;Ljava/lang/Object;FZ)V"));
+        assertTrue(containsBridgeCall(transformed, "mirrorWeightSet", "(Ljava/lang/Object;Ljava/lang/Object;F)V"));
     }
 
     @Test

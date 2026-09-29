@@ -104,8 +104,13 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         final boolean isWeightWrite = profile.weightWriteOwner().equals(className);
         final boolean isActionDispatch = profile.actionDispatchOwner().equals(className);
         final boolean isInputIngress = profile.inputIngressOwner().equals(className);
-        if (!isPointMove && !isDragTick && !isGreenTick && !isStrip && !isWeightWrite
-                && !isActionDispatch && !isInputIngress) return null;
+        if (!isPointMove
+                && !isDragTick
+                && !isGreenTick
+                && !isStrip
+                && !isWeightWrite
+                && !isActionDispatch
+                && !isInputIngress) return null;
         if (classBeingRedefined != null) {
             reject(Outcome.RETRANSFORM_REJECTED, "WARP_ALT_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
