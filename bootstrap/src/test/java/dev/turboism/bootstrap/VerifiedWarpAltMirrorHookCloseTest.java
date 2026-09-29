@@ -132,7 +132,15 @@ class VerifiedWarpAltMirrorHookCloseTest {
                 "add",
                 "(Ljava/lang/Object;FZ)Z",
                 "setWeight",
-                "(Ljava/lang/Object;F)V");
+                "(Ljava/lang/Object;F)V",
+                "fixture/UnusedActionDispatch",
+                "dispatch",
+                "(Ljava/lang/Object;)V",
+                "claim",
+                "(Ljava/lang/Object;)V",
+                "fixture/UnusedInputIngress",
+                "ingress",
+                "(Ljava/lang/Object;)V");
         final var installer =
                 new VerifiedWarpAltMirrorHookInstaller(instrumentation, Point.class.getClassLoader(), null, profile);
         installer.install();

@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / 'scripts/release'))
 from turboism_release import nightly as n
 from turboism_release import build_identity as bi
@@ -178,7 +179,7 @@ class NightlyWorkflowTest(unittest.TestCase):
         self.assertIn('project.path != ":sdk" && turboismBuildNumber.isNotEmpty()', text)
         # This gate must still enforce exact artifact hashes, not just API shape.
         verifier = (ROOT / 'gradle/sdk-api.gradle.kts').read_text()
-        gate = verifier.split('val checkSdkV7ExactApiCompatibility', 1)[1].split('val generateSdkApiReport', 1)[0]
+        gate = verifier.split('val checkSdkV11ExactApiCompatibility', 1)[1].split('val checkSdkV8Linkage', 1)[0]
         self.assertIn('"verify-exact"', gate)
         self.assertIn('"--input", sdkJarArtifact', gate)
 
