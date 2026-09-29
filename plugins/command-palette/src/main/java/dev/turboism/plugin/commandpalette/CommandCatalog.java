@@ -1,5 +1,7 @@
 package dev.turboism.plugin.commandpalette;
 
+import dev.turboism.sdk.action.ActionCatalogService;
+import dev.turboism.sdk.action.ActionDescriptor;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -15,11 +17,27 @@ import java.util.Set;
  * Builds the palette's row set: every {@link EditorCommand} the host currently admits
  * (the runtime filters {@link EditorCommandService#available()} by host state and this
  * plugin's granted permissions), paired with its stable id and the localized display
- * name resolved from the plugin's {@code command.<id>} catalog keys.
+ * name resolved from the plugin's {@code command.<id>} catalog keys — plus every action
+ * registered by other plugins, exposed through {@link ActionCatalogService} under the
+ * owner's own label.
  */
 final class CommandCatalog {
 
+    /** Reserved identity of the runtime shell; its actions are internal UI wiring. */
+    private static final String SHELL_PLUGIN_ID = "turboism.core";
+
     private CommandCatalog() {}
+
+    /**
+     * Returns all palette entries — host commands and plugin actions — ordered by
+     * display name. Never throws: absent or failing services contribute nothing.
+     */
+    static List<CommandMatcher.Entry> entries(final PluginContext context) {
+        final List<CommandMatcher.Entry> entries = new ArrayList<>(commands(context));
+        entries.addAll(actions(context));
+        entries.sort(Comparator.comparing(CommandMatcher.Entry::name, String.CASE_INSENSITIVE_ORDER));
+        return List.copyOf(entries);
+    }
 
     /**
      * Returns the currently executable commands as palette entries, ordered by localized
@@ -45,10 +63,48 @@ final class CommandCatalog {
         final List<CommandMatcher.Entry> entries = new ArrayList<>();
         for (final EditorCommand command : EditorCommand.values()) {
             if (available.contains(command)) {
-                entries.add(new CommandMatcher.Entry(command, command.id(), name(command, localization)));
+                entries.add(CommandMatcher.Entry.command(command, command.id(), name(command, localization)));
             }
         }
-        entries.sort(Comparator.comparing(CommandMatcher.Entry::name, String.CASE_INSENSITIVE_ORDER));
+        return List.copyOf(entries);
+    }
+
+    /**
+     * Returns the actions registered by other plugins as palette entries, ordered by
+     * label. Actions registered by this plugin and by the shell's reserved
+     * {@code turboism.core} identity are filtered out — the former to keep the palette's
+     * own open action out of its results, the latter because shell entries are internal
+     * UI wiring rather than user-level commands. Never throws: an absent catalog service
+     * or a plugin lacking {@code turboism.action.invoke} yields an empty list.
+     */
+    static List<CommandMatcher.Entry> actions(final PluginContext context) {
+        Objects.requireNonNull(context, "context");
+        final ActionCatalogService service = catalogService(context);
+        if (service == null) {
+            return List.of();
+        }
+        final List<ActionDescriptor> descriptors;
+        try {
+            descriptors = service.actions();
+        } catch (RuntimeException failure) {
+            return List.of();
+        }
+        if (descriptors == null || descriptors.isEmpty()) {
+            return List.of();
+        }
+        final String self = context.descriptor().id();
+        final List<CommandMatcher.Entry> entries = new ArrayList<>(descriptors.size());
+        for (final ActionDescriptor descriptor : descriptors) {
+            final String owner = descriptor.pluginId();
+            if (self.equals(owner) || SHELL_PLUGIN_ID.equals(owner)) {
+                continue;
+            }
+            final String label =
+                    descriptor.label() == null || descriptor.label().isBlank()
+                            ? descriptor.actionId()
+                            : descriptor.label();
+            entries.add(CommandMatcher.Entry.action(owner, descriptor.actionId(), label));
+        }
         return List.copyOf(entries);
     }
 
@@ -105,6 +161,15 @@ final class CommandCatalog {
     private static EditorCommandService service(final PluginContext context) {
         try {
             final EditorCommandService service = context.services().get(EditorCommandService.class);
+            return service != null && service.isAvailable() ? service : null;
+        } catch (RuntimeException failure) {
+            return null;
+        }
+    }
+
+    private static ActionCatalogService catalogService(final PluginContext context) {
+        try {
+            final ActionCatalogService service = context.services().get(ActionCatalogService.class);
             return service != null && service.isAvailable() ? service : null;
         } catch (RuntimeException failure) {
             return null;

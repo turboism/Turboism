@@ -24,7 +24,7 @@ class CommandMatcherTest {
             entry(EditorCommand.UNDO, "undo", "Undo"));
 
     private static CommandMatcher.Entry entry(final EditorCommand command, final String id, final String name) {
-        return new CommandMatcher.Entry(command, id, name);
+        return CommandMatcher.Entry.command(command, id, name);
     }
 
     @Test
