@@ -1,5 +1,6 @@
 package dev.turboism.plugin.commandpalette;
 
+import dev.turboism.sdk.action.ActionCatalogService;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
@@ -53,8 +54,9 @@ import javax.swing.event.DocumentListener;
  * <p>Interaction contract:
  *
  * <ul>
- *   <li>typing filters {@link CommandCatalog#commands(PluginContext) the available Editor
- *       commands} by subsequence over both the localized name and the command id;
+ *   <li>typing filters {@link CommandCatalog#entries(PluginContext) the available Editor
+ *       commands and registered plugin actions} by subsequence over both the localized
+ *       name and the entry id;
  *   <li>a gray in-field hint shows the remaining suffix of the top match, and
  *       {@code Tab} accepts that completion;
  *   <li>{@code Enter} executes the selected (or top) match and closes the palette;
@@ -171,7 +173,7 @@ final class CommandPaletteDialog {
         if (dialog == null) {
             return;
         }
-        entries = CommandCatalog.commands(context);
+        entries = CommandCatalog.entries(context);
         if (!showing) {
             input.setText("");
             model.clear();
@@ -334,45 +336,52 @@ final class CommandPaletteDialog {
     }
 
     private void executeSelection() {
-        EditorCommand command = selectedCommand();
-        if (command == null) {
-            command = exactIdMatch(input.getText());
+        CommandMatcher.Entry entry = selectedEntry();
+        if (entry == null) {
+            entry = exactIdMatch(input.getText());
         }
-        if (command == null) {
+        if (entry == null) {
             Toolkit.getDefaultToolkit().beep();
             return;
         }
-        final EditorCommand chosen = command;
+        final CommandMatcher.Entry chosen = entry;
         close();
         // Fire after the palette is fully hidden so a modal native dialog raised by the
         // command never reactivates the closing window.
         SwingUtilities.invokeLater(() -> execute(chosen));
     }
 
-    private EditorCommand selectedCommand() {
+    private CommandMatcher.Entry selectedEntry() {
         if (matches.isEmpty()) {
             return null;
         }
         final int index = list.getSelectedIndex();
         final CommandMatcher.Match match = index >= 0 ? matches.get(index) : matches.get(0);
-        return match.entry().command();
+        return match.entry();
     }
 
-    /** Executes even when the list is empty but the input text is exactly a command id. */
-    private EditorCommand exactIdMatch(final String query) {
+    /** Executes even when the list is empty but the input text is exactly an entry id. */
+    private CommandMatcher.Entry exactIdMatch(final String query) {
         final String normalized = CommandMatcher.normalize(query);
         if (normalized.isEmpty()) {
             return null;
         }
         for (final CommandMatcher.Entry entry : entries) {
             if (CommandMatcher.normalize(entry.id()).equals(normalized)) {
-                return entry.command();
+                return entry;
             }
         }
         return null;
     }
 
-    private void execute(final EditorCommand command) {
+    private void execute(final CommandMatcher.Entry entry) {
+        switch (entry.kind()) {
+            case COMMAND -> executeCommand(entry.command());
+            case ACTION -> invokeAction(entry);
+        }
+    }
+
+    private void executeCommand(final EditorCommand command) {
         final EditorCommandService service = context.services().get(EditorCommandService.class);
         if (service == null) {
             logger.warn("Command Palette cannot run " + command.id() + ": Editor commands unavailable");
@@ -381,6 +390,19 @@ final class CommandPaletteDialog {
         final EditorCommandResult result = service.execute(command);
         if (!result.executed()) {
             logger.warn("Command Palette command " + command.id() + " was not executed: " + result.status());
+        }
+    }
+
+    private void invokeAction(final CommandMatcher.Entry entry) {
+        final ActionCatalogService catalog = context.services().get(ActionCatalogService.class);
+        if (catalog == null) {
+            logger.warn("Command Palette cannot run action " + entry.id() + ": action catalog unavailable");
+            return;
+        }
+        try {
+            catalog.invoke(entry.pluginId(), entry.id());
+        } catch (RuntimeException failure) {
+            logger.warn("Command Palette action " + entry.id() + " was not invoked: " + failure.getMessage());
         }
     }
 
