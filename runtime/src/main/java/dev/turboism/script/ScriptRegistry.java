@@ -58,6 +58,7 @@ class ScriptRegistry {
             "turboism.network.fetch",
             "turboism.process.run",
             "turboism.action.register",
+            "turboism.action.invoke",
             "turboism.ui.menu.contribute",
             "turboism.ui.toolbar.main.contribute",
             "turboism.ui.toolbar.palette.contribute",

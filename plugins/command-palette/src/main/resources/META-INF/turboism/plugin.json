@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.command-palette",
   "name": "Command Palette",
   "version": "0.1.0",
-  "description": "Ctrl+K command launcher over the supported Cubism Editor menu commands, searchable by command id or localized name.",
+  "description": "Ctrl+K launcher over Cubism Editor menu commands and registered plugin actions, searchable by id or localized name.",
   "entrypoints": [
     "dev.turboism.plugin.commandpalette.CommandPalettePlugin"
   ],
@@ -27,6 +27,11 @@
       "id": "turboism.action.register",
       "scope": "application",
       "reason": "Registers the Command Palette open action and its default Ctrl+K shortcut."
+    },
+    {
+      "id": "turboism.action.invoke",
+      "scope": "application",
+      "reason": "Enumerates other plugins' registered actions as palette rows and invokes the one the user picks."
     },
     {
       "id": "turboism.ui.menu.contribute",
@@ -60,7 +65,8 @@
     }
   ],
   "capabilities": [
-    "cubism.editor-commands.execute"
+    "cubism.editor-commands.execute",
+    "action.catalog.invoke"
   ],
   "environment": {
     "requiresCubism": true,
