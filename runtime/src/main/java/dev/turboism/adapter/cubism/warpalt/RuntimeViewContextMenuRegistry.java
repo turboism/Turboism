@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Runtime implementation of the canvas-top GL strip state button surface.
@@ -41,6 +42,8 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     private final Object lock = new Object();
     private final Map<String, Entry> entries = new LinkedHashMap<>();
+    private final Set<Object> nativeSeatLogged =
+            java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
     private final List<Runnable> pendingBuilds = new ArrayList<>();
     private Object strip;
     private boolean mountAttempted;
@@ -330,19 +333,6 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     }
 
     /**
-     * Inserts the contributed button into the strip layout group directly
-     * before the view dropdown arrow (strip field {@code z}, whose handler
-     * opens the view menu). The view cluster is laid out right-to-left from
-     * the strip's maxX by {@code a(N)}, so list index 0 renders rightmost:
-     * inserting before {@code z} seats the button literally right of the
-     * dropdown arrow. Unlike H (which {@code R()} re-parents and re-lays
-     * out every pass), K members are re-parented only once by {@code V()}
-     * at strip construction, so the button must also be added to the strip
-     * scene graph here — list membership alone positions it but never
-     * renders it. Falls back to group H at {@code index} when the dropdown
-     * is absent (e.g. FormAnimation view).
-     */
-    /**
      * Appends the contributed button at the END of the strip's left tool
      * cluster (group H), after the last native button F — the position the
      * operator picked among strip-first/cluster-end options. Disassembly-
@@ -529,38 +519,30 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     /**
      * Invoked at the tail of the strip's {@code a(N)} layout dispatch via the
-     * bridge's {@code positionStripButton} injection. {@code a(N)} lays K
-     * members right-to-left from the strip's maxX — with the button inserted
-     * at list index 0 the host math already seats it at the right edge,
-     * immediately right of the dropdown arrow ({@code z.maxX == our.minX}).
-     * This pass re-seats the button flush against the arrow's live rect so it
-     * stays correctly positioned even when its own rect was defaulted before
-     * the first layout ran.
+     * bridge's {@code positionStripButton} injection. The button rides the
+     * same flow layout as every native member — it is appended to list
+     * {@code H} and {@code a(N)} positions each member left-to-right from the
+     * component's left edge — so this pass never assigns coordinates itself.
+     * It only records where the native layout actually seated each button,
+     * once per button, so evidence distinguishes "seated by the strip" from
+     * "never reached by a layout pass".
      */
     public void positionButton(final Object stripInstance) {
         synchronized (lock) {
             if (stripInstance == null || stripInstance != strip || entries.isEmpty()) return;
             try {
-                final Object dropdown = readField(stripInstance, "z");
-                final Object zRect = dropdown == null ? null : rectOf(dropdown);
-                if (zRect == null || width(zRect) <= 0f) return;
-                final float seatX = minX(zRect) + width(zRect);
-                final float seatY = minY(zRect);
                 for (final Entry entry : entries.values()) {
                     final Object button = entry.currentButton();
+                    if (button == null || nativeSeatLogged.contains(button)) continue;
                     final Object our = rectOf(button);
-                    final float w = our != null && width(our) > 0f ? width(our) : 40f;
-                    final float h = our != null && height(our) > 0f ? height(our) : 24f;
-                    if (our != null && Math.abs(minX(our) - seatX) < 0.5f && Math.abs(minY(our) - seatY) < 0.5f) {
-                        continue;
-                    }
-                    setBoundsOnComponent(button, newRect(seatX, seatY, w, h, button));
-                    diagnostic("BUTTON_POSITIONED x=" + seatX + " y=" + seatY + " w=" + w + " h=" + h + " zRight="
-                            + seatX);
+                    if (our == null || width(our) <= 0f || height(our) <= 0f) continue;
+                    diagnostic("STRIP_NATIVE_SEAT x=" + minX(our) + " y=" + minY(our)
+                            + " w=" + width(our) + " h=" + height(our));
+                    nativeSeatLogged.add(button);
                 }
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
-                diagnostic("BUTTON_POSITION_FAILED " + failure.getClass().getSimpleName());
+                diagnostic("STRIP_SEAT_DIAG_FAILED " + failure.getClass().getSimpleName());
             }
         }
     }
