@@ -161,54 +161,118 @@ MatchList 单测：add-only 脚本（含 null、重复同引用、缺查询、is
 size/get/迭代快照）与 ArrayList 逐点一致；三条边界断言（值语义元素、
 remove 后 contains、addAll 后 contains 的可观测分歧）固定合同边界。
 
-## 6. 宿主 A/B 准入材料草案（待主审逐项放行，本轮不提交）
+## 6. 宿主 A/B 最终装配清单（待主审逐项放行，本轮不提交）
 
-沿用 TRIAB 已验设施（单一 aux agent 两模式、身份门、Sink、Capture、
-INVALID 硬失败、交错腿），差异仅在候选变换与目标类：
+本章由草案收敛为可执行装配：所有目标常量、属性值与判废口径均已落入
+`validation/triangulation-weave-ab`（单一 agent jar，TRIAB/DWEAVE 双命名空间）
+与 `scripts/preview/run-atlas-image-shadow-host-validation.sh`。
 
 ### 6.1 模式
 
-- `dm-dump-only`：生产 + Capture（TriangleList.b() 返回逐序号 SHA），
-  候选变换不尝试、MatchList 不需要。
-- `dm-dump+weave`：h.c()V MatchList 织入 + 同一 Capture。形状拒织或
-  helper 不可解析 → 腿 INVALID 硬失败，严禁静默降级。
+- `dm-dump-only`（wrapper `--tri-dweave dm-dump-only`，腿标签
+  `t029-dweave-base<N>-heavy-nolayout[-jfr]`）：h.c() 候选变换**不尝试**
+  （premain 不预热 MatchList、transformer 只放行字节），MatchList 不需要
+  存在；TriangleList Capture 照常。
+- `dm-dump+weave`（`--tri-dweave dm-dump+weave`，腿标签
+  `t029-dweave-woven<N>-heavy-nolayout[-jfr]`）：h.c()V 按双钉形状门织入
+  MatchList + 同一 Capture；premain 先完成 MatchList 预热/可解析检查。
 
-### 6.2 AbTransformer 泛化点（不破坏既有 TRIAB 路径）
+两命名空间互斥：`triWeave.enabled` 与 `dmWeave.enabled` 同时为 true →
+premain `admission=reject reason=namespaces-conflict`，不安装 transformer。
 
-现 `AbTransformer` 只对单一 `targetInternal` 应用 `Weave.weaveChecked`
-（KWEAVE 查询点变换）+ `CaptureWeave`。DWEAVE 需要**双目标分派**：
+### 6.2 属性合同（dmWeave 命名空间，11 个固定值）
 
-- 命中 `com/live2d/graphics3d/editableMesh/triangulation/h` → woven 模式
-  应用 `dweave.Weave.weaveChecked(OFFICIAL_CFG)`（methodName=c,desc=()V,
-  listType=java/util/ArrayList,ctorDesc=()V,astoreSlot=7,
-  expectedTotalSites=2,matchListInternal=<agent 内 MatchList 内部名>）；
-  dump-only 直接放行（h 无 capture 需求）。
-- 命中 `.../triangulation/TriangleList` → 两模式同 apply CaptureWeave
-  （b()Lk; 返回捕获，与 TRIAB 完全相同的采集实现）。
-- 身份门（loader/classSha/codeSource）对两类分别钉住：h.class sha=
-  `5aa7031e…`、TriangleList.class sha=`87835641…`。
-- `turboism.validation.dmWeave.*` 独立属性前缀 + `profile=dm-official`
-  新增（`official`/`shadow-selfcheck`/`dm-official` 三档），profile 之外
-  的既有键与默认值不变；helper 预热与可解析门新增 MatchList（woven 模式
-  下不可解析 → INVALID）。
-- 既有 TRIAB 配置路径零改动：新增 code path 只在 profile=dm-official 且
-  className=h 时进入；selfcheck 需新增以官方 h 形状为准的 shadow fixture
-  （双位点 + pinned slot），复用本目录离线断言形态。
+wrapper 对 dweave 腿固定注入（与离线断言逐字节一致）：
 
-### 6.3 等价与计时口径
+| key | value |
+|---|---|
+| `turboism.validation.dmWeave.enabled` | `true` |
+| `...dmWeave.mode` | `dm-dump-only` / `dm-dump+weave`（与腿标签双向绑定） |
+| `...dmWeave.profile` | `dm-official`（显式钉死，防漂入 fixture profile） |
+| `...dmWeave.phase` | `t029-dweave` |
+| `...dmWeave.runId` | `dweave-<base|woven><N>`（腿 token） |
+| `...dmWeave.outputDir` | `{HOME}/dm-weave` |
+| `...dmWeave.expectClassSha256` | `5aa7031e3726355fde25d6d4412f0a295a3725cb8e510a3076007f3270445f0d`（**h.class 独立摘要**，非 TriangleList） |
+| `...dmWeave.expectCaptureClassSha256` | `87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29`（TriangleList.class） |
+| `...dmWeave.expectLoader` | `jdk.internal.loader.ClassLoaders$AppClassLoader` |
+| `...dmWeave.expectCodeSource` | `file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar`（`%%20` 契约同 TRIAB/IDENTITY） |
+| `...dmWeave.captureN` | `4` |
 
-- **等价**：TriangleList.b() 返回的逐调用序号 sha256，与 TRIAB 四腿基线
-  `fefb401f…`/`89ed77b3…`/`17ded14e…`/`786fe2ef…`（seq1-4，
-  1203/1122/132/100 条边）直接复用比对——候选不改变 b() 输出语义，
-  跨腿逐序号一致即等价成立。
-- **计时**：JFR 样本分桶计数，主指标 `h.c()` 叶子桶（窗口内
-  ArrayList.contains 线性扫描消失 → 预期显著下降）；对照桶=三角化内部
-  （tri 包）与未知栈；禁止样本比例→耗时/百分比外推。
-- **腿**：同一 prepared 快照族交错 4 腿（dm-base、dm-woven ×2），每腿
-  标准门（正常退出/模型不变/宿主身份/清理 safe）+ woven 腿
-  `legStatus=INVALID` 即废、序号 sha 不配对即停批。
-- agent jar 固定构建 sha 自证、aux 顺序与 prepared 快照审查照旧由主审
-  逐腿放行。
+无 fixture hash、无测试旋钮、无通用透传。wrapper 侧契约：5303-only；
+`--tri-dweave` 与 `t029-dweave-*` 标签双向 fail-closed；label↔mode 一致
+（base↔dm-dump-only、woven↔dm-dump+weave）；`--tri-weave-agent` 或
+`TURBOISM_TRI_WEAVE_AGENT` 二选一（并存即拒），绝对路径、非符号链接、
+basename `tri-weave-agent.jar`、sha256 记录供准入审查。
+
+### 6.3 aux 顺序与类定义事件
+
+aux 顺序固定：production agent → T039 shadow agent →
+`tri-weave-agent.jar` → scene driver（离线断言
+`auxOrder=t039-triweave-driver`；`--aux-agent-before-main` 仍是
+t039-shadow-agent.jar）。
+
+transformer 目标表（dm 命名空间，定义期逐类处理）：
+
+| 类 | 身份门 | woven 动作 | dump-only 动作 |
+|---|---|---|---|
+| `…/triangulation/h` | sha=`5aa7031e…` + loader + codeSource | `dweave.Weave.weaveChecked`（c,()V,ArrayList,()V,**slot7**,total=2,`dev/turboism/validation/dweave/MatchList`）；accept→2 个操作数差分 | 直接放行（无 capture） |
+| `…/triangulation/TriangleList` | sha=`87835641…` + loader + codeSource | `CaptureWeave` 仅织 `b()Lk;` | 同左 |
+
+MatchList 与 Capture 助手均为 agent-jar 类；woven 模式 premain 完成
+MatchList 预热（load/link），运行期再按目标 loader 做可解析检查。
+
+### 6.4 INVALID 判定（硬失败，不回退基线）
+
+woven 腿遇下列任一即写 `tri-weave-status-<runId>.txt`
+`legStatus=INVALID reason=<r>` 并记 stderr `leg-invalid`：
+
+- `helper-unavailable`：premain 预热或定义期可解析检查发现
+  MatchList 不可解析；
+- `weave-reject:<reason>`：形状门拒织（`method-not-found` /
+  `no pinned init site slot=7` / `ambiguous pinned init site` /
+  `total-sites=N expected=2`）；
+- `capture-reject:<reason>`：TriangleList 的 b() 不恰一处 ARETURN
+  或 capture 织入失败（同 TRIAB 口径）。
+
+INVALID 不回放数据、不算基线、腿作废。身份门（sha/loader/codeSource）
+不命中**不算 INVALID**：该类按原字节放行并在 definition 日志记
+`gate=reject reason=...`——与 TRIAB 既有口径一致（身份漂移是证据缺失，
+非判废）。admission 级失败（属性非法/冲突）在 premain 拒绝安装，
+stderr `admission=reject reason=...`，premain 永不外抛。
+
+### 6.5 Capture 点与 digest schema
+
+观测点不变：`TriangleList.b()Lcom/live2d/graphics3d/editableMesh/
+triangulation/k;` 返回后，由 Capture 将 k 的边端点对序（j.a/j.b）序列化为
+`a,b;a,b;…` 并 sha256。dump 行 schema 与 TRIAB 逐字段相同：
+`runId seq mode classSha256 loader codeSource helperLinked sha256 helperQueries newBoxCalls`
+——dm 腿 `mode=dm-dump-only|dm-dump+weave`，`helperQueries/newBoxCalls`
+为 TRIAB helper 计数器，dm 路径恒 0。
+
+### 6.6 等价判定（四腿基线 SHA 复用声明）
+
+等价见证与 TRIAB 完全同构：dm 两模式各腿 seq1-4 的 sha256 应与 TRIAB 已
+入库基线逐序号一致——`fefb401f…`/`89ed77b3…`/`17ded14e…`/`786fe2ef…`
+（edge 数 1203/1122/132/100）。复用理由：候选只改 h.c() 内部 matchList
+的 contains 复杂度，b() 的输出语义与观测点字节零接触；基线已是该场景
+下 b() 输出的权威记录。任一序号不配对该批停审，不四舍五入。
+
+### 6.7 JFR h.c() 叶子桶计时口径
+
+-JFR 腿（`t029-dweave-*-heavy-nolayout-jfr`）按既有 reviewed 设置录制
+（`settings=profile,stackdepth=256,maxsize=512m,dumponexit=true`）。
+主指标：`jdk.ExecutionSample` 顶层帧（leaf）归 `h.c()` 的**样本计数**
+跨 base/woven 对比——contains 线性扫描消失应表现为 h.c() 叶子桶显著
+下降；对照桶=tri 包内其它帧与未归 buckets。**JFR 样本计数不得换算为
+百分比、wall-time 或吞吐结论**——样本数是采样证据不是计时器，任何
+"占比下降 X%" 或"加速 Yms" 的陈述均越界。
+
+### 6.8 边界（不纳入本批）
+
+冻结范围外（明示不做）：h.a 递归内 `k.a` 谓词优化、Phase-4/500 上限
+语义任何改动、`k` 活表跨调用索引、生产代码与 Runner 核心改动。
+MatchList 只对 pinned slot7 实例生效——Phase-4 第二张表（slot8）保持
+`java.util.ArrayList`（探针断言 `dm.wovenArrayListSites=[…:slot8]`）。
 
 ## 7. 明示限制
 

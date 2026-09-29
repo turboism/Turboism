@@ -56,7 +56,8 @@ public final class Sink {
             this.mode = cfg.mode;
             this.runId = cfg.runId;
             this.phase = cfg.phase;
-            this.helperInternal = cfg.weave.helperInternal;
+            this.helperInternal = cfg.candidateHelperInternal == null
+                ? "" : cfg.candidateHelperInternal;
         }
     }
 

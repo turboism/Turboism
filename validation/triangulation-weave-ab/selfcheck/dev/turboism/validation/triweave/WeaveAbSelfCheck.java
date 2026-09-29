@@ -60,6 +60,16 @@ public final class WeaveAbSelfCheck {
             case "nullEdgeWeave" -> nullEdge(urls, defLog, dumpLog, statusFile);
             case "shapePins" -> shapePins(Path.of(args[1]));
             case "codeSourceUnit" -> codeSourceUnit();
+            case "dmHappyDump" -> dmHappy(urls, defLog, dumpLog, statusFile, false);
+            case "dmHappyWeave" -> dmHappy(urls, defLog, dumpLog, statusFile, true);
+            case "dmMissingHelperDump" -> dmMissingHelper(urls, defLog, dumpLog, statusFile, false);
+            case "dmMissingHelperWeave" -> dmMissingHelper(urls, defLog, dumpLog, statusFile, true);
+            case "dmShapeRejectWeave" -> dmShapeReject(urls, defLog, dumpLog, statusFile, true);
+            case "dmShapeRejectDump" -> dmShapeReject(urls, defLog, dumpLog, statusFile, false);
+            case "dmBadReturnWeave" -> dmBadReturn(urls, defLog, dumpLog, statusFile);
+            case "dmWrongWeaveSha" -> dmWrongWeaveSha(urls, defLog, dumpLog, statusFile);
+            case "dmWrongCaptureSha" -> dmWrongCaptureSha(urls, defLog, dumpLog, statusFile);
+            case "dmShapePins" -> dmShapePins(Path.of(args[1]));
             default -> throw new IllegalArgumentException("unknown scenario " + scenario);
         }
     }
@@ -499,6 +509,278 @@ public final class WeaveAbSelfCheck {
         check(Weave.weave(cfg, variant) == variant,
             tag + " weave() also returns the original array");
         System.out.println("SHAPE_REJECT " + tag + " reason=" + r.rejectReason);
+    }
+
+    // ------------------------------------------------------------ dm scenarios
+    // DWEAVE namespace: candidate weave on ShadowH.c()V (single ArrayList site
+    // -> ShadowMatchList, double pin), capture on ShadowTriangleList.produce().
+
+    static final String SH = "dev.turboism.validation.triweave.shadow.ShadowH";
+    static final String SHW = "dev.turboism.validation.triweave.shadow.ShadowHWorld";
+    /** Canonical content of the "dmShared" input — pinned from the unwoven
+     *  fixture run so BOTH modes prove byte-identical behavior against the
+     *  same literal. The Phase-4 drain empties the matchList (same as the
+     *  official loop); the popped list carries the full ordered outcome plus
+     *  the Phase-5 addAll payload. */
+    static final String DM_MATCH_EXPECTED = "";
+    static final String DM_POPPED_EXPECTED = "6,7;6,7;3,4;7,8;7,8;40,41;42,43;";
+
+    private static final class DmFx {
+        final FixtureLoader loader;
+        final Class<?> h, hw, tl, world;
+        DmFx(URL[] urls) throws Exception {
+            loader = new FixtureLoader(urls, sys());
+            h = loader.loadClass(SH);
+            hw = loader.loadClass(SHW);
+            tl = loader.loadClass(TL);
+            world = loader.loadClass(WORLD);
+        }
+        Object hInst(String input) throws Exception {
+            return hw.getMethod("input", String.class).invoke(null, input);
+        }
+        void c(Object inst) throws Exception {
+            h.getMethod("c").invoke(inst);
+        }
+        Object field(Object inst, String name) throws Exception {
+            return h.getField(name).get(inst);
+        }
+        String edgeSeq(Object list) throws Exception {
+            return (String) hw.getMethod("edgeSeq", Object.class).invoke(null, list);
+        }
+        String hStats() throws Exception {
+            return (String) hw.getMethod("stats").invoke(null);
+        }
+        Object tlInst(String input) throws Exception {
+            Constructor<?> ctor = tl.getDeclaredConstructor(LinkedHashSet.class);
+            return ctor.newInstance(world.getMethod("input", String.class).invoke(null, input));
+        }
+        Object produce(Object inst) throws Exception {
+            return tl.getMethod("produce").invoke(inst);
+        }
+        String indexSeq(Object k) throws Exception {
+            return (String) world.getMethod("indexSeq", Object.class).invoke(null, k);
+        }
+    }
+
+    private static String matchClass(Object ml) {
+        return ml == null ? "null" : ml.getClass().getName();
+    }
+
+    private static void dmHappy(URL[] urls, Path defLog, Path dumpLog, Path statusFile,
+            boolean woven) throws Exception {
+        DmFx fx = new DmFx(urls);
+        // weave effectiveness + behavior parity on the H window
+        Object inst = fx.hInst("dmShared");
+        fx.c(inst);
+        Object ml = fx.field(inst, "matchListOut");
+        Object pp = fx.field(inst, "poppedOut");
+        check(fx.edgeSeq(ml).equals(DM_MATCH_EXPECTED),
+            "matchList content diverged: " + fx.edgeSeq(ml)
+                + " vs " + DM_MATCH_EXPECTED);
+        check(fx.edgeSeq(pp).equals(DM_POPPED_EXPECTED),
+            "popped content diverged: " + fx.edgeSeq(pp)
+                + " vs " + DM_POPPED_EXPECTED);
+        check(matchClass(ml).equals(woven
+                ? "dev.turboism.validation.triweave.shadow.ShadowMatchList"
+                : "java.util.ArrayList"),
+            "matchList class mismatch: " + matchClass(ml));
+        check(matchClass(pp).equals("java.util.ArrayList"),
+            "second list must stay a plain ArrayList: " + matchClass(pp));
+        String hstats = fx.hStats();
+        if (woven) {
+            check(stat(hstats, "matchListCreated") == 1,
+                "woven ShadowMatchList must be instantiated once: " + hstats);
+            check(stat(hstats, "containsCalls") > 0,
+                "mirror must answer real contains calls: " + hstats);
+            check(stat(hstats, "addCalls") > 0,
+                "mirror must register real adds: " + hstats);
+        }
+        // capture on ShadowTriangleList.produce() runs identically in both modes
+        Object tl = fx.tlInst("shared");
+        String lastSeq = null;
+        for (int i = 0; i < 5; i++) lastSeq = fx.indexSeq(fx.produce(tl));
+        check(SHARED_SEQ.equals(lastSeq), "produce() output mismatch: " + lastSeq);
+        waitWriter();
+        String def = read(defLog);
+        check(def.contains("gate=accept"), "definition log lacks accept: " + def);
+        check(def.contains("class=" + SH.replace('.', '/')),
+            "def log lacks the ShadowH event: " + def);
+        check(def.contains("candidate=" + (woven ? "applied" : "skipped")),
+            "def log candidate field wrong: " + def);
+        check(def.contains("capture=applied"), "def log lacks applied capture: " + def);
+        List<String> dumps = lines(dumpLog);
+        check(dumps.size() == 4, "expected 4 bounded dumps, got " + dumps.size());
+        String expectedSha = sha256(SHARED_SEQ);
+        for (int i = 0; i < dumps.size(); i++) {
+            String line = dumps.get(i);
+            check(Integer.toString(i + 1).equals(field(line, "seq")),
+                "dump seq mismatch: " + line);
+            check(expectedSha.equals(field(line, "sha256")), "sha mismatch: " + line);
+            check((woven ? "dm-dump+weave" : "dm-dump-only").equals(field(line, "mode")),
+                "mode field mismatch: " + line);
+            check("true".equals(field(line, "helperLinked")),
+                "ShadowMatchList must be resolvable: " + line);
+        }
+        check(!Files.exists(statusFile), "unexpected status file");
+        pass(woven ? "dmHappyWeave" : "dmHappyDump",
+            "mirrorProven=" + woven + " captureParity=true " + hstats);
+    }
+
+    private static void dmMissingHelper(URL[] urls, Path defLog, Path dumpLog,
+            Path statusFile, boolean woven) throws Exception {
+        DmFx fx = new DmFx(urls);
+        Object inst = fx.hInst("dmShared");
+        fx.c(inst);   // unwoven class still runs the original path
+        Object ml = fx.field(inst, "matchListOut");
+        check("java.util.ArrayList".equals(matchClass(ml)),
+            "helper-less run must keep the original list type: " + matchClass(ml));
+        Object tl = fx.tlInst("shared");
+        check(fx.produce(tl) != null, "produce must run");
+        waitWriter();
+        List<String> dumps = lines(dumpLog);
+        if (woven) {
+            String status = read(statusFile);
+            check(status.contains("legStatus=INVALID"), "missing INVALID marker: " + status);
+            check(status.contains("helper-unavailable"), "wrong invalid reason: " + status);
+            check("false".equals(field(dumps.get(0), "helperLinked")),
+                "helperLinked must be false: " + dumps.get(0));
+            pass("dmMissingHelperWeave",
+                "legInvalid=helper-unavailable dumps=" + dumps.size());
+        } else {
+            check(dumps.size() == 1, "dump-only must still dump: " + dumps.size());
+            check(sha256(SHARED_SEQ).equals(field(dumps.get(0), "sha256")),
+                "sha: " + dumps.get(0));
+            check("false".equals(field(dumps.get(0), "helperLinked")),
+                "helperLinked must be false: " + dumps.get(0));
+            check(!Files.exists(statusFile), "dump-only never needs the helper");
+            pass("dmMissingHelperDump", "helperAbsent=true dumpsProduced=true");
+        }
+    }
+
+    private static void dmShapeReject(URL[] urls, Path defLog, Path dumpLog,
+            Path statusFile, boolean woven) throws Exception {
+        // urls[0] carries the badsite ShadowH (single pattern site), urls[1] the
+        // full fixture for every other class.
+        DmFx fx = new DmFx(urls);
+        Object inst = fx.hInst("dmShared");
+        fx.c(inst);
+        check("java.util.ArrayList".equals(matchClass(fx.field(inst, "matchListOut"))),
+            "shape-rejected H must run unmodified");
+        Object tl = fx.tlInst("shared");
+        check(fx.produce(tl) != null, "produce must run");
+        waitWriter();
+        String def = read(defLog);
+        if (woven) {
+            String status = read(statusFile);
+            check(status.contains("legStatus=INVALID"), "missing INVALID marker: " + status);
+            check(status.contains("weave-reject"), "expected weave reject: " + status);
+            check(status.contains("total-sites=1"),
+                "expected total-sites reason: " + status);
+            check(def.contains("gate=reject"), "def log lacks reject: " + def);
+            check(!lines(dumpLog).isEmpty(),
+                "capture target still dumps — INVALID is leg-level: ");
+            pass("dmShapeRejectWeave", "legInvalid=weave-reject:total-sites=1");
+        } else {
+            check(!Files.exists(statusFile),
+                "dump-only shape variance is not leg-invalid");
+            check(!lines(dumpLog).isEmpty(), "dump-only baseline must still dump");
+            pass("dmShapeRejectDump", "baselineObserved=true candidatePinIrrelevant=true");
+        }
+    }
+
+    private static void dmBadReturn(URL[] urls, Path defLog, Path dumpLog,
+            Path statusFile) throws Exception {
+        // badreturn ShadowTriangleList (two ARETURNs) + good ShadowH: the capture
+        // gate on the SECOND target must invalidate the woven leg.
+        DmFx fx = new DmFx(urls);
+        Object inst = fx.hInst("dmShared");
+        fx.c(inst);
+        check("dev.turboism.validation.triweave.shadow.ShadowMatchList"
+                .equals(matchClass(fx.field(inst, "matchListOut"))),
+            "H weave must have applied before the TL reject");
+        check(fx.produce(fx.tlInst("shared")) != null, "badreturn produce must run");
+        waitWriter();
+        check(lines(dumpLog).isEmpty(), "capture-reject must not dump");
+        String status = read(statusFile);
+        check(status.contains("legStatus=INVALID"), "missing INVALID marker: " + status);
+        check(status.contains("capture-reject:capture-areturns=2"),
+            "wrong invalid reason: " + status);
+        String def = read(defLog);
+        check(def.contains("candidate=applied"), "H weave event missing: " + def);
+        pass("dmBadReturnWeave", "legInvalid=capture-reject weaveTargetApplied=true");
+    }
+
+    private static void dmWrongWeaveSha(URL[] urls, Path defLog, Path dumpLog,
+            Path statusFile) throws Exception {
+        // h identity reject is NOT leg-invalid: H loads unmodified, TL still dumps.
+        DmFx fx = new DmFx(urls);
+        Object inst = fx.hInst("dmShared");
+        fx.c(inst);
+        check("java.util.ArrayList".equals(matchClass(fx.field(inst, "matchListOut"))),
+            "sha-rejected H must run unmodified");
+        check(fx.produce(fx.tlInst("shared")) != null, "produce must run");
+        waitWriter();
+        String def = read(defLog);
+        check(def.contains("gate=reject") && def.contains("reason=classSha"),
+            "expected classSha reject: " + def);
+        check(def.contains("class=" + SH.replace('.', '/')),
+            "reject must name ShadowH: " + def);
+        check(!lines(dumpLog).isEmpty(), "capture leg must still dump");
+        check(!Files.exists(statusFile), "identity reject is not INVALID");
+        pass("dmWrongWeaveSha", "hRejectedAtGate=true captureContinues=true");
+    }
+
+    private static void dmWrongCaptureSha(URL[] urls, Path defLog, Path dumpLog,
+            Path statusFile) throws Exception {
+        // TL identity reject: no dumps; the h weave still applies (woven mode).
+        DmFx fx = new DmFx(urls);
+        Object inst = fx.hInst("dmShared");
+        fx.c(inst);
+        check("dev.turboism.validation.triweave.shadow.ShadowMatchList"
+                .equals(matchClass(fx.field(inst, "matchListOut"))),
+            "H weave must apply under TL identity reject");
+        check(fx.produce(fx.tlInst("shared")) != null, "produce must run");
+        waitWriter();
+        String def = read(defLog);
+        check(def.contains("reason=classSha"), "expected classSha reject: " + def);
+        check(def.contains("candidate=applied"), "H weave event missing: " + def);
+        check(lines(dumpLog).isEmpty(), "sha-rejected capture target must not dump");
+        check(!Files.exists(statusFile), "identity reject is not INVALID");
+        pass("dmWrongCaptureSha", "tlRejectedAtGate=true hWeaveApplied=true");
+    }
+
+    private static void dmShapePins(Path fixtureDir) throws Exception {
+        byte[] orig = Files.readAllBytes(fixtureDir.resolve(
+            "dev/turboism/validation/triweave/shadow/ShadowH.class"));
+        dev.turboism.validation.dweave.Weave.Config cfg = WeaveAbConfig.SHADOW_DM_WEAVE;
+
+        dev.turboism.validation.dweave.Weave.Result ok =
+            dev.turboism.validation.dweave.Weave.weaveChecked(cfg, orig);
+        check(ok.rejectReason == null, "shadow H must be accepted: " + ok.rejectReason);
+        check(ok.plan.sites.size() == 2, "fixture must carry two sites: " + ok.plan.sites);
+        check(ok.plan.target.astoreSlot == WeaveAbConfig.SHADOW_H_PINNED_SLOT,
+            "accepted site must be the pinned slot");
+
+        dev.turboism.validation.dweave.Weave.Result wrongSlot =
+            dev.turboism.validation.dweave.Weave.weaveChecked(
+                new dev.turboism.validation.dweave.Weave.Config("c", "()V",
+                    "java/util/ArrayList", "()V",
+                    WeaveAbConfig.SHADOW_H_PINNED_SLOT + 90, 2, cfg.matchListInternal), orig);
+        check(wrongSlot.rejectReason != null
+            && wrongSlot.rejectReason.startsWith("no pinned init site"),
+            "wrong pinned slot must reject: " + wrongSlot.rejectReason);
+        check(wrongSlot.bytes == orig, "reject must return the original array");
+
+        dev.turboism.validation.dweave.Weave.Result wrongTotal =
+            dev.turboism.validation.dweave.Weave.weaveChecked(
+                new dev.turboism.validation.dweave.Weave.Config("c", "()V",
+                    "java/util/ArrayList", "()V",
+                    WeaveAbConfig.SHADOW_H_PINNED_SLOT, 99, cfg.matchListInternal), orig);
+        check(wrongTotal.rejectReason != null
+            && wrongTotal.rejectReason.startsWith("total-sites="),
+            "wrong total must reject: " + wrongTotal.rejectReason);
+        check(wrongTotal.bytes == orig, "reject must return the original array");
+        pass("dmShapePins", "doublePin=slot+total rejectedWithObservableReasons=true");
     }
 
     private static void codeSourceUnit() {

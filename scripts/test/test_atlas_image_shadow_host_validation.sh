@@ -850,4 +850,194 @@ assert not any("StartFlightRecording" in a for a in argv)
 print("T029_TRIAB_BASE_PLAN PASS mode=dump-only noJfr=true")
 PYEOF
 
+# T029-DWEAVE: --tri-dweave <dm-dump-only|dm-dump+weave> shares the same physical agent
+# jar and the same bidirectional label↔mode contract, in the dmWeave namespace.
+! grep -Fq -- 'dmWeave' "$test_root/dry-run.log" || fail 'default run leaked dmWeave options'
+# label/mode mismatch: a base leg must not run dm-dump+weave
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 t029-dweave-base1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-dweave 'dm-dump+weave' --dry-run \
+    > "$test_root/dweave-mismatch.log" 2>&1; then
+  fail 'wrapper accepted a dweave base leg with dm-dump+weave'
+fi
+grep -q 'inconsistent with leg label' "$test_root/dweave-mismatch.log"
+# unknown mode token (a triab mode must not leak into the dm namespace)
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 t029-dweave-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-dweave 'dump+weave' --dry-run \
+    > "$test_root/dweave-badmode.log" 2>&1; then
+  fail 'wrapper accepted a non-dm --tri-dweave mode'
+fi
+grep -q 'must be dm-dump-only or dm-dump+weave' "$test_root/dweave-badmode.log"
+# missing agent (neither argument nor env)
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    "$wrapper" 5303 t029-dweave-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-dweave 'dm-dump+weave' --dry-run \
+    > "$test_root/dweave-noenv.log" 2>&1; then
+  fail 'wrapper accepted --tri-dweave without an agent'
+fi
+grep -q 'requires --tri-weave-agent or TURBOISM_TRI_WEAVE_AGENT' "$test_root/dweave-noenv.log"
+# argument-form agent jar
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    "$wrapper" 5303 t029-dweave-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-dweave 'dm-dump+weave' \
+    --tri-weave-agent "$tri_weave_agent_stub" --dry-run \
+    > "$test_root/dweave-argform.log" 2>&1; then
+  :
+else
+  fail 'wrapper rejected the argument form under --tri-dweave'
+fi
+grep -q '^auxAgentCount=3$' "$test_root/dweave-argform.log"
+grep -q '^dmWeaveMode=dm-dump+weave$' "$test_root/dweave-argform.log" \
+  || fail 'dry-run report missing dmWeaveMode'
+# both argument and env forms together are ambiguous
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 t029-dweave-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-dweave 'dm-dump+weave' \
+    --tri-weave-agent "$tri_weave_agent_stub" --dry-run \
+    > "$test_root/dweave-both.log" 2>&1; then
+  fail 'wrapper accepted both agent forms under --tri-dweave'
+fi
+grep -q 'supplied twice (argument' "$test_root/dweave-both.log"
+# wrong basename
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$bad_basename" \
+    "$wrapper" 5303 t029-dweave-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-dweave 'dm-dump+weave' --dry-run \
+    > "$test_root/dweave-basename.log" 2>&1; then
+  fail 'wrapper accepted a dweave agent with the wrong basename'
+fi
+grep -q 'basename must be tri-weave-agent.jar' "$test_root/dweave-basename.log"
+# symlink
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$test_root/tri-weave-link.jar" \
+    "$wrapper" 5303 t029-dweave-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-dweave 'dm-dump+weave' --dry-run \
+    > "$test_root/dweave-link.log" 2>&1; then
+  fail 'wrapper accepted a symlink agent under --tri-dweave'
+fi
+grep -q 'not a regular non-symlink file' "$test_root/dweave-link.log"
+# wrong version
+if env "${runner_env[@]}" TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5203 t029-dweave-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest" --tri-dweave 'dm-dump+weave' --dry-run \
+    > "$test_root/dweave-version.log" 2>&1; then
+  fail 'wrapper accepted --tri-dweave under 5203'
+fi
+grep -q 'tri-dweave is 5303-only' "$test_root/dweave-version.log"
+# dweave label without the flag must not silently run uninstrumented
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    "$wrapper" 5303 t029-dweave-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --dry-run \
+    > "$test_root/dweave-noflag.log" 2>&1; then
+  fail 'wrapper accepted a t029-dweave label without --tri-dweave'
+fi
+grep -q 'requires --tri-dweave' "$test_root/dweave-noflag.log"
+# flag with a non-dweave label
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 offline-heavy \
+    --bundle-manifest "$manifest_heavy" --tri-dweave 'dm-dump-only' --dry-run \
+    > "$test_root/dweave-badlabel.log" 2>&1; then
+  fail 'wrapper accepted --tri-dweave with a non-dweave label'
+fi
+grep -q 'requires a label t029-dweave-' "$test_root/dweave-badlabel.log"
+# namespace confusion: a triab flag on a dweave label (or vice versa) fails closed
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 t029-dweave-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-weave-ab 'dump+weave' --dry-run \
+    > "$test_root/dweave-ns-triab.log" 2>&1; then
+  fail 'wrapper accepted --tri-weave-ab on a dweave label'
+fi
+grep -q 'requires a label t029-triab-' "$test_root/dweave-ns-triab.log"
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 t029-triab-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-dweave 'dm-dump+weave' --dry-run \
+    > "$test_root/dweave-ns-dweave.log" 2>&1; then
+  fail 'wrapper accepted --tri-dweave on a triab label'
+fi
+grep -q 'requires --tri-weave-ab' "$test_root/dweave-ns-dweave.log"
+# env-form agent (same path the triab legs replay)
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 t029-dweave-base1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-dweave 'dm-dump-only' --dry-run \
+    > "$test_root/dweave-envform.log" 2>&1; then
+  :
+else
+  fail 'wrapper rejected the env form under --tri-dweave'
+fi
+grep -q '^auxAgentCount=3$' "$test_root/dweave-envform.log"
+# woven leg with JFR: aux order + eleven fixed dmWeave props + reviewed recording settings
+prepare_dw="$test_root/prepare-tri-dweave-woven"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+  TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+  "$wrapper" 5303 t029-dweave-woven1-heavy-nolayout-jfr \
+  --bundle-manifest "$manifest_heavy" --tri-dweave 'dm-dump+weave' \
+  --prepare-dir "$prepare_dw" > "$test_root/prepare-tri-dweave-woven.log" 2>&1 \
+  || fail 'tri-dweave woven-leg prepare failed'
+grep -q 'dmWeaveMode=dm-dump+weave' "$test_root/prepare-tri-dweave-woven.log"
+grep -q 'dmWeaveLeg=woven1' "$test_root/prepare-tri-dweave-woven.log"
+python3 - "$prepare_dw/runner-request.json" <<'PYEOF'
+import json
+import sys
+from pathlib import Path
+
+argv = json.loads(Path(sys.argv[1]).read_text())["argv"]
+aux = [argv[i + 1].split(":")[-1] for i, flag in enumerate(argv) if flag == "--aux-agent"]
+assert aux == ["t039-shadow-agent.jar", "tri-weave-agent.jar",
+               "atlas-image-shadow-scene-driver.jar"], aux
+assert argv[argv.index("--aux-agent-before-main") + 1] == "t039-shadow-agent.jar"
+props = [argv[i + 1] for i, flag in enumerate(argv)
+         if flag == "--jvm-option" and "dmWeave." in argv[i + 1]]
+expected = [
+    "-Dturboism.validation.dmWeave.enabled=true",
+    "-Dturboism.validation.dmWeave.mode=dm-dump+weave",
+    "-Dturboism.validation.dmWeave.profile=dm-official",
+    "-Dturboism.validation.dmWeave.phase=t029-dweave",
+    "-Dturboism.validation.dmWeave.runId=dweave-woven1",
+    "-Dturboism.validation.dmWeave.outputDir={HOME}/dm-weave",
+    "-Dturboism.validation.dmWeave.expectClassSha256=5aa7031e3726355fde25d6d4412f0a295a3725cb8e510a3076007f3270445f0d",
+    "-Dturboism.validation.dmWeave.expectCaptureClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29",
+    "-Dturboism.validation.dmWeave.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader",
+    "-Dturboism.validation.dmWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar",
+    "-Dturboism.validation.dmWeave.captureN=4",
+]
+assert props == expected, props
+jfr = [a for a in argv if "StartFlightRecording" in a]
+assert len(jfr) == 1 and "settings=profile" in jfr[0] and "stackdepth=256" in jfr[0], jfr
+assert not any("triWeave." in a for a in argv)
+assert not any("triIdentity." in a for a in argv)
+assert not any("failNewBox" in a or "shadow-selfcheck" in a for a in argv)
+print("T029_DWEAVE_PLAN PASS auxOrder=t039-triweave-driver props=11 jfrReviewed=true")
+PYEOF
+# base leg (no -jfr suffix): mode flips to dm-dump-only, no recording added
+prepare_db="$test_root/prepare-tri-dweave-base"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+  TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+  "$wrapper" 5303 t029-dweave-base2-heavy-nolayout \
+  --bundle-manifest "$manifest_heavy" --tri-dweave 'dm-dump-only' \
+  --prepare-dir "$prepare_db" > "$test_root/prepare-tri-dweave-base.log" 2>&1 \
+  || fail 'tri-dweave base-leg prepare failed'
+python3 - "$prepare_db/runner-request.json" <<'PYEOF'
+import json
+import sys
+from pathlib import Path
+
+argv = json.loads(Path(sys.argv[1]).read_text())["argv"]
+props = [argv[i + 1] for i, flag in enumerate(argv)
+         if flag == "--jvm-option" and "dmWeave." in argv[i + 1]]
+assert "-Dturboism.validation.dmWeave.mode=dm-dump-only" in props, props
+assert "-Dturboism.validation.dmWeave.runId=dweave-base2" in props, props
+assert len(props) == 11, props
+assert not any("StartFlightRecording" in a for a in argv)
+assert not any("triWeave." in a for a in argv)
+print("T029_DWEAVE_BASE_PLAN PASS mode=dm-dump-only noJfr=true")
+PYEOF
+
 printf 'ATLAS_IMAGE_SHADOW_HOST_VALIDATION_OFFLINE_TEST PASS hostLaunched=false\n'

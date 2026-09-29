@@ -36,6 +36,7 @@ Usage:
   run-atlas-image-shadow-host-validation.sh <5303|5203> <run-label>
     [--tri-identity-probe <path-to-pinned-tri-identity-probe.jar>]
     [--tri-weave-ab <dump-only|dump+weave>]
+    [--tri-dweave <dm-dump-only|dm-dump+weave>]
     [--tri-weave-agent <absolute path to tri-weave-agent.jar>]
     [--bundle-manifest <published manifest>]
     [--prepare-dir <directory> | --dry-run]
@@ -56,9 +57,11 @@ shift 2
 # a wrong profile cannot even reach fixture resolution with the flag present.
 tri_identity_probe_flag=0
 tri_weave_ab_flag=0
+tri_dweave_flag=0
 for arg in "$@"; do
   [[ "$arg" == --tri-identity-probe ]] && tri_identity_probe_flag=1
   [[ "$arg" == --tri-weave-ab ]] && tri_weave_ab_flag=1
+  [[ "$arg" == --tri-dweave ]] && tri_dweave_flag=1
 done
 if [[ "$tri_identity_probe_flag" == 1 ]]; then
   [[ "$version" == 5303 ]] || fail '--tri-identity-probe is 5303-only'
@@ -78,6 +81,20 @@ if [[ "$tri_weave_ab_flag" == 1 || -n "$tri_weave_leg" ]]; then
     || fail '--tri-weave-ab requires a label t029-triab-<base|woven><N>-heavy-nolayout[-jfr]'
   [[ "$tri_weave_ab_flag" == 1 ]] \
     || fail 'a t029-triab-* label requires --tri-weave-ab so the leg cannot run uninstrumented'
+fi
+# T029-DWEAVE: same bidirectional contract on its own label family. The DWEAVE leg
+# carries the dmWeave property namespace — a dweave label without the flag would run
+# uninstrumented, and the flag without a dweave label has no leg to bind to.
+tri_dweave_leg=''
+if [[ "$run_label" =~ ^t029-dweave-(base|woven)([0-9]+)-heavy-nolayout(-jfr)?$ ]]; then
+  tri_dweave_leg="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+fi
+if [[ "$tri_dweave_flag" == 1 || -n "$tri_dweave_leg" ]]; then
+  [[ "$version" == 5303 ]] || fail '--tri-dweave is 5303-only'
+  [[ -n "$tri_dweave_leg" ]] \
+    || fail '--tri-dweave requires a label t029-dweave-<base|woven><N>-heavy-nolayout[-jfr]'
+  [[ "$tri_dweave_flag" == 1 ]] \
+    || fail 'a t029-dweave-* label requires --tri-dweave so the leg cannot run uninstrumented'
 fi
 case "$version" in
   5303)
@@ -370,6 +387,7 @@ prepare_dir=''
 dry_run=0
 tri_identity_probe=''
 tri_weave_ab=''
+tri_dweave=''
 tri_weave_agent_arg=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -390,6 +408,10 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || fail 'missing --tri-weave-ab value'
       [[ -z "$tri_weave_ab" ]] || fail 'tri-weave-ab supplied twice'
       tri_weave_ab="$2"; shift 2 ;;
+    --tri-dweave)
+      [[ $# -ge 2 ]] || fail 'missing --tri-dweave value'
+      [[ -z "$tri_dweave" ]] || fail 'tri-dweave supplied twice'
+      tri_dweave="$2"; shift 2 ;;
     --tri-weave-agent)
       [[ $# -ge 2 ]] || fail 'missing --tri-weave-agent value'
       [[ -z "$tri_weave_agent_arg" ]] || fail 'tri-weave-agent supplied twice'
@@ -430,15 +452,32 @@ if [[ -n "$tri_weave_ab" ]]; then
   [[ "$tri_weave_leg" == woven* ]] && tri_weave_expected='dump+weave'
   [[ "$tri_weave_mode" == "$tri_weave_expected" ]] \
     || fail "--tri-weave-ab $tri_weave_mode inconsistent with leg label $run_label"
-  # The agent jar arrives either as an explicit argument (queue-stable: the runner
-  # replays frozen args in a worker env without TURBOISM_TRI_WEAVE_AGENT) or via the
-  # env var (interactive/dry-run compatibility). Supplying both is ambiguous → fail;
-  # neither is fail-closed. Validation is identical for both sources.
+fi
+# --tri-dweave (T029-DWEAVE): identical label↔mode contract in the dmWeave namespace.
+# The two namespaces are mutually exclusive by construction — a triab label rejects a
+# missing --tri-weave-ab and a dweave label rejects a missing --tri-dweave above.
+tri_dweave_mode=''
+if [[ -n "$tri_dweave" ]]; then
+  case "$tri_dweave" in
+    dm-dump-only|dm-dump+weave) tri_dweave_mode="$tri_dweave" ;;
+    *) fail '--tri-dweave mode must be dm-dump-only or dm-dump+weave' ;;
+  esac
+  tri_dweave_expected=dm-dump-only
+  [[ "$tri_dweave_leg" == woven* ]] && tri_dweave_expected='dm-dump+weave'
+  [[ "$tri_dweave_mode" == "$tri_dweave_expected" ]] \
+    || fail "--tri-dweave $tri_dweave_mode inconsistent with leg label $run_label"
+fi
+# One physical agent jar serves both namespaces (TRIAB and DWEAVE targets live in the
+# same artifact). The jar arrives either as an explicit argument (queue-stable: the
+# runner replays frozen args in a worker env without TURBOISM_TRI_WEAVE_AGENT) or via
+# the env var (interactive/dry-run compatibility). Supplying both is ambiguous → fail;
+# neither is fail-closed. Validation is identical for both sources and modes.
+if [[ -n "$tri_weave_mode" || -n "$tri_dweave_mode" ]]; then
   if [[ -n "$tri_weave_agent_arg" && -n "${TURBOISM_TRI_WEAVE_AGENT:-}" ]]; then
     fail 'tri-weave agent supplied twice (argument and TURBOISM_TRI_WEAVE_AGENT)'
   fi
   tri_weave_agent="${tri_weave_agent_arg:-${TURBOISM_TRI_WEAVE_AGENT:-}}"
-  [[ -n "$tri_weave_agent" ]] || fail '--tri-weave-ab requires --tri-weave-agent or TURBOISM_TRI_WEAVE_AGENT'
+  [[ -n "$tri_weave_agent" ]] || fail '--tri-weave-ab/--tri-dweave requires --tri-weave-agent or TURBOISM_TRI_WEAVE_AGENT'
   [[ "$tri_weave_agent" = /* ]] || fail 'tri-weave agent path must be absolute'
   [[ -f "$tri_weave_agent" && ! -L "$tri_weave_agent" ]] \
     || fail 'tri-weave agent is not a regular non-symlink file'
@@ -572,8 +611,9 @@ fi
 if [[ -n "$tri_identity_probe" ]]; then
   runner_args+=(--aux-agent "$tri_identity_probe:tri-identity-probe.jar")
 fi
-# T029-TRIAB: the dump+weave aux agent premains after production and before the driver.
-if [[ -n "$tri_weave_mode" ]]; then
+# T029-TRIAB / T029-DWEAVE: the dump+weave aux agent premains after production and
+# T039 and before the scene driver — the same physical jar serves both namespaces.
+if [[ -n "$tri_weave_mode" || -n "$tri_dweave_mode" ]]; then
   runner_args+=(--aux-agent "$tri_weave_agent:tri-weave-agent.jar")
 fi
 runner_args+=(
@@ -654,6 +694,27 @@ if [[ -n "$tri_weave_mode" ]]; then
     --jvm-option '-Dturboism.validation.triWeave.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader'
     --jvm-option '-Dturboism.validation.triWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar'
     --jvm-option '-Dturboism.validation.triWeave.captureN=4'
+  )
+fi
+
+# T029-DWEAVE leg contract: eleven fixed properties in the dmWeave namespace — the
+# candidate weave is pinned on h.c()V (class sha 5aa7031e…, double shape pin inside
+# the agent) while the equivalence witness stays the TriangleList.b() capture with
+# its own independent digest (expectCaptureClassSha256=87835641…). profile is pinned
+# explicitly to dm-official so admission cannot drift into a fixture profile.
+if [[ -n "$tri_dweave_mode" ]]; then
+  runner_args+=(
+    --jvm-option '-Dturboism.validation.dmWeave.enabled=true'
+    --jvm-option "-Dturboism.validation.dmWeave.mode=$tri_dweave_mode"
+    --jvm-option '-Dturboism.validation.dmWeave.profile=dm-official'
+    --jvm-option '-Dturboism.validation.dmWeave.phase=t029-dweave'
+    --jvm-option "-Dturboism.validation.dmWeave.runId=dweave-$tri_dweave_leg"
+    --jvm-option '-Dturboism.validation.dmWeave.outputDir={HOME}/dm-weave'
+    --jvm-option '-Dturboism.validation.dmWeave.expectClassSha256=5aa7031e3726355fde25d6d4412f0a295a3725cb8e510a3076007f3270445f0d'
+    --jvm-option '-Dturboism.validation.dmWeave.expectCaptureClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29'
+    --jvm-option '-Dturboism.validation.dmWeave.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader'
+    --jvm-option '-Dturboism.validation.dmWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar'
+    --jvm-option '-Dturboism.validation.dmWeave.captureN=4'
   )
 fi
 
@@ -757,6 +818,10 @@ fi
 if [[ -n "$tri_weave_mode" ]]; then
   printf 'triWeaveMode=%s\ntriWeaveAgentSha256=%s\ntriWeaveLeg=%s\n' \
     "$tri_weave_mode" "$tri_weave_agent_sha256" "$tri_weave_leg" >&2
+fi
+if [[ -n "$tri_dweave_mode" ]]; then
+  printf 'dmWeaveMode=%s\ndmWeaveAgentSha256=%s\ndmWeaveLeg=%s\n' \
+    "$tri_dweave_mode" "$tri_weave_agent_sha256" "$tri_dweave_leg" >&2
 fi
 
 # No hook, client, or collector option is permitted here; readiness is limited to the single
