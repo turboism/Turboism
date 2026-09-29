@@ -10,6 +10,7 @@ package dev.turboism.sdk.permission;
 public final class PermissionIds {
 
     public static final String TURBOISM_ACTION_REGISTER = "turboism.action.register";
+    public static final String TURBOISM_ACTION_INVOKE = "turboism.action.invoke";
     public static final String TURBOISM_UI_MENU_CONTRIBUTE = "turboism.ui.menu.contribute";
     public static final String TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE = "turboism.ui.toolbar.main.contribute";
     public static final String TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE = "turboism.ui.toolbar.palette.contribute";

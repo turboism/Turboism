@@ -10,6 +10,7 @@ import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.adapter.host.HostSessionSnapshotSource;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.config.RuntimePluginConfigRegistry;
+import dev.turboism.ui.action.RuntimeActionCatalogService;
 import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.event.PluginEventBus;
@@ -23,6 +24,7 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.recentfile.RuntimeRecentFileService;
 import dev.turboism.recentpreview.RuntimeRecentPreviewContributionService;
 import dev.turboism.screenshot.RuntimeScreenshotCaptureService;
+import dev.turboism.sdk.action.ActionCatalogService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
@@ -124,6 +126,7 @@ public final class CorePluginContext implements PluginContext {
 
     private final SceneTableService sceneTableService;
     private final dev.turboism.sdk.runtime.CubismLogService cubismLogService;
+    private final ActionCatalogService actionCatalogService;
     private final RecentFileService recentFileService;
     private final ScreenshotCaptureService screenshotCaptureService;
     private final RecentPreviewContributionService recentPreviewContributionService;
@@ -589,6 +592,17 @@ public final class CorePluginContext implements PluginContext {
                             .editorUiActionRouter()
                             .register(this.dependencies.descriptor().id(), this.dependencies.actions()));
         }
+        this.actionCatalogService = hostAccess == null
+                ? ActionCatalogService.unavailable()
+                : new RuntimeActionCatalogService(
+                        this.dependencies.descriptor().id(),
+                        hostAccess.editorUiActionRouter(),
+                        new CubismPermissionGate(
+                                this.dependencies.descriptor().id(),
+                                this.dependencies.permissions(),
+                                this.dependencies.cubismAuditSink(),
+                                this.dependencies.clock()),
+                        this.dependencies.logger());
         this.runtimeSettings = env.runtimeSettings();
         this.fileChooserHistory = env.fileChooserHistory() == null
                 ? null
@@ -790,6 +804,11 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
+    public ActionCatalogService actionCatalog() {
+        return actionCatalogService;
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup() {
         return cubismServices.backupService();
     }
@@ -891,6 +910,9 @@ public final class CorePluginContext implements PluginContext {
                 cubismServices.editorCommandService(),
                 dev.turboism.sdk.cubism.command.EditorCommandService.unavailable())) {
             available.add(PluginService.EDITOR_COMMANDS);
+        }
+        if (installed(actionCatalogService, ActionCatalogService.unavailable())) {
+            available.add(PluginService.ACTION_CATALOG);
         }
         if (installed(
                 cubismServices.backupService(), dev.turboism.sdk.cubism.backup.EditorAutoBackupService.unavailable())) {

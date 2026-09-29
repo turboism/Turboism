@@ -22,12 +22,40 @@ public final class CommandMatcher {
 
     private CommandMatcher() {}
 
-    /** One palette row: the command, its stable SDK id and the localized display name. */
-    public record Entry(EditorCommand command, String id, String name) {
+    /** The execution path a palette row dispatches to. */
+    public enum Kind {
+        /** A parameterless host menu command executed via {@code EditorCommandService}. */
+        COMMAND,
+        /** A plugin-registered action invoked via {@code ActionCatalogService}. */
+        ACTION
+    }
+
+    /**
+     * One palette row: its stable identifier and display name, plus the dispatch payload
+     * implied by {@link #kind()} — {@link #command()} for a {@link Kind#COMMAND} row,
+     * {@link #pluginId()} for the owner of a {@link Kind#ACTION} row (whose {@link #id()}
+     * is the action id). The unused payload slot is {@code null}.
+     */
+    public record Entry(Kind kind, String id, String name, EditorCommand command, String pluginId) {
         public Entry {
-            Objects.requireNonNull(command, "command");
+            Objects.requireNonNull(kind, "kind");
             Objects.requireNonNull(id, "id");
             Objects.requireNonNull(name, "name");
+            if (kind == Kind.COMMAND) {
+                Objects.requireNonNull(command, "command");
+            } else {
+                Objects.requireNonNull(pluginId, "pluginId");
+            }
+        }
+
+        /** A host-command row. */
+        public static Entry command(final EditorCommand command, final String id, final String name) {
+            return new Entry(Kind.COMMAND, id, name, command, null);
+        }
+
+        /** A plugin-action row owned by {@code pluginId}; {@code id} is the action id. */
+        public static Entry action(final String pluginId, final String actionId, final String name) {
+            return new Entry(Kind.ACTION, actionId, name, null, pluginId);
         }
     }
 

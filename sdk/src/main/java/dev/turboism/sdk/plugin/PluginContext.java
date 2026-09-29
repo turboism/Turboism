@@ -1,6 +1,7 @@
 package dev.turboism.sdk.plugin;
 
 import dev.turboism.sdk.Incubating;
+import dev.turboism.sdk.action.ActionCatalogService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
@@ -306,6 +307,16 @@ public interface PluginContext {
     @Deprecated
     default EditorCommandService editorCommands() {
         return EditorCommandService.unavailable();
+    }
+
+    /**
+     * Returns the catalog enumerating and invoking every registered plugin action.
+     *
+     * @deprecated superseded by the service directory: {@code services().get(ActionCatalogService.class)}
+     */
+    @Deprecated
+    default ActionCatalogService actionCatalog() {
+        return ActionCatalogService.unavailable();
     }
 
     /**
