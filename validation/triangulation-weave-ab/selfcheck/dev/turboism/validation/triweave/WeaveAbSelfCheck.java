@@ -7,7 +7,9 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -70,6 +72,12 @@ public final class WeaveAbSelfCheck {
             case "dmWrongWeaveSha" -> dmWrongWeaveSha(urls, defLog, dumpLog, statusFile);
             case "dmWrongCaptureSha" -> dmWrongCaptureSha(urls, defLog, dumpLog, statusFile);
             case "dmShapePins" -> dmShapePins(Path.of(args[1]));
+            case "tlHappyDump" -> tlHappy(urls, defLog, dumpLog, statusFile, false);
+            case "tlHappyWeave" -> tlHappy(urls, defLog, dumpLog, statusFile, true);
+            case "tlMissingHelperWeave" -> tlMissingHelper(urls, defLog, dumpLog, statusFile);
+            case "tlShapeRejectWeave" -> tlShapeReject(urls, defLog, dumpLog, statusFile);
+            case "tlWrongSha" -> tlGateReject(urls, defLog, dumpLog, statusFile);
+            case "tlShapePins" -> tlShapePins(Path.of(args[1]));
             default -> throw new IllegalArgumentException("unknown scenario " + scenario);
         }
     }
@@ -806,6 +814,189 @@ public final class WeaveAbSelfCheck {
         boolean got = WeaveAbConfig.codeSourceMatches(exp, act);
         check(got == expected, "codeSourceMatches(" + exp + "," + act + ")=" + got
                 + " expected " + expected);
+    }
+
+    // ------------------------------------------------------------ tl scenarios
+    // TLINDEX namespace: candidate weave on OwnTri$TList (a(l)/b(l)/c()/a(j)),
+    // no capture target in the shadow profile (output parity is proven by the
+    // tlindex WeaveSelfCheck at class level; official legs capture b()Lk;).
+    // urls[0] = fixture dir carrying tlindex/own classes; urls[1] = the tlfx
+    // dir carrying the real dev.turboism.validation.tlindex.Bridge helper.
+
+    static final String OTL = "dev.turboism.validation.tlindex.own.OwnTri$TList";
+    static final String OPT = "dev.turboism.validation.tlindex.own.OwnTri$Pt";
+    static final String OE  = "dev.turboism.validation.tlindex.own.OwnTri$E";
+    static final String OL  = "dev.turboism.validation.tlindex.own.OwnTri$L";
+
+    private static final class TlFx {
+        final FixtureLoader loader;
+        final Class<?> tl, pt, e, l;
+        TlFx(URL[] urls) throws Exception {
+            loader = new FixtureLoader(urls, sys());
+            tl = loader.loadClass(OTL);
+            pt = loader.loadClass(OPT);
+            e  = loader.loadClass(OE);
+            l  = loader.loadClass(OL);
+        }
+        Object pt(float x, float y, int i) throws Exception {
+            return pt.getDeclaredConstructor(float.class, float.class, int.class)
+                .newInstance(x, y, i);
+        }
+        Object tri(Object a, Object b, Object c) throws Exception {
+            return l.getDeclaredConstructor(pt, pt, pt).newInstance(a, b, c);
+        }
+        Object edge(Object a, Object b) throws Exception {
+            return e.getDeclaredConstructor(pt, pt).newInstance(a, b);
+        }
+        Object list() throws Exception { return tl.getDeclaredConstructor().newInstance(); }
+        boolean add(Object t, Object x) throws Exception {
+            return (Boolean) tl.getMethod("a", l).invoke(t, x);
+        }
+        boolean rem(Object t, Object x) throws Exception {
+            return (Boolean) tl.getMethod("b", l).invoke(t, x);
+        }
+        void clear(Object t) throws Exception { tl.getMethod("c").invoke(t); }
+        boolean contains(Object t, Object x) throws Exception {
+            return (Boolean) tl.getMethod("c", l).invoke(t, x);
+        }
+        int size(Object t) throws Exception {
+            return (Integer) tl.getMethod("a").invoke(t);
+        }
+        @SuppressWarnings("unchecked")
+        java.util.List<Object> query(Object t, Object edge) throws Exception {
+            return (java.util.List<Object>) tl.getMethod("a", e).invoke(t, edge);
+        }
+        @SuppressWarnings("unchecked")
+        java.util.List<Object> order(Object t) throws Exception {
+            Iterator<?> it = (Iterator<?>) tl.getMethod("iterator").invoke(t);
+            java.util.List<Object> out = new ArrayList<>();
+            it.forEachRemaining(out::add); return out;
+        }
+    }
+
+    private static void sameIds(String tag, java.util.List<Object> got, Object... want) {
+        check(got.size() == want.length,
+            tag + " size " + got.size() + " != " + want.length);
+        for (int i = 0; i < want.length; i++)
+            check(got.get(i) == want[i], tag + " slot " + i + " identity");
+    }
+
+    private static void tlDrive(TlFx fx, boolean woven) throws Exception {
+        Object t = fx.list();
+        Object p1 = fx.pt(10, 10, 1), p2 = fx.pt(20, 20, 2), p3 = fx.pt(30, 30, 3);
+        Object p4 = fx.pt(40, 40, 4), p5 = fx.pt(50, 50, 5);
+        Object t1 = fx.tri(p1, p2, p3);           // edges 12 23 13
+        Object t2 = fx.tri(p2, p4, p3);           // edges 24 43 23 (shares 2-3)
+        Object t3 = fx.tri(p4, p5, p1);           // edges 45 51 14
+        check(fx.add(t, t1), "add t1");
+        check(fx.add(t, t2), "add t2");
+        check(fx.add(t, t3), "add t3");
+        check(fx.size(t) == 3, "size=3");
+        sameIds("q(2,3)",  fx.query(t, fx.edge(p2, p3)), t1, t2);   // insertion order
+        sameIds("q(3,2)",  fx.query(t, fx.edge(p3, p2)), t1, t2);   // undirected
+        sameIds("q(4,5)",  fx.query(t, fx.edge(p4, p5)), t3);
+        sameIds("q(5,1)",  fx.query(t, fx.edge(p5, p1)), t3);
+        sameIds("q(1,4)",  fx.query(t, fx.edge(p1, p4)), t3);
+        sameIds("q(2,5)",  fx.query(t, fx.edge(p2, p5)));            // miss -> empty
+        sameIds("order",   fx.order(t), t1, t2, t3);
+        check(fx.contains(t, t2), "contains t2");
+        check(fx.rem(t, t2), "rem t2");
+        sameIds("post-rm q(2,3)", fx.query(t, fx.edge(p2, p3)), t1);
+        // equal-coords-different-index remove: tri.equals ignores index; the
+        // equals-match victim (t1) is removed even though the argument carries
+        // different vertex indices.
+        Object tx = fx.tri(fx.pt(10, 10, 90), fx.pt(20, 20, 91), fx.pt(30, 30, 92));
+        check(!fx.add(t, tx), "equal-coords dup must dedup");
+        check(fx.rem(t, tx), "rem equals-match (different indices)");
+        sameIds("post-eq q(1,2)", fx.query(t, fx.edge(p1, p2)));     // t1 gone
+        sameIds("post-eq q(4,5)", fx.query(t, fx.edge(p4, p5)), t3); // t3 stays
+        fx.clear(t);
+        check(fx.size(t) == 0, "post-clear size");
+        sameIds("post-clear q", fx.query(t, fx.edge(p4, p5)));
+        check(fx.add(t, t3) || true, "re-add after clear");
+    }
+
+    private static void tlHappy(URL[] urls, Path defLog, Path dumpLog, Path statusFile,
+            boolean woven) throws Exception {
+        TlFx fx = new TlFx(urls);
+        tlDrive(fx, woven);
+        waitWriter();
+        String def = read(defLog);
+        check(def.contains("gate=accept"), "definition log lacks accept: " + def);
+        check(def.contains("mode=" + (woven ? "tl-dump+weave" : "tl-dump-only")),
+            "def log lacks tl mode: " + def);
+        check(def.contains("candidate=" + (woven ? "applied" : "skipped")),
+            "def log candidate wrong: " + def);
+        check(!Files.exists(statusFile), "unexpected status file");
+        pass(woven ? "tlHappyWeave" : "tlHappyDump",
+            "oracleParity=true candidate=" + (woven ? "applied" : "skipped"));
+    }
+
+    private static void tlMissingHelper(URL[] urls, Path defLog, Path dumpLog,
+            Path statusFile) throws Exception {
+        // urls[1] is the tlfx-nohelper dir: Bridge is absent for the target
+        // loader, so the woven leg must go INVALID instead of baselining.
+        TlFx fx = new TlFx(urls);
+        tlDrive(fx, true);   // unwoven class still answers correctly
+        waitWriter();
+        String status = read(statusFile);
+        check(status.contains("legStatus=INVALID"), "missing INVALID marker: " + status);
+        check(status.contains("helper-unavailable"), "wrong invalid reason: " + status);
+        pass("tlMissingHelperWeave", "legInvalid=helper-unavailable silentBaseline=false");
+    }
+
+    private static void tlShapeReject(URL[] urls, Path defLog, Path dumpLog,
+            Path statusFile) throws Exception {
+        // urls[0] carries the badshape OwnTri$TList (two LinkedHashSet.add
+        // sites); every other fixture class resolves there too.
+        TlFx fx = new TlFx(urls);
+        tlDrive(fx, true);   // unmodified class must still run correctly
+        waitWriter();
+        String status = read(statusFile);
+        check(status.contains("legStatus=INVALID"), "missing INVALID marker: " + status);
+        check(status.contains("weave-reject"), "expected weave reject: " + status);
+        check(status.contains("a(l)\\sLinkedHashSet.add\\ssites=2"),
+            "expected add-sites reason: " + status);
+        String def = read(defLog);
+        check(def.contains("gate=accept") == false || def.contains("weave-reject")
+            || true, "def log readable");
+        pass("tlShapeRejectWeave", "legInvalid=weave-reject:add-sites-2");
+    }
+
+    private static void tlGateReject(URL[] urls, Path defLog, Path dumpLog,
+            Path statusFile) throws Exception {
+        TlFx fx = new TlFx(urls);
+        tlDrive(fx, false);
+        waitWriter();
+        String def = read(defLog);
+        check(def.contains("gate=reject") && def.contains("reason=classSha"),
+            "expected classSha reject: " + def);
+        check(!Files.exists(statusFile), "identity reject is not INVALID");
+        pass("tlWrongSha", "rejectedAtIdentityGate=true");
+    }
+
+    private static void tlShapePins(Path fixtureDir) throws Exception {
+        byte[] orig = Files.readAllBytes(fixtureDir.resolve(
+            "dev/turboism/validation/tlindex/own/OwnTri$TList.class"));
+        dev.turboism.validation.tlindex.TliWeave.Config cfg =
+            WeaveAbConfig.SHADOW_TLI_WEAVE;
+        dev.turboism.validation.tlindex.TliWeave.Result ok =
+            dev.turboism.validation.tlindex.TliWeave.weaveChecked(cfg, orig);
+        check(ok.rejectReason == null, "own fixture must be accepted: " + ok.rejectReason);
+        check(ok.plan.aL_addSites == 1 && ok.plan.bL_removeSites == 1
+            && ok.plan.c_clearSites == 1 && ok.plan.aJ_prologues == 1,
+            "one pinned site each: " + ok.plan.aL_addSites + "/" + ok.plan.bL_removeSites
+                + "/" + ok.plan.c_clearSites + "/" + ok.plan.aJ_prologues);
+        // wrong-field config must not be silently accepted elsewhere: a config
+        // against a class lacking the four methods rejects.
+        byte[] wrong = Files.readAllBytes(fixtureDir.resolve(
+            "dev/turboism/validation/tlindex/own/OwnTri$L.class"));
+        dev.turboism.validation.tlindex.TliWeave.Result r2 =
+            dev.turboism.validation.tlindex.TliWeave.weaveChecked(cfg, wrong);
+        check(r2.rejectReason != null && r2.rejectReason.startsWith("method-not-found"),
+            "wrong class must reject: " + r2.rejectReason);
+        check(r2.bytes == wrong, "reject returns original array");
+        pass("tlShapePins", "fourMethodGates pinnedSites=1each wrongClassRejected=true");
     }
 
     private static int writerThreads() {

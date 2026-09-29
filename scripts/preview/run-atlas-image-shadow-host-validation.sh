@@ -37,6 +37,7 @@ Usage:
     [--tri-identity-probe <path-to-pinned-tri-identity-probe.jar>]
     [--tri-weave-ab <dump-only|dump+weave>]
     [--tri-dweave <dm-dump-only|dm-dump+weave>]
+    [--tri-tlindex <tl-dump-only|tl-dump+weave>]
     [--tri-weave-agent <absolute path to tri-weave-agent.jar>]
     [--bundle-manifest <published manifest>]
     [--prepare-dir <directory> | --dry-run]
@@ -58,10 +59,12 @@ shift 2
 tri_identity_probe_flag=0
 tri_weave_ab_flag=0
 tri_dweave_flag=0
+tri_tlindex_flag=0
 for arg in "$@"; do
   [[ "$arg" == --tri-identity-probe ]] && tri_identity_probe_flag=1
   [[ "$arg" == --tri-weave-ab ]] && tri_weave_ab_flag=1
   [[ "$arg" == --tri-dweave ]] && tri_dweave_flag=1
+  [[ "$arg" == --tri-tlindex ]] && tri_tlindex_flag=1
 done
 if [[ "$tri_identity_probe_flag" == 1 ]]; then
   [[ "$version" == 5303 ]] || fail '--tri-identity-probe is 5303-only'
@@ -95,6 +98,19 @@ if [[ "$tri_dweave_flag" == 1 || -n "$tri_dweave_leg" ]]; then
     || fail '--tri-dweave requires a label t029-dweave-<base|woven><N>-heavy-nolayout[-jfr]'
   [[ "$tri_dweave_flag" == 1 ]] \
     || fail 'a t029-dweave-* label requires --tri-dweave so the leg cannot run uninstrumented'
+fi
+# T029-TLINDEX: the four-method edge-index candidate in the tlWeave namespace —
+# identical bidirectional label<->flag contract on its own label family.
+tri_tlindex_leg=''
+if [[ "$run_label" =~ ^t029-tlindex-(base|woven)([0-9]+)-heavy-nolayout(-jfr)?$ ]]; then
+  tri_tlindex_leg="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+fi
+if [[ "$tri_tlindex_flag" == 1 || -n "$tri_tlindex_leg" ]]; then
+  [[ "$version" == 5303 ]] || fail '--tri-tlindex is 5303-only'
+  [[ -n "$tri_tlindex_leg" ]] \
+    || fail '--tri-tlindex requires a label t029-tlindex-<base|woven><N>-heavy-nolayout[-jfr]'
+  [[ "$tri_tlindex_flag" == 1 ]] \
+    || fail 'a t029-tlindex-* label requires --tri-tlindex so the leg cannot run uninstrumented'
 fi
 case "$version" in
   5303)
@@ -388,6 +404,7 @@ dry_run=0
 tri_identity_probe=''
 tri_weave_ab=''
 tri_dweave=''
+tri_tlindex=''
 tri_weave_agent_arg=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -412,6 +429,10 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || fail 'missing --tri-dweave value'
       [[ -z "$tri_dweave" ]] || fail 'tri-dweave supplied twice'
       tri_dweave="$2"; shift 2 ;;
+    --tri-tlindex)
+      [[ $# -ge 2 ]] || fail 'missing --tri-tlindex value'
+      [[ -z "$tri_tlindex" ]] || fail 'tri-tlindex supplied twice'
+      tri_tlindex="$2"; shift 2 ;;
     --tri-weave-agent)
       [[ $# -ge 2 ]] || fail 'missing --tri-weave-agent value'
       [[ -z "$tri_weave_agent_arg" ]] || fail 'tri-weave-agent supplied twice'
@@ -467,17 +488,29 @@ if [[ -n "$tri_dweave" ]]; then
   [[ "$tri_dweave_mode" == "$tri_dweave_expected" ]] \
     || fail "--tri-dweave $tri_dweave_mode inconsistent with leg label $run_label"
 fi
+# --tri-tlindex (T029-TLINDEX): identical label<->mode contract, tlWeave namespace.
+tri_tlindex_mode=''
+if [[ -n "$tri_tlindex" ]]; then
+  case "$tri_tlindex" in
+    tl-dump-only|tl-dump+weave) tri_tlindex_mode="$tri_tlindex" ;;
+    *) fail '--tri-tlindex mode must be tl-dump-only or tl-dump+weave' ;;
+  esac
+  tri_tlindex_expected=tl-dump-only
+  [[ "$tri_tlindex_leg" == woven* ]] && tri_tlindex_expected='tl-dump+weave'
+  [[ "$tri_tlindex_mode" == "$tri_tlindex_expected" ]] \
+    || fail "--tri-tlindex $tri_tlindex_mode inconsistent with leg label $run_label"
+fi
 # One physical agent jar serves both namespaces (TRIAB and DWEAVE targets live in the
 # same artifact). The jar arrives either as an explicit argument (queue-stable: the
 # runner replays frozen args in a worker env without TURBOISM_TRI_WEAVE_AGENT) or via
 # the env var (interactive/dry-run compatibility). Supplying both is ambiguous → fail;
 # neither is fail-closed. Validation is identical for both sources and modes.
-if [[ -n "$tri_weave_mode" || -n "$tri_dweave_mode" ]]; then
+if [[ -n "$tri_weave_mode" || -n "$tri_dweave_mode" || -n "$tri_tlindex_mode" ]]; then
   if [[ -n "$tri_weave_agent_arg" && -n "${TURBOISM_TRI_WEAVE_AGENT:-}" ]]; then
     fail 'tri-weave agent supplied twice (argument and TURBOISM_TRI_WEAVE_AGENT)'
   fi
   tri_weave_agent="${tri_weave_agent_arg:-${TURBOISM_TRI_WEAVE_AGENT:-}}"
-  [[ -n "$tri_weave_agent" ]] || fail '--tri-weave-ab/--tri-dweave requires --tri-weave-agent or TURBOISM_TRI_WEAVE_AGENT'
+  [[ -n "$tri_weave_agent" ]] || fail '--tri-weave-ab/--tri-dweave/--tri-tlindex requires --tri-weave-agent or TURBOISM_TRI_WEAVE_AGENT'
   [[ "$tri_weave_agent" = /* ]] || fail 'tri-weave agent path must be absolute'
   [[ -f "$tri_weave_agent" && ! -L "$tri_weave_agent" ]] \
     || fail 'tri-weave agent is not a regular non-symlink file'
@@ -613,7 +646,7 @@ if [[ -n "$tri_identity_probe" ]]; then
 fi
 # T029-TRIAB / T029-DWEAVE: the dump+weave aux agent premains after production and
 # T039 and before the scene driver — the same physical jar serves both namespaces.
-if [[ -n "$tri_weave_mode" || -n "$tri_dweave_mode" ]]; then
+if [[ -n "$tri_weave_mode" || -n "$tri_dweave_mode" || -n "$tri_tlindex_mode" ]]; then
   runner_args+=(--aux-agent "$tri_weave_agent:tri-weave-agent.jar")
 fi
 runner_args+=(
@@ -715,6 +748,27 @@ if [[ -n "$tri_dweave_mode" ]]; then
     --jvm-option '-Dturboism.validation.dmWeave.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader'
     --jvm-option '-Dturboism.validation.dmWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar'
     --jvm-option '-Dturboism.validation.dmWeave.captureN=4'
+  )
+fi
+
+# T029-TLINDEX leg contract: twelve fixed properties in the tlWeave namespace —
+# the candidate weave is the four-method TriangleList rewrite (class sha
+# 87835641…, the SAME class the b()Lk; capture observes, so expectClassSha256
+# and expectCaptureClassSha256 carry the identical digest). profile is pinned
+# to tl-official; the Bridge helper ships inside the agent jar.
+if [[ -n "$tri_tlindex_mode" ]]; then
+  runner_args+=(
+    --jvm-option '-Dturboism.validation.tlWeave.enabled=true'
+    --jvm-option "-Dturboism.validation.tlWeave.mode=$tri_tlindex_mode"
+    --jvm-option '-Dturboism.validation.tlWeave.profile=tl-official'
+    --jvm-option '-Dturboism.validation.tlWeave.phase=t029-tlindex'
+    --jvm-option "-Dturboism.validation.tlWeave.runId=tlindex-$tri_tlindex_leg"
+    --jvm-option '-Dturboism.validation.tlWeave.outputDir={HOME}/tl-weave'
+    --jvm-option '-Dturboism.validation.tlWeave.expectClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29'
+    --jvm-option '-Dturboism.validation.tlWeave.expectCaptureClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29'
+    --jvm-option '-Dturboism.validation.tlWeave.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader'
+    --jvm-option '-Dturboism.validation.tlWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar'
+    --jvm-option '-Dturboism.validation.tlWeave.captureN=4'
   )
 fi
 
@@ -822,6 +876,10 @@ fi
 if [[ -n "$tri_dweave_mode" ]]; then
   printf 'dmWeaveMode=%s\ndmWeaveAgentSha256=%s\ndmWeaveLeg=%s\n' \
     "$tri_dweave_mode" "$tri_weave_agent_sha256" "$tri_dweave_leg" >&2
+fi
+if [[ -n "$tri_tlindex_mode" ]]; then
+  printf 'tlWeaveMode=%s\ntlWeaveAgentSha256=%s\ntlWeaveLeg=%s\n' \
+    "$tri_tlindex_mode" "$tri_weave_agent_sha256" "$tri_tlindex_leg" >&2
 fi
 
 # No hook, client, or collector option is permitted here; readiness is limited to the single
