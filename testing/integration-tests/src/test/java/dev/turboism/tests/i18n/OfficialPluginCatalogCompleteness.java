@@ -82,6 +82,7 @@ final class OfficialPluginCatalogCompleteness {
             "button.new-session-short",
             "button.refresh-short",
             "button.settings-short",
+            "command.esc",
             "transcript.agent",
             "transcript.system",
             "transcript.tool");
