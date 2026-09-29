@@ -45,7 +45,12 @@ public final class ClassPinTable {
     public static Map<String, Map<String, String>> load(final String name) {
         Objects.requireNonNull(name, "name");
         final String path = RESOURCE_PREFIX + name + ".json";
-        try (InputStream input = ClassPinTable.class.getClassLoader().getResourceAsStream(path)) {
+        // The distributed agent declares Boot-Class-Path, so its classes (including this
+        // one) have no defining loader; the -javaagent jar is also on the system class
+        // path, which carries the same pin-table resources.
+        final ClassLoader loader = ClassPinTable.class.getClassLoader();
+        try (InputStream input =
+                loader != null ? loader.getResourceAsStream(path) : ClassLoader.getSystemResourceAsStream(path)) {
             if (input == null) {
                 throw new IllegalStateException("class pin table resource not found: " + path);
             }

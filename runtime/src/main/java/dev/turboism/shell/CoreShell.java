@@ -45,8 +45,8 @@ public final class CoreShell implements ShellHandle {
 
     private static final String CHECK_RESULT_HINT_ID = "turboism-update-check-result";
     private static final float CHECK_RESULT_HINT_SECONDS = 5.0f;
-    /** Sits after the core menu items, which occupy 10..13. */
-    private static final int UPDATE_MENU_ORDER = 14;
+    /** Sits after the core menu items, which occupy 10..14. */
+    private static final int UPDATE_MENU_ORDER = 15;
 
     private Registration updateHint;
     /** Identity currently shown by the hint, so a newer build replaces the message. */
@@ -79,7 +79,12 @@ public final class CoreShell implements ShellHandle {
                 runtimeSettings,
                 plugins);
         this.windows = new CoreWindows(
-                localization(context), runtimeSettings, services.settingsContributions(), plugins, services.logs());
+                localization(context),
+                runtimeSettings,
+                services.settingsContributions(),
+                plugins,
+                services.logs(),
+                services.keybindings());
         logger.info("Turboism core initialized");
         registerAction(
                 MainToolbarHomeEntryService.ACTION_ID,
@@ -88,15 +93,23 @@ public final class CoreShell implements ShellHandle {
         registerAction(
                 MainToolbarHomeEntryService.SETTINGS_ACTION_ID,
                 localization(context).text("main-toolbar.settings-menu.label"),
+                "Ctrl+Alt+S",
                 ignored -> windows.showSettings());
         registerAction(
                 MainToolbarHomeEntryService.PLUGINS_ACTION_ID,
                 localization(context).text("main-toolbar.plugins-menu.label"),
+                "Ctrl+Alt+P",
                 ignored -> windows.showPlugins());
         registerAction(
                 MainToolbarHomeEntryService.LOGS_ACTION_ID,
                 localization(context).text("main-toolbar.logs-menu.label"),
+                "Ctrl+Alt+L",
                 ignored -> windows.showLogs());
+        registerAction(
+                MainToolbarHomeEntryService.KEYBINDINGS_ACTION_ID,
+                localization(context).text("main-toolbar.keybindings-menu.label"),
+                "Ctrl+Shift+K",
+                ignored -> windows.showKeybindings());
         registerAction(
                 MainToolbarHomeEntryService.ABOUT_ACTION_ID,
                 localization(context).text("main-toolbar.about-menu.label"),
@@ -192,6 +205,7 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope().register(homeEntryService.registerSettingsMenu());
         context.disposableScope().register(homeEntryService.registerPluginManagementMenu());
         context.disposableScope().register(homeEntryService.registerLogsMenu());
+        context.disposableScope().register(homeEntryService.registerKeybindingsMenu());
         context.disposableScope().register(homeEntryService.registerAboutMenu());
         context.disposableScope().register(homeEntryService.registerHomeEntry());
         if (services.update().available()) services.update().start();
@@ -776,6 +790,7 @@ public final class CoreShell implements ShellHandle {
                     case "main-toolbar.plugins-menu.label" -> "Plugin Management";
                     case "context-menu.panel-tab.float" -> "Float";
                     case "main-toolbar.logs-menu.label" -> "Logs";
+                    case "main-toolbar.keybindings-menu.label" -> "Keybindings";
                     case "main-toolbar.about-menu.label" -> "About";
                     case "settings.save" -> "Save";
                     case "settings.use-text-icon" -> "Use text icon";
@@ -803,22 +818,20 @@ public final class CoreShell implements ShellHandle {
 
     private void registerAction(
             final String id, final String label, final Consumer<ActionRegistry.ActionContext> handler) {
-        final Registration registration = context.actions().register(id, new ActionRegistry.Action() {
-            @Override
-            public String id() {
-                return id;
-            }
+        registerAction(id, label, null, handler);
+    }
 
-            @Override
-            public String label() {
-                return label;
-            }
-
-            @Override
-            public Consumer<ActionRegistry.ActionContext> handler() {
-                return handler;
-            }
-        });
+    /**
+     * Registers a core-shell action; {@code shortcut} declares the default keybinding
+     * (canonical {@code "Ctrl+Alt+K"} text) shown and rebindable in the keybindings window.
+     */
+    private void registerAction(
+            final String id,
+            final String label,
+            final String shortcut,
+            final Consumer<ActionRegistry.ActionContext> handler) {
+        final Registration registration =
+                context.actions().register(id, ActionRegistry.Action.of(id, label, shortcut, handler));
         context.disposableScope().register(registration);
     }
 }

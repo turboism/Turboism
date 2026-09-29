@@ -138,7 +138,8 @@ class CoreShellTest {
                         "Plugins/Settings:turboism.core.settings.open:10",
                         "Plugins/Plugin Management:turboism.core.plugins.open:11",
                         "Plugins/Logs:turboism.core.logs.open:12",
-                        "Plugins/About:turboism.core.about.open:13"),
+                        "Plugins/Keybindings:turboism.core.keybindings.open:13",
+                        "Plugins/About:turboism.core.about.open:14"),
                 context.menus().contributions().stream()
                         .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
                         .toList());
@@ -680,7 +681,8 @@ class CoreShellTest {
                 plugins(),
                 ShellServices.FloatingPanelActions.unavailable(),
                 dev.turboism.sdk.runtime.RuntimeLogReader.unavailable(),
-                updates));
+                updates,
+                dev.turboism.internal.core.KeybindingService.unavailable()));
     }
 
     /** Scripted update service used to drive core UI behaviour without any network access. */
@@ -977,6 +979,7 @@ class CoreShellTest {
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
                         case "context-menu.panel-tab.float" -> "Float";
                         case "main-toolbar.logs-menu.label" -> "Logs";
+                        case "main-toolbar.keybindings-menu.label" -> "Keybindings";
                         case "main-toolbar.about-menu.label" -> "About";
                         default -> key;
                     };
@@ -993,6 +996,7 @@ class CoreShellTest {
                             || key.equals("main-toolbar.plugins-menu.label")
                             || key.equals("context-menu.panel-tab.float")
                             || key.equals("main-toolbar.logs-menu.label")
+                            || key.equals("main-toolbar.keybindings-menu.label")
                             || key.equals("main-toolbar.about-menu.label");
                 }
             };

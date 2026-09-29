@@ -70,8 +70,13 @@ class CoreWindowsTest {
                 return new RuntimeSettingsService.DockCleanupResult("done");
             }
         };
-        final CoreWindows windows =
-                new CoreWindows(I18N, service, java.util.List::of, plugins(), RuntimeLogReader.unavailable());
+        final CoreWindows windows = new CoreWindows(
+                I18N,
+                service,
+                java.util.List::of,
+                plugins(),
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
         try {
             final JCheckBox checkbox = windows.createUseTextIconCheckBox(saved[0]);
             assertFalse(checkbox.isSelected());
@@ -322,7 +327,8 @@ class CoreWindowsTest {
                 },
                 java.util.List::of,
                 plugins,
-                RuntimeLogReader.unavailable());
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
         try {
             windows.showPlugins();
             assertTrue(catalogCalled.await(5, java.util.concurrent.TimeUnit.SECONDS));
