@@ -35,6 +35,19 @@ import java.util.function.Consumer;
 public final class NativeWarpAltMirrorBridge {
     private static final String WARP_BINDER_CLASS = "com.live2d.cubism.view.context.temporaryHandler.warp.WarpBinder";
     private static final String WARP_POINT_REF_CLASS = "com.live2d.cubism.doc.model.deformer.warp.WarpPointRef";
+    /**
+     * Reviewed single-point drag actions allowed to trigger
+     * {@link #mirrorPointMove}. Each holds a single {@code m<IPointRef>}
+     * selection and invokes {@code moveToOnLocal} directly from its drag tick.
+     * Obfuscated names differ per host: 5.3.02/5.3.03 use {@code U$b}, 5.2.03
+     * uses the structurally identical {@code O$b}. Bulk writers — bounding-box
+     * transform {@code h$a}, deform brush {@code J$b} — iterate
+     * {@code moveToOnLocal} over many refs per tick and must not mirror.
+     */
+    private static final java.util.Set<String> POINT_MOVE_DRAG_CALLERS =
+            java.util.Set.of(
+                    "com.live2d.cubism.view.context.action.U$b",
+                    "com.live2d.cubism.view.context.action.O$b");
 
     private static final AtomicReference<Binding> INSTALLED = new AtomicReference<>();
     /** Armed mirror axis published by the plugin: 0=off, 1=vertical, 2=horizontal. */
@@ -200,6 +213,18 @@ public final class NativeWarpAltMirrorBridge {
             // content-deformation application, so the mirrored counterpart write
             // moves the cage point without affecting child shapes — symmetric
             // self-only adjustment.
+            // Mirroring is only valid for single-point drag gestures: the
+            // write assumes the dragged ref is the gesture's only mover. Bulk
+            // transforms (bounding-box translate h$a, deform brush J$b) loop
+            // moveToOnLocal over every transformable point — the counterpart
+            // write of one call then corrupts the pending position of its
+            // pair, leaving gray quad points and the deformer behind while
+            // the bezier lattice drifts (exact-host reported). Whitelist the
+            // direct caller instead of guessing gesture state.
+            if (!pointMoveCallerIsDragAction()) {
+                skipOnce("POINT_MOVE_NOT_DRAG_CALLER");
+                return;
+            }
             final boolean vertical = axis == 1;
             // a() returns _index; h() returns the step field which is 0 in the
             // level-2 deformer-edit flow, so the row width is derived from the
@@ -580,6 +605,26 @@ public final class NativeWarpAltMirrorBridge {
         }
     }
 
+    /**
+     * Accepts only the reviewed single-point drag actions in
+     * {@link #POINT_MOVE_DRAG_CALLERS} as the direct caller of
+     * {@code WarpPointRef.moveToOnLocal}. Stack frames carrying the hooked
+     * method itself ({@code WarpPointRef} or its subclass {@code r}) and
+     * bridge frames are skipped; the first remaining frame is the caller.
+     */
+    private static boolean pointMoveCallerIsDragAction() {
+        for (final StackTraceElement frame : Thread.currentThread().getStackTrace()) {
+            final String className = frame.getClassName();
+            if (className.startsWith("dev.turboism.")
+                    || className.startsWith("java.lang.Thread")
+                    || "moveToOnLocal".equals(frame.getMethodName())) {
+                continue;
+            }
+            return POINT_MOVE_DRAG_CALLERS.contains(className);
+        }
+        return false;
+    }
+
     /** Resolves the warp binder behind a temporary handler, or null for other handlers. */
     private static Object warpBinder(final Object handler) throws ReflectiveOperationException {
         final Object binder = invoke(handler, "a", new Class<?>[0]);
@@ -848,6 +893,7 @@ public final class NativeWarpAltMirrorBridge {
             final int counterpartCol = vertical ? column : bezierCol - column;
             final int counterpartRow = vertical ? bezierRow - row : row;
             final boolean selfMirrored = counterpartCol == column && counterpartRow == row;
+            final Object table = invoke(grid, "getBezierPtRef", new Class<?>[0]);
             final Object counterpart;
             if (selfMirrored) {
                 // Odd bezier divisions put this point on the axis: it is its
@@ -856,7 +902,6 @@ public final class NativeWarpAltMirrorBridge {
                 // opposite handle of the dragged point itself.
                 counterpart = point;
             } else {
-                final Object table = invoke(grid, "getBezierPtRef", new Class<?>[0]);
                 if (!(table instanceof Object[][] columns) || counterpartCol < 0 || counterpartCol >= columns.length) {
                     greenSkip("BAD_TABLE col=" + counterpartCol);
                     return;
@@ -889,9 +934,37 @@ public final class NativeWarpAltMirrorBridge {
             }
             final String counterType = counterpartHandleType(type, vertical);
             if (selfMirrored && counterType.equals(type)) {
-                // The handle offset lies along the axis: its mirror is itself
-                // and the native drag already moved it — nothing to mirror.
+                // The point/handle offset lies along the axis: its mirror is
+                // itself and the native drag already moved it — nothing to
+                // mirror. This must also hold for on-axis anchors: the hook
+                // runs at the b(N) head, before the native write recomputes
+                // target = currentPos + delta, so a mirrored write to the same
+                // anchor would shift the read position and cancel the drag
+                // (observed: whole green lattice drifts while the dragged
+                // anchor stays). Neighbor propagation around an on-axis anchor
+                // is already symmetric — it radiates from the axis itself.
                 greenSkip("SELF_ON_AXIS");
+                return;
+            }
+            if ("ANCHOR".equals(type)) {
+                // Anchor drags do not go through the ref-level write: the
+                // action calls the grid engine directly (k.a/k.b move +
+                // k.a/k.b directional smoothing). Re-dispatching the same
+                // sequence on the mirrored coordinates is what propagates
+                // the neighbor handles' facing endpoints on the symmetric
+                // side; a lone ref write leaves them behind.
+                if (!(table instanceof Object[][])) {
+                    greenSkip("NO_TABLE");
+                    return;
+                }
+                mirrorAnchorTick(
+                        grid, (Object[][]) table, counterpart,
+                        counterpartCol, counterpartRow,
+                        bezierCol, bezierRow, dx, dy, vertical);
+                if (GREEN_APPLIED_REPORTED.compareAndSet(false, true)) {
+                    diagnostic("MIRROR_GREEN_APPLIED axis=" + (vertical ? "vertical" : "horizontal")
+                            + " kind=" + type + "->" + counterType);
+                }
                 return;
             }
             // Re-dispatch the gesture through the ref-level native write so the
@@ -997,6 +1070,152 @@ public final class NativeWarpAltMirrorBridge {
             return null;
         }
         return companion.getClass().getMethod("a").invoke(companion);
+    }
+
+    /**
+     * Replays an anchor drag on the counterpart through the host's grid
+     * engine {@code warp.k}: the action's {@code a(aG)} ANCHOR branch calls
+     * {@code k.a(fx, fy, true, points, pt, col, row)} (or {@code k.b} under
+     * {@code KEEP_RELATION}) and, for the default edit type, follows with the
+     * directional smoothing passes {@code k.a(points, col, row, transform,
+     * bezierRow, smoothLevel)} and {@code k.b(points, col, row, transform,
+     * bezierCol, smoothLevel)}. The smoothing is what moves the neighboring
+     * points' facing handle endpoints; replaying only the move would leave
+     * the symmetric side without propagation.
+     */
+    private static void mirrorAnchorTick(
+            final Object grid,
+            final Object[][] points,
+            final Object counterpartPt,
+            final int col,
+            final int row,
+            final int bezierCol,
+            final int bezierRow,
+            final float dx,
+            final float dy,
+            final boolean vertical)
+            throws ReflectiveOperationException {
+        final ClassLoader loader = grid.getClass().getClassLoader();
+        final Class<?> engineType =
+                Class.forName("com.live2d.cubism.doc.model.deformer.warp.k", false, loader);
+        final Field engineField = engineType.getDeclaredField("a");
+        engineField.setAccessible(true);
+        final Object engine = engineField.get(null);
+        if (engine == null) {
+            greenSkip("NO_ENGINE");
+            return;
+        }
+        final Object anchor = invoke(counterpartPt, "getAnchor", new Class<?>[0]);
+        if (anchor == null) {
+            greenSkip("NO_ANCHOR");
+            return;
+        }
+        final float fx = invokeFloat(anchor, "getX") + (vertical ? dx : -dx);
+        final float fy = invokeFloat(anchor, "getY") + (vertical ? -dy : dy);
+        final Object editType = currentWarpEditType(loader);
+        if (editType == null) {
+            greenSkip("NO_EDIT_TYPE");
+            return;
+        }
+        final String editName =
+                editType instanceof Enum<?> e ? e.name() : String.valueOf(editType);
+        if ("KEEP_RELATION".equals(editName)) {
+            warpAnchorMove(engine, "b", points, counterpartPt, col, row, fx, fy);
+            return;
+        }
+        warpAnchorMove(engine, "a", points, counterpartPt, col, row, fx, fy);
+        if ("TYPE_CUBISM_2_1".equals(editName)) {
+            return;
+        }
+        final Object transform = localCanvasTransform(loader);
+        if (transform == null) {
+            greenSkip("NO_TRANSFORM");
+            return;
+        }
+        final int smooth = invokeInt(editType, "getSmoothLevel");
+        warpAnchorSmooth(engine, "a", points, col, row, transform, bezierRow, smooth);
+        warpAnchorSmooth(engine, "b", points, col, row, transform, bezierCol, smooth);
+    }
+
+    /** Invokes the reviewed {@code warp.k.a/b(FFZ[[CBezierPt, CBezierPt, II)V} anchor move. */
+    private static void warpAnchorMove(
+            final Object engine,
+            final String name,
+            final Object[][] points,
+            final Object pt,
+            final int col,
+            final int row,
+            final float fx,
+            final float fy)
+            throws ReflectiveOperationException {
+        for (final Method method : engine.getClass().getDeclaredMethods()) {
+            final Class<?>[] params = method.getParameterTypes();
+            if (method.getName().equals(name) && params.length == 7
+                    && params[0] == float.class && params[1] == float.class
+                    && params[2] == boolean.class && params[3].isArray()
+                    && params[5] == int.class && params[6] == int.class) {
+                method.setAccessible(true);
+                method.invoke(engine, fx, fy, true, points, pt, col, row);
+                return;
+            }
+        }
+    }
+
+    /** Invokes the reviewed {@code warp.k.a/b([[CBezierPt, II, ITransformBetweenLocalAndCanvas, II)V} smoothing pass. */
+    private static void warpAnchorSmooth(
+            final Object engine,
+            final String name,
+            final Object[][] points,
+            final int col,
+            final int row,
+            final Object transform,
+            final int dimension,
+            final int smoothLevel)
+            throws ReflectiveOperationException {
+        for (final Method method : engine.getClass().getDeclaredMethods()) {
+            final Class<?>[] params = method.getParameterTypes();
+            if (method.getName().equals(name) && params.length == 6
+                    && params[0].isArray() && params[1] == int.class
+                    && params[2] == int.class && params[4] == int.class
+                    && params[5] == int.class) {
+                method.setAccessible(true);
+                method.invoke(engine, points, col, row, transform, dimension, smoothLevel);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Reads the active {@code WarpEditType} through
+     * {@code AppSetting.INSTANCE.getDeformer().getWarpDeformer()
+     * .getCurrentWarpEditType()}.
+     */
+    private static Object currentWarpEditType(final ClassLoader loader)
+            throws ReflectiveOperationException {
+        final Class<?> settingsType =
+                Class.forName("com.live2d.cubism.setting.AppSetting", false, loader);
+        final Field instanceField = settingsType.getDeclaredField("INSTANCE");
+        instanceField.setAccessible(true);
+        final Object settings = instanceField.get(null);
+        final Object deformer = settings == null
+                ? null : invoke(settings, "getDeformer", new Class<?>[0]);
+        final Object warp = deformer == null
+                ? null : invoke(deformer, "getWarpDeformer", new Class<?>[0]);
+        return warp == null ? null : invoke(warp, "getCurrentWarpEditType", new Class<?>[0]);
+    }
+
+    /**
+     * Resolves the {@code ITransformBetweenLocalAndCanvas} singleton via the
+     * reviewed {@code Companion.a()} accessor.
+     */
+    private static Object localCanvasTransform(final ClassLoader loader)
+            throws ReflectiveOperationException {
+        final Class<?> transformType = Class.forName(
+                "com.live2d.doc.selection.ITransformBetweenLocalAndCanvas", false, loader);
+        final Field companionField = transformType.getDeclaredField("Companion");
+        companionField.setAccessible(true);
+        final Object companion = companionField.get(null);
+        return companion == null ? null : companion.getClass().getMethod("a").invoke(companion);
     }
 
     /** Maps a dragged handle type to the axis-mirrored counterpart handle type. */
