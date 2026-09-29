@@ -1,6 +1,5 @@
 """Read-only CPU/DRM counters and explicit-unit interval calculations."""
 import os
-from pathlib import Path
 import stat
 import time
 

@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
+import dev.turboism.plugin.clipmaskviewer.domain.ClipMaskViewerState;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.i18n.PluginLocalization;

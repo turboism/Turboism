@@ -1,8 +1,6 @@
 """Nightly policy tests: changed sources, shared identity and fail-closed publishing."""
 import copy
-import importlib.util
 import json
-import re
 import sys
 import tempfile
 import unittest
@@ -13,7 +11,7 @@ sys.path.insert(0, str(ROOT / 'scripts/release'))
 from turboism_release import nightly as n
 from turboism_release import build_identity as bi
 from scripts.release.test_build_identity import FakeGitHub as LedgerGitHub
-from scripts.test.test_release_tooling import release, archive, sidecar
+from scripts.test.test_release_tooling import release
 
 SHA = 'a' * 40
 OTHER = 'b' * 40

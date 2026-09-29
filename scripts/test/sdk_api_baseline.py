@@ -10,3 +10,14 @@ from sdk_api_baseline_common import (
 )
 from sdk_api_baseline_identity import canonical_identity
 from sdk_api_baseline_records import canonical_dump, canonical_records
+
+__all__ = [
+    "GENERATOR_VERSION",
+    "HEADER",
+    "SCHEMA_VERSION",
+    "BaselineError",
+    "canonical_dump",
+    "canonical_identity",
+    "canonical_records",
+    "sha256_bytes",
+]
