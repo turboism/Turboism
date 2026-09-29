@@ -39,11 +39,13 @@ public final class WeaveAbAgent {
             Class.forName("dev.turboism.validation.triweave.Sink");
             Class.forName("dev.turboism.validation.triweave.Counters");
             Sink.warm();
-            if (config.woven()
-                    && WeaveAbConfig.PROFILE_OFFICIAL.equals(config.profile)) {
+            if (config.woven() && config.officialProfile()
+                    && config.candidateHelperInternal != null) {
                 // Woven mode requires the agent-jar helper resolvable now; a missing-helper
                 // jar must refuse installation instead of silently baselining the leg.
-                Class.forName("dev.turboism.validation.triweave.Helper");
+                // TRIAB warms triweave.Helper; DWEAVE warms dweave.MatchList — both are
+                // agent-jar classes under the official profiles.
+                Class.forName(config.candidateHelperInternal.replace('/', '.'));
             }
         } catch (Throwable t) {
             report("admission=reject reason=helper-unavailable:" + t.getClass().getSimpleName());
@@ -54,9 +56,11 @@ public final class WeaveAbAgent {
             return;
         }
         for (Class<?> c : inst.getAllLoadedClasses()) {
-            if (config.targetInternal.replace('/', '.').equals(c.getName())) {
-                safeObserve("targetAlreadyLoaded=true transform=skipped");
-                return;
+            for (WeaveAbConfig.Target t : config.targets) {
+                if (t.internal.replace('/', '.').equals(c.getName())) {
+                    safeObserve("targetAlreadyLoaded=true transform=skipped");
+                    return;
+                }
             }
         }
         inst.addTransformer(new AbTransformer(config), false);
