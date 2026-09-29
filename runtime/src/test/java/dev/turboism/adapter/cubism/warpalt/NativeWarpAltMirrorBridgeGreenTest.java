@@ -26,6 +26,7 @@ final class NativeWarpAltMirrorBridgeGreenTest {
     void setUp() {
         grid = new StubGrid(4, 4); // 5x5 bezier points, indices inclusive
         StubRef.moves.clear();
+        com.live2d.cubism.doc.model.deformer.warp.k.calls.clear();
         NativeWarpAltMirrorBridge.install();
         registration = NativeWarpAltMirrorBridge.moveParticipation().participate();
     }
@@ -77,25 +78,60 @@ final class NativeWarpAltMirrorBridgeGreenTest {
     }
 
     @Test
-    void anchorDragMirrorsToCounterpartAnchor() {
+    void anchorDragReplaysEngineMoveAndSmoothingOnCounterpart() {
         NativeWarpAltMirrorBridge.setArmedAxis(1);
 
         NativeWarpAltMirrorBridge.mirrorGreenTick(drag(1, 0, StubKind.ANCHOR, 2f, 3f), event(2f, 3f));
 
-        assertEquals(1, StubRef.moves.size());
-        final StubRef.Move move = StubRef.moves.get(0);
-        assertEquals(1, move.col);
-        assertEquals(4, move.row);
-        assertEquals(StubKind.ANCHOR, move.kind);
-        assertEquals(12f, move.targetX, 1.0e-6f);
-        assertEquals(17f, move.targetY, 1.0e-6f);
+        // The grid engine k replays the move on counterpart (1,4) with the
+        // mirrored target pos(0,0)+(dx,-dy)=(2,-3), then both directional
+        // smoothing passes — the propagation the lone ref write missed.
+        assertEquals(3, com.live2d.cubism.doc.model.deformer.warp.k.calls.size());
+        assertTrue(com.live2d.cubism.doc.model.deformer.warp.k.calls.get(0)
+                .startsWith("move.a 1,4 -> 2.0,-3.0 flag=true"),
+                com.live2d.cubism.doc.model.deformer.warp.k.calls.get(0));
+        assertEquals("smooth.a 1,4 dim=4 smooth=4",
+                com.live2d.cubism.doc.model.deformer.warp.k.calls.get(1));
+        assertEquals("smooth.b 1,4 dim=4 smooth=4",
+                com.live2d.cubism.doc.model.deformer.warp.k.calls.get(2));
+    }
+
+    @Test
+    void anchorDragRespectsKeepRelationEditType() {
+        NativeWarpAltMirrorBridge.setArmedAxis(1);
+        com.live2d.cubism.setting.AppSetting.INSTANCE.getDeformer().getWarpDeformer()
+                .setCurrentWarpEditType(com.live2d.cubism.doc.model.extension.warpBezier.WarpEditType.KEEP_RELATION);
+        try {
+            NativeWarpAltMirrorBridge.mirrorGreenTick(drag(1, 0, StubKind.ANCHOR, 2f, 3f), event(2f, 3f));
+        } finally {
+            com.live2d.cubism.setting.AppSetting.INSTANCE.getDeformer().getWarpDeformer()
+                    .setCurrentWarpEditType(com.live2d.cubism.doc.model.extension.warpBezier.WarpEditType.SMOOTH_ALL);
+        }
+
+        // KEEP_RELATION replays the k.b variant only — no smoothing passes.
+        assertEquals(1, com.live2d.cubism.doc.model.deformer.warp.k.calls.size());
+        assertTrue(com.live2d.cubism.doc.model.deformer.warp.k.calls.get(0).startsWith("move.b 1,4"),
+                com.live2d.cubism.doc.model.deformer.warp.k.calls.get(0));
+    }
+
+    @Test
+    void onAxisAnchorSkipsToAvoidSelfOverwrite() {
+        NativeWarpAltMirrorBridge.setArmedAxis(1);
+        // row 2 of 0..4 lies on the vertical mirror axis; the anchor is its own
+        // counterpart. The hook precedes the native write, so a mirrored engine
+        // replay on the same point would shift the base position the native
+        // target is computed from — the drag must skip mirroring here.
+        NativeWarpAltMirrorBridge.mirrorGreenTick(drag(1, 2, StubKind.ANCHOR, 2f, 3f), event(2f, 3f));
+        assertTrue(com.live2d.cubism.doc.model.deformer.warp.k.calls.isEmpty());
+        assertTrue(StubRef.moves.isEmpty());
     }
 
     @Test
     void onAxisSameKindSkips() {
         NativeWarpAltMirrorBridge.setArmedAxis(1);
-        // row 2 of 0..4 lies on the vertical mirror axis; ANCHOR mirrors to itself.
-        NativeWarpAltMirrorBridge.mirrorGreenTick(drag(1, 2, StubKind.ANCHOR, 2f, 3f), event(2f, 3f));
+        // On-axis CONTROL_E's mirror is itself (W/E are not swapped vertically);
+        // the native drag already moved it — nothing to mirror.
+        NativeWarpAltMirrorBridge.mirrorGreenTick(drag(1, 2, StubKind.CONTROL_E, 2f, 3f), event(2f, 3f));
         assertTrue(StubRef.moves.isEmpty());
     }
 
@@ -173,6 +209,10 @@ final class NativeWarpAltMirrorBridgeGreenTest {
 
     static final class StubPt {
         final StubVec anchor = new StubVec(0, 0);
+
+        public StubVec getAnchor() {
+            return anchor;
+        }
     }
 
     /** Stands in for {@code CBezierGrid$a}; records every {@code moveToOnLocal}. */
