@@ -718,7 +718,29 @@ if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy
     > "$test_root/triab-noenv.log" 2>&1; then
   fail 'wrapper accepted --tri-weave-ab without TURBOISM_TRI_WEAVE_AGENT'
 fi
-grep -q 'requires TURBOISM_TRI_WEAVE_AGENT' "$test_root/triab-noenv.log"
+grep -q 'requires --tri-weave-agent or TURBOISM_TRI_WEAVE_AGENT' "$test_root/triab-noenv.log"
+# argument-form agent jar (queue-stable: the runner replays frozen args in a worker
+# env without TURBOISM_TRI_WEAVE_AGENT, so the argument form must work standalone)
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    "$wrapper" 5303 t029-triab-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-weave-ab 'dump+weave' \
+    --tri-weave-agent "$tri_weave_agent_stub" --dry-run \
+    > "$test_root/triab-argform.log" 2>&1; then
+  :
+else
+  fail 'wrapper rejected the --tri-weave-agent argument form'
+fi
+grep -q '^auxAgentCount=3$' "$test_root/triab-argform.log"
+# supplying both the argument and the env var is ambiguous
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 t029-triab-woven1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-weave-ab 'dump+weave' \
+    --tri-weave-agent "$tri_weave_agent_stub" --dry-run \
+    > "$test_root/triab-both.log" 2>&1; then
+  fail 'wrapper accepted both the argument and the env tri-weave agent'
+fi
+grep -q 'supplied twice (argument' "$test_root/triab-both.log"
 # wrong basename
 bad_basename="$test_root/not-tri-weave.jar"
 printf 'synthetic\n' > "$bad_basename"
