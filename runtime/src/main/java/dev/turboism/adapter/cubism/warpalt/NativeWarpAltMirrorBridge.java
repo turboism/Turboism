@@ -656,7 +656,9 @@ public final class NativeWarpAltMirrorBridge {
 
     /**
      * Injected at the tail of the strip's layout dispatch (a(N, GEntity) RETURN);
-     * re-seats the contributed button flush right of the view dropdown arrow.
+     * records where the native flow layout seated each contributed button. The
+     * button is a member of the strip's H list, so the same pass already assigns
+     * its bounds — this hook observes only, it never writes coordinates.
      * Missing from the bridge until now — the injected call must resolve or
      * every strip dispatch throws NoSuchMethodError.
      */

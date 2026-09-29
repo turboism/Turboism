@@ -1033,6 +1033,14 @@
           "-Dturboism.validation.warpAlt.mode=driveGesture",
           "--jvm-option",
           "-Dturboism.validation.warpAlt.point=5"
+        ],
+        "manual": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=observe",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.observeSeconds=5400"
         ]
       },
       "resources": {
