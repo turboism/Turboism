@@ -583,4 +583,106 @@ with tempfile.TemporaryDirectory(prefix="t040-prepared-replay-") as temporary:
     print(f"T040_PREPARED_STORE_REPLAY PASS digest={digest} hostLaunched=false")
 PY
 
+
+# T029-IDENTITY: --tri-identity-probe is a strictly gated optional aux agent. The default
+# argv must stay byte-identical to the reviewed profile, wrong sha/file/version/label reject
+# closed, and only the exact frozen label with the pinned jar admits the probe between the
+# production agent and the scene driver with exactly seven fixed properties.
+tri_probe="${TURBOISM_TRI_IDENTITY_PROBE_JAR:-$root/build/tri-probe.OscfZj/tri-probe-agent.jar}"
+[[ -f "$tri_probe" && ! -L "$tri_probe" ]] \
+  || fail 'reviewed tri-identity probe jar required for offline wiring test (TURBOISM_TRI_IDENTITY_PROBE_JAR)'
+[[ "$(sha256sum "$tri_probe" | cut -d' ' -f1)" == \
+    9c4a4ccc37c630c8134428334cd4131faccf8f6250e6f45035c659b3bb10ab71 ]] \
+  || fail 'reviewed tri-identity probe jar hash drifted'
+# default dry-run keeps the reviewed argv: no probe aux, no triIdentity option.
+! grep -Fq -- 'triIdentity' "$test_root/dry-run.log" || fail 'default run leaked triIdentity options'
+grep -q '^auxAgentCount=2$' "$test_root/dry-run.log" || fail 'default aux agent count changed'
+# The exact label is a -heavy profile: file/sha gates sit after fixture resolution, so the
+# heavy fixture key is required for those rejects to fire.
+heavy_fixture_real="${TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303:-}"
+[[ -n "$heavy_fixture_real" && -f "$heavy_fixture_real" ]] \
+  || fail 'set TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303 for the identity wiring test'
+[[ "$(sha256sum "$heavy_fixture_real" | cut -d' ' -f1)" == \
+    029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c ]] \
+  || fail 'heavy fixture hash mismatch for identity wiring test'
+manifest_heavy="$test_root/bundle-heavy.manifest"
+sed -e "s|^fixture=.*|fixture=$heavy_fixture_real|" \
+    -e 's|^fixtureName=.*|fixtureName=heavy.cmo3|' \
+    -e 's|^fixtureSha256=.*|fixtureSha256=029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c|' \
+    "$manifest" > "$manifest_heavy"
+# wrong sha
+bad_probe="$test_root/tri-identity-probe.jar"
+printf 'not-the-pinned-probe\n' > "$bad_probe"
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    "$wrapper" 5303 t029-identity-01-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-identity-probe "$bad_probe" --dry-run \
+    > "$test_root/probe-badsha.log" 2>&1; then
+  fail 'wrapper accepted a tri-identity probe with the wrong sha'
+fi
+grep -q 'tri-identity probe SHA-256 mismatch' "$test_root/probe-badsha.log"
+# missing file
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    "$wrapper" 5303 t029-identity-01-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-identity-probe "$test_root/no-such/tri-identity-probe.jar" --dry-run \
+    > "$test_root/probe-missing.log" 2>&1; then
+  fail 'wrapper accepted a missing tri-identity probe path'
+fi
+grep -q 'not a regular non-symlink file' "$test_root/probe-missing.log"
+# symlink
+ln -sf "$tri_probe" "$test_root/tri-identity-probe.jar"
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    "$wrapper" 5303 t029-identity-01-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-identity-probe "$test_root/tri-identity-probe.jar" --dry-run \
+    > "$test_root/probe-link.log" 2>&1; then
+  fail 'wrapper accepted a symlink tri-identity probe'
+fi
+grep -q 'not a regular non-symlink file' "$test_root/probe-link.log"
+# wrong version
+if env "${runner_env[@]}" "$wrapper" 5203 t029-identity-01-heavy-nolayout \
+    --bundle-manifest "$manifest" --tri-identity-probe "$tri_probe" --dry-run \
+    > "$test_root/probe-version.log" 2>&1; then
+  fail 'wrapper accepted --tri-identity-probe under 5203'
+fi
+grep -q 'tri-identity-probe is 5303-only' "$test_root/probe-version.log"
+# wrong label
+if env "${runner_env[@]}" "$wrapper" 5303 offline-heavy \
+    --bundle-manifest "$manifest" --tri-identity-probe "$tri_probe" --dry-run \
+    > "$test_root/probe-label.log" 2>&1; then
+  fail 'wrapper accepted --tri-identity-probe with the wrong label'
+fi
+grep -q 'exact label t029-identity-01-heavy-nolayout' "$test_root/probe-label.log"
+prepare_id="$test_root/prepare-tri-identity"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+  "$wrapper" 5303 t029-identity-01-heavy-nolayout \
+  --bundle-manifest "$manifest_heavy" --tri-identity-probe "$tri_probe" \
+  --prepare-dir "$prepare_id" > "$test_root/prepare-tri-identity.log" 2>&1 \
+  || fail 'tri-identity prepare failed'
+python3 - "$prepare_id/runner-request.json" <<'PYEOF'
+import json
+import sys
+from pathlib import Path
+
+argv = json.loads(Path(sys.argv[1]).read_text())["argv"]
+aux = [argv[i + 1].split(":")[-1] for i, flag in enumerate(argv) if flag == "--aux-agent"]
+assert aux == ["t039-shadow-agent.jar", "tri-identity-probe.jar",
+               "atlas-image-shadow-scene-driver.jar"], aux
+assert argv[argv.index("--aux-agent-before-main") + 1] == "t039-shadow-agent.jar"
+props = [argv[i + 1] for i, flag in enumerate(argv)
+         if flag == "--jvm-option" and "triIdentity." in argv[i + 1]]
+expected = [
+    "-Dturboism.validation.triIdentity.enabled=true",
+    "-Dturboism.validation.triIdentity.phase=t029-identity-01",
+    "-Dturboism.validation.triIdentity.runId=t029-id-01",
+    "-Dturboism.validation.triIdentity.outputDir={HOME}/tri-identity",
+    "-Dturboism.validation.triIdentity.expectClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29",
+    "-Dturboism.validation.triIdentity.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader",
+    "-Dturboism.validation.triIdentity.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar",
+]
+assert props == expected, props
+assert not any("StartFlightRecording" in a for a in argv)
+assert not any("atlasTiming" in a for a in argv)
+assert not any("failInit" in a or "throwOnRecord" in a for a in argv)
+print("T029_IDENTITY_PLAN PASS auxOrder=t039-probe-driver props=7 readyMarkerKept=true")
+PYEOF
+
 printf 'ATLAS_IMAGE_SHADOW_HOST_VALIDATION_OFFLINE_TEST PASS hostLaunched=false\n'
