@@ -44,6 +44,34 @@ class RuntimeCoreModelBackendTest {
     }
 
     @Test
+    void ownedMocIsReachableThroughTheProductionPermissionCheckedFacade() {
+        final TestCoreApiFixture.Model nativeModel = coreModel(new float[] {10.0F});
+        TestCoreApiFixture.Moc.prepare(nativeModel, 42L);
+        try (RuntimeCoreModelBackend backend = RuntimeCoreModelBackend.admit(
+                        TestCoreApiFixture.resolver("5.3.02"), CoreVersionExpectation.exact(11, 12, 13))
+                .value()
+                .orElseThrow()) {
+            final CubismFacadeImpl facade = new CubismFacadeImpl(
+                    emptyHostSource(),
+                    new CubismPermissionGate(
+                            "plugin.demo",
+                            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                            ignored -> {},
+                            Clock.systemUTC()),
+                    backend);
+            try (var moc = facade.coreRuntime()
+                            .mocLoader()
+                            .load(dev.turboism.sdk.cubism.core.MocData.copyOf(new byte[] {6, 1}));
+                    var model = moc.instantiateModel()) {
+                assertTrue(moc.nativeHandle() != 0);
+                assertEquals(nativeModel.getNativeHandle(), model.nativeHandle());
+                model.update();
+                assertTrue(model.parameters().size() > 0);
+            }
+        }
+    }
+
+    @Test
     void admitsPublishesClearsAndClosesOneRuntimeOwnedBackend() {
         final RuntimeCoreModelBackend backend = RuntimeCoreModelBackend.admit(
                         TestCoreApiFixture.resolver("5.3.02"), CoreVersionExpectation.exact(11, 12, 13))

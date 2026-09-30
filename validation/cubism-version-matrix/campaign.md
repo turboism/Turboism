@@ -52,3 +52,9 @@
 5.3.04 MCP r1 最终 supervisor FAIL，清理 safe，但 identity/fixture/normalExit 门禁未通过。客户端协议目录、模型/纹理读取和验证专用原生纹理像素 Undo/Redo 部分断言 PASS；持久化阶段在 `verifyPersistence` 的 EDT 调用超时。宿主日志同时留存 `Information` FREE 参数上限 modal，且原辅助线程正在执行长时间纹理探针，无法继续处理该 modal。不能用客户端的 `modelMutation=NONE` 推导整个探针未修改任务副本，也不能把部分 PASS 扩展成整体支持。原始结果保存在 `mcp-evidence/5.3.04-allversions-r1/`。
 
 修复验证辅助：MCP modal 处理改为独立、随插件生命周期停止的线程，仍只在 EDT 点击精确已知按钮；同时允许已观察到的 Swing `Information` 标题。客户端、纹理/Undo/持久化断言和超时均未放宽。5.2.02 / 5.3.01 的 r1 在启动前取消，以 r2 新包替代；5.3.04 r2 一并入队。共享 helper 自检和 MCP 独立编译 PASS，实机修复验收仍待 r2 结果。
+
+补收 Core 预检：5.1.00 / 5.0.0 supervisor PASS。5.2.01 probe 观察到精确 Editor/Core 指纹和原生 **5.0.256**，但没有稳定模型实例，最终 FAIL；不能当作该版本完整 Core 支持。5.0.01 r2 的加载诊断为 `app/document/source/model/view=true, coreModel=false`，即 Editor 模型类已加载而公共 Core 模型类未加载；最终超时 FAIL。Load、更新 Cancel、FREE 参数信息 OK 都已实际执行，后续必须调查独立 Core 准入与适合许可/版本的夹具。
+
+全能力覆盖审计发现 `OwnedMoc` 没有实际生产 SDK 场景。补探针时复现生产缺陷：`CubismFacadeAdapters` 的 Core 权限包装漏了 `mocLoader()`，插件调用默认不可用实现；旧测试只测后端，未覆盖公开路径。新增 facade 路径回归首先以 `Owned MOC loading is unavailable` 失败，修复后 54 项 Core/facade/OwnedMoc 定向回归 PASS；保留的 loader、MOC、模型句柄逐次检查作用域，停用后仍可释放自有分配。`devCheck` 与 Core 三项门禁 PASS。
+
+新增可选 production SDK owned-MOC 探针：固定官方 Haru MOC 的 Git 提交与 SHA256，通过公开 SDK 验证版本/一致性、独立实例、全部结构 getters、不可变副本、evaluation、显式先子后父释放和关闭后拒绝操作。空集合与未覆盖的父句柄级联关闭明确保留限制；没有强行绕过权限或直接使用 host Core 反射替代 SDK。5.3.04 的 `allversions-owned-r1` 已用修复后的 agent 入队，准确不可变输入见 campaign-jobs.json；实机仍待验收。MOC 二进制只进入本地验证产物，仓库记录官方来源/条款链接，不进入生产插件。

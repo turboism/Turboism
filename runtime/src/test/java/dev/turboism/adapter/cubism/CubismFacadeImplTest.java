@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.cubism.core.TestCoreApiFixture;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
@@ -293,6 +294,78 @@ class CubismFacadeImplTest {
         assertThrows(IllegalStateException.class, inspector::latestVersion);
         assertEquals(1, calls[0]);
         assertEquals(1, calls[2]);
+    }
+
+    @Test
+    void retainedOwnedMocHandlesRejectReadsAfterScopeCloseButStillReleaseAllocations() {
+        TestCoreApiFixture.Moc.prepare(
+                new TestCoreApiFixture.Model(
+                        new TestCoreApiFixture.CanvasInfo(new float[] {1000F, 500F}, new float[] {500F, 250F}, 100F),
+                        new TestCoreApiFixture.Parameters(
+                                new String[] {"ParamAngleX"},
+                                new TestCoreApiFixture.ParameterType[] {new TestCoreApiFixture.ParameterType(0)},
+                                new float[] {-30F},
+                                new float[] {30F},
+                                new float[] {0F},
+                                new float[] {10F},
+                                new int[] {0},
+                                new float[][] {new float[0]},
+                                new boolean[] {false})),
+                42L);
+        final var active = new java.util.concurrent.atomic.AtomicBoolean(true);
+        try (dev.turboism.adapter.cubism.core.RuntimeCoreModelBackend backend =
+                dev.turboism.adapter.cubism.core.RuntimeCoreModelBackend.admit(
+                                dev.turboism.adapter.cubism.core.TestCoreApiFixture.resolverWithExtras(
+                                        "5.3.02", List.of(), java.util.Set.of()),
+                                dev.turboism.adapter.cubism.core.CoreVersionExpectation.exact(11, 12, 13))
+                        .value()
+                        .orElseThrow()) {
+            final CubismFacadeImpl facade = new CubismFacadeImpl(
+                    emptySource(),
+                    new CubismPermissionGate(
+                            "plugin.demo",
+                            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                            ignored -> {},
+                            Clock.systemUTC()),
+                    new dev.turboism.adapter.cubism.ImmutableSnapshotFactory(),
+                    (context, document) -> {
+                        throw new UnsupportedOperationException();
+                    },
+                    backend.modelAccess(),
+                    backend.coreRuntimeInfo(),
+                    new dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator(),
+                    new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),
+                    new dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator(),
+                    active::get);
+            final var runtime = facade.coreRuntime();
+            final var loader = runtime.mocLoader();
+            final var data = dev.turboism.sdk.cubism.core.MocData.copyOf(new byte[] {6, 1});
+            try (var moc = loader.load(data);
+                    var model = moc.instantiateModel()) {
+                model.update();
+                assertTrue(model.parameters().size() > 0);
+                active.set(false);
+                final List<Runnable> retainedOperations = List.of(
+                        runtime::mocLoader,
+                        () -> loader.load(data),
+                        moc::version,
+                        moc::consistency,
+                        moc::nativeHandle,
+                        moc::instantiateModel,
+                        model::nativeHandle,
+                        model::canvasInfo,
+                        model::parameters,
+                        model::parts,
+                        model::drawables,
+                        model::glues,
+                        model::deformers,
+                        model::update);
+                for (Runnable operation : retainedOperations) {
+                    assertThrows(IllegalStateException.class, operation::run);
+                }
+                // try-with-resources must still release both allocations after deactivation.
+            }
+        }
     }
 
     @Test
