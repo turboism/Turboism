@@ -18,8 +18,8 @@ fixture_sha256="$circle100_fixture_sha256"
 # switched by accident; the pair is resolve below by run label and always hash-checked.
 heavy_fixture_name=heavy.cmo3
 heavy_fixture_sha256=029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c
-# The 5203 profile has exactly one reviewed pair — the opacity fixture the mcp 5203 wrapper
-# already pins. Its canonical name is fixed regardless of the local file's basename, so the
+# Ordinary 5203 scenes keep the opacity pair the mcp wrapper already pins;
+# explicit TLPROD scenes additionally admit the fixed heavy pair. Its canonical name is fixed regardless of the local file's basename, so the
 # driver allowlist sees the same reviewed name on every machine.
 opacity52_fixture_name=part-opacity-fixture-52-final.cmo3
 opacity52_fixture_sha256=331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028
@@ -33,14 +33,25 @@ fail() {
 usage() {
   cat >&2 <<'EOF'
 Usage:
-  run-atlas-image-shadow-host-validation.sh <5303|5203> <run-label>
+  run-atlas-image-shadow-host-validation.sh <5303|5302|5203> <run-label>
     [--tri-identity-probe <path-to-pinned-tri-identity-probe.jar>]
     [--tri-weave-ab <dump-only|dump+weave>]
     [--tri-dweave <dm-dump-only|dm-dump+weave>]
     [--tri-tlindex <tl-dump-only|tl-dump+weave>]
+    [--tri-tlindex-home-config <absolute path to leg-matching UI config>]
     [--tri-weave-agent <absolute path to tri-weave-agent.jar>]
     [--bundle-manifest <published manifest>]
     [--prepare-dir <directory> | --dry-run]
+
+T029-TLPROD labels (t029-tlprod-<off|on><N>-<heavy|std>-nolayout[-jfr]) run the
+production edge-index transformer under the pinned tl-dump-only capture agent:
+-off stages a hash-pinned home config carrying meshTriangulationEdgeIndex=false,
+-on runs the default-on preference. -off expects pristine class bytes; -on
+expects the production-patched bytes the transformer emits. The family admits
+5303, 5302, and 5203; every other label family keeps its existing version gates.
+The 5302 profile is admitted only for t029-tlprod-* labels.
+A captured settings UI config may be staged with --tri-tlindex-home-config;
+its explicit edge-index Boolean must match the leg and its SHA is frozen by prepare.
 
 The T040 manifest is intentionally runnable=false until manager admission. This
 wrapper does not build, launch, prepare in this offline checkout, install hooks,
@@ -105,12 +116,23 @@ tri_tlindex_leg=''
 if [[ "$run_label" =~ ^t029-tlindex-(base|woven)([0-9]+)-heavy-nolayout(-jfr)?$ ]]; then
   tri_tlindex_leg="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
 fi
-if [[ "$tri_tlindex_flag" == 1 || -n "$tri_tlindex_leg" ]]; then
-  [[ "$version" == 5303 ]] || fail '--tri-tlindex is 5303-only'
-  [[ -n "$tri_tlindex_leg" ]] \
-    || fail '--tri-tlindex requires a label t029-tlindex-<base|woven><N>-heavy-nolayout[-jfr]'
+# T029-TLPROD: production-rollout legs. The aux tlWeave agent runs tl-dump-only on
+# both legs — the production transformer, not the validation weave, is what differs.
+# `off` stages the pinned meshTriangulationEdgeIndex=false home config; `on` relies on
+# the default-on preference. expectClassSha256 is the bytes the aux agent observes:
+# pristine on off legs, production-patched on on legs.
+tri_tlprod_leg=''
+if [[ "$run_label" =~ ^t029-tlprod-(off|on)([0-9]+)-(heavy|std)-nolayout(-jfr)?$ ]]; then
+  tri_tlprod_leg="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+fi
+if [[ "$tri_tlindex_flag" == 1 || -n "$tri_tlindex_leg" || -n "$tri_tlprod_leg" ]]; then
+  [[ -n "$tri_tlindex_leg" || -n "$tri_tlprod_leg" ]] \
+    || fail '--tri-tlindex requires a label t029-tlindex-<base|woven><N>-heavy-nolayout[-jfr] or t029-tlprod-<off|on><N>-<heavy|std>-nolayout[-jfr]'
   [[ "$tri_tlindex_flag" == 1 ]] \
-    || fail 'a t029-tlindex-* label requires --tri-tlindex so the leg cannot run uninstrumented'
+    || fail 'a t029-tlindex-*/t029-tlprod-* label requires --tri-tlindex so the leg cannot run uninstrumented'
+  if [[ -n "$tri_tlindex_leg" ]]; then
+    [[ "$version" == 5303 ]] || fail 't029-tlindex-* weave legs are 5303-only'
+  fi
 fi
 case "$version" in
   5303)
@@ -120,22 +142,34 @@ case "$version" in
     # Fixed path inside Runner's isolated 5303 Proton prefix, not a build-host path.
     runtime_trusted_source_path='C:\Program Files\Live2D Cubism 5.3.03\app\lib\Live2D_Cubism.jar'
     ;;
+  5302)
+    official_jar_sha256=988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21
+    t039_class_sha256=''
+    t039_shape_sha256=''
+    runtime_trusted_source_path='C:\Program Files\Live2D Cubism 5.3\app\lib\Live2D_Cubism.jar'
+    ;;
   5203)
     official_jar_sha256=bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd
     t039_class_sha256=''
     t039_shape_sha256=''
     runtime_trusted_source_path='C:\Program Files\Live2D Cubism 5.2\app\lib\Live2D_Cubism.jar'
     ;;
-  *) fail 'T040 admits only exact host versions 5303 and 5203' ;;
+  *) fail 'T040 admits only exact host versions 5303, 5302, and 5203' ;;
 esac
+# 5302 has no reviewed profile in this wrapper outside the production TLINDEX rollout
+# legs — every other label family keeps failing closed on it.
+if [[ "$version" == 5302 && -z "$tri_tlprod_leg" ]]; then
+  fail 'the 5302 profile admits only t029-tlprod-* labels'
+fi
 [[ "$run_label" =~ ^[A-Za-z0-9._-]{1,64}$ ]] || fail 'run label is not bounded and safe'
 
 # Fixture profile and wall-time budgets. `-heavy` selects the production-scale model and the
 # budgets it can outgrow; every other label keeps the exact Circle100 numbers this scene has
-# always used, so an unset property can never silently relax a budget. The 5203 profile has a
-# single reviewed fixture, so -heavy has no meaning there and fails closed.
-[[ "$run_label" == *-heavy* && "$version" != 5303 ]] \
-  && fail "-heavy is a 5303-only fixture profile"
+# always used, so an unset property can never silently relax a budget. `-heavy` is 5303-only
+# outside the tlprod rollout legs — the production transformer evidence needs the heavy model
+# on every admitted version, so t029-tlprod-* labels may carry it under 5302/5203 as well.
+[[ "$run_label" == *-heavy* && "$version" != 5303 && -z "$tri_tlprod_leg" ]] \
+  && fail "-heavy is a 5303-only fixture profile outside t029-tlprod-* legs"
 fixture_env_key="TURBOISM_HOST_VALIDATION_FIXTURE_$version"
 heavy_fixture_env_key="TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_$version"
 startup_seconds=240
@@ -186,7 +220,8 @@ case "$run_label" in
   *)
     # The default fixture stays behind the reviewed per-version key; the heavy profile above
     # must not depend on that key being configured. Under 5203 the canonical name is the
-    # reviewed opacity52 basename rather than the local file's own name.
+    # reviewed opacity52 basename rather than the local file's own name. Production legs
+    # do not bypass this fixed name/hash pair with an arbitrary environment-supplied hash.
     turboism_select_fixture "$version" || exit 2
     fixture="${fixture_src:-}"
     if [[ "$version" == 5203 ]]; then
@@ -327,6 +362,26 @@ if [[ "$atlas_reuse_pref_off" == 1 ]]; then
     || fail 'reuse-off home config hash mismatch'
 fi
 
+# A t029-tlprod-off* leg stages a reviewed home config carrying
+# meshTriangulationEdgeIndex=false, so the production premain preference gate — not the
+# hook policy and not a missing schema field — takes the native triangulation path. The
+# capture agent still runs tl-dump-only on both legs, so the equivalence witness is
+# identical; only the production transformer differs.
+tlindex_pref_off=0
+[[ "$tri_tlprod_leg" == off* ]] && tlindex_pref_off=1
+tlindex_off_config=''
+tlindex_off_config_sha256=47bb572625150b9f6a78a75be1e1b62cf1df0b179b58a2beffd7b568c4ae8c43
+if [[ "$tlindex_pref_off" == 1 ]]; then
+  [[ "$mesh_pref_off" == 0 && "$atlas_pref_off" == 0 && "$atlas_reuse_pref_off" == 0 ]] \
+    || fail 'tlprod-off cannot combine with -meshoff/-atlasoff/-reuseoff: one home config is staged'
+  tlindex_off_config="$root/validation/triangulation-tlindex/home-config-tlindexoff.json"
+  [[ -f "$tlindex_off_config" && ! -L "$tlindex_off_config" ]] \
+    || fail 'tlindex-off home config is not a regular non-symlink file'
+  tlindex_off_config="$(realpath -e -- "$tlindex_off_config")"
+  [[ "$(sha256sum "$tlindex_off_config" | cut -d' ' -f1)" == "$tlindex_off_config_sha256" ]] \
+    || fail 'tlindex-off home config hash mismatch'
+fi
+
 # `-atlastiming` installs the validation-only per-call timing agent: stack-neutral enter/exit
 # weaving on the seven reviewed 5303 atlas-path methods, writing per-call records and a summary
 # inside the task home. It must not pair with `-meshprobe`/`-meshfix`: that agent's reflective
@@ -406,6 +461,8 @@ tri_weave_ab=''
 tri_dweave=''
 tri_tlindex=''
 tri_weave_agent_arg=''
+tri_tlprod_home_config=''
+tri_tlprod_home_config_sha256=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bundle-manifest)
@@ -433,6 +490,10 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || fail 'missing --tri-tlindex value'
       [[ -z "$tri_tlindex" ]] || fail 'tri-tlindex supplied twice'
       tri_tlindex="$2"; shift 2 ;;
+    --tri-tlindex-home-config)
+      [[ $# -ge 2 ]] || fail 'missing --tri-tlindex-home-config value'
+      [[ -z "$tri_tlprod_home_config" ]] || fail 'production home config supplied twice'
+      tri_tlprod_home_config="$2"; shift 2 ;;
     --tri-weave-agent)
       [[ $# -ge 2 ]] || fail 'missing --tri-weave-agent value'
       [[ -z "$tri_weave_agent_arg" ]] || fail 'tri-weave-agent supplied twice'
@@ -497,9 +558,41 @@ if [[ -n "$tri_tlindex" ]]; then
   esac
   tri_tlindex_expected=tl-dump-only
   [[ "$tri_tlindex_leg" == woven* ]] && tri_tlindex_expected='tl-dump+weave'
+  # tlprod legs forbid the validation weave entirely: the production transformer owns
+  # TriangleList; the aux agent's only job is the identical b()Lk; capture on both legs.
+  [[ -n "$tri_tlprod_leg" ]] && tri_tlindex_expected='tl-dump-only'
   [[ "$tri_tlindex_mode" == "$tri_tlindex_expected" ]] \
     || fail "--tri-tlindex $tri_tlindex_mode inconsistent with leg label $run_label"
 fi
+# A real settings probe may supply the exact config it wrote. This is restricted to
+# production legs, and the explicit Boolean must agree with their on/off identity.
+# The common Runner freezes the file and its SHA in the prepared input inventory.
+if [[ -n "$tri_tlprod_home_config" ]]; then
+  [[ -n "$tri_tlprod_leg" && "$tri_tlindex_mode" == tl-dump-only ]] \
+    || fail '--tri-tlindex-home-config requires a production capture leg'
+  [[ "$tri_tlprod_home_config" = /* && -f "$tri_tlprod_home_config" && ! -L "$tri_tlprod_home_config" ]] \
+    || fail 'production home config must be an absolute regular non-symlink file'
+  tri_tlprod_home_config="$(realpath -e -- "$tri_tlprod_home_config")"
+  python3 - "$tri_tlprod_home_config" "$tri_tlprod_leg" <<'PYTLCONFIG' || fail 'production home config does not match the leg'
+import json, sys
+from pathlib import Path
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('duplicate config key')
+        result[key] = value
+    return result
+
+config = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'), object_pairs_hook=unique_object)
+value = config.get('meshTriangulationEdgeIndex') if isinstance(config, dict) else None
+if type(value) is not bool or value != sys.argv[2].startswith('on'):
+    raise SystemExit('explicit edge-index Boolean must match the production leg')
+PYTLCONFIG
+  tri_tlprod_home_config_sha256="$(sha256sum "$tri_tlprod_home_config" | cut -d' ' -f1)"
+fi
+
 # One physical agent jar serves both namespaces (TRIAB and DWEAVE targets live in the
 # same artifact). The jar arrives either as an explicit argument (queue-stable: the
 # runner replays frozen args in a worker env without TURBOISM_TRI_WEAVE_AGENT) or via
@@ -693,6 +786,13 @@ runner_args+=(
 # need review; none of the pinned configs do that today.
 runner_args+=(--ready-marker 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE')
 
+# Only the production label/flag contract above admits heavy on 5203. The real
+# scene driver uses the same explicit token and fixed name/hash pair; no generic
+# fixture override is permitted on an ordinary 5203 scene.
+if [[ -n "$tri_tlprod_leg" ]]; then
+  runner_args+=(--jvm-option '-Dturboism.validation.atlasImageShadow.tlprodOptIn=TLPROD_EXPLICIT_OPT_IN')
+fi
+
 # T029-IDENTITY probe admission contract: exactly seven fixed properties — no fixture hash,
 # no test knobs, no generic passthrough. runId is a bounded literal because the task id
 # exceeds the probe's 32-char runId cap. expectCodeSource doubles % so the launch.bat
@@ -756,18 +856,51 @@ fi
 # 87835641…, the SAME class the b()Lk; capture observes, so expectClassSha256
 # and expectCaptureClassSha256 carry the identical digest). profile is pinned
 # to tl-official; the Bridge helper ships inside the agent jar.
+#
+# T029-TLPROD shares the namespace but inverts the roles: the production
+# transformer weaves first, the aux agent only captures. expectClassSha256
+# therefore tracks what the aux observes at transform time — pristine bytes on
+# -off legs, the deterministic production-patched bytes on -on legs — and the
+# expectCodeSource value follows the per-version install dir.
+tl_expect_class_sha=''
+tl_expect_codesource='file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar'
+tl_run_id=''
+if [[ -n "$tri_tlindex_leg" ]]; then
+  tl_expect_class_sha=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29
+  tl_run_id="tlindex-$tri_tlindex_leg"
+elif [[ -n "$tri_tlprod_leg" ]]; then
+  case "$version" in
+    5303)
+      tl_pristine_sha=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29
+      tl_patched_sha=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec
+      ;;
+    5302)
+      tl_pristine_sha=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29
+      tl_patched_sha=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec
+      tl_expect_codesource='file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3/app/lib/Live2D_Cubism.jar'
+      ;;
+    5203)
+      tl_pristine_sha=b0a11ffc8969e5a8d1266ca01db85dacb75ca4de64e14b9f282ba4c32169d920
+      tl_patched_sha=97e7ca33aa45135a7b0a4c6acb8b82da8be9f7f761cc2b0611a4b19155751844
+      tl_expect_codesource='file:/C:/Program%%20Files/Live2D%%20Cubism%%205.2/app/lib/Live2D_Cubism.jar'
+      ;;
+  esac
+  tl_expect_class_sha="$tl_pristine_sha"
+  [[ "$tri_tlprod_leg" == on* ]] && tl_expect_class_sha="$tl_patched_sha"
+  tl_run_id="tlprod-$tri_tlprod_leg"
+fi
 if [[ -n "$tri_tlindex_mode" ]]; then
   runner_args+=(
     --jvm-option '-Dturboism.validation.tlWeave.enabled=true'
     --jvm-option "-Dturboism.validation.tlWeave.mode=$tri_tlindex_mode"
     --jvm-option '-Dturboism.validation.tlWeave.profile=tl-official'
     --jvm-option '-Dturboism.validation.tlWeave.phase=t029-tlindex'
-    --jvm-option "-Dturboism.validation.tlWeave.runId=tlindex-$tri_tlindex_leg"
+    --jvm-option "-Dturboism.validation.tlWeave.runId=$tl_run_id"
     --jvm-option '-Dturboism.validation.tlWeave.outputDir={HOME}/tl-weave'
-    --jvm-option '-Dturboism.validation.tlWeave.expectClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29'
-    --jvm-option '-Dturboism.validation.tlWeave.expectCaptureClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29'
+    --jvm-option "-Dturboism.validation.tlWeave.expectClassSha256=$tl_expect_class_sha"
+    --jvm-option "-Dturboism.validation.tlWeave.expectCaptureClassSha256=$tl_expect_class_sha"
     --jvm-option '-Dturboism.validation.tlWeave.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader'
-    --jvm-option '-Dturboism.validation.tlWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar'
+    --jvm-option "-Dturboism.validation.tlWeave.expectCodeSource=$tl_expect_codesource"
     --jvm-option '-Dturboism.validation.tlWeave.captureN=4'
   )
 fi
@@ -807,6 +940,10 @@ if [[ "$atlas_pref_off" == 1 ]]; then
   runner_args+=(--home-config "$atlas_off_config")
 elif [[ "$atlas_reuse_pref_off" == 1 ]]; then
   runner_args+=(--home-config "$reuse_off_config")
+elif [[ -n "$tri_tlprod_home_config" ]]; then
+  runner_args+=(--home-config "$tri_tlprod_home_config")
+elif [[ "$tlindex_pref_off" == 1 ]]; then
+  runner_args+=(--home-config "$tlindex_off_config")
 fi
 if [[ "$t039_before_main" == 1 ]]; then
   runner_args+=(--aux-agent-before-main t039-shadow-agent.jar)
@@ -879,10 +1016,19 @@ if [[ -n "$tri_dweave_mode" ]]; then
 fi
 if [[ -n "$tri_tlindex_mode" ]]; then
   printf 'tlWeaveMode=%s\ntlWeaveAgentSha256=%s\ntlWeaveLeg=%s\n' \
-    "$tri_tlindex_mode" "$tri_weave_agent_sha256" "$tri_tlindex_leg" >&2
+    "$tri_tlindex_mode" "$tri_weave_agent_sha256" "${tri_tlindex_leg:-$tri_tlprod_leg}" >&2
+  printf 'tlWeaveExpectClassSha256=%s\ntlWeaveExpectCodeSource=%s\n' \
+    "$tl_expect_class_sha" "$tl_expect_codesource" >&2
+fi
+if [[ -n "$tri_tlprod_home_config" ]]; then
+  printf 'tlindexPreference=explicit-ui\ntlindexHomeConfigSha256=%s\n' "$tri_tlprod_home_config_sha256" >&2
+elif [[ "$tlindex_pref_off" == 1 ]]; then
+  printf 'tlindexPreference=off\ntlindexOffConfigSha256=%s\n' "$tlindex_off_config_sha256" >&2
+elif [[ -n "$tri_tlprod_leg" ]]; then
+  printf 'tlindexPreference=default-on\n' >&2
 fi
 
 # No hook, client, or collector option is permitted here; readiness is limited to the single
 # fixed deferred-check marker above. The only staged home inputs are the hash-pinned
-# -meshoff/-atlasoff/-reuseoff configs above.
+# -meshoff/-atlasoff/-reuseoff/tlprod-off configs or the leg-matching explicit UI config above.
 exec bash "$runner" "${runner_args[@]}"
