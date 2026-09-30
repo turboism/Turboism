@@ -29,7 +29,8 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "reduceAutoBackup",
             "meshTriangulationHashFix",
             "atlasTileBbox",
-            "atlasCacheReuse");
+            "atlasCacheReuse",
+            "meshTriangulationEdgeIndex");
     private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> ALLOWED_LOCALES = Set.of("system", "en", "ja", "ko", "zh-Hans", "zh-Hant");
 
@@ -175,6 +176,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         validateOptionalBoolean(node, "meshTriangulationHashFix", errors, source);
         validateOptionalBoolean(node, "atlasTileBbox", errors, source);
         validateOptionalBoolean(node, "atlasCacheReuse", errors, source);
+        validateOptionalBoolean(node, "meshTriangulationEdgeIndex", errors, source);
         validateHooks(node, errors, source);
         validateLauncher(node, errors, source, tolerateUnsupportedChoices);
         validateTextureAtlas(node, errors, source);
