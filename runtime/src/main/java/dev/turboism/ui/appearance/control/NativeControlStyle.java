@@ -2,7 +2,6 @@ package dev.turboism.ui.appearance.control;
 
 import dev.turboism.sdk.ui.appearance.PaletteEntryState;
 import dev.turboism.sdk.ui.appearance.UiColor;
-
 import java.awt.Color;
 import java.awt.Font;
 import java.util.Objects;
@@ -11,20 +10,18 @@ import java.util.Objects;
 record NativeControlStyle(Font font, Color foreground, Color background, boolean opaque) {
 
     static NativeControlStyle apply(
-        final Font nativeFont,
-        final Color nativeForeground,
-        final Color nativeBackground,
-        final boolean nativeOpaque,
-        final PaletteEntryState state
-    ) {
+            final Font nativeFont,
+            final Color nativeForeground,
+            final Color nativeBackground,
+            final boolean nativeOpaque,
+            final PaletteEntryState state) {
         Objects.requireNonNull(state, "state");
         final Font font = font(nativeFont, state);
         return new NativeControlStyle(
-            font,
-            state.textColor().map(NativeControlStyle::swing).orElse(nativeForeground),
-            state.backgroundColor().map(NativeControlStyle::swing).orElse(nativeBackground),
-            state.backgroundColor().isPresent() || nativeOpaque
-        );
+                font,
+                state.textColor().map(NativeControlStyle::swing).orElse(nativeForeground),
+                state.backgroundColor().map(NativeControlStyle::swing).orElse(nativeBackground),
+                state.backgroundColor().isPresent() || nativeOpaque);
     }
 
     private static Color swing(final UiColor color) {
@@ -39,12 +36,11 @@ record NativeControlStyle(Font font, Color foreground, Color background, boolean
         component.repaint();
     }
 
-    private static Font font(
-        final Font nativeFont,
-        final PaletteEntryState state
-    ) {
+    private static Font font(final Font nativeFont, final PaletteEntryState state) {
         final Font base = Objects.requireNonNull(nativeFont, "nativeFont");
-        if (state.fontSize().isEmpty() && state.bold().isEmpty() && state.italic().isEmpty()) return base;
+        if (state.fontSize().isEmpty()
+                && state.bold().isEmpty()
+                && state.italic().isEmpty()) return base;
 
         int style = base.getStyle();
         if (state.bold().isPresent()) {

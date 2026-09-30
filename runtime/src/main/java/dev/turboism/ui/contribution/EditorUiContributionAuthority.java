@@ -4,7 +4,6 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.EditorUiHostLifecycle;
 import dev.turboism.ui.host.EditorUiHostSnapshot;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -22,9 +21,9 @@ import java.util.Optional;
  */
 public final class EditorUiContributionAuthority implements AutoCloseable {
 
-    private static final Comparator<EditorUiContribution<?>> CONTRIBUTION_ORDER = Comparator
-        .comparingInt((EditorUiContribution<?> contribution) -> contribution.order())
-        .thenComparing(EditorUiContribution::identity);
+    private static final Comparator<EditorUiContribution<?>> CONTRIBUTION_ORDER = Comparator.comparingInt(
+                    (EditorUiContribution<?> contribution) -> contribution.order())
+            .thenComparing(EditorUiContribution::identity);
 
     private final Object monitor = new Object();
     private final EditorUiHostLifecycle hostLifecycle;
@@ -105,28 +104,19 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
      */
     public void installProvider(final EditorUiContributionProvider provider) {
         final EditorUiContributionProvider requested = Objects.requireNonNull(provider, "provider");
-        final EditorUiProviderAdmission admission = Objects.requireNonNull(
-            requested.admission(),
-            "provider.admission()"
-        );
+        final EditorUiProviderAdmission admission =
+                Objects.requireNonNull(requested.admission(), "provider.admission()");
         if (admission.family() != requested.family()) {
             throw new IllegalArgumentException("Editor UI provider admission family does not match");
         }
         if (requested.isAvailable() != admission.isAdmitted()) {
-            throw new IllegalArgumentException(
-                "Editor UI provider availability must be derived from admission"
-            );
+            throw new IllegalArgumentException("Editor UI provider availability must be derived from admission");
         }
         synchronized (monitor) {
             requireOpen();
-            final EditorUiContributionProvider previous = providers.putIfAbsent(
-                requested.family(),
-                requested
-            );
+            final EditorUiContributionProvider previous = providers.putIfAbsent(requested.family(), requested);
             if (previous != null && previous != requested) {
-                throw new IllegalStateException(
-                    "Editor UI provider is already installed for " + requested.family()
-                );
+                throw new IllegalStateException("Editor UI provider is already installed for " + requested.family());
             }
         }
         reconcile(requested.family());
@@ -152,10 +142,9 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         if (removed) {
             closeNative(requested.family());
             recordFailure(new EditorUiContributionFailure(
-                EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED,
-                requested.family(),
-                "Editor UI contribution provider is unavailable."
-            ));
+                    EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED,
+                    requested.family(),
+                    "Editor UI contribution provider is unavailable."));
         }
     }
 
@@ -170,10 +159,10 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         Objects.requireNonNull(family, "family");
         synchronized (monitor) {
             return contributions.values().stream()
-                .map(StoredContribution::contribution)
-                .filter(value -> value.identity().family() == family)
-                .sorted(CONTRIBUTION_ORDER)
-                .toList();
+                    .map(StoredContribution::contribution)
+                    .filter(value -> value.identity().family() == family)
+                    .sorted(CONTRIBUTION_ORDER)
+                    .toList();
         }
     }
 
@@ -258,7 +247,7 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
             state.running = true;
         }
         try {
-            for (;;) {
+            for (; ; ) {
                 synchronized (state) {
                     state.pending = false;
                 }
@@ -298,36 +287,32 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
             provider = providers.get(family);
             snapshot = hostLifecycle.snapshot();
             familyContributions = contributions.values().stream()
-                .map(StoredContribution::contribution)
-                .filter(value -> value.identity().family() == family)
-                .sorted(CONTRIBUTION_ORDER)
-                .toList();
+                    .map(StoredContribution::contribution)
+                    .filter(value -> value.identity().family() == family)
+                    .sorted(CONTRIBUTION_ORDER)
+                    .toList();
             existing = nativeRegistrations.remove(family);
         }
         if (provider == null) {
             closeNativeRegistration(family, existing);
             return;
         }
-        final EditorUiProviderAdmission admission = Objects.requireNonNull(
-            provider.admission(),
-            "provider.admission()"
-        );
+        final EditorUiProviderAdmission admission =
+                Objects.requireNonNull(provider.admission(), "provider.admission()");
         if (admission.family() != family) {
             closeNativeRegistration(family, existing);
             recordFailure(new EditorUiContributionFailure(
-                EditorUiContributionFailure.Code.PROVIDER_FAILED,
-                family,
-                "Editor UI provider admission family does not match."
-            ));
+                    EditorUiContributionFailure.Code.PROVIDER_FAILED,
+                    family,
+                    "Editor UI provider admission family does not match."));
             return;
         }
         if (!admission.isAdmitted()) {
             closeNativeRegistration(family, existing);
             recordFailure(new EditorUiContributionFailure(
-                admission.failureCode().orElse(EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED),
-                family,
-                "Editor UI contribution provider is unavailable."
-            ));
+                    admission.failureCode().orElse(EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED),
+                    family,
+                    "Editor UI contribution provider is unavailable."));
             return;
         }
         if (!snapshot.isReady(family)) {
@@ -337,41 +322,33 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         if (!admission.isAdmittedTo(snapshot.generation())) {
             closeNativeRegistration(family, existing);
             recordFailure(new EditorUiContributionFailure(
-                EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED,
-                family,
-                "Editor UI provider admission is stale for the current host generation."
-            ));
+                    EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED,
+                    family,
+                    "Editor UI provider admission is stale for the current host generation."));
             return;
         }
         final Registration nativeRegistration;
         try {
             if (provider.supportsIncrementalReconcile()) {
-                nativeRegistration = provider.reconcile(
-                    snapshot.generation(),
-                    familyContributions,
-                    existing
-                );
+                nativeRegistration = provider.reconcile(snapshot.generation(), familyContributions, existing);
             } else {
                 closeNativeRegistration(family, existing);
                 nativeRegistration = familyContributions.isEmpty()
-                    ? null
-                    : Objects.requireNonNull(
-                        provider.apply(snapshot.generation(), familyContributions),
-                        "provider.apply()"
-                    );
+                        ? null
+                        : Objects.requireNonNull(
+                                provider.apply(snapshot.generation(), familyContributions), "provider.apply()");
             }
         } catch (RuntimeException | Error failure) {
             recordFailure(new EditorUiContributionFailure(
-                EditorUiContributionFailure.Code.PROVIDER_FAILED,
-                family,
-                "Editor UI contribution provider failed safely."
-            ));
+                    EditorUiContributionFailure.Code.PROVIDER_FAILED,
+                    family,
+                    "Editor UI contribution provider failed safely."));
             throw failure;
         }
         synchronized (monitor) {
             if (closed
-                || providers.get(family) != provider
-                || !hostLifecycle.snapshot().equals(snapshot)) {
+                    || providers.get(family) != provider
+                    || !hostLifecycle.snapshot().equals(snapshot)) {
                 if (nativeRegistration != null) {
                     nativeRegistration.close();
                 }
@@ -396,18 +373,14 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
             registration.close();
         } catch (RuntimeException | Error failure) {
             recordFailure(new EditorUiContributionFailure(
-                EditorUiContributionFailure.Code.PROVIDER_CLEANUP_FAILED,
-                family,
-                "Editor UI contribution cleanup failed safely."
-            ));
+                    EditorUiContributionFailure.Code.PROVIDER_CLEANUP_FAILED,
+                    family,
+                    "Editor UI contribution cleanup failed safely."));
             throw failure;
         }
     }
 
-    private void closeNativeRegistration(
-        final EditorUiFamily family,
-        final Registration registration
-    ) {
+    private void closeNativeRegistration(final EditorUiFamily family, final Registration registration) {
         if (registration == null) {
             return;
         }
@@ -415,10 +388,9 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
             registration.close();
         } catch (RuntimeException | Error failure) {
             recordFailure(new EditorUiContributionFailure(
-                EditorUiContributionFailure.Code.PROVIDER_CLEANUP_FAILED,
-                family,
-                "Editor UI contribution cleanup failed safely."
-            ));
+                    EditorUiContributionFailure.Code.PROVIDER_CLEANUP_FAILED,
+                    family,
+                    "Editor UI contribution cleanup failed safely."));
             throw failure;
         }
     }
@@ -455,10 +427,7 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         return first;
     }
 
-    private static RuntimeException append(
-        final RuntimeException first,
-        final RuntimeException next
-    ) {
+    private static RuntimeException append(final RuntimeException first, final RuntimeException next) {
         if (first == null) {
             return next;
         }
@@ -471,10 +440,7 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         private final StoredContribution stored;
         private boolean closed;
 
-        private ContributionRegistration(
-            final EditorUiContributionIdentity identity,
-            final StoredContribution stored
-        ) {
+        private ContributionRegistration(final EditorUiContributionIdentity identity, final StoredContribution stored) {
             this.identity = identity;
             this.stored = stored;
         }

@@ -3,7 +3,6 @@ package dev.turboism.core.runtime.sidecar;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.util.Iterator;
 
 /**
@@ -87,7 +86,8 @@ public final class SidecarEnvelopeValidator {
             return invalid(PROBLEM_CODE_HOST_OBJECT, "Payload contains host object reference at " + path + ": " + text);
         }
         if (containsReflectionHandle(text)) {
-            return invalid(PROBLEM_CODE_REFLECTION_HANDLE, "Payload contains reflection handle at " + path + ": " + text);
+            return invalid(
+                    PROBLEM_CODE_REFLECTION_HANDLE, "Payload contains reflection handle at " + path + ": " + text);
         }
         if (containsPathTraversal(text)) {
             return invalid(PROBLEM_CODE_PATH_TRAVERSAL, "Payload contains path traversal at " + path + ": " + text);
@@ -109,9 +109,9 @@ public final class SidecarEnvelopeValidator {
         }
         final String trimmed = text.trim();
         return trimmed.contains("..")
-            || trimmed.startsWith("/")
-            || trimmed.startsWith("\\\\")
-            || trimmed.matches("^[A-Za-z]:\\\\.*");
+                || trimmed.startsWith("/")
+                || trimmed.startsWith("\\\\")
+                || trimmed.matches("^[A-Za-z]:\\\\.*");
     }
 
     private boolean containsAny(final String text, final String... substrings) {

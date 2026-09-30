@@ -9,21 +9,20 @@ final class FloatArrayParseCacheHookContributor extends NativeOptimizationHookCo
         super("TURBOISM_FLOAT_ARRAY_PARSE_CACHE");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!Boolean.getBoolean(FloatArrayParseBridge.ENABLE_PROPERTY)) {
             return noOp();
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedFloatArrayParseCacheInstaller.admitted(
-            host.artifact(),
-            NativeOptimizationPolicy.load(environment.options().home()),
-            true
-        )) {
+                host.artifact(),
+                NativeOptimizationPolicy.load(environment.options().home()),
+                true)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
-        final VerifiedFloatArrayParseCacheInstaller installer =
-            new VerifiedFloatArrayParseCacheInstaller(
+        final VerifiedFloatArrayParseCacheInstaller installer = new VerifiedFloatArrayParseCacheInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
         return installer;

@@ -14,7 +14,7 @@ public final class ConfigRegistrationException extends RuntimeException {
 
     public ConfigRegistrationException(final ConfigRegistrationError error) {
         super("typed config schema registration failed: "
-            + Objects.requireNonNull(error, "error").name());
+                + Objects.requireNonNull(error, "error").name());
         this.error = error;
     }
 

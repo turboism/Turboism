@@ -1,11 +1,10 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.cubism.command.EditorCommandAdapter;
+import dev.turboism.adapter.cubism.command.ResolvedEditorFileCommand;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
-import dev.turboism.adapter.cubism.command.ResolvedEditorFileCommand;
-
 import java.util.Objects;
 import java.util.Set;
 

@@ -1,7 +1,8 @@
 package dev.turboism.preview;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -10,10 +11,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class RetainedPluginGenerationsTest {
 
@@ -21,40 +20,29 @@ class RetainedPluginGenerationsTest {
     Path temporary;
 
     private static final PluginLifecyclePolicy POLICY = new PluginLifecyclePolicy(
-        1,
-        8,
-        Duration.ofSeconds(5),
-        Duration.ofSeconds(2),
-        Duration.ofSeconds(5),
-        Duration.ofMillis(20),
-        Duration.ofMillis(30)
-    );
+            1,
+            8,
+            Duration.ofSeconds(5),
+            Duration.ofSeconds(2),
+            Duration.ofSeconds(5),
+            Duration.ofMillis(20),
+            Duration.ofMillis(30));
 
     @Test
     void retainedGenerationReclaimsOnlyAfterWorkerExits() throws Exception {
         final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
         final PreviewLog log = new PreviewLog(temporary.resolve("logs/t.log"));
-        final RetainedPluginGenerations retention =
-            new RetainedPluginGenerations(lane, POLICY, log);
+        final RetainedPluginGenerations retention = new RetainedPluginGenerations(lane, POLICY, log);
         try {
             final CompletableFuture<Void> worker = new CompletableFuture<>();
             final AtomicBoolean reclaimed = new AtomicBoolean();
-            retention.retain(new RetainedPluginGenerations.RetainedGeneration(
-                "p",
-                worker,
-                null,
-                null,
-                () -> true,
-                () -> {
-                    reclaimed.set(true);
-                    return true;
-                }
-            ));
+            retention.retain(
+                    new RetainedPluginGenerations.RetainedGeneration("p", worker, null, null, () -> true, () -> {
+                        reclaimed.set(true);
+                        return true;
+                    }));
             Thread.sleep(200);
-            assertFalse(
-                reclaimed.get(),
-                "reclaim must not run while the lifecycle worker is still in flight"
-            );
+            assertFalse(reclaimed.get(), "reclaim must not run while the lifecycle worker is still in flight");
             assertEquals(1, retention.retainedCount());
             worker.complete(null);
             awaitTrue(reclaimed::get);
@@ -69,36 +57,24 @@ class RetainedPluginGenerationsTest {
     void retainedGenerationWaitsForAdmittedCallsToDrain() throws Exception {
         final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
         final PreviewLog log = new PreviewLog(temporary.resolve("logs/t2.log"));
-        final RetainedPluginGenerations retention =
-            new RetainedPluginGenerations(lane, POLICY, log);
+        final RetainedPluginGenerations retention = new RetainedPluginGenerations(lane, POLICY, log);
         try {
             final PluginGenerationGuard guard = new PluginGenerationGuard("p");
             final CountDownLatch entered = new CountDownLatch(1);
             final CountDownLatch release = new CountDownLatch(1);
-            final GuardedServiceFixtureHolder service = new GuardedServiceFixtureHolder(
-                entered, release
-            );
+            final GuardedServiceFixtureHolder service = new GuardedServiceFixtureHolder(entered, release);
             final dev.turboism.sdk.plugin.GuardedServiceFixture guarded =
-                guard.wrapForTesting(
-                    service,
-                    dev.turboism.sdk.plugin.GuardedServiceFixture.class
-                );
+                    guard.wrapForTesting(service, dev.turboism.sdk.plugin.GuardedServiceFixture.class);
             final Thread caller = new Thread(() -> guarded.mutate("x"));
             caller.start();
             assertTrue(entered.await(5, TimeUnit.SECONDS));
 
             final AtomicBoolean reclaimed = new AtomicBoolean();
             retention.retain(new RetainedPluginGenerations.RetainedGeneration(
-                "p",
-                CompletableFuture.completedFuture(null),
-                null,
-                guard,
-                () -> true,
-                () -> {
-                    reclaimed.set(true);
-                    return true;
-                }
-            ));
+                    "p", CompletableFuture.completedFuture(null), null, guard, () -> true, () -> {
+                        reclaimed.set(true);
+                        return true;
+                    }));
             Thread.sleep(200);
             assertFalse(reclaimed.get(), "disposal must wait for admitted SDK calls to drain");
             release.countDown();
@@ -114,31 +90,20 @@ class RetainedPluginGenerationsTest {
     void unquiescedEventOwnerBlocksReclaimUntilQuiescence() throws Exception {
         final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
         final PreviewLog log = new PreviewLog(temporary.resolve("logs/t3.log"));
-        final RetainedPluginGenerations retention =
-            new RetainedPluginGenerations(lane, POLICY, log);
+        final RetainedPluginGenerations retention = new RetainedPluginGenerations(lane, POLICY, log);
         final dev.turboism.core.runtime.RuntimeScheduler scheduler = scheduler();
         try {
             final dev.turboism.core.event.RuntimeEventBroker broker =
-                new dev.turboism.core.event.RuntimeEventBroker(scheduler);
-            final dev.turboism.core.event.RuntimeEventBroker.Owner owner =
-                broker.admit("p");
+                    new dev.turboism.core.event.RuntimeEventBroker(scheduler);
+            final dev.turboism.core.event.RuntimeEventBroker.Owner owner = broker.admit("p");
             final AtomicBoolean reclaimed = new AtomicBoolean();
             retention.retain(new RetainedPluginGenerations.RetainedGeneration(
-                "p",
-                CompletableFuture.completedFuture(null),
-                owner,
-                null,
-                () -> true,
-                () -> {
-                    reclaimed.set(true);
-                    return true;
-                }
-            ));
+                    "p", CompletableFuture.completedFuture(null), owner, null, () -> true, () -> {
+                        reclaimed.set(true);
+                        return true;
+                    }));
             Thread.sleep(200);
-            assertFalse(
-                reclaimed.get(),
-                "an owner that never began closing must stay retained"
-            );
+            assertFalse(reclaimed.get(), "an owner that never began closing must stay retained");
             owner.beginClosing();
             awaitTrue(reclaimed::get);
             awaitTrue(() -> retention.retainedCount() == 0);
@@ -153,33 +118,19 @@ class RetainedPluginGenerationsTest {
     void drainBarrierHoldsForGenerationsWithPendingStages() throws Exception {
         final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
         final PreviewLog log = new PreviewLog(temporary.resolve("logs/t5.log"));
-        final RetainedPluginGenerations retention =
-            new RetainedPluginGenerations(lane, POLICY, log);
+        final RetainedPluginGenerations retention = new RetainedPluginGenerations(lane, POLICY, log);
         try {
             // An idle retained generation whose reclaim has unexecuted stages is not
             // inert: nothing is in flight, yet the barrier must still hold.
             final AtomicBoolean dormant = new AtomicBoolean();
             retention.retain(new RetainedPluginGenerations.RetainedGeneration(
-                "pending",
-                CompletableFuture.completedFuture(null),
-                null,
-                null,
-                dormant::get,
-                dormant::get
-            ));
+                    "pending", CompletableFuture.completedFuture(null), null, null, dormant::get, dormant::get));
             retention.retain(new RetainedPluginGenerations.RetainedGeneration(
-                ShellManifest.ID,
-                CompletableFuture.completedFuture(null),
-                null,
-                null,
-                () -> true,
-                () -> true
-            ));
+                    ShellManifest.ID, CompletableFuture.completedFuture(null), null, null, () -> true, () -> true));
             Thread.sleep(200);
             assertFalse(
-                retention.drainedExcept(ShellManifest.ID),
-                "a retained generation with unattempted cleanup stages must hold the barrier"
-            );
+                    retention.drainedExcept(ShellManifest.ID),
+                    "a retained generation with unattempted cleanup stages must hold the barrier");
             // The barrier's own generation is excluded from the drain check.
             assertTrue(retention.drainedExcept("pending"));
             dormant.set(true);
@@ -194,18 +145,16 @@ class RetainedPluginGenerationsTest {
     void failedReclaimIsRetriedAndDrainCallbackFiresOnceEmpty() throws Exception {
         final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
         final PreviewLog log = new PreviewLog(temporary.resolve("logs/t4.log"));
-        final RetainedPluginGenerations retention =
-            new RetainedPluginGenerations(lane, POLICY, log);
+        final RetainedPluginGenerations retention = new RetainedPluginGenerations(lane, POLICY, log);
         try {
             final AtomicInteger attempts = new AtomicInteger();
             retention.retain(new RetainedPluginGenerations.RetainedGeneration(
-                "p",
-                CompletableFuture.completedFuture(null),
-                null,
-                null,
-                () -> true,
-                () -> attempts.incrementAndGet() >= 2
-            ));
+                    "p",
+                    CompletableFuture.completedFuture(null),
+                    null,
+                    null,
+                    () -> true,
+                    () -> attempts.incrementAndGet() >= 2));
             awaitTrue(() -> attempts.get() >= 2);
             awaitTrue(() -> retention.retainedCount() == 0);
 
@@ -218,9 +167,7 @@ class RetainedPluginGenerationsTest {
         }
     }
 
-    private static void awaitTrue(
-        final java.util.function.BooleanSupplier condition
-    ) throws InterruptedException {
+    private static void awaitTrue(final java.util.function.BooleanSupplier condition) throws InterruptedException {
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) {
@@ -232,24 +179,18 @@ class RetainedPluginGenerationsTest {
 
     private static dev.turboism.core.runtime.RuntimeScheduler scheduler() {
         return new dev.turboism.core.runtime.RuntimeScheduler(
-            new dev.turboism.core.runtime.DefaultWorkBudgetPolicy(),
-            new dev.turboism.core.runtime.work.PluginWorkExecutorRegistry(
-                1, 4, ignored -> { }, java.time.Clock.systemUTC()
-            ),
-            dev.turboism.core.runtime.sidecar.SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new dev.turboism.core.runtime.DefaultWorkBudgetPolicy(),
+                new dev.turboism.core.runtime.work.PluginWorkExecutorRegistry(
+                        1, 4, ignored -> {}, java.time.Clock.systemUTC()),
+                dev.turboism.core.runtime.sidecar.SidecarDispatcher.noop(),
+                ignored -> {});
     }
 
-    private static final class GuardedServiceFixtureHolder
-        implements dev.turboism.sdk.plugin.GuardedServiceFixture {
+    private static final class GuardedServiceFixtureHolder implements dev.turboism.sdk.plugin.GuardedServiceFixture {
         private final CountDownLatch entered;
         private final CountDownLatch release;
 
-        private GuardedServiceFixtureHolder(
-            final CountDownLatch entered,
-            final CountDownLatch release
-        ) {
+        private GuardedServiceFixtureHolder(final CountDownLatch entered, final CountDownLatch release) {
             this.entered = entered;
             this.release = release;
         }
@@ -271,7 +212,6 @@ class RetainedPluginGenerationsTest {
         }
 
         @Override
-        public void close() {
-        }
+        public void close() {}
     }
 }

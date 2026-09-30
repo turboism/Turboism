@@ -1,18 +1,23 @@
 package dev.turboism.plugin.uitheme;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceBase;
 import dev.turboism.sdk.appearance.AppearanceRequest;
 import dev.turboism.sdk.appearance.AppearanceRestoreResult;
 import dev.turboism.sdk.appearance.AppearanceService;
+import dev.turboism.sdk.appearance.AppearanceStatus;
 import dev.turboism.sdk.config.ConfigKey;
 import dev.turboism.sdk.config.ConfigReadResult;
 import dev.turboism.sdk.config.ConfigSchema;
 import dev.turboism.sdk.config.ConfigValue;
 import dev.turboism.sdk.config.ConfigValueSource;
 import dev.turboism.sdk.config.ConfigWriteResult;
-import dev.turboism.sdk.appearance.AppearanceStatus;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
@@ -50,7 +55,15 @@ import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageReadResult;
 import dev.turboism.sdk.storage.StorageWriteResult;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
+import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
+import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.FileChooserRequest;
+import dev.turboism.sdk.ui.OverlayContribution;
+import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UserFileHandle;
 import dev.turboism.sdk.ui.UserFileReadResult;
@@ -58,54 +71,38 @@ import dev.turboism.sdk.ui.UserFileRequest;
 import dev.turboism.sdk.ui.UserFileRequestResult;
 import dev.turboism.sdk.ui.UserFileRequestStatus;
 import dev.turboism.sdk.ui.UserFileWriteResult;
-import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
-import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class UiThemePluginTest {
 
     @Test
     void localizedThemeNoticeRequiresCubismEditorRestartAfterSwitchingTheme() throws Exception {
         final Map<String, String> expected = Map.of(
-            "messages.properties", "Restart Cubism Editor after switching themes.",
-            "messages_en.properties", "Restart Cubism Editor after switching themes.",
-            "messages_zh_Hans.properties", "切换主题后请重新启动 Cubism Editor。",
-            "messages_zh_Hant.properties", "切換主題後請重新啟動 Cubism Editor。",
-            "messages_ja.properties", "テーマを切り替えた後は Cubism Editor を再起動してください。",
-            "messages_ko.properties", "테마를 전환한 뒤 Cubism Editor를 다시 시작하세요."
-        );
+                "messages.properties", "Restart Cubism Editor after switching themes.",
+                "messages_en.properties", "Restart Cubism Editor after switching themes.",
+                "messages_zh_Hans.properties", "切换主题后请重新启动 Cubism Editor。",
+                "messages_zh_Hant.properties", "切換主題後請重新啟動 Cubism Editor。",
+                "messages_ja.properties", "テーマを切り替えた後は Cubism Editor を再起動してください。",
+                "messages_ko.properties", "테마를 전환한 뒤 Cubism Editor를 다시 시작하세요.");
 
         for (Map.Entry<String, String> entry : expected.entrySet()) {
             final String resource = "/META-INF/turboism/i18n/" + entry.getKey();
             final Properties properties = new Properties();
             try (java.io.Reader reader = new java.io.InputStreamReader(
-                java.util.Objects.requireNonNull(getClass().getResourceAsStream(resource), resource),
-                java.nio.charset.StandardCharsets.UTF_8
-            )) {
+                    java.util.Objects.requireNonNull(getClass().getResourceAsStream(resource), resource),
+                    java.nio.charset.StandardCharsets.UTF_8)) {
                 properties.load(reader);
             }
             final String notice = properties.getProperty("theme.notice");
@@ -137,21 +134,15 @@ class UiThemePluginTest {
 
         assertTrue(context.contextMenus().contributions().isEmpty());
         assertEquals(
-            List.of(
-                "ui-theme.package.status.check",
-                "ui-theme.manager.open",
-                "ui-theme.appearance.apply-builtin"
-            ),
-            context.actions().actions().stream()
-                .map(ActionRegistry.Action::id)
-                .toList()
-        );
+                List.of("ui-theme.package.status.check", "ui-theme.manager.open", "ui-theme.appearance.apply-builtin"),
+                context.actions().actions().stream()
+                        .map(ActionRegistry.Action::id)
+                        .toList());
         assertEquals(
-            List.of("Turboism/menu.themeManager"),
-            context.menus().contributions().stream()
-                .map(MenuRegistry.MenuContribution::menuPath)
-                .toList()
-        );
+                List.of("Turboism/menu.themeManager"),
+                context.menus().contributions().stream()
+                        .map(MenuRegistry.MenuContribution::menuPath)
+                        .toList());
     }
 
     @Test
@@ -177,13 +168,9 @@ class UiThemePluginTest {
         context.actions().execute("ui-theme.package.status.check");
 
         assertEquals(
-            List.of(new StatusNotification(
-                "ui-theme.package.status.available",
-                "INFO",
-                "Theme package available: Aurora (aurora)"
-            )),
-            context.uiHost().notifications()
-        );
+                List.of(new StatusNotification(
+                        "ui-theme.package.status.available", "INFO", "Theme package available: Aurora (aurora)")),
+                context.uiHost().notifications());
     }
 
     @Test
@@ -198,26 +185,19 @@ class UiThemePluginTest {
         dev.turboism.sdk.ui.ChoiceDialogRequest request = context.uiHost().lastChoiceRequest();
         assertNotNull(request);
         assertTrue(request.actions().stream()
-            .map(dev.turboism.sdk.ui.ChoiceDialogAction::id)
-            .anyMatch("import"::equals));
+                .map(dev.turboism.sdk.ui.ChoiceDialogAction::id)
+                .anyMatch("import"::equals));
         context.uiHost().lastChoiceListener().onResult(request.options().get(0).id(), "import");
 
-        final List<StatusNotification> notifications =
-            awaitNotifications(context.uiHost(), 5);
+        final List<StatusNotification> notifications = awaitNotifications(context.uiHost(), 5);
         assertEquals(
-            List.of(new StatusNotification(
-                "ui-theme.package.import.canceled",
-                "INFO",
-                "theme.package.importCanceled"
-            )),
-            notifications
-        );
+                List.of(new StatusNotification(
+                        "ui-theme.package.import.canceled", "INFO", "theme.package.importCanceled")),
+                notifications);
     }
 
-    private static List<StatusNotification> awaitNotifications(
-        final RecordingUiHost host,
-        final int seconds
-    ) throws Exception {
+    private static List<StatusNotification> awaitNotifications(final RecordingUiHost host, final int seconds)
+            throws Exception {
         final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
         while (System.nanoTime() < deadline) {
             if (!host.notifications().isEmpty()) {
@@ -228,10 +208,8 @@ class UiThemePluginTest {
         return host.notifications();
     }
 
-    private static dev.turboism.sdk.ui.FormDialogRequest awaitFormRequest(
-        final RecordingUiHost host,
-        final int seconds
-    ) throws Exception {
+    private static dev.turboism.sdk.ui.FormDialogRequest awaitFormRequest(final RecordingUiHost host, final int seconds)
+            throws Exception {
         final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
         while (System.nanoTime() < deadline) {
             if (host.lastFormRequest() != null) {
@@ -256,13 +234,14 @@ class UiThemePluginTest {
         // Accepting the dialog reports the selected option with a blank (not null) action id.
         // The first option is the native entry; apply a real theme option instead.
         final String themeId = request.options().stream()
-            .filter(option -> !"__native__".equals(option.id()))
-            .findFirst()
-            .orElseThrow().id();
+                .filter(option -> !"__native__".equals(option.id()))
+                .findFirst()
+                .orElseThrow()
+                .id();
         context.uiHost().lastChoiceListener().onResult(themeId, "");
 
         final dev.turboism.sdk.appearance.AppearanceRequest applied =
-            awaitAppearanceRequest(context.appearanceService(), 5);
+                awaitAppearanceRequest(context.appearanceService(), 5);
         assertNotNull(applied);
         assertEquals(themeId, applied.appearanceId());
     }
@@ -284,18 +263,13 @@ class UiThemePluginTest {
         context.uiHost().lastChoiceListener().onResult("__native__", "");
 
         final dev.turboism.sdk.appearance.AppearanceRestoreResult restored =
-            awaitAppearanceRestore(context.appearanceService(), 5);
+                awaitAppearanceRestore(context.appearanceService(), 5);
         assertNotNull(restored);
-        assertEquals(
-            dev.turboism.sdk.appearance.AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE,
-            restored.outcome()
-        );
+        assertEquals(dev.turboism.sdk.appearance.AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE, restored.outcome());
     }
 
     private static dev.turboism.sdk.appearance.AppearanceRestoreResult awaitAppearanceRestore(
-        final RecordingAppearanceService service,
-        final int seconds
-    ) throws Exception {
+            final RecordingAppearanceService service, final int seconds) throws Exception {
         final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
         while (System.nanoTime() < deadline) {
             if (service.lastRestore() != null) {
@@ -307,9 +281,7 @@ class UiThemePluginTest {
     }
 
     private static dev.turboism.sdk.appearance.AppearanceRequest awaitAppearanceRequest(
-        final RecordingAppearanceService service,
-        final int seconds
-    ) throws Exception {
+            final RecordingAppearanceService service, final int seconds) throws Exception {
         final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
         while (System.nanoTime() < deadline) {
             if (service.lastRequest() != null) {
@@ -335,10 +307,11 @@ class UiThemePluginTest {
         assertEquals("#88C0D0", request.palette().accent());
         assertEquals("#242933", request.palette().viewportBackground());
         assertEquals(
-            "ui-theme.appearance.apply.unavailable",
-            context.uiHost().notifications().get(0).id()
-        );
-        assertEquals("Theme apply failed: {0}", context.uiHost().notifications().get(0).message());
+                "ui-theme.appearance.apply.unavailable",
+                context.uiHost().notifications().get(0).id());
+        assertEquals(
+                "Theme apply failed: {0}",
+                context.uiHost().notifications().get(0).message());
     }
 
     @Test
@@ -353,29 +326,28 @@ class UiThemePluginTest {
 
         final ChoiceDialogRequest request = context.uiHost().lastChoiceRequest();
         final String themeId = request.options().stream()
-            .filter(option -> !"__native__".equals(option.id()))
-            .findFirst()
-            .orElseThrow()
-            .id();
+                .filter(option -> !"__native__".equals(option.id()))
+                .findFirst()
+                .orElseThrow()
+                .id();
         context.uiHost().lastChoiceListener().onResult(themeId, "");
 
         final List<StatusNotification> notifications = awaitNotifications(context.uiHost(), 5);
         assertEquals("ui-theme.selection.selected", notifications.get(0).id());
         assertEquals("INFO", notifications.get(0).severity());
         assertEquals(
-            "Theme applied: " + request.options().stream()
-                .filter(option -> option.id().equals(themeId))
-                .findFirst()
-                .orElseThrow()
-                .label()
-                + ". Restart Cubism Editor to ensure the theme is applied correctly.",
-            notifications.get(0).message()
-        );
+                "Theme applied: "
+                        + request.options().stream()
+                                .filter(option -> option.id().equals(themeId))
+                                .findFirst()
+                                .orElseThrow()
+                                .label()
+                        + ". Restart Cubism Editor to ensure the theme is applied correctly.",
+                notifications.get(0).message());
     }
 
     @Test
-    void builtinAppearanceActionReportsThatCubismEditorMustRestartAfterSuccessfulThemeApply()
-        throws Exception {
+    void builtinAppearanceActionReportsThatCubismEditorMustRestartAfterSuccessfulThemeApply() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
         context.appearanceService().applyOutcome(AppearanceApplyResult.Outcome.NO_CHANGE);
         UiThemePlugin plugin = new UiThemePlugin();
@@ -385,13 +357,11 @@ class UiThemePluginTest {
         context.actions().execute("ui-theme.appearance.apply-builtin");
 
         assertEquals(
-            List.of(new StatusNotification(
-                "ui-theme.appearance.apply.no_change",
-                "INFO",
-                "Theme applied: Nord. Restart Cubism Editor to ensure the theme is applied correctly."
-            )),
-            context.uiHost().notifications()
-        );
+                List.of(new StatusNotification(
+                        "ui-theme.appearance.apply.no_change",
+                        "INFO",
+                        "Theme applied: Nord. Restart Cubism Editor to ensure the theme is applied correctly.")),
+                context.uiHost().notifications());
     }
 
     @Test
@@ -405,10 +375,10 @@ class UiThemePluginTest {
         context.actions().execute("ui-theme.manager.open");
         final ChoiceDialogRequest manager = context.uiHost().lastChoiceRequest();
         final String themeId = manager.options().stream()
-            .filter(option -> !"__native__".equals(option.id()))
-            .findFirst()
-            .orElseThrow()
-            .id();
+                .filter(option -> !"__native__".equals(option.id()))
+                .findFirst()
+                .orElseThrow()
+                .id();
         context.uiHost().lastChoiceListener().onResult(themeId, "edit-theme");
 
         final dev.turboism.sdk.ui.FormDialogRequest request = awaitFormRequest(context.uiHost(), 5);
@@ -418,14 +388,11 @@ class UiThemePluginTest {
         final List<StatusNotification> notifications = awaitNotifications(context.uiHost(), 5);
         assertEquals("ui-theme.editor.saved-applied", notifications.get(0).id());
         assertEquals(
-            "Theme applied: Fresh Theme. Restart Cubism Editor to ensure the theme is applied correctly.",
-            notifications.get(0).message()
-        );
+                "Theme applied: Fresh Theme. Restart Cubism Editor to ensure the theme is applied correctly.",
+                notifications.get(0).message());
     }
 
-    private static Map<String, String> editorValues(
-        final dev.turboism.sdk.ui.FormDialogRequest request
-    ) {
+    private static Map<String, String> editorValues(final dev.turboism.sdk.ui.FormDialogRequest request) {
         final Map<String, String> values = new java.util.LinkedHashMap<>();
         request.fields().forEach(field -> values.put(field.id(), field.value()));
         values.put("slug", "fresh-theme");
@@ -436,9 +403,7 @@ class UiThemePluginTest {
 
     @Test
     void statusActionAllows_whenStatusNotifyPermissionGranted() throws Exception {
-        RecordingPluginContext context = new RecordingPluginContext(
-            new PermissionGatedUiHost(true)
-        );
+        RecordingPluginContext context = new RecordingPluginContext(new PermissionGatedUiHost(true));
         UiThemePlugin plugin = new UiThemePlugin();
 
         plugin.init(context);
@@ -450,18 +415,14 @@ class UiThemePluginTest {
 
     @Test
     void statusActionDenies_whenStatusNotifyPermissionMissing() throws Exception {
-        RecordingPluginContext context = new RecordingPluginContext(
-            new PermissionGatedUiHost(false)
-        );
+        RecordingPluginContext context = new RecordingPluginContext(new PermissionGatedUiHost(false));
         UiThemePlugin plugin = new UiThemePlugin();
 
         plugin.init(context);
         plugin.enable();
 
         CubismPermissionException denied = assertThrows(
-            CubismPermissionException.class,
-            () -> context.actions().execute("ui-theme.package.status.check")
-        );
+                CubismPermissionException.class, () -> context.actions().execute("ui-theme.package.status.check"));
         assertTrue(denied.getMessage().contains(PermissionIds.TURBOISM_UI_STATUS_NOTIFY));
         assertEquals(List.of(), context.uiHost().notifications());
     }
@@ -503,22 +464,34 @@ class UiThemePluginTest {
         @Override
         public dev.turboism.sdk.i18n.PluginLocalization localization() {
             return new dev.turboism.sdk.i18n.PluginLocalization() {
-                @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
-                @Override public String text(final String key) {
+                @Override
+                public java.util.Locale locale() {
+                    return java.util.Locale.ENGLISH;
+                }
+
+                @Override
+                public String text(final String key) {
                     return switch (key) {
                         case "theme.selection.failed" -> "Theme apply failed: {0}";
                         default -> key;
                     };
                 }
-                @Override public String format(final String key, final Object... arguments) {
+
+                @Override
+                public String format(final String key, final Object... arguments) {
                     return switch (key) {
-                        case "theme.selection.applied" -> "Theme applied: " + arguments[0]
-                            + ". Restart Cubism Editor to ensure the theme is applied correctly.";
+                        case "theme.selection.applied" ->
+                            "Theme applied: " + arguments[0]
+                                    + ". Restart Cubism Editor to ensure the theme is applied correctly.";
                         case "theme.selection.failed" -> "Theme apply failed: {0}";
                         default -> key;
                     };
                 }
-                @Override public boolean contains(final String key) { return true; }
+
+                @Override
+                public boolean contains(final String key) {
+                    return true;
+                }
             };
         }
 
@@ -622,12 +595,11 @@ class UiThemePluginTest {
 
         void execute(String id) {
             actions.stream()
-                .filter(action -> action.id().equals(id))
-                .findFirst()
-                .orElseThrow()
-                .handler()
-                .accept(new ActionContext() {
-                });
+                    .filter(action -> action.id().equals(id))
+                    .findFirst()
+                    .orElseThrow()
+                    .handler()
+                    .accept(new ActionContext() {});
         }
     }
 
@@ -648,35 +620,118 @@ class UiThemePluginTest {
     private static final class DefaultPluginConfigRegistry implements PluginConfigRegistry {
         private ConfigSchema schema;
 
-        @Override public CompletionStage<Void> registerSchema(ConfigSchema schema, List<dev.turboism.sdk.config.ConfigMigration> migrations) {
+        @Override
+        public CompletionStage<Void> registerSchema(
+                ConfigSchema schema, List<dev.turboism.sdk.config.ConfigMigration> migrations) {
             this.schema = schema;
             return CompletableFuture.completedFuture(null);
         }
-        @Override public <T> CompletionStage<ConfigReadResult<T>> read(ConfigKey<T> key) { return CompletableFuture.completedFuture(new ConfigReadResult<>(new ConfigValue<>(key.defaultValue(), ConfigValueSource.DEFAULT_MISSING, 0), Optional.empty())); }
-        @Override public <T> CompletionStage<ConfigWriteResult> write(ConfigKey<T> key, T value, long expectedRevision) { return CompletableFuture.completedFuture(new ConfigWriteResult(true, expectedRevision + 1, Optional.empty())); }
-        @Override public Registration readScope(String relativePath) { return () -> { }; }
-        @Override public Registration writeScope(String relativePath) { return () -> { }; }
-        @Override public Optional<String> readString(String relativePath, String key) { return Optional.empty(); }
-        @Override public void writeString(String relativePath, String key, String value) { }
+
+        @Override
+        public <T> CompletionStage<ConfigReadResult<T>> read(ConfigKey<T> key) {
+            return CompletableFuture.completedFuture(new ConfigReadResult<>(
+                    new ConfigValue<>(key.defaultValue(), ConfigValueSource.DEFAULT_MISSING, 0), Optional.empty()));
+        }
+
+        @Override
+        public <T> CompletionStage<ConfigWriteResult> write(ConfigKey<T> key, T value, long expectedRevision) {
+            return CompletableFuture.completedFuture(
+                    new ConfigWriteResult(true, expectedRevision + 1, Optional.empty()));
+        }
+
+        @Override
+        public Registration readScope(String relativePath) {
+            return () -> {};
+        }
+
+        @Override
+        public Registration writeScope(String relativePath) {
+            return () -> {};
+        }
+
+        @Override
+        public Optional<String> readString(String relativePath, String key) {
+            return Optional.empty();
+        }
+
+        @Override
+        public void writeString(String relativePath, String key, String value) {}
     }
 
     private static final class EmptyPluginStorage implements PluginStorage {
-        @Override public CompletionStage<StorageReadResult<String>> readUtf8(StoragePath path, int maxBytes) { throw new UnsupportedOperationException(); }
-        @Override public CompletionStage<StorageReadResult<byte[]>> readBytes(StoragePath path, int maxBytes) { return CompletableFuture.completedFuture(new StorageReadResult<>(Optional.empty(), Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path)), false)); }
-        @Override public CompletionStage<StorageWriteResult> writeUtf8Atomic(StoragePath path, String content) { throw new UnsupportedOperationException(); }
-        @Override public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) { return CompletableFuture.completedFuture(new StorageWriteResult(true, Optional.empty())); }
-        @Override public CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries) { return CompletableFuture.completedFuture(new StorageListResult(List.of(), Optional.empty(), false)); }
-        @Override public CompletionStage<StorageMutationResult> copy(StoragePath source, StoragePath target, boolean replaceExisting) { throw new UnsupportedOperationException(); }
-        @Override public CompletionStage<StorageMutationResult> moveAtomic(StoragePath source, StoragePath target, boolean replaceExisting) { throw new UnsupportedOperationException(); }
-        @Override public CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive) { return CompletableFuture.completedFuture(new StorageMutationResult(false, Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path)))); }
+        @Override
+        public CompletionStage<StorageReadResult<String>> readUtf8(StoragePath path, int maxBytes) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletionStage<StorageReadResult<byte[]>> readBytes(StoragePath path, int maxBytes) {
+            return CompletableFuture.completedFuture(new StorageReadResult<>(
+                    Optional.empty(),
+                    Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path)),
+                    false));
+        }
+
+        @Override
+        public CompletionStage<StorageWriteResult> writeUtf8Atomic(StoragePath path, String content) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) {
+            return CompletableFuture.completedFuture(new StorageWriteResult(true, Optional.empty()));
+        }
+
+        @Override
+        public CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries) {
+            return CompletableFuture.completedFuture(new StorageListResult(List.of(), Optional.empty(), false));
+        }
+
+        @Override
+        public CompletionStage<StorageMutationResult> copy(
+                StoragePath source, StoragePath target, boolean replaceExisting) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletionStage<StorageMutationResult> moveAtomic(
+                StoragePath source, StoragePath target, boolean replaceExisting) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive) {
+            return CompletableFuture.completedFuture(new StorageMutationResult(
+                    false, Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path))));
+        }
     }
 
     private static final class CanceledUserFiles implements UserFileAccessService {
-        @Override public CompletionStage<UserFileRequestResult> request(UserFileRequest request) { return CompletableFuture.completedFuture(new UserFileRequestResult(UserFileRequestStatus.CANCELED, Optional.empty(), Optional.empty())); }
-        @Override public CompletionStage<UserFileReadResult<String>> readUtf8(UserFileHandle handle, int maxBytes) { throw new UnsupportedOperationException(); }
-        @Override public CompletionStage<UserFileReadResult<byte[]>> readBytes(UserFileHandle handle, int maxBytes) { throw new UnsupportedOperationException(); }
-        @Override public CompletionStage<UserFileWriteResult> writeUtf8Atomic(UserFileHandle handle, String content) { throw new UnsupportedOperationException(); }
-        @Override public CompletionStage<UserFileWriteResult> writeBytesAtomic(UserFileHandle handle, byte[] content) { throw new UnsupportedOperationException(); }
+        @Override
+        public CompletionStage<UserFileRequestResult> request(UserFileRequest request) {
+            return CompletableFuture.completedFuture(
+                    new UserFileRequestResult(UserFileRequestStatus.CANCELED, Optional.empty(), Optional.empty()));
+        }
+
+        @Override
+        public CompletionStage<UserFileReadResult<String>> readUtf8(UserFileHandle handle, int maxBytes) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletionStage<UserFileReadResult<byte[]>> readBytes(UserFileHandle handle, int maxBytes) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletionStage<UserFileWriteResult> writeUtf8Atomic(UserFileHandle handle, String content) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletionStage<UserFileWriteResult> writeBytesAtomic(UserFileHandle handle, byte[] content) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class RecordingContextMenuRegistry implements ContextMenuRegistry {
@@ -720,9 +775,7 @@ class UiThemePluginTest {
 
         @Override
         public void openChoiceDialog(
-            final ChoiceDialogRequest request,
-            final dev.turboism.sdk.ui.ChoiceDialogResultListener listener
-        ) {
+                final ChoiceDialogRequest request, final dev.turboism.sdk.ui.ChoiceDialogResultListener listener) {
             this.lastChoiceRequest = request;
             this.lastChoiceListener = listener;
         }
@@ -760,6 +813,7 @@ class UiThemePluginTest {
         public Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution) {
             throw new UnsupportedOperationException("bounding-box overlay buttons are not used by this plugin test");
         }
+
         @Override
         public ContextSourceSnapshot contextSource() {
             throw new UnsupportedOperationException("context source is not used by this plugin test");
@@ -789,9 +843,8 @@ class UiThemePluginTest {
 
         @Override
         public void openFormDialog(
-            final dev.turboism.sdk.ui.FormDialogRequest request,
-            final dev.turboism.sdk.ui.FormDialogResultListener listener
-        ) {
+                final dev.turboism.sdk.ui.FormDialogRequest request,
+                final dev.turboism.sdk.ui.FormDialogResultListener listener) {
             this.lastFormRequest = request;
             this.lastFormListener = listener;
         }
@@ -833,9 +886,8 @@ class UiThemePluginTest {
         @Override
         public Registration notifyStatus(StatusNotification notification) {
             if (!allowStatusNotify) {
-                throw new CubismPermissionException(
-                    "Missing required permission " + PermissionIds.TURBOISM_UI_STATUS_NOTIFY + " for ui.status.notify"
-                );
+                throw new CubismPermissionException("Missing required permission "
+                        + PermissionIds.TURBOISM_UI_STATUS_NOTIFY + " for ui.status.notify");
             }
             return super.notifyStatus(notification);
         }
@@ -846,13 +898,12 @@ class UiThemePluginTest {
         private AppearanceRestoreResult lastRestore;
         private AppearanceApplyResult.Outcome applyOutcome = AppearanceApplyResult.Outcome.UNAVAILABLE;
         private final AppearanceStatus status = new AppearanceStatus(
-            AppearanceStatus.Availability.UNAVAILABLE,
-            AppearanceStatus.Source.NATIVE,
-            Optional.empty(),
-            AppearanceBase.NATIVE,
-            0,
-            Optional.of("appearance.unavailable")
-        );
+                AppearanceStatus.Availability.UNAVAILABLE,
+                AppearanceStatus.Source.NATIVE,
+                Optional.empty(),
+                AppearanceBase.NATIVE,
+                0,
+                Optional.of("appearance.unavailable"));
 
         AppearanceRequest lastRequest() {
             return lastRequest;
@@ -872,28 +923,20 @@ class UiThemePluginTest {
         }
 
         @Override
-        public java.util.concurrent.CompletionStage<AppearanceApplyResult> apply(
-            final AppearanceRequest request
-        ) {
+        public java.util.concurrent.CompletionStage<AppearanceApplyResult> apply(final AppearanceRequest request) {
             lastRequest = request;
-            return java.util.concurrent.CompletableFuture.completedFuture(
-                new AppearanceApplyResult(
+            return java.util.concurrent.CompletableFuture.completedFuture(new AppearanceApplyResult(
                     applyOutcome,
                     status,
                     applyOutcome == AppearanceApplyResult.Outcome.UNAVAILABLE
-                        ? Optional.of("appearance.unavailable")
-                        : Optional.empty()
-                )
-            );
+                            ? Optional.of("appearance.unavailable")
+                            : Optional.empty()));
         }
 
         @Override
         public java.util.concurrent.CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance() {
             final AppearanceRestoreResult result = new AppearanceRestoreResult(
-                AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE,
-                status,
-                Optional.empty()
-            );
+                    AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE, status, Optional.empty());
             lastRestore = result;
             return java.util.concurrent.CompletableFuture.completedFuture(result);
         }
@@ -977,23 +1020,18 @@ class UiThemePluginTest {
 
     private static final class NoopPluginLogger implements PluginLogger {
         @Override
-        public void debug(String message) {
-        }
+        public void debug(String message) {}
 
         @Override
-        public void info(String message) {
-        }
+        public void info(String message) {}
 
         @Override
-        public void warn(String message) {
-        }
+        public void warn(String message) {}
 
         @Override
-        public void error(String message) {
-        }
+        public void error(String message) {}
 
         @Override
-        public void error(String message, Throwable throwable) {
-        }
+        public void error(String message, Throwable throwable) {}
     }
 }

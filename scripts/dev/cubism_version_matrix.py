@@ -425,7 +425,7 @@ def editor_requirements(constants: dict) -> dict[str, frozenset]:
         return constants[cls][field]
 
     for match in re.finditer(
-        r"add\(result,\s*([^,]+),\s*([^)]+)\)", source
+        r"add\(\s*result,\s*([^,]+),\s*([^)]+)\)", source
     ):
         cap = resolve(match.group(1))
         aliases = resolve(match.group(2))
@@ -888,7 +888,11 @@ def derive_pack(
         record_bytes = json.dumps(record, indent=2).encode() + b"\n"
         metadata = dict(
             source_pack["metadata"],
-            inventoryRef=record["evidencePath"],
+            inventoryRef=(
+                f"compatibility/cubism/core-api/observed/cubism-core-{version}.json"
+                if family == "core-model-read"
+                else record["evidencePath"]
+            ),
             artifactName=record["artifact"]["name"],
             artifactSize=record["artifact"]["size"],
             artifactSha256=sha,
@@ -1477,8 +1481,6 @@ def wire_bounding_box(versions: list[str]) -> None:
     for key in ("bb-sha", "bb-cases", "bb-admission", "bb-vid"):
         text = _strip_marked(text, key)
     # RECORD_SHA_<T> consts
-    anchor = re.search(r'    private static final String RECORD_SHA_\w+ = "[^"]+";\n', text)
-    first_sha = anchor.start()
     last_sha = None
     for m in re.finditer(r'    private static final String RECORD_SHA_\w+ = "\$\{record:[^}]+:sha256\}";\n', text):
         last_sha = m.end()

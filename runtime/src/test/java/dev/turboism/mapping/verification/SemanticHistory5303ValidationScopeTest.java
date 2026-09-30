@@ -1,68 +1,55 @@
 package dev.turboism.mapping.verification;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
-import org.junit.jupiter.api.Test;
-
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class SemanticHistory5303ValidationScopeTest {
 
     @Test
     void exact5303ValidationCandidateRequiresTheCompoundRunnerIdentity() {
         assertTrue(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
-            "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE",
-            "semantic-history-5303",
-            "semantic-history-5303-r1"
-        ));
+                "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE", "semantic-history-5303", "semantic-history-5303-r1"));
         assertFalse(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
-            null, "semantic-history-5303", "semantic-history-5303-r1"
-        ));
+                null, "semantic-history-5303", "semantic-history-5303-r1"));
         assertFalse(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
-            "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE", "edit-level-write-5303", "semantic-history-5303-r1"
-        ));
+                "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE", "edit-level-write-5303", "semantic-history-5303-r1"));
         assertFalse(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
-            "EXACT_5303_EDIT_LEVEL_WRITE_CANDIDATE", "semantic-history-5303", "semantic-history-5303-r1"
-        ));
+                "EXACT_5303_EDIT_LEVEL_WRITE_CANDIDATE", "semantic-history-5303", "semantic-history-5303-r1"));
         assertFalse(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
-            "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE", "semantic-history-5303", ""
-        ));
+                "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE", "semantic-history-5303", ""));
         assertFalse(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
-            "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE", "semantic-history-5303", null
-        ));
+                "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE", "semantic-history-5303", null));
     }
 
     @Test
     void validationScopeAdmitsEveryHistoryReadFamilyButNoWriteCapability() {
         final PinnedVerifiedResolverWorkflow.RuntimeScope scope =
-            EditorModelVerificationManifest.cubism5303SemanticHistoryValidationScope();
+                EditorModelVerificationManifest.cubism5303SemanticHistoryValidationScope();
 
-        assertTrue(scope.capabilityIds().containsAll(List.of(
-            EditorHistoryReadSelectorContract.CAPABILITY_ID,
-            EditorHistorySemanticSelectorContract.CAPABILITY_ID,
-            EditorHistoryMoveSelectorContract.CAPABILITY_ID
-        )));
-        assertFalse(scope.capabilityIds().contains(
-            EditorParameterValueWriteSelectorContract.CAPABILITY_ID
-        ));
+        assertTrue(scope.capabilityIds()
+                .containsAll(List.of(
+                        EditorHistoryReadSelectorContract.CAPABILITY_ID,
+                        EditorHistorySemanticSelectorContract.CAPABILITY_ID,
+                        EditorHistoryMoveSelectorContract.CAPABILITY_ID)));
+        assertFalse(scope.capabilityIds().contains(EditorParameterValueWriteSelectorContract.CAPABILITY_ID));
 
         final Set<String> expected = semanticAliases();
         expected.addAll(EditorHistoryReadSelectorContract.REQUIRED_ALIASES);
         expected.addAll(EditorHistoryMoveSelectorContract.REQUIRED_ALIASES);
         expected.addAll(EditorHistoryIngressSelectorContract.REQUIRED_ALIASES);
         assertTrue(
-            scope.requiredAliases().containsAll(expected),
-            () -> "5.3.03 semantic-history candidate missing "
-                + missing(scope.requiredAliases(), expected)
-        );
+                scope.requiredAliases().containsAll(expected),
+                () -> "5.3.03 semantic-history candidate missing " + missing(scope.requiredAliases(), expected));
     }
 
     private static Set<String> semanticAliases() {

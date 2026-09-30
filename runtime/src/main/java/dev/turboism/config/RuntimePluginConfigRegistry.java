@@ -1,16 +1,15 @@
 package dev.turboism.config;
 
 import dev.turboism.core.diagnostics.StartupReport;
+import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureDomain;
 import dev.turboism.failure.RuntimeFailureSink;
-import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
@@ -73,121 +72,77 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
     private final Set<String> writeScopes = ConcurrentHashMap.newKeySet();
 
     public RuntimePluginConfigRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final Path pluginDataDir,
-        final String pluginId
-    ) {
-        this(
-            permissionChecker,
-            scheduler,
-            pluginDataDir,
-            pluginId,
-            ignored -> { },
-            RuntimeFailureSink.noop()
-        );
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler,
+            final Path pluginDataDir,
+            final String pluginId) {
+        this(permissionChecker, scheduler, pluginDataDir, pluginId, ignored -> {}, RuntimeFailureSink.noop());
     }
 
     public RuntimePluginConfigRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final Path pluginDataDir,
-        final String pluginId,
-        final Consumer<StartupReport.DiagnosticProblem> diagnosticSink
-    ) {
-        this(
-            permissionChecker,
-            scheduler,
-            pluginDataDir,
-            pluginId,
-            diagnosticSink,
-            RuntimeFailureSink.noop()
-        );
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler,
+            final Path pluginDataDir,
+            final String pluginId,
+            final Consumer<StartupReport.DiagnosticProblem> diagnosticSink) {
+        this(permissionChecker, scheduler, pluginDataDir, pluginId, diagnosticSink, RuntimeFailureSink.noop());
     }
 
     public RuntimePluginConfigRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final Path pluginDataDir,
-        final String pluginId,
-        final Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
-        final RuntimeFailureSink failureSink
-    ) {
-        this(
-            permissionChecker,
-            scheduler,
-            pluginDataDir,
-            pluginId,
-            diagnosticSink,
-            failureSink,
-            null,
-            () -> { }
-        );
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler,
+            final Path pluginDataDir,
+            final String pluginId,
+            final Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
+            final RuntimeFailureSink failureSink) {
+        this(permissionChecker, scheduler, pluginDataDir, pluginId, diagnosticSink, failureSink, null, () -> {});
     }
 
     RuntimePluginConfigRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final Path pluginDataDir,
-        final String pluginId,
-        final Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
-        final RuntimeFailureSink failureSink,
-        final ExecutorService io
-    ) {
-        this(
-            permissionChecker,
-            scheduler,
-            pluginDataDir,
-            pluginId,
-            diagnosticSink,
-            failureSink,
-            io,
-            () -> { }
-        );
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler,
+            final Path pluginDataDir,
+            final String pluginId,
+            final Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
+            final RuntimeFailureSink failureSink,
+            final ExecutorService io) {
+        this(permissionChecker, scheduler, pluginDataDir, pluginId, diagnosticSink, failureSink, io, () -> {});
     }
 
     RuntimePluginConfigRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final Path pluginDataDir,
-        final String pluginId,
-        final Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
-        final RuntimeFailureSink failureSink,
-        final ExecutorService io,
-        final Runnable beforePublication
-    ) {
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler,
+            final Path pluginDataDir,
+            final String pluginId,
+            final Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
+            final RuntimeFailureSink failureSink,
+            final ExecutorService io,
+            final Runnable beforePublication) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         Objects.requireNonNull(scheduler, "scheduler");
         this.pluginDataDir = Objects.requireNonNull(pluginDataDir, "pluginDataDir")
-            .toAbsolutePath()
-            .normalize();
+                .toAbsolutePath()
+                .normalize();
         this.pluginId = requireText(pluginId, "pluginId");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.failureSink = RuntimeFailureSink.require(failureSink);
         this.io = io == null ? newIoExecutor(this.pluginId) : io;
-        this.beforePublication = Objects.requireNonNull(
-            beforePublication,
-            "beforePublication"
-        );
+        this.beforePublication = Objects.requireNonNull(beforePublication, "beforePublication");
     }
 
     private static ThreadPoolExecutor newIoExecutor(final String pluginId) {
         return new ThreadPoolExecutor(
-            1,
-            1,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new LinkedBlockingQueue<>(64),
-            runnable -> {
-                final Thread thread = new Thread(
-                    runnable,
-                    "turboism-legacy-config-" + pluginId
-                );
-                thread.setDaemon(true);
-                return thread;
-            },
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(64),
+                runnable -> {
+                    final Thread thread = new Thread(runnable, "turboism-legacy-config-" + pluginId);
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
     @Override
@@ -240,7 +195,8 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
     }
 
     @Override
-    public void writeString(final String relativePath, final String key, final String value) throws PluginConfigException {
+    public void writeString(final String relativePath, final String key, final String value)
+            throws PluginConfigException {
         permissionChecker.check(PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE, "config.writeString");
         requireOpen();
         final String scope = scopeKey(relativePath);
@@ -260,10 +216,8 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         }
     }
 
-    private PluginConfigException awaitWrite(
-        final String scope,
-        final Future<PluginConfigException> result
-    ) throws PluginConfigException {
+    private PluginConfigException awaitWrite(final String scope, final Future<PluginConfigException> result)
+            throws PluginConfigException {
         try {
             return result.get(CONFIG_WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException exception) {
@@ -318,10 +272,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
             }
             properties.setProperty(key, value);
             temporary = Files.createTempFile(
-                Objects.requireNonNull(confined.getParent(), "config parent"),
-                ".turboism-config-",
-                ".tmp"
-            );
+                    Objects.requireNonNull(confined.getParent(), "config parent"), ".turboism-config-", ".tmp");
             try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
                 properties.store(writer, "Turboism plugin config");
             }
@@ -355,7 +306,9 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
     }
 
     private boolean writeRevoked(final String scope) {
-        return closed.get() || !writeScopes.contains(scope) || Thread.currentThread().isInterrupted();
+        return closed.get()
+                || !writeScopes.contains(scope)
+                || Thread.currentThread().isInterrupted();
     }
 
     private PluginConfigException revokedWrite(final String scope) {
@@ -368,12 +321,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
 
     private void replaceConfig(final Path temporary, final Path target) throws IOException {
         try {
-            Files.move(
-                temporary,
-                target,
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING
-            );
+            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (AtomicMoveNotSupportedException unsupported) {
             Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
         }
@@ -394,7 +342,8 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         final String value = requireText(relativePath, "relativePath");
         final Path relative = Path.of(value).normalize();
         if (relative.isAbsolute() || startsWithParent(relative)) {
-            throw new IllegalArgumentException("Config path must be relative and stay within the plugin data directory");
+            throw new IllegalArgumentException(
+                    "Config path must be relative and stay within the plugin data directory");
         }
         final Path resolved = pluginDataDir.resolve(relative).normalize();
         if (!resolved.startsWith(pluginDataDir)) {
@@ -433,10 +382,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException(
-                "Interrupted while waiting for legacy config I/O quiescence",
-                exception
-            );
+            throw new IllegalStateException("Interrupted while waiting for legacy config I/O quiescence", exception);
         } finally {
             readScopes.clear();
             writeScopes.clear();
@@ -449,40 +395,35 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
 
     private void emit(final String code, final String ignoredMessage, final String ignoredScope) {
         diagnosticSink.accept(new StartupReport.DiagnosticProblem(
-            code,
-            stableDiagnosticMessage(code),
-            DIAGNOSTIC_LOCATION,
-            StartupReport.Severity.WARNING
-        ));
-        failureSink.record(RuntimeFailureDomain.CONFIG, new RuntimeFailure(
-            code,
-            "ERROR",
-            "legacy-config",
-            pluginId,
-            legacyOperation(code),
-            null,
-            stableFailureMessage(code),
-            null,
-            1
-        ));
+                code, stableDiagnosticMessage(code), DIAGNOSTIC_LOCATION, StartupReport.Severity.WARNING));
+        failureSink.record(
+                RuntimeFailureDomain.CONFIG,
+                new RuntimeFailure(
+                        code,
+                        "ERROR",
+                        "legacy-config",
+                        pluginId,
+                        legacyOperation(code),
+                        null,
+                        stableFailureMessage(code),
+                        null,
+                        1));
     }
 
     private static String legacyOperation(final String code) {
-        return code.startsWith("CONFIG_READ_")
-            ? "config.readString"
-            : "config.writeString";
+        return code.startsWith("CONFIG_READ_") ? "config.readString" : "config.writeString";
     }
 
     private static String stableDiagnosticMessage(final String code) {
         return code.startsWith("CONFIG_READ_")
-            ? "Plugin config read failed safely."
-            : "Plugin config write failed safely.";
+                ? "Plugin config read failed safely."
+                : "Plugin config write failed safely.";
     }
 
     private static String stableFailureMessage(final String code) {
         return code.startsWith("CONFIG_READ_")
-            ? "Plugin config read failed safely."
-            : "Plugin config write failed safely.";
+                ? "Plugin config read failed safely."
+                : "Plugin config write failed safely.";
     }
 
     private static String requireText(final String value, final String name) {

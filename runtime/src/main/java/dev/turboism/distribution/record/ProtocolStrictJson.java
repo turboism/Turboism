@@ -5,7 +5,6 @@ import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
@@ -25,19 +24,22 @@ final class ProtocolStrictJson {
     }
 
     static String decode(byte[] input) throws CharacterCodingException {
-        return StandardCharsets.UTF_8.newDecoder()
-            .onMalformedInput(CodingErrorAction.REPORT)
-            .onUnmappableCharacter(CodingErrorAction.REPORT)
-            .decode(ByteBuffer.wrap(input)).toString();
+        return StandardCharsets.UTF_8
+                .newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(input))
+                .toString();
     }
 
     static boolean hasBom(byte[] input) {
-        return input.length >= 3 && (input[0] & 255) == 0xef
-            && (input[1] & 255) == 0xbb && (input[2] & 255) == 0xbf;
+        return input.length >= 3 && (input[0] & 255) == 0xef && (input[1] & 255) == 0xbb && (input[2] & 255) == 0xbf;
     }
 
     private static ObjectMapper mapper() {
-        JsonFactory factory = JsonFactory.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
+        JsonFactory factory = JsonFactory.builder()
+                .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                .build();
         return new ObjectMapper(factory).enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     }
 }

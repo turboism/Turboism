@@ -2,7 +2,6 @@ package dev.turboism.update;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -23,7 +22,7 @@ public final class UpdateStateStore {
     private final UpdateDiscoveryParser parser = new UpdateDiscoveryParser();
 
     public UpdateStateStore(final Path home) {
-        this(home, ignored -> { });
+        this(home, ignored -> {});
     }
 
     public UpdateStateStore(final Path home, final Consumer<String> diagnostic) {
@@ -34,28 +33,29 @@ public final class UpdateStateStore {
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
     }
 
-/** Returns the isolated update-state file path. */
+    /** Returns the isolated update-state file path. */
     public Path path() {
         return path;
     }
 
-/** Reads cached state, recovering to an empty state when invalid or absent. */
+    /** Reads cached state, recovering to an empty state when invalid or absent. */
     public State read() {
         synchronized (lock) {
             try {
                 final ObjectNode root = UpdateFileSupport.readObject(home, path);
                 if (root == null) return State.empty();
                 final JsonNode schema = root.get("schemaVersion");
-                if (schema == null || !schema.isIntegralNumber() || !schema.canConvertToInt()
-                    || schema.intValue() != SCHEMA_VERSION) {
+                if (schema == null
+                        || !schema.isIntegralNumber()
+                        || !schema.canConvertToInt()
+                        || schema.intValue() != SCHEMA_VERSION) {
                     throw new IOException("state schema invalid");
                 }
                 final Optional<Instant> attempt = optionalInstant(root.get("lastAutomaticAttempt"));
                 final Optional<String> etag = optionalEtag(root.get("etag"));
                 final JsonNode cached = root.get("cachedResult");
-                final Optional<UpdateDiscovery> cachedResult = cached == null || cached.isNull()
-                    ? Optional.empty()
-                    : Optional.of(parser.parseNode(cached));
+                final Optional<UpdateDiscovery> cachedResult =
+                        cached == null || cached.isNull() ? Optional.empty() : Optional.of(parser.parseNode(cached));
                 return new State(attempt, cachedResult, etag);
             } catch (RuntimeException | IOException failure) {
                 UpdateFileSupport.report(diagnostic, "UPDATE_STATE_CORRUPT");
@@ -64,7 +64,7 @@ public final class UpdateStateStore {
         }
     }
 
-/** Atomically saves the automatic-check attempt and validated cache. */
+    /** Atomically saves the automatic-check attempt and validated cache. */
     public SaveResult save(final State state) {
         Objects.requireNonNull(state, "state");
         synchronized (lock) {
@@ -95,8 +95,11 @@ public final class UpdateStateStore {
 
     private static Optional<String> optionalEtag(final JsonNode value) throws IOException {
         if (value == null || value.isNull()) return Optional.empty();
-        if (!value.isTextual() || value.textValue().isBlank() || value.textValue().length() > 512
-            || value.textValue().indexOf('\r') >= 0 || value.textValue().indexOf('\n') >= 0) {
+        if (!value.isTextual()
+                || value.textValue().isBlank()
+                || value.textValue().length() > 512
+                || value.textValue().indexOf('\r') >= 0
+                || value.textValue().indexOf('\n') >= 0) {
             throw new IOException("invalid state etag");
         }
         return Optional.of(value.textValue());
@@ -104,17 +107,17 @@ public final class UpdateStateStore {
 
     /** Immutable persisted automatic-check state and validated cache. */
     public record State(
-        Optional<Instant> lastAutomaticAttempt,
-        Optional<UpdateDiscovery> cachedResult,
-        Optional<String> etag
-    ) {
+            Optional<Instant> lastAutomaticAttempt, Optional<UpdateDiscovery> cachedResult, Optional<String> etag) {
         /** Validates the persisted state components. */
         public State {
             lastAutomaticAttempt = Objects.requireNonNull(lastAutomaticAttempt, "lastAutomaticAttempt");
             cachedResult = Objects.requireNonNull(cachedResult, "cachedResult");
             etag = Objects.requireNonNull(etag, "etag");
-            if (etag.isPresent() && (etag.orElseThrow().isBlank() || etag.orElseThrow().length() > 512
-                || etag.orElseThrow().indexOf('\r') >= 0 || etag.orElseThrow().indexOf('\n') >= 0)) {
+            if (etag.isPresent()
+                    && (etag.orElseThrow().isBlank()
+                            || etag.orElseThrow().length() > 512
+                            || etag.orElseThrow().indexOf('\r') >= 0
+                            || etag.orElseThrow().indexOf('\n') >= 0)) {
                 throw new IllegalArgumentException("etag is invalid");
             }
         }

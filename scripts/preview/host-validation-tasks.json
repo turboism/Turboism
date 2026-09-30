@@ -1464,6 +1464,68 @@
           "{runLabel}",
           "--jvm-option",
           "-Dturboism.validation.warpAlt.mode=observe"
+    ],
+    "weight": [
+     "{version}",
+     "{runLabel}",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.mode=weightStroke",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.axis=1",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.drag=48,0"
+    ],
+    "weight-h": [
+     "{version}",
+     "{runLabel}",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.mode=weightStroke",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.axis=2",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.drag=0,48"
+    ],
+    "drive-gesture": [
+     "{version}",
+     "{runLabel}",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.mode=driveGesture"
+    ],
+    "drive-gesture-c5": [
+     "{version}",
+     "{runLabel}",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.mode=driveGesture",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.point=5"
+    ],
+    "manual": [
+     "{version}",
+     "{runLabel}",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.mode=observe",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.observeSeconds=5400"
+    ],
+    "bezier": [
+     "{version}",
+     "{runLabel}",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.mode=bezierHandle",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.axis=1",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.drag=48,-32"
+    ],
+    "bezier-h": [
+     "{version}",
+     "{runLabel}",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.mode=bezierHandle",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.axis=2",
+     "--jvm-option",
+     "-Dturboism.validation.warpAlt.drag=48,-32"
         ]
       },
       "resources": {

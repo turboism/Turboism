@@ -1,7 +1,6 @@
 package dev.turboism.plugin.warpdeformeraltsymmetry.service;
 
 import dev.turboism.sdk.cubism.model.Point2;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,10 +37,12 @@ public final class AltAxisMirrorPlanner {
     public static final float MOVE_EPSILON = 1.0e-3f;
 
     /** Mirror axis selected by the gesture modifiers. */
-    public enum Axis { VERTICAL, HORIZONTAL }
-
-    private AltAxisMirrorPlanner() {
+    public enum Axis {
+        VERTICAL,
+        HORIZONTAL
     }
+
+    private AltAxisMirrorPlanner() {}
 
     /**
      * Computes the counterpart assignments for one committed drag.
@@ -54,21 +55,14 @@ public final class AltAxisMirrorPlanner {
      * @return counterpart index to new position; empty when nothing must be mirrored
      */
     public static Map<Integer, Point2> planMirror(
-        final int rows,
-        final int columns,
-        final List<Point2> before,
-        final List<Point2> after,
-        final Axis axis
-    ) {
+            final int rows, final int columns, final List<Point2> before, final List<Point2> after, final Axis axis) {
         Objects.requireNonNull(before, "before");
         Objects.requireNonNull(after, "after");
         Objects.requireNonNull(axis, "axis");
         final int width = columns + 1;
         final int height = rows + 1;
         if (before.size() != after.size() || before.size() != width * height) {
-            throw new IllegalArgumentException(
-                "grid snapshots must both contain (rows + 1) * (columns + 1) points"
-            );
+            throw new IllegalArgumentException("grid snapshots must both contain (rows + 1) * (columns + 1) points");
         }
         final Map<Integer, Point2> assignments = new LinkedHashMap<>();
         for (int index = 0; index < after.size(); index++) {
@@ -79,18 +73,17 @@ public final class AltAxisMirrorPlanner {
             }
             final int row = index / width;
             final int column = index % width;
-            final int partner = axis == Axis.VERTICAL
-                ? row * width + (width - 1 - column)
-                : (height - 1 - row) * width + column;
+            final int partner =
+                    axis == Axis.VERTICAL ? row * width + (width - 1 - column) : (height - 1 - row) * width + column;
             if (partner == index) {
                 continue;
             }
             final Point2 current = after.get(partner);
             final Point2 target = axis == Axis.VERTICAL
-                ? new Point2(current.x() - dx, current.y() + dy)
-                : new Point2(current.x() + dx, current.y() - dy);
+                    ? new Point2(current.x() - dx, current.y() + dy)
+                    : new Point2(current.x() + dx, current.y() - dy);
             if (Math.abs(target.x() - current.x()) <= MOVE_EPSILON
-                && Math.abs(target.y() - current.y()) <= MOVE_EPSILON) {
+                    && Math.abs(target.y() - current.y()) <= MOVE_EPSILON) {
                 continue;
             }
             assignments.put(partner, target);

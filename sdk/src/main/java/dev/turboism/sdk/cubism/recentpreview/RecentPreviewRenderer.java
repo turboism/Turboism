@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.recentpreview;
 
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
-
 import java.util.Optional;
 
 /**

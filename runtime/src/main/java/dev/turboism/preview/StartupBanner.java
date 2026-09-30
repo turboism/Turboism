@@ -10,9 +10,7 @@ final class StartupBanner {
     private final AtomicBoolean published = new AtomicBoolean(false);
 
     void publish(final List<Consumer<String>> sinks, final Details details) {
-        final List<Consumer<String>> targets = List.copyOf(
-            Objects.requireNonNull(sinks, "sinks")
-        );
+        final List<Consumer<String>> targets = List.copyOf(Objects.requireNonNull(sinks, "sinks"));
         if (targets.isEmpty()) throw new IllegalArgumentException("sinks must not be empty");
         Objects.requireNonNull(details, "details");
         if (published.compareAndSet(false, true)) {
@@ -48,8 +46,7 @@ final class StartupBanner {
                 details.graalVm(),
                 details.cubismVersion(),
                 details.pluginCount(),
-                details.graalJs()
-            ).stripTrailing();
+                details.graalJs()).stripTrailing();
     }
 
     static String frameworkVersion() {
@@ -61,13 +58,7 @@ final class StartupBanner {
     }
 
     record Details(
-        String version,
-        String javaVersion,
-        String graalVm,
-        String cubismVersion,
-        int pluginCount,
-        String graalJs
-    ) {
+            String version, String javaVersion, String graalVm, String cubismVersion, int pluginCount, String graalJs) {
         Details {
             version = text(version);
             javaVersion = text(javaVersion);
@@ -78,7 +69,8 @@ final class StartupBanner {
         }
 
         private static String text(final String value) {
-            final String normalized = Objects.requireNonNullElse(value, "unavailable").trim();
+            final String normalized =
+                    Objects.requireNonNullElse(value, "unavailable").trim();
             return normalized.isEmpty() ? "unavailable" : normalized;
         }
     }

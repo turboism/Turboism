@@ -1,21 +1,20 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Live Editor selection reads: GUID list projected onto SDK object ids in host order,
@@ -48,9 +47,7 @@ class EditorSelectionReadAccessTest {
     void projectsMixedMultiSelectionInHostOrder() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        Host.updateManager.selection = List.of(
-            fixture.mesh.guid, fixture.warp.guid, fixture.part.guid
-        );
+        Host.updateManager.selection = List.of(fixture.mesh.guid, fixture.warp.guid, fixture.part.guid);
 
         final HostSelection selection = access(true).currentSelection();
 
@@ -72,9 +69,7 @@ class EditorSelectionReadAccessTest {
     void dropsUnknownGuidsInsteadOfMisattributingThem() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        Host.updateManager.selection = List.of(
-            fixture.warp.guid, new Id("guid-deleted-object")
-        );
+        Host.updateManager.selection = List.of(fixture.warp.guid, new Id("guid-deleted-object"));
 
         final HostSelection selection = access(true).currentSelection();
 
@@ -120,9 +115,7 @@ class EditorSelectionReadAccessTest {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         Host.updateManager.selection = List.of(fixture.warp.guid);
-        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(false), "session-a"
-        );
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
 
         assertFalse(access.selectionReadAuthorized());
         assertThrows(UnsupportedOperationException.class, access::readHostSelection);
@@ -133,9 +126,7 @@ class EditorSelectionReadAccessTest {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         Host.updateManager.selection = List.of(fixture.mesh.guid);
-        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(true), "session-a"
-        );
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
 
         assertTrue(access.selectionReadAuthorized());
         assertEquals(List.of("MeshA"), access.readHostSelection().selectedObjectIds());
@@ -153,82 +144,78 @@ class EditorSelectionReadAccessTest {
             capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
         }
         return TestVerifiedResolvers.create(
-            "5.3.03",
-            EditorSelectionReadSelectorContract.ADAPTER_SLICE_ID,
-            capabilities,
-            selectors(),
-            Host.class.getClassLoader()
-        );
+                "5.3.03",
+                EditorSelectionReadSelectorContract.ADAPTER_SLICE_ID,
+                capabilities,
+                selectors(),
+                Host.class.getClassLoader());
     }
 
     private static List<StaticSelector> selectors() {
         final List<StaticSelector> values = new ArrayList<>();
         values.add(StaticSelector.staticMethod(
-            "cubism.editor-model.app-controller.instance", internal(Host.class),
-            "instance", "()L" + internal(Host.class) + ";",
-            StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
-        ));
+                "cubism.editor-model.app-controller.instance",
+                internal(Host.class),
+                "instance",
+                "()L" + internal(Host.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
         values.add(method(
-            "cubism.editor-model.app-controller.current-document",
-            Host.class, "currentDocument", "()L" + internal(Document.class) + ";"
-        ));
+                "cubism.editor-model.app-controller.current-document",
+                Host.class,
+                "currentDocument",
+                "()L" + internal(Document.class) + ";"));
         values.add(method(
-            "cubism.editor-model.app-controller.update-manager",
-            Host.class, "updateManager", "()L" + internal(UpdateManager.class) + ";"
-        ));
+                "cubism.editor-model.app-controller.update-manager",
+                Host.class,
+                "updateManager",
+                "()L" + internal(UpdateManager.class) + ";"));
         values.add(method(
-            "cubism.editor-model.update-manager.selection-guid-list",
-            UpdateManager.class, "selectionGuidList", "()Ljava/util/List;"
-        ));
-        values.add(StaticSelector.classSelector(
-            "cubism.editor-model.modeling-document.class", internal(Document.class)
-        ));
+                "cubism.editor-model.update-manager.selection-guid-list",
+                UpdateManager.class,
+                "selectionGuidList",
+                "()Ljava/util/List;"));
+        values.add(
+                StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
         values.add(method(
-            "cubism.editor-model.modeling-document.model-source",
-            Document.class, "modelSource", "()L" + internal(ModelSource.class) + ";"
-        ));
+                "cubism.editor-model.modeling-document.model-source",
+                Document.class,
+                "modelSource",
+                "()L" + internal(ModelSource.class) + ";"));
         values.add(method(
-            "cubism.editor-model.model-source.all-objects",
-            ModelSource.class, "allObjects", "()Ljava/util/List;"
-        ));
+                "cubism.editor-model.model-source.all-objects", ModelSource.class, "allObjects", "()Ljava/util/List;"));
         values.add(method(
-            "cubism.editor-model.model-source.all-parameters",
-            ModelSource.class, "allParameters", "()Ljava/util/List;"
-        ));
+                "cubism.editor-model.model-source.all-parameters",
+                ModelSource.class,
+                "allParameters",
+                "()Ljava/util/List;"));
         values.add(method(
-            "cubism.editor-model.parameter-controllable-source.guid",
-            ObjectSource.class, "guid", "()L" + internal(Id.class) + ";"
-        ));
+                "cubism.editor-model.parameter-controllable-source.guid",
+                ObjectSource.class,
+                "guid",
+                "()L" + internal(Id.class) + ";"));
         values.add(method(
-            "cubism.editor-model.parameter-controllable-source.id",
-            ObjectSource.class, "id", "()L" + internal(Id.class) + ";"
-        ));
+                "cubism.editor-model.parameter-controllable-source.id",
+                ObjectSource.class,
+                "id",
+                "()L" + internal(Id.class) + ";"));
         values.add(method(
-            "cubism.editor-model.parameter-source.guid",
-            ParameterSource.class, "guid", "()L" + internal(Id.class) + ";"
-        ));
+                "cubism.editor-model.parameter-source.guid",
+                ParameterSource.class,
+                "guid",
+                "()L" + internal(Id.class) + ";"));
         values.add(method(
-            "cubism.editor-model.parameter-source.id",
-            ParameterSource.class, "id", "()L" + internal(Id.class) + ";"
-        ));
-        values.add(method(
-            "cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"
-        ));
-        values.add(method(
-            "cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"
-        ));
+                "cubism.editor-model.parameter-source.id",
+                ParameterSource.class,
+                "id",
+                "()L" + internal(Id.class) + ";"));
+        values.add(method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"));
+        values.add(method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"));
         return List.copyOf(values);
     }
 
     private static StaticSelector method(
-        final String alias,
-        final Class<?> owner,
-        final String name,
-        final String descriptor
-    ) {
-        return StaticSelector.method(
-            alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC
-        );
+            final String alias, final Class<?> owner, final String name, final String descriptor) {
+        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
     private static String internal(final Class<?> type) {
@@ -241,8 +228,7 @@ class EditorSelectionReadAccessTest {
         final ObjectSource warp = new ObjectSource(new Id("guid-warp-a"), new Id("WarpA"));
         final ObjectSource mesh = new ObjectSource(new Id("guid-mesh-a"), new Id("MeshA"));
         final ObjectSource part = new ObjectSource(new Id("guid-part-a"), new Id("PartA"));
-        final ParameterSource parameter =
-            new ParameterSource(new Id("guid-param-a"), new Id("ParamA"));
+        final ParameterSource parameter = new ParameterSource(new Id("guid-param-a"), new Id("ParamA"));
 
         Fixture() {
             source.objects.addAll(List.of(warp, mesh, part));

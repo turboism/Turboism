@@ -12,7 +12,6 @@ import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectResourceSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
-
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,89 +21,86 @@ import java.util.Optional;
 final class ImmutableSnapshotFactory {
 
     CubismRuntimeSnapshot runtime(
-        final Optional<HostSnapshotSource.HostProject> project,
-        final Optional<HostSnapshotSource.HostDocument> document,
-        final Optional<HostSnapshotSource.HostModel> model,
-        final HostSnapshotSource.HostSelection selection
-    ) {
+            final Optional<HostSnapshotSource.HostProject> project,
+            final Optional<HostSnapshotSource.HostDocument> document,
+            final Optional<HostSnapshotSource.HostModel> model,
+            final HostSnapshotSource.HostSelection selection) {
         final Optional<ModelSnapshot> modelSnapshot = model.map(this::model);
         return new CubismRuntimeSnapshot(
-            project.map(this::project),
-            document.map(this::document),
-            modelSnapshot,
-            selection(selection),
-            modelSnapshot.map(ModelSnapshot::objects).orElseGet(List::of),
-            modelSnapshot.map(ModelSnapshot::parameters).orElseGet(List::of),
-            modelSnapshot.map(ModelSnapshot::artMeshes).orElseGet(List::of),
-            modelSnapshot.map(ModelSnapshot::deformers).orElseGet(List::of)
-        );
+                project.map(this::project),
+                document.map(this::document),
+                modelSnapshot,
+                selection(selection),
+                modelSnapshot.map(ModelSnapshot::objects).orElseGet(List::of),
+                modelSnapshot.map(ModelSnapshot::parameters).orElseGet(List::of),
+                modelSnapshot.map(ModelSnapshot::artMeshes).orElseGet(List::of),
+                modelSnapshot.map(ModelSnapshot::deformers).orElseGet(List::of));
     }
 
     ProjectSnapshot project(final HostSnapshotSource.HostProject project) {
         Objects.requireNonNull(project, "project");
         return new ProjectSnapshot(
-            project.projectId(),
-            project.name(),
-            relativePath(project.projectDirectory(), "projectDirectory"),
-            project.documents().stream().map(this::document).toList(),
-            project.contents().stream().map(this::content).toList()
-        );
+                project.projectId(),
+                project.name(),
+                relativePath(project.projectDirectory(), "projectDirectory"),
+                project.documents().stream().map(this::document).toList(),
+                project.contents().stream().map(this::content).toList());
     }
 
     DocumentSnapshot document(final HostSnapshotSource.HostDocument document) {
         Objects.requireNonNull(document, "document");
         final String relativePath = normalizedRelativePath(document.relativePath(), "relativePath");
         return new DocumentSnapshot(
-            document.documentId(),
-            document.name(),
-            relativePath,
-            relativePath(document.filePath(), "filePath"),
-            document.model().map(this::model),
-            document.kind(),
-            document.contentId(),
-            document.animation().map(this::animation)
-        );
+                document.documentId(),
+                document.name(),
+                relativePath,
+                relativePath(document.filePath(), "filePath"),
+                document.model().map(this::model),
+                document.kind(),
+                document.contentId(),
+                document.animation().map(this::animation));
     }
 
     ProjectContentSnapshot content(final HostSnapshotSource.HostProjectContent content) {
         Objects.requireNonNull(content, "content");
         return new ProjectContentSnapshot(
-            content.contentId(),
-            content.name(),
-            content.kind(),
-            relativePath(content.filePath(), "filePath"),
-            content.documentIds(),
-            content.resources().stream().map(this::resource).toList()
-        );
+                content.contentId(),
+                content.name(),
+                content.kind(),
+                relativePath(content.filePath(), "filePath"),
+                content.documentIds(),
+                content.resources().stream().map(this::resource).toList());
     }
 
     private ProjectResourceSnapshot resource(final HostSnapshotSource.HostProjectResource resource) {
         Objects.requireNonNull(resource, "resource");
         return new ProjectResourceSnapshot(
-            resource.resourceId(),
-            resource.name(),
-            resource.kind(),
-            resource.relativePath().map(path -> normalizedRelativePath(path, "resourcePath"))
-        );
+                resource.resourceId(),
+                resource.name(),
+                resource.kind(),
+                resource.relativePath().map(path -> normalizedRelativePath(path, "resourcePath")));
     }
 
     AnimationSnapshot animation(final HostSnapshotSource.HostAnimation animation) {
         Objects.requireNonNull(animation, "animation");
         return new AnimationSnapshot(
-            animation.animationId(),
-            animation.name(),
-            relativePath(animation.filePath(), "filePath"),
-            animation.sceneDocumentIds(),
-            animation.activeSceneDocumentId()
-        );
+                animation.animationId(),
+                animation.name(),
+                relativePath(animation.filePath(), "filePath"),
+                animation.sceneDocumentIds(),
+                animation.activeSceneDocumentId());
     }
 
     ModelSnapshot model(final HostSnapshotSource.HostModel model) {
         Objects.requireNonNull(model, "model");
-        final List<ParameterSnapshot> parameters = model.parameters().stream().map(this::parameter).toList();
-        final List<ArtMeshSnapshot> artMeshes = model.artMeshes().stream().map(this::artMesh).toList();
-        final List<DeformerSnapshot> deformers = model.deformers().stream().map(this::deformer).toList();
-        final List<ModelObjectSnapshot> objects = new ArrayList<>(parameters.size() + artMeshes.size() + deformers.size());
+        final List<ParameterSnapshot> parameters =
+                model.parameters().stream().map(this::parameter).toList();
+        final List<ArtMeshSnapshot> artMeshes =
+                model.artMeshes().stream().map(this::artMesh).toList();
+        final List<DeformerSnapshot> deformers =
+                model.deformers().stream().map(this::deformer).toList();
+        final List<ModelObjectSnapshot> objects =
+                new ArrayList<>(parameters.size() + artMeshes.size() + deformers.size());
         objects.addAll(parameters);
         objects.addAll(artMeshes);
         objects.addAll(deformers);
@@ -114,44 +110,32 @@ final class ImmutableSnapshotFactory {
     SelectionSnapshot selection(final HostSnapshotSource.HostSelection selection) {
         Objects.requireNonNull(selection, "selection");
         return new SelectionSnapshot(
-            selection.selectedObjectIds(),
-            selection.activeParameterId(),
-            selection.activeArtMeshId(),
-            selection.activeDeformerId()
-        );
+                selection.selectedObjectIds(),
+                selection.activeParameterId(),
+                selection.activeArtMeshId(),
+                selection.activeDeformerId());
     }
 
     private ParameterSnapshot parameter(final HostSnapshotSource.HostParameter parameter) {
         return new ParameterSnapshot(
-            parameter.id(),
-            parameter.name(),
-            parameter.value(),
-            parameter.defaultValue(),
-            parameter.minValue(),
-            parameter.maxValue(),
-            parameter.visible(),
-            parameter.editable()
-        );
+                parameter.id(),
+                parameter.name(),
+                parameter.value(),
+                parameter.defaultValue(),
+                parameter.minValue(),
+                parameter.maxValue(),
+                parameter.visible(),
+                parameter.editable());
     }
 
     private ArtMeshSnapshot artMesh(final HostSnapshotSource.HostArtMesh artMesh) {
         return new ArtMeshSnapshot(
-            artMesh.id(),
-            artMesh.name(),
-            artMesh.textureId(),
-            artMesh.visible(),
-            artMesh.renderable()
-        );
+                artMesh.id(), artMesh.name(), artMesh.textureId(), artMesh.visible(), artMesh.renderable());
     }
 
     private DeformerSnapshot deformer(final HostSnapshotSource.HostDeformer deformer) {
         return new DeformerSnapshot(
-            deformer.id(),
-            deformer.name(),
-            deformer.type(),
-            deformer.parentId(),
-            deformer.childIds()
-        );
+                deformer.id(), deformer.name(), deformer.type(), deformer.parentId(), deformer.childIds());
     }
 
     private Optional<Path> relativePath(final Optional<Path> path, final String fieldName) {

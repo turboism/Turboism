@@ -1,24 +1,26 @@
 package dev.turboism.tests.distribution;
 
-import dev.turboism.distribution.LocalPluginPackageInspector;
-import dev.turboism.distribution.PluginPackageInspector;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.distribution.LocalPluginPackageInspector;
+import dev.turboism.distribution.PluginPackageInspector;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 class PluginStrictZipMutationIntegrationTest {
     private static final int[] LOCAL_FIELDS = {14, 18, 22};
-    @TempDir Path tempDir;
 
-    @Test void enforcesDescriptorLocalFieldClosureInEveryZipScope() throws Exception {
+    @TempDir
+    Path tempDir;
+
+    @Test
+    void enforcesDescriptorLocalFieldClosureInEveryZipScope() throws Exception {
         assertAccepted(outer(LocalValues.ZERO), "outer zero");
         assertAccepted(outer(LocalValues.CENTRAL), "outer central");
         assertAccepted(main(LocalValues.ZERO), "main zero");
@@ -27,12 +29,18 @@ class PluginStrictZipMutationIntegrationTest {
         assertAccepted(library(LocalValues.CENTRAL), "library central");
 
         for (int field : LOCAL_FIELDS) {
-            assertRejected(outer(LocalValues.mixed(field)),
-                "ARCHIVE_LOCAL_CENTRAL_MISMATCH", "plugin/plugin.jar", "outer field " + field);
-            assertRejected(main(LocalValues.mixed(field)),
-                "ARTIFACT_JAR_INVALID", "plugin/plugin.jar", "main field " + field);
-            assertRejected(library(LocalValues.mixed(field)),
-                "ARTIFACT_JAR_INVALID", "plugin/lib/sample.jar", "library field " + field);
+            assertRejected(
+                    outer(LocalValues.mixed(field)),
+                    "ARCHIVE_LOCAL_CENTRAL_MISMATCH",
+                    "plugin/plugin.jar",
+                    "outer field " + field);
+            assertRejected(
+                    main(LocalValues.mixed(field)), "ARTIFACT_JAR_INVALID", "plugin/plugin.jar", "main field " + field);
+            assertRejected(
+                    library(LocalValues.mixed(field)),
+                    "ARTIFACT_JAR_INVALID",
+                    "plugin/lib/sample.jar",
+                    "library field " + field);
         }
     }
 
@@ -42,8 +50,7 @@ class PluginStrictZipMutationIntegrationTest {
 
     private byte[] main(LocalValues values) throws Exception {
         byte[] jar = rewriteLocal(mainJar(), "META-INF/turboism/plugin.json", values);
-        return PluginPackageFixtures.packageWith(jar,
-            PluginPackageFixtures.ID, PluginPackageFixtures.VERSION);
+        return PluginPackageFixtures.packageWith(jar, PluginPackageFixtures.ID, PluginPackageFixtures.VERSION);
     }
 
     private byte[] library(LocalValues values) throws Exception {
@@ -54,9 +61,9 @@ class PluginStrictZipMutationIntegrationTest {
 
     private byte[] mainJar() throws Exception {
         return PluginPackageFixtures.jar(
-            PluginPackageFixtures.descriptor(PluginPackageFixtures.ID,
-                PluginPackageFixtures.VERSION, "0.1.0"),
-            PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class", "class");
+                PluginPackageFixtures.descriptor(PluginPackageFixtures.ID, PluginPackageFixtures.VERSION, "0.1.0"),
+                PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class",
+                "class");
     }
 
     private void assertAccepted(byte[] bytes, String label) throws Exception {
@@ -64,8 +71,8 @@ class PluginStrictZipMutationIntegrationTest {
     }
 
     private void assertRejected(byte[] bytes, String code, String path, String label) throws Exception {
-        PluginPackageInspector.Rejected rejected = assertInstanceOf(PluginPackageInspector.Rejected.class,
-            inspect(bytes, label), label);
+        PluginPackageInspector.Rejected rejected =
+                assertInstanceOf(PluginPackageInspector.Rejected.class, inspect(bytes, label), label);
         assertEquals(code, rejected.problems().get(0).code(), label);
         assertEquals(path, rejected.problems().get(0).path(), label);
     }
@@ -101,8 +108,10 @@ class PluginStrictZipMutationIntegrationTest {
     }
 
     private static long uint(byte[] bytes, int at) {
-        return (bytes[at] & 255L) | (bytes[at + 1] & 255L) << 8
-            | (bytes[at + 2] & 255L) << 16 | (bytes[at + 3] & 255L) << 24;
+        return (bytes[at] & 255L)
+                | (bytes[at + 1] & 255L) << 8
+                | (bytes[at + 2] & 255L) << 16
+                | (bytes[at + 3] & 255L) << 24;
     }
 
     private static void putInt(byte[] bytes, int at, long value) {

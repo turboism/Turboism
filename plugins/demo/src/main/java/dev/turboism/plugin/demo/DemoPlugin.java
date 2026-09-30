@@ -1,9 +1,9 @@
 package dev.turboism.plugin.demo;
 
 import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.SubscribeEvent;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -37,54 +37,44 @@ public class DemoPlugin implements TurboismPlugin {
 
     @Override
     public void enable() throws Exception {
-        Registration actionReg = context.actions().register("demo.hello", ActionRegistry.Action.of(
-            "demo.hello",
-            localization.text("demo.hello.label"),
-            ctx -> {}
-        ));
+        Registration actionReg = context.actions()
+                .register(
+                        "demo.hello",
+                        ActionRegistry.Action.of(
+                                "demo.hello", localization.text("demo.hello.label"), "Ctrl+Alt+D", ctx -> {}));
         context.disposableScope().register(actionReg);
 
-        Registration menuReg = context.menus().contribute(MenuRegistry.MenuContribution.of(
-            localization.text("demo.menu"),
-            "demo.hello",
-            100
-        ));
+        Registration menuReg = context.menus()
+                .contribute(MenuRegistry.MenuContribution.of(localization.text("demo.menu"), "demo.hello", 100));
         context.disposableScope().register(menuReg);
 
-        Registration mainToolbarReg = context.mainToolbar().contribute(
-            new MainToolbarRegistry.MainToolbarContribution(
-                "demo.toolbar",
-                "demo.hello",
-                localization.text("demo.toolbar.label"),
-                "/demo/icon.png",
-                "end",
-                100
-            )
-        );
+        Registration mainToolbarReg = context.services()
+                .require(MainToolbarRegistry.class)
+                .contribute(new MainToolbarRegistry.MainToolbarContribution(
+                        "demo.toolbar",
+                        "demo.hello",
+                        localization.text("demo.toolbar.label"),
+                        "/demo/icon.png",
+                        "end",
+                        100));
         context.disposableScope().register(mainToolbarReg);
 
-        Registration paletteToolbarReg = context.paletteToolbar().contribute(
-            new PaletteToolbarRegistry.PaletteToolbarContribution(
-                "demo.palette",
-                "demo.hello",
-                localization.text("demo.palette.label"),
-                "/demo/palette-icon.png",
-                "parameters",
-                "end",
-                100
-            )
-        );
+        Registration paletteToolbarReg = context.services()
+                .require(PaletteToolbarRegistry.class)
+                .contribute(new PaletteToolbarRegistry.PaletteToolbarContribution(
+                        "demo.palette",
+                        "demo.hello",
+                        localization.text("demo.palette.label"),
+                        "/demo/palette-icon.png",
+                        "parameters",
+                        "end",
+                        100));
         context.disposableScope().register(paletteToolbarReg);
 
-        Registration contextMenuReg = context.contextMenu().contribute(
-            new ContextMenuRegistry.ContextMenuContribution(
-                "demo.context.hello",
-                localization.text("demo.context.hello"),
-                null,
-                "parameter",
-                5
-            )
-        );
+        Registration contextMenuReg = context.services()
+                .require(ContextMenuRegistry.class)
+                .contribute(new ContextMenuRegistry.ContextMenuContribution(
+                        "demo.context.hello", localization.text("demo.context.hello"), null, "parameter", 5));
         context.disposableScope().register(contextMenuReg);
 
         Registration configReg = context.config().readScope("demo/config.json");

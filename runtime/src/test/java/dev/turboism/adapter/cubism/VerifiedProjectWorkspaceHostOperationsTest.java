@@ -1,35 +1,30 @@
 package dev.turboism.adapter.cubism;
 
-import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.mapping.verification.TestVerifiedResolvers;
-import org.junit.jupiter.api.Test;
-
-import java.io.File;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import java.io.File;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
 
 class VerifiedProjectWorkspaceHostOperationsTest {
 
     @Test
     void convertsSyntheticHostGraphToSdkOnlySnapshots() {
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticProject("Demo Project", List.of(
-                new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/model.cmo3")))
-            )),
-            new SyntheticMainFrame(new SyntheticDockWrapper(
-                new SyntheticWorkspace("workspace-model", "Modeling", "workspace-guid")
-            ))
-        );
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
-            resolver(),
-            "5.3.02"
-        );
+                new SyntheticProject(
+                        "Demo Project",
+                        List.of(new SyntheticDocument(
+                                new SyntheticFileContent(new File("C:/models/demo/model.cmo3"))))),
+                new SyntheticMainFrame(new SyntheticDockWrapper(
+                        new SyntheticWorkspace("workspace-model", "Modeling", "workspace-guid"))));
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
 
         var project = operations.activeProject().orElseThrow();
         var workspace = operations.workspace().orElseThrow();
@@ -47,34 +42,28 @@ class VerifiedProjectWorkspaceHostOperationsTest {
 
     @Test
     void activeProjectUsesTheCurrentDocumentFileInsteadOfTheInternalProjectContainerName() {
-        SyntheticDocument first = new SyntheticDocument(
-            new SyntheticFileContent(new File("C:/models/demo/first.cmo3"))
-        );
-        SyntheticDocument current = new SyntheticDocument(
-            new SyntheticFileContent(new File("C:/models/demo/current-model.cmo3"))
-        );
+        SyntheticDocument first =
+                new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/first.cmo3")));
+        SyntheticDocument current =
+                new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/current-model.cmo3")));
         SyntheticProject project = new SyntheticProject("MyProject", List.of(first, current));
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(project, current, null);
 
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
-            resolver(),
-            "5.3.02"
-        );
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
 
-        assertEquals("current-model.cmo3", operations.activeProject().orElseThrow().name());
+        assertEquals(
+                "current-model.cmo3", operations.activeProject().orElseThrow().name());
     }
 
     @Test
     void noCurrentDocumentDoesNotExposeCubismsInternalMyProjectContainer() {
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticProject("MyProject", List.of()),
-            null,
-            new SyntheticMainFrame(new SyntheticDockWrapper(null))
-        );
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
-            resolver(),
-            "5.3.02"
-        );
+                new SyntheticProject("MyProject", List.of()),
+                null,
+                new SyntheticMainFrame(new SyntheticDockWrapper(null)));
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
 
         assertTrue(operations.activeProject().isEmpty());
     }
@@ -84,49 +73,41 @@ class VerifiedProjectWorkspaceHostOperationsTest {
         SyntheticDocument unsaved = new SyntheticDocument(new SyntheticFileContent(null));
         SyntheticProject project = new SyntheticProject("MyProject", List.of(unsaved));
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(project, unsaved, null);
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
-            resolver(),
-            "5.3.02"
-        );
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
 
         assertEquals("Untitled", operations.activeProject().orElseThrow().name());
     }
 
     @Test
     void runtimeSelectorFailureIsReportedAsMappingNotVerified() {
-        SyntheticDocument document = new SyntheticDocument(
-            new SyntheticFileContent(new File("C:/models/demo/model.cmo3"))
-        );
+        SyntheticDocument document =
+                new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/model.cmo3")));
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticProject("Demo", List.of(document)),
-            document,
-            new SyntheticMainFrame(new SyntheticDockWrapper(null))
-        );
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
-            resolverWithout("cubism.project.documents"),
-            "5.3.02"
-        );
+                new SyntheticProject("Demo", List.of(document)),
+                document,
+                new SyntheticMainFrame(new SyntheticDockWrapper(null)));
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolverWithout("cubism.project.documents"), "5.3.02");
         ProjectWorkspaceAdapter adapter = ProjectWorkspaceAdapter.Impl.connected(operations);
 
         assertEquals(
-            dev.turboism.adapter.ui.SafeModeDiagnostic.Code.MAPPING_NOT_VERIFIED,
-            adapter.activeProject().diagnostic().orElseThrow().code()
-        );
+                dev.turboism.adapter.ui.SafeModeDiagnostic.Code.MAPPING_NOT_VERIFIED,
+                adapter.activeProject().diagnostic().orElseThrow().code());
     }
 
     @Test
     void verifiedHostGetterFailureIsValidationFailureNotMappingFailure() {
         SyntheticDocument document = new SyntheticDocument(null) {
-            @Override public SyntheticFileContent fileContent() {
+            @Override
+            public SyntheticFileContent fileContent() {
                 throw new IllegalStateException("private-host-detail");
             }
         };
-        SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticProject("Demo", List.of(document)),
-            document,
-            null
-        );
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
+        SyntheticAppCtrl.instance =
+                new SyntheticAppCtrl(new SyntheticProject("Demo", List.of(document)), document, null);
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
         ProjectWorkspaceAdapter adapter = ProjectWorkspaceAdapter.Impl.connected(operations);
 
         var diagnostic = adapter.activeProject().diagnostic().orElseThrow();
@@ -137,58 +118,60 @@ class VerifiedProjectWorkspaceHostOperationsTest {
     @Test
     void usesGuidWhenWorkspaceIdIsBlankAndFailsClosedWithoutEitherIdentity() {
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticProject("Demo", List.of(new SyntheticDocument(
-                new SyntheticFileContent(new File("C:/models/demo/model.cmo3"))
-            ))),
-            new SyntheticMainFrame(new SyntheticDockWrapper(
-                new SyntheticWorkspace(new SyntheticId(""), "Modeling", new SyntheticGuid("workspace-guid"))
-            ))
-        );
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
-            resolver(),
-            "5.3.02"
-        );
+                new SyntheticProject(
+                        "Demo",
+                        List.of(new SyntheticDocument(
+                                new SyntheticFileContent(new File("C:/models/demo/model.cmo3"))))),
+                new SyntheticMainFrame(new SyntheticDockWrapper(
+                        new SyntheticWorkspace(new SyntheticId(""), "Modeling", new SyntheticGuid("workspace-guid")))));
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
         String guidFallback = operations.workspace().orElseThrow().workspaceId();
         assertTrue(guidFallback.startsWith("workspace-"));
         assertFalse(guidFallback.equals("workspace-unknown"));
 
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            null,
-            new SyntheticMainFrame(new SyntheticDockWrapper(
-                new SyntheticWorkspace(new SyntheticId(""), "Modeling", new SyntheticGuid(""))
-            ))
-        );
+                null,
+                new SyntheticMainFrame(new SyntheticDockWrapper(
+                        new SyntheticWorkspace(new SyntheticId(""), "Modeling", new SyntheticGuid("")))));
         assertTrue(operations.workspace().isEmpty());
     }
 
     @Test
     void documentIdentityDoesNotChangeWhenDocumentOrderChanges() {
-        SyntheticDocument first = new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/first.cmo3")));
-        SyntheticDocument second = new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/second.cmo3")));
+        SyntheticDocument first =
+                new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/first.cmo3")));
+        SyntheticDocument second =
+                new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/second.cmo3")));
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticProject("Demo", List.of(first, second)),
-            new SyntheticMainFrame(new SyntheticDockWrapper(null))
-        );
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
+                new SyntheticProject("Demo", List.of(first, second)),
+                new SyntheticMainFrame(new SyntheticDockWrapper(null)));
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
         var firstOrder = operations.activeProject().orElseThrow().documents().stream()
-            .collect(java.util.stream.Collectors.toMap(dev.turboism.sdk.cubism.DocumentSnapshot::name, dev.turboism.sdk.cubism.DocumentSnapshot::documentId));
+                .collect(java.util.stream.Collectors.toMap(
+                        dev.turboism.sdk.cubism.DocumentSnapshot::name,
+                        dev.turboism.sdk.cubism.DocumentSnapshot::documentId));
 
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticProject("Renamed Demo", List.of(second, first)),
-            new SyntheticMainFrame(new SyntheticDockWrapper(null))
-        );
+                new SyntheticProject("Renamed Demo", List.of(second, first)),
+                new SyntheticMainFrame(new SyntheticDockWrapper(null)));
         var secondOrder = operations.activeProject().orElseThrow().documents().stream()
-            .collect(java.util.stream.Collectors.toMap(dev.turboism.sdk.cubism.DocumentSnapshot::name, dev.turboism.sdk.cubism.DocumentSnapshot::documentId));
+                .collect(java.util.stream.Collectors.toMap(
+                        dev.turboism.sdk.cubism.DocumentSnapshot::name,
+                        dev.turboism.sdk.cubism.DocumentSnapshot::documentId));
 
         assertEquals(firstOrder, secondOrder);
     }
 
     @Test
     void projectAndDocumentIdsRemainStableAcrossRenameAddRemoveAndSaveAsWithinSession() {
-        SyntheticDocument first = new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/first.cmo3")));
+        SyntheticDocument first =
+                new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/first.cmo3")));
         SyntheticProject project = new SyntheticProject("Demo", new java.util.ArrayList<>(List.of(first)));
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(project, null);
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
 
         var initial = operations.activeProject().orElseThrow();
         String projectId = initial.projectId();
@@ -200,10 +183,15 @@ class VerifiedProjectWorkspaceHostOperationsTest {
         var changed = operations.activeProject().orElseThrow();
 
         assertEquals(projectId, changed.projectId());
-        assertEquals(documentId, changed.documents().stream()
-            .filter(document -> document.name().equals("renamed.cmo3"))
-            .findFirst().orElseThrow().documentId());
-        assertTrue(changed.documents().stream().anyMatch(document -> document.name().equals("untitled")));
+        assertEquals(
+                documentId,
+                changed.documents().stream()
+                        .filter(document -> document.name().equals("renamed.cmo3"))
+                        .findFirst()
+                        .orElseThrow()
+                        .documentId());
+        assertTrue(changed.documents().stream()
+                .anyMatch(document -> document.name().equals("untitled")));
 
         project.documents().remove(first);
         assertEquals(projectId, operations.activeProject().orElseThrow().projectId());
@@ -212,10 +200,8 @@ class VerifiedProjectWorkspaceHostOperationsTest {
     @Test
     void returnsEmptySnapshotsWhenNoHostInstanceExists() {
         SyntheticAppCtrl.instance = null;
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
-            resolver(),
-            "5.3.02"
-        );
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
 
         assertTrue(operations.activeProject().isEmpty());
         assertTrue(operations.workspace().isEmpty());
@@ -223,89 +209,101 @@ class VerifiedProjectWorkspaceHostOperationsTest {
 
     @Test
     void pairedReadResolvesTheControllerAndCurrentDocumentOnce() {
-        SyntheticDocument current = new SyntheticDocument(
-            new SyntheticFileContent(new File("C:/models/demo/current-model.cmo3"))
-        );
+        SyntheticDocument current =
+                new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/current-model.cmo3")));
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticProject("Demo", List.of(current)),
-            current,
-            new SyntheticMainFrame(new SyntheticDockWrapper(null))
-        );
+                new SyntheticProject("Demo", List.of(current)),
+                current,
+                new SyntheticMainFrame(new SyntheticDockWrapper(null)));
         SyntheticAppCtrl.instanceCalls.set(0);
         SyntheticAppCtrl.currentDocumentCalls.set(0);
         SyntheticDocument.fileContentCalls.set(0);
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
-            resolver(),
-            "5.3.02"
-        );
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
 
         var pair = operations.activeProjectAndDocument();
 
-        assertEquals(1, SyntheticAppCtrl.instanceCalls.get(),
-            "one paired read must resolve the application controller once");
-        assertEquals(1, SyntheticAppCtrl.currentDocumentCalls.get(),
-            "one paired read must resolve the current document once");
-        assertEquals(1, SyntheticDocument.fileContentCalls.get(),
-            "the current document listed in the project must not be rebuilt");
+        assertEquals(
+                1,
+                SyntheticAppCtrl.instanceCalls.get(),
+                "one paired read must resolve the application controller once");
+        assertEquals(
+                1,
+                SyntheticAppCtrl.currentDocumentCalls.get(),
+                "one paired read must resolve the current document once");
+        assertEquals(
+                1,
+                SyntheticDocument.fileContentCalls.get(),
+                "the current document listed in the project must not be rebuilt");
         assertTrue(pair.project().isPresent());
         assertTrue(pair.document().isPresent());
         assertEquals(
-            pair.document().orElseThrow().documentId(),
-            pair.project().orElseThrow().documents().get(0).documentId()
-        );
+                pair.document().orElseThrow().documentId(),
+                pair.project().orElseThrow().documents().get(0).documentId());
     }
 
     @Test
     void contentDocumentJoinAppendsDocumentIdsInDocumentOrderWithoutDuplicates() {
         final var contentA = new dev.turboism.sdk.cubism.ProjectContentSnapshot(
-            "content-a", "A", dev.turboism.sdk.cubism.ProjectContentKind.MODEL,
-            Optional.empty(), List.of("doc-existing"), List.of()
-        );
+                "content-a",
+                "A",
+                dev.turboism.sdk.cubism.ProjectContentKind.MODEL,
+                Optional.empty(),
+                List.of("doc-existing"),
+                List.of());
         final var contentB = new dev.turboism.sdk.cubism.ProjectContentSnapshot(
-            "content-b", "B", dev.turboism.sdk.cubism.ProjectContentKind.OTHER,
-            Optional.empty(), List.of(), List.of()
-        );
+                "content-b",
+                "B",
+                dev.turboism.sdk.cubism.ProjectContentKind.OTHER,
+                Optional.empty(),
+                List.of(),
+                List.of());
         final var document1 = new dev.turboism.sdk.cubism.DocumentSnapshot(
-            "doc-1", "One", "documents/doc-1/one.cmo3", Optional.empty(), Optional.empty(),
-            dev.turboism.sdk.cubism.DocumentKind.MODEL, Optional.of("content-a"), Optional.empty()
-        );
+                "doc-1",
+                "One",
+                "documents/doc-1/one.cmo3",
+                Optional.empty(),
+                Optional.empty(),
+                dev.turboism.sdk.cubism.DocumentKind.MODEL,
+                Optional.of("content-a"),
+                Optional.empty());
         final var document2 = new dev.turboism.sdk.cubism.DocumentSnapshot(
-            "doc-2", "Two", "documents/doc-2/two.cmo3", Optional.empty(), Optional.empty(),
-            dev.turboism.sdk.cubism.DocumentKind.MODEL, Optional.of("content-a"), Optional.empty()
-        );
+                "doc-2",
+                "Two",
+                "documents/doc-2/two.cmo3",
+                Optional.empty(),
+                Optional.empty(),
+                dev.turboism.sdk.cubism.DocumentKind.MODEL,
+                Optional.of("content-a"),
+                Optional.empty());
         final var document3 = new dev.turboism.sdk.cubism.DocumentSnapshot(
-            "doc-existing", "Three", "documents/doc-existing/three.cmo3",
-            Optional.empty(), Optional.empty(),
-            dev.turboism.sdk.cubism.DocumentKind.MODEL, Optional.of("content-a"), Optional.empty()
-        );
+                "doc-existing",
+                "Three",
+                "documents/doc-existing/three.cmo3",
+                Optional.empty(),
+                Optional.empty(),
+                dev.turboism.sdk.cubism.DocumentKind.MODEL,
+                Optional.of("content-a"),
+                Optional.empty());
 
         final var joined = VerifiedProjectWorkspaceHostOperations.joinDocumentIds(
-            List.of(contentA, contentB),
-            List.of(document1, document2, document3)
-        );
+                List.of(contentA, contentB), List.of(document1, document2, document3));
 
         assertEquals(
-            List.of("doc-existing", "doc-1", "doc-2"),
-            joined.get(0).documentIds(),
-            "document ids append in document order after the content's own ids, without duplicates"
-        );
+                List.of("doc-existing", "doc-1", "doc-2"),
+                joined.get(0).documentIds(),
+                "document ids append in document order after the content's own ids, without duplicates");
         assertEquals(List.of(), joined.get(1).documentIds());
     }
 
     @Test
     void pairedReadKeepsTheDocumentHalfWhenTheProjectReadFails() {
-        SyntheticDocument document = new SyntheticDocument(
-            new SyntheticFileContent(new File("C:/models/demo/model.cmo3"))
-        );
-        SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticProject("Demo", List.of(document)),
-            document,
-            null
-        );
-        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
-            resolverWithout("cubism.project.documents"),
-            "5.3.02"
-        );
+        SyntheticDocument document =
+                new SyntheticDocument(new SyntheticFileContent(new File("C:/models/demo/model.cmo3")));
+        SyntheticAppCtrl.instance =
+                new SyntheticAppCtrl(new SyntheticProject("Demo", List.of(document)), document, null);
+        VerifiedProjectWorkspaceHostOperations operations =
+                new VerifiedProjectWorkspaceHostOperations(resolverWithout("cubism.project.documents"), "5.3.02");
 
         var pair = operations.activeProjectAndDocument();
 
@@ -319,30 +317,99 @@ class VerifiedProjectWorkspaceHostOperationsTest {
 
     private static VerifiedMemberResolver resolverWithout(final String omittedAlias) {
         List<StaticSelector> selectors = List.of(
-            StaticSelector.staticMethod("cubism.app-controller.instance", name(SyntheticAppCtrl.class), "instance", "()L" + name(SyntheticAppCtrl.class) + ";", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.app-controller.current-project", name(SyntheticAppCtrl.class), "currentProject", "()L" + name(SyntheticProject.class) + ";", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.app-controller.current-document", name(SyntheticAppCtrl.class), "currentDocument", "()L" + name(SyntheticDocument.class) + ";", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.app-controller.main-frame", name(SyntheticAppCtrl.class), "mainFrame", "()L" + name(SyntheticMainFrame.class) + ";", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.project.documents", name(SyntheticProject.class), "documents", "()Ljava/util/List;", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.document.file-content", name(SyntheticDocument.class), "fileContent", "()L" + name(SyntheticFileContent.class) + ";", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.file-content.file", name(SyntheticFileContent.class), "file", "()Ljava/io/File;", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.main-frame.dock-manager", name(SyntheticMainFrame.class), "dockManager", "()L" + name(SyntheticDockWrapper.class) + ";", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.dock-wrapper.last-workspace", name(SyntheticDockWrapper.class), "lastWorkspace", "()L" + name(SyntheticWorkspace.class) + ";", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.workspace.id", name(SyntheticWorkspace.class), "id", "()L" + name(SyntheticId.class) + ";", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.workspace.name", name(SyntheticWorkspace.class), "name", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.workspace.guid", name(SyntheticWorkspace.class), "guid", "()L" + name(SyntheticGuid.class) + ";", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.id.value", name(SyntheticId.class), "idString", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.guid.value", name(SyntheticGuid.class), "uuidString", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC)
-        ).stream().filter(selector -> !selector.alias().equals(omittedAlias)).toList();
+                        StaticSelector.staticMethod(
+                                "cubism.app-controller.instance",
+                                name(SyntheticAppCtrl.class),
+                                "instance",
+                                "()L" + name(SyntheticAppCtrl.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.app-controller.current-project",
+                                name(SyntheticAppCtrl.class),
+                                "currentProject",
+                                "()L" + name(SyntheticProject.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.app-controller.current-document",
+                                name(SyntheticAppCtrl.class),
+                                "currentDocument",
+                                "()L" + name(SyntheticDocument.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.app-controller.main-frame",
+                                name(SyntheticAppCtrl.class),
+                                "mainFrame",
+                                "()L" + name(SyntheticMainFrame.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.project.documents",
+                                name(SyntheticProject.class),
+                                "documents",
+                                "()Ljava/util/List;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.document.file-content",
+                                name(SyntheticDocument.class),
+                                "fileContent",
+                                "()L" + name(SyntheticFileContent.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.file-content.file",
+                                name(SyntheticFileContent.class),
+                                "file",
+                                "()Ljava/io/File;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.main-frame.dock-manager",
+                                name(SyntheticMainFrame.class),
+                                "dockManager",
+                                "()L" + name(SyntheticDockWrapper.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.dock-wrapper.last-workspace",
+                                name(SyntheticDockWrapper.class),
+                                "lastWorkspace",
+                                "()L" + name(SyntheticWorkspace.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.workspace.id",
+                                name(SyntheticWorkspace.class),
+                                "id",
+                                "()L" + name(SyntheticId.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.workspace.name",
+                                name(SyntheticWorkspace.class),
+                                "name",
+                                "()Ljava/lang/String;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.workspace.guid",
+                                name(SyntheticWorkspace.class),
+                                "guid",
+                                "()L" + name(SyntheticGuid.class) + ";",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.id.value",
+                                name(SyntheticId.class),
+                                "idString",
+                                "()Ljava/lang/String;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "cubism.guid.value",
+                                name(SyntheticGuid.class),
+                                "uuidString",
+                                "()Ljava/lang/String;",
+                                StaticSelector.ACCESS_PUBLIC))
+                .stream()
+                .filter(selector -> !selector.alias().equals(omittedAlias))
+                .toList();
         return TestVerifiedResolvers.create(
-            ProjectWorkspaceAdapter.ADAPTER_SLICE_ID,
-            java.util.Set.of(
-                ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID,
-                ProjectWorkspaceAdapter.WORKSPACE_CAPABILITY_ID
-            ),
-            selectors,
-            SyntheticAppCtrl.class.getClassLoader()
-        );
+                ProjectWorkspaceAdapter.ADAPTER_SLICE_ID,
+                java.util.Set.of(
+                        ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID, ProjectWorkspaceAdapter.WORKSPACE_CAPABILITY_ID),
+                selectors,
+                SyntheticAppCtrl.class.getClassLoader());
     }
 
     private static String name(final Class<?> type) {
@@ -352,56 +419,101 @@ class VerifiedProjectWorkspaceHostOperationsTest {
     public static final class SyntheticAppCtrl {
         private static SyntheticAppCtrl instance;
         private static final java.util.concurrent.atomic.AtomicInteger instanceCalls =
-            new java.util.concurrent.atomic.AtomicInteger();
+                new java.util.concurrent.atomic.AtomicInteger();
         private static final java.util.concurrent.atomic.AtomicInteger currentDocumentCalls =
-            new java.util.concurrent.atomic.AtomicInteger();
+                new java.util.concurrent.atomic.AtomicInteger();
         private final SyntheticProject project;
         private final SyntheticDocument currentDocument;
         private final SyntheticMainFrame mainFrame;
+
         SyntheticAppCtrl(SyntheticProject project, SyntheticMainFrame mainFrame) {
             this(
-                project,
-                project == null || project.documents().isEmpty() ? null : project.documents().get(0),
-                mainFrame
-            );
+                    project,
+                    project == null || project.documents().isEmpty()
+                            ? null
+                            : project.documents().get(0),
+                    mainFrame);
         }
-        SyntheticAppCtrl(
-            SyntheticProject project,
-            SyntheticDocument currentDocument,
-            SyntheticMainFrame mainFrame
-        ) {
+
+        SyntheticAppCtrl(SyntheticProject project, SyntheticDocument currentDocument, SyntheticMainFrame mainFrame) {
             this.project = project;
             this.currentDocument = currentDocument;
             this.mainFrame = mainFrame;
         }
-        public static SyntheticAppCtrl instance() { instanceCalls.incrementAndGet(); return instance; }
-        public SyntheticProject currentProject() { return project; }
-        public SyntheticDocument currentDocument() { currentDocumentCalls.incrementAndGet(); return currentDocument; }
-        public SyntheticMainFrame mainFrame() { return mainFrame; }
+
+        public static SyntheticAppCtrl instance() {
+            instanceCalls.incrementAndGet();
+            return instance;
+        }
+
+        public SyntheticProject currentProject() {
+            return project;
+        }
+
+        public SyntheticDocument currentDocument() {
+            currentDocumentCalls.incrementAndGet();
+            return currentDocument;
+        }
+
+        public SyntheticMainFrame mainFrame() {
+            return mainFrame;
+        }
     }
 
     public static class SyntheticProject {
         private String name;
         private final List<SyntheticDocument> documents;
-        SyntheticProject(String name, List<SyntheticDocument> documents) { this.name = name; this.documents = documents; }
-        public String name() { return name; }
-        public void setName(String name) { this.name = name; }
-        public List<SyntheticDocument> documents() { return documents; }
+
+        SyntheticProject(String name, List<SyntheticDocument> documents) {
+            this.name = name;
+            this.documents = documents;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public List<SyntheticDocument> documents() {
+            return documents;
+        }
     }
+
     public static class SyntheticDocument {
         private static final java.util.concurrent.atomic.AtomicInteger fileContentCalls =
-            new java.util.concurrent.atomic.AtomicInteger();
+                new java.util.concurrent.atomic.AtomicInteger();
         private SyntheticFileContent fileContent;
-        SyntheticDocument(SyntheticFileContent fileContent) { this.fileContent = fileContent; }
-        public SyntheticFileContent fileContent() { fileContentCalls.incrementAndGet(); return fileContent; }
-        public void setFileContent(SyntheticFileContent fileContent) { this.fileContent = fileContent; }
+
+        SyntheticDocument(SyntheticFileContent fileContent) {
+            this.fileContent = fileContent;
+        }
+
+        public SyntheticFileContent fileContent() {
+            fileContentCalls.incrementAndGet();
+            return fileContent;
+        }
+
+        public void setFileContent(SyntheticFileContent fileContent) {
+            this.fileContent = fileContent;
+        }
     }
-    public record SyntheticFileContent(File file) { }
-    public record SyntheticMainFrame(SyntheticDockWrapper dockManager) { }
-    public record SyntheticDockWrapper(SyntheticWorkspace lastWorkspace) { }
+
+    public record SyntheticFileContent(File file) {}
+
+    public record SyntheticMainFrame(SyntheticDockWrapper dockManager) {}
+
+    public record SyntheticDockWrapper(SyntheticWorkspace lastWorkspace) {}
+
     public record SyntheticWorkspace(SyntheticId id, String name, SyntheticGuid guid) {
-        SyntheticWorkspace(String id, String name, String guid) { this(new SyntheticId(id), name, new SyntheticGuid(guid)); }
+        SyntheticWorkspace(String id, String name, String guid) {
+            this(new SyntheticId(id), name, new SyntheticGuid(guid));
+        }
     }
-    public record SyntheticId(String idString) { }
-    public record SyntheticGuid(String uuidString) { }
+
+    public record SyntheticId(String idString) {}
+
+    public record SyntheticGuid(String uuidString) {}
 }

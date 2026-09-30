@@ -19,7 +19,8 @@ public record Motion3Issue(Severity severity, String path, String message) {
         Objects.requireNonNull(message, "message");
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return severity + " " + path + ": " + message;
     }
 }

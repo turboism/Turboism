@@ -1,7 +1,11 @@
 package dev.turboism.shell.service;
 
-import dev.turboism.internal.core.CorePluginManagement;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
@@ -17,10 +21,10 @@ import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.i18n.PluginLocalization;
-import dev.turboism.sdk.runtime.RuntimeSettings;
-import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.runtime.RuntimeSettings;
+import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
@@ -35,63 +39,50 @@ import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-import org.junit.jupiter.api.Test;
-
+import java.awt.Image;
+import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.security.MessageDigest;
-import java.util.Locale;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
 import java.util.HexFormat;
-
-import java.awt.Image;
-import java.awt.image.BufferedImage;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import javax.imageio.ImageIO;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class MainToolbarHomeEntryServiceTest {
 
     @Test
     void packagedToolbarIconsMatchReviewedAssets() throws Exception {
         assertEquals(
-            "79ce45cc0ff477224ba5b3484fd5c0175c869ece823baeb62ff3c777a4e45586",
-            sha256Resource("/icons/main-toolbar-home.png")
-        );
+                "79ce45cc0ff477224ba5b3484fd5c0175c869ece823baeb62ff3c777a4e45586",
+                sha256Resource("/icons/main-toolbar-home.png"));
         assertEquals(
-            "85b256dc4a5d2b6a0c9d6db8c119b14c0afd5634e8d0b66db7fe5cb17b53ec68",
-            sha256Resource("/icons/main-toolbar-home-hover.png")
-        );
+                "85b256dc4a5d2b6a0c9d6db8c119b14c0afd5634e8d0b66db7fe5cb17b53ec68",
+                sha256Resource("/icons/main-toolbar-home-hover.png"));
         assertEquals(
-            "7b865b7899ce5a87b59e3b95190e0d1e29ffc914c46fd1e60490de9aa6c4ec13",
-            sha256Resource("/icons/main-toolbar-installer.png")
-        );
+                "7b865b7899ce5a87b59e3b95190e0d1e29ffc914c46fd1e60490de9aa6c4ec13",
+                sha256Resource("/icons/main-toolbar-installer.png"));
         assertEquals(
-            "1d47a5247911633a675f6d92899111aae0f2a621cf9a2a5f0a6ea0488f4906f0",
-            sha256Resource("/icons/main-toolbar-installer.scale-125.png")
-        );
+                "1d47a5247911633a675f6d92899111aae0f2a621cf9a2a5f0a6ea0488f4906f0",
+                sha256Resource("/icons/main-toolbar-installer.scale-125.png"));
         assertEquals(
-            "1da33467c8a2a3f1ef1db8dbd9ee35b239604b65a5dbcaf9dad08dda04cceeef",
-            sha256Resource("/icons/main-toolbar-installer.scale-150.png")
-        );
+                "1da33467c8a2a3f1ef1db8dbd9ee35b239604b65a5dbcaf9dad08dda04cceeef",
+                sha256Resource("/icons/main-toolbar-installer.scale-150.png"));
         assertEquals(
-            "b063974124ffce912c62fdfe1afa617e7d81ba82e2d0240e2072e040b514b1ff",
-            sha256Resource("/icons/main-toolbar-installer.scale-175.png")
-        );
+                "b063974124ffce912c62fdfe1afa617e7d81ba82e2d0240e2072e040b514b1ff",
+                sha256Resource("/icons/main-toolbar-installer.scale-175.png"));
         assertEquals(
-            "7f7b33dc4215bb7c36bfde82a2d8e2b9b799ee3be86fe736dccca484e58c2288",
-            sha256Resource("/icons/main-toolbar-installer.scale-200.png")
-        );
+                "7f7b33dc4215bb7c36bfde82a2d8e2b9b799ee3be86fe736dccca484e58c2288",
+                sha256Resource("/icons/main-toolbar-installer.scale-200.png"));
         assertPngSize("/icons/main-toolbar-installer.scale-125.png", 40);
         assertPngSize("/icons/main-toolbar-installer.scale-150.png", 48);
         assertPngSize("/icons/main-toolbar-installer.scale-175.png", 56);
         assertPngSize("/icons/main-toolbar-installer.scale-200.png", 64);
-        try (InputStream stream = MainToolbarHomeEntryService.class.getResourceAsStream("/icons/main-toolbar-installer.png")) {
+        try (InputStream stream =
+                MainToolbarHomeEntryService.class.getResourceAsStream("/icons/main-toolbar-installer.png")) {
             assertNotNull(stream, "missing packaged installer toolbar icon");
             final BufferedImage icon = ImageIO.read(stream);
             assertNotNull(icon, "installer toolbar icon must decode as a PNG");
@@ -116,33 +107,31 @@ class MainToolbarHomeEntryServiceTest {
 
         // Then
         assertEquals(
-            List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
-                "turboism.core.home-entry",
-                "turboism.core.open",
-                "main-toolbar.home.aria-label",
-                "main-toolbar.home.tooltip",
-                MainToolbarRegistry.IconVariants.normal("icons/main-toolbar-installer.png"),
-                MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
-                10
-            )),
-            uiHost.buttonContributions()
-        );
+                List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
+                        "turboism.core.home-entry",
+                        "turboism.core.open",
+                        "main-toolbar.home.aria-label",
+                        "main-toolbar.home.tooltip",
+                        MainToolbarRegistry.IconVariants.normal("icons/main-toolbar-installer.png"),
+                        MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                        10)),
+                uiHost.buttonContributions());
     }
 
     @Test
     void registerHomeEntry_usesTextIconsWhenPreferenceEnabled() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = service(uiHost, new RuntimeSettings(
-            false, "INFO", 100, false, false, false, false, "system", true
-        ));
+        MainToolbarHomeEntryService service =
+                service(uiHost, new RuntimeSettings(false, "INFO", 100, false, false, false, false, "system", true));
 
         // When
         service.registerHomeEntry();
 
         // Then
         assertEquals(1, uiHost.buttonContributions().size());
-        final MainToolbarRegistry.IconVariants icons = uiHost.buttonContributions().get(0).icons();
+        final MainToolbarRegistry.IconVariants icons =
+                uiHost.buttonContributions().get(0).icons();
         assertEquals("icons/main-toolbar-home.png", icons.normal());
         assertEquals(Optional.of("icons/main-toolbar-home-hover.png"), icons.hover());
         assertTrue(icons.selected().isEmpty());
@@ -163,9 +152,8 @@ class MainToolbarHomeEntryServiceTest {
             assertWindowIconMatches("/icons/main-toolbar-installer.png");
 
             // When
-            service(uiHost, new RuntimeSettings(
-                false, "INFO", 100, false, false, false, false, "system", true
-            )).registerHomeEntry();
+            service(uiHost, new RuntimeSettings(false, "INFO", 100, false, false, false, false, "system", true))
+                    .registerHomeEntry();
             // Then
             assertWindowIconMatches("/icons/main-toolbar-home.png");
         } finally {
@@ -197,20 +185,14 @@ class MainToolbarHomeEntryServiceTest {
         service.openTurboismPanel();
 
         // Then
-        assertEquals(
-            List.of(EmbeddedPanelId.of("turboism.panel.main")),
-            uiHost.activatedPanels()
-        );
+        assertEquals(List.of(EmbeddedPanelId.of("turboism.panel.main")), uiHost.activatedPanels());
         assertTrue(uiHost.notifications().isEmpty());
     }
-
 
     private static String sha256Resource(final String path) throws Exception {
         try (InputStream stream = MainToolbarHomeEntryService.class.getResourceAsStream(path)) {
             assertNotNull(stream, "missing packaged toolbar icon " + path);
-            return HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256").digest(stream.readAllBytes())
-            );
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(stream.readAllBytes()));
         }
     }
 
@@ -242,6 +224,7 @@ class MainToolbarHomeEntryServiceTest {
         assertTrue(maxX >= minX && maxY >= minY, "icon must contain visible pixels");
         return new int[] {minX, minY, maxX - minX + 1, maxY - minY + 1};
     }
+
     private static void assertWindowIconMatches(final String resource) throws Exception {
         final Image icon = TurboismWindowFactory.windowIcon();
         assertNotNull(icon, "window icon must be installed");
@@ -255,21 +238,17 @@ class MainToolbarHomeEntryServiceTest {
         assertEquals(expected.getWidth(), actual.getWidth(), "window icon width");
         assertEquals(expected.getHeight(), actual.getHeight(), "window icon height");
         assertArrayEquals(
-            expected.getRGB(0, 0, expected.getWidth(), expected.getHeight(), null, 0, expected.getWidth()),
-            actual.getRGB(0, 0, actual.getWidth(), actual.getHeight(), null, 0, actual.getWidth()),
-            "window icon must be the same asset as the toolbar button icon"
-        );
+                expected.getRGB(0, 0, expected.getWidth(), expected.getHeight(), null, 0, expected.getWidth()),
+                actual.getRGB(0, 0, actual.getWidth(), actual.getHeight(), null, 0, actual.getWidth()),
+                "window icon must be the same asset as the toolbar button icon");
     }
 
     private static MainToolbarHomeEntryService service(final RecordingUiHost uiHost) {
         return service(uiHost, new RuntimeSettings(false, "INFO", false, false, false));
     }
 
-    private static MainToolbarHomeEntryService service(
-        final RecordingUiHost uiHost,
-        final RuntimeSettings settings
-    ) {
-        final MenuRegistry menus = contribution -> () -> { };
+    private static MainToolbarHomeEntryService service(final RecordingUiHost uiHost, final RuntimeSettings settings) {
+        final MenuRegistry menus = contribution -> () -> {};
         final PluginLocalization localization = new PluginLocalization() {
             @Override
             public Locale locale() {
@@ -292,45 +271,47 @@ class MainToolbarHomeEntryServiceTest {
             }
         };
         return new MainToolbarHomeEntryService(
-            uiHost, toolbar(uiHost), menus, localization,
-            new RuntimeSettingsService() {
-                @Override
-                public RuntimeSettings read() {
-                    return settings;
-                }
+                uiHost,
+                toolbar(uiHost),
+                menus,
+                localization,
+                new RuntimeSettingsService() {
+                    @Override
+                    public RuntimeSettings read() {
+                        return settings;
+                    }
 
-                @Override
-                public RuntimeSettings save(final RuntimeSettings value) {
-                    return value;
-                }
+                    @Override
+                    public RuntimeSettings save(final RuntimeSettings value) {
+                        return value;
+                    }
 
-                @Override
-                public RuntimeSettingsService.DockCleanupResult cleanEmptyDocks() {
-                    return new RuntimeSettingsService.DockCleanupResult("Empty dock cleanup completed.");
-                }
-            },
-            new CorePluginManagement() {
-                @Override
-                public List<PluginInfo> plugins() {
-                    return List.of();
-                }
+                    @Override
+                    public RuntimeSettingsService.DockCleanupResult cleanEmptyDocks() {
+                        return new RuntimeSettingsService.DockCleanupResult("Empty dock cleanup completed.");
+                    }
+                },
+                new CorePluginManagement() {
+                    @Override
+                    public List<PluginInfo> plugins() {
+                        return List.of();
+                    }
 
-                @Override
-                public OperationResult install() {
-                    return OperationResult.rejected("Unavailable");
-                }
+                    @Override
+                    public OperationResult install() {
+                        return OperationResult.rejected("Unavailable");
+                    }
 
-                @Override
-                public OperationResult uninstall(final String id) {
-                    return OperationResult.rejected("Unavailable");
-                }
+                    @Override
+                    public OperationResult uninstall(final String id) {
+                        return OperationResult.rejected("Unavailable");
+                    }
 
-                @Override
-                public OperationResult setEnabled(final String id, final boolean enabled) {
-                    return OperationResult.rejected("Unavailable");
-                }
-            }
-        );
+                    @Override
+                    public OperationResult setEnabled(final String id, final boolean enabled) {
+                        return OperationResult.rejected("Unavailable");
+                    }
+                });
     }
 
     private static MainToolbarRegistry toolbar(final RecordingUiHost uiHost) {
@@ -352,11 +333,11 @@ class MainToolbarHomeEntryServiceTest {
         @Override
         public Optional<ProjectSnapshot> activeProject() {
             return Optional.of(new ProjectSnapshot(
-                "project-1",
-                "Demo Project",
-                Optional.of(Path.of("projects/demo")),
-                List.of(new DocumentSnapshot("doc-1", "Model A", "model-a.cmo3", Optional.empty(), Optional.empty()))
-            ));
+                    "project-1",
+                    "Demo Project",
+                    Optional.of(Path.of("projects/demo")),
+                    List.of(new DocumentSnapshot(
+                            "doc-1", "Model A", "model-a.cmo3", Optional.empty(), Optional.empty()))));
         }
 
         @Override
@@ -369,24 +350,20 @@ class MainToolbarHomeEntryServiceTest {
         @Override
         public Optional<ProjectSnapshot> activeProject() {
             return Optional.of(new ProjectSnapshot(
-                "project-1",
-                "Demo Project",
-                Optional.of(Path.of("projects/demo")),
-                List.of(
-                    new DocumentSnapshot("doc-1", "Model A", "model-a.cmo3", Optional.empty(), Optional.empty()),
-                    new DocumentSnapshot("doc-2", "Model B", "model-b.cmo3", Optional.empty(), Optional.empty())
-                )
-            ));
+                    "project-1",
+                    "Demo Project",
+                    Optional.of(Path.of("projects/demo")),
+                    List.of(
+                            new DocumentSnapshot(
+                                    "doc-1", "Model A", "model-a.cmo3", Optional.empty(), Optional.empty()),
+                            new DocumentSnapshot(
+                                    "doc-2", "Model B", "model-b.cmo3", Optional.empty(), Optional.empty()))));
         }
 
         @Override
         public Optional<WorkspaceSnapshot> workspace() {
             return Optional.of(new WorkspaceSnapshot(
-                "workspace-1",
-                "Modeling",
-                "layouts/workspace-1",
-                List.of("project-1", "project-0")
-            ));
+                    "workspace-1", "Modeling", "layouts/workspace-1", List.of("project-1", "project-0")));
         }
     }
 
@@ -490,8 +467,7 @@ class MainToolbarHomeEntryServiceTest {
 
         @Override
         public Registration contributeBoundingBoxOverlayButton(
-            final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution
-        ) {
+                final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
             throw new UnsupportedOperationException("bounding-box buttons are not used by this service");
         }
 

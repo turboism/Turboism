@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.util.Optional;
 
 /**
@@ -27,8 +26,5 @@ public interface TextureAtlasLayoutService {
      * @param plan a complete fixed-size layout plan; outside a packing invocation every image
      *             must be placed, inside one only the issued images may be placed
      */
-    TextureAtlasLayoutApplyResult apply(
-        TextureAtlasLayoutTarget target,
-        TextureAtlasLayoutPlan plan
-    );
+    TextureAtlasLayoutApplyResult apply(TextureAtlasLayoutTarget target, TextureAtlasLayoutPlan plan);
 }

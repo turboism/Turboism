@@ -1,6 +1,5 @@
 package dev.turboism.sdk.failure;
 
-
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

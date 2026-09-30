@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.glerror;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.objectweb.asm.Opcodes.*;
+
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
@@ -11,8 +14,6 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.objectweb.asm.Opcodes.*;
 
 /**
  * Verifies the test-only glGetError elision on synthetic classes carrying the
@@ -29,16 +30,17 @@ public class GlGetErrorElisionTransformerTest {
     private static final String GL = "com/jogamp/opengl/GL";
 
     private static final GlGetErrorElisionTarget T5303 =
-        GlGetErrorElisionTarget.of(ReviewedHostArtifacts.CUBISM_5_3_03).orElseThrow();
+            GlGetErrorElisionTarget.of(ReviewedHostArtifacts.CUBISM_5_3_03).orElseThrow();
 
     private static final class Loader extends ClassLoader {
         private final ProtectionDomain domain;
+
         Loader(Path artifact) throws Exception {
             super(GlGetErrorElisionTransformerTest.class.getClassLoader());
             domain = new ProtectionDomain(
-                new CodeSource(artifact.toUri().toURL(), (java.security.CodeSigner[]) null),
-                new Permissions());
+                    new CodeSource(artifact.toUri().toURL(), (java.security.CodeSigner[]) null), new Permissions());
         }
+
         Class<?> define(String name, byte[] bytes) {
             return defineClass(name.replace('/', '.'), bytes, 0, bytes.length, domain);
         }
@@ -46,9 +48,9 @@ public class GlGetErrorElisionTransformerTest {
 
     private static byte[] glInterface() {
         ClassWriter w = new ClassWriter(0);
-        w.visit(V17, ACC_PUBLIC | ACC_INTERFACE | ACC_ABSTRACT, GL, null,
-            "java/lang/Object", null);
-        w.visitMethod(ACC_PUBLIC | ACC_ABSTRACT, "glGetError", "()I", null, null).visitEnd();
+        w.visit(V17, ACC_PUBLIC | ACC_INTERFACE | ACC_ABSTRACT, GL, null, "java/lang/Object", null);
+        w.visitMethod(ACC_PUBLIC | ACC_ABSTRACT, "glGetError", "()I", null, null)
+                .visitEnd();
         w.visitEnd();
         return w.toByteArray();
     }
@@ -56,7 +58,7 @@ public class GlGetErrorElisionTransformerTest {
     /** A {@code GL} implementation that counts calls and always reports error 1280. */
     private static byte[] glImpl() {
         ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-        w.visit(V17, ACC_PUBLIC, "FakeGL", null, "java/lang/Object", new String[]{GL});
+        w.visit(V17, ACC_PUBLIC, "FakeGL", null, "java/lang/Object", new String[] {GL});
         w.visitField(ACC_PUBLIC, "errorCalls", "I", null, null).visitEnd();
         MethodVisitor m = w.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
         m.visitCode();
@@ -98,16 +100,14 @@ public class GlGetErrorElisionTransformerTest {
         m.visitInsn(RETURN);
         m.visitMaxs(0, 0);
         m.visitEnd();
-        m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "a",
-            "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I", null, null);
+        m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I", null, null);
         m.visitCode();
         if (drift) m.visitInsn(NOP);
         if (noSite) {
             m.visitInsn(ICONST_0);
         } else {
             m.visitVarInsn(ALOAD, 1);
-            m.visitMethodInsn(nonInterface ? INVOKEVIRTUAL : INVOKEINTERFACE,
-                GL, "glGetError", "()I", !nonInterface);
+            m.visitMethodInsn(nonInterface ? INVOKEVIRTUAL : INVOKEINTERFACE, GL, "glGetError", "()I", !nonInterface);
         }
         m.visitInsn(IRETURN);
         m.visitMaxs(0, 0);
@@ -127,8 +127,8 @@ public class GlGetErrorElisionTransformerTest {
     private static byte[] elidedMarker(boolean drift) {
         ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         w.visit(V17, ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
-        MethodVisitor m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "a",
-            "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I", null, null);
+        MethodVisitor m =
+                w.visitMethod(ACC_PUBLIC | ACC_FINAL, "a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I", null, null);
         m.visitCode();
         m.visitVarInsn(ALOAD, 1);
         m.visitInsn(POP);
@@ -145,8 +145,7 @@ public class GlGetErrorElisionTransformerTest {
     private static byte[] foreignDescriptor() {
         ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         w.visit(V17, ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
-        MethodVisitor m = w.visitMethod(ACC_PUBLIC, "a", "(Lcom/jogamp/opengl/GL;)I",
-            null, null);
+        MethodVisitor m = w.visitMethod(ACC_PUBLIC, "a", "(Lcom/jogamp/opengl/GL;)I", null, null);
         m.visitCode();
         m.visitVarInsn(ALOAD, 1);
         m.visitMethodInsn(INVOKEINTERFACE, GL, "glGetError", "()I", true);
@@ -157,13 +156,13 @@ public class GlGetErrorElisionTransformerTest {
         return w.toByteArray();
     }
 
-    @Test void matchingShapeElidesOnlyTheMarkerSite() throws Exception {
+    @Test
+    void matchingShapeElidesOnlyTheMarkerSite() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = marker(false, false, false);
         var transformer = new GlGetErrorElisionTransformer(loader, artifact, reference, T5303);
-        byte[] output = transformer.transform(null, loader, OWNER, null,
-            loader.domain, reference);
+        byte[] output = transformer.transform(null, loader, OWNER, null, loader.domain, reference);
         assertNotNull(output, transformer.failure());
         assertEquals(1, transformer.matches());
         assertEquals(1, transformer.elided());
@@ -175,77 +174,85 @@ public class GlGetErrorElisionTransformerTest {
         Object instance = type.getDeclaredConstructor().newInstance();
         Method marker = type.getMethod("a", glType, String.class, boolean.class);
         assertEquals(0, marker.invoke(instance, gl, "marker", true));
-        assertEquals(0, implType.getField("errorCalls").getInt(gl),
-            "marker call must not reach the native error query");
+        assertEquals(
+                0, implType.getField("errorCalls").getInt(gl), "marker call must not reach the native error query");
         assertEquals(1280, type.getMethod("b", glType).invoke(instance, gl));
-        assertEquals(1, implType.getField("errorCalls").getInt(gl),
-            "glGetError sites outside the reviewed method stay native");
+        assertEquals(
+                1,
+                implType.getField("errorCalls").getInt(gl),
+                "glGetError sites outside the reviewed method stay native");
     }
 
-    @Test void everyReviewedVersionIsAdmitted() throws Exception {
+    @Test
+    void everyReviewedVersionIsAdmitted() throws Exception {
         for (GlGetErrorElisionTarget target : GlGetErrorElisionTarget.all()) {
             Path artifact = Files.createTempFile("host", ".jar");
             Loader loader = new Loader(artifact);
             byte[] reference = marker(false, false, false);
-            var transformer = new GlGetErrorElisionTransformer(
-                loader, artifact, reference, target);
-            byte[] output = transformer.transform(null, loader, target.owner(), null,
-                loader.domain, reference);
+            var transformer = new GlGetErrorElisionTransformer(loader, artifact, reference, target);
+            byte[] output = transformer.transform(null, loader, target.owner(), null, loader.domain, reference);
             assertNotNull(output, target.version() + " rejected: " + transformer.failure());
             assertEquals(1, transformer.matches());
             assertEquals(1, transformer.elided());
         }
         assertEquals(2, GlGetErrorElisionTarget.all().size());
-        assertTrue(GlGetErrorElisionTarget.of(ReviewedHostArtifacts.CUBISM_5_2_03).isEmpty(),
-            "5.2.03 has no such marker method and stays unsupported");
+        assertTrue(
+                GlGetErrorElisionTarget.of(ReviewedHostArtifacts.CUBISM_5_2_03).isEmpty(),
+                "5.2.03 has no such marker method and stays unsupported");
     }
 
-    @Test void driftedMethodBodyIsRejected() throws Exception {
+    @Test
+    void driftedMethodBodyIsRejected() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = marker(false, false, false);
         var transformer = new GlGetErrorElisionTransformer(loader, artifact, reference, T5303);
-        assertNull(transformer.transform(null, loader, OWNER, null, loader.domain,
-            marker(true, false, false)));
+        assertNull(transformer.transform(null, loader, OWNER, null, loader.domain, marker(true, false, false)));
         assertNotNull(transformer.failure());
         assertEquals(0, transformer.matches());
         assertEquals(0, transformer.elided());
     }
 
-    @Test void foreignOwnerMethodAndDescriptorAreRejected() throws Exception {
+    @Test
+    void foreignOwnerMethodAndDescriptorAreRejected() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = marker(false, false, false);
         var transformer = new GlGetErrorElisionTransformer(loader, artifact, reference, T5303);
-        assertNull(transformer.transform(null, loader, "com/live2d/graphics3d/shader/B",
-            null, loader.domain, reference), "foreign owner");
-        assertNull(transformer.transform(null, loader, OWNER, null, loader.domain,
-            foreignDescriptor()), "foreign descriptor has no reviewed shape");
+        assertNull(
+                transformer.transform(null, loader, "com/live2d/graphics3d/shader/B", null, loader.domain, reference),
+                "foreign owner");
+        assertNull(
+                transformer.transform(null, loader, OWNER, null, loader.domain, foreignDescriptor()),
+                "foreign descriptor has no reviewed shape");
         assertNotNull(transformer.failure());
         assertEquals(0, transformer.matches());
         assertEquals(0, transformer.elided());
     }
 
-    @Test void missingOrNonInterfaceSiteCannotConstructOrTransform() throws Exception {
+    @Test
+    void missingOrNonInterfaceSiteCannotConstructOrTransform() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
-        assertThrows(IllegalArgumentException.class, () ->
-            new GlGetErrorElisionTransformer(loader, artifact,
-                marker(false, true, false), T5303),
-            "reference without the reviewed site is not a target");
-        assertThrows(IllegalArgumentException.class, () ->
-            new GlGetErrorElisionTransformer(loader, artifact,
-                marker(false, false, true), T5303),
-            "non-interface call site is not the reviewed invocation");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new GlGetErrorElisionTransformer(loader, artifact, marker(false, true, false), T5303),
+                "reference without the reviewed site is not a target");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new GlGetErrorElisionTransformer(loader, artifact, marker(false, false, true), T5303),
+                "non-interface call site is not the reviewed invocation");
         byte[] reference = marker(false, false, false);
         var transformer = new GlGetErrorElisionTransformer(loader, artifact, reference, T5303);
-        assertNull(transformer.transform(null, loader, OWNER, null, loader.domain,
-            marker(false, true, false)), "drifted body without the site fails the shape gate");
+        assertNull(
+                transformer.transform(null, loader, OWNER, null, loader.domain, marker(false, true, false)),
+                "drifted body without the site fails the shape gate");
         assertNotNull(transformer.failure());
         assertEquals(0, transformer.matches());
     }
 
-    @Test void installedMarkerTracksLoaderAndOwner() throws Exception {
+    @Test
+    void installedMarkerTracksLoaderAndOwner() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         Loader other = new Loader(artifact);
@@ -254,36 +261,41 @@ public class GlGetErrorElisionTransformerTest {
             assertFalse(GlGetErrorElisionTransformer.isInstalled(loader, owner));
             GlGetErrorElisionTransformer.markInstalled(loader, owner);
             assertTrue(GlGetErrorElisionTransformer.isInstalled(loader, owner));
-            assertFalse(GlGetErrorElisionTransformer.isInstalled(other, owner),
-                "a different defining loader must not inherit the marker");
-            assertFalse(GlGetErrorElisionTransformer.isInstalled(loader, "x/y/Z"),
-                "a foreign owner must not inherit the marker");
+            assertFalse(
+                    GlGetErrorElisionTransformer.isInstalled(other, owner),
+                    "a different defining loader must not inherit the marker");
+            assertFalse(
+                    GlGetErrorElisionTransformer.isInstalled(loader, "x/y/Z"),
+                    "a foreign owner must not inherit the marker");
         } finally {
             GlGetErrorElisionTransformer.clearInstalled(loader, owner);
         }
         assertFalse(GlGetErrorElisionTransformer.isInstalled(loader, owner));
     }
 
-    @Test void composedShapeIsTheProbeOutputShape() throws Exception {
+    @Test
+    void composedShapeIsTheProbeOutputShape() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = marker(false, false, false);
         Class<?> type = loader.define(OWNER, reference);
-        List<String> composed = GlGetErrorElisionTransformer.composedShape(
-            loader, artifact, reference, T5303, type);
+        List<String> composed = GlGetErrorElisionTransformer.composedShape(loader, artifact, reference, T5303, type);
         assertNotNull(composed, "probe must admit the reviewed reference");
         var transformer = new GlGetErrorElisionTransformer(loader, artifact, reference, T5303);
-        byte[] rewritten = transformer.transform(null, loader, OWNER, null,
-            loader.domain, reference);
+        byte[] rewritten = transformer.transform(null, loader, OWNER, null, loader.domain, reference);
         assertNotNull(rewritten, transformer.failure());
-        assertEquals(composed, dev.turboism.adapter.cubism.optimization.ReviewedMethodShape
-            .read(rewritten, OWNER, "a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I"),
-            "the advertised composed shape must equal the real rewrite output");
-        assertTrue(composed.stream().noneMatch(op -> op.contains("glGetError")),
-            "the composed shape must not retain the elided call");
+        assertEquals(
+                composed,
+                dev.turboism.adapter.cubism.optimization.ReviewedMethodShape.read(
+                        rewritten, OWNER, "a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I"),
+                "the advertised composed shape must equal the real rewrite output");
+        assertTrue(
+                composed.stream().noneMatch(op -> op.contains("glGetError")),
+                "the composed shape must not retain the elided call");
     }
 
-    @Test void uniformRewrittenBodyIsRejected() throws Exception {
+    @Test
+    void uniformRewrittenBodyIsRejected() throws Exception {
         // The composition contract pins install order: elision runs upstream of
         // the uniform lifecycle observer. If that order ever flips, the elision
         // gate must keep failing closed instead of rewriting foreign bytes.
@@ -291,69 +303,71 @@ public class GlGetErrorElisionTransformerTest {
         Loader loader = new Loader(artifact);
         byte[] reference = marker(false, false, false);
         Class<?> type = loader.define(OWNER, reference);
-        var uniform = new dev.turboism.adapter.cubism.optimization.uniform
-            .UniformLocationLifecycleTransformer(loader, artifact, reference,
-                dev.turboism.adapter.cubism.optimization.uniform
-                    .UniformLocationLifecycleTransformer.Role.ERROR);
-        byte[] wrapped = uniform.transform(type.getModule(), loader, OWNER, type,
-            loader.domain, reference);
+        var uniform = new dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer(
+                loader,
+                artifact,
+                reference,
+                dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer.Role.ERROR);
+        byte[] wrapped = uniform.transform(type.getModule(), loader, OWNER, type, loader.domain, reference);
         assertNotNull(wrapped, uniform.failure());
         var transformer = new GlGetErrorElisionTransformer(loader, artifact, reference, T5303);
-        assertNull(transformer.transform(type.getModule(), loader, OWNER, type,
-            loader.domain, wrapped),
-            "a body already carrying the uniform observer is not the reviewed shape");
+        assertNull(
+                transformer.transform(type.getModule(), loader, OWNER, type, loader.domain, wrapped),
+                "a body already carrying the uniform observer is not the reviewed shape");
         assertNotNull(transformer.failure());
         assertEquals(0, transformer.elided());
     }
 
-    @Test void uniformLifecycleAcceptsOnlyTheRegisteredComposedShape() throws Exception {
+    @Test
+    void uniformLifecycleAcceptsOnlyTheRegisteredComposedShape() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = marker(false, false, false);
         Class<?> type = loader.define(OWNER, reference);
-        List<String> composed = GlGetErrorElisionTransformer.composedShape(
-            loader, artifact, reference, T5303, type);
+        List<String> composed = GlGetErrorElisionTransformer.composedShape(loader, artifact, reference, T5303, type);
         assertNotNull(composed);
-        var uniform = new dev.turboism.adapter.cubism.optimization.uniform
-            .UniformLocationLifecycleTransformer(loader, artifact, reference,
-                dev.turboism.adapter.cubism.optimization.uniform
-                    .UniformLocationLifecycleTransformer.Role.ERROR);
+        var uniform = new dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer(
+                loader,
+                artifact,
+                reference,
+                dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer.Role.ERROR);
         byte[] elided = elidedMarker(false);
         // Without a registered composed shape the elided body is foreign drift.
-        assertNull(uniform.transform(type.getModule(), loader, OWNER, type,
-            loader.domain, elided));
+        assertNull(uniform.transform(type.getModule(), loader, OWNER, type, loader.domain, elided));
         assertNotNull(uniform.failure());
         uniform.acceptComposedShape("a", composed);
-        byte[] output = uniform.transform(type.getModule(), loader, OWNER, type,
-            loader.domain, elided);
+        byte[] output = uniform.transform(type.getModule(), loader, OWNER, type, loader.domain, elided);
         assertNotNull(output, uniform.failure());
-        List<String> outputShape = dev.turboism.adapter.cubism.optimization.ReviewedMethodShape
-            .read(output, OWNER, "a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I");
-        assertTrue(outputShape.stream().noneMatch(op -> op.contains("glGetError")),
-            "the composed result must not resurrect the elided call");
+        List<String> outputShape = dev.turboism.adapter.cubism.optimization.ReviewedMethodShape.read(
+                output, OWNER, "a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I");
+        assertTrue(
+                outputShape.stream().noneMatch(op -> op.contains("glGetError")),
+                "the composed result must not resurrect the elided call");
         // A drifted elided body is still not either reviewed shape.
-        var second = new dev.turboism.adapter.cubism.optimization.uniform
-            .UniformLocationLifecycleTransformer(loader, artifact, reference,
-                dev.turboism.adapter.cubism.optimization.uniform
-                    .UniformLocationLifecycleTransformer.Role.ERROR);
+        var second = new dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer(
+                loader,
+                artifact,
+                reference,
+                dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer.Role.ERROR);
         second.acceptComposedShape("a", composed);
-        assertNull(second.transform(type.getModule(), loader, OWNER, type,
-            loader.domain, elidedMarker(true)));
+        assertNull(second.transform(type.getModule(), loader, OWNER, type, loader.domain, elidedMarker(true)));
         assertNotNull(second.failure());
     }
 
-    @Test void wrongLoaderNameAndArtifactAreRejected() throws Exception {
+    @Test
+    void wrongLoaderNameAndArtifactAreRejected() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = marker(false, false, false);
         var transformer = new GlGetErrorElisionTransformer(loader, artifact, reference, T5303);
-        assertNull(transformer.transform(null, new Loader(artifact), OWNER, null,
-            loader.domain, reference), "foreign loader");
-        assertNull(transformer.transform(null, loader, OWNER, null, null, reference),
-            "absent protection domain");
+        assertNull(
+                transformer.transform(null, new Loader(artifact), OWNER, null, loader.domain, reference),
+                "foreign loader");
+        assertNull(transformer.transform(null, loader, OWNER, null, null, reference), "absent protection domain");
         Loader alien = new Loader(Files.createTempFile("other", ".jar"));
-        assertNull(transformer.transform(null, loader, OWNER, null, alien.domain, reference),
-            "class from another artifact");
+        assertNull(
+                transformer.transform(null, loader, OWNER, null, alien.domain, reference),
+                "class from another artifact");
         assertNotNull(transformer.failure());
         assertEquals(0, transformer.matches());
         assertEquals(0, transformer.elided());

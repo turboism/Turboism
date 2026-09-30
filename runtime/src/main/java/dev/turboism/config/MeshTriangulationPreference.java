@@ -2,7 +2,6 @@ package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -25,8 +24,7 @@ public final class MeshTriangulationPreference {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final long MAX_CONFIG_BYTES = 64L * 1024L;
 
-    private MeshTriangulationPreference() {
-    }
+    private MeshTriangulationPreference() {}
 
     /**
      * @param turboismHome Turboism home containing {@code config.json}
@@ -37,8 +35,8 @@ public final class MeshTriangulationPreference {
         final Path config = turboismHome.resolve("config.json").normalize();
         try {
             if (!config.startsWith(turboismHome.toAbsolutePath().normalize())
-                || !Files.isRegularFile(config, LinkOption.NOFOLLOW_LINKS)
-                || Files.size(config) > MAX_CONFIG_BYTES) {
+                    || !Files.isRegularFile(config, LinkOption.NOFOLLOW_LINKS)
+                    || Files.size(config) > MAX_CONFIG_BYTES) {
                 return DEFAULT_ENABLED;
             }
             final JsonNode root = JSON.readTree(Files.readAllBytes(config));

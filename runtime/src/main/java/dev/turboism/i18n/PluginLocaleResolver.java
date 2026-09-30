@@ -19,12 +19,10 @@ import java.util.function.Consumer;
 public final class PluginLocaleResolver {
 
     /** The only explicit operator/config locale choices (plus the {@code system} sentinel). */
-    private static final java.util.Set<String> SUPPORTED_EXPLICIT_LOCALES = java.util.Set.of(
-        "en", "ja", "ko", "zh-Hans", "zh-Hant"
-    );
+    private static final java.util.Set<String> SUPPORTED_EXPLICIT_LOCALES =
+            java.util.Set.of("en", "ja", "ko", "zh-Hans", "zh-Hant");
 
-    private PluginLocaleResolver() {
-    }
+    private PluginLocaleResolver() {}
 
     /**
      * Resolves the one startup locale used by runtime and plugin UI construction.
@@ -38,21 +36,20 @@ public final class PluginLocaleResolver {
      * {@code fr}) is unsupported and emits a diagnostic before falling through.</p>
      */
     public static Locale resolveStartup(
-        final String configuredLocale,
-        final Locale hostDisplayLocale,
-        final Locale jvmDisplayLocale,
-        final Consumer<String> diagnostics
-    ) {
+            final String configuredLocale,
+            final Locale hostDisplayLocale,
+            final Locale jvmDisplayLocale,
+            final Consumer<String> diagnostics) {
         Objects.requireNonNull(diagnostics, "diagnostics");
         final String operatorLocale = operatorLocale();
         if (operatorLocale != null && !operatorLocale.isBlank() && !"system".equalsIgnoreCase(operatorLocale)) {
             final Locale parsed = parse(operatorLocale);
             if (parsed == null) {
                 diagnostics.accept("I18N_INVALID_OPERATOR_LOCALE: Explicit JVM locale is invalid; "
-                    + "the next locale source was selected.");
+                        + "the next locale source was selected.");
             } else if (!SUPPORTED_EXPLICIT_LOCALES.contains(operatorLocale)) {
                 diagnostics.accept("I18N_UNSUPPORTED_OPERATOR_LOCALE: Explicit JVM locale is unsupported; "
-                    + "the next locale source was selected.");
+                        + "the next locale source was selected.");
             } else {
                 return normalize(parsed);
             }
@@ -61,10 +58,10 @@ public final class PluginLocaleResolver {
             final Locale parsed = parse(configuredLocale);
             if (parsed == null) {
                 diagnostics.accept("I18N_INVALID_CONFIGURED_LOCALE: Configured locale is invalid; "
-                    + "the next locale source was selected.");
+                        + "the next locale source was selected.");
             } else if (!SUPPORTED_EXPLICIT_LOCALES.contains(configuredLocale)) {
                 diagnostics.accept("I18N_UNSUPPORTED_CONFIGURED_LOCALE: Configured locale is unsupported; "
-                    + "the next locale source was selected.");
+                        + "the next locale source was selected.");
             } else {
                 return normalize(parsed);
             }
@@ -79,28 +76,21 @@ public final class PluginLocaleResolver {
     }
 
     static Locale resolve(
-        final String pluginId,
-        final String explicitLocale,
-        final Locale displayLocale,
-        final Locale jvmDisplayLocale,
-        final LocalizationDiagnosticSink diagnostics
-    ) {
-        return resolveWithSource(
-            pluginId,
-            explicitLocale,
-            displayLocale,
-            jvmDisplayLocale,
-            diagnostics
-        ).locale();
+            final String pluginId,
+            final String explicitLocale,
+            final Locale displayLocale,
+            final Locale jvmDisplayLocale,
+            final LocalizationDiagnosticSink diagnostics) {
+        return resolveWithSource(pluginId, explicitLocale, displayLocale, jvmDisplayLocale, diagnostics)
+                .locale();
     }
 
     static Resolution resolveWithSource(
-        final String pluginId,
-        final String explicitLocale,
-        final Locale displayLocale,
-        final Locale jvmDisplayLocale,
-        final LocalizationDiagnosticSink diagnostics
-    ) {
+            final String pluginId,
+            final String explicitLocale,
+            final Locale displayLocale,
+            final Locale jvmDisplayLocale,
+            final LocalizationDiagnosticSink diagnostics) {
         Objects.requireNonNull(diagnostics, "diagnostics");
         final String operatorLocale = operatorLocale();
         if (operatorLocale != null && !operatorLocale.isBlank() && !"system".equalsIgnoreCase(operatorLocale)) {
@@ -109,12 +99,11 @@ public final class PluginLocaleResolver {
                 return new Resolution(normalize(parsed), "JVM_PROPERTY", operatorLocale);
             }
             diagnostics.record(new LocalizationDiagnostic(
-                "I18N_INVALID_OPERATOR_LOCALE",
-                pluginId,
-                "",
-                operatorLocale,
-                "Explicit JVM locale is invalid; the next locale source was selected."
-            ));
+                    "I18N_INVALID_OPERATOR_LOCALE",
+                    pluginId,
+                    "",
+                    operatorLocale,
+                    "Explicit JVM locale is invalid; the next locale source was selected."));
         }
         if (explicitLocale != null && !explicitLocale.isBlank() && !"system".equalsIgnoreCase(explicitLocale)) {
             final Locale parsed = parse(explicitLocale);
@@ -122,12 +111,11 @@ public final class PluginLocaleResolver {
                 return new Resolution(normalize(parsed), "CONFIGURED", explicitLocale);
             }
             diagnostics.record(new LocalizationDiagnostic(
-                "I18N_INVALID_EXPLICIT_LOCALE",
-                pluginId,
-                "",
-                explicitLocale,
-                "Configured plugin locale is invalid; the next locale source was selected."
-            ));
+                    "I18N_INVALID_EXPLICIT_LOCALE",
+                    pluginId,
+                    "",
+                    explicitLocale,
+                    "Configured plugin locale is invalid; the next locale source was selected."));
         }
         if (displayLocale != null) {
             return new Resolution(normalize(displayLocale), "DISPLAY_LOCALE", displayLocale.toLanguageTag());
@@ -152,7 +140,8 @@ public final class PluginLocaleResolver {
             return null;
         }
         try {
-            final Locale locale = new Locale.Builder().setLanguageTag(languageTag).build();
+            final Locale locale =
+                    new Locale.Builder().setLanguageTag(languageTag).build();
             if (locale.getLanguage().isBlank() || "und".equals(locale.getLanguage())) {
                 return null;
             }
@@ -174,16 +163,14 @@ public final class PluginLocaleResolver {
         if (!"zh".equals(locale.getLanguage()) || !locale.getScript().isBlank()) {
             return locale;
         }
-        final String script = switch (locale.getCountry()) {
-            case "CN", "SG" -> "Hans";
-            case "TW", "HK", "MO" -> "Hant";
-            // 简体为默认：宿主语言为 zh 但没有可用 script/country 时归 Hans；
-            // Wine 改写的 zh-US 等无 script 中文也归 Hans。
-            default -> "Hans";
-        };
-        return new Locale.Builder()
-            .setLanguage("zh")
-            .setScript(script)
-            .build();
+        final String script =
+                switch (locale.getCountry()) {
+                    case "CN", "SG" -> "Hans";
+                    case "TW", "HK", "MO" -> "Hant";
+                    // 简体为默认：宿主语言为 zh 但没有可用 script/country 时归 Hans；
+                    // Wine 改写的 zh-US 等无 script 中文也归 Hans。
+                    default -> "Hans";
+                };
+        return new Locale.Builder().setLanguage("zh").setScript(script).build();
     }
 }

@@ -1,7 +1,5 @@
 package dev.turboism.ui.appearance;
 
-import javax.swing.UIManager;
-import javax.swing.plaf.ColorUIResource;
 import java.awt.Color;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -15,6 +13,8 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import javax.swing.UIManager;
+import javax.swing.plaf.ColorUIResource;
 
 /**
  * Injects the persisted theme before the Cubism GL scene initializes.
@@ -39,11 +39,7 @@ public final class EarlyThemeAppearanceBootstrap {
     private final ClassLoader hostClassLoader;
     private final Runnable injected;
 
-    public EarlyThemeAppearanceBootstrap(
-        final Path home,
-        final ClassLoader hostClassLoader,
-        final Runnable injected
-    ) {
+    public EarlyThemeAppearanceBootstrap(final Path home, final ClassLoader hostClassLoader, final Runnable injected) {
         this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.injected = Objects.requireNonNull(injected, "injected");
@@ -74,10 +70,7 @@ public final class EarlyThemeAppearanceBootstrap {
             injected.run();
         } catch (RuntimeException failure) {
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "appearance",
-                "Early theme appearance bootstrap failed safely",
-                failure
-            );
+                    "appearance", "Early theme appearance bootstrap failed safely", failure);
         }
     }
 
@@ -87,7 +80,8 @@ public final class EarlyThemeAppearanceBootstrap {
             try {
                 if (SwingFlatLafHostOperations.onEdt(() -> {
                     final Object lookAndFeel = UIManager.getLookAndFeel();
-                    return lookAndFeel != null && isFlatLaf(lookAndFeel.getClass().getName());
+                    return lookAndFeel != null
+                            && isFlatLaf(lookAndFeel.getClass().getName());
                 })) {
                     return true;
                 }
@@ -106,9 +100,9 @@ public final class EarlyThemeAppearanceBootstrap {
 
     private static boolean isFlatLaf(final String className) {
         return className != null
-            && (className.startsWith("com.formdev.flatlaf.")
-                || className.contains("CubismLightTheme")
-                || className.contains("CubismDarkTheme"));
+                && (className.startsWith("com.formdev.flatlaf.")
+                        || className.contains("CubismLightTheme")
+                        || className.contains("CubismDarkTheme"));
     }
 
     private Optional<Map<String, String>> loadPersistedThemeColors() {
@@ -123,10 +117,7 @@ public final class EarlyThemeAppearanceBootstrap {
             colors = loadBuiltinColors(id);
         }
         if (colors.isEmpty()) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
-                "appearance",
-                "Persisted theme was not found"
-            );
+            dev.turboism.runtime.log.RuntimeDiagnostics.warn("appearance", "Persisted theme was not found");
         }
         return colors;
     }
@@ -150,8 +141,7 @@ public final class EarlyThemeAppearanceBootstrap {
                 }
                 final String value = new String(decoder.decode(line.substring(separator + 1)), StandardCharsets.UTF_8);
                 // Encoded as a bounded string list: ["theme-id"]
-                if (value.startsWith("[\"") && value.endsWith("\"]")
-                    && value.indexOf('"', 2) == value.length() - 2) {
+                if (value.startsWith("[\"") && value.endsWith("\"]") && value.indexOf('"', 2) == value.length() - 2) {
                     return Optional.of(value.substring(2, value.length() - 2));
                 }
             }
@@ -165,10 +155,11 @@ public final class EarlyThemeAppearanceBootstrap {
         // Built-in themes used to ship inside the agent JAR under /themes/<directory>/;
         // the lookup stays fail-open so a classpath that still provides them keeps working.
         final String slug = themeId.startsWith("turboism.") ? themeId.substring("turboism.".length()) : themeId;
-        final String[] slugs = { slug, themeId.replace('.', '-') };
+        final String[] slugs = {slug, themeId.replace('.', '-')};
         for (String candidate : slugs) {
             final String base = "/" + THEMES_DIR + "/" + candidate + "/";
-            try (InputStream input = EarlyThemeAppearanceBootstrap.class.getResourceAsStream(base + "theme.properties")) {
+            try (InputStream input =
+                    EarlyThemeAppearanceBootstrap.class.getResourceAsStream(base + "theme.properties")) {
                 if (input == null) {
                     continue;
                 }
@@ -177,7 +168,8 @@ public final class EarlyThemeAppearanceBootstrap {
                 if (!themeId.equals(meta.getProperty("id"))) {
                     continue;
                 }
-                try (InputStream colors = EarlyThemeAppearanceBootstrap.class.getResourceAsStream(base + "colors.properties")) {
+                try (InputStream colors =
+                        EarlyThemeAppearanceBootstrap.class.getResourceAsStream(base + "colors.properties")) {
                     if (colors != null) {
                         return Optional.of(loadProperties(colors));
                     }
@@ -190,7 +182,8 @@ public final class EarlyThemeAppearanceBootstrap {
     }
 
     private Optional<Map<String, String>> loadImportedColors(final String themeId) {
-        final Path archive = home.resolve("data").resolve(PLUGIN_ID).resolve("themes").resolve(themeId + ".zip");
+        final Path archive =
+                home.resolve("data").resolve(PLUGIN_ID).resolve("themes").resolve(themeId + ".zip");
         if (!Files.isRegularFile(archive)) {
             return Optional.empty();
         }
@@ -258,6 +251,6 @@ public final class EarlyThemeAppearanceBootstrap {
         ThemeRuntimeProperties.write(colors);
         final Class<?> flatLaf = Class.forName("com.formdev.flatlaf.FlatLaf", false, hostClassLoader);
         flatLaf.getMethod("registerCustomDefaultsSource", java.io.File.class)
-            .invoke(null, ThemeRuntimeProperties.path().toFile());
+                .invoke(null, ThemeRuntimeProperties.path().toFile());
     }
 }

@@ -3,13 +3,18 @@ package dev.turboism.plugin.mesheditmirroraxisenhance;
 import dev.turboism.plugin.mesheditmirroraxisenhance.service.MeshInspectorService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
+import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshEditTool;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -26,7 +31,8 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
     public void init(final PluginContext context) {
         this.context = context;
         this.logger = context.logger();
-        this.inspectorService = new MeshInspectorService(context.cubismRead(), context.uiHost());
+        this.inspectorService = new MeshInspectorService(
+                context.cubismRead(), context.services().require(UiHostCapabilityService.class));
         logger.info("MeshEditMirrorAxisEnhancePlugin initialized");
     }
 
@@ -34,34 +40,30 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
     public void enable() {
         try {
             registerAction(
-                MeshInspectorService.INSPECT_ACTION_ID,
-                "Inspect Meshes",
-                ignored -> inspectorService.inspect()
-            );
+                    MeshInspectorService.INSPECT_ACTION_ID,
+                    "Inspect Meshes",
+                    "Ctrl+Alt+M",
+                    ignored -> inspectorService.inspect());
             registerMirrorLinkedDeletion();
-            context.disposableScope().register(
-                context.meshMirrorMoveParticipation().participate()
-            );
-            context.disposableScope().register(
-                context.meshMirrorToolEligibility().extendEligibleTools(Set.of(
-                    MeshEditTool.ARROW,
-                    MeshEditTool.ERASER,
-                    MeshEditTool.LASSO
-                ))
-            );
-            context.disposableScope().register(
-                context.meshEditUi().contributeMirrorAxisAngleControl(
-                    new MeshEditUiService.MirrorAxisAngleControl(
-                        "mesh.mirror-axis.angle",
-                        context.localization().text("mesh.mirror-axis.angle.label"),
-                        context.localization().text("mesh.mirror-axis.angle.reset"),
-                        -180.0f,
-                        180.0f,
-                        0.1f,
-                        this::setMirrorAxisAngleDegrees
-                    )
-                )
-            );
+            context.disposableScope()
+                    .register(context.services()
+                            .require(MeshMirrorMoveParticipation.class)
+                            .participate());
+            context.disposableScope()
+                    .register(context.services()
+                            .require(MeshMirrorToolEligibility.class)
+                            .extendEligibleTools(Set.of(MeshEditTool.ARROW, MeshEditTool.ERASER, MeshEditTool.LASSO)));
+            context.disposableScope()
+                    .register(context.services()
+                            .require(MeshEditUiService.class)
+                            .contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+                                    "mesh.mirror-axis.angle",
+                                    context.localization().text("mesh.mirror-axis.angle.label"),
+                                    context.localization().text("mesh.mirror-axis.angle.reset"),
+                                    -180.0f,
+                                    180.0f,
+                                    0.1f,
+                                    this::setMirrorAxisAngleDegrees)));
         } catch (RuntimeException failure) {
             closeDisposableScopeQuietly();
             throw failure;
@@ -81,7 +83,7 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
 
     /** Called by the native-position mesh-edit control. */
     public void setMirrorAxisAngleDegrees(final float angleDegrees) {
-        context.meshMirrorAxis().setCurrentAngleDegrees(angleDegrees);
+        context.services().require(MeshMirrorAxisService.class).setCurrentAngleDegrees(angleDegrees);
     }
 
     /**
@@ -95,36 +97,23 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
      * rather than anything this plugin invents.</p>
      */
     private void registerMirrorLinkedDeletion() {
-        context.disposableScope().register(
-            context.meshEditParticipation().participate(deletion ->
-                deletion.mirrorAxis().enabled()
-                    ? context.meshMirrorCounterparts().mirrorOf(deletion)
-                    : MeshEditContribution.none()
-            )
-        );
+        context.disposableScope()
+                .register(context.services()
+                        .require(MeshEditParticipation.class)
+                        .participate(deletion -> deletion.mirrorAxis().enabled()
+                                ? context.services()
+                                        .require(MeshMirrorCounterparts.class)
+                                        .mirrorOf(deletion)
+                                : MeshEditContribution.none()));
     }
 
     private void registerAction(
-        final String id,
-        final String label,
-        final Consumer<ActionRegistry.ActionContext> handler
-    ) {
-        final Registration registration = context.actions().register(id, new ActionRegistry.Action() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String label() {
-                return label;
-            }
-
-            @Override
-            public Consumer<ActionRegistry.ActionContext> handler() {
-                return handler;
-            }
-        });
+            final String id,
+            final String label,
+            final String defaultShortcut,
+            final Consumer<ActionRegistry.ActionContext> handler) {
+        final Registration registration =
+                context.actions().register(id, ActionRegistry.Action.of(id, label, defaultShortcut, handler));
         context.disposableScope().register(registration);
     }
 

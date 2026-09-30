@@ -30,9 +30,7 @@ import java.util.Optional;
  * digest admits the experiment; the per-artifact {@code ReviewedMethodShape}
  * gate still pins the exact body before any rewrite.</p>
  */
-public record InputPathElisionTarget(
-        HostArtifactDigest digest,
-        String version) {
+public record InputPathElisionTarget(HostArtifactDigest digest, String version) {
 
     /** The widget base class both call chains dispatch to. */
     public static final String OWNER = "com/live2d/ui/CWidget";
@@ -64,13 +62,13 @@ public record InputPathElisionTarget(
     public static Optional<InputPathElisionTarget> of(final HostArtifactDigest digest) {
         Objects.requireNonNull(digest, "digest");
         return ReviewedHostArtifacts.cubismVersionOf(digest)
-            .map(version -> new InputPathElisionTarget(digest, version));
+                .map(version -> new InputPathElisionTarget(digest, version));
     }
 
     /** Every reviewed target, oldest supported version first. */
     public static List<InputPathElisionTarget> all() {
         return ReviewedHostArtifacts.all().stream()
-            .flatMap(artifact -> of(artifact).stream())
-            .toList();
+                .flatMap(artifact -> of(artifact).stream())
+                .toList();
     }
 }

@@ -1,7 +1,6 @@
 package dev.turboism.sdk.ui.settings;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 
 /** Plugin-scoped registry for contributions to the shared Turboism settings window. */

@@ -4,7 +4,6 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -15,25 +14,26 @@ import java.util.function.ToLongFunction;
 /** Bounded current-page BSSF packing. It never searches or produces a subsequent page. */
 public final class CurrentPageTextureAtlasPlanner {
     private static final List<Comparator<TextureAtlasLayoutItem>> ORDERS = List.of(
-        descending(i -> (long) i.width() * i.height()),
-        descending(TextureAtlasLayoutItem::height),
-        descending(i -> Math.min(i.width(), i.height())),
-        descending(i -> (long) i.width() + i.height()),
-        descending(TextureAtlasLayoutItem::width),
-        descending(i -> Math.max(i.width(), i.height()))
-    );
+            descending(i -> (long) i.width() * i.height()),
+            descending(TextureAtlasLayoutItem::height),
+            descending(i -> Math.min(i.width(), i.height())),
+            descending(i -> (long) i.width() + i.height()),
+            descending(TextureAtlasLayoutItem::width),
+            descending(i -> Math.max(i.width(), i.height())));
 
     /** Plans this page only; inputs not present in placements are overflow. */
-    public TextureAtlasLayoutPlan plan(List<TextureAtlasLayoutItem> items,
-        TextureAtlasLayoutConstraints constraints, boolean parallel) {
+    public TextureAtlasLayoutPlan plan(
+            List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints constraints, boolean parallel) {
         Objects.requireNonNull(constraints, "constraints");
         final List<TextureAtlasLayoutItem> inputs = List.copyOf(items);
         final HashSet<String> ids = new HashSet<>();
         for (var item : inputs) {
-            if (!ids.add(item.textureId())) throw new IllegalArgumentException("Duplicate texture ID: " + item.textureId());
+            if (!ids.add(item.textureId()))
+                throw new IllegalArgumentException("Duplicate texture ID: " + item.textureId());
         }
         final double requestedScale = constraints.singlePageOptions() == null
-            ? 1D : constraints.singlePageOptions().requestedScale();
+                ? 1D
+                : constraints.singlePageOptions().requestedScale();
         double scale = requestedScale == 0D ? automaticUpperBound(inputs, constraints) : requestedScale;
         Packed best = packing(inputs, constraints, scale, parallel);
         if (requestedScale == 0D && best.placements.size() != inputs.size()) {
@@ -49,10 +49,11 @@ public final class CurrentPageTextureAtlasPlanner {
                 // This bounded heuristic is not a proof of the maximum feasible scale.
                 // Stop doomed passes immediately when only a complete result could improve best.
                 final boolean allRequired = best.placements.size() == inputs.size();
-                final Packed trial = parallel ? packing(inputs, constraints, trialScale, true, allRequired)
-                    : pack(ordered, constraints, trialScale, allRequired);
+                final Packed trial = parallel
+                        ? packing(inputs, constraints, trialScale, true, allRequired)
+                        : pack(ordered, constraints, trialScale, allRequired);
                 if (trial.placements.size() > best.placements.size()
-                    || (trial.placements.size() == best.placements.size() && trialScale > scale)) {
+                        || (trial.placements.size() == best.placements.size() && trialScale > scale)) {
                     best = trial;
                     scale = trialScale;
                 }
@@ -82,42 +83,60 @@ public final class CurrentPageTextureAtlasPlanner {
 
     private static TextureAtlasLayoutPlan toPlan(Packed packed, TextureAtlasLayoutConstraints c, double scale) {
         final List<TextureAtlasPlacement> placements = packed.placements.stream()
-            .sorted(Comparator.comparing(p -> p.item.textureId()))
-            .map(p -> new TextureAtlasPlacement(p.item.textureId(), 0, p.x, p.y, p.width, p.height, p.rotated))
-            .toList();
+                .sorted(Comparator.comparing(p -> p.item.textureId()))
+                .map(p -> new TextureAtlasPlacement(p.item.textureId(), 0, p.x, p.y, p.width, p.height, p.rotated))
+                .toList();
         return TextureAtlasLayoutPlan.currentPage(c.pageWidth(), c.pageHeight(), placements, scale);
     }
 
-    private static Packed packing(List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints c,
-        double scale, boolean parallel) {
+    private static Packed packing(
+            List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints c, double scale, boolean parallel) {
         return packing(items, c, scale, parallel, false);
     }
 
-    private static Packed packing(List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints c,
-        double scale, boolean parallel, boolean allRequired) {
+    private static Packed packing(
+            List<TextureAtlasLayoutItem> items,
+            TextureAtlasLayoutConstraints c,
+            double scale,
+            boolean parallel,
+            boolean allRequired) {
         // Small parallel requests first try serial packing to avoid unnecessary region scheduling.
         // 32 is a preflight limit, NOT a partition cutoff: a partial serial result must still
         // compete with the legacy-compatible regional candidate (partition admission stays 16).
         // At a fixed scale, full-input candidates tie on our count/content-area score.
-        final Packed preflight = parallel && items.size() < 32
-            ? bestPacking(items, c, scale, allRequired) : null;
+        final Packed preflight = parallel && items.size() < 32 ? bestPacking(items, c, scale, allRequired) : null;
         if (preflight != null && preflight.placements.size() == items.size()) return preflight;
         if (parallel) {
             final var regions = CurrentPageRegions.partition(items, c, scale);
-            final var groups = regions.isEmpty() ? List.<List<TextureAtlasLayoutItem>>of()
-                : CurrentPageRegions.assign(items, regions, c, scale);
+            final var groups = regions.isEmpty()
+                    ? List.<List<TextureAtlasLayoutItem>>of()
+                    : CurrentPageRegions.assign(items, regions, c, scale);
             if (!groups.isEmpty()) {
-                final List<Packed> results = java.util.stream.IntStream.range(0, regions.size()).parallel()
-                    .mapToObj(index -> {
-                        final var r = regions.get(index);
-                        final var local = new TextureAtlasLayoutConstraints(r.width(), r.height(), c.edgeMargin(),
-                            c.itemPadding(), 1, c.allowRotation(), c.allowScaling(), c.singlePageOptions());
-                        final Packed packed = bestPacking(groups.get(index), local, scale, allRequired);
-                        return new Packed(packed.placements.stream().map(p -> new Placed(p.item,
-                            p.x + r.x(), p.y + r.y(), p.width, p.height, p.rotated)).toList(), packed.area);
-                    }).toList();
-                final Packed regional = new Packed(results.stream().flatMap(p -> p.placements.stream()).toList(),
-                    results.stream().mapToLong(p -> p.area).sum());
+                final List<Packed> results = java.util.stream.IntStream.range(0, regions.size())
+                        .parallel()
+                        .mapToObj(index -> {
+                            final var r = regions.get(index);
+                            final var local = new TextureAtlasLayoutConstraints(
+                                    r.width(),
+                                    r.height(),
+                                    c.edgeMargin(),
+                                    c.itemPadding(),
+                                    1,
+                                    c.allowRotation(),
+                                    c.allowScaling(),
+                                    c.singlePageOptions());
+                            final Packed packed = bestPacking(groups.get(index), local, scale, allRequired);
+                            return new Packed(
+                                    packed.placements.stream()
+                                            .map(p -> new Placed(
+                                                    p.item, p.x + r.x(), p.y + r.y(), p.width, p.height, p.rotated))
+                                            .toList(),
+                                    packed.area);
+                        })
+                        .toList();
+                final Packed regional = new Packed(
+                        results.stream().flatMap(p -> p.placements.stream()).toList(),
+                        results.stream().mapToLong(p -> p.area).sum());
                 if (regional.placements.size() == items.size()) return regional;
                 // A partition is an optimization, not permission to drop otherwise placeable inputs.
                 final Packed serial = preflight != null ? preflight : bestPacking(items, c, scale, allRequired);
@@ -127,8 +146,8 @@ public final class CurrentPageTextureAtlasPlanner {
         return preflight != null ? preflight : bestPacking(items, c, scale, allRequired);
     }
 
-    private static Packed bestPacking(List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints c,
-        double scale, boolean allRequired) {
+    private static Packed bestPacking(
+            List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints c, double scale, boolean allRequired) {
         Packed best = null;
         for (var comparator : ORDERS) {
             final ArrayList<TextureAtlasLayoutItem> ordered = new ArrayList<>(items);
@@ -142,23 +161,27 @@ public final class CurrentPageTextureAtlasPlanner {
         return best;
     }
 
-    private static Packed pack(List<TextureAtlasLayoutItem> ordered, TextureAtlasLayoutConstraints c,
-        double scale, boolean allRequired) {
+    private static Packed pack(
+            List<TextureAtlasLayoutItem> ordered, TextureAtlasLayoutConstraints c, double scale, boolean allRequired) {
         if (allRequired && !reservedAreaFits(ordered, c, scale)) return new Packed(List.of(), 0);
         final int padding = c.itemPadding();
         final ArrayList<Rect> free = new ArrayList<>();
         // A trailing reserved gap is not needed at the page edge. The extended free rectangle
         // accounts for that while every emitted content rectangle remains inside edgeMargin.
-        free.add(new Rect(c.edgeMargin(), c.edgeMargin(),
-            (long) c.pageWidth() - 2L * c.edgeMargin() + padding,
-            (long) c.pageHeight() - 2L * c.edgeMargin() + padding));
+        free.add(new Rect(
+                c.edgeMargin(),
+                c.edgeMargin(),
+                (long) c.pageWidth() - 2L * c.edgeMargin() + padding,
+                (long) c.pageHeight() - 2L * c.edgeMargin() + padding));
         final ArrayList<Placed> placed = new ArrayList<>();
         long area = 0;
         for (var item : ordered) {
             final double scaledWidth = Math.ceil(item.width() * scale);
             final double scaledHeight = Math.ceil(item.height() * scale);
-            if (scaledWidth < 1 || scaledHeight < 1 || scaledWidth > Integer.MAX_VALUE
-                || scaledHeight > Integer.MAX_VALUE) {
+            if (scaledWidth < 1
+                    || scaledHeight < 1
+                    || scaledWidth > Integer.MAX_VALUE
+                    || scaledHeight > Integer.MAX_VALUE) {
                 if (allRequired) return new Packed(List.of(), 0);
                 continue;
             }
@@ -176,15 +199,16 @@ public final class CurrentPageTextureAtlasPlanner {
             }
             final int placedWidth = best.rotated ? height : width;
             final int placedHeight = best.rotated ? width : height;
-            placed.add(new Placed(item, Math.toIntExact(best.x), Math.toIntExact(best.y), placedWidth, placedHeight, best.rotated));
+            placed.add(new Placed(
+                    item, Math.toIntExact(best.x), Math.toIntExact(best.y), placedWidth, placedHeight, best.rotated));
             area += (long) placedWidth * placedHeight;
             splitAndPrune(free, new Rect(best.x, best.y, (long) placedWidth + padding, (long) placedHeight + padding));
         }
         return new Packed(placed, area);
     }
 
-    private static boolean reservedAreaFits(List<TextureAtlasLayoutItem> items,
-        TextureAtlasLayoutConstraints c, double scale) {
+    private static boolean reservedAreaFits(
+            List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints c, double scale) {
         final int padding = c.itemPadding();
         final long width = (long) c.pageWidth() - 2L * c.edgeMargin() + padding;
         final long height = (long) c.pageHeight() - 2L * c.edgeMargin() + padding;
@@ -205,8 +229,12 @@ public final class CurrentPageTextureAtlasPlanner {
 
     private static Candidate candidate(Rect rect, long width, long height, boolean rotated) {
         if (width > rect.width || height > rect.height) return null;
-        return new Candidate(rect.x, rect.y, rotated,
-            Math.min(rect.width - width, rect.height - height), Math.max(rect.width - width, rect.height - height));
+        return new Candidate(
+                rect.x,
+                rect.y,
+                rotated,
+                Math.min(rect.width - width, rect.height - height),
+                Math.max(rect.width - width, rect.height - height));
     }
 
     private static Candidate choose(Candidate a, Candidate b) {
@@ -248,21 +276,37 @@ public final class CurrentPageTextureAtlasPlanner {
     }
 
     private record Rect(long x, long y, long width, long height) {
-        long right() { return (long) x + width; }
-        long bottom() { return (long) y + height; }
-        boolean intersects(Rect other) { return x < other.right() && right() > other.x && y < other.bottom() && bottom() > other.y; }
-        boolean contains(Rect other) { return x <= other.x && y <= other.y && right() >= other.right() && bottom() >= other.bottom(); }
+        long right() {
+            return (long) x + width;
+        }
+
+        long bottom() {
+            return (long) y + height;
+        }
+
+        boolean intersects(Rect other) {
+            return x < other.right() && right() > other.x && y < other.bottom() && bottom() > other.y;
+        }
+
+        boolean contains(Rect other) {
+            return x <= other.x && y <= other.y && right() >= other.right() && bottom() >= other.bottom();
+        }
     }
+
     private record Candidate(long x, long y, boolean rotated, long shortWaste, long longWaste) {
         static final Comparator<Candidate> ORDER = Comparator.comparingLong(Candidate::shortWaste)
-            .thenComparingLong(Candidate::longWaste).thenComparingLong(Candidate::y)
-            .thenComparingLong(Candidate::x).thenComparing(Candidate::rotated);
+                .thenComparingLong(Candidate::longWaste)
+                .thenComparingLong(Candidate::y)
+                .thenComparingLong(Candidate::x)
+                .thenComparing(Candidate::rotated);
     }
-    private record Placed(TextureAtlasLayoutItem item, int x, int y, int width, int height, boolean rotated) { }
+
+    private record Placed(TextureAtlasLayoutItem item, int x, int y, int width, int height, boolean rotated) {}
+
     private record Packed(List<Placed> placements, long area) {
         boolean betterThan(Packed other) {
             return placements.size() > other.placements.size()
-                || (placements.size() == other.placements.size() && area > other.area);
+                    || (placements.size() == other.placements.size() && area > other.area);
         }
     }
 }

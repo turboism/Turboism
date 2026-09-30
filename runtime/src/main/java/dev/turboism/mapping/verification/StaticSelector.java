@@ -4,15 +4,14 @@ import java.util.Objects;
 
 /** A single exact class/member selector to verify against JAR metadata. */
 public record StaticSelector(
-    String mappingId,
-    String alias,
-    Kind kind,
-    String ownerInternalName,
-    String memberName,
-    String descriptor,
-    int requiredAccessFlags,
-    int forbiddenAccessFlags
-) {
+        String mappingId,
+        String alias,
+        Kind kind,
+        String ownerInternalName,
+        String memberName,
+        String descriptor,
+        int requiredAccessFlags,
+        int forbiddenAccessFlags) {
 
     public static final int ACCESS_PUBLIC = 0x0001;
     public static final int ACCESS_STATIC = 0x0008;
@@ -24,12 +23,8 @@ public record StaticSelector(
         ownerInternalName = requireInternalName(ownerInternalName);
         // INHERITS pins a direct declared ancestor in memberName instead of a
         // member/descriptor pair; CLASS keeps both empty as before.
-        memberName = kind == Kind.CLASS
-            ? ""
-            : requireText(memberName, "memberName");
-        descriptor = kind == Kind.CLASS || kind == Kind.INHERITS
-            ? ""
-            : requireText(descriptor, "descriptor");
+        memberName = kind == Kind.CLASS ? "" : requireText(memberName, "memberName");
+        descriptor = kind == Kind.CLASS || kind == Kind.INHERITS ? "" : requireText(descriptor, "descriptor");
         if (kind == Kind.INHERITS) {
             memberName = requireInternalName(memberName);
         }
@@ -64,10 +59,7 @@ public record StaticSelector(
      * @return the exact selector
      */
     public static StaticSelector classSelector(
-        final String mappingId,
-        final String alias,
-        final String ownerInternalName
-    ) {
+            final String mappingId, final String alias, final String ownerInternalName) {
         return new StaticSelector(mappingId, alias, Kind.CLASS, ownerInternalName, "", "", 0, 0);
     }
 
@@ -83,14 +75,11 @@ public record StaticSelector(
      * @return the inheritance selector
      */
     public static StaticSelector inheritsFrom(
-        final String mappingId,
-        final String alias,
-        final String ownerInternalName,
-        final String ancestorInternalName
-    ) {
-        return new StaticSelector(
-            mappingId, alias, Kind.INHERITS, ownerInternalName, ancestorInternalName, "", 0, 0
-        );
+            final String mappingId,
+            final String alias,
+            final String ownerInternalName,
+            final String ancestorInternalName) {
+        return new StaticSelector(mappingId, alias, Kind.INHERITS, ownerInternalName, ancestorInternalName, "", 0, 0);
     }
 
     /**
@@ -103,11 +92,7 @@ public record StaticSelector(
      * @return the exact selector
      */
     public static StaticSelector method(
-        final String alias,
-        final String ownerInternalName,
-        final String memberName,
-        final String descriptor
-    ) {
+            final String alias, final String ownerInternalName, final String memberName, final String descriptor) {
         return method(alias, alias, ownerInternalName, memberName, descriptor, 0);
     }
 
@@ -122,12 +107,11 @@ public record StaticSelector(
      * @return the exact selector
      */
     public static StaticSelector method(
-        final String alias,
-        final String ownerInternalName,
-        final String memberName,
-        final String descriptor,
-        final int requiredAccessFlags
-    ) {
+            final String alias,
+            final String ownerInternalName,
+            final String memberName,
+            final String descriptor,
+            final int requiredAccessFlags) {
         return method(alias, alias, ownerInternalName, memberName, descriptor, requiredAccessFlags);
     }
 
@@ -144,23 +128,21 @@ public record StaticSelector(
      * @return the exact selector
      */
     public static StaticSelector method(
-        final String mappingId,
-        final String alias,
-        final String ownerInternalName,
-        final String memberName,
-        final String descriptor,
-        final int requiredAccessFlags
-    ) {
+            final String mappingId,
+            final String alias,
+            final String ownerInternalName,
+            final String memberName,
+            final String descriptor,
+            final int requiredAccessFlags) {
         return new StaticSelector(
-            mappingId,
-            alias,
-            Kind.METHOD,
-            ownerInternalName,
-            memberName,
-            descriptor,
-            requiredAccessFlags,
-            ACCESS_STATIC
-        );
+                mappingId,
+                alias,
+                Kind.METHOD,
+                ownerInternalName,
+                memberName,
+                descriptor,
+                requiredAccessFlags,
+                ACCESS_STATIC);
     }
 
     /**
@@ -174,12 +156,11 @@ public record StaticSelector(
      * @return the exact selector
      */
     public static StaticSelector staticMethod(
-        final String alias,
-        final String ownerInternalName,
-        final String memberName,
-        final String descriptor,
-        final int requiredAccessFlags
-    ) {
+            final String alias,
+            final String ownerInternalName,
+            final String memberName,
+            final String descriptor,
+            final int requiredAccessFlags) {
         return staticMethod(alias, alias, ownerInternalName, memberName, descriptor, requiredAccessFlags);
     }
 
@@ -195,23 +176,21 @@ public record StaticSelector(
      * @return the exact selector
      */
     public static StaticSelector staticMethod(
-        final String mappingId,
-        final String alias,
-        final String ownerInternalName,
-        final String memberName,
-        final String descriptor,
-        final int requiredAccessFlags
-    ) {
+            final String mappingId,
+            final String alias,
+            final String ownerInternalName,
+            final String memberName,
+            final String descriptor,
+            final int requiredAccessFlags) {
         return new StaticSelector(
-            mappingId,
-            alias,
-            Kind.METHOD,
-            ownerInternalName,
-            memberName,
-            descriptor,
-            requiredAccessFlags | ACCESS_STATIC,
-            0
-        );
+                mappingId,
+                alias,
+                Kind.METHOD,
+                ownerInternalName,
+                memberName,
+                descriptor,
+                requiredAccessFlags | ACCESS_STATIC,
+                0);
     }
 
     /**
@@ -224,21 +203,19 @@ public record StaticSelector(
      * @return the exact selector
      */
     public static StaticSelector constructor(
-        final String alias,
-        final String ownerInternalName,
-        final String descriptor,
-        final int requiredAccessFlags
-    ) {
+            final String alias,
+            final String ownerInternalName,
+            final String descriptor,
+            final int requiredAccessFlags) {
         return new StaticSelector(
-            alias,
-            alias,
-            Kind.CONSTRUCTOR,
-            ownerInternalName,
-            "<init>",
-            descriptor,
-            requiredAccessFlags,
-            ACCESS_STATIC
-        );
+                alias,
+                alias,
+                Kind.CONSTRUCTOR,
+                ownerInternalName,
+                "<init>",
+                descriptor,
+                requiredAccessFlags,
+                ACCESS_STATIC);
     }
 
     /**
@@ -252,28 +229,21 @@ public record StaticSelector(
      * @return the exact selector
      */
     public static StaticSelector field(
-        final String alias,
-        final String ownerInternalName,
-        final String memberName,
-        final String descriptor,
-        final int requiredAccessFlags
-    ) {
+            final String alias,
+            final String ownerInternalName,
+            final String memberName,
+            final String descriptor,
+            final int requiredAccessFlags) {
         return new StaticSelector(
-            alias,
-            alias,
-            Kind.FIELD,
-            ownerInternalName,
-            memberName,
-            descriptor,
-            requiredAccessFlags,
-            0
-        );
+                alias, alias, Kind.FIELD, ownerInternalName, memberName, descriptor, requiredAccessFlags, 0);
     }
 
     private static String requireInternalName(final String value) {
         final String internalName = requireText(value, "ownerInternalName");
-        if (internalName.startsWith("/") || internalName.endsWith("/") || internalName.contains(".")
-            || internalName.contains("..")) {
+        if (internalName.startsWith("/")
+                || internalName.endsWith("/")
+                || internalName.contains(".")
+                || internalName.contains("..")) {
             throw new IllegalArgumentException("ownerInternalName must be a JVM internal name");
         }
         return internalName;

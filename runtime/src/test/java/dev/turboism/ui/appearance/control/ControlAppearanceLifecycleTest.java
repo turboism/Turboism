@@ -1,12 +1,11 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.sdk.ui.appearance.UiColor;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JLabel;
-import java.awt.Color;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import dev.turboism.sdk.ui.appearance.UiColor;
+import java.awt.Color;
+import javax.swing.JLabel;
+import org.junit.jupiter.api.Test;
 
 class ControlAppearanceLifecycleTest {
     @Test
@@ -15,11 +14,14 @@ class ControlAppearanceLifecycleTest {
         final PaletteAppearanceCoordinator.Scope scope = scope(4);
         coordinator.reconcile(scope);
         coordinator.register(
-            "plugin", 1, scope, PaletteAppearanceCoordinator.Palette.DEFORMER_PART, "WarpA",
-            PaletteAppearanceCoordinator.Property.TEXT_COLOR, new UiColor(1.0F, 0.0F, 0.0F, 1.0F)
-        );
-        final DeformerTreeControlAppearanceProvider provider =
-            new DeformerTreeControlAppearanceProvider(coordinator);
+                "plugin",
+                1,
+                scope,
+                PaletteAppearanceCoordinator.Palette.DEFORMER_PART,
+                "WarpA",
+                PaletteAppearanceCoordinator.Property.TEXT_COLOR,
+                new UiColor(1.0F, 0.0F, 0.0F, 1.0F));
+        final DeformerTreeControlAppearanceProvider provider = new DeformerTreeControlAppearanceProvider(coordinator);
         final JLabel renderer = new JLabel();
         final Color nativeColor = Color.BLACK;
         renderer.setForeground(nativeColor);
@@ -42,12 +44,8 @@ class ControlAppearanceLifecycleTest {
     }
 
     private static void render(
-        final DeformerTreeControlAppearanceProvider provider,
-        final long generation,
-        final JLabel renderer
-    ) throws Exception {
-        javax.swing.SwingUtilities.invokeAndWait(() ->
-            provider.apply(generation, "WarpA", renderer, false, false)
-        );
+            final DeformerTreeControlAppearanceProvider provider, final long generation, final JLabel renderer)
+            throws Exception {
+        javax.swing.SwingUtilities.invokeAndWait(() -> provider.apply(generation, "WarpA", renderer, false, false));
     }
 }

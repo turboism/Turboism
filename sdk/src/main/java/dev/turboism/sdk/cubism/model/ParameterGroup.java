@@ -1,9 +1,8 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-
+import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,7 +13,9 @@ public interface ParameterGroup {
     ParameterGroupId id();
 
     /** Returns this ParameterGroup's Cubism parameter-palette UI projection. */
-    default ParameterGroupAppearance ui() { return ParameterGroupAppearance.unavailable(); }
+    default ParameterGroupAppearance ui() {
+        return ParameterGroupAppearance.unavailable();
+    }
 
     /** Returns the folder's display name, or empty when it has none. */
     Optional<String> name();

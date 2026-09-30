@@ -1,12 +1,11 @@
 package dev.turboism.core.runtime.sidecar;
 
-import org.junit.jupiter.api.Test;
-
-import java.time.Instant;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.Instant;
+import org.junit.jupiter.api.Test;
 
 class SidecarEnvelopeValidatorTest {
 
@@ -15,13 +14,12 @@ class SidecarEnvelopeValidatorTest {
     @Test
     void validEnvelopeWithPrimitivesIsAccepted() {
         SidecarEnvelope envelope = new SidecarEnvelope(
-            "dev.turboism.plugin.demo",
-            "task-001",
-            SidecarWorkAction.QUERY.name(),
-            "{\"message\":\"hello\",\"count\":42,\"enabled\":true}",
-            "sidecar",
-            Instant.now().toString()
-        );
+                "dev.turboism.plugin.demo",
+                "task-001",
+                SidecarWorkAction.QUERY.name(),
+                "{\"message\":\"hello\",\"count\":42,\"enabled\":true}",
+                "sidecar",
+                Instant.now().toString());
 
         SidecarEnvelopeValidator.ValidationResult result = validator.validate(envelope);
 
@@ -32,13 +30,12 @@ class SidecarEnvelopeValidatorTest {
     @Test
     void envelopeWithLive2dHostObjectIsRejected() {
         SidecarEnvelope envelope = new SidecarEnvelope(
-            "dev.turboism.plugin.demo",
-            "task-002",
-            SidecarWorkAction.EXECUTE.name(),
-            "{\"target\":{\"@class\":\"com.live2d.cubism.model.CubismModel\"}}",
-            "sidecar",
-            Instant.now().toString()
-        );
+                "dev.turboism.plugin.demo",
+                "task-002",
+                SidecarWorkAction.EXECUTE.name(),
+                "{\"target\":{\"@class\":\"com.live2d.cubism.model.CubismModel\"}}",
+                "sidecar",
+                Instant.now().toString());
 
         SidecarEnvelopeValidator.ValidationResult result = validator.validate(envelope);
 
@@ -49,13 +46,12 @@ class SidecarEnvelopeValidatorTest {
     @Test
     void envelopeWithPathTraversalIsRejected() {
         SidecarEnvelope envelope = new SidecarEnvelope(
-            "dev.turboism.plugin.demo",
-            "task-003",
-            SidecarWorkAction.EXECUTE.name(),
-            "{\"outputPath\":\"../../etc/passwd\"}",
-            "sidecar",
-            Instant.now().toString()
-        );
+                "dev.turboism.plugin.demo",
+                "task-003",
+                SidecarWorkAction.EXECUTE.name(),
+                "{\"outputPath\":\"../../etc/passwd\"}",
+                "sidecar",
+                Instant.now().toString());
 
         SidecarEnvelopeValidator.ValidationResult result = validator.validate(envelope);
 
@@ -66,13 +62,12 @@ class SidecarEnvelopeValidatorTest {
     @Test
     void envelopeWithReflectionHandleIsRejected() {
         SidecarEnvelope envelope = new SidecarEnvelope(
-            "dev.turboism.plugin.demo",
-            "task-004",
-            SidecarWorkAction.EXECUTE.name(),
-            "{\"method\":\"java.lang.reflect.Method\"}",
-            "sidecar",
-            Instant.now().toString()
-        );
+                "dev.turboism.plugin.demo",
+                "task-004",
+                SidecarWorkAction.EXECUTE.name(),
+                "{\"method\":\"java.lang.reflect.Method\"}",
+                "sidecar",
+                Instant.now().toString());
 
         SidecarEnvelopeValidator.ValidationResult result = validator.validate(envelope);
 

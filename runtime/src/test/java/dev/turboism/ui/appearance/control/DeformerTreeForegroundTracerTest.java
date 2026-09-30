@@ -1,13 +1,12 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.sdk.ui.appearance.UiColor;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JLabel;
-import java.awt.Color;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+
+import dev.turboism.sdk.ui.appearance.UiColor;
+import java.awt.Color;
+import javax.swing.JLabel;
+import org.junit.jupiter.api.Test;
 
 class DeformerTreeForegroundTracerTest {
     @Test
@@ -16,13 +15,14 @@ class DeformerTreeForegroundTracerTest {
         final PaletteAppearanceCoordinator.Scope scope = scope(11);
         coordinator.reconcile(scope);
         final var registration = coordinator.register(
-            "dev.turboism.test.control-appearance", 7, scope,
-            PaletteAppearanceCoordinator.Palette.DEFORMER_PART, "WarpA",
-            PaletteAppearanceCoordinator.Property.TEXT_COLOR,
-            new UiColor(0.2F, 0.4F, 0.6F, 1.0F)
-        );
-        final DeformerTreeControlAppearanceProvider provider =
-            new DeformerTreeControlAppearanceProvider(coordinator);
+                "dev.turboism.test.control-appearance",
+                7,
+                scope,
+                PaletteAppearanceCoordinator.Palette.DEFORMER_PART,
+                "WarpA",
+                PaletteAppearanceCoordinator.Property.TEXT_COLOR,
+                new UiColor(0.2F, 0.4F, 0.6F, 1.0F));
+        final DeformerTreeControlAppearanceProvider provider = new DeformerTreeControlAppearanceProvider(coordinator);
         final JLabel reusedRenderer = new JLabel();
         final Color nativeForeground = new Color(0x22, 0x22, 0x22);
 
@@ -46,13 +46,9 @@ class DeformerTreeForegroundTracerTest {
     }
 
     private static JLabel render(
-        final DeformerTreeControlAppearanceProvider provider,
-        final String deformerId,
-        final JLabel renderer
-    ) throws Exception {
-        javax.swing.SwingUtilities.invokeAndWait(() ->
-            provider.apply(11, deformerId, renderer, false, false)
-        );
+            final DeformerTreeControlAppearanceProvider provider, final String deformerId, final JLabel renderer)
+            throws Exception {
+        javax.swing.SwingUtilities.invokeAndWait(() -> provider.apply(11, deformerId, renderer, false, false));
         return renderer;
     }
 }

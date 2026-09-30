@@ -2,7 +2,6 @@ package dev.turboism.ui.workspace.layout;
 
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot;
 import dev.turboism.ui.host.EdtDispatch;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -15,10 +14,9 @@ import java.util.Optional;
 public final class WorkspaceLayoutCoordinator implements AutoCloseable {
 
     private static final WorkspaceLayoutSnapshot UNAVAILABLE = new WorkspaceLayoutSnapshot(
-        WorkspaceLayoutSnapshot.Availability.UNAVAILABLE,
-        Optional.empty(),
-        Optional.of("workspace.layout.provider.unavailable")
-    );
+            WorkspaceLayoutSnapshot.Availability.UNAVAILABLE,
+            Optional.empty(),
+            Optional.of("workspace.layout.provider.unavailable"));
 
     private final Object monitor = new Object();
     private WorkspaceLayoutHostProvider provider;

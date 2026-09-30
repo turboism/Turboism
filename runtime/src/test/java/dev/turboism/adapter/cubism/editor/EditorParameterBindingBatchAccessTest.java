@@ -1,33 +1,30 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
-import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.mapping.verification.TestVerifiedResolvers;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.id.ArtMeshId;
-import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
-import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
+import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
+
 class EditorParameterBindingBatchAccessTest {
-    private static final ParameterBindingTarget TARGET_A =
-        ParameterBindingTarget.artMesh(new ArtMeshId("mesh-a"));
-    private static final ParameterBindingTarget TARGET_B =
-        ParameterBindingTarget.artMesh(new ArtMeshId("mesh-b"));
+    private static final ParameterBindingTarget TARGET_A = ParameterBindingTarget.artMesh(new ArtMeshId("mesh-a"));
+    private static final ParameterBindingTarget TARGET_B = ParameterBindingTarget.artMesh(new ArtMeshId("mesh-b"));
 
     @Test
     void containedKeyformsRemapAndUseOneEditAndUndo() {
@@ -70,9 +67,8 @@ class EditorParameterBindingBatchAccessTest {
         assertEquals(List.of(-30.0F, 0.0F, 30.0F), fixture.owner(TARGET_A).grid.rearrangeBefore);
         assertEquals(List.of(3.0F, 0.0F, -3.0F), fixture.owner(TARGET_A).grid.rearrangeAfter);
         assertEquals(
-            List.of("keyform-2", "keyform-1", "keyform-0"),
-            fixture.owner(TARGET_A).grid.keyformData()
-        );
+                List.of("keyform-2", "keyform-1", "keyform-0"),
+                fixture.owner(TARGET_A).grid.keyformData());
     }
 
     @Test
@@ -85,9 +81,8 @@ class EditorParameterBindingBatchAccessTest {
         assertEquals(List.of(-1.0F, 0.0F, 1.0F), fixture.owner(TARGET_A).grid.keys("to"));
         assertEquals(List.of(1.0F, 0.0F, -1.0F), fixture.owner(TARGET_A).grid.rearrangeAfter);
         assertEquals(
-            List.of("keyform-2", "keyform-1", "keyform-0"),
-            fixture.owner(TARGET_A).grid.keyformData()
-        );
+                List.of("keyform-2", "keyform-1", "keyform-0"),
+                fixture.owner(TARGET_A).grid.keyformData());
     }
 
     @Test
@@ -106,10 +101,7 @@ class EditorParameterBindingBatchAccessTest {
     void duplicateMappedValuesFailBeforeAnyEdit() {
         final Fixture fixture = fixture(-100.0F, 100.0F, 1.0F, 1.0000005F);
 
-        assertThrows(
-            IllegalStateException.class,
-            () -> access(fixture).transferClamped(plan(false, TARGET_A))
-        );
+        assertThrows(IllegalStateException.class, () -> access(fixture).transferClamped(plan(false, TARGET_A)));
 
         assertEquals(0, fixture.editMode.beginCount);
         assertEquals(List.of(), fixture.owner(TARGET_A).grid.calls);
@@ -123,14 +115,10 @@ class EditorParameterBindingBatchAccessTest {
         fixture.owner(TARGET_B).grid.byGuid.clear();
 
         assertThrows(
-            IllegalStateException.class,
-            () -> access(fixture).transferClamped(new ParameterBindingTransferPlan(
-                new ParameterId("from"),
-                new ParameterId("to"),
-                List.of(TARGET_A, TARGET_B),
-                false
-            ))
-        );
+                IllegalStateException.class,
+                () -> access(fixture)
+                        .transferClamped(new ParameterBindingTransferPlan(
+                                new ParameterId("from"), new ParameterId("to"), List.of(TARGET_A, TARGET_B), false)));
 
         assertEquals(0, fixture.editMode.beginCount);
         assertEquals(List.of(), fixture.owner(TARGET_A).grid.calls);
@@ -142,49 +130,36 @@ class EditorParameterBindingBatchAccessTest {
     void clampedTransferUsesTheExactVerifiedAliases() {
         final VerifiedMemberResolver resolver = resolver();
         for (String alias : List.of(
-            "cubism.editor-model.keyform-binding.keys",
-            "cubism.editor-model.keyform-grid.rearrange-keys",
-            "cubism.editor-model.parameter-source.minimum",
-            "cubism.editor-model.parameter-source.maximum"
-        )) {
+                "cubism.editor-model.keyform-binding.keys",
+                "cubism.editor-model.keyform-grid.rearrange-keys",
+                "cubism.editor-model.parameter-source.minimum",
+                "cubism.editor-model.parameter-source.maximum")) {
             assertNotNull(resolver.verifiedSelector(alias));
         }
     }
 
-    private static ParameterBindingTransferPlan plan(
-        final boolean invert,
-        final ParameterBindingTarget target
-    ) {
+    private static ParameterBindingTransferPlan plan(final boolean invert, final ParameterBindingTarget target) {
         return new ParameterBindingTransferPlan(
-            new ParameterId("from"),
-            new ParameterId("to"),
-            List.of(target),
-            invert
-        );
+                new ParameterId("from"), new ParameterId("to"), List.of(target), invert);
     }
 
     private static EditorParameterBindingBatchAccess access(final Fixture fixture) {
         return new EditorParameterBindingBatchAccess(
-            resolver(),
-            "test-model",
-            fixture.modelSource,
-            fixture.model,
-            (identity, model) -> {
-                if (!"test-model".equals(identity) || fixture.model != model) {
-                    throw new IllegalStateException("stale model");
-                }
-                fixture.currentChecks++;
-            },
-            (identity, source, model, target) -> fixture.owner(target),
-            (model, parameterId) -> fixture.parameters.get(parameterId.value())
-        );
+                resolver(),
+                "test-model",
+                fixture.modelSource,
+                fixture.model,
+                (identity, model) -> {
+                    if (!"test-model".equals(identity) || fixture.model != model) {
+                        throw new IllegalStateException("stale model");
+                    }
+                    fixture.currentChecks++;
+                },
+                (identity, source, model, target) -> fixture.owner(target),
+                (model, parameterId) -> fixture.parameters.get(parameterId.value()));
     }
 
-    private static Fixture fixture(
-        final float minimum,
-        final float maximum,
-        final float... values
-    ) {
+    private static Fixture fixture(final float minimum, final float maximum, final float... values) {
         final Fixture fixture = new Fixture();
         fixture.parameters.put("from", new Source("from", -100.0F, 100.0F));
         fixture.parameters.put("to", new Source("to", minimum, maximum));
@@ -195,64 +170,152 @@ class EditorParameterBindingBatchAccessTest {
 
     private static VerifiedMemberResolver resolver() {
         return TestVerifiedResolvers.create(
-            "5.3.02",
-            EditorParameterBindingBatchWriteSelectorContract.ADAPTER_SLICE_ID,
-            Set.of(
-                EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
-                EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID
-            ),
-            selectors(),
-            EditorParameterBindingBatchAccessTest.class.getClassLoader()
-        );
+                "5.3.02",
+                EditorParameterBindingBatchWriteSelectorContract.ADAPTER_SLICE_ID,
+                Set.of(
+                        EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
+                        EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID),
+                selectors(),
+                EditorParameterBindingBatchAccessTest.class.getClassLoader());
     }
 
     private static List<StaticSelector> selectors() {
         return List.of(
-            StaticSelector.staticMethod(
-                "cubism.editor-model.app-controller.instance",
-                internal(Host.class),
-                "instance",
-                descriptor(Host.class),
-                StaticSelector.ACCESS_PUBLIC
-            ),
-            method("cubism.editor-model.app-controller.current-document", Host.class, "currentDocument", descriptor(Document.class)),
-            method("cubism.editor-model.app-controller.complete-pack", Host.class, "completePack", descriptor(Pack.class)),
-            method("cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", descriptor(EditMode.class)),
-            method("cubism.editor-model.modeling-document.mark-dirty", Document.class, "markDirty", descriptor(void.class)),
-            method("cubism.editor-model.edit-mode.begin", EditMode.class, "begin", descriptor(Edit.class, String.class)),
-            method("cubism.editor-model.edit-mode.end", EditMode.class, "end", descriptor(void.class, boolean.class, Object.class)),
-            method("cubism.editor-model.undo.add", Edit.class, "add", descriptor(boolean.class, Undo.class, boolean.class)),
-            method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", descriptor(void.class, UndoListener.class)),
-            StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(UndoListener.class)),
-            method("cubism.editor-model.parameter-controllable-source.handler", ObjectSource.class, "handler", descriptor(Handler.class)),
-            method("cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit", Handler.class, "createUndoForAllEdit", descriptor(Undo.class, String.class)),
-            method("cubism.editor-model.parameter-controllable.keyform-grid", ObjectSource.class, "keyformGrid", descriptor(Grid.class)),
-            method("cubism.editor-model.keyform-grid.bindings", Grid.class, "bindings", descriptor(List.class)),
-            method("cubism.editor-model.keyform-binding.keys", Binding.class, "keys", descriptor(List.class)),
-            method("cubism.editor-model.keyform-binding.parameter-guid", Binding.class, "parameterGuid", descriptor(Object.class)),
-            method("cubism.editor-model.keyform-grid.find-binding", Grid.class, "findBinding", descriptor(Binding.class, Object.class)),
-            method("cubism.editor-model.keyform-grid.reverse-parameter", Grid.class, "reverseParameter", descriptor(void.class, Object.class)),
-            method("cubism.editor-model.keyform-grid.change-parameter", Grid.class, "changeParameter", descriptor(void.class, Object.class, Object.class)),
-            method("cubism.editor-model.keyform-grid.rearrange-keys", Grid.class, "rearrangeKeyformsOnParameter", descriptor(void.class, Object.class, List.class, List.class)),
-            method("cubism.editor-model.parameter.source", Parameter.class, "source", descriptor(Source.class)),
-            method("cubism.editor-model.parameter-source.guid", Source.class, "guid", descriptor(Object.class)),
-            method("cubism.editor-model.parameter-source.morph-target", Source.class, "morphTarget", descriptor(boolean.class)),
-            method("cubism.editor-model.parameter-source.minimum", Source.class, "minimum", descriptor(float.class)),
-            method("cubism.editor-model.parameter-source.maximum", Source.class, "maximum", descriptor(float.class)),
-            method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", descriptor(void.class)),
-            method("cubism.editor-model.complete-pack.update-parameter", Pack.class, "updateParameter", descriptor(void.class, boolean.class)),
-            method("cubism.editor-model.complete-pack.update-part-palette", Pack.class, "updatePartPalette", descriptor(void.class, boolean.class)),
-            method("cubism.editor-model.complete-pack.update-deformer-palette", Pack.class, "updateDeformerPalette", descriptor(void.class, boolean.class)),
-            method("cubism.editor-model.complete-pack.repaint-canvas", Pack.class, "repaintCanvas", descriptor(void.class, boolean.class))
-        );
+                StaticSelector.staticMethod(
+                        "cubism.editor-model.app-controller.instance",
+                        internal(Host.class),
+                        "instance",
+                        descriptor(Host.class),
+                        StaticSelector.ACCESS_PUBLIC),
+                method(
+                        "cubism.editor-model.app-controller.current-document",
+                        Host.class,
+                        "currentDocument",
+                        descriptor(Document.class)),
+                method(
+                        "cubism.editor-model.app-controller.complete-pack",
+                        Host.class,
+                        "completePack",
+                        descriptor(Pack.class)),
+                method(
+                        "cubism.editor-model.modeling-document.edit-mode",
+                        Document.class,
+                        "editMode",
+                        descriptor(EditMode.class)),
+                method(
+                        "cubism.editor-model.modeling-document.mark-dirty",
+                        Document.class,
+                        "markDirty",
+                        descriptor(void.class)),
+                method(
+                        "cubism.editor-model.edit-mode.begin",
+                        EditMode.class,
+                        "begin",
+                        descriptor(Edit.class, String.class)),
+                method(
+                        "cubism.editor-model.edit-mode.end",
+                        EditMode.class,
+                        "end",
+                        descriptor(void.class, boolean.class, Object.class)),
+                method(
+                        "cubism.editor-model.undo.add",
+                        Edit.class,
+                        "add",
+                        descriptor(boolean.class, Undo.class, boolean.class)),
+                method(
+                        "cubism.editor-model.undo.add-listener",
+                        Undo.class,
+                        "addListener",
+                        descriptor(void.class, UndoListener.class)),
+                StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(UndoListener.class)),
+                method(
+                        "cubism.editor-model.parameter-controllable-source.handler",
+                        ObjectSource.class,
+                        "handler",
+                        descriptor(Handler.class)),
+                method(
+                        "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                        Handler.class,
+                        "createUndoForAllEdit",
+                        descriptor(Undo.class, String.class)),
+                method(
+                        "cubism.editor-model.parameter-controllable.keyform-grid",
+                        ObjectSource.class,
+                        "keyformGrid",
+                        descriptor(Grid.class)),
+                method("cubism.editor-model.keyform-grid.bindings", Grid.class, "bindings", descriptor(List.class)),
+                method("cubism.editor-model.keyform-binding.keys", Binding.class, "keys", descriptor(List.class)),
+                method(
+                        "cubism.editor-model.keyform-binding.parameter-guid",
+                        Binding.class,
+                        "parameterGuid",
+                        descriptor(Object.class)),
+                method(
+                        "cubism.editor-model.keyform-grid.find-binding",
+                        Grid.class,
+                        "findBinding",
+                        descriptor(Binding.class, Object.class)),
+                method(
+                        "cubism.editor-model.keyform-grid.reverse-parameter",
+                        Grid.class,
+                        "reverseParameter",
+                        descriptor(void.class, Object.class)),
+                method(
+                        "cubism.editor-model.keyform-grid.change-parameter",
+                        Grid.class,
+                        "changeParameter",
+                        descriptor(void.class, Object.class, Object.class)),
+                method(
+                        "cubism.editor-model.keyform-grid.rearrange-keys",
+                        Grid.class,
+                        "rearrangeKeyformsOnParameter",
+                        descriptor(void.class, Object.class, List.class, List.class)),
+                method("cubism.editor-model.parameter.source", Parameter.class, "source", descriptor(Source.class)),
+                method("cubism.editor-model.parameter-source.guid", Source.class, "guid", descriptor(Object.class)),
+                method(
+                        "cubism.editor-model.parameter-source.morph-target",
+                        Source.class,
+                        "morphTarget",
+                        descriptor(boolean.class)),
+                method(
+                        "cubism.editor-model.parameter-source.minimum",
+                        Source.class,
+                        "minimum",
+                        descriptor(float.class)),
+                method(
+                        "cubism.editor-model.parameter-source.maximum",
+                        Source.class,
+                        "maximum",
+                        descriptor(float.class)),
+                method(
+                        "cubism.editor-model.model-source.update-instances",
+                        ModelSource.class,
+                        "updateInstances",
+                        descriptor(void.class)),
+                method(
+                        "cubism.editor-model.complete-pack.update-parameter",
+                        Pack.class,
+                        "updateParameter",
+                        descriptor(void.class, boolean.class)),
+                method(
+                        "cubism.editor-model.complete-pack.update-part-palette",
+                        Pack.class,
+                        "updatePartPalette",
+                        descriptor(void.class, boolean.class)),
+                method(
+                        "cubism.editor-model.complete-pack.update-deformer-palette",
+                        Pack.class,
+                        "updateDeformerPalette",
+                        descriptor(void.class, boolean.class)),
+                method(
+                        "cubism.editor-model.complete-pack.repaint-canvas",
+                        Pack.class,
+                        "repaintCanvas",
+                        descriptor(void.class, boolean.class)));
     }
 
     private static StaticSelector method(
-        final String alias,
-        final Class<?> owner,
-        final String name,
-        final String descriptor
-    ) {
+            final String alias, final Class<?> owner, final String name, final String descriptor) {
         return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
@@ -261,8 +324,11 @@ class EditorParameterBindingBatchAccessTest {
     }
 
     private static String descriptor(final Class<?> returnType, final Class<?>... parameters) {
-        return "(" + Arrays.stream(parameters).map(EditorParameterBindingBatchAccessTest::typeDescriptor).reduce("", String::concat)
-            + ")" + typeDescriptor(returnType);
+        return "("
+                + Arrays.stream(parameters)
+                        .map(EditorParameterBindingBatchAccessTest::typeDescriptor)
+                        .reduce("", String::concat)
+                + ")" + typeDescriptor(returnType);
     }
 
     private static String typeDescriptor(final Class<?> type) {
@@ -278,9 +344,17 @@ class EditorParameterBindingBatchAccessTest {
         private static final Host INSTANCE = new Host();
         private static Document current;
 
-        public static Host instance() { return INSTANCE; }
-        public Document currentDocument() { return current; }
-        public Pack completePack() { return current.pack; }
+        public static Host instance() {
+            return INSTANCE;
+        }
+
+        public Document currentDocument() {
+            return current;
+        }
+
+        public Pack completePack() {
+            return current.pack;
+        }
     }
 
     public static final class Document {
@@ -292,8 +366,13 @@ class EditorParameterBindingBatchAccessTest {
             pack = fixture.pack;
         }
 
-        public EditMode editMode() { return editMode; }
-        public void markDirty() { editMode.fixture.dirtyCount++; }
+        public EditMode editMode() {
+            return editMode;
+        }
+
+        public void markDirty() {
+            editMode.fixture.dirtyCount++;
+        }
     }
 
     public static final class EditMode {
@@ -302,12 +381,16 @@ class EditorParameterBindingBatchAccessTest {
         private int endCount;
         private boolean cancelled;
 
-        EditMode(final Fixture fixture) { this.fixture = fixture; }
+        EditMode(final Fixture fixture) {
+            this.fixture = fixture;
+        }
+
         public Edit begin(final String name) {
             beginCount++;
             fixture.edit = new Edit(fixture);
             return fixture.edit;
         }
+
         public void end(final boolean cancel, final Object ignored) {
             endCount++;
             cancelled = cancel;
@@ -318,7 +401,10 @@ class EditorParameterBindingBatchAccessTest {
         private final Fixture fixture;
         private int undoAdds;
 
-        Edit(final Fixture fixture) { this.fixture = fixture; }
+        Edit(final Fixture fixture) {
+            this.fixture = fixture;
+        }
+
         public boolean add(final Undo undo, final boolean accepted) {
             undoAdds++;
             return accepted;
@@ -331,13 +417,23 @@ class EditorParameterBindingBatchAccessTest {
 
     public static final class Undo {
         private final Fixture fixture;
-        Undo(final Fixture fixture) { this.fixture = fixture; }
-        public void addListener(final UndoListener listener) { fixture.listenerAdds++; }
+
+        Undo(final Fixture fixture) {
+            this.fixture = fixture;
+        }
+
+        public void addListener(final UndoListener listener) {
+            fixture.listenerAdds++;
+        }
     }
 
     public static final class Handler {
         private final Fixture fixture;
-        Handler(final Fixture fixture) { this.fixture = fixture; }
+
+        Handler(final Fixture fixture) {
+            this.fixture = fixture;
+        }
+
         public Undo createUndoForAllEdit(final String name) {
             fixture.undoCreates++;
             return new Undo(fixture);
@@ -353,8 +449,13 @@ class EditorParameterBindingBatchAccessTest {
             handler = new Handler(fixture);
         }
 
-        public Handler handler() { return handler; }
-        public Grid keyformGrid() { return grid; }
+        public Handler handler() {
+            return handler;
+        }
+
+        public Grid keyformGrid() {
+            return grid;
+        }
     }
 
     public static final class Grid {
@@ -364,7 +465,7 @@ class EditorParameterBindingBatchAccessTest {
         private List<Float> rearrangeAfter;
         private List<String> keyformData;
 
-        private record MappedKeyform(float mapped, int originalIndex) { }
+        private record MappedKeyform(float mapped, int originalIndex) {}
 
         Grid(final float... values) {
             byGuid.put("from", new Binding("from", values));
@@ -374,8 +475,14 @@ class EditorParameterBindingBatchAccessTest {
             }
         }
 
-        public List<Binding> bindings() { return List.copyOf(byGuid.values()); }
-        public Binding findBinding(final Object guid) { return byGuid.get(guid); }
+        public List<Binding> bindings() {
+            return List.copyOf(byGuid.values());
+        }
+
+        public Binding findBinding(final Object guid) {
+            return byGuid.get(guid);
+        }
+
         public void changeParameter(final Object source, final Object target) {
             calls.add("change");
             final Binding binding = byGuid.remove(source);
@@ -383,6 +490,7 @@ class EditorParameterBindingBatchAccessTest {
             binding.parameterGuid = target;
             byGuid.put(target, binding);
         }
+
         public void reverseParameter(final Object guid) {
             calls.add("reverse");
             final Binding binding = byGuid.get(guid);
@@ -394,17 +502,16 @@ class EditorParameterBindingBatchAccessTest {
             java.util.Collections.reverse(reversedKeyformData);
             keyformData = List.copyOf(reversedKeyformData);
         }
-        public void rearrangeKeyformsOnParameter(
-            final Object guid,
-            final List<?> before,
-            final List<?> after
-        ) {
+
+        public void rearrangeKeyformsOnParameter(final Object guid, final List<?> before, final List<?> after) {
             calls.add("rearrange");
             final Binding binding = byGuid.get(guid);
             if (binding == null) throw new IllegalStateException("destination binding missing");
             if (!binding.keys.equals(before)) throw new IllegalStateException("stale key list");
-            rearrangeBefore = before.stream().map(value -> ((Number) value).floatValue()).toList();
-            rearrangeAfter = after.stream().map(value -> ((Number) value).floatValue()).toList();
+            rearrangeBefore =
+                    before.stream().map(value -> ((Number) value).floatValue()).toList();
+            rearrangeAfter =
+                    after.stream().map(value -> ((Number) value).floatValue()).toList();
 
             // Mirror Cubism 5.3.02: map by source-order index, sort mapped coordinates,
             // then move grid keyform data using each pair's original index.
@@ -414,22 +521,24 @@ class EditorParameterBindingBatchAccessTest {
             for (int index = 0; index < currentKeys.size(); index++) {
                 final float currentValue = currentKeys.get(index);
                 final int sourceIndex = before.indexOf(currentValue);
-                final float mapped = sourceIndex < 0
-                    ? currentValue
-                    : ((Number) after.get(sourceIndex)).floatValue();
+                final float mapped = sourceIndex < 0 ? currentValue : ((Number) after.get(sourceIndex)).floatValue();
                 pairs.add(new MappedKeyform(mapped, index));
             }
             pairs.sort((left, right) -> Float.compare(left.mapped(), right.mapped()));
             binding.keys = pairs.stream().map(MappedKeyform::mapped).toList();
             keyformData = pairs.stream()
-                .map(pair -> currentKeyformData.get(pair.originalIndex()))
-                .toList();
+                    .map(pair -> currentKeyformData.get(pair.originalIndex()))
+                    .toList();
         }
+
         public List<Float> keys(final Object guid) {
             final Binding binding = byGuid.get(guid);
             return binding == null ? List.of() : binding.keys;
         }
-        public List<String> keyformData() { return keyformData; }
+
+        public List<String> keyformData() {
+            return keyformData;
+        }
     }
 
     public static final class Binding {
@@ -442,8 +551,13 @@ class EditorParameterBindingBatchAccessTest {
             for (final float value : values) keys.add(value);
         }
 
-        public List<Float> keys() { return keys; }
-        public Object parameterGuid() { return parameterGuid; }
+        public List<Float> keys() {
+            return keys;
+        }
+
+        public Object parameterGuid() {
+            return parameterGuid;
+        }
     }
 
     public static final class Source {
@@ -457,30 +571,65 @@ class EditorParameterBindingBatchAccessTest {
             this.maximum = maximum;
         }
 
-        public Object guid() { return guid; }
-        public boolean morphTarget() { return false; }
-        public float minimum() { return minimum; }
-        public float maximum() { return maximum; }
+        public Object guid() {
+            return guid;
+        }
+
+        public boolean morphTarget() {
+            return false;
+        }
+
+        public float minimum() {
+            return minimum;
+        }
+
+        public float maximum() {
+            return maximum;
+        }
     }
 
     public static final class Parameter {
         private final Source source = new Source("unused", -1.0F, 1.0F);
-        public Source source() { return source; }
+
+        public Source source() {
+            return source;
+        }
     }
 
     public static final class ModelSource {
         private final Fixture fixture;
-        ModelSource(final Fixture fixture) { this.fixture = fixture; }
-        public void updateInstances() { fixture.updateInstancesCount++; }
+
+        ModelSource(final Fixture fixture) {
+            this.fixture = fixture;
+        }
+
+        public void updateInstances() {
+            fixture.updateInstancesCount++;
+        }
     }
 
     public static final class Pack {
         private final Fixture fixture;
-        Pack(final Fixture fixture) { this.fixture = fixture; }
-        public void updateParameter(final boolean refresh) { fixture.parameterRefreshCount++; }
-        public void updatePartPalette(final boolean refresh) { fixture.partRefreshCount++; }
-        public void updateDeformerPalette(final boolean refresh) { fixture.deformerRefreshCount++; }
-        public void repaintCanvas(final boolean refresh) { fixture.repaintCount++; }
+
+        Pack(final Fixture fixture) {
+            this.fixture = fixture;
+        }
+
+        public void updateParameter(final boolean refresh) {
+            fixture.parameterRefreshCount++;
+        }
+
+        public void updatePartPalette(final boolean refresh) {
+            fixture.partRefreshCount++;
+        }
+
+        public void updateDeformerPalette(final boolean refresh) {
+            fixture.deformerRefreshCount++;
+        }
+
+        public void repaintCanvas(final boolean refresh) {
+            fixture.repaintCount++;
+        }
     }
 
     private static final class Fixture {

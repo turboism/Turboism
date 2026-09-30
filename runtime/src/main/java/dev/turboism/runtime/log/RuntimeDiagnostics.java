@@ -33,13 +33,12 @@ public final class RuntimeDiagnostics {
     }
 
     private static final int PENDING_LIMIT = 256;
-    private static final Sink NONE = (level, component, message, failure) -> { };
+    private static final Sink NONE = (level, component, message, failure) -> {};
     private static final Object STATE_LOCK = new Object();
     private static final AtomicReference<Sink> SINK = new AtomicReference<>(NONE);
     private static final java.util.List<Entry> PENDING = new java.util.ArrayList<>();
 
-    private RuntimeDiagnostics() {
-    }
+    private RuntimeDiagnostics() {}
 
     /**
      * Replaces the process-wide diagnostics sink; rejects a null sink. Diagnostics emitted before
@@ -87,20 +86,12 @@ public final class RuntimeDiagnostics {
     }
 
     /** Routes an ERROR diagnostic with the optional failure for the given component. */
-    public static void error(
-        final String component,
-        final String message,
-        final Throwable failure
-    ) {
+    public static void error(final String component, final String message, final Throwable failure) {
         write(Level.ERROR, component, message, failure);
     }
 
     private static void write(
-        final Level level,
-        final String component,
-        final String message,
-        final Throwable failure
-    ) {
+            final Level level, final String component, final String message, final Throwable failure) {
         try {
             final Level checkedLevel = Objects.requireNonNull(level, "level");
             final String checkedComponent = requireText(component, "component");
@@ -110,9 +101,7 @@ public final class RuntimeDiagnostics {
                 sink = SINK.get();
                 if (sink == NONE) {
                     if (PENDING.size() < PENDING_LIMIT) {
-                        PENDING.add(
-                            new Entry(checkedLevel, checkedComponent, checkedMessage, failure)
-                        );
+                        PENDING.add(new Entry(checkedLevel, checkedComponent, checkedMessage, failure));
                     }
                     return;
                 }
@@ -123,8 +112,7 @@ public final class RuntimeDiagnostics {
         }
     }
 
-    private record Entry(Level level, String component, String message, Throwable failure) {
-    }
+    private record Entry(Level level, String component, String message, Throwable failure) {}
 
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);

@@ -4,7 +4,6 @@ import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
-
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,9 +29,7 @@ public final class VerifiedRecentFileListHostOperations implements RecentFileAda
     private final Map<RecentFileId, Path> paths = new LinkedHashMap<>();
 
     public VerifiedRecentFileListHostOperations(
-        final VerifiedMemberResolver projectResolver,
-        final VerifiedMemberResolver panelResolver
-    ) {
+            final VerifiedMemberResolver projectResolver, final VerifiedMemberResolver panelResolver) {
         this.projectResolver = Objects.requireNonNull(projectResolver, "projectResolver");
         this.panelResolver = Objects.requireNonNull(panelResolver, "panelResolver");
         RecentPreviewVerificationManifest.requireAuthorized(projectResolver, panelResolver);
@@ -69,11 +66,7 @@ public final class VerifiedRecentFileListHostOperations implements RecentFileAda
             paths.putIfAbsent(id, path);
             if (paths.get(id).equals(path)) {
                 summaries.add(new RecentFileSummary(
-                    id,
-                    path.getFileName().toString(),
-                    lastModified(path),
-                    Optional.of(path.toString())
-                ));
+                        id, path.getFileName().toString(), lastModified(path), Optional.of(path.toString())));
             }
         }
         return List.copyOf(summaries);
@@ -112,7 +105,7 @@ public final class VerifiedRecentFileListHostOperations implements RecentFileAda
     public static RecentFileId idFor(final Path path) {
         try {
             final byte[] digest = MessageDigest.getInstance("SHA-256")
-                .digest(RecentMenuChain.pathKey(path).getBytes(StandardCharsets.UTF_8));
+                    .digest(RecentMenuChain.pathKey(path).getBytes(StandardCharsets.UTF_8));
             final StringBuilder value = new StringBuilder(64);
             for (byte item : digest) value.append(String.format(Locale.ROOT, "%02x", item));
             return new RecentFileId(value.toString());

@@ -37,8 +37,7 @@ public interface EditSessionService {
      * @return the admitted session
      * @throws EditSessionException when admission is refused
      */
-    default EditSession open(final PluginContext context, final DocumentId document)
-            throws EditSessionException {
+    default EditSession open(final PluginContext context, final DocumentId document) throws EditSessionException {
         return open(context, document, EditSessionOptions.defaults());
     }
 
@@ -71,9 +70,7 @@ public interface EditSessionService {
 
         @Override
         public EditSession open(
-                final PluginContext context,
-                final DocumentId document,
-                final EditSessionOptions options) {
+                final PluginContext context, final DocumentId document, final EditSessionOptions options) {
             Objects.requireNonNull(context, "context");
             Objects.requireNonNull(document, "document");
             Objects.requireNonNull(options, "options");

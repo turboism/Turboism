@@ -7,11 +7,7 @@ import java.util.Set;
 
 /** Immutable Editor UI host state exposed to runtime policy modules. */
 public record EditorUiHostSnapshot(
-    State state,
-    long generation,
-    Set<EditorUiFamily> readyFamilies,
-    Optional<EditorUiHostFailure> failure
-) {
+        State state, long generation, Set<EditorUiFamily> readyFamilies, Optional<EditorUiHostFailure> failure) {
     public EditorUiHostSnapshot {
         state = Objects.requireNonNull(state, "state");
         if (generation < 0) {
@@ -20,8 +16,7 @@ public record EditorUiHostSnapshot(
         Objects.requireNonNull(readyFamilies, "readyFamilies");
         readyFamilies = Set.copyOf(readyFamilies);
         failure = Objects.requireNonNull(failure, "failure");
-        if ((state == State.ABSENT || state == State.CONNECTING || state == State.CLOSED)
-            && !readyFamilies.isEmpty()) {
+        if ((state == State.ABSENT || state == State.CONNECTING || state == State.CLOSED) && !readyFamilies.isEmpty()) {
             throw new IllegalArgumentException(state + " must not expose ready UI families");
         }
         if (state == State.READY && readyFamilies.isEmpty()) {
@@ -35,14 +30,11 @@ public record EditorUiHostSnapshot(
      */
     public static EditorUiHostSnapshot safeMode() {
         return new EditorUiHostSnapshot(
-            State.ABSENT,
-            0,
-            Set.of(),
-            Optional.of(EditorUiHostFailure.host(
-                EditorUiHostFailure.Code.HOST_UNAVAILABLE,
-                "Editor UI host is unavailable."
-            ))
-        );
+                State.ABSENT,
+                0,
+                Set.of(),
+                Optional.of(EditorUiHostFailure.host(
+                        EditorUiHostFailure.Code.HOST_UNAVAILABLE, "Editor UI host is unavailable.")));
     }
 
     /**

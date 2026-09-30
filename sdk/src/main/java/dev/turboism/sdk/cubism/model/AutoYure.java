@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 import java.util.List;
 
 /** Read-only evaluated auto-Yure state of the active model. */

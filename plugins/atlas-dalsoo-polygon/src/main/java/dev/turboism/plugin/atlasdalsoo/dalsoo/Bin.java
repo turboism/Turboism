@@ -53,10 +53,16 @@ final class Bin {
      * @param cancelled    cooperative cancellation probe
      * @param progress     called with the packed-item count after each placement
      */
-    Bin(final List<SourcePoly> polys, final List<PackedPoly> obstacles,
-        final List<double[][]> trigos, final double width, final double height,
-        final double hSkew, final Double segmentMaxLength,
-        final BooleanSupplier cancelled, final IntConsumer progress) {
+    Bin(
+            final List<SourcePoly> polys,
+            final List<PackedPoly> obstacles,
+            final List<double[][]> trigos,
+            final double width,
+            final double height,
+            final double hSkew,
+            final Double segmentMaxLength,
+            final BooleanSupplier cancelled,
+            final IntConsumer progress) {
         if (hSkew < 0 || hSkew > 1) {
             throw new IllegalArgumentException("hSkew must be in [0,1]");
         }
@@ -73,7 +79,7 @@ final class Bin {
         this.gridW = Math.max(1, (int) Math.ceil(width / cellWidth));
         this.gridH = Math.max(1, (int) Math.ceil(height / cellHeight));
         this.cancelled = cancelled == null ? () -> false : cancelled;
-        this.progress = progress == null ? i -> { } : progress;
+        this.progress = progress == null ? i -> {} : progress;
         if (obstacles != null) {
             for (final PackedPoly obstacle : obstacles) {
                 packedPolys.add(obstacle);
@@ -97,9 +103,7 @@ final class Bin {
         final int size = pendingPolys.size();
         for (int i = 0; i < size; i++) {
             checkCancelled();
-            final boolean placed = abey
-                ? packPolyAbey(size - 1 - i)
-                : packPolyDalalah(size - 1 - i);
+            final boolean placed = abey ? packPolyAbey(size - 1 - i) : packPolyDalalah(size - 1 - i);
             if (placed) {
                 progress.accept(packedPolys.size());
             }
@@ -112,7 +116,6 @@ final class Bin {
             throw new PackingCancelledException();
         }
     }
-
 
     private Convex containerHullOf(final List<PackedPoly> placed) {
         final Convex hull = new Convex(placed.get(0));
@@ -211,15 +214,9 @@ final class Bin {
                     for (int h = 0; h < 2; h++) { // two alignment angles
                         final double[] cossin;
                         if (h == 0) {
-                            cossin = new double[] {
-                                ca0 * cb2 + sa0 * sb2,
-                                sa0 * cb2 - ca0 * sb2
-                            }; // a0 - b2
+                            cossin = new double[] {ca0 * cb2 + sa0 * sb2, sa0 * cb2 - ca0 * sb2}; // a0 - b2
                         } else {
-                            cossin = new double[] {
-                                ca2 * cb0 + sa2 * sb0,
-                                sa2 * cb0 - ca2 * sb0
-                            }; // a2 - b0
+                            cossin = new double[] {ca2 * cb0 + sa2 * sb0, sa2 * cb0 - ca2 * sb0}; // a2 - b0
                         }
                         final double[][] rotOpl = Geom.rotate(opl, cossin);
                         final double[] trans = Geom.sub(v, rotOpl[i]);
@@ -229,16 +226,15 @@ final class Bin {
                         }
                         final double[][] transRotOutpoly = translate(trans, rotOpl);
                         if (isFeasible(transRotOutpoly)) {
-                            final double[][] transRotInpoly =
-                                translate(trans, Geom.rotate(poly.inpts, cossin));
+                            final double[][] transRotInpoly = translate(trans, Geom.rotate(poly.inpts, cossin));
                             final Convex tmpcon = cntConvex.clone();
                             for (final double[] trp : transRotInpoly) {
                                 tmpcon.incrementHull(trp);
                             }
                             final double conarea = AREA_SC * Geom.area(tmpcon.vertices());
                             final double[] center = Geom.centroid(transRotInpoly);
-                            final double area = conarea
-                                * (preferX * Math.abs(center[0]) + (1 - preferX) * Math.abs(center[1]));
+                            final double area =
+                                    conarea * (preferX * Math.abs(center[0]) + (1 - preferX) * Math.abs(center[1]));
                             if (minArea > area) {
                                 minArea = area;
                                 minCossin = cossin;
@@ -283,11 +279,11 @@ final class Bin {
                         }
                         final double[] trans = {tx, ty};
                         final double[][] transRotOutpoly = translate(trans, rotatedOutpoly);
-                        final double[] transBb = {rotatedBb[0] + tx, rotatedBb[1] + ty,
-                            rotatedBb[2] + tx, rotatedBb[3] + ty};
+                        final double[] transBb = {
+                            rotatedBb[0] + tx, rotatedBb[1] + ty, rotatedBb[2] + tx, rotatedBb[3] + ty
+                        };
                         if (isFeasible(transRotOutpoly, transBb)) {
-                            final PlacementScore sc = score(translate(trans, rotatedInpoly),
-                                transRotOutpoly);
+                            final PlacementScore sc = score(translate(trans, rotatedInpoly), transRotOutpoly);
                             if (minArea > sc.area) {
                                 minArea = sc.area;
                                 minRotid = i;
@@ -316,8 +312,7 @@ final class Bin {
                     final double[] trans = {tx, ty};
                     final double[][] transRotOutpoly = translate(trans, rotatedOutpoly);
                     if (isFeasible(transRotOutpoly)) {
-                        final PlacementScore sc = score(translate(trans, rotatedInpoly),
-                            transRotOutpoly);
+                        final PlacementScore sc = score(translate(trans, rotatedInpoly), transRotOutpoly);
                         if (minArea > sc.area) {
                             minArea = sc.area;
                             minRotid = i;
@@ -364,15 +359,11 @@ final class Bin {
         return corners;
     }
 
-    private record PlacementScore(double area, Convex convex) {
-    }
+    private record PlacementScore(double area, Convex convex) {}
 
     /** Scores a feasible placement: container-hull growth times distance preference. */
-    private PlacementScore score(final double[][] transRotInpoly,
-        final double[][] transRotOutpoly) {
-        final Convex tmpcon = cntConvex == null
-            ? new Convex(transRotInpoly)
-            : cntConvex.clone();
+    private PlacementScore score(final double[][] transRotInpoly, final double[][] transRotOutpoly) {
+        final Convex tmpcon = cntConvex == null ? new Convex(transRotInpoly) : cntConvex.clone();
         if (cntConvex != null) {
             for (final double[] trp : transRotInpoly) {
                 tmpcon.incrementHull(trp);
@@ -380,8 +371,7 @@ final class Bin {
         }
         final double conarea = AREA_SC * Geom.area(tmpcon.vertices());
         final double[] center = Geom.centroid(transRotOutpoly);
-        final double area = conarea
-            * (preferX * Math.abs(center[0]) + (1 - preferX) * Math.abs(center[1]));
+        final double area = conarea * (preferX * Math.abs(center[0]) + (1 - preferX) * Math.abs(center[1]));
         return new PlacementScore(area, tmpcon);
     }
 
@@ -398,8 +388,10 @@ final class Bin {
     }
 
     private boolean isFeasible(final double[][] poly, final double[] bb) {
-        if (bb[0] < -Geom.PRECISION || bb[2] > binWidth + Geom.PRECISION
-            || bb[1] < -Geom.PRECISION || bb[3] > binHeight + Geom.PRECISION) {
+        if (bb[0] < -Geom.PRECISION
+                || bb[2] > binWidth + Geom.PRECISION
+                || bb[1] < -Geom.PRECISION
+                || bb[3] > binHeight + Geom.PRECISION) {
             return false;
         }
         final double[] center = Geom.centroid(poly);
@@ -419,8 +411,7 @@ final class Bin {
                         continue;
                     }
                     fixed.lastQuery = stamp;
-                    if (Geom.overlapStrict(poly, bb, center, fixed.outpts, fixed.outBb,
-                        fixed.outCentroid)) {
+                    if (Geom.overlapStrict(poly, bb, center, fixed.outpts, fixed.outBb, fixed.outCentroid)) {
                         return false;
                     }
                 }
@@ -431,8 +422,10 @@ final class Bin {
 
     /** Whether the ring at {@code bb} translated by {@code (tx,ty)} stays in the bin. */
     private boolean insideBin(final double[] bb, final double tx, final double ty) {
-        return bb[0] + tx >= -Geom.PRECISION && bb[2] + tx <= binWidth + Geom.PRECISION
-            && bb[1] + ty >= -Geom.PRECISION && bb[3] + ty <= binHeight + Geom.PRECISION;
+        return bb[0] + tx >= -Geom.PRECISION
+                && bb[2] + tx <= binWidth + Geom.PRECISION
+                && bb[1] + ty >= -Geom.PRECISION
+                && bb[3] + ty <= binHeight + Geom.PRECISION;
     }
 
     private int cellX(final double x) {
@@ -484,5 +477,4 @@ final class Bin {
         }
         return ids;
     }
-
 }

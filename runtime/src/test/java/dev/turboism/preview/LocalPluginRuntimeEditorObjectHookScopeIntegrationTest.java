@@ -1,5 +1,9 @@
 package dev.turboism.preview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.lifecycle.DrawableLifecycleCoordinator;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -12,11 +16,6 @@ import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.IntSequence;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,10 +26,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class LocalPluginRuntimeEditorObjectHookScopeIntegrationTest {
 
@@ -45,10 +44,9 @@ class LocalPluginRuntimeEditorObjectHookScopeIntegrationTest {
         final RuntimeScheduler scheduler = scheduler();
         final HostSession host = new HostSession(Optional::empty);
         final LocalPluginRuntime runtime = new LocalPluginRuntime(
-            temporary, scheduler, host.adapterAccess(),
-            new PreviewLog(temporary.resolve("logs/turboism.log"))
-        );
-        final DrawableLifecycleCoordinator lifecycle = host.editorObjectLifecycle().drawable();
+                temporary, scheduler, host.adapterAccess(), new PreviewLog(temporary.resolve("logs/turboism.log")));
+        final DrawableLifecycleCoordinator lifecycle =
+                host.editorObjectLifecycle().drawable();
         final MutableDrawable drawable = new MutableDrawable();
         final CountDownLatch runtimeClosed = new CountDownLatch(1);
         final Thread closeRuntime = new Thread(() -> {
@@ -70,9 +68,8 @@ class LocalPluginRuntimeEditorObjectHookScopeIntegrationTest {
 
             closeRuntime.start();
             assertFalse(
-                runtimeClosed.await(200, TimeUnit.MILLISECONDS),
-                "runtime shutdown must not release the plugin while its scope-owned callback is running"
-            );
+                    runtimeClosed.await(200, TimeUnit.MILLISECONDS),
+                    "runtime shutdown must not release the plugin while its scope-owned callback is running");
 
             System.setProperty(EditorObjectScopePluginFixture.RELEASE, "true");
             assertTrue(EditorObjectScopePluginFixture.await("closed", 5_000L));
@@ -99,47 +96,135 @@ class LocalPluginRuntimeEditorObjectHookScopeIntegrationTest {
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 16, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 
     private static final class MutableDrawable implements Drawable {
         private volatile float opacity = 1.0F;
-        @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
-        @Override public float getOpacity() { return opacity; }
-        @Override public void setOpacity(float value) { opacity = value; }
-        void writeOpacity(float value) { opacity = value; }
-        @Override public byte constantFlag() { return 0; }
-        @Override public byte dynamicFlag() { return 0; }
-        @Override public BlendMode blendMode() { return BlendMode.NORMAL; }
-        @Override public int textureIndex() { return 0; }
-        @Override public int drawOrder() { return 0; }
-        @Override public int renderOrder() { return 0; }
-        @Override public IntSequence masks() { return emptyInts(); }
-        @Override public FloatSequence vertexPositions() { return emptyFloats(); }
-        @Override public FloatSequence vertexUvs() { return emptyFloats(); }
-        @Override public IntSequence indices() { return emptyInts(); }
-        @Override public Color multiplyColor() { return new Color(1, 1, 1, 1); }
-        @Override public Color screenColor() { return new Color(0, 0, 0, 1); }
-        @Override public int parentPartIndex() { return -1; }
-        @Override public int parentDeformerIndex() { return -1; }
-        @Override public IntSequence parameters() { return emptyInts(); }
+
+        @Override
+        public ArtMeshId id() {
+            return new ArtMeshId("ArtMeshA");
+        }
+
+        @Override
+        public float getOpacity() {
+            return opacity;
+        }
+
+        @Override
+        public void setOpacity(float value) {
+            opacity = value;
+        }
+
+        void writeOpacity(float value) {
+            opacity = value;
+        }
+
+        @Override
+        public byte constantFlag() {
+            return 0;
+        }
+
+        @Override
+        public byte dynamicFlag() {
+            return 0;
+        }
+
+        @Override
+        public BlendMode blendMode() {
+            return BlendMode.NORMAL;
+        }
+
+        @Override
+        public int textureIndex() {
+            return 0;
+        }
+
+        @Override
+        public int drawOrder() {
+            return 0;
+        }
+
+        @Override
+        public int renderOrder() {
+            return 0;
+        }
+
+        @Override
+        public IntSequence masks() {
+            return emptyInts();
+        }
+
+        @Override
+        public FloatSequence vertexPositions() {
+            return emptyFloats();
+        }
+
+        @Override
+        public FloatSequence vertexUvs() {
+            return emptyFloats();
+        }
+
+        @Override
+        public IntSequence indices() {
+            return emptyInts();
+        }
+
+        @Override
+        public Color multiplyColor() {
+            return new Color(1, 1, 1, 1);
+        }
+
+        @Override
+        public Color screenColor() {
+            return new Color(0, 0, 0, 1);
+        }
+
+        @Override
+        public int parentPartIndex() {
+            return -1;
+        }
+
+        @Override
+        public int parentDeformerIndex() {
+            return -1;
+        }
+
+        @Override
+        public IntSequence parameters() {
+            return emptyInts();
+        }
     }
 
     private static IntSequence emptyInts() {
         return new IntSequence() {
-            @Override public int size() { return 0; }
-            @Override public int get(int index) { throw new IndexOutOfBoundsException(index); }
+            @Override
+            public int size() {
+                return 0;
+            }
+
+            @Override
+            public int get(int index) {
+                throw new IndexOutOfBoundsException(index);
+            }
         };
     }
 
     private static FloatSequence emptyFloats() {
         return new FloatSequence() {
-            @Override public int size() { return 0; }
-            @Override public float get(int index) { throw new IndexOutOfBoundsException(index); }
+            @Override
+            public int size() {
+                return 0;
+            }
+
+            @Override
+            public float get(int index) {
+                throw new IndexOutOfBoundsException(index);
+            }
         };
     }
 
@@ -155,7 +240,9 @@ class LocalPluginRuntimeEditorObjectHookScopeIntegrationTest {
             final Path classes = temporary.resolve("editor-object-scope-classes");
             final Path source = sourceRoot.resolve("dev/example/hooks/ScopeHookPlugin.java");
             Files.createDirectories(source.getParent());
-            Files.writeString(source, """
+            Files.writeString(
+                    source,
+                    """
                 package dev.example.hooks;
 
                 import dev.turboism.sdk.cubism.CubismPlugin;
@@ -195,26 +282,27 @@ class LocalPluginRuntimeEditorObjectHookScopeIntegrationTest {
                         }
                     }
                 }
-                """.formatted(
-                    CLOSE_REQUESTED, PHASE, PHASE, PHASE,
-                    CALLBACKS, CALLBACKS, PHASE, RELEASE
-                ), StandardCharsets.UTF_8);
+                """.formatted(CLOSE_REQUESTED, PHASE, PHASE, PHASE, CALLBACKS, CALLBACKS, PHASE, RELEASE),
+                    StandardCharsets.UTF_8);
             final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
             Files.createDirectories(classes);
             final int result = compiler.run(
-                null, null, null,
-                "-classpath", System.getProperty("java.class.path"),
-                "-d", classes.toString(), source.toString()
-            );
+                    null,
+                    null,
+                    null,
+                    "-classpath",
+                    System.getProperty("java.class.path"),
+                    "-d",
+                    classes.toString(),
+                    source.toString());
             if (result != 0) throw new IllegalStateException("fixture compilation failed");
-            try (JarOutputStream output = new JarOutputStream(
-                Files.newOutputStream(pluginDir.resolve("editor-object-scope.jar"))
-            )) {
+            try (JarOutputStream output =
+                    new JarOutputStream(Files.newOutputStream(pluginDir.resolve("editor-object-scope.jar")))) {
                 try (var paths = Files.walk(classes)) {
                     for (Path path : paths.filter(Files::isRegularFile)
-                        .sorted(Comparator.naturalOrder()).toList()) {
-                        add(output, classes.relativize(path).toString().replace('\\', '/'),
-                            Files.readAllBytes(path));
+                            .sorted(Comparator.naturalOrder())
+                            .toList()) {
+                        add(output, classes.relativize(path).toString().replace('\\', '/'), Files.readAllBytes(path));
                     }
                 }
                 add(output, "META-INF/turboism/plugin.json", descriptor().getBytes(StandardCharsets.UTF_8));

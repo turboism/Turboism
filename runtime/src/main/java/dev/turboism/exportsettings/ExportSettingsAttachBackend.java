@@ -1,12 +1,8 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.plugin.Registration;
-
-import javax.swing.BoxLayout;
-import javax.swing.JCheckBox;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
@@ -26,6 +22,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import javax.swing.BoxLayout;
+import javax.swing.JCheckBox;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 /**
  * Inert, injectable attachment backend for the embedded-model Export Settings UI.
@@ -40,6 +40,7 @@ public final class ExportSettingsAttachBackend {
 
     /** Stable rejection identities surfaced through {@link ExportSettingsAttachException}. */
     public static final String NULL_CONTAINER_KEY = "export-settings.attach.null-container";
+
     public static final String NULL_CONTRIBUTIONS_KEY = "export-settings.attach.null-contributions";
     public static final String NULL_CONTRIBUTION_KEY = "export-settings.attach.null-contribution";
     public static final String DUPLICATE_OPTION_KEY = "export-settings.attach.duplicate-option";
@@ -75,27 +76,18 @@ public final class ExportSettingsAttachBackend {
 
     /** Test-only seams: checkbox factory and top-level window lookup. */
     ExportSettingsAttachBackend(
-        final Function<String, JCheckBox> checkboxFactory,
-        final Function<Container, Component> topLevelResolver
-    ) {
+            final Function<String, JCheckBox> checkboxFactory, final Function<Container, Component> topLevelResolver) {
         this.checkboxFactory = Objects.requireNonNull(checkboxFactory, "checkboxFactory");
-        this.topLevelResolver =
-            Objects.requireNonNull(topLevelResolver, "topLevelResolver");
+        this.topLevelResolver = Objects.requireNonNull(topLevelResolver, "topLevelResolver");
     }
 
     /** Materializes one owned panel from contribution descriptors. */
-    public Registration attach(
-        final Container container,
-        final List<ExportSettingsContribution> contributions
-    ) {
+    public Registration attach(final Container container, final List<ExportSettingsContribution> contributions) {
         return attachInternal(container, validatedSnapshot(contributions), false);
     }
 
     /** Materializes one owned panel from a localized, plugin-owned option snapshot. */
-    public Registration attachResolved(
-        final Container container,
-        final List<ExportSettingsOptionSnapshot> options
-    ) {
+    public Registration attachResolved(final Container container, final List<ExportSettingsOptionSnapshot> options) {
         return attachInternal(container, validatedOptionSnapshot(options), true);
     }
 
@@ -113,15 +105,13 @@ public final class ExportSettingsAttachBackend {
         } catch (ExportSettingsAttachException failure) {
             throw failure;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new ExportSettingsAttachException(BOUNDARY_FAILURE_KEY, failure);
         }
     }
 
     private Registration attachInternal(
-        final Container requestedContainer,
-        final List<?> requested,
-        final boolean resolved
-    ) {
+            final Container requestedContainer, final List<?> requested, final boolean resolved) {
         if (requestedContainer == null) {
             throw new ExportSettingsAttachException(NULL_CONTAINER_KEY);
         }
@@ -137,9 +127,11 @@ public final class ExportSettingsAttachBackend {
 
         AttachmentParts parts = null;
         try {
-            parts = onEdt(() -> resolved
-                ? materializeResolved(requestedContainer, castResolved(requested))
-                : materializeContributions(requestedContainer, castContributions(requested)), true);
+            parts = onEdt(
+                    () -> resolved
+                            ? materializeResolved(requestedContainer, castResolved(requested))
+                            : materializeContributions(requestedContainer, castContributions(requested)),
+                    true);
             final boolean becameClosed;
             synchronized (lifecycleLock) {
                 becameClosed = closed;
@@ -165,6 +157,7 @@ public final class ExportSettingsAttachBackend {
             }
             throw failure;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             synchronized (lifecycleLock) {
                 attaching = false;
             }
@@ -176,9 +169,7 @@ public final class ExportSettingsAttachBackend {
     }
 
     private AttachmentParts materializeContributions(
-        final Container target,
-        final List<ExportSettingsContribution> requested
-    ) {
+            final Container target, final List<ExportSettingsContribution> requested) {
         final JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         final Map<String, JCheckBox> boxes = new LinkedHashMap<>();
@@ -186,9 +177,7 @@ public final class ExportSettingsAttachBackend {
         try {
             for (ExportSettingsContribution contribution : requested) {
                 final JCheckBox box = Objects.requireNonNull(
-                    checkboxFactory.apply(contribution.labelKey()),
-                    "checkboxFactory result"
-                );
+                        checkboxFactory.apply(contribution.labelKey()), "checkboxFactory result");
                 panel.add(box);
                 boxes.put(contribution.optionId(), box);
             }
@@ -197,6 +186,7 @@ public final class ExportSettingsAttachBackend {
             dialogGrowth.arm();
             return new AttachmentParts(panel, boxes, mount, dialogGrowth);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             if (dialogGrowth != null) {
                 dialogGrowth.undo();
             }
@@ -206,19 +196,15 @@ public final class ExportSettingsAttachBackend {
     }
 
     private AttachmentParts materializeResolved(
-        final Container target,
-        final List<ExportSettingsOptionSnapshot> requested
-    ) {
+            final Container target, final List<ExportSettingsOptionSnapshot> requested) {
         final JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         final Map<String, JCheckBox> boxes = new LinkedHashMap<>();
         DialogGrowth dialogGrowth = null;
         try {
             for (ExportSettingsOptionSnapshot option : requested) {
-                final JCheckBox box = Objects.requireNonNull(
-                    checkboxFactory.apply(option.label()),
-                    "checkboxFactory result"
-                );
+                final JCheckBox box =
+                        Objects.requireNonNull(checkboxFactory.apply(option.label()), "checkboxFactory result");
                 panel.add(box);
                 boxes.put(option.optionId(), box);
             }
@@ -227,6 +213,7 @@ public final class ExportSettingsAttachBackend {
             dialogGrowth.arm();
             return new AttachmentParts(panel, boxes, mount, dialogGrowth);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             if (dialogGrowth != null) {
                 dialogGrowth.undo();
             }
@@ -266,14 +253,11 @@ public final class ExportSettingsAttachBackend {
         Container best = null;
         int bestCount = 0;
         final Deque<Component> pending = new ArrayDeque<>();
-        final Set<Component> visited =
-            Collections.newSetFromMap(new IdentityHashMap<>());
+        final Set<Component> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         pending.add(content);
         while (!pending.isEmpty() && visited.size() < MAX_TREE_NODES) {
             final Component component = pending.poll();
-            if (component == null
-                || !visited.add(component)
-                || !(component instanceof Container container)) {
+            if (component == null || !visited.add(component) || !(component instanceof Container container)) {
                 continue;
             }
             int direct = 0;
@@ -300,38 +284,41 @@ public final class ExportSettingsAttachBackend {
                 parent.remove(panel);
             }
         } catch (Throwable rollback) {
+            FatalErrors.rethrowIfFatal(rollback);
             failure.addSuppressed(rollback);
         }
         try {
             target.revalidate();
         } catch (Throwable rollback) {
+            FatalErrors.rethrowIfFatal(rollback);
             failure.addSuppressed(rollback);
         }
         try {
             target.repaint();
         } catch (Throwable rollback) {
+            FatalErrors.rethrowIfFatal(rollback);
             failure.addSuppressed(rollback);
         }
     }
 
-    private static void removeParts(
-        final Container target,
-        final JPanel panel,
-        final DialogGrowth growth
-    ) {
+    private static void removeParts(final Container target, final JPanel panel, final DialogGrowth growth) {
         try {
-            onEdt(() -> {
-                if (growth != null) {
-                    growth.undo();
-                }
-                if (panel.getParent() == target) {
-                    target.remove(panel);
-                }
-                target.revalidate();
-                target.repaint();
-                return null;
-            }, false, true);
+            onEdt(
+                    () -> {
+                        if (growth != null) {
+                            growth.undo();
+                        }
+                        if (panel.getParent() == target) {
+                            target.remove(panel);
+                        }
+                        target.revalidate();
+                        target.repaint();
+                        return null;
+                    },
+                    false,
+                    true);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // The caller already has a typed attach/close failure. Do not mask it with cleanup.
         }
     }
@@ -357,20 +344,24 @@ public final class ExportSettingsAttachBackend {
             return;
         }
         try {
-            onEdt(() -> {
-                if (dialogGrowth != null) {
-                    dialogGrowth.undo();
-                }
-                if (panel.getParent() == target) {
-                    target.remove(panel);
-                }
-                target.revalidate();
-                target.repaint();
-                return null;
-            }, false, true);
+            onEdt(
+                    () -> {
+                        if (dialogGrowth != null) {
+                            dialogGrowth.undo();
+                        }
+                        if (panel.getParent() == target) {
+                            target.remove(panel);
+                        }
+                        target.revalidate();
+                        target.repaint();
+                        return null;
+                    },
+                    false,
+                    true);
         } catch (ExportSettingsAttachException failure) {
             throw failure;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new ExportSettingsAttachException(BOUNDARY_FAILURE_KEY, failure);
         }
     }
@@ -384,8 +375,7 @@ public final class ExportSettingsAttachBackend {
     }
 
     private static List<ExportSettingsOptionSnapshot> validatedOptionSnapshot(
-        final List<ExportSettingsOptionSnapshot> options
-    ) {
+            final List<ExportSettingsOptionSnapshot> options) {
         if (options == null) {
             throw new ExportSettingsAttachException(NULL_CONTRIBUTIONS_KEY);
         }
@@ -395,17 +385,14 @@ public final class ExportSettingsAttachBackend {
                 throw new ExportSettingsAttachException(NULL_CONTRIBUTION_KEY);
             }
             if (!seen.add(option.optionId())) {
-                throw new ExportSettingsAttachException(
-                    DUPLICATE_OPTION_KEY + ": " + option.optionId()
-                );
+                throw new ExportSettingsAttachException(DUPLICATE_OPTION_KEY + ": " + option.optionId());
             }
         }
         return List.copyOf(options);
     }
 
     private static List<ExportSettingsContribution> validatedSnapshot(
-        final List<ExportSettingsContribution> contributions
-    ) {
+            final List<ExportSettingsContribution> contributions) {
         if (contributions == null) {
             throw new ExportSettingsAttachException(NULL_CONTRIBUTIONS_KEY);
         }
@@ -415,9 +402,7 @@ public final class ExportSettingsAttachBackend {
                 throw new ExportSettingsAttachException(NULL_CONTRIBUTION_KEY);
             }
             if (!seen.add(contribution.optionId())) {
-                throw new ExportSettingsAttachException(
-                    DUPLICATE_OPTION_KEY + ": " + contribution.optionId()
-                );
+                throw new ExportSettingsAttachException(DUPLICATE_OPTION_KEY + ": " + contribution.optionId());
             }
         }
         return List.copyOf(contributions);
@@ -438,10 +423,7 @@ public final class ExportSettingsAttachBackend {
     }
 
     private static <T> T onEdt(
-        final Operation<T> operation,
-        final boolean rejectInterrupted,
-        final boolean keepQueuedAfterCallerStops
-    ) {
+            final Operation<T> operation, final boolean rejectInterrupted, final boolean keepQueuedAfterCallerStops) {
         Objects.requireNonNull(operation, "operation");
         if (SwingUtilities.isEventDispatchThread()) {
             return operation.run();
@@ -462,6 +444,7 @@ public final class ExportSettingsAttachBackend {
             try {
                 result.set(operation.run());
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 failure.set(throwable);
             } finally {
                 completed.countDown();
@@ -512,10 +495,9 @@ public final class ExportSettingsAttachBackend {
     private static final class DialogGrowth {
 
         /** Client-property keys the host probe reads as grow/restore evidence. */
-        static final String BASELINE_PROPERTY =
-            "turboism.export-settings.dialogBaselineSize";
-        static final String GROWN_PROPERTY =
-            "turboism.export-settings.dialogGrownSize";
+        static final String BASELINE_PROPERTY = "turboism.export-settings.dialogBaselineSize";
+
+        static final String GROWN_PROPERTY = "turboism.export-settings.dialogGrownSize";
         private static final int MAX_PASSES = 3;
 
         private final Function<Container, Component> topLevelResolver;
@@ -526,11 +508,7 @@ public final class ExportSettingsAttachBackend {
         private Dimension baseline;
         private int passes;
 
-        DialogGrowth(
-            final Function<Container, Component> topLevelResolver,
-            final Container mount,
-            final JPanel panel
-        ) {
+        DialogGrowth(final Function<Container, Component> topLevelResolver, final Container mount, final JPanel panel) {
             this.topLevelResolver = topLevelResolver;
             this.mount = mount;
             this.panel = panel;
@@ -582,6 +560,7 @@ public final class ExportSettingsAttachBackend {
                 try {
                     top.setSize(size);
                 } catch (Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
                     // The window is going away; restore is best-effort.
                 }
             }
@@ -589,11 +568,7 @@ public final class ExportSettingsAttachBackend {
     }
 
     private record AttachmentParts(
-        JPanel panel,
-        Map<String, JCheckBox> checkboxes,
-        Container mount,
-        DialogGrowth growth
-    ) {
+            JPanel panel, Map<String, JCheckBox> checkboxes, Container mount, DialogGrowth growth) {
         private AttachmentParts {
             Objects.requireNonNull(panel, "panel");
             Objects.requireNonNull(checkboxes, "checkboxes");

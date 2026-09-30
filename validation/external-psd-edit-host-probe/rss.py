@@ -1,0 +1,353 @@
+#!/usr/bin/env python3
+"""Read-only RSS observer, used as a queued pipeline's synchronous post-launch hook.
+
+The admitted Linux cgroup and one exact Cubism main-class process bound by PID/start ticks
+are observed. This never signals processes or infers a performance PASS. VmHWM covers the
+process lifetime; sampled VmRSS covers the recorded interval, including startup if observed.
+"""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import pwd
+import sys
+import time
+
+MAIN_CLASS = b"com.live2d.cubism.CECubismEditorApp"
+# Exact relative executable in the pinned 5.3.02 official BAT. An export-worker
+# fork can briefly inherit Java argv, but carries the calling thread's comm.
+JAVA_EXECUTABLE = b"app\\jre\\bin\\java.exe"
+JAVA_COMM = b"java.exe\n"
+PERIOD_SECONDS = 0.05
+
+
+class IdentityChanged(RuntimeError):
+    def __init__(self, message, diagnostics=None):
+        super().__init__(message)
+        self.diagnostics = diagnostics or {}
+
+
+def process_start_ticks(text: str) -> int:
+    # A Linux comm may contain spaces and parentheses. Field 22 follows the final ')'.
+    end = text.rfind(")")
+    if end < 0:
+        raise ValueError("invalid process stat")
+    fields = text[end + 1:].split()
+    if len(fields) < 20:
+        raise ValueError("short process stat")
+    return int(fields[19])
+
+
+def memory_bytes(text: str) -> tuple[int, int]:
+    values = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if parts and parts[0] in ("VmRSS:", "VmHWM:"):
+            if len(parts) != 3 or parts[2] != "kB" or parts[0] in values:
+                raise ValueError("invalid or duplicate RSS field")
+            values[parts[0]] = int(parts[1]) * 1024
+    rss, hwm = values["VmRSS:"], values["VmHWM:"]
+    if rss <= 0 or hwm < rss:
+        raise ValueError("unavailable or inconsistent RSS")
+    return rss, hwm
+
+
+def process_observation(proc: Path, pid: int, group: str):
+    process = proc / str(pid)
+    before = process_start_ticks((process / "stat").read_text())
+    if (process / "cgroup").read_text().splitlines() != ["0::" + group]:
+        raise IdentityChanged("process left the admitted cgroup")
+    command = (process / "cmdline").read_bytes()
+    argv = command.split(b"\0")
+    if argv[0] != JAVA_EXECUTABLE or MAIN_CLASS not in argv:
+        return None
+    if (process / "comm").read_bytes() != JAVA_COMM:
+        return None
+    rss, hwm = memory_bytes((process / "status").read_text())
+    after = process_start_ticks((process / "stat").read_text())
+    if before != after or (process / "cgroup").read_text().splitlines() != ["0::" + group]:
+        raise IdentityChanged("process identity changed during RSS read")
+    if (process / "cmdline").read_bytes() != command or (process / "comm").read_bytes() != JAVA_COMM:
+        return None  # exec can change the process image without changing PID/start ticks.
+    return pid, before, rss, hwm
+
+
+def candidate_diagnostic(proc: Path, value: tuple, group: str) -> dict:
+    """Failure-only metadata; never used to select a process or relax admission."""
+    pid, ticks, rss, hwm = value
+    result = dict(pid=pid, processStartTicks=ticks, rssBytes=rss, highWaterRssBytes=hwm)
+    process = proc / str(pid)
+    try:
+        stat = (process / "stat").read_text()
+        if process_start_ticks(stat) != ticks or (process / "cgroup").read_text().splitlines() != ["0::" + group]:
+            raise IdentityChanged("candidate changed before diagnostic read")
+        fields = stat[stat.rfind(")") + 1:].split()
+        result.update(state=fields[0], parentPid=int(fields[1]))
+        # Do not copy full command lines or environments into reports.
+        result["executableArgument"] = (process / "cmdline").read_bytes().split(b"\0", 1)[0].decode("utf-8", "replace")
+        for name in ("comm", "exe", "maps"):
+            try:
+                if name == "exe":
+                    result["executableLink"] = os.readlink(process / name)
+                elif name == "maps":
+                    result["jvmMappings"] = sorted({line.split(None, 5)[5] for line in
+                        (process / name).read_text().splitlines() if len(line.split(None, 5)) == 6
+                        and Path(line.split(None, 5)[5]).name.lower() in ("jvm.dll", "libjvm.so")})
+                else:
+                    result[name] = (process / name).read_text().strip()
+            except OSError as failure:
+                result[name + "Error"] = type(failure).__name__
+        if process_start_ticks((process / "stat").read_text()) != ticks or (process / "cgroup").read_text().splitlines() != ["0::" + group]:
+            raise IdentityChanged("candidate changed during diagnostic read")
+    except (OSError, ValueError, IdentityChanged) as failure:
+        result["diagnosticError"] = str(failure)
+    return result
+
+
+class Scope:
+    def __init__(self, metadata: dict, group_root=Path("/sys/fs/cgroup"), proc=Path("/proc")):
+        self.metadata, self.proc = metadata, proc
+        group = Path(metadata["cgroupPath"])
+        if not group.is_absolute() or ".." in group.parts or group == Path("/"):
+            raise IdentityChanged("unsafe cgroup path")
+        self.group = str(group)
+        self.path = group_root / group.relative_to("/")
+        self.identity = metadata["cgroupDevice"], metadata["cgroupInode"]
+        self.check()
+
+    def check(self):
+        stat = self.path.stat()
+        if (stat.st_dev, stat.st_ino) != self.identity:
+            raise IdentityChanged("admitted cgroup was replaced")
+        if (self.proc / "sys/kernel/random/boot_id").read_text().strip() != self.metadata["bootId"]:
+            raise IdentityChanged("boot identity changed")
+        if (self.proc / "self/cgroup").read_text().splitlines() != ["0::" + self.group]:
+            raise IdentityChanged("observer is outside its admitted cgroup")
+
+    def sample(self, expected=None):
+        self.check()
+        candidates = []
+        for pid in sorted(set(map(int, (self.path / "cgroup.procs").read_text().split()))):
+            try:
+                value = process_observation(self.proc, pid, self.group)
+            except (FileNotFoundError, ProcessLookupError):
+                continue  # Short-lived launchers may leave between enumeration and read.
+            if value is not None:
+                candidates.append(value)
+        self.check()
+        if len(candidates) > 1:
+            raise IdentityChanged("multiple Cubism main-class processes in task scope", {
+                "candidates": [candidate_diagnostic(self.proc, value, self.group) for value in candidates],
+                "boundIdentity": expected,
+            })
+        if not candidates:
+            return None
+        value = candidates[0]
+        if expected is not None and value[:2] != expected:
+            raise IdentityChanged("bound Cubism PID/start ticks changed")
+        return value
+
+
+def psd_file_holders(scope: Scope, task: Path) -> dict:
+    """Failure-only task-scoped fd/maps metadata, never Windows sharing-mode proof."""
+    scope.check()
+    task = Path(task)
+    if not task.is_absolute() or task.resolve() != task:
+        raise IdentityChanged("unsafe diagnostic task root")
+    deadline = time.monotonic() + 2.0
+    rows, skipped = [], []
+    truncated = False
+
+    def target_path(raw):
+        # A deleted file may still have an open descriptor or mapping.
+        raw = raw.removesuffix(" (deleted)")
+        path = Path(raw)
+        if path.name not in ("external-edit.psd", "external-edit.psd.tmp") or not path.is_absolute():
+            return None
+        resolved = path.resolve()
+        if not resolved.is_relative_to(task) or not resolved.parent.name.startswith("turboism-psd-"):
+            return None
+        return str(resolved.relative_to(task))
+
+    pids = sorted(set(map(int, (scope.path / "cgroup.procs").read_text().split())))
+    if len(pids) > 128:
+        truncated = True
+    for pid in pids[:128]:
+        if time.monotonic() >= deadline or len(rows) >= 128:
+            truncated = True
+            break
+        process = scope.proc / str(pid)
+        observed = []
+        try:
+            ticks = process_start_ticks((process / "stat").read_text())
+            group = "0::" + scope.group
+            if (process / "cgroup").read_text().splitlines() != [group]:
+                raise IdentityChanged("holder left task scope")
+            comm = (process / "comm").read_text().strip()[:64]
+            for index, fd in enumerate((process / "fd").iterdir()):
+                if index >= 4096 or time.monotonic() >= deadline or len(rows) + len(observed) >= 128:
+                    truncated = True
+                    break
+                try:
+                    target = target_path(os.readlink(fd))
+                    if target is not None:
+                        observed.append(dict(kind="fd", descriptor=fd.name, taskRelativePath=target))
+                except (FileNotFoundError, ProcessLookupError):
+                    continue
+            with (process / "maps").open("rb") as stream:
+                data = stream.read(4 * 1024 * 1024 + 1)
+            if len(data) > 4 * 1024 * 1024:
+                truncated = True
+            for line in data[:4 * 1024 * 1024].decode("utf-8", errors="surrogateescape").splitlines():
+                if time.monotonic() >= deadline or len(rows) + len(observed) >= 128:
+                    truncated = True
+                    break
+                fields = line.split(None, 5)
+                target = target_path(fields[5]) if len(fields) == 6 else None
+                if target is not None:
+                    observed.append(dict(kind="mapping", permissions=fields[1], taskRelativePath=target))
+            if (process_start_ticks((process / "stat").read_text()) != ticks
+                    or (process / "cgroup").read_text().splitlines() != [group]
+                    or (process / "comm").read_text().strip()[:64] != comm):
+                raise IdentityChanged("holder identity changed during observation")
+            rows.extend(dict(row, pid=pid, processStartTicks=ticks, comm=comm) for row in observed)
+        except (OSError, ValueError, IdentityChanged) as failure:
+            # Do not emit observations collected across a changed or unreadable identity.
+            skipped.append(dict(pid=pid, reason=type(failure).__name__))
+    scope.check()
+    return dict(status="PARTIAL" if skipped or truncated else "OBSERVED", holders=rows,
+                skipped=skipped, truncated=truncated, windowsSharingMode="UNAVAILABLE",
+                semantics="task-scoped Linux fd/maps snapshot after FAIL; no holder is not proof of no Windows lock")
+
+
+def terminal_status(path: Path, run_id: str):
+    if not path.exists():
+        return None
+    fields = {}
+    for line in path.read_text().splitlines():
+        key, sep, value = line.partition("=")
+        if sep:
+            if key in fields:
+                raise IdentityChanged("duplicate terminal property")
+            fields[key] = value
+    if fields.get("runId") != run_id:
+        raise IdentityChanged("RSS terminal result belongs to a different run")
+    return fields.get("status") if fields.get("status") in ("PASS", "FAIL", "BLOCKED") else None
+
+
+def report_identity(metadata: dict, expected: dict) -> dict:
+    if metadata.get("schemaVersion") != 1 or any(metadata.get(k) != v for k, v in expected.items()):
+        raise IdentityChanged("queue containment identity mismatch")
+    digest = metadata.get("preparedDigest")
+    if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+        raise IdentityChanged("queue containment prepared digest is unavailable")
+    return dict(expected, preparedDigest=digest)
+
+
+def machine_description(proc=Path("/proc")) -> dict:
+    result = {"kernel": " ".join(os.uname()), "logicalCpuCount": os.cpu_count(),
+              "cpuModel": "UNAVAILABLE", "physicalMemoryBytes": "UNAVAILABLE"}
+    try:
+        models = sorted({line.partition(":")[2].strip()
+                         for line in (proc / "cpuinfo").read_text().splitlines()
+                         if line.partition(":")[0].strip() == "model name"})
+        if models:
+            result["cpuModel"] = models
+        for line in (proc / "meminfo").read_text().splitlines():
+            fields = line.split()
+            if len(fields) == 3 and fields[0] == "MemTotal:" and fields[2] == "kB":
+                result["physicalMemoryBytes"] = int(fields[1]) * 1024
+    except (OSError, ValueError) as failure:
+        result["diagnostic"] = str(failure)
+    return result
+
+
+def collect(scope: Scope, terminal: Path, run_id: str, timeout: int, task: Path | None = None) -> dict:
+    started = time.monotonic_ns()
+    deadline = started + timeout * 1_000_000_000
+    report = {"schemaVersion": 1, "runId": run_id, "periodMillis": 50,
+              "sampleCount": 0, "missedAfterBinding": 0, "peakSampledRssBytes": 0,
+              "processLifetimeHighWaterRssBytes": 0, "maximumSampleGapNanos": 0,
+              "measurement": "Linux VmRSS sampled; VmHWM since Cubism process startup",
+              "processAdmission": "pinned BAT java argv0 + java.exe comm + exact main-class argument; rechecked around memory read",
+              "scope": "post-launch through probe terminal; includes startup when observed",
+              "performanceStatus": "NOT_EVALUATED"}
+    bound, last, terminal = None, None, Path(terminal)
+    while time.monotonic_ns() < deadline:
+        value = scope.sample(bound)
+        now = time.monotonic_ns()
+        if value is not None:
+            pid, ticks, rss, hwm = value
+            if bound is None:
+                bound = pid, ticks
+                report.update(pid=pid, processStartTicks=ticks, firstSampleNanos=now - started)
+            if last is not None:
+                report["maximumSampleGapNanos"] = max(report["maximumSampleGapNanos"], now - last)
+            last = now
+            report["sampleCount"] += 1
+            report["peakSampledRssBytes"] = max(report["peakSampledRssBytes"], rss)
+            report["processLifetimeHighWaterRssBytes"] = max(report["processLifetimeHighWaterRssBytes"], hwm)
+        elif bound is not None:
+            report["missedAfterBinding"] += 1
+        status = terminal_status(terminal, run_id)
+        if status:
+            report["probeTerminalStatus"] = status
+            if status == "FAIL" and task is not None:
+                report["psdFileHolders"] = psd_file_holders(scope, task)
+            break
+        time.sleep(PERIOD_SECONDS)
+    report["elapsedNanos"] = time.monotonic_ns() - started
+    report["complete"] = bool(report.get("probeTerminalStatus") and report["sampleCount"]
+                              and not report["missedAfterBinding"])
+    report["observationStatus"] = "OBSERVED" if report["complete"] else "UNAVAILABLE"
+    return report
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 11:
+        raise ValueError("expected the generic Runner's eleven hook context arguments")
+    task, home, evidence, _prefix, _fixture, run_id, version, timeout, *_ = argv
+    task, home, evidence = map(Path, (task, home, evidence))
+    if version != "5302" or task.name != run_id or home != task / "turboism-home" or evidence != task / "evidence":
+        raise IdentityChanged("hook context is not the expected task")
+    if any(not p.is_absolute() or ".." in p.parts or any(a.is_symlink() for a in (p, *p.parents))
+           for p in (task, home, evidence)):
+        raise IdentityChanged("unsafe hook context path")
+    job = os.environ["TURBOISM_QUEUE_JOB_ID"]
+    if not job or any(c not in "0123456789abcdef-" for c in job):
+        raise IdentityChanged("unsafe queue job ID")
+    root = Path(pwd.getpwuid(os.getuid()).pw_dir) / ".local/state/turboism/host-validation"
+    metadata = json.loads((root / "jobs" / job / "containment.json").read_text())
+    expected = {"jobId": job, "attemptId": os.environ["TURBOISM_QUEUE_ATTEMPT_ID"],
+                "runId": os.environ["TURBOISM_QUEUE_RUN_ID"]}
+    if expected["runId"] != run_id:
+        raise IdentityChanged("queue containment identity mismatch")
+    expected = report_identity(metadata, expected)
+    seconds = int(timeout)
+    if not 1 <= seconds <= 1800:
+        raise ValueError("RSS observation timeout must be within 1..1800 seconds")
+    output = evidence / "external-psd-rss.json"
+    # Exclusive creation preserves any earlier report. The Runner owns cleanup on all failures.
+    with output.open("x") as stream:
+        try:
+            report = collect(Scope(metadata), home / "state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties", run_id, seconds, task)
+        except Exception as failure:
+            report = {"observationStatus": "UNAVAILABLE", "complete": False,
+                      "error": type(failure).__name__ + ": " + str(failure)}
+            if isinstance(failure, IdentityChanged) and failure.diagnostics:
+                report["diagnostics"] = failure.diagnostics
+            report.update(expected)
+            json.dump(report, stream, indent=2)
+            stream.write("\n")
+            raise
+        report.update(expected)
+        report["machine"] = machine_description()
+        report["cgroup"] = {k: metadata[k] for k in ("bootId", "cgroupPath", "cgroupDevice", "cgroupInode")}
+        json.dump(report, stream, indent=2)
+        stream.write("\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

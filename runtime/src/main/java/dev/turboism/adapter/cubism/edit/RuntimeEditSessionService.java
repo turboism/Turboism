@@ -9,7 +9,6 @@ import dev.turboism.sdk.cubism.edit.EditSessionService;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
 import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.plugin.PluginContext;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -31,11 +30,10 @@ public final class RuntimeEditSessionService implements EditSessionService {
     private final Supplier<Optional<DocumentId>> activeDocumentId;
 
     public RuntimeEditSessionService(
-        final RuntimeEditSessionManager manager,
-        final EditorEditSessionHost host,
-        final String pluginId,
-        final Supplier<Optional<DocumentId>> activeDocumentId
-    ) {
+            final RuntimeEditSessionManager manager,
+            final EditorEditSessionHost host,
+            final String pluginId,
+            final Supplier<Optional<DocumentId>> activeDocumentId) {
         this.manager = Objects.requireNonNull(manager, "manager");
         this.host = Objects.requireNonNull(host, "host");
         this.pluginId = requireText(pluginId, "pluginId");
@@ -50,11 +48,8 @@ public final class RuntimeEditSessionService implements EditSessionService {
     }
 
     @Override
-    public EditSession open(
-        final PluginContext context,
-        final DocumentId document,
-        final EditSessionOptions options
-    ) throws EditSessionException {
+    public EditSession open(final PluginContext context, final DocumentId document, final EditSessionOptions options)
+            throws EditSessionException {
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(document, "document");
         Objects.requireNonNull(options, "options");
@@ -63,16 +58,11 @@ public final class RuntimeEditSessionService implements EditSessionService {
         try {
             active = Objects.requireNonNull(activeDocumentId.get(), "activeDocumentId result");
         } catch (RuntimeException failure) {
-            throw new EditUnavailableException(
-                CODE_BINDING,
-                "The active Cubism document cannot be determined"
-            );
+            throw new EditUnavailableException(CODE_BINDING, "The active Cubism document cannot be determined");
         }
         if (active.isEmpty() || !active.orElseThrow().equals(document)) {
             throw new EditUnavailableException(
-                CODE_BINDING,
-                "The requested document is not the active modeling document"
-            );
+                    CODE_BINDING, "The requested document is not the active modeling document");
         }
         return manager.open(binding, document, options);
     }
@@ -89,21 +79,16 @@ public final class RuntimeEditSessionService implements EditSessionService {
         }
     }
 
-    private EditorAuthoringTransactionCoordinator.Binding currentBinding()
-        throws EditSessionException {
+    private EditorAuthoringTransactionCoordinator.Binding currentBinding() throws EditSessionException {
         try {
-            final Optional<EditorAuthoringTransactionCoordinator.Binding> binding =
-                host.currentBinding(pluginId);
+            final Optional<EditorAuthoringTransactionCoordinator.Binding> binding = host.currentBinding(pluginId);
             if (binding.isPresent()) {
                 return binding.orElseThrow();
             }
         } catch (RuntimeException failure) {
             // falls through to the typed unavailable failure below
         }
-        throw new EditUnavailableException(
-            CODE_BINDING,
-            "No stable active modeling document is available"
-        );
+        throw new EditUnavailableException(CODE_BINDING, "No stable active modeling document is available");
     }
 
     private static String requireText(final String value, final String name) {

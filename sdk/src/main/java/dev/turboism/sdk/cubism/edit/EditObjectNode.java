@@ -15,11 +15,7 @@ import java.util.Objects;
  * @param children child nodes in palette order; empty for leaf objects
  */
 @CubismEditor(from = "5.1.02", to = "5.3.99")
-public record EditObjectNode(
-        String name,
-        ModelObjectId id,
-        EditObjectKind kind,
-        List<EditObjectNode> children) {
+public record EditObjectNode(String name, ModelObjectId id, EditObjectKind kind, List<EditObjectNode> children) {
 
     public EditObjectNode {
         Objects.requireNonNull(name, "name");

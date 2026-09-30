@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.event;
 
-
 /**
  * Typed catalog of Cubism model and Editor operations that may emit a
  * {@code before -> invoke -> on -> after} lifecycle.

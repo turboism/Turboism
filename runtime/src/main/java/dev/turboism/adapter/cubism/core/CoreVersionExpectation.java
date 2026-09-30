@@ -20,11 +20,7 @@ public record CoreVersionExpectation(CoreRuntimeVersion exactVersion) {
      * @param patch Core runtime patch component
      * @return an expectation pinned to exactly that runtime tuple
      */
-    public static CoreVersionExpectation exact(
-        final int major,
-        final int minor,
-        final int patch
-    ) {
+    public static CoreVersionExpectation exact(final int major, final int minor, final int patch) {
         return new CoreVersionExpectation(new CoreRuntimeVersion(major, minor, patch));
     }
 
@@ -34,9 +30,7 @@ public record CoreVersionExpectation(CoreRuntimeVersion exactVersion) {
         return switch (profile) {
             case "5.2.03" -> exact(5, 0, 256);
             case "5.3.02" -> exact(6, 0, 257);
-            default -> throw new IllegalArgumentException(
-                "unsupported Cubism Core profile: " + profile
-            );
+            default -> throw new IllegalArgumentException("unsupported Cubism Core profile: " + profile);
         };
     }
 

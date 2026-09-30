@@ -1,17 +1,16 @@
 package dev.turboism.ui.palette;
 
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextPane;
-import java.awt.BorderLayout;
-import java.awt.Container;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+
+import java.awt.BorderLayout;
+import java.awt.Container;
+import java.util.Set;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextPane;
+import org.junit.jupiter.api.Test;
 
 class LogPaletteHostStructureTest {
 
@@ -36,9 +35,7 @@ class LogPaletteHostStructureTest {
         parent.add(toolbarWrapper, BorderLayout.CENTER);
 
         final Container top = LogPaletteHostStructure.outermostMarkedWrapper(
-            scroll,
-            Set.of(LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY, "toolbar.marker")
-        );
+                scroll, Set.of(LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY, "toolbar.marker"));
         assertSame(toolbarWrapper, top);
 
         LogPaletteHostStructure.replaceComponent(parent, toolbarWrapper, filterWrapper);

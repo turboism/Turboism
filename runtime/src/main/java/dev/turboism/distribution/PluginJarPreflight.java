@@ -10,7 +10,7 @@ import java.util.HexFormat;
 
 /** Revalidates a staged JAR against the immutable strict inspection plan before publication. */
 public final class PluginJarPreflight {
-    private PluginJarPreflight() { }
+    private PluginJarPreflight() {}
 
     /**
      * Re-reads a staged JAR from disk and checks it still matches what inspection recorded.
@@ -32,21 +32,20 @@ public final class PluginJarPreflight {
      * @return {@code true} only if every check passes; {@code false} on any mismatch or failure
      */
     public static boolean matches(
-        final Path jar,
-        final String pluginId,
-        final String version,
-        final String descriptorSha256,
-        final String jarSha256,
-        final long jarSize
-    ) {
+            final Path jar,
+            final String pluginId,
+            final String version,
+            final String descriptorSha256,
+            final String jarSha256,
+            final long jarSize) {
         try {
             if (!Files.isRegularFile(jar, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(jar)) return false;
             final Digest identity = digest(jar);
             if (identity.size() != jarSize || !identity.sha256().equals(jarSha256)) return false;
             final PluginJarInspector.Inspected actual = new PluginJarInspector().inspect(jar, "plugin/plugin.jar");
             return actual.descriptorSha256().equals(descriptorSha256)
-                && actual.descriptor().id().equals(pluginId)
-                && actual.descriptor().version().equals(version);
+                    && actual.descriptor().id().equals(pluginId)
+                    && actual.descriptor().version().equals(version);
         } catch (Exception failure) {
             return false;
         }
@@ -55,9 +54,10 @@ public final class PluginJarPreflight {
     private static Digest digest(final Path path) throws Exception {
         final MessageDigest digest = MessageDigest.getInstance("SHA-256");
         long size = 0;
-        try (FileChannel input = FileChannel.open(path, java.nio.file.StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+        try (FileChannel input =
+                FileChannel.open(path, java.nio.file.StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
             final ByteBuffer buffer = ByteBuffer.allocateDirect(64 * 1024);
-            for (int read; (read = input.read(buffer)) >= 0;) {
+            for (int read; (read = input.read(buffer)) >= 0; ) {
                 if (read == 0) continue;
                 size += read;
                 buffer.flip();
@@ -68,5 +68,5 @@ public final class PluginJarPreflight {
         return new Digest(size, HexFormat.of().formatHex(digest.digest()));
     }
 
-    private record Digest(long size, String sha256) { }
+    private record Digest(long size, String sha256) {}
 }

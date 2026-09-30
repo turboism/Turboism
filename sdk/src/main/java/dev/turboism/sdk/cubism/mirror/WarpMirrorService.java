@@ -27,8 +27,7 @@ public interface WarpMirrorService {
 
     /** Returns a service that reports every request as unavailable. */
     static WarpMirrorService unavailable() {
-        return request -> WarpMirrorResult.blocked(List.of(new WarpMirrorBlocker(
-            WarpMirrorBlockerCode.UNAVAILABLE,
-            "Warp mirror is unavailable on this host.")));
+        return request -> WarpMirrorResult.blocked(List.of(
+                new WarpMirrorBlocker(WarpMirrorBlockerCode.UNAVAILABLE, "Warp mirror is unavailable on this host.")));
     }
 }

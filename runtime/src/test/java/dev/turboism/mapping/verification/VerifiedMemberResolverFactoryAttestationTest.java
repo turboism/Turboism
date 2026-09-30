@@ -1,10 +1,9 @@
 package dev.turboism.mapping.verification;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -13,9 +12,9 @@ import java.nio.file.Path;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.Test;
 
 class VerifiedMemberResolverFactoryAttestationTest {
 
@@ -26,19 +25,19 @@ class VerifiedMemberResolverFactoryAttestationTest {
         CompiledHost verified = compileHost("verified");
         CompiledHost runtime = compileHost("runtime-different");
         Path record = recordFor(verified.jar());
-        try (URLClassLoader runtimeLoader = new URLClassLoader(
-            new URL[]{runtime.jar().toUri().toURL()},
-            ClassLoader.getPlatformClassLoader()
-        )) {
-            assertThrows(IllegalArgumentException.class, () -> new VerifiedMemberResolverFactory().create(
-                record,
-                verified.jar(),
-                runtimeLoader,
-                "fixture.attested",
-                "adapter.test",
-                Set.of("test.capability"),
-                Set.of("host.value")
-            ));
+        try (URLClassLoader runtimeLoader =
+                new URLClassLoader(new URL[] {runtime.jar().toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new VerifiedMemberResolverFactory()
+                            .create(
+                                    record,
+                                    verified.jar(),
+                                    runtimeLoader,
+                                    "fixture.attested",
+                                    "adapter.test",
+                                    Set.of("test.capability"),
+                                    Set.of("host.value")));
         }
     }
 
@@ -46,20 +45,19 @@ class VerifiedMemberResolverFactoryAttestationTest {
     void acceptsRuntimeClassLoaderWhoseOwnerBytesMatchVerifiedJar() throws Exception {
         CompiledHost verified = compileHost("verified");
         Path record = recordFor(verified.jar());
-        try (URLClassLoader runtimeLoader = new URLClassLoader(
-            new URL[]{verified.jar().toUri().toURL()},
-            ClassLoader.getPlatformClassLoader()
-        )) {
-            VerifiedMemberResolver resolver = new VerifiedMemberResolverFactory().create(
-                record,
-                verified.jar(),
-                runtimeLoader,
-                "fixture.attested",
-                "adapter.test",
-                Set.of("test.capability"),
-                Set.of("host.value")
-            );
-            Object host = runtimeLoader.loadClass("attested.Host").getConstructor().newInstance();
+        try (URLClassLoader runtimeLoader =
+                new URLClassLoader(new URL[] {verified.jar().toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {
+            VerifiedMemberResolver resolver = new VerifiedMemberResolverFactory()
+                    .create(
+                            record,
+                            verified.jar(),
+                            runtimeLoader,
+                            "fixture.attested",
+                            "adapter.test",
+                            Set.of("test.capability"),
+                            Set.of("host.value"));
+            Object host =
+                    runtimeLoader.loadClass("attested.Host").getConstructor().newInstance();
             assertEquals("verified", resolver.invoke("host.value", host));
         }
     }
@@ -113,7 +111,7 @@ class VerifiedMemberResolverFactoryAttestationTest {
         Path jar = root.resolve("host.jar");
         Path classFile = classes.resolve("attested/Host.class");
         try (InputStream input = Files.newInputStream(classFile);
-             JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+                JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             output.putNextEntry(new JarEntry("attested/Host.class"));
             input.transferTo(output);
             output.closeEntry();
@@ -121,6 +119,5 @@ class VerifiedMemberResolverFactoryAttestationTest {
         return new CompiledHost(jar);
     }
 
-    private record CompiledHost(Path jar) {
-    }
+    private record CompiledHost(Path jar) {}
 }

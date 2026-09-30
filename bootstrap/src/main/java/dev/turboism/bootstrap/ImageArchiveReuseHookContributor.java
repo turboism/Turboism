@@ -9,21 +9,21 @@ final class ImageArchiveReuseHookContributor extends NativeOptimizationHookContr
         super("TURBOISM_IMAGE_ARCHIVE_REUSE");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!Boolean.getBoolean(ImageArchiveReuseBridge.ENABLE_PROPERTY)) {
             return noOp();
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedImageArchiveReuseInstaller.admitted(
-            host.artifact(),
-            NativeOptimizationPolicy.load(environment.options().home()),
-            true
-        )) {
+                host.artifact(),
+                NativeOptimizationPolicy.load(environment.options().home()),
+                true)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
         final VerifiedImageArchiveReuseInstaller installer = new VerifiedImageArchiveReuseInstaller(
-            environment.instrumentation(), host.artifact(), host.classLoader());
+                environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
         return installer;
     }

@@ -24,16 +24,13 @@ public final class VerifiedProtectedExportResolverFactory {
      * @throws NullPointerException if any argument is {@code null}
      */
     public VerifiedMemberResolver create(
-        final Path reviewedRecord,
-        final Path verifiedArtifact,
-        final ClassLoader hostClassLoader
-    ) throws IOException {
+            final Path reviewedRecord, final Path verifiedArtifact, final ClassLoader hostClassLoader)
+            throws IOException {
         final HostArtifactDigest artifact = HostArtifactDigest.from(verifiedArtifact);
         return workflow.create(
-            reviewedRecord,
-            verifiedArtifact,
-            hostClassLoader,
-            ProtectedExportVerificationManifest.forArtifact(artifact)
-        );
+                reviewedRecord,
+                verifiedArtifact,
+                hostClassLoader,
+                ProtectedExportVerificationManifest.forArtifact(artifact));
     }
 }

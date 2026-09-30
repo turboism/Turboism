@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 /** One Rotation Deformer exposed through Editor authoring semantics. */
 public interface RotationDeformer extends Deformer {
 

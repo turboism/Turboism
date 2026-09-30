@@ -4,6 +4,5 @@ final class ServiceError {
 
     static final String INVALID_SNAPSHOT = "cubism.query.snapshot.invalid";
 
-    private ServiceError() {
-    }
+    private ServiceError() {}
 }

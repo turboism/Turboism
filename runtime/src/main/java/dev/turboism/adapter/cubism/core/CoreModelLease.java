@@ -22,14 +22,13 @@ final class CoreModelLease implements AutoCloseable {
     private boolean closed;
 
     CoreModelLease(
-        final long generation,
-        final String modelIdentity,
-        final String providerId,
-        final String artifactProfile,
-        final Object borrowedModel,
-        final LongSupplier currentGeneration,
-        final Runnable release
-    ) {
+            final long generation,
+            final String modelIdentity,
+            final String providerId,
+            final String artifactProfile,
+            final Object borrowedModel,
+            final LongSupplier currentGeneration,
+            final Runnable release) {
         if (generation < 0) {
             throw new IllegalArgumentException("generation must not be negative");
         }
@@ -38,10 +37,7 @@ final class CoreModelLease implements AutoCloseable {
         this.providerId = requireText(providerId, "providerId");
         this.artifactProfile = requireText(artifactProfile, "artifactProfile");
         this.borrowedModel = Objects.requireNonNull(borrowedModel, "borrowedModel");
-        this.currentGeneration = Objects.requireNonNull(
-            currentGeneration,
-            "currentGeneration"
-        );
+        this.currentGeneration = Objects.requireNonNull(currentGeneration, "currentGeneration");
         this.release = Objects.requireNonNull(release, "release");
     }
 
@@ -74,10 +70,7 @@ final class CoreModelLease implements AutoCloseable {
     synchronized <T> T readForProvider(final Function<Object, T> operation) {
         Objects.requireNonNull(operation, "operation");
         if (closed) {
-            throw failure(
-                CoreModelFailure.Code.LEASE_CLOSED,
-                "Borrowed Core model lease is closed."
-            );
+            throw failure(CoreModelFailure.Code.LEASE_CLOSED, "Borrowed Core model lease is closed.");
         }
         requireCurrentGeneration();
         final T result = operation.apply(borrowedModel);
@@ -87,10 +80,7 @@ final class CoreModelLease implements AutoCloseable {
 
     private void requireCurrentGeneration() {
         if (currentGeneration.getAsLong() != generation) {
-            throw failure(
-                CoreModelFailure.Code.STALE_GENERATION,
-                "Borrowed Core model lease generation is stale."
-            );
+            throw failure(CoreModelFailure.Code.STALE_GENERATION, "Borrowed Core model lease generation is stale.");
         }
     }
 
@@ -104,15 +94,12 @@ final class CoreModelLease implements AutoCloseable {
             closed = true;
             borrowedModel = null;
             releaseAction = release;
-            release = () -> { };
+            release = () -> {};
         }
         releaseAction.run();
     }
 
-    private static CoreModelLeaseException failure(
-        final CoreModelFailure.Code code,
-        final String message
-    ) {
+    private static CoreModelLeaseException failure(final CoreModelFailure.Code code, final String message) {
         return new CoreModelLeaseException(new CoreModelFailure(code, message));
     }
 

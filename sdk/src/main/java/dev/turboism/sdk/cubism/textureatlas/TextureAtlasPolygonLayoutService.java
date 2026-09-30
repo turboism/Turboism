@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -25,8 +24,5 @@ public interface TextureAtlasPolygonLayoutService {
      * @param plan the validated plan to write back
      * @return the apply outcome; a rejected plan leaves the page untouched
      */
-    TextureAtlasLayoutApplyResult apply(
-        TextureAtlasLayoutTarget target,
-        TextureAtlasPolygonPlan plan
-    );
+    TextureAtlasLayoutApplyResult apply(TextureAtlasLayoutTarget target, TextureAtlasPolygonPlan plan);
 }

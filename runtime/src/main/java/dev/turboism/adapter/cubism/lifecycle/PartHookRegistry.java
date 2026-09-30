@@ -2,17 +2,17 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.sdk.cubism.event.PartNameEvent;
+import dev.turboism.sdk.cubism.event.PartOpacityEvent;
 import dev.turboism.sdk.cubism.hook.PartHooks;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.cubism.event.PartNameEvent;
-import dev.turboism.sdk.cubism.event.PartOpacityEvent;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,36 +38,24 @@ public final class PartHookRegistry {
         return coordinator;
     }
 
-    /** Session-scoped compatibility registration retained for focused adapter tests. */
-    public void register(
-        final PluginDescriptor descriptor,
-        final List<? extends TurboismPlugin> entrypoints,
-        final PluginLogger logger
-    ) {
-        registerCompatibility(descriptor, entrypoints, logger, null);
-    }
-
     /** Scope-bound compatibility registration retained outside Preview composition. */
     public void register(
-        final PluginDescriptor descriptor,
-        final List<? extends TurboismPlugin> entrypoints,
-        final PluginLogger logger,
-        final DisposableScope scope
-    ) {
+            final PluginDescriptor descriptor,
+            final List<? extends TurboismPlugin> entrypoints,
+            final PluginLogger logger,
+            final DisposableScope scope) {
         registerCompatibility(descriptor, entrypoints, logger, scope);
     }
 
     private void registerCompatibility(
-        final PluginDescriptor descriptor,
-        final List<? extends TurboismPlugin> entrypoints,
-        final PluginLogger logger,
-        final DisposableScope scope
-    ) {
-        final List<PartHooks> hooks = Objects.requireNonNull(entrypoints, "entrypoints")
-            .stream()
-            .filter(PartHooks.class::isInstance)
-            .map(PartHooks.class::cast)
-            .toList();
+            final PluginDescriptor descriptor,
+            final List<? extends TurboismPlugin> entrypoints,
+            final PluginLogger logger,
+            final DisposableScope scope) {
+        final List<PartHooks> hooks = Objects.requireNonNull(entrypoints, "entrypoints").stream()
+                .filter(PartHooks.class::isInstance)
+                .map(PartHooks.class::cast)
+                .toList();
         if (scope == null && hooks.isEmpty()) {
             return;
         }
@@ -79,14 +67,12 @@ public final class PartHookRegistry {
             if (hooks.isEmpty()) {
                 return;
             }
-            final PartLifecycleCoordinator.PluginHooks value =
-                new PartLifecycleCoordinator.PluginHooks(
+            final PartLifecycleCoordinator.PluginHooks value = new PartLifecycleCoordinator.PluginHooks(
                     plugin,
                     hooks,
                     Objects.requireNonNull(logger, "logger"),
                     hasPermission(plugin, INTERCEPT_PERMISSION),
-                    hasPermission(plugin, OBSERVE_PERMISSION)
-                );
+                    hasPermission(plugin, OBSERVE_PERMISSION));
             if (scope == null) {
                 coordinator.register(value);
                 return;
@@ -107,16 +93,14 @@ public final class PartHookRegistry {
      * An entrypoint that also declares an annotated handler for a state is not adapted for that state.
      */
     public void register(
-        final PluginDescriptor descriptor,
-        final List<? extends TurboismPlugin> entrypoints,
-        final PluginLogger logger,
-        final DisposableScope scope,
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner
-    ) {
-        final List<? extends TurboismPlugin> instances = List.copyOf(
-            Objects.requireNonNull(entrypoints, "entrypoints")
-        );
+            final PluginDescriptor descriptor,
+            final List<? extends TurboismPlugin> entrypoints,
+            final PluginLogger logger,
+            final DisposableScope scope,
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner) {
+        final List<? extends TurboismPlugin> instances =
+                List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
         final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
         final PluginLogger sink = Objects.requireNonNull(logger, "logger");
         final RuntimeEventBroker runtimeBroker = Objects.requireNonNull(broker, "broker");
@@ -129,26 +113,14 @@ public final class PartHookRegistry {
                 continue;
             }
             if (hasPermission(plugin, INTERCEPT_PERMISSION)) {
-                adaptBeforeOpacity(
-                    runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed
-                );
-                adaptBeforeName(
-                    runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed
-                );
+                adaptBeforeOpacity(runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed);
+                adaptBeforeName(runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed);
             }
             if (hasPermission(plugin, OBSERVE_PERMISSION)) {
-                adaptOnOpacity(
-                    runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed
-                );
-                adaptAfterOpacity(
-                    runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed
-                );
-                adaptOnName(
-                    runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed
-                );
-                adaptAfterName(
-                    runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed
-                );
+                adaptOnOpacity(runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed);
+                adaptAfterOpacity(runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed);
+                adaptOnName(runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed);
+                adaptAfterName(runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks, sink, installed);
             }
             entrypointOrdinal++;
         }
@@ -159,9 +131,7 @@ public final class PartHookRegistry {
         synchronized (lifecycleLock) {
             if (registrations.putIfAbsent(eventOwner, registration) != null) {
                 registration.close();
-                throw new IllegalStateException(
-                    "Part hook adapters already registered for " + eventOwner
-                );
+                throw new IllegalStateException("Part hook adapters already registered for " + eventOwner);
             }
             if (scope != null) {
                 try {
@@ -175,161 +145,135 @@ public final class PartHookRegistry {
     }
 
     private static void adaptBeforeOpacity(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final int entrypointOrdinal,
-        final TurboismPlugin entrypoint,
-        final PartHooks hooks,
-        final PluginLogger logger,
-        final List<Registration> installed
-    ) {
-        if (!overrides(entrypoint, "beforeSetPartOpacity")
-            || subscribes(entrypoint, PartOpacityEvent.Before.class)) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final int entrypointOrdinal,
+            final TurboismPlugin entrypoint,
+            final PartHooks hooks,
+            final PluginLogger logger,
+            final List<Registration> installed) {
+        if (!overrides(entrypoint, "beforeSetPartOpacity") || subscribes(entrypoint, PartOpacityEvent.Before.class)) {
             return;
         }
-        installed.add(broker.subscribeAdapter(
-            owner, PartOpacityEvent.Before.class, entrypointOrdinal, 0, event -> {
-                try {
-                    event.setOpacity(hooks.beforeSetPartOpacity(event.part(), event.opacity()));
-                } catch (ThreadDeath | VirtualMachineError fatal) {
-                    throw fatal;
-                } catch (Throwable failure) {
-                    throw hookFailure(logger, "beforeSetPartOpacity", failure);
-                }
+        installed.add(broker.subscribeAdapter(owner, PartOpacityEvent.Before.class, entrypointOrdinal, 0, event -> {
+            try {
+                event.setOpacity(hooks.beforeSetPartOpacity(event.part(), event.opacity()));
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
+            } catch (Throwable failure) {
+                throw hookFailure(logger, "beforeSetPartOpacity", failure);
             }
-        ));
+        }));
     }
 
     private static void adaptOnOpacity(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final int entrypointOrdinal,
-        final TurboismPlugin entrypoint,
-        final PartHooks hooks,
-        final PluginLogger logger,
-        final List<Registration> installed
-    ) {
-        if (!overrides(entrypoint, "onPartOpacityChanged")
-            || subscribes(entrypoint, PartOpacityEvent.On.class)) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final int entrypointOrdinal,
+            final TurboismPlugin entrypoint,
+            final PartHooks hooks,
+            final PluginLogger logger,
+            final List<Registration> installed) {
+        if (!overrides(entrypoint, "onPartOpacityChanged") || subscribes(entrypoint, PartOpacityEvent.On.class)) {
             return;
         }
-        installed.add(broker.subscribeAdapter(
-            owner, PartOpacityEvent.On.class, entrypointOrdinal, 1, event -> {
-                try {
-                    hooks.onPartOpacityChanged(
-                        event.part(), event.oldOpacity(), event.newOpacity()
-                    );
-                } catch (ThreadDeath | VirtualMachineError fatal) {
-                    throw fatal;
-                } catch (Throwable failure) {
-                    throw hookFailure(logger, "onPartOpacityChanged", failure);
-                }
+        installed.add(broker.subscribeAdapter(owner, PartOpacityEvent.On.class, entrypointOrdinal, 1, event -> {
+            try {
+                hooks.onPartOpacityChanged(event.part(), event.oldOpacity(), event.newOpacity());
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
+            } catch (Throwable failure) {
+                throw hookFailure(logger, "onPartOpacityChanged", failure);
             }
-        ));
+        }));
     }
 
     private static void adaptAfterOpacity(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final int entrypointOrdinal,
-        final TurboismPlugin entrypoint,
-        final PartHooks hooks,
-        final PluginLogger logger,
-        final List<Registration> installed
-    ) {
-        if (!overrides(entrypoint, "afterSetPartOpacity")
-            || subscribes(entrypoint, PartOpacityEvent.After.class)) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final int entrypointOrdinal,
+            final TurboismPlugin entrypoint,
+            final PartHooks hooks,
+            final PluginLogger logger,
+            final List<Registration> installed) {
+        if (!overrides(entrypoint, "afterSetPartOpacity") || subscribes(entrypoint, PartOpacityEvent.After.class)) {
             return;
         }
-        installed.add(broker.subscribeAdapter(
-            owner, PartOpacityEvent.After.class, entrypointOrdinal, 2, event -> {
-                try {
-                    hooks.afterSetPartOpacity(event.part(), event.finalOpacity());
-                } catch (ThreadDeath | VirtualMachineError fatal) {
-                    throw fatal;
-                } catch (Throwable failure) {
-                    throw hookFailure(logger, "afterSetPartOpacity", failure);
-                }
+        installed.add(broker.subscribeAdapter(owner, PartOpacityEvent.After.class, entrypointOrdinal, 2, event -> {
+            try {
+                hooks.afterSetPartOpacity(event.part(), event.finalOpacity());
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
+            } catch (Throwable failure) {
+                throw hookFailure(logger, "afterSetPartOpacity", failure);
             }
-        ));
+        }));
     }
 
     private static void adaptBeforeName(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final int entrypointOrdinal,
-        final TurboismPlugin entrypoint,
-        final PartHooks hooks,
-        final PluginLogger logger,
-        final List<Registration> installed
-    ) {
-        if (!overrides(entrypoint, "beforeSetPartName")
-            || subscribes(entrypoint, PartNameEvent.Before.class)) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final int entrypointOrdinal,
+            final TurboismPlugin entrypoint,
+            final PartHooks hooks,
+            final PluginLogger logger,
+            final List<Registration> installed) {
+        if (!overrides(entrypoint, "beforeSetPartName") || subscribes(entrypoint, PartNameEvent.Before.class)) {
             return;
         }
-        installed.add(broker.subscribeAdapter(
-            owner, PartNameEvent.Before.class, entrypointOrdinal, 3, event -> {
-                try {
-                    event.setName(hooks.beforeSetPartName(event.part(), event.name()));
-                } catch (ThreadDeath | VirtualMachineError fatal) {
-                    throw fatal;
-                } catch (Throwable failure) {
-                    throw hookFailure(logger, "beforeSetPartName", failure);
-                }
+        installed.add(broker.subscribeAdapter(owner, PartNameEvent.Before.class, entrypointOrdinal, 3, event -> {
+            try {
+                event.setName(hooks.beforeSetPartName(event.part(), event.name()));
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
+            } catch (Throwable failure) {
+                throw hookFailure(logger, "beforeSetPartName", failure);
             }
-        ));
+        }));
     }
 
     private static void adaptOnName(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final int entrypointOrdinal,
-        final TurboismPlugin entrypoint,
-        final PartHooks hooks,
-        final PluginLogger logger,
-        final List<Registration> installed
-    ) {
-        if (!overrides(entrypoint, "onPartNameChanged")
-            || subscribes(entrypoint, PartNameEvent.On.class)) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final int entrypointOrdinal,
+            final TurboismPlugin entrypoint,
+            final PartHooks hooks,
+            final PluginLogger logger,
+            final List<Registration> installed) {
+        if (!overrides(entrypoint, "onPartNameChanged") || subscribes(entrypoint, PartNameEvent.On.class)) {
             return;
         }
-        installed.add(broker.subscribeAdapter(
-            owner, PartNameEvent.On.class, entrypointOrdinal, 4, event -> {
-                try {
-                    hooks.onPartNameChanged(event.part(), event.oldName(), event.newName());
-                } catch (ThreadDeath | VirtualMachineError fatal) {
-                    throw fatal;
-                } catch (Throwable failure) {
-                    throw hookFailure(logger, "onPartNameChanged", failure);
-                }
+        installed.add(broker.subscribeAdapter(owner, PartNameEvent.On.class, entrypointOrdinal, 4, event -> {
+            try {
+                hooks.onPartNameChanged(event.part(), event.oldName(), event.newName());
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
+            } catch (Throwable failure) {
+                throw hookFailure(logger, "onPartNameChanged", failure);
             }
-        ));
+        }));
     }
 
     private static void adaptAfterName(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner,
-        final int entrypointOrdinal,
-        final TurboismPlugin entrypoint,
-        final PartHooks hooks,
-        final PluginLogger logger,
-        final List<Registration> installed
-    ) {
-        if (!overrides(entrypoint, "afterSetPartName")
-            || subscribes(entrypoint, PartNameEvent.After.class)) {
+            final RuntimeEventBroker broker,
+            final PluginEventOwnerKey owner,
+            final int entrypointOrdinal,
+            final TurboismPlugin entrypoint,
+            final PartHooks hooks,
+            final PluginLogger logger,
+            final List<Registration> installed) {
+        if (!overrides(entrypoint, "afterSetPartName") || subscribes(entrypoint, PartNameEvent.After.class)) {
             return;
         }
-        installed.add(broker.subscribeAdapter(
-            owner, PartNameEvent.After.class, entrypointOrdinal, 5, event -> {
-                try {
-                    hooks.afterSetPartName(event.part(), event.finalName());
-                } catch (ThreadDeath | VirtualMachineError fatal) {
-                    throw fatal;
-                } catch (Throwable failure) {
-                    throw hookFailure(logger, "afterSetPartName", failure);
-                }
+        installed.add(broker.subscribeAdapter(owner, PartNameEvent.After.class, entrypointOrdinal, 5, event -> {
+            try {
+                hooks.afterSetPartName(event.part(), event.finalName());
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
+            } catch (Throwable failure) {
+                throw hookFailure(logger, "afterSetPartName", failure);
             }
-        ));
+        }));
     }
 
     /** Removes legacy Part hooks registered for the plugin identifier. */
@@ -358,10 +302,7 @@ public final class PartHookRegistry {
         }
     }
 
-    private void unregisterGeneration(
-        final PluginEventOwnerKey owner,
-        final AdapterRegistration generation
-    ) {
+    private void unregisterGeneration(final PluginEventOwnerKey owner, final AdapterRegistration generation) {
         synchronized (lifecycleLock) {
             if (registrations.remove(owner, generation)) {
                 generation.close();
@@ -370,68 +311,52 @@ public final class PartHookRegistry {
     }
 
     private static boolean overrides(final Object entrypoint, final String methodName) {
-        final Class<?>[] parameterTypes = switch (methodName) {
-            case "beforeSetPartName", "afterSetPartName" ->
-                new Class<?>[]{dev.turboism.sdk.cubism.model.Part.class, String.class};
-            case "onPartNameChanged" ->
-                new Class<?>[]{
-                    dev.turboism.sdk.cubism.model.Part.class, String.class, String.class
+        final Class<?>[] parameterTypes =
+                switch (methodName) {
+                    case "beforeSetPartName", "afterSetPartName" ->
+                        new Class<?>[] {dev.turboism.sdk.cubism.model.Part.class, String.class};
+                    case "onPartNameChanged" ->
+                        new Class<?>[] {dev.turboism.sdk.cubism.model.Part.class, String.class, String.class};
+                    case "beforeSetPartOpacity", "afterSetPartOpacity" ->
+                        new Class<?>[] {dev.turboism.sdk.cubism.model.Part.class, float.class};
+                    case "onPartOpacityChanged" ->
+                        new Class<?>[] {dev.turboism.sdk.cubism.model.Part.class, float.class, float.class};
+                    default -> throw new IllegalArgumentException("Unknown Part hook method: " + methodName);
                 };
-            case "beforeSetPartOpacity", "afterSetPartOpacity" ->
-                new Class<?>[]{dev.turboism.sdk.cubism.model.Part.class, float.class};
-            case "onPartOpacityChanged" ->
-                new Class<?>[]{
-                    dev.turboism.sdk.cubism.model.Part.class, float.class, float.class
-                };
-            default -> throw new IllegalArgumentException(
-                "Unknown Part hook method: " + methodName
-            );
-        };
         try {
-            final java.lang.reflect.Method implementation = entrypoint.getClass()
-                .getMethod(methodName, parameterTypes);
+            final java.lang.reflect.Method implementation =
+                    entrypoint.getClass().getMethod(methodName, parameterTypes);
             return implementation.getDeclaringClass() != PartHooks.class
-                && implementation.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
+                    && implementation.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
         } catch (NoSuchMethodException failure) {
-            throw new IllegalStateException(
-                "Part hook contract is unavailable: " + methodName,
-                failure
-            );
+            throw new IllegalStateException("Part hook contract is unavailable: " + methodName, failure);
         }
     }
 
     private static boolean subscribes(
-        final Object entrypoint,
-        final Class<? extends EventBus.TurboismEvent> eventType
-    ) {
-        return java.util.Arrays.stream(entrypoint.getClass().getMethods()).anyMatch(method ->
-            method.isAnnotationPresent(SubscribeEvent.class)
-                && method.getParameterCount() == 1
-                && method.getParameterTypes()[0].isAssignableFrom(eventType)
-        );
+            final Object entrypoint, final Class<? extends EventBus.TurboismEvent> eventType) {
+        return java.util.Arrays.stream(entrypoint.getClass().getMethods())
+                .anyMatch(method -> method.isAnnotationPresent(SubscribeEvent.class)
+                        && method.getParameterCount() == 1
+                        && method.getParameterTypes()[0].isAssignableFrom(eventType));
     }
 
     private static RuntimeException hookFailure(
-        final PluginLogger logger,
-        final String phase,
-        final Throwable failure
-    ) {
+            final PluginLogger logger, final String phase, final Throwable failure) {
         try {
             logger.error("Cubism Part lifecycle hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostic failure must not replace the hook failure.
         }
         return failure instanceof RuntimeException runtimeFailure
-            ? runtimeFailure
-            : new IllegalStateException("Legacy Part hook failed: " + phase, failure);
+                ? runtimeFailure
+                : new IllegalStateException("Legacy Part hook failed: " + phase, failure);
     }
 
-    private static boolean hasPermission(
-        final PluginDescriptor descriptor,
-        final String permissionId
-    ) {
+    private static boolean hasPermission(final PluginDescriptor descriptor, final String permissionId) {
         return descriptor.permissions().stream()
-            .anyMatch(permission -> permission.id().equals(permissionId));
+                .anyMatch(permission -> permission.id().equals(permissionId));
     }
 
     private static String requireText(final String value, final String name) {

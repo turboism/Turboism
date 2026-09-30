@@ -26,24 +26,21 @@ final class PipeImplLoopbackClassFileTransformer implements ClassFileTransformer
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.PENDING);
 
     PipeImplLoopbackClassFileTransformer(
-        final Consumer<PipeImplLoopbackClassFileTransformer> cleanup,
-        final Consumer<String> diagnostic
-    ) {
+            final Consumer<PipeImplLoopbackClassFileTransformer> cleanup, final Consumer<String> diagnostic) {
         this.cleanup = Objects.requireNonNull(cleanup, "cleanup");
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
     }
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) throws IllegalClassFormatException {
-        if (!PipeImplLoopbackTransformer.TARGET_OWNER.equals(className)
-            || targetAttempted.get()) {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer)
+            throws IllegalClassFormatException {
+        if (!PipeImplLoopbackTransformer.TARGET_OWNER.equals(className) || targetAttempted.get()) {
             return null;
         }
         if (!targetAttempted.compareAndSet(false, true)) {
