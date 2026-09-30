@@ -1,0 +1,1004 @@
+{
+  "schemaVersion": 1,
+  "scope": "Metadata comparison against the 80-selector reviewed 5.2.03 Core record; not production admission or live behavior support",
+  "referenceRecord": "compatibility/cubism/verification/cubism-5.2.03-core-model-read.json",
+  "referenceRecordSha256": "26c4204656d9fc396044d8412de62a987922d2f49dd7481685ffb518755b7037",
+  "complete": false,
+  "versions": [
+    {
+      "version": "5.0.00",
+      "artifactSha256": "9deda4c05a69549e23196bcf7981e9e5325e387c9b7beb468145e21467ac27b0",
+      "artifactSize": 29924,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 62,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.deformers.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parent-deformer-indices",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameter-counts",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameters",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parent-deformer-indices",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-a",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-b",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-deformers",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-glues",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.0.01",
+      "artifactSha256": "e8b99be96fddfe907e9c83878a6df5e9463a4d147b507f28e2aaaa973e2c090a",
+      "artifactSize": 29924,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 62,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.deformers.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parent-deformer-indices",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameter-counts",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameters",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parent-deformer-indices",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-a",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-b",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-deformers",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-glues",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.0.02",
+      "artifactSha256": "0e0bfc521255d04bd48ba00879e6a03fc8e022a3e9a45b7662f4ae7f3e6a5042",
+      "artifactSize": 29919,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 62,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.deformers.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parent-deformer-indices",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameter-counts",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameters",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parent-deformer-indices",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-a",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-b",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-deformers",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-glues",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.0.03",
+      "artifactSha256": "f9bcef94c9b2a9c3ce6068f95499b0782af79bfe5fe6c66debb87a717e8b93ca",
+      "artifactSize": 29919,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 62,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.deformers.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parent-deformer-indices",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameter-counts",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameters",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parent-deformer-indices",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-a",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-b",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-deformers",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-glues",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.0.04",
+      "artifactSha256": "c30996d9113c1584736e24b7bc4fbbba870857a60536f579f900a89c75f6df18",
+      "artifactSize": 29923,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 62,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.deformers.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parent-deformer-indices",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameter-counts",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameters",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parent-deformer-indices",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-a",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-b",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-deformers",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-glues",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.0.05",
+      "artifactSha256": "b0b855389d388ab3fc79d3e6dbaeba1a13659b57f8f629a8758a9bf007964594",
+      "artifactSize": 29918,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 62,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.deformers.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parent-deformer-indices",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameter-counts",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameters",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parent-deformer-indices",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-a",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-b",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-deformers",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-glues",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.0.06",
+      "artifactSha256": "c7d94635a3049912dd984d7f66420e686ef32bdcc4fe0279149e993041ff7854",
+      "artifactSize": 30155,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 62,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.deformers.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parent-deformer-indices",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameter-counts",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameters",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parent-deformer-indices",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-a",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-b",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-deformers",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-glues",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.1.00",
+      "artifactSha256": "0c67858efd261c2e5600ee8755b358d09deda5c63341a620aa64a6acbcce5de1",
+      "artifactSize": 30153,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 62,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.deformers.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parent-deformer-indices",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameter-counts",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameters",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parent-deformer-indices",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-a",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-b",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-deformers",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-glues",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.1.01",
+      "artifactSha256": "6b1e530e62bc165bdb1e7677b1b5b953c3096aa635e56cc07ba57e2ecc4393bb",
+      "artifactSize": 30161,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 62,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.deformers.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parent-deformer-indices",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameter-counts",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameters",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parent-deformer-indices",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-a",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-b",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-deformers",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-glues",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.1.02",
+      "artifactSha256": "16a54d40c5091e2a0d07c95332ce6ec8c03feb86c2e411b80a3e6d438b982f57",
+      "artifactSize": 30157,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 62,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.deformers.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parent-deformer-indices",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameter-counts",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameters",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parent-deformer-indices",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-a",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-b",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-deformers",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-glues",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.1.03",
+      "artifactSha256": "1af6619b951a87bb52a80173816179cab91836e696e753fb546d4c14505e7a92",
+      "artifactSize": 30156,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 62,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.deformers.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.deformers.parent-deformer-indices",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameter-counts",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parameters",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.drawables.parent-deformer-indices",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.class",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.count",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-a",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.drawables-b",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.ids",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameter-counts",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.glues.parameters",
+          "result": "CLASS_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-deformers",
+          "result": "MEMBER_MISSING"
+        },
+        {
+          "alias": "cubism.core.model.get-glues",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.2.00",
+      "artifactSha256": "9adfb1e98c0e427dc3f99790eba0c8c70c0195c0ac70efb2958c23bc22c96dab",
+      "artifactSize": 36241,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 80,
+      "missingSelectors": []
+    },
+    {
+      "version": "5.2.01",
+      "artifactSha256": "13388bb610b73a3e4df550418c16fc5fb94fb97f94c819dec5afda3fa5e97e00",
+      "artifactSize": 36243,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 80,
+      "missingSelectors": []
+    },
+    {
+      "version": "5.2.02",
+      "artifactSha256": "78951b6a1bd975043b43fb067b040e3128fe9df071289a96d74c3253ba48f772",
+      "artifactSize": 36243,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 80,
+      "missingSelectors": []
+    },
+    {
+      "version": "5.2.03",
+      "artifactSha256": "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
+      "artifactSize": 36237,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 80,
+      "missingSelectors": []
+    },
+    {
+      "version": "5.3.00",
+      "artifactSha256": "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
+      "artifactSize": 42471,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 79,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.drawables.render-orders",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.3.01",
+      "artifactSha256": "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
+      "artifactSize": 42471,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 79,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.drawables.render-orders",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.3.02",
+      "artifactSha256": "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
+      "artifactSize": 42471,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 79,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.drawables.render-orders",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.3.03",
+      "artifactSha256": "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
+      "artifactSize": 42471,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 79,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.drawables.render-orders",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    },
+    {
+      "version": "5.3.04",
+      "artifactSha256": "5458a64ebe33b38350de1437399343b0d502f2353a34a97da76d56d118c0d186",
+      "artifactSize": 43708,
+      "inventoryHashMatch": true,
+      "matchingSelectors": 79,
+      "missingSelectors": [
+        {
+          "alias": "cubism.core.drawables.render-orders",
+          "result": "MEMBER_MISSING"
+        }
+      ]
+    }
+  ],
+  "adaptationConstraints": [
+    "Existing OwnedModel getters each project the full snapshot; missing extended structure prevents even canvas/parameter/part reads.",
+    "Granular reads must retain parent lifetime locking, immutable fresh copies and closed-handle refusal.",
+    "Absent Glue/Deformer APIs and mandatory Drawable relation fields must fail explicitly, never become fake empty collections.",
+    "A smaller owned-MOC profile must not authorize the complete borrowed geometry snapshot.",
+    "Exact artifact/native tuple and independently verified selectors remain mandatory."
+  ]
+}

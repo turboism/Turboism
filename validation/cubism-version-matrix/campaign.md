@@ -81,3 +81,15 @@
 5.3.04 owned-r5 **supervisor PASS**：finalizedBy=contained-supervisor、succeeded/PASS、identityVerified/fixtureUnchanged/normalExit=true、cleanup=safe。生产 SDK 上原生 Core **6.0.513** 使用 pinned Haru MOC（V3_0；Core latest V5_3）完成读取、update、独立实例、不可变投影、显式 child→parent 释放、两个 live children 的父级联关闭、关闭后拒绝操作。实际读到42 parameters、19 parts、84 drawables、97 deformers、0 glues。明确不证明非空 Glue 语义、Editor→Core bridge、完整 MCP/保存或 Mesa 优化支持；render configuration 显式 mesaGlThread=false。终态与原生结果已复制到 mcp-evidence/5.3.04-allversions-owned-r5。
 
 已以 owned-r5 同一成功探针接续提交 5.2.02 / 5.1.03 / 5.3.01，分别验证已实测 Core 5.0.256 / 5.0.0 / 6.0.257；仅提交，不等于通过。
+
+5.2.02 owned-r3 / Core5.0.256 与5.3.01 owned-r1 / Core6.0.257 已收取 supervisor PASS：身份/夹具/正常退出均true，cleanup safe。均以生产 SDK 读取42参数、19部件、84 drawable、97 deformer、0 Glue并完成update/独立实例/不可变副本/显式及级联释放/关闭后拒绝操作。5.2.02 parameterRepeat=false、latestMocVersion=V5_0；5.3.01 repeat=true、latest=V5_3。非空Glue、Editor acquisition、MCP保存及Mesa优化仍未证明。
+
+5.1.03 owned-r3 最终 supervisor failed/FAIL、cleanup safe；探针报 Core runtime metadata unavailable，尚未获得原生 owned-MOC 支持结论。全20版元数据审计显示5.0/5.1均匹配参考5.2.03的62/80 selectors，缺18个Deformer/Glue/Drawable关系selectors；基础读取和MOC生命周期selectors存在。当前 OwnedModel getter 每次投影全结构，会让缺失新版接口阻断基础读取。后续必须分别准入owned-MOC基础能力与完整geometry能力，保留父锁、不可变副本和关闭检查，不伪造缺失数据。审计见core-selector-delta-audit.json。
+
+已冻结并提交5.2.00 /5.2.01 /5.3.00独立owned-MOC实机任务；采用各版本已观察tuple，尚待终态。
+
+5.2.00 /5.2.01 owned-r1 已确认 supervisor PASS，Core均实测5.0.256；身份/夹具/正常退出门禁均通过，cleanup safe，全部owned-MOC断言通过，计数与5.2.02相同，parameterRepeat=false。5.2.01此前模型身份探针的失败不代表独立owned-MOC不可用。5.3.00仍在运行，尚未标通过。
+
+5.3.00 owned-r1 /Core6.0.257 已收取 supervisor PASS，身份/夹具/正常退出均true、cleanup safe，全部owned-MOC断言通过，结构计数同5.3.01，parameterRepeat=true/latestMocVersion=V5_3。当前六个版本的owned-MOC行为验收通过；全能力矩阵仍未完成。Core预检目录新增显式assisted变体，选择FREE并依照已授权规则处理跨版本Load/Yes及更新Cancel，保留标准变体，不证明Mesa优化支持；29项调度回归通过。
+
+已提交5.3.02 /5.3.03 /5.2.03 assisted Core预检，逐版观察tuple后再扩独立owned-MOC任务白名单；具体job/prepared digest见campaign-jobs.json。未提交无FREE辅助的5.3.02 prepared输入，避免已知启动流程不匹配。
