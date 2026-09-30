@@ -25,6 +25,16 @@ public final class CoreAcquisitionProbeSelfCheck {
             throw new AssertionError("trial welcome accepted");
         if (CoreAcquisitionProbeAgent.isFreeWelcome("Confirm", "Would you like to start the trial?"))
             throw new AssertionError("trial activation accepted");
+        if (!"6.0.513".equals(CoreAcquisitionProbeAgent.nativeVersionTuple(6, 0, 513)))
+            throw new AssertionError("observed native tuple changed");
+        for (Object invalid : new Object[] {null, "6", -1, 6L}) {
+            try {
+                CoreAcquisitionProbeAgent.nativeVersionTuple(invalid, 0, 513);
+                throw new AssertionError("invalid native tuple accepted");
+            } catch (IllegalArgumentException expected) {
+                // No version is guessed or coerced from malformed native values.
+            }
+        }
         Method getter = Fixture.class.getMethod("getValue");
         Method setter = Fixture.class.getMethod("setValue", String.class);
         Method close = Fixture.class.getMethod("getClose");
