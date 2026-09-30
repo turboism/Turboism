@@ -215,6 +215,42 @@ TURBOISM_HOST_VALIDATION_FIXTURE_5203={self.fixture}
         )
         self.assertEqual(res2["totalItems"], 0)
 
+    def test_multi_depth_task_discovery(self):
+        context = cleanup.SafetyContext.create(self.repo, cleanup.parse_local_env(self.env_file))
+
+        # Depth 1 task: host_root / wt-task-depth1
+        d1_task = self.host_root / "wt-feature-depth1"
+        d1_task.mkdir()
+        (d1_task / "launch.sh").write_text("echo depth1")
+        (d1_task / "prefix").mkdir()
+        (d1_task / "prefix" / "system.reg").write_text("reg")
+        (d1_task / "copy.cmo3").write_text("model")
+
+        # Depth 2 task: host_root / category / wt-feature-depth2
+        d2_task = self.host_root / "category" / "wt-feature-depth2"
+        d2_task.mkdir(parents=True)
+        (d2_task / "launch.bat").write_text("echo depth2")
+        (d2_task / "prefix").mkdir()
+        (d2_task / "prefix" / "system.reg").write_text("reg")
+
+        # Test scan by worktree ID for depth 1
+        items_d1 = cleanup.scan_worktree_artifacts("depth1", context)
+        kinds_d1 = {item.kind for item in items_d1}
+        self.assertIn("prefix", kinds_d1)
+        self.assertIn("fixture-copy", kinds_d1)
+
+        # Test scan by worktree ID for depth 2
+        items_d2 = cleanup.scan_worktree_artifacts("depth2", context)
+        kinds_d2 = {item.kind for item in items_d2}
+        self.assertIn("prefix", kinds_d2)
+
+        # Test scan_terminal_host_artifacts finds both depth 1 and depth 2
+        terminal_items = cleanup.scan_terminal_host_artifacts(context)
+        terminal_paths = {item.path for item in terminal_items}
+        self.assertIn(d1_task / "prefix", terminal_paths)
+        self.assertIn(d1_task / "copy.cmo3", terminal_paths)
+        self.assertIn(d2_task / "prefix", terminal_paths)
+
 
 if __name__ == "__main__":
     unittest.main()
