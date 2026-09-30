@@ -86,7 +86,10 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
 
     private void awaitResult() {
         if (Boolean.getBoolean("turboism.validation.ownedMocOnly")) {
-            if (!awaitTaskDocument()) return;
+            if (!awaitTaskDocument()) {
+                CoreOwnedMocProbe.notStarted(context, validationStateRoot(), "Task fixture readiness failed or timed out");
+                return;
+            }
             if (!CoreOwnedMocProbe.run(context, validationStateRoot())) return;
             requestAutomatedHostClose("core-owned-moc-result.properties");
             return;
@@ -156,7 +159,10 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
                     return matched == 1;
                 });
                 SwingUtilities.invokeLater(ready);
-                if (ready.get(5, java.util.concurrent.TimeUnit.SECONDS)) return true;
+                // Model loading runs on the EDT and can exceed five seconds. Use the
+                // existing overall startup deadline rather than abandoning its queued read.
+                if (ready.get(Math.max(1L, deadline - System.currentTimeMillis()),
+                        java.util.concurrent.TimeUnit.MILLISECONDS)) return true;
                 Thread.sleep(500L);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
