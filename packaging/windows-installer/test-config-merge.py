@@ -115,7 +115,7 @@ V1_FIELDS = {
     "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
     "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
     "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
-    "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
+    "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
 }
 LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 LOCALES = {"system", "en", "ja", "ko", "zh-Hans", "zh-Hant"}
@@ -130,6 +130,7 @@ LEGACY_ROOT_LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
 BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread"}
 BOOLEAN_V1_FIELDS = {
     "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
+    "meshTriangulationEdgeIndex",
 }
 CUBISM_JVMS = {"graalvm", "bundled"}
 MEMORY_PROFILES = {"system", "balanced4g", "balanced4gFastSoft"}
@@ -473,7 +474,7 @@ def check_config_migration_contract():
     check("CM6b v1 validator admits every runtime schema field",
           all(name in configure for name in (
               "reduceAutoBackup", "meshTriangulationHashFix",
-              "atlasTileBbox", "atlasCacheReuse",
+              "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
           ))
           and '"zgc", "modelUpdateSkip", "incrementalUpdate"' in configure)
     check("CM6c merged documents with runtime boolean fields pass v1",
@@ -482,6 +483,7 @@ def check_config_migration_contract():
               "worktreeId": "turboism-runtime", "pluginDirs": ["plugins"],
               "reduceAutoBackup": True, "meshTriangulationHashFix": False,
               "atlasTileBbox": True, "atlasCacheReuse": False,
+              "meshTriangulationEdgeIndex": False,
               "launcher": {"cubismJvm": "bundled", "zgc": False,
                            "modelUpdateSkip": False, "incrementalUpdate": True, "uniformLocationCache": False},
           }) is not None)
