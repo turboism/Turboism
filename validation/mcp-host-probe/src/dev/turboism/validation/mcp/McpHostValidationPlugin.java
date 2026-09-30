@@ -21,6 +21,7 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
     private PluginLogger logger;
     private volatile boolean enabled;
     private Thread watcher;
+    private Thread startupHelper;
 
     @Override
     public void init(final PluginContext context) {
@@ -33,6 +34,11 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
     public void enable() {
         if (watcher != null) return;
         enabled = true;
+        if (Boolean.getBoolean("turboism.validation.startFree")) {
+            startupHelper = new Thread(this::assistStartup, "turboism-mcp-native-prompts");
+            startupHelper.setDaemon(true);
+            startupHelper.start();
+        }
         watcher = new Thread(this::awaitResult, "turboism-mcp-host-validation-close");
         watcher.setDaemon(true);
         watcher.start();
@@ -53,6 +59,29 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
         final Thread running = watcher;
         watcher = null;
         if (running != null) running.interrupt();
+        final Thread helper = startupHelper;
+        startupHelper = null;
+        if (helper != null) helper.interrupt();
+    }
+
+    /** Remains responsive while the watcher waits for texture save/reopen on the EDT. */
+    private void assistStartup() {
+        while (enabled) {
+            try {
+                SwingUtilities.invokeAndWait(() -> {
+                    if (!enabled) return;
+                    final String action = NativeFreeStartup.select();
+                    if (action != null) logger.info("MCP_VALIDATION_" + action);
+                });
+                Thread.sleep(500L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (java.lang.reflect.InvocationTargetException failure) {
+                logger.error("MCP native prompt helper failed", failure.getCause());
+                return;
+            }
+        }
     }
 
     private void awaitResult() {
@@ -60,20 +89,6 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
         final long deadline = System.currentTimeMillis() + RESULT_TIMEOUT_MILLIS;
         boolean textureRoundTripHandled = false;
         while (enabled && System.currentTimeMillis() < deadline) {
-            if (Boolean.getBoolean("turboism.validation.startFree")) {
-                try {
-                    SwingUtilities.invokeAndWait(() -> {
-                        final String action = NativeFreeStartup.select();
-                        if (action != null) logger.info("MCP_VALIDATION_" + action);
-                    });
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    return;
-                } catch (java.lang.reflect.InvocationTargetException failure) {
-                    logger.error("MCP FREE startup helper failed", failure.getCause());
-                    return;
-                }
-            }
             if (!textureRoundTripHandled) {
                 textureRoundTripHandled = McpTexturePersistenceProbe.runIfRequested(context, validationStateRoot());
             }

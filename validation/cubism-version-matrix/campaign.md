@@ -48,3 +48,7 @@
 本轮工具门禁：共享 Core helper 自检 PASS；MCP 持久化/关闭路由定向回归 40 tests PASS；队列隔离回归 114 tests PASS（需要本地 Unix socket 权限）；Python lint 与修改脚本语法检查 PASS。不能把这些测试计为实机行为覆盖。
 
 5.0.00 r2 已收取 supervisor FAIL，probe 原因 `TIMEOUT_NO_USABLE_DOCUMENT_OR_CLASSES`。实际自动选 Load / Cancel 的日志和 FREE 参数上限信息截图保存在 `ui-evidence/`。曾手动确认该任务的参数上限信息（窗口 PID/cgroup 和焦点均先核对），但仍未获得稳定模型/Core 身份，不宣称支持。后续 helper 增加这个精确信息的 OK 匹配并记录加载类状态，不强制加载或放宽模型断言；5.0.01 旧排队任务已在启动前取消，以 r2 不可变探针替代。5.3.04 MCP 已进入运行态，等待完整断言和 supervisor 收尾。
+
+5.3.04 MCP r1 最终 supervisor FAIL，清理 safe，但 identity/fixture/normalExit 门禁未通过。客户端协议目录、模型/纹理读取和验证专用原生纹理像素 Undo/Redo 部分断言 PASS；持久化阶段在 `verifyPersistence` 的 EDT 调用超时。宿主日志同时留存 `Information` FREE 参数上限 modal，且原辅助线程正在执行长时间纹理探针，无法继续处理该 modal。不能用客户端的 `modelMutation=NONE` 推导整个探针未修改任务副本，也不能把部分 PASS 扩展成整体支持。原始结果保存在 `mcp-evidence/5.3.04-allversions-r1/`。
+
+修复验证辅助：MCP modal 处理改为独立、随插件生命周期停止的线程，仍只在 EDT 点击精确已知按钮；同时允许已观察到的 Swing `Information` 标题。客户端、纹理/Undo/持久化断言和超时均未放宽。5.2.02 / 5.3.01 的 r1 在启动前取消，以 r2 新包替代；5.3.04 r2 一并入队。共享 helper 自检和 MCP 独立编译 PASS，实机修复验收仍待 r2 结果。
